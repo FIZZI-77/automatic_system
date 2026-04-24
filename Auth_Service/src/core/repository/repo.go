@@ -29,7 +29,7 @@ type RefreshTokenRepository interface {
 	RevokeByID(ctx context.Context, tokenID uuid.UUID) error
 	RevokeBySessionID(ctx context.Context, sessionID uuid.UUID) error
 	RevokeAllByUserID(ctx context.Context, userID uuid.UUID) error
-	MarkUsedAndReplace(ctx context.Context, oldTokenID string, newToken *models.RefreshToken) error
+	MarkUsedAndReplace(ctx context.Context, oldTokenID uuid.UUID, newToken *models.RefreshToken) error
 }
 
 type RoleRepository interface {
@@ -45,5 +45,10 @@ type Repo struct {
 }
 
 func NewRepo(db *sql.DB) *Repo {
-	return &Repo{}
+	return &Repo{
+		UserRepository:         NewUserRepoStruct(db),
+		SessionRepository:      NewSessionRepoStruct(db),
+		RefreshTokenRepository: NewRefreshTokenRepoStruct(db),
+		RoleRepository:         NewRoleRepoStruct(db),
+	}
 }
