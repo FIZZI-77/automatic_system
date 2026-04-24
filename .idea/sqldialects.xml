@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="SqlDialectMappings">
+    <file url="file://$PROJECT_DIR$/Auth_Service/scheme/20250331113764_create_users_table.sql" dialect="GenericSQL" />
+    <file url="file://$PROJECT_DIR$/Auth_Service/scheme/20250331113765_create_sessions_table.sql" dialect="GenericSQL" />
+    <file url="file://$PROJECT_DIR$/Auth_Service/scheme/20250331113766_create_sessions_index.sql" dialect="GenericSQL" />
+    <file url="file://$PROJECT_DIR$/Auth_Service/scheme/20250331113767_create_refresh_tokens_table.sql" dialect="GenericSQL" />
+    <file url="file://$PROJECT_DIR$/Auth_Service/scheme/20250331113768_create_signing_keys_table.sql" dialect="GenericSQL" />
+    <file url="file://$PROJECT_DIR$/Auth_Service/scheme/20250331113769_create_signing_keys_index.sql" dialect="GenericSQL" />
+    <file url="file://$PROJECT_DIR$/Auth_Service/scheme/20250331113770_create_roles_table.sql" dialect="GenericSQL" />
+    <file url="file://$PROJECT_DIR$/Auth_Service/scheme/20250331113771_create_users_roles_table.sql" dialect="GenericSQL" />
+  </component>
+</project>

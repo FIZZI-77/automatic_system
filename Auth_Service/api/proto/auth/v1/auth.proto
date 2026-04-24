@@ -1,0 +1,99 @@
+syntax = "proto3";
+
+package auth.v1;
+
+option go_package = "AutomaticCityServices/Auth_Service/gen/go/auth/v1;authv1";
+
+service AuthService {
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+  rpc Login(LoginRequest) returns (LoginResponse);
+  rpc Refresh(RefreshRequest) returns (RefreshResponse);
+  rpc Logout(LogoutRequest) returns (LogoutResponse);
+  rpc LogoutAll(LogoutAllRequest) returns (LogoutAllResponse);
+
+  rpc GetUserAuthInfo(GetUserAuthInfoRequest) returns (GetUserAuthInfoResponse);
+
+  rpc GetJWKS(GetJWKSRequest) returns (GetJWKSResponse);
+}
+
+message RegisterRequest {
+  string email = 1;
+  string password = 2;
+  string username = 3;
+}
+
+message RegisterResponse {
+  string user_id = 1;
+  string email = 2;
+  bool email_verified = 3;
+}
+
+message LoginRequest {
+  string email = 1;
+  string password = 2;
+  string client_id = 3;
+  string ip = 4;
+  string user_agent = 5;
+}
+
+message LoginResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+  int64 access_expires_at_unix = 3;
+  int64 refresh_expires_at_unix = 4;
+  string session_id = 5;
+  string token_type = 6;
+}
+
+message RefreshRequest {
+  string refresh_token = 1;
+  string client_id = 2;
+  string ip = 3;
+  string user_agent = 4;
+}
+
+message RefreshResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+  int64 access_expires_at_unix = 3;
+  int64 refresh_expires_at_unix = 4;
+  string session_id = 5;
+  string token_type = 6;
+}
+
+message LogoutRequest {
+  string user_id = 1;
+  string session_id = 2;
+}
+
+message LogoutResponse {
+  bool success = 1;
+}
+
+message LogoutAllRequest {
+  string user_id = 1;
+}
+
+message LogoutAllResponse {
+  bool success = 1;
+  uint32 revoked_count = 2;
+}
+
+message GetUserAuthInfoRequest {
+  string user_id = 1;
+}
+
+message GetUserAuthInfoResponse {
+  string user_id = 1;
+  string email = 2;
+  repeated string roles = 3;
+  repeated string permissions = 4;
+  bool is_active = 5;
+  bool email_verified = 6;
+}
+
+message GetJWKSRequest {}
+
+message GetJWKSResponse {
+  string jwks_json = 1;
+}
