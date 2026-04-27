@@ -2,7 +2,9 @@ package service
 
 import (
 	"auth/models"
+	"auth/src/core/repository"
 	"context"
+	"crypto/rsa"
 	"github.com/google/uuid"
 )
 
@@ -19,6 +21,8 @@ type Service struct {
 	AuthService
 }
 
-func NewAuthService() *Service {
-	return &Service{}
+func NewAuthService(repo *repository.Repo, privateKey *rsa.PrivateKey, keyID string) *Service {
+	return &Service{
+		AuthService: NewAuthServiceStruct(repo, privateKey, keyID),
+	}
 }
