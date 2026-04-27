@@ -20,7 +20,7 @@ func NewRefreshTokenRepoStruct(db *sql.DB) *RefreshTokenRepoStruct {
 	}
 }
 
-func (r *RefreshTokenRepoStruct) Create(ctx context.Context, token *models.RefreshToken) error {
+func (r *RefreshTokenRepoStruct) CreateToken(ctx context.Context, token *models.RefreshToken) error {
 	var id uuid.UUID
 
 	const query = `INSERT INTO refresh_tokens(user_id, session_id, token_hash, is_revoked, expires_at, used_at, replaced_by_token_id)
@@ -73,7 +73,7 @@ func (r *RefreshTokenRepoStruct) GetByTokenHash(ctx context.Context, tokenHash s
 
 }
 
-func (r *RefreshTokenRepoStruct) RevokeByID(ctx context.Context, tokenID uuid.UUID) error {
+func (r *RefreshTokenRepoStruct) RevokeTokenByID(ctx context.Context, tokenID uuid.UUID) error {
 	const query = `UPDATE refresh_tokens SET is_revoked = TRUE, revoked_at = now() WHERE id = $1 AND is_revoked = FALSE`
 	_, err := r.db.ExecContext(ctx, query, tokenID)
 	if err != nil {
@@ -83,7 +83,7 @@ func (r *RefreshTokenRepoStruct) RevokeByID(ctx context.Context, tokenID uuid.UU
 	return nil
 }
 
-func (r *RefreshTokenRepoStruct) RevokeBySessionID(ctx context.Context, sessionID uuid.UUID) error {
+func (r *RefreshTokenRepoStruct) RevokeTokenBySessionID(ctx context.Context, sessionID uuid.UUID) error {
 	const query = `UPDATE refresh_tokens SET is_revoked = TRUE, revoked_at = now() WHERE session_id = $1 AND is_revoked = FALSE`
 	_, err := r.db.ExecContext(ctx, query, sessionID)
 	if err != nil {
@@ -94,7 +94,7 @@ func (r *RefreshTokenRepoStruct) RevokeBySessionID(ctx context.Context, sessionI
 
 }
 
-func (r *RefreshTokenRepoStruct) RevokeAllByUserID(ctx context.Context, userID uuid.UUID) error {
+func (r *RefreshTokenRepoStruct) RevokeAllTokenByUserID(ctx context.Context, userID uuid.UUID) error {
 	const query = `UPDATE refresh_tokens SET is_revoked = TRUE, revoked_at = now() WHERE user_id = $1 AND is_revoked = FALSE`
 	_, err := r.db.ExecContext(ctx, query, userID)
 	if err != nil {
@@ -105,7 +105,7 @@ func (r *RefreshTokenRepoStruct) RevokeAllByUserID(ctx context.Context, userID u
 
 }
 
-func (r *RefreshTokenRepoStruct) MarkUsedAndReplace(ctx context.Context, oldTokenID uuid.UUID, newToken *models.RefreshToken) error {
+func (r *RefreshTokenRepoStruct) MarkUsedAndReplaceToken(ctx context.Context, oldTokenID uuid.UUID, newToken *models.RefreshToken) error {
 	var newTokenID uuid.UUID
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {

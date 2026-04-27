@@ -18,7 +18,7 @@ func NewSessionRepoStruct(db *sql.DB) *SessionRepoStruct {
 	return &SessionRepoStruct{db: db}
 }
 
-func (s *SessionRepoStruct) Create(ctx context.Context, session *models.Session) (uuid.UUID, error) {
+func (s *SessionRepoStruct) CreateSession(ctx context.Context, session *models.Session) (uuid.UUID, error) {
 	var id uuid.UUID
 
 	const query = `INSERT INTO sessions (
@@ -47,7 +47,7 @@ func (s *SessionRepoStruct) Create(ctx context.Context, session *models.Session)
 
 }
 
-func (s *SessionRepoStruct) GetByID(ctx context.Context, id uuid.UUID) (*models.Session, error) {
+func (s *SessionRepoStruct) GetSessionByID(ctx context.Context, id uuid.UUID) (*models.Session, error) {
 	var session models.Session
 
 	const query = `SELECT id, user_id, client_id, ip, user_agent, is_revoked,  revoked_at, expires_at, last_seen_at, created_at FROM sessions WHERE id = $1`
@@ -75,7 +75,7 @@ func (s *SessionRepoStruct) GetByID(ctx context.Context, id uuid.UUID) (*models.
 	return &session, nil
 }
 
-func (s *SessionRepoStruct) GetByUserID(ctx context.Context, userID uuid.UUID) ([]*models.Session, error) {
+func (s *SessionRepoStruct) GetSessionByUserID(ctx context.Context, userID uuid.UUID) ([]*models.Session, error) {
 	var sessions []*models.Session
 
 	const quesry = `SELECT id, user_id, client_id, ip, user_agent, is_revoked, revoked_at, expires_at, last_seen_at, created_at FROM sessions WHERE user_id = $1`
@@ -118,7 +118,7 @@ func (s *SessionRepoStruct) GetByUserID(ctx context.Context, userID uuid.UUID) (
 	return sessions, nil
 }
 
-func (s *SessionRepoStruct) RevokeByID(ctx context.Context, sessionID uuid.UUID) error {
+func (s *SessionRepoStruct) RevokeSessionByID(ctx context.Context, sessionID uuid.UUID) error {
 	const query = `UPDATE sessions SET is_revoked = TRUE, revoked_at = now() AND is_revoked = FALSE WHERE id = $1`
 
 	_, err := s.db.ExecContext(ctx, query, sessionID)
@@ -132,7 +132,7 @@ func (s *SessionRepoStruct) RevokeByID(ctx context.Context, sessionID uuid.UUID)
 
 }
 
-func (s *SessionRepoStruct) RevokeAllByUserID(ctx context.Context, userID uuid.UUID) (int64, error) {
+func (s *SessionRepoStruct) RevokeAllSessionByUserID(ctx context.Context, userID uuid.UUID) (int64, error) {
 	const query = `UPDATE sessions SET is_revoked = TRUE, revoked_at = now() AND is_revoked = FALSE WHERE user_id = $1`
 
 	result, err := s.db.ExecContext(ctx, query, userID)
@@ -148,7 +148,7 @@ func (s *SessionRepoStruct) RevokeAllByUserID(ctx context.Context, userID uuid.U
 	return rowAffected, nil
 }
 
-func (s *SessionRepoStruct) UpdateLastSeen(ctx context.Context, sessionID uuid.UUID) error {
+func (s *SessionRepoStruct) UpdateLastSeenSession(ctx context.Context, sessionID uuid.UUID) error {
 	const query = `UPDATE sessions SET last_seen_at = now() WHERE id = $1 AND is_revoked = FALSE`
 
 	_, err := s.db.ExecContext(ctx, query, sessionID)

@@ -20,7 +20,7 @@ type RegisterResult struct {
 type LoginInput struct {
 	Email     string
 	Password  string
-	ClientID  uuid.UUID
+	ClientID  string
 	IP        string
 	UserAgent string
 }
@@ -36,7 +36,7 @@ type LoginResult struct {
 
 type RefreshInput struct {
 	RefreshToken string
-	ClientID     uuid.UUID
+	ClientID     string
 	IP           string
 	UserAgent    string
 }

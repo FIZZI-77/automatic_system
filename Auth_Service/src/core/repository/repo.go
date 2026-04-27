@@ -8,28 +8,28 @@ import (
 )
 
 type UserRepository interface {
-	Create(ctx context.Context, user *models.User) (uuid.UUID, error)
-	GetByID(ctx context.Context, id uuid.UUID) (*models.User, error)
-	GetByEmail(ctx context.Context, email string) (*models.User, error)
-	Update(ctx context.Context, user *models.User) error
+	CreateUser(ctx context.Context, user *models.User) (uuid.UUID, error)
+	GetUserByID(ctx context.Context, id uuid.UUID) (*models.User, error)
+	GetUserByEmail(ctx context.Context, email string) (*models.User, error)
+	UpdateUser(ctx context.Context, user *models.User) error
 }
 
 type SessionRepository interface {
-	Create(ctx context.Context, session *models.Session) (uuid.UUID, error)
-	GetByID(ctx context.Context, id uuid.UUID) (*models.Session, error)
-	GetByUserID(ctx context.Context, userID uuid.UUID) ([]*models.Session, error)
-	RevokeByID(ctx context.Context, sessionID uuid.UUID) error
-	RevokeAllByUserID(ctx context.Context, userID uuid.UUID) (int64, error)
-	UpdateLastSeen(ctx context.Context, sessionID uuid.UUID) error
+	CreateSession(ctx context.Context, session *models.Session) (uuid.UUID, error)
+	GetSessionByID(ctx context.Context, id uuid.UUID) (*models.Session, error)
+	GetSessionByUserID(ctx context.Context, userID uuid.UUID) ([]*models.Session, error)
+	RevokeSessionByID(ctx context.Context, sessionID uuid.UUID) error
+	RevokeAllSessionByUserID(ctx context.Context, userID uuid.UUID) (int64, error)
+	UpdateLastSeenSession(ctx context.Context, sessionID uuid.UUID) error
 }
 
 type RefreshTokenRepository interface {
-	Create(ctx context.Context, token *models.RefreshToken) error
+	CreateToken(ctx context.Context, token *models.RefreshToken) error
 	GetByTokenHash(ctx context.Context, tokenHash string) (*models.RefreshToken, error)
-	RevokeByID(ctx context.Context, tokenID uuid.UUID) error
-	RevokeBySessionID(ctx context.Context, sessionID uuid.UUID) error
-	RevokeAllByUserID(ctx context.Context, userID uuid.UUID) error
-	MarkUsedAndReplace(ctx context.Context, oldTokenID uuid.UUID, newToken *models.RefreshToken) error
+	RevokeTokenByID(ctx context.Context, tokenID uuid.UUID) error
+	RevokeTokenBySessionID(ctx context.Context, sessionID uuid.UUID) error
+	RevokeAllTokenByUserID(ctx context.Context, userID uuid.UUID) error
+	MarkUsedAndReplaceToken(ctx context.Context, oldTokenID uuid.UUID, newToken *models.RefreshToken) error
 }
 
 type RoleRepository interface {
