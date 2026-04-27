@@ -9,10 +9,12 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/bcrypt"
 	"time"
@@ -25,10 +27,11 @@ const refreshTTL = time.Hour * 24 * 30
 type AuthServiceStruct struct {
 	repo       *repository.Repo
 	privateKey *rsa.PrivateKey
+	keyID      string
 }
 
-func NewAuthServiceStruct(repo *repository.Repo, privateKey *rsa.PrivateKey) *AuthServiceStruct {
-	return &AuthServiceStruct{repo: repo, privateKey: privateKey}
+func NewAuthServiceStruct(repo *repository.Repo, privateKey *rsa.PrivateKey, keyID string) *AuthServiceStruct {
+	return &AuthServiceStruct{repo: repo, privateKey: privateKey, keyID: keyID}
 
 }
 
@@ -82,7 +85,7 @@ func (a *AuthServiceStruct) Login(ctx context.Context, in models.LoginInput) (*m
 	}
 
 	if !existingUser.IsActive {
-		return nil, fmt.Errorf("service: Login(): user with this email does not exist")
+		return nil, fmt.Errorf("service: Login(): user is not active")
 	}
 	err = bcrypt.CompareHashAndPassword([]byte(existingUser.PasswordHash), []byte(in.Password))
 	if err != nil {
@@ -217,39 +220,135 @@ func (a *AuthServiceStruct) Refresh(ctx context.Context, in models.RefreshInput)
 }
 
 func (a *AuthServiceStruct) Logout(ctx context.Context, in models.LogoutInput) error {
+	session, err := a.repo.GetSessionByID(ctx, in.SessionID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+	if session == nil || errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("service: Logout(): invalid session")
+	}
 
+	err = a.repo.RevokeSessionByID(ctx, in.SessionID)
+	if err != nil {
+		return err
+	}
+
+	err = a.repo.RevokeTokenBySessionID(ctx, in.SessionID)
+	if err != nil {
+		return err
+	}
+
+	logrus.Printf("service: Logout(): session removed")
+
+	return nil
 }
 
 func (a *AuthServiceStruct) LogoutAll(ctx context.Context, in models.LogoutAllInput) (uint32, error) {
+	existingUser, err := a.repo.GetUserByID(ctx, in.UserID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return 0, err
+	}
+	if existingUser == nil || errors.Is(err, sql.ErrNoRows) {
+		return 0, fmt.Errorf("service: LogoutAll(): invalid user")
+	}
+
+	count, err := a.repo.RevokeAllSessionByUserID(ctx, in.UserID)
+
+	if err != nil {
+		return 0, err
+	}
+
+	if err = a.repo.RevokeAllTokenByUserID(ctx, in.UserID); err != nil {
+		return 0, err
+	}
+
+	logrus.Printf("LogoutAll(): revoked %d sessions", count)
+	return uint32(count), nil
 
 }
 
 func (a *AuthServiceStruct) GetUserAuthInfo(ctx context.Context, userID uuid.UUID) (*models.UserAuthInfo, error) {
+	user, err := a.repo.GetUserByID(ctx, userID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	if user == nil || errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("service: GetUserAuthInfo(): invalid user")
+	}
 
+	roles, err := a.repo.GetRolesByUserID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &models.UserAuthInfo{
+		UserID:        user.ID,
+		Email:         user.Email,
+		Roles:         roles,
+		IsActive:      user.IsActive,
+		EmailVerified: user.EmailVerified,
+	}
+
+	return result, nil
 }
 
 func (a *AuthServiceStruct) GetJWKS(ctx context.Context) (string, error) {
+	publicKey := a.privateKey.Public()
 
+	key, err := jwk.FromRaw(publicKey)
+	if err != nil {
+		return "", fmt.Errorf("service: GetJWKS(): jwk.FromRaw(): %w", err)
+	}
+
+	if err = key.Validate(); err != nil {
+		return "", fmt.Errorf("service: GetJWKS(): key.Validate(): %w", err)
+	}
+
+	if err = key.Set(jwk.KeyIDKey, a.keyID); err != nil {
+		return "", fmt.Errorf("service: GetJWKS(): key.Set(): KeyIDKey: %w", err)
+	}
+
+	if err = key.Set(jwk.AlgorithmKey, "RS256"); err != nil {
+		return "", fmt.Errorf("service: GetJWKS(): key.Set(): AlgorithmKey: %w", err)
+	}
+
+	if err = key.Set(jwk.KeyUsageKey, "sig"); err != nil {
+		return "", fmt.Errorf("service: GetJWKS(): key.Set(): KeyUsageKey: %w", err)
+	}
+
+	set := jwk.NewSet()
+	if err = set.AddKey(key); err != nil {
+		return "", fmt.Errorf("service: GetJWKS(): set.AddKey(): %w", err)
+	}
+
+	jwkBytes, err := json.Marshal(set)
+	if err != nil {
+		return "", fmt.Errorf("service: GetJWKS(): json.Marshal(): %w", err)
+	}
+
+	return string(jwkBytes), nil
 }
 
-func (a *AuthServiceStruct) generateAccessToken(userID uuid.UUID, sessionID uuid.UUID, role []string) (string, int64, error) {
+func (a *AuthServiceStruct) generateAccessToken(userID uuid.UUID, sessionID uuid.UUID, roles []string) (string, int64, error) {
+	now := time.Now()
+
 	claims := jwt.MapClaims{
 		"sub":   userID.String(),
 		"sid":   sessionID.String(),
-		"roles": role,
-		"exp":   time.Now().Add(ttl).Unix(),
-		"iat":   time.Now().Unix(),
+		"roles": roles,
+		"exp":   now.Add(ttl).Unix(),
+		"iat":   now.Unix(),
 		"iss":   "auth-service",
-		"aud":   "api gateway",
+		"aud":   "api-gateway",
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	tokenString, err := token.SignedString(a.privateKey)
 	if err != nil {
-		return "", 0, fmt.Errorf("service: GenerateToken(): %w", err)
+		return "", 0, fmt.Errorf("service: generateAccessToken: %w", err)
 	}
 
-	return tokenString, time.Now().Add(ttl).Unix(), nil
+	return tokenString, now.Add(ttl).Unix(), nil
 }
 
 func (a *AuthServiceStruct) generateRefreshToken() (raw string, hash string, exp int64, err error) {
@@ -260,8 +359,8 @@ func (a *AuthServiceStruct) generateRefreshToken() (raw string, hash string, exp
 		return "", "", 0, fmt.Errorf("service: generateRefreshToken(): %w", err)
 	}
 
-	raw = base64.URLEncoding.EncodeToString(b)
+	raw = base64.RawURLEncoding.EncodeToString(b)
 	sum := sha256.Sum256([]byte(raw))
-	hash = base64.URLEncoding.EncodeToString(sum[:])
+	hash = base64.RawURLEncoding.EncodeToString(sum[:])
 	return raw, hash, time.Now().Add(refreshTTL).Unix(), nil
 }
