@@ -20,7 +20,6 @@ import (
 	"time"
 )
 
-const salt = "dfg4124321jndfsglorprmupgreuhg"
 const ttl = time.Minute * 15
 const refreshTTL = time.Hour * 24 * 30
 
