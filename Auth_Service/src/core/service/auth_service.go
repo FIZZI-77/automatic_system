@@ -38,6 +38,11 @@ func NewAuthServiceStruct(repo *repository.Repo, privateKey *rsa.PrivateKey, key
 }
 
 func (a *AuthServiceStruct) Register(ctx context.Context, in models.RegisterInput) (*models.RegisterResult, error) {
+
+	if err := in.Validate(); err != nil {
+		return nil, err
+	}
+
 	existingUser, err := a.repo.GetUserByEmail(ctx, in.Email)
 
 	if err == nil && existingUser != nil {
@@ -77,6 +82,11 @@ func (a *AuthServiceStruct) Register(ctx context.Context, in models.RegisterInpu
 }
 
 func (a *AuthServiceStruct) Login(ctx context.Context, in models.LoginInput) (*models.LoginResult, error) {
+
+	if err := in.Validate(); err != nil {
+		return nil, err
+	}
+
 	existingUser, err := a.repo.GetUserByEmail(ctx, in.Email)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
@@ -146,6 +156,10 @@ func (a *AuthServiceStruct) Login(ctx context.Context, in models.LoginInput) (*m
 }
 
 func (a *AuthServiceStruct) Refresh(ctx context.Context, in models.RefreshInput) (*models.RefreshResult, error) {
+
+	if err := in.Validate(); err != nil {
+		return nil, err
+	}
 
 	now := time.Now()
 
@@ -222,6 +236,11 @@ func (a *AuthServiceStruct) Refresh(ctx context.Context, in models.RefreshInput)
 }
 
 func (a *AuthServiceStruct) Logout(ctx context.Context, in models.LogoutInput) error {
+
+	if err := in.Validate(); err != nil {
+		return err
+	}
+
 	session, err := a.repo.GetSessionByID(ctx, in.SessionID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
@@ -241,6 +260,11 @@ func (a *AuthServiceStruct) Logout(ctx context.Context, in models.LogoutInput) e
 }
 
 func (a *AuthServiceStruct) LogoutAll(ctx context.Context, in models.LogoutAllInput) (uint32, error) {
+
+	if err := in.Validate(); err != nil {
+		return 0, err
+	}
+
 	existingUser, err := a.repo.GetUserByID(ctx, in.UserID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return 0, err
@@ -260,6 +284,7 @@ func (a *AuthServiceStruct) LogoutAll(ctx context.Context, in models.LogoutAllIn
 }
 
 func (a *AuthServiceStruct) GetUserAuthInfo(ctx context.Context, userID uuid.UUID) (*models.UserAuthInfo, error) {
+
 	user, err := a.repo.GetUserByID(ctx, userID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
@@ -322,6 +347,11 @@ func (a *AuthServiceStruct) GetJWKS(ctx context.Context) (string, error) {
 }
 
 func (a *AuthServiceStruct) ChangePassword(ctx context.Context, in models.ChangePasswordInput) (*models.ChangePasswordResult, error) {
+
+	if err := in.Validate(); err != nil {
+		return nil, err
+	}
+
 	existingUser, err := a.repo.GetUserByID(ctx, in.UserID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
@@ -354,6 +384,11 @@ func (a *AuthServiceStruct) ChangePassword(ctx context.Context, in models.Change
 }
 
 func (a *AuthServiceStruct) SendVerification(ctx context.Context, in models.SendVerificationEmailInput) (*models.SendVerificationEmailResult, error) {
+
+	if err := in.Validate(); err != nil {
+		return nil, err
+	}
+
 	user, err := a.repo.GetUserByID(ctx, in.UserID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("service: SendVerificationEmail(): cant get user: %w", err)
@@ -402,6 +437,11 @@ func (a *AuthServiceStruct) SendVerification(ctx context.Context, in models.Send
 }
 
 func (a *AuthServiceStruct) VerifyEmail(ctx context.Context, in models.VerifyEmailInput) (*models.VerifyEmailResult, error) {
+
+	if err := in.Validate(); err != nil {
+		return nil, err
+	}
+
 	sum := sha256.Sum256([]byte(in.Token))
 	hashToken := base64.RawURLEncoding.EncodeToString(sum[:])
 
@@ -451,6 +491,11 @@ func (a *AuthServiceStruct) VerifyEmail(ctx context.Context, in models.VerifyEma
 }
 
 func (a *AuthServiceStruct) RequestPasswordReset(ctx context.Context, in models.RequestPasswordResetInput) (*models.RequestPasswordResetResult, error) {
+
+	if err := in.Validate(); err != nil {
+		return nil, err
+	}
+
 	user, err := a.repo.GetUserByEmail(ctx, in.Email)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("service: RequestPasswordReset(): cant get user: %w", err)
@@ -499,6 +544,11 @@ func (a *AuthServiceStruct) RequestPasswordReset(ctx context.Context, in models.
 }
 
 func (a *AuthServiceStruct) ResetPassword(ctx context.Context, in models.ResetPasswordInput) (*models.ResetPasswordResult, error) {
+
+	if err := in.Validate(); err != nil {
+		return nil, err
+	}
+	
 	sum := sha256.Sum256([]byte(in.Token))
 	hashToken := base64.RawURLEncoding.EncodeToString(sum[:])
 
