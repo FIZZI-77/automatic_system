@@ -14,6 +14,12 @@ service AuthService {
   rpc GetUserAuthInfo(GetUserAuthInfoRequest) returns (GetUserAuthInfoResponse);
 
   rpc GetJWKS(GetJWKSRequest) returns (GetJWKSResponse);
+
+  rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
+  rpc SendVerificationEmail(SendVerificationEmailRequest) returns (SendVerificationEmailResponse);
+  rpc VerifyEmail(VerifyEmailRequest) returns (VerifyEmailResponse);
+  rpc RequestPasswordReset(RequestPasswordResetRequest) returns (RequestPasswordResetResponse);
+  rpc ResetPassword(ResetPasswordRequest) returns (ResetPasswordResponse);
 }
 
 message RegisterRequest {
@@ -96,4 +102,58 @@ message GetJWKSRequest {}
 
 message GetJWKSResponse {
   string jwks_json = 1;
+}
+
+message ChangePasswordRequest {
+  string user_id = 1;
+  string old_password = 2;
+  string new_password = 3;
+  string session_id = 4;
+  bool revoke_other_sessions  = 5;
+}
+
+message ChangePasswordResponse{
+  bool success = 1;
+  uint32 invalidated_sessions_count = 2;
+}
+
+message VerifyEmailRequest{
+  string token = 1;
+}
+
+message VerifyEmailResponse{
+  bool success = 1;
+  string user_id = 2;
+  string email = 3;
+  bool email_verified = 4;
+  string message = 5;
+}
+
+message SendVerificationEmailRequest{
+  string user_id = 1;
+  string email = 2;
+}
+
+message SendVerificationEmailResponse{
+  bool success = 1;
+  int64 expires_at_unix = 2;
+}
+
+message RequestPasswordResetRequest{
+  string email = 1;
+}
+
+message RequestPasswordResetResponse{
+  bool success = 1;
+  int64 expires_at_unix = 2;
+}
+
+message ResetPasswordRequest {
+  string token = 1;
+  string new_password = 2;
+}
+
+message ResetPasswordResponse {
+  bool success = 1;
+  uint32 invalidated_sessions_count = 2;
 }
