@@ -10,17 +10,17 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type RefreshTokenStruct struct {
+type RefreshTokenRepoStruct struct {
 	db *sql.DB
 }
 
-func NewRefreshTokenRepo(db *sql.DB) *RefreshTokenStruct {
-	return &RefreshTokenStruct{
+func NewRefreshTokenRepoStruct(db *sql.DB) *RefreshTokenRepoStruct {
+	return &RefreshTokenRepoStruct{
 		db: db,
 	}
 }
 
-func (r *RefreshTokenStruct) Create(ctx context.Context, token *models.RefreshToken) error {
+func (r *RefreshTokenRepoStruct) CreateToken(ctx context.Context, token *models.RefreshToken) error {
 	var id uuid.UUID
 
 	const query = `INSERT INTO refresh_tokens(user_id, session_id, token_hash, is_revoked, expires_at, used_at, replaced_by_token_id)
@@ -32,7 +32,7 @@ func (r *RefreshTokenStruct) Create(ctx context.Context, token *models.RefreshTo
 		token.TokenHash,
 		token.IsRevoked,
 		token.ExpiresAt,
-		token.CreatedAt,
+		token.UsedAt,
 		token.ReplacedByTokenID,
 	).Scan(&id)
 
@@ -44,11 +44,11 @@ func (r *RefreshTokenStruct) Create(ctx context.Context, token *models.RefreshTo
 	return nil
 }
 
-func (r *RefreshTokenStruct) GetByTokenHash(ctx context.Context, tokenHash string) (*models.RefreshToken, error) {
+func (r *RefreshTokenRepoStruct) GetByTokenHash(ctx context.Context, tokenHash string) (*models.RefreshToken, error) {
 	var token models.RefreshToken
 
 	const query = `SELECT id, user_id, session_id, token_hash, is_revoked, revoked_at, expires_at, used_at, replaced_by_token_id, created_at
-	FROM refresh_tokens WHERE token_hash = $1`
+	FROM refresh_tokens WHERE token_hash = $1 AND is_revoked = FALSE`
 
 	err := r.db.QueryRowContext(ctx, query, tokenHash).Scan(
 		&token.ID,
@@ -73,18 +73,103 @@ func (r *RefreshTokenStruct) GetByTokenHash(ctx context.Context, tokenHash strin
 
 }
 
-func (r *RefreshTokenStruct) RevokeByID(ctx context.Context, tokenID uuid.UUID) error {
+func (r *RefreshTokenRepoStruct) RevokeTokenByID(ctx context.Context, tokenID uuid.UUID) error {
+	const query = `UPDATE refresh_tokens SET is_revoked = TRUE, revoked_at = now() WHERE id = $1 AND is_revoked = FALSE`
+	_, err := r.db.ExecContext(ctx, query, tokenID)
+	if err != nil {
+		return fmt.Errorf("refresh_token_repo: RevokeByID(): cant revoke refresh token: %w", err)
+	}
+	logrus.Printf("refresh token with id %s revoked", tokenID)
+	return nil
+}
+
+func (r *RefreshTokenRepoStruct) RevokeTokenBySessionID(ctx context.Context, sessionID uuid.UUID) error {
+	const query = `UPDATE refresh_tokens SET is_revoked = TRUE, revoked_at = now() WHERE session_id = $1 AND is_revoked = FALSE`
+	_, err := r.db.ExecContext(ctx, query, sessionID)
+	if err != nil {
+		return fmt.Errorf("refresh_token_repo: RevokeBySessionID(): cant revoke refresh token: %w", err)
+	}
+	logrus.Printf("refresh token with session id %s revoked", sessionID)
+	return nil
 
 }
 
-func (r *RefreshTokenStruct) RevokeBySessionID(ctx context.Context, sessionID uuid.UUID) error {
+func (r *RefreshTokenRepoStruct) RevokeAllTokenByUserID(ctx context.Context, userID uuid.UUID) error {
+	const query = `UPDATE refresh_tokens SET is_revoked = TRUE, revoked_at = now() WHERE user_id = $1 AND is_revoked = FALSE`
+	_, err := r.db.ExecContext(ctx, query, userID)
+	if err != nil {
+		return fmt.Errorf("refresh_token_repo: RevokeAllByUserID(): cant revoke refresh token: %w", err)
+	}
+	logrus.Printf("refresh token with user id %s revoked", userID)
+	return nil
 
 }
 
-func (r *RefreshTokenStruct) RevokeAllByUserID(ctx context.Context, userID uuid.UUID) error {
+func (r *RefreshTokenRepoStruct) MarkUsedAndReplaceToken(ctx context.Context, oldTokenID uuid.UUID, newToken *models.RefreshToken) error {
+	var newTokenID uuid.UUID
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("refresh_token_repo: MarkUsedAndReplace(): cant begin transaction: %w", err)
+	}
 
-}
+	const insertNewToken = `INSERT INTO refresh_tokens(user_id, session_id, token_hash, is_revoked, expires_at, used_at, replaced_by_token_id)
+	VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`
 
-func (r *RefreshTokenStruct) MarkUsedAndReplace(ctx context.Context, oldTokenID string, newToken *models.RefreshToken) error {
+	err = tx.QueryRowContext(
+		ctx,
+		insertNewToken,
+		newToken.UserID,
+		newToken.SessionID,
+		newToken.TokenHash,
+		newToken.IsRevoked,
+		newToken.ExpiresAt,
+		newToken.UsedAt,
+		newToken.ReplacedByTokenID,
+	).Scan(&newTokenID)
 
+	if err != nil {
+		errTx := tx.Rollback()
+		if errTx != nil {
+			return fmt.Errorf("refresh_token_repo: MarkUsedAndReplace(): cant rollback transaction: %w", err)
+		}
+		return fmt.Errorf("refresh_token_repo: MarkUsedAndReplace(): failed insert new token, transaction rollback: %w", err)
+	}
+
+	logrus.Printf("refresh token with id %s created", newTokenID)
+
+	const updateOldToken = `UPDATE refresh_tokens
+	SET is_revoked = true, revoked_at = now(), used_at = now(), replaced_by_token_id = $1
+	WHERE id = $2 AND is_revoked = FALSE`
+
+	result, err := tx.ExecContext(ctx, updateOldToken, newTokenID, oldTokenID)
+	if err != nil {
+		errTx := tx.Rollback()
+		if errTx != nil {
+			return fmt.Errorf("refresh_token_repo: MarkUsedAndReplace(): cant rollback transaction: %w", errTx)
+		}
+		return fmt.Errorf("refresh_token_repo: MarkUsedAndReplace(): failed update old token, transaction rollback: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			return fmt.Errorf("refresh_token_repo: MarkUsedAndReplace(): rowsAffected failed: %v; rollback failed: %w", err, rollbackErr)
+		}
+		return fmt.Errorf("refresh_token_repo: MarkUsedAndReplace(): cant get affected rows: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			return fmt.Errorf("refresh_token_repo: MarkUsedAndReplace(): old token not updated; rollback failed: %w", rollbackErr)
+		}
+		return fmt.Errorf("refresh_token_repo: MarkUsedAndReplace(): old token not found or already revoked")
+	}
+	logrus.Printf("refresh token updated")
+
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("refresh_token_repo: MarkUsedAndReplace(): cant commit transaction: %w", err)
+	}
+
+	return nil
 }

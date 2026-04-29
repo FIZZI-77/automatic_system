@@ -18,10 +18,10 @@ func NewUserRepoStruct(db *sql.DB) *UserRepoStruct {
 	return &UserRepoStruct{db: db}
 }
 
-func (u *UserRepoStruct) Create(ctx context.Context, user *models.User) (uuid.UUID, error) {
+func (u *UserRepoStruct) CreateUser(ctx context.Context, user *models.User) (uuid.UUID, error) {
 	var id uuid.UUID
 	const query = `INSERT INTO users (
-			email, username, password_hash, is_active, email_verified,
+			email, username, password_hash, is_active, email_verified
 		) VALUES ($1, $2, $3, $4, $5)
 		RETURNING id`
 
@@ -43,7 +43,7 @@ func (u *UserRepoStruct) Create(ctx context.Context, user *models.User) (uuid.UU
 
 	return id, nil
 }
-func (u *UserRepoStruct) GetByID(ctx context.Context, id uuid.UUID) (*models.User, error) {
+func (u *UserRepoStruct) GetUserByID(ctx context.Context, id uuid.UUID) (*models.User, error) {
 	var user models.User
 
 	const query = `SELECT id, email, username, password_hash, is_active, email_verified, created_at, updated_at  FROM users WHERE id = $1;`
@@ -67,7 +67,7 @@ func (u *UserRepoStruct) GetByID(ctx context.Context, id uuid.UUID) (*models.Use
 
 	return &user, nil
 }
-func (u *UserRepoStruct) GetByEmail(ctx context.Context, email string) (*models.User, error) {
+func (u *UserRepoStruct) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
 	var user models.User
 
 	const query = `SELECT id, email, username, password_hash, is_active, email_verified, created_at, updated_at  FROM users WHERE email = $1;`
@@ -91,7 +91,7 @@ func (u *UserRepoStruct) GetByEmail(ctx context.Context, email string) (*models.
 
 	return &user, nil
 }
-func (u *UserRepoStruct) Update(ctx context.Context, user *models.User) error {
+func (u *UserRepoStruct) UpdateUser(ctx context.Context, user *models.User) error {
 	const query = `UPDATE users SET email=$1, username=$2, password_hash=$3, is_active=$4, email_verified=$5 WHERE id = $6;`
 
 	_, err := u.db.ExecContext(
