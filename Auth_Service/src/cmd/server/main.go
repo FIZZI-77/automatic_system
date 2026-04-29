@@ -13,6 +13,8 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -24,8 +26,8 @@ func main() {
 	}
 
 	db, err := pkg.NewPostgresDB(pkg.Config{
-		Host:     os.Getenv("HOST"),
-		Port:     os.Getenv("PORT"),
+		Host:     os.Getenv("DB_HOST"),
+		Port:     os.Getenv("DB_PORT"),
 		Username: os.Getenv("DB_USERNAME"),
 		Password: os.Getenv("DB_PASSWORD"),
 		DbName:   os.Getenv("DB_NAME"),
@@ -58,7 +60,22 @@ func main() {
 	grpcServer := grpc.NewServer()
 
 	repo := repository.NewRepo(db)
-	authService := service.NewAuthServiceStruct(repo, privateKey, keyID)
+	mailService, err := service.NewSMTPMailService(service.SMTPMailConfig{
+		Host:            os.Getenv("SMTP_HOST"),
+		Port:            mustInt(os.Getenv("SMTP_PORT")),
+		Username:        os.Getenv("SMTP_USERNAME"),
+		Password:        os.Getenv("SMTP_PASSWORD"),
+		FromEmail:       os.Getenv("SMTP_FROM_EMAIL"),
+		FromName:        os.Getenv("SMTP_FROM_NAME"),
+		FrontendBaseURL: os.Getenv("FRONTEND_BASE_URL"),
+		UseTLS:          mustBool(os.Getenv("SMTP_USE_TLS")),
+		UseStartTLS:     mustBool(os.Getenv("SMTP_USE_STARTTLS")),
+		Timeout:         10 * time.Second,
+	})
+	if err != nil {
+		log.Fatalf("failed to init mail service: %v", err)
+	}
+	authService := service.NewAuthService(repo, privateKey, keyID, mailService)
 	authHandler := handler.NewAuthHandler(authService)
 
 	authv1.RegisterAuthServiceServer(grpcServer, authHandler)
@@ -101,4 +118,20 @@ func main() {
 	}
 
 	log.Println("application stopped")
+}
+
+func mustInt(value string) int {
+	n, err := strconv.Atoi(strings.TrimSpace(value))
+	if err != nil {
+		log.Fatalf("invalid int value %q: %v", value, err)
+	}
+	return n
+}
+
+func mustBool(value string) bool {
+	b, err := strconv.ParseBool(strings.TrimSpace(value))
+	if err != nil {
+		log.Fatalf("invalid bool value %q: %v", value, err)
+	}
+	return b
 }

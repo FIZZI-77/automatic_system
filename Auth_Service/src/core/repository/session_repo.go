@@ -119,7 +119,7 @@ func (s *SessionRepoStruct) GetSessionByUserID(ctx context.Context, userID uuid.
 }
 
 func (s *SessionRepoStruct) RevokeSessionByID(ctx context.Context, sessionID uuid.UUID) error {
-	const query = `UPDATE sessions SET is_revoked = TRUE, revoked_at = now() AND is_revoked = FALSE WHERE id = $1`
+	const query = `UPDATE sessions SET is_revoked = TRUE, revoked_at = now() WHERE id = $1 AND is_revoked = FALSE`
 
 	_, err := s.db.ExecContext(ctx, query, sessionID)
 	if err != nil {
@@ -133,7 +133,7 @@ func (s *SessionRepoStruct) RevokeSessionByID(ctx context.Context, sessionID uui
 }
 
 func (s *SessionRepoStruct) RevokeAllSessionByUserID(ctx context.Context, userID uuid.UUID) (int64, error) {
-	const query = `UPDATE sessions SET is_revoked = TRUE, revoked_at = now() AND is_revoked = FALSE WHERE user_id = $1`
+	const query = `UPDATE sessions SET is_revoked = TRUE, revoked_at = now() WHERE user_id = $1 AND is_revoked = FALSE`
 
 	result, err := s.db.ExecContext(ctx, query, userID)
 	if err != nil {

@@ -37,11 +37,27 @@ type RoleRepository interface {
 	AssignRoleToUser(ctx context.Context, userID uuid.UUID, roleID uuid.UUID) error
 }
 
+type TXRepository interface {
+	ChangePassword(ctx context.Context, userID uuid.UUID, password string, sessionID uuid.UUID, revokeOtherSessions bool) (int32, error)
+	Logout(ctx context.Context, sessionID uuid.UUID) error
+	LogoutAll(ctx context.Context, userID uuid.UUID) (int64, error)
+	ResetPassword(ctx context.Context, userID uuid.UUID, passwordHash string) (int32, error)
+}
+
+type OneTimeTokenRepo interface {
+	CreateOneTimeToken(ctx context.Context, token *models.OneTimeToken) error
+	GetOneTimeTokenByHashAndType(ctx context.Context, tokenHash string, tokenType models.TokenType) (*models.OneTimeToken, error)
+	MarkOneTimeTokenUsed(ctx context.Context, tokenID uuid.UUID) error
+	RevokeUnusedTokensByUserIDAndType(ctx context.Context, userID uuid.UUID, tokenType models.TokenType) error
+}
+
 type Repo struct {
 	UserRepository
 	SessionRepository
 	RefreshTokenRepository
 	RoleRepository
+	TXRepository
+	OneTimeTokenRepo
 }
 
 func NewRepo(db *sql.DB) *Repo {
@@ -50,5 +66,7 @@ func NewRepo(db *sql.DB) *Repo {
 		SessionRepository:      NewSessionRepoStruct(db),
 		RefreshTokenRepository: NewRefreshTokenRepoStruct(db),
 		RoleRepository:         NewRoleRepoStruct(db),
+		TXRepository:           NewTXRepoStruct(db),
+		OneTimeTokenRepo:       NewOneTimeTokenRepoStruct(db),
 	}
 }

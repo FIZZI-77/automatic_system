@@ -21,7 +21,7 @@ func NewUserRepoStruct(db *sql.DB) *UserRepoStruct {
 func (u *UserRepoStruct) CreateUser(ctx context.Context, user *models.User) (uuid.UUID, error) {
 	var id uuid.UUID
 	const query = `INSERT INTO users (
-			email, username, password_hash, is_active, email_verified,
+			email, username, password_hash, is_active, email_verified
 		) VALUES ($1, $2, $3, $4, $5)
 		RETURNING id`
 
