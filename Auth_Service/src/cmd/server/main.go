@@ -20,7 +20,14 @@ import (
 )
 
 func main() {
-	err := godotenv.Load(".env")
+
+	logger, err := pkg.NewLogger()
+	if err != nil {
+		panic(err)
+	}
+	defer logger.Sync()
+
+	err = godotenv.Load(".env")
 	if err != nil {
 		log.Fatal("error loading .env file")
 	}
@@ -71,12 +78,12 @@ func main() {
 		UseTLS:          mustBool(os.Getenv("SMTP_USE_TLS")),
 		UseStartTLS:     mustBool(os.Getenv("SMTP_USE_STARTTLS")),
 		Timeout:         10 * time.Second,
-	})
+	}, logger)
 	if err != nil {
 		log.Fatalf("failed to init mail service: %v", err)
 	}
-	authService := service.NewAuthService(repo, privateKey, keyID, mailService)
-	authHandler := handler.NewAuthHandler(authService)
+	authService := service.NewAuthService(repo, privateKey, keyID, mailService, logger)
+	authHandler := handler.NewAuthHandler(authService, logger)
 
 	authv1.RegisterAuthServiceServer(grpcServer, authHandler)
 
