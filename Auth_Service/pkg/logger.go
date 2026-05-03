@@ -11,7 +11,7 @@ func NewLogger() (*zap.Logger, error) {
 	  "encoding": "json",
 	  "outputPaths": ["stdout", "/tmp/logs"],
 	  "errorOutputPaths": ["stderr"],
-	  "initialFields": {"service": "auth"},
+	  "initialFields": {"jwt": "auth"},
 	  "encoderConfig": {
 	    "messageKey": "message",
 	    "levelKey": "level",
@@ -25,7 +25,7 @@ func NewLogger() (*zap.Logger, error) {
 	}
 
 	logger, err := cfg.Build(zap.AddCaller(), zap.AddCallerSkip(2))
-	
+
 	if err != nil {
 		return nil, err
 	}

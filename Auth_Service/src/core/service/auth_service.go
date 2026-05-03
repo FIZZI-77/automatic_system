@@ -59,7 +59,7 @@ func (a *AuthServiceStruct) Register(ctx context.Context, in models.RegisterInpu
 		a.logger.Warn("registration failed - user already exists",
 			zap.String("email", in.Email),
 		)
-		return nil, fmt.Errorf("service: Register(): user with this email already exists")
+		return nil, fmt.Errorf("jwt: Register(): user with this email already exists")
 	}
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		a.logger.Error("failed to check existing user",
@@ -72,7 +72,7 @@ func (a *AuthServiceStruct) Register(ctx context.Context, in models.RegisterInpu
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte(in.Password), bcrypt.DefaultCost)
 	if err != nil {
 		a.logger.Error("failed to generate password hash", zap.Error(err))
-		return nil, fmt.Errorf("service: Register(): cant hash password: %w", err)
+		return nil, fmt.Errorf("jwt: Register(): cant hash password: %w", err)
 	}
 
 	user := &models.User{
@@ -136,7 +136,7 @@ func (a *AuthServiceStruct) Login(ctx context.Context, in models.LoginInput) (*m
 		a.logger.Warn("login failed - user not found",
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: Login(): user with this email does not exist")
+		return nil, fmt.Errorf("jwt: Login(): user with this email does not exist")
 	}
 
 	if !existingUser.IsActive {
@@ -144,7 +144,7 @@ func (a *AuthServiceStruct) Login(ctx context.Context, in models.LoginInput) (*m
 			zap.String("user_id", existingUser.ID.String()),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: Login(): user is not active")
+		return nil, fmt.Errorf("jwt: Login(): user is not active")
 	}
 	err = bcrypt.CompareHashAndPassword([]byte(existingUser.PasswordHash), []byte(in.Password))
 	if err != nil {
@@ -152,7 +152,7 @@ func (a *AuthServiceStruct) Login(ctx context.Context, in models.LoginInput) (*m
 			zap.String("user_id", existingUser.ID.String()),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: Login(): invalid password: %w", err)
+		return nil, fmt.Errorf("jwt: Login(): invalid password: %w", err)
 	}
 
 	sessionID, err := a.repo.CreateSession(ctx, &models.Session{
@@ -266,7 +266,7 @@ func (a *AuthServiceStruct) Refresh(ctx context.Context, in models.RefreshInput)
 			zap.String("client_id", in.ClientID),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: Refresh(): invalid refresh token")
+		return nil, fmt.Errorf("jwt: Refresh(): invalid refresh token")
 	}
 
 	if refreshToken.ExpiresAt.Before(now) {
@@ -274,7 +274,7 @@ func (a *AuthServiceStruct) Refresh(ctx context.Context, in models.RefreshInput)
 			zap.String("client_id", in.ClientID),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: Refresh(): invalid refresh token, token has expired")
+		return nil, fmt.Errorf("jwt: Refresh(): invalid refresh token, token has expired")
 	}
 
 	if refreshToken.ReplacedByTokenID != nil {
@@ -282,7 +282,7 @@ func (a *AuthServiceStruct) Refresh(ctx context.Context, in models.RefreshInput)
 			zap.String("client_id", in.ClientID),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: Refresh(): invalid refresh token, token has been replaced")
+		return nil, fmt.Errorf("jwt: Refresh(): invalid refresh token, token has been replaced")
 	}
 
 	session, err := a.repo.GetSessionByID(ctx, refreshToken.SessionID)
@@ -299,7 +299,7 @@ func (a *AuthServiceStruct) Refresh(ctx context.Context, in models.RefreshInput)
 			zap.String("client_id", in.ClientID),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: Refresh(): invalid refresh token, session does not exist")
+		return nil, fmt.Errorf("jwt: Refresh(): invalid refresh token, session does not exist")
 	}
 
 	if session.ExpiresAt.Before(now) {
@@ -307,7 +307,7 @@ func (a *AuthServiceStruct) Refresh(ctx context.Context, in models.RefreshInput)
 			zap.String("client_id", in.ClientID),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: Refresh(): invalid refresh token, session has expired")
+		return nil, fmt.Errorf("jwt: Refresh(): invalid refresh token, session has expired")
 	}
 
 	roles, err := a.repo.GetRolesByUserID(ctx, refreshToken.UserID)
@@ -399,7 +399,7 @@ func (a *AuthServiceStruct) Logout(ctx context.Context, in models.LogoutInput) e
 			zap.String("user_id", in.UserID.String()),
 			zap.Error(err),
 		)
-		return fmt.Errorf("service: Logout(): invalid session")
+		return fmt.Errorf("jwt: Logout(): invalid session")
 	}
 
 	err = a.repo.Logout(ctx, session.ID)
@@ -446,7 +446,7 @@ func (a *AuthServiceStruct) LogoutAll(ctx context.Context, in models.LogoutAllIn
 			zap.String("user_id", in.UserID.String()),
 			zap.Error(err),
 		)
-		return 0, fmt.Errorf("service: LogoutAll(): invalid user")
+		return 0, fmt.Errorf("jwt: LogoutAll(): invalid user")
 	}
 
 	count, err := a.repo.LogoutAll(ctx, existingUser.ID)
@@ -485,7 +485,7 @@ func (a *AuthServiceStruct) GetUserAuthInfo(ctx context.Context, userID uuid.UUI
 			zap.String("user_id", userID.String()),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: GetUserAuthInfo(): invalid user")
+		return nil, fmt.Errorf("jwt: GetUserAuthInfo(): invalid user")
 	}
 
 	roles, err := a.repo.GetRolesByUserID(ctx, userID)
@@ -523,35 +523,35 @@ func (a *AuthServiceStruct) GetJWKS(ctx context.Context) (string, error) {
 		a.logger.Error("failed to parse public key",
 			zap.Error(err),
 		)
-		return "", fmt.Errorf("service: GetJWKS(): jwk.FromRaw(): %w", err)
+		return "", fmt.Errorf("jwt: GetJWKS(): jwk.FromRaw(): %w", err)
 	}
 
 	if err = key.Validate(); err != nil {
 		a.logger.Error("failed to validate public key",
 			zap.Error(err),
 		)
-		return "", fmt.Errorf("service: GetJWKS(): key.Validate(): %w", err)
+		return "", fmt.Errorf("jwt: GetJWKS(): key.Validate(): %w", err)
 	}
 
 	if err = key.Set(jwk.KeyIDKey, a.keyID); err != nil {
 		a.logger.Error("failed to set jwk key id",
 			zap.Error(err),
 		)
-		return "", fmt.Errorf("service: GetJWKS(): key.Set(): KeyIDKey: %w", err)
+		return "", fmt.Errorf("jwt: GetJWKS(): key.Set(): KeyIDKey: %w", err)
 	}
 
 	if err = key.Set(jwk.AlgorithmKey, "RS256"); err != nil {
 		a.logger.Error("failed to set jwk key algorithm",
 			zap.Error(err),
 		)
-		return "", fmt.Errorf("service: GetJWKS(): key.Set(): AlgorithmKey: %w", err)
+		return "", fmt.Errorf("jwt: GetJWKS(): key.Set(): AlgorithmKey: %w", err)
 	}
 
 	if err = key.Set(jwk.KeyUsageKey, "sig"); err != nil {
 		a.logger.Error("failed to set jwk key usage",
 			zap.Error(err),
 		)
-		return "", fmt.Errorf("service: GetJWKS(): key.Set(): KeyUsageKey: %w", err)
+		return "", fmt.Errorf("jwt: GetJWKS(): key.Set(): KeyUsageKey: %w", err)
 	}
 
 	set := jwk.NewSet()
@@ -559,7 +559,7 @@ func (a *AuthServiceStruct) GetJWKS(ctx context.Context) (string, error) {
 		a.logger.Error("failed to add jwk key",
 			zap.Error(err),
 		)
-		return "", fmt.Errorf("service: GetJWKS(): set.AddKey(): %w", err)
+		return "", fmt.Errorf("jwt: GetJWKS(): set.AddKey(): %w", err)
 	}
 
 	jwkBytes, err := json.Marshal(set)
@@ -567,7 +567,7 @@ func (a *AuthServiceStruct) GetJWKS(ctx context.Context) (string, error) {
 		a.logger.Error("failed to marshal jwk set",
 			zap.Error(err),
 		)
-		return "", fmt.Errorf("service: GetJWKS(): json.Marshal(): %w", err)
+		return "", fmt.Errorf("jwt: GetJWKS(): json.Marshal(): %w", err)
 	}
 
 	a.logger.Info("Get JWKS successfully")
@@ -603,7 +603,7 @@ func (a *AuthServiceStruct) ChangePassword(ctx context.Context, in models.Change
 			zap.String("user_id", in.UserID.String()),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: ChangePassword(): user not found")
+		return nil, fmt.Errorf("jwt: ChangePassword(): user not found")
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(existingUser.PasswordHash), []byte(in.OldPassword))
@@ -612,7 +612,7 @@ func (a *AuthServiceStruct) ChangePassword(ctx context.Context, in models.Change
 			zap.String("user_id", in.UserID.String()),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: ChangePassword(): invalid old password")
+		return nil, fmt.Errorf("jwt: ChangePassword(): invalid old password")
 	}
 
 	newHashPassword, err := bcrypt.GenerateFromPassword([]byte(in.NewPassword), bcrypt.DefaultCost)
@@ -621,7 +621,7 @@ func (a *AuthServiceStruct) ChangePassword(ctx context.Context, in models.Change
 			zap.String("user_id", in.UserID.String()),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: ChangePassword(): failed to generate new password: %w", err)
+		return nil, fmt.Errorf("jwt: ChangePassword(): failed to generate new password: %w", err)
 	}
 
 	count, err := a.repo.ChangePassword(ctx, in.UserID, string(newHashPassword), in.SessionID, in.RevokeOtherSessions)
@@ -630,7 +630,7 @@ func (a *AuthServiceStruct) ChangePassword(ctx context.Context, in models.Change
 			zap.String("user_id", in.UserID.String()),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: ChangePassword(): failed to change password: %w", err)
+		return nil, fmt.Errorf("jwt: ChangePassword(): failed to change password: %w", err)
 	}
 
 	result := &models.ChangePasswordResult{
@@ -667,21 +667,21 @@ func (a *AuthServiceStruct) SendVerification(ctx context.Context, in models.Send
 			zap.String("user_id", in.UserID.String()),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: SendVerificationEmail(): cant get user: %w", err)
+		return nil, fmt.Errorf("jwt: SendVerificationEmail(): cant get user: %w", err)
 	}
 	if user == nil || errors.Is(err, sql.ErrNoRows) {
 		a.logger.Warn("sendVerification failed - user not found",
 			zap.String("user_id", in.UserID.String()),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: SendVerificationEmail(): user not found")
+		return nil, fmt.Errorf("jwt: SendVerificationEmail(): user not found")
 	}
 
 	if user.EmailVerified {
 		a.logger.Warn("sendVerification failed - email is already verified",
 			zap.String("user_id", in.UserID.String()),
 		)
-		return nil, fmt.Errorf("service: SendVerificationEmail(): email already verified")
+		return nil, fmt.Errorf("jwt: SendVerificationEmail(): email already verified")
 	}
 
 	err = a.repo.RevokeUnusedTokensByUserIDAndType(ctx, user.ID, models.TokenTypeEmailVerification)
@@ -690,7 +690,7 @@ func (a *AuthServiceStruct) SendVerification(ctx context.Context, in models.Send
 			zap.String("user_id", in.UserID.String()),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: SendVerificationEmail(): cant revoke old verification tokens: %w", err)
+		return nil, fmt.Errorf("jwt: SendVerificationEmail(): cant revoke old verification tokens: %w", err)
 	}
 
 	rawToken, hashToken, err := a.generateOpaqueToken()
@@ -699,7 +699,7 @@ func (a *AuthServiceStruct) SendVerification(ctx context.Context, in models.Send
 			zap.String("user_id", in.UserID.String()),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: SendVerificationEmail(): cant generate token: %w", err)
+		return nil, fmt.Errorf("jwt: SendVerificationEmail(): cant generate token: %w", err)
 	}
 
 	expiresAt := time.Now().Add(verifyEmailTTL)
@@ -717,7 +717,7 @@ func (a *AuthServiceStruct) SendVerification(ctx context.Context, in models.Send
 			zap.String("user_id", in.UserID.String()),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: SendVerificationEmail(): cant create verification token: %w", err)
+		return nil, fmt.Errorf("jwt: SendVerificationEmail(): cant create verification token: %w", err)
 	}
 
 	err = a.mailService.SendVerificationEmail(ctx, user.Email, rawToken)
@@ -726,7 +726,7 @@ func (a *AuthServiceStruct) SendVerification(ctx context.Context, in models.Send
 			zap.String("user_id", in.UserID.String()),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: SendVerificationEmail(): cant send email: %w", err)
+		return nil, fmt.Errorf("jwt: SendVerificationEmail(): cant send email: %w", err)
 	}
 
 	a.logger.Info("send verification email successfully",
@@ -759,21 +759,21 @@ func (a *AuthServiceStruct) VerifyEmail(ctx context.Context, in models.VerifyEma
 		a.logger.Error("failed to get token by hash",
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: VerifyEmail(): cant get token: %w", err)
+		return nil, fmt.Errorf("jwt: VerifyEmail(): cant get token: %w", err)
 	}
 	if token == nil || errors.Is(err, sql.ErrNoRows) {
 		a.logger.Warn("verifyEmail failed - token not found")
-		return nil, fmt.Errorf("service: VerifyEmail(): invalid token")
+		return nil, fmt.Errorf("jwt: VerifyEmail(): invalid token")
 	}
 
 	if token.UsedAt != nil {
 		a.logger.Warn("verifyEmail failed - token already used")
-		return nil, fmt.Errorf("service: VerifyEmail(): token already used")
+		return nil, fmt.Errorf("jwt: VerifyEmail(): token already used")
 	}
 
 	if token.ExpiresAt.Before(time.Now()) {
 		a.logger.Warn("verifyEmail failed - token expired")
-		return nil, fmt.Errorf("service: VerifyEmail(): token expired")
+		return nil, fmt.Errorf("jwt: VerifyEmail(): token expired")
 	}
 
 	user, err := a.repo.GetUserByID(ctx, token.UserID)
@@ -781,11 +781,11 @@ func (a *AuthServiceStruct) VerifyEmail(ctx context.Context, in models.VerifyEma
 		a.logger.Error("failed to get user",
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: VerifyEmail(): cant get user: %w", err)
+		return nil, fmt.Errorf("jwt: VerifyEmail(): cant get user: %w", err)
 	}
 	if user == nil || errors.Is(err, sql.ErrNoRows) {
 		a.logger.Warn("verifyEmail failed - user not found")
-		return nil, fmt.Errorf("service: VerifyEmail(): user not found")
+		return nil, fmt.Errorf("jwt: VerifyEmail(): user not found")
 	}
 
 	user.EmailVerified = true
@@ -795,7 +795,7 @@ func (a *AuthServiceStruct) VerifyEmail(ctx context.Context, in models.VerifyEma
 		a.logger.Error("failed to update user",
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: VerifyEmail(): cant update user: %w", err)
+		return nil, fmt.Errorf("jwt: VerifyEmail(): cant update user: %w", err)
 	}
 
 	err = a.repo.MarkOneTimeTokenUsed(ctx, token.ID)
@@ -803,7 +803,7 @@ func (a *AuthServiceStruct) VerifyEmail(ctx context.Context, in models.VerifyEma
 		a.logger.Error("failed to mark one-time token",
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: VerifyEmail(): cant mark token used: %w", err)
+		return nil, fmt.Errorf("jwt: VerifyEmail(): cant mark token used: %w", err)
 	}
 
 	a.logger.Info("verify email successfully",
@@ -835,7 +835,7 @@ func (a *AuthServiceStruct) RequestPasswordReset(ctx context.Context, in models.
 		a.logger.Error("failed to get user",
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: RequestPasswordReset(): cant get user: %w", err)
+		return nil, fmt.Errorf("jwt: RequestPasswordReset(): cant get user: %w", err)
 	}
 
 	if user == nil || errors.Is(err, sql.ErrNoRows) {
@@ -852,7 +852,7 @@ func (a *AuthServiceStruct) RequestPasswordReset(ctx context.Context, in models.
 		a.logger.Error("failed to revoke unused tokens",
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: RequestPasswordReset(): cant revoke old reset tokens: %w", err)
+		return nil, fmt.Errorf("jwt: RequestPasswordReset(): cant revoke old reset tokens: %w", err)
 	}
 
 	rawToken, hashToken, err := a.generateOpaqueToken()
@@ -860,7 +860,7 @@ func (a *AuthServiceStruct) RequestPasswordReset(ctx context.Context, in models.
 		a.logger.Error("failed to generate opaque token",
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: RequestPasswordReset(): cant generate token: %w", err)
+		return nil, fmt.Errorf("jwt: RequestPasswordReset(): cant generate token: %w", err)
 	}
 
 	expiresAt := time.Now().Add(resetPasswordTTL)
@@ -877,7 +877,7 @@ func (a *AuthServiceStruct) RequestPasswordReset(ctx context.Context, in models.
 		a.logger.Error("failed to save opaque token",
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: RequestPasswordReset(): cant create reset token: %w", err)
+		return nil, fmt.Errorf("jwt: RequestPasswordReset(): cant create reset token: %w", err)
 	}
 
 	err = a.mailService.SendPasswordResetEmail(ctx, user.Email, rawToken)
@@ -885,7 +885,7 @@ func (a *AuthServiceStruct) RequestPasswordReset(ctx context.Context, in models.
 		a.logger.Error("failed to send reset password",
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: RequestPasswordReset(): cant send reset email: %w", err)
+		return nil, fmt.Errorf("jwt: RequestPasswordReset(): cant send reset email: %w", err)
 	}
 
 	a.logger.Info("reset email successfully",
@@ -917,31 +917,31 @@ func (a *AuthServiceStruct) ResetPassword(ctx context.Context, in models.ResetPa
 		a.logger.Error("failed to get one-time token",
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: ResetPassword(): cant get token: %w", err)
+		return nil, fmt.Errorf("jwt: ResetPassword(): cant get token: %w", err)
 	}
 	if token == nil || errors.Is(err, sql.ErrNoRows) {
 		a.logger.Warn("ResetPassword failed - token not found")
-		return nil, fmt.Errorf("service: ResetPassword(): invalid token")
+		return nil, fmt.Errorf("jwt: ResetPassword(): invalid token")
 	}
 
 	if token.UsedAt != nil {
 		a.logger.Warn("ResetPassword failed - token already used")
-		return nil, fmt.Errorf("service: ResetPassword(): token already used")
+		return nil, fmt.Errorf("jwt: ResetPassword(): token already used")
 	}
 
 	if token.ExpiresAt.Before(time.Now()) {
 		a.logger.Warn("ResetPassword failed - token expired")
-		return nil, fmt.Errorf("service: ResetPassword(): token expired")
+		return nil, fmt.Errorf("jwt: ResetPassword(): token expired")
 	}
 
 	user, err := a.repo.GetUserByID(ctx, token.UserID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		a.logger.Error("failed to get user")
-		return nil, fmt.Errorf("service: ResetPassword(): cant get user: %w", err)
+		return nil, fmt.Errorf("jwt: ResetPassword(): cant get user: %w", err)
 	}
 	if user == nil || errors.Is(err, sql.ErrNoRows) {
 		a.logger.Warn("ResetPassword failed - user not found")
-		return nil, fmt.Errorf("service: ResetPassword(): user not found")
+		return nil, fmt.Errorf("jwt: ResetPassword(): user not found")
 	}
 
 	newHashPassword, err := bcrypt.GenerateFromPassword([]byte(in.NewPassword), bcrypt.DefaultCost)
@@ -949,7 +949,7 @@ func (a *AuthServiceStruct) ResetPassword(ctx context.Context, in models.ResetPa
 		a.logger.Error("failed to generate new password",
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: ResetPassword(): cant generate password hash: %w", err)
+		return nil, fmt.Errorf("jwt: ResetPassword(): cant generate password hash: %w", err)
 	}
 
 	count, err := a.repo.ResetPassword(ctx, user.ID, string(newHashPassword))
@@ -957,7 +957,7 @@ func (a *AuthServiceStruct) ResetPassword(ctx context.Context, in models.ResetPa
 		a.logger.Error("failed to reset password",
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: ResetPassword(): tx reset failed: %w", err)
+		return nil, fmt.Errorf("jwt: ResetPassword(): tx reset failed: %w", err)
 	}
 
 	err = a.repo.MarkOneTimeTokenUsed(ctx, token.ID)
@@ -965,7 +965,7 @@ func (a *AuthServiceStruct) ResetPassword(ctx context.Context, in models.ResetPa
 		a.logger.Error("failed to mark one-time token",
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: ResetPassword(): cant mark token used: %w", err)
+		return nil, fmt.Errorf("jwt: ResetPassword(): cant mark token used: %w", err)
 	}
 
 	a.logger.Info("reset email successfully",
@@ -990,7 +990,7 @@ func (a *AuthServiceStruct) generateAccessToken(userID uuid.UUID, sessionID uuid
 		"roles": roles,
 		"exp":   now.Add(ttl).Unix(),
 		"iat":   now.Unix(),
-		"iss":   "auth-service",
+		"iss":   "auth-jwt",
 		"aud":   "api-gateway",
 	}
 
@@ -1000,7 +1000,7 @@ func (a *AuthServiceStruct) generateAccessToken(userID uuid.UUID, sessionID uuid
 		a.logger.Error("failed to generate access token",
 			zap.Error(err),
 		)
-		return "", 0, fmt.Errorf("service: generateAccessToken: %w", err)
+		return "", 0, fmt.Errorf("jwt: generateAccessToken: %w", err)
 	}
 
 	a.logger.Info("generate access token successfully")
@@ -1019,7 +1019,7 @@ func (a *AuthServiceStruct) generateRefreshToken() (raw string, hash string, exp
 		a.logger.Error("failed to generate refresh token",
 			zap.Error(err),
 		)
-		return "", "", 0, fmt.Errorf("service: generateRefreshToken(): %w", err)
+		return "", "", 0, fmt.Errorf("jwt: generateRefreshToken(): %w", err)
 	}
 
 	raw = base64.RawURLEncoding.EncodeToString(b)
@@ -1041,7 +1041,7 @@ func (a *AuthServiceStruct) generateOpaqueToken() (raw string, hash string, err 
 		a.logger.Error("failed to generate opaque token",
 			zap.Error(err),
 		)
-		return "", "", fmt.Errorf("service: generateOpaqueToken(): %w", err)
+		return "", "", fmt.Errorf("jwt: generateOpaqueToken(): %w", err)
 	}
 
 	raw = base64.RawURLEncoding.EncodeToString(b)

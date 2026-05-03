@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: auth-service
+    container_name: auth-jwt
     ports:
       - "8080:8080"
     env_file:
