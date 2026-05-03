@@ -80,7 +80,7 @@ func main() {
 		Timeout:         10 * time.Second,
 	}, logger)
 	if err != nil {
-		log.Fatalf("failed to init mail service: %v", err)
+		log.Fatalf("failed to init mail jwt: %v", err)
 	}
 	authService := service.NewAuthService(repo, privateKey, keyID, mailService, logger)
 	authHandler := handler.NewAuthHandler(authService, logger)
