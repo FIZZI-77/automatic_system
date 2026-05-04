@@ -85,7 +85,9 @@ func newTestApp(t *testing.T) *testApp {
 		postgres.WithUsername("test"),
 		postgres.WithPassword("test"),
 		testcontainers.WithWaitStrategy(
-			wait.ForListeningPort("5432/tcp").WithStartupTimeout(30*time.Second),
+			wait.ForLog("database system is ready to accept connections").
+				WithOccurrence(2).
+				WithStartupTimeout(30*time.Second),
 		),
 	)
 	if err != nil {
@@ -104,11 +106,7 @@ func newTestApp(t *testing.T) *testApp {
 		t.Fatalf("failed to open db: %v", err)
 	}
 
-	if err = db.PingContext(ctx); err != nil {
-		_ = db.Close()
-		_ = container.Terminate(ctx)
-		t.Fatalf("failed to ping db: %v", err)
-	}
+	waitForDB(t, ctx, db)
 
 	runGooseMigrations(t, db)
 
@@ -160,4 +158,21 @@ func runGooseMigrations(t *testing.T, db *sql.DB) {
 
 func uniqueEmail() string {
 	return fmt.Sprintf("user-%d@example.com", time.Now().UnixNano())
+}
+
+func waitForDB(t *testing.T, ctx context.Context, db *sql.DB) {
+	t.Helper()
+
+	var err error
+
+	for i := 0; i < 10; i++ {
+		err = db.PingContext(ctx)
+		if err == nil {
+			return
+		}
+
+		time.Sleep(time.Second)
+	}
+
+	t.Fatalf("failed to ping db: %v", err)
 }
