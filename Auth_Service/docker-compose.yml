@@ -1,82 +1,67 @@
-name: Auth Service CI
+version: "3.9"
 
-on:
-  push:
-    branches:
-      - main
-      - develop
-  pull_request:
-    branches:
-      - main
-      - develop
+services:
+  auth-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: auth-jwt
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
+      
+    volumes:
+      - ./keys:/app/keys:ro
+    restart: unless-stopped
 
-env:
-  GO_VERSION: '1.25'
-  SERVICE_PATH: Auth_Service
+  postgres:
+    image: postgres:16
+    container_name: auth-postgres
+    environment:
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "${DB_PORT}:5432"
+    volumes:
+      - postgres_auth_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
-jobs:
-  test:
-    name: Test Auth Service
-    runs-on: ubuntu-latest
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: auth-mailhog
+    ports:
+      - "${SMTP_PORT}:1025"
+      - "8025:8025"
+    restart: unless-stopped
 
-    defaults:
-      run:
-        working-directory: ${{ env.SERVICE_PATH }}
+  migrator:
+    build: ./migrator
+    container_name: migrator
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./scheme:/migrations
+    environment:
+      GOOSE_DRIVER: postgres
+      GOOSE_DBSTRING: postgres://${DB_USERNAME}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=${SSLMODE}
+    command: >
+      sh -c "
+        echo 'Running migrations...' &&
+        goose -dir /migrations up
+      "
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-          cache-dependency-path: ${{ env.SERVICE_PATH }}/go.sum
-
-      - name: Download dependencies
-        run: go mod download
-
-      - name: Check formatting
-        run: test -z "$(gofmt -l .)"
-
-      - name: Run go vet
-        run: go vet ./...
-
-      - name: Run tests
-        run: go test -v ./...
-
-  docker-build:
-    name: Build Docker image
-    runs-on: ubuntu-latest
-    needs: test
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Create dummy .env
-        run: |
-          cat > ${{ env.SERVICE_PATH }}/.env <<EOF
-          JWT_KEY_ID=main-key
-          JWT_PRIVATE_KEY_PATH=/app/keys/private.pem
-          DB_PASSWORD=qwerty
-          DB_USERNAME=postgres
-          DB_HOST=postgres
-          DB_PORT=5432
-          DB_NAME=authdb
-          SSLMODE=disable
-          DATABASE_URL=postgres://postgres:qwerty@postgres:5432/authdb?sslmode=disable
-          SMTP_HOST=mailhog
-          SMTP_PORT=1025
-          SMTP_USERNAME=
-          SMTP_PASSWORD=
-          SMTP_FROM_EMAIL=no-reply@example.local
-          SMTP_FROM_NAME=Auth_Service
-          FRONTEND_BASE_URL=http://localhost:5173
-          SMTP_USE_TLS=false
-          SMTP_USE_STARTTLS=false
-          EOF
-
-      - name: Build Docker image
-        run: docker build -t auth-service:ci ./${{ env.SERVICE_PATH }}
+volumes:
+  postgres_auth_data:
