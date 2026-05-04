@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/pressly/goose/v3"
 	"github.com/testcontainers/testcontainers-go"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -27,33 +28,39 @@ func setupTestDB(t *testing.T) (*sql.DB, func()) {
 		postgres.WithUsername("test"),
 		postgres.WithPassword("test"),
 		testcontainers.WithWaitStrategy(
-			wait.ForListeningPort("5432/tcp").WithStartupTimeout(30*time.Second),
+			wait.ForLog("database system is ready to accept connections").
+				WithOccurrence(2).
+				WithStartupTimeout(60*time.Second),
 		),
 	)
 	if err != nil {
 		t.Fatalf("failed to start postgres container: %v", err)
 	}
 
+	cleanup := func() {
+		_ = container.Terminate(ctx)
+	}
+
 	connStr, err := container.ConnectionString(ctx, "sslmode=disable")
 	if err != nil {
+		cleanup()
 		t.Fatalf("failed to get connection string: %v", err)
 	}
 
 	db, err := sql.Open("pgx", connStr)
 	if err != nil {
+		cleanup()
 		t.Fatalf("failed to open db: %v", err)
 	}
 
-	if err = db.PingContext(ctx); err != nil {
-		t.Fatalf("failed to ping db: %v", err)
-	}
-
-	runMigrations(t, db)
-
-	cleanup := func() {
+	cleanup = func() {
 		_ = db.Close()
 		_ = container.Terminate(ctx)
 	}
+
+	waitForDB(t, ctx, db)
+
+	runMigrations(t, db)
 
 	return db, cleanup
 }
@@ -61,7 +68,7 @@ func setupTestDB(t *testing.T) (*sql.DB, func()) {
 func runMigrations(t *testing.T, db *sql.DB) {
 	t.Helper()
 
-	migrationsDir := "../../../scheme"
+	migrationsDir := filepath.Clean("../../../scheme")
 
 	if err := goose.SetDialect("postgres"); err != nil {
 		t.Fatalf("failed to set goose dialect: %v", err)
@@ -141,4 +148,21 @@ func createTestOneTimeToken(t *testing.T, repo *Repo, userID uuid.UUID, tokenTyp
 	}
 
 	return tokenHash
+}
+
+func waitForDB(t *testing.T, ctx context.Context, db *sql.DB) {
+	t.Helper()
+
+	var err error
+
+	for i := 0; i < 30; i++ {
+		err = db.PingContext(ctx)
+		if err == nil {
+			return
+		}
+
+		time.Sleep(time.Second)
+	}
+
+	t.Fatalf("failed to ping db: %v", err)
 }
