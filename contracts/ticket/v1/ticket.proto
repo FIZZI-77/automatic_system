@@ -1,0 +1,261 @@
+syntax = "proto3";
+
+package ticket.v1;
+
+option go_package = "github.com/FIZZI-77/automatic_system/contracts/gen/go/ticket/v1;ticketv1";
+
+import "google/protobuf/timestamp.proto";
+
+service TicketService {
+  rpc CreateTicket(CreateTicketRequest) returns (CreateTicketResponse);
+  rpc GetTicket(GetTicketRequest) returns (GetTicketResponse);
+  rpc ListTickets(ListTicketsRequest) returns (ListTicketsResponse);
+  rpc UpdateTicket(UpdateTicketRequest) returns (UpdateTicketResponse);
+  rpc ChangeTicketStatus(ChangeTicketStatusRequest) returns (ChangeTicketStatusResponse);
+  rpc AssignBrigade(AssignBrigadeRequest) returns (AssignBrigadeResponse);
+  rpc CancelTicket(CancelTicketRequest) returns (CancelTicketResponse);
+  rpc CompleteTicket(CompleteTicketRequest) returns (CompleteTicketResponse);
+  rpc GetTicketStatusHistory(GetTicketStatusHistoryRequest) returns (GetTicketStatusHistoryResponse);
+
+  rpc CreateCategory(CreateCategoryRequest) returns (CreateCategoryResponse);
+  rpc GetCategory(GetCategoryRequest) returns (GetCategoryResponse);
+  rpc ListCategories(ListCategoriesRequest) returns (ListCategoriesResponse);
+  rpc UpdateCategory(UpdateCategoryRequest) returns (UpdateCategoryResponse);
+  rpc DeleteCategory(DeleteCategoryRequest) returns (DeleteCategoryResponse);
+}
+
+
+enum TicketStatus {
+  TICKET_STATUS_UNSPECIFIED = 0;
+  TICKET_STATUS_NEW = 1;
+  TICKET_STATUS_ASSIGNED = 2;
+  TICKET_STATUS_IN_PROGRESS = 3;
+  TICKET_STATUS_DONE = 4;
+  TICKET_STATUS_CANCELED = 5;
+}
+
+enum TicketPriority {
+  TICKET_PRIORITY_UNSPECIFIED = 0;
+  TICKET_PRIORITY_LOW = 1;
+  TICKET_PRIORITY_MEDIUM = 2;
+  TICKET_PRIORITY_HIGH = 3;
+  TICKET_PRIORITY_EMERGENCY = 4;
+}
+
+
+message Ticket {
+  string id = 1;
+
+  string department_id = 2;
+  string category_id = 3;
+
+  string user_id = 4;
+  string brigade_id = 5;
+
+  string title = 6;
+  string description = 7;
+
+  TicketStatus status = 8;
+  TicketPriority priority = 9;
+
+  string address = 10;
+  double latitude = 11;
+  double longitude = 12;
+
+  google.protobuf.Timestamp created_at = 13;
+  google.protobuf.Timestamp updated_at = 14;
+
+  google.protobuf.Timestamp assigned_at = 15;
+  google.protobuf.Timestamp completed_at = 16;
+  google.protobuf.Timestamp canceled_at = 17;
+}
+
+message TicketCategory {
+  string id = 1;
+  string code = 2;
+  string name = 3;
+  string description = 4;
+  bool is_active = 5;
+
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+message TicketStatusHistory {
+  string id = 1;
+  string ticket_id = 2;
+
+  TicketStatus old_status = 3;
+  TicketStatus new_status = 4;
+
+  string changed_by = 5;
+  string comment = 6;
+
+  google.protobuf.Timestamp created_at = 7;
+}
+
+message CreateTicketRequest {
+  string department_id = 1;
+  string category_id = 2;
+  string user_id = 3;
+  string title = 4;
+  string description = 5;
+
+  TicketPriority priority = 6;
+
+  string address = 7;
+  double latitude = 8;
+  double longitude = 9;
+}
+
+message CreateTicketResponse {
+  Ticket ticket = 1;
+}
+
+message GetTicketRequest {
+  string ticket_id = 1;
+}
+
+message GetTicketResponse {
+  Ticket ticket = 1;
+}
+
+message ListTicketsRequest {
+  string department_id = 1;
+  string user_id = 2;
+  string brigade_id = 3;
+  string category_id = 4;
+
+  TicketStatus status = 5;
+  TicketPriority priority = 6;
+
+  google.protobuf.Timestamp created_from = 7;
+  google.protobuf.Timestamp created_to = 8;
+
+  int32 limit = 9;
+  int32 offset = 10;
+}
+
+message ListTicketsResponse {
+  repeated Ticket tickets = 1;
+  int64 total = 2;
+}
+
+message UpdateTicketRequest {
+  string ticket_id = 1;
+  string title = 2;
+  string description = 3;
+  string category_id = 4;
+  TicketPriority priority = 5;
+
+  string address = 6;
+  optional double latitude = 7;
+  optional double longitude = 8;
+  string updated_by = 9;
+}
+
+message UpdateTicketResponse {
+  Ticket ticket = 1;
+}
+
+message ChangeTicketStatusRequest {
+  string ticket_id = 1;
+  TicketStatus new_status = 2;
+  string changed_by = 3;
+  string comment = 4;
+}
+
+message ChangeTicketStatusResponse {
+  Ticket ticket = 1;
+}
+
+message AssignBrigadeRequest {
+  string ticket_id = 1;
+  string brigade_id = 2;
+  string assigned_by = 3;
+  string comment = 4;
+}
+
+message AssignBrigadeResponse {
+  Ticket ticket = 1;
+}
+
+message CancelTicketRequest {
+  string ticket_id = 1;
+  string canceled_by = 2;
+  string reason = 3;
+}
+
+message CancelTicketResponse {
+  Ticket ticket = 1;
+}
+
+message CompleteTicketRequest {
+  string ticket_id = 1;
+  string completed_by = 2;
+  string comment = 3;
+}
+
+message CompleteTicketResponse {
+  Ticket ticket = 1;
+}
+
+message GetTicketStatusHistoryRequest {
+  string ticket_id = 1;
+
+  int32 limit = 2;
+  int32 offset = 3;
+}
+
+message GetTicketStatusHistoryResponse {
+  repeated TicketStatusHistory history = 1;
+  int64 total = 2;
+}
+
+message CreateCategoryRequest {
+  string code = 1;
+  string name = 2;
+  string description = 3;
+}
+
+message CreateCategoryResponse {
+  TicketCategory category = 1;
+}
+
+message GetCategoryRequest {
+  string category_id = 1;
+}
+
+message GetCategoryResponse {
+  TicketCategory category = 1;
+}
+
+message ListCategoriesRequest {
+  bool only_active = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+}
+
+message ListCategoriesResponse {
+  repeated TicketCategory categories = 1;
+  int64 total = 2;
+}
+
+message UpdateCategoryRequest {
+  string category_id = 1;
+  string name = 2;
+  string description = 3;
+  bool is_active = 4;
+}
+
+message UpdateCategoryResponse {
+  TicketCategory category = 1;
+}
+
+message DeleteCategoryRequest {
+  string category_id = 1;
+}
+
+message DeleteCategoryResponse {
+  TicketCategory category = 1;
+}
