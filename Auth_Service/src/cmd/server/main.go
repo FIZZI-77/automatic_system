@@ -59,7 +59,7 @@ func main() {
 		log.Fatal("JWT_KEY_ID is empty")
 	}
 
-	lis, err := net.Listen("tcp", ":8080")
+	lis, err := net.Listen("tcp", ":50051")
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
