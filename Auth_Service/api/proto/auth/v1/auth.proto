@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package auth.v1;
 
-option go_package = "AutomaticCityServices/Auth_Service/gen/go/auth/v1;authv1";
+option go_package = "github.com/local/AutomaticCityServices/contracts";
 
 service AuthService {
   rpc Register(RegisterRequest) returns (RegisterResponse);

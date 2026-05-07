@@ -54,7 +54,6 @@ func isEmailValid(email string) bool {
 		return false
 	}
 
-	// ParseAddress допускает display name, а нам нужен именно голый email.
 	return addr.Address == email
 }
 

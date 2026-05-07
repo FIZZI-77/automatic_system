@@ -1,0 +1,97 @@
+version: "3.9"
+
+services:
+  api-gateway:
+    build:
+      context: .
+      dockerfile: API_Gateway/Dockerfile
+    container_name: api-gateway
+    ports:
+      - "8081:8081"
+    environment:
+      GATEWAY_ADDR: ":8081"
+      AUTH_SERVICE_ADDR: "auth-service:50051"
+      JWT_PUBLIC_KEY_PATH: "/app/keys/public.pem"
+      JWT_ISSUER: "auth-jwt"
+      JWT_AUDIENCE: "api-gateway"
+    volumes:
+      - ./API_Gateway/keys/public.pem:/app/keys/public.pem:ro
+    depends_on:
+      - auth-service
+    restart: unless-stopped
+
+  auth-service:
+    build:
+      context: ./Auth_Service
+      dockerfile: Dockerfile
+    container_name: auth-service
+    ports:
+      - "50051:50051"
+    env_file:
+      - ./Auth_Service/.env
+    environment:
+      GRPC_ADDR: ":50051"
+      DB_HOST: "postgres"
+      DB_PORT: "5432"
+      SMTP_HOST: "mailhog"
+      SMTP_PORT: "1025"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
+    volumes:
+      - ./Auth_Service/keys:/app/keys:ro
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16
+    container_name: auth-postgres
+    env_file:
+      - ./Auth_Service/.env
+    environment:
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "${DB_PORT}:5432"
+    volumes:
+      - postgres_auth_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: auth-mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    restart: unless-stopped
+
+  migrator:
+    build:
+      context: ./Auth_Service/migrator
+      dockerfile: Dockerfile
+    container_name: auth-migrator
+    env_file:
+      - ./Auth_Service/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./Auth_Service/scheme:/migrations
+    environment:
+      GOOSE_DRIVER: postgres
+      GOOSE_DBSTRING: postgres://${DB_USERNAME}:${DB_PASSWORD}@postgres:5432/${DB_NAME}?sslmode=${SSLMODE}
+    command: >
+      sh -c "
+        echo 'Running migrations...' &&
+        goose -dir /migrations up
+      "
+
+volumes:
+  postgres_auth_data:

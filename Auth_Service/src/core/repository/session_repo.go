@@ -88,7 +88,7 @@ func (s *SessionRepoStruct) GetSessionByUserID(ctx context.Context, userID uuid.
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logrus.Errorf("session_repo: GetByUserID(): rows.Close(): %w", err)
+			logrus.Errorf("session_repo: GetByUserID(): rows.Close(): %v", err)
 		}
 	}(rows)
 

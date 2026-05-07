@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/rsa"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 type AuthService interface {
@@ -33,8 +34,8 @@ type Service struct {
 	MailService
 }
 
-func NewAuthService(repo *repository.Repo, privateKey *rsa.PrivateKey, keyID string, mailService MailService) *Service {
+func NewAuthService(repo *repository.Repo, privateKey *rsa.PrivateKey, keyID string, mailService MailService, logger *zap.Logger) *Service {
 	return &Service{
-		AuthService: NewAuthServiceStruct(repo, privateKey, keyID, mailService),
+		AuthService: NewAuthServiceStruct(repo, privateKey, keyID, mailService, logger),
 	}
 }
