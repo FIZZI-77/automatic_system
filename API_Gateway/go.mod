@@ -3,10 +3,9 @@ module gateway
 go 1.25.9
 
 require (
-	auth v0.0.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
-	google.golang.org/grpc v1.80.0
+	google.golang.org/grpc v1.81.0
 )
 
 require (
