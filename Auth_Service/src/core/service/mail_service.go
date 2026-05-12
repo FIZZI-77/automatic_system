@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"go.uber.org/zap"
 	"mime"
 	"net"
 	"net/smtp"
@@ -29,11 +28,10 @@ type SMTPMailConfig struct {
 }
 
 type SMTPMailService struct {
-	cfg    SMTPMailConfig
-	logger *zap.Logger
+	cfg SMTPMailConfig
 }
 
-func NewSMTPMailService(cfg SMTPMailConfig, logger *zap.Logger) (*SMTPMailService, error) {
+func NewSMTPMailService(cfg SMTPMailConfig) (*SMTPMailService, error) {
 	if cfg.Host == "" {
 		return nil, fmt.Errorf("mail_service: host is empty")
 	}
@@ -50,18 +48,14 @@ func NewSMTPMailService(cfg SMTPMailConfig, logger *zap.Logger) (*SMTPMailServic
 		cfg.Timeout = 10 * time.Second
 	}
 
-	return &SMTPMailService{cfg: cfg, logger: logger}, nil
+	return &SMTPMailService{cfg: cfg}, nil
 }
 
 func (s *SMTPMailService) SendVerificationEmail(ctx context.Context, toEmail string, token string) error {
-
-	s.logger.Info("send verification email")
-
 	verifyURL, err := s.buildURL("/verify-email", map[string]string{
 		"token": token,
 	})
 	if err != nil {
-		s.logger.Error("build verification email url", zap.Error(err))
 		return fmt.Errorf("mail_service: SendVerificationEmail(): build url: %w", err)
 	}
 
@@ -88,20 +82,14 @@ func (s *SMTPMailService) SendVerificationEmail(ctx context.Context, toEmail str
 </body>
 </html>`, verifyURL, verifyURL)
 
-	s.logger.Info("send verification email successfully")
-
 	return s.send(ctx, []string{toEmail}, subject, textBody, htmlBody)
 }
 
 func (s *SMTPMailService) SendPasswordResetEmail(ctx context.Context, toEmail string, token string) error {
-
-	s.logger.Info("send password reset email")
-
 	resetURL, err := s.buildURL("/reset-password", map[string]string{
 		"token": token,
 	})
 	if err != nil {
-		s.logger.Error("build reset password email url", zap.Error(err))
 		return fmt.Errorf("mail_service: SendPasswordResetEmail(): build url: %w", err)
 	}
 
@@ -128,18 +116,12 @@ func (s *SMTPMailService) SendPasswordResetEmail(ctx context.Context, toEmail st
 </body>
 </html>`, resetURL, resetURL)
 
-	s.logger.Info("send password reset email successfully")
-
 	return s.send(ctx, []string{toEmail}, subject, textBody, htmlBody)
 }
 
 func (s *SMTPMailService) buildURL(path string, params map[string]string) (string, error) {
-
-	s.logger.Info("build url", zap.String("path", path))
-
 	base, err := url.Parse(strings.TrimRight(s.cfg.FrontendBaseURL, "/"))
 	if err != nil {
-		s.logger.Error("build url", zap.Error(err))
 		return "", fmt.Errorf("invalid frontend base url: %w", err)
 	}
 
@@ -151,8 +133,6 @@ func (s *SMTPMailService) buildURL(path string, params map[string]string) (strin
 	}
 	base.RawQuery = q.Encode()
 
-	s.logger.Info("build url successfully", zap.String("base", base.String()))
-
 	return base.String(), nil
 }
 
@@ -163,8 +143,6 @@ func (s *SMTPMailService) send(
 	textBody string,
 	htmlBody string,
 ) error {
-	s.logger.Info("send email")
-
 	msg, err := s.buildMessage(to, subject, textBody, htmlBody)
 	if err != nil {
 		return fmt.Errorf("mail_service: send(): build message: %w", err)
@@ -173,8 +151,6 @@ func (s *SMTPMailService) send(
 	if err := s.sendSMTP(ctx, to, msg); err != nil {
 		return fmt.Errorf("mail_service: send(): smtp send failed: %w", err)
 	}
-
-	s.logger.Info("send email successfully")
 
 	return nil
 }
@@ -185,7 +161,6 @@ func (s *SMTPMailService) buildMessage(
 	textBody string,
 	htmlBody string,
 ) ([]byte, error) {
-
 	boundary := fmt.Sprintf("mixed_%d", time.Now().UnixNano())
 
 	fromHeader := s.cfg.FromEmail
@@ -224,9 +199,6 @@ func (s *SMTPMailService) buildMessage(
 }
 
 func (s *SMTPMailService) sendSMTP(ctx context.Context, to []string, msg []byte) error {
-
-	s.logger.Info(" sendSMTP")
-
 	addr := fmt.Sprintf("%s:%d", s.cfg.Host, s.cfg.Port)
 
 	dialer := &net.Dialer{
@@ -244,13 +216,11 @@ func (s *SMTPMailService) sendSMTP(ctx context.Context, to []string, msg []byte)
 
 		conn, err = tls.DialWithDialer(dialer, "tcp", addr, tlsConfig)
 		if err != nil {
-			s.logger.Warn("smtp send failed", zap.Error(err))
 			return fmt.Errorf("tls dial: %w", err)
 		}
 	} else {
 		conn, err = dialer.DialContext(ctx, "tcp", addr)
 		if err != nil {
-			s.logger.Warn("smtp send failed", zap.Error(err))
 			return fmt.Errorf("dial: %w", err)
 		}
 	}
@@ -258,7 +228,6 @@ func (s *SMTPMailService) sendSMTP(ctx context.Context, to []string, msg []byte)
 	client, err := smtp.NewClient(conn, s.cfg.Host)
 	if err != nil {
 		_ = conn.Close()
-		s.logger.Warn("smtp send failed", zap.Error(err))
 		return fmt.Errorf("new smtp client: %w", err)
 	}
 	defer func() {
@@ -268,7 +237,6 @@ func (s *SMTPMailService) sendSMTP(ctx context.Context, to []string, msg []byte)
 	if !s.cfg.UseTLS && s.cfg.UseStartTLS {
 		ok, _ := client.Extension("STARTTLS")
 		if !ok {
-			s.logger.Warn("smtp send failed: no STARTTLS")
 			return errors.New("smtp server does not support STARTTLS")
 		}
 
@@ -277,51 +245,43 @@ func (s *SMTPMailService) sendSMTP(ctx context.Context, to []string, msg []byte)
 			InsecureSkipVerify: s.cfg.InsecureSkipVerify,
 		}
 
-		if err = client.StartTLS(tlsConfig); err != nil {
-			s.logger.Warn("smtp send failed", zap.Error(err))
+		if err := client.StartTLS(tlsConfig); err != nil {
 			return fmt.Errorf("starttls: %w", err)
 		}
 	}
 
 	if s.cfg.Username != "" {
 		auth := smtp.PlainAuth("", s.cfg.Username, s.cfg.Password, s.cfg.Host)
-		if err = client.Auth(auth); err != nil {
-			s.logger.Warn("smtp send failed", zap.Error(err))
+		if err := client.Auth(auth); err != nil {
 			return fmt.Errorf("smtp auth: %w", err)
 		}
 	}
 
-	if err = client.Mail(s.cfg.FromEmail); err != nil {
-		s.logger.Warn("smtp send failed", zap.Error(err))
+	if err := client.Mail(s.cfg.FromEmail); err != nil {
 		return fmt.Errorf("smtp mail from: %w", err)
 	}
 
 	for _, recipient := range to {
-		if err = client.Rcpt(recipient); err != nil {
-			s.logger.Warn("smtp send failed", zap.Error(err))
+		if err := client.Rcpt(recipient); err != nil {
 			return fmt.Errorf("smtp rcpt to %s: %w", recipient, err)
 		}
 	}
 
 	w, err := client.Data()
 	if err != nil {
-		s.logger.Warn("smtp send failed", zap.Error(err))
 		return fmt.Errorf("smtp data: %w", err)
 	}
 
-	if _, err = w.Write(msg); err != nil {
+	if _, err := w.Write(msg); err != nil {
 		_ = w.Close()
-		s.logger.Warn("smtp send failed", zap.Error(err))
 		return fmt.Errorf("smtp write message: %w", err)
 	}
 
-	if err = w.Close(); err != nil {
-		s.logger.Warn("smtp send failed", zap.Error(err))
+	if err := w.Close(); err != nil {
 		return fmt.Errorf("smtp close writer: %w", err)
 	}
 
-	if err = client.Quit(); err != nil {
-		s.logger.Warn("smtp send failed", zap.Error(err))
+	if err := client.Quit(); err != nil {
 		return fmt.Errorf("smtp quit: %w", err)
 	}
 

@@ -1,10 +1,10 @@
 package handler
 
 import (
-	authv1 "auth/auth/v1"
 	"auth/models"
 	"auth/src/core/service"
 	"context"
+	v1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/auth/v1"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -13,7 +13,7 @@ import (
 )
 
 type AuthHandler struct {
-	authv1.UnimplementedAuthServiceServer
+	v1.UnimplementedAuthServiceServer
 	service *service.Service
 	logger  *zap.Logger
 }
@@ -25,7 +25,7 @@ func NewAuthHandler(ser *service.Service, logger *zap.Logger) *AuthHandler {
 	}
 }
 
-func (h *AuthHandler) Register(ctx context.Context, req *authv1.RegisterRequest) (*authv1.RegisterResponse, error) {
+func (h *AuthHandler) Register(ctx context.Context, req *v1.RegisterRequest) (*v1.RegisterResponse, error) {
 
 	start := time.Now()
 
@@ -59,7 +59,7 @@ func (h *AuthHandler) Register(ctx context.Context, req *authv1.RegisterRequest)
 		zap.String("email", result.Email),
 	)
 
-	registerResponse := &authv1.RegisterResponse{
+	registerResponse := &v1.RegisterResponse{
 		UserId:        result.UserID,
 		Email:         result.Email,
 		EmailVerified: result.EmailVerified,
@@ -68,7 +68,7 @@ func (h *AuthHandler) Register(ctx context.Context, req *authv1.RegisterRequest)
 	return registerResponse, nil
 
 }
-func (h *AuthHandler) Login(ctx context.Context, request *authv1.LoginRequest) (*authv1.LoginResponse, error) {
+func (h *AuthHandler) Login(ctx context.Context, request *v1.LoginRequest) (*v1.LoginResponse, error) {
 
 	start := time.Now()
 
@@ -100,7 +100,7 @@ func (h *AuthHandler) Login(ctx context.Context, request *authv1.LoginRequest) (
 		return nil, status.Errorf(codes.Internal, "failed Login: %v", err)
 	}
 
-	loginResponse := &authv1.LoginResponse{
+	loginResponse := &v1.LoginResponse{
 		AccessToken:          result.AccessToken,
 		RefreshToken:         result.RefreshToken,
 		AccessExpiresAtUnix:  result.AccessExpiresAtUnix,
@@ -119,7 +119,7 @@ func (h *AuthHandler) Login(ctx context.Context, request *authv1.LoginRequest) (
 	return loginResponse, nil
 }
 
-func (h *AuthHandler) Logout(ctx context.Context, request *authv1.LogoutRequest) (*authv1.LogoutResponse, error) {
+func (h *AuthHandler) Logout(ctx context.Context, request *v1.LogoutRequest) (*v1.LogoutResponse, error) {
 
 	start := time.Now()
 
@@ -167,14 +167,14 @@ func (h *AuthHandler) Logout(ctx context.Context, request *authv1.LogoutRequest)
 		zap.Duration("duration", time.Since(start)),
 	)
 
-	logoutResponse := &authv1.LogoutResponse{
+	logoutResponse := &v1.LogoutResponse{
 		Success: true,
 	}
 
 	return logoutResponse, nil
 }
 
-func (h *AuthHandler) Refresh(ctx context.Context, request *authv1.RefreshRequest) (*authv1.RefreshResponse, error) {
+func (h *AuthHandler) Refresh(ctx context.Context, request *v1.RefreshRequest) (*v1.RefreshResponse, error) {
 	start := time.Now()
 
 	h.logger.Info("gRPC request received",
@@ -208,7 +208,7 @@ func (h *AuthHandler) Refresh(ctx context.Context, request *authv1.RefreshReques
 		zap.Duration("duration", time.Since(start)),
 	)
 
-	refreshResponse := &authv1.RefreshResponse{
+	refreshResponse := &v1.RefreshResponse{
 		AccessToken:          result.AccessToken,
 		RefreshToken:         result.RefreshToken,
 		AccessExpiresAtUnix:  result.AccessExpiresAtUnix,
@@ -220,7 +220,7 @@ func (h *AuthHandler) Refresh(ctx context.Context, request *authv1.RefreshReques
 	return refreshResponse, nil
 }
 
-func (h *AuthHandler) LogoutAll(ctx context.Context, request *authv1.LogoutAllRequest) (*authv1.LogoutAllResponse, error) {
+func (h *AuthHandler) LogoutAll(ctx context.Context, request *v1.LogoutAllRequest) (*v1.LogoutAllResponse, error) {
 
 	start := time.Now()
 
@@ -254,7 +254,7 @@ func (h *AuthHandler) LogoutAll(ctx context.Context, request *authv1.LogoutAllRe
 		return nil, status.Errorf(codes.Internal, "failed LogoutAll: %v", err)
 	}
 
-	logoutResponse := &authv1.LogoutAllResponse{
+	logoutResponse := &v1.LogoutAllResponse{
 		Success:      true,
 		RevokedCount: result,
 	}
@@ -269,7 +269,7 @@ func (h *AuthHandler) LogoutAll(ctx context.Context, request *authv1.LogoutAllRe
 	return logoutResponse, nil
 }
 
-func (h *AuthHandler) GetUserAuthInfo(ctx context.Context, request *authv1.GetUserAuthInfoRequest) (*authv1.GetUserAuthInfoResponse, error) {
+func (h *AuthHandler) GetUserAuthInfo(ctx context.Context, request *v1.GetUserAuthInfoRequest) (*v1.GetUserAuthInfoResponse, error) {
 	start := time.Now()
 
 	h.logger.Info("gRPC request received",
@@ -308,7 +308,7 @@ func (h *AuthHandler) GetUserAuthInfo(ctx context.Context, request *authv1.GetUs
 		zap.Duration("duration", time.Since(start)),
 	)
 
-	userAuthInfo := &authv1.GetUserAuthInfoResponse{
+	userAuthInfo := &v1.GetUserAuthInfoResponse{
 		UserId:        user.UserID.String(),
 		Email:         user.Email,
 		Roles:         user.Roles,
@@ -320,7 +320,7 @@ func (h *AuthHandler) GetUserAuthInfo(ctx context.Context, request *authv1.GetUs
 	return userAuthInfo, nil
 }
 
-func (h *AuthHandler) GetJWKS(ctx context.Context, _ *authv1.GetJWKSRequest) (*authv1.GetJWKSResponse, error) {
+func (h *AuthHandler) GetJWKS(ctx context.Context, _ *v1.GetJWKSRequest) (*v1.GetJWKSResponse, error) {
 	start := time.Now()
 
 	h.logger.Info("gRPC request received",
@@ -344,13 +344,13 @@ func (h *AuthHandler) GetJWKS(ctx context.Context, _ *authv1.GetJWKSRequest) (*a
 		zap.Duration("duration", time.Since(start)),
 	)
 
-	jWKSResponse := &authv1.GetJWKSResponse{
+	jWKSResponse := &v1.GetJWKSResponse{
 		JwksJson: jwk,
 	}
 	return jWKSResponse, nil
 }
 
-func (h *AuthHandler) ChangePassword(ctx context.Context, request *authv1.ChangePasswordRequest) (*authv1.ChangePasswordResponse, error) {
+func (h *AuthHandler) ChangePassword(ctx context.Context, request *v1.ChangePasswordRequest) (*v1.ChangePasswordResponse, error) {
 	start := time.Now()
 
 	h.logger.Info("gRPC request received",
@@ -406,7 +406,7 @@ func (h *AuthHandler) ChangePassword(ctx context.Context, request *authv1.Change
 		zap.Duration("duration", time.Since(start)),
 	)
 
-	response := &authv1.ChangePasswordResponse{
+	response := &v1.ChangePasswordResponse{
 		Success:                  out.Success,
 		InvalidatedSessionsCount: uint32(out.InvalidatedSessionsCount),
 	}
@@ -414,7 +414,7 @@ func (h *AuthHandler) ChangePassword(ctx context.Context, request *authv1.Change
 	return response, nil
 }
 
-func (h *AuthHandler) SendVerificationEmail(ctx context.Context, request *authv1.SendVerificationEmailRequest) (*authv1.SendVerificationEmailResponse, error) {
+func (h *AuthHandler) SendVerificationEmail(ctx context.Context, request *v1.SendVerificationEmailRequest) (*v1.SendVerificationEmailResponse, error) {
 	start := time.Now()
 
 	h.logger.Info("gRPC request received",
@@ -458,14 +458,14 @@ func (h *AuthHandler) SendVerificationEmail(ctx context.Context, request *authv1
 		zap.Duration("duration", time.Since(start)),
 	)
 
-	response := &authv1.SendVerificationEmailResponse{
+	response := &v1.SendVerificationEmailResponse{
 		Success:       out.Success,
 		ExpiresAtUnix: out.ExpiresAtUnix,
 	}
 	return response, nil
 }
 
-func (h *AuthHandler) VerifyEmail(ctx context.Context, request *authv1.VerifyEmailRequest) (*authv1.VerifyEmailResponse, error) {
+func (h *AuthHandler) VerifyEmail(ctx context.Context, request *v1.VerifyEmailRequest) (*v1.VerifyEmailResponse, error) {
 	start := time.Now()
 
 	h.logger.Info("gRPC request received",
@@ -495,7 +495,7 @@ func (h *AuthHandler) VerifyEmail(ctx context.Context, request *authv1.VerifyEma
 		zap.Duration("duration", time.Since(start)),
 	)
 
-	response := &authv1.VerifyEmailResponse{
+	response := &v1.VerifyEmailResponse{
 		Success:       out.Success,
 		UserId:        out.UserID.String(),
 		Email:         out.Email,
@@ -506,7 +506,7 @@ func (h *AuthHandler) VerifyEmail(ctx context.Context, request *authv1.VerifyEma
 	return response, nil
 }
 
-func (h *AuthHandler) RequestPasswordReset(ctx context.Context, request *authv1.RequestPasswordResetRequest) (*authv1.RequestPasswordResetResponse, error) {
+func (h *AuthHandler) RequestPasswordReset(ctx context.Context, request *v1.RequestPasswordResetRequest) (*v1.RequestPasswordResetResponse, error) {
 	start := time.Now()
 
 	h.logger.Info("gRPC request received",
@@ -537,7 +537,7 @@ func (h *AuthHandler) RequestPasswordReset(ctx context.Context, request *authv1.
 		zap.Duration("duration", time.Since(start)),
 	)
 
-	response := &authv1.RequestPasswordResetResponse{
+	response := &v1.RequestPasswordResetResponse{
 		Success:       out.Success,
 		ExpiresAtUnix: out.ExpiresAtUnix,
 	}
@@ -545,7 +545,7 @@ func (h *AuthHandler) RequestPasswordReset(ctx context.Context, request *authv1.
 	return response, nil
 }
 
-func (h *AuthHandler) ResetPassword(ctx context.Context, request *authv1.ResetPasswordRequest) (*authv1.ResetPasswordResponse, error) {
+func (h *AuthHandler) ResetPassword(ctx context.Context, request *v1.ResetPasswordRequest) (*v1.ResetPasswordResponse, error) {
 	start := time.Now()
 
 	h.logger.Info("gRPC request received",
@@ -574,7 +574,7 @@ func (h *AuthHandler) ResetPassword(ctx context.Context, request *authv1.ResetPa
 		zap.Duration("duration", time.Since(start)),
 	)
 
-	response := &authv1.ResetPasswordResponse{
+	response := &v1.ResetPasswordResponse{
 		Success:                  out.Success,
 		InvalidatedSessionsCount: uint32(out.InvalidatedSessionsCount),
 	}

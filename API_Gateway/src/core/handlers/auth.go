@@ -1,19 +1,19 @@
 package handlers
 
 import (
-	authv1 "auth/auth/v1"
 	"context"
 	"gateway/models"
+	v1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/auth/v1"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"time"
 )
 
 type AuthHandler struct {
-	authClient authv1.AuthServiceClient
+	authClient v1.AuthServiceClient
 }
 
-func NewAuthHandler(authClient authv1.AuthServiceClient) *AuthHandler {
+func NewAuthHandler(authClient v1.AuthServiceClient) *AuthHandler {
 	return &AuthHandler{authClient: authClient}
 }
 
@@ -31,7 +31,7 @@ func (ah *AuthHandler) Login(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
-	res, err := ah.authClient.Login(ctx, &authv1.LoginRequest{
+	res, err := ah.authClient.Login(ctx, &v1.LoginRequest{
 		Email:     req.Email,
 		Password:  req.Password,
 		ClientId:  req.ClientID,
@@ -59,7 +59,7 @@ func (ah *AuthHandler) Logout(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
-	res, err := ah.authClient.Logout(ctx, &authv1.LogoutRequest{
+	res, err := ah.authClient.Logout(ctx, &v1.LogoutRequest{
 		UserId:    c.GetString("user_id"),
 		SessionId: c.GetString("session_id"),
 	})
@@ -80,7 +80,7 @@ func (ah *AuthHandler) LogoutAll(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
-	res, err := ah.authClient.LogoutAll(ctx, &authv1.LogoutAllRequest{
+	res, err := ah.authClient.LogoutAll(ctx, &v1.LogoutAllRequest{
 		UserId: c.GetString("user_id"),
 	})
 	if err != nil {
@@ -108,7 +108,7 @@ func (ah *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	res, err := ah.authClient.Register(ctx, &authv1.RegisterRequest{
+	res, err := ah.authClient.Register(ctx, &v1.RegisterRequest{
 		Email:    req.Email,
 		Password: req.Password,
 		Username: req.Username,
@@ -139,7 +139,7 @@ func (ah *AuthHandler) Refresh(c *gin.Context) {
 		})
 		return
 	}
-	res, err := ah.authClient.Refresh(ctx, &authv1.RefreshRequest{
+	res, err := ah.authClient.Refresh(ctx, &v1.RefreshRequest{
 		RefreshToken: req.RefreshToken,
 		ClientId:     req.ClientID,
 		Ip:           c.ClientIP(),
@@ -166,7 +166,7 @@ func (ah *AuthHandler) GetUserAuthInfo(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
-	res, err := ah.authClient.GetUserAuthInfo(ctx, &authv1.GetUserAuthInfoRequest{
+	res, err := ah.authClient.GetUserAuthInfo(ctx, &v1.GetUserAuthInfoRequest{
 		UserId: c.GetString("user_id"),
 	})
 
@@ -191,7 +191,7 @@ func (ah *AuthHandler) GetJWKS(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
-	res, err := ah.authClient.GetJWKS(ctx, &authv1.GetJWKSRequest{})
+	res, err := ah.authClient.GetJWKS(ctx, &v1.GetJWKSRequest{})
 
 	if err != nil {
 		handleGRPCError(c, err)
@@ -217,7 +217,7 @@ func (ah *AuthHandler) ChangePassword(c *gin.Context) {
 		return
 	}
 
-	res, err := ah.authClient.ChangePassword(ctx, &authv1.ChangePasswordRequest{
+	res, err := ah.authClient.ChangePassword(ctx, &v1.ChangePasswordRequest{
 		UserId:              c.GetString("user_id"),
 		OldPassword:         req.OldPassword,
 		NewPassword:         req.NewPassword,
@@ -257,7 +257,7 @@ func (ah *AuthHandler) SendVerificationEmail(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
-	res, err := ah.authClient.SendVerificationEmail(ctx, &authv1.SendVerificationEmailRequest{
+	res, err := ah.authClient.SendVerificationEmail(ctx, &v1.SendVerificationEmailRequest{
 		UserId: userID,
 		Email:  req.Email,
 	})
@@ -284,7 +284,7 @@ func (ah *AuthHandler) VerifyEmail(c *gin.Context) {
 		return
 	}
 
-	res, err := ah.authClient.VerifyEmail(ctx, &authv1.VerifyEmailRequest{
+	res, err := ah.authClient.VerifyEmail(ctx, &v1.VerifyEmailRequest{
 		Token: req.Token,
 	})
 
@@ -316,7 +316,7 @@ func (ah *AuthHandler) RequestPasswordReset(c *gin.Context) {
 		return
 	}
 
-	res, err := ah.authClient.RequestPasswordReset(ctx, &authv1.RequestPasswordResetRequest{
+	res, err := ah.authClient.RequestPasswordReset(ctx, &v1.RequestPasswordResetRequest{
 		Email: req.Email,
 	})
 
@@ -345,7 +345,7 @@ func (ah *AuthHandler) ResetPassword(c *gin.Context) {
 		return
 	}
 
-	res, err := ah.authClient.ResetPassword(ctx, &authv1.ResetPasswordRequest{
+	res, err := ah.authClient.ResetPassword(ctx, &v1.ResetPasswordRequest{
 		Token:       req.Token,
 		NewPassword: req.NewPassword,
 	})
