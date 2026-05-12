@@ -46,6 +46,43 @@ func (p TicketPriority) IsValid() bool {
 	}
 }
 
+type TicketSortBy string
+
+const (
+	TicketSortByCreatedAt TicketSortBy = "created_at"
+	TicketSortByUpdatedAt TicketSortBy = "updated_at"
+	TicketSortByPriority  TicketSortBy = "priority"
+	TicketSortByStatus    TicketSortBy = "status"
+)
+
+func (s TicketSortBy) IsValid() bool {
+	switch s {
+	case TicketSortByCreatedAt,
+		TicketSortByUpdatedAt,
+		TicketSortByPriority,
+		TicketSortByStatus:
+		return true
+	default:
+		return false
+	}
+}
+
+type SortOrder string
+
+const (
+	SortOrderAsc  SortOrder = "asc"
+	SortOrderDesc SortOrder = "desc"
+)
+
+func (s SortOrder) IsValid() bool {
+	switch s {
+	case SortOrderAsc, SortOrderDesc:
+		return true
+	default:
+		return false
+	}
+}
+
 type Ticket struct {
 	ID           string `json:"id"`
 	DepartmentID string `json:"department_id"`
@@ -130,6 +167,9 @@ type ListTicketsInput struct {
 
 	CreatedFrom *time.Time
 	CreatedTo   *time.Time
+
+	SortBy    TicketSortBy
+	SortOrder SortOrder
 
 	Limit  int32
 	Offset int32
@@ -246,7 +286,7 @@ type UpdateCategoryInput struct {
 	CategoryID  string
 	Name        string
 	Description string
-	IsActive    bool
+	IsActive    *bool
 }
 
 type UpdateCategoryResult struct {
