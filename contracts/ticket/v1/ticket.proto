@@ -120,6 +120,20 @@ message GetTicketResponse {
   Ticket ticket = 1;
 }
 
+enum TicketSortBy {
+  TICKET_SORT_BY_UNSPECIFIED = 0;
+  TICKET_SORT_BY_CREATED_AT = 1;
+  TICKET_SORT_BY_UPDATED_AT = 2;
+  TICKET_SORT_BY_PRIORITY = 3;
+  TICKET_SORT_BY_STATUS = 4;
+}
+
+enum SortOrder {
+  SORT_ORDER_UNSPECIFIED = 0;
+  SORT_ORDER_ASC = 1;
+  SORT_ORDER_DESC = 2;
+}
+
 message ListTicketsRequest {
   string department_id = 1;
   string user_id = 2;
@@ -134,6 +148,9 @@ message ListTicketsRequest {
 
   int32 limit = 9;
   int32 offset = 10;
+
+  TicketSortBy sort_by = 11;
+  SortOrder sort_order = 12;
 }
 
 message ListTicketsResponse {

@@ -174,6 +174,22 @@ func (in *ListTicketsInput) Validate() error {
 		return errors.New("created_from must be before created_to")
 	}
 
+	if in.SortBy == "" {
+		in.SortBy = TicketSortByCreatedAt
+	}
+
+	if !in.SortBy.IsValid() {
+		return errors.New("sort_by is invalid")
+	}
+
+	if in.SortOrder == "" {
+		in.SortOrder = SortOrderDesc
+	}
+
+	if !in.SortOrder.IsValid() {
+		return errors.New("sort_order is invalid")
+	}
+
 	in.Limit, in.Offset = normalizeLimitOffset(in.Limit, in.Offset)
 
 	return nil
