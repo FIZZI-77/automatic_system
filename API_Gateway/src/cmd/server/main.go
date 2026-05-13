@@ -1,11 +1,11 @@
 package main
 
 import (
-	authv1 "auth/auth/v1"
 	"context"
 	"errors"
 	"gateway/src/core/handlers"
 	"gateway/src/core/middleware"
+	v1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/auth/v1"
 	"log"
 	"net/http"
 	"os"
@@ -30,7 +30,7 @@ func main() {
 		log.Fatalf("failed to connect to auth service: %v", err)
 	}
 
-	authClient := authv1.NewAuthServiceClient(authConn)
+	authClient := v1.NewAuthServiceClient(authConn)
 
 	authMiddleware, err := middleware.NewAuthMiddleware(
 		publicKeyPath,

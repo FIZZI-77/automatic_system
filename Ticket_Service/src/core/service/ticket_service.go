@@ -19,10 +19,7 @@ func NewTicketServiceStruct(repo *repository.Repository) *TicketServiceStruct {
 	}
 }
 
-func (s *TicketServiceStruct) CreateTicket(
-	ctx context.Context,
-	in models.CreateTicketInput,
-) (*models.CreateTicketResult, error) {
+func (s *TicketServiceStruct) CreateTicket(ctx context.Context, in *models.CreateTicketInput) (*models.CreateTicketResult, error) {
 	if err := in.Validate(); err != nil {
 		return nil, fmt.Errorf("service: CreateTicket(): validate: %w", err)
 	}
@@ -37,10 +34,7 @@ func (s *TicketServiceStruct) CreateTicket(
 	}, nil
 }
 
-func (s *TicketServiceStruct) GetTicket(
-	ctx context.Context,
-	in models.GetTicketInput,
-) (*models.GetTicketResult, error) {
+func (s *TicketServiceStruct) GetTicket(ctx context.Context, in *models.GetTicketInput) (*models.GetTicketResult, error) {
 	if err := in.Validate(); err != nil {
 		return nil, fmt.Errorf("service: GetTicket(): validate: %w", err)
 	}
@@ -55,10 +49,7 @@ func (s *TicketServiceStruct) GetTicket(
 	}, nil
 }
 
-func (s *TicketServiceStruct) ListTickets(
-	ctx context.Context,
-	in models.ListTicketsInput,
-) (*models.ListTicketsResult, error) {
+func (s *TicketServiceStruct) ListTickets(ctx context.Context, in *models.ListTicketsInput) (*models.ListTicketsResult, error) {
 	if err := in.Validate(); err != nil {
 		return nil, fmt.Errorf("service: ListTickets(): validate: %w", err)
 	}
@@ -74,10 +65,7 @@ func (s *TicketServiceStruct) ListTickets(
 	}, nil
 }
 
-func (s *TicketServiceStruct) UpdateTicket(
-	ctx context.Context,
-	in models.UpdateTicketInput,
-) (*models.UpdateTicketResult, error) {
+func (s *TicketServiceStruct) UpdateTicket(ctx context.Context, in *models.UpdateTicketInput) (*models.UpdateTicketResult, error) {
 	if err := in.Validate(); err != nil {
 		return nil, fmt.Errorf("service: UpdateTicket(): validate: %w", err)
 	}
@@ -92,10 +80,7 @@ func (s *TicketServiceStruct) UpdateTicket(
 	}, nil
 }
 
-func (s *TicketServiceStruct) ChangeTicketStatus(
-	ctx context.Context,
-	in models.ChangeTicketStatusInput,
-) (*models.ChangeTicketStatusResult, error) {
+func (s *TicketServiceStruct) ChangeTicketStatus(ctx context.Context, in *models.ChangeTicketStatusInput) (*models.ChangeTicketStatusResult, error) {
 	if err := in.Validate(); err != nil {
 		return nil, fmt.Errorf("service: ChangeTicketStatus(): validate: %w", err)
 	}
@@ -119,10 +104,7 @@ func (s *TicketServiceStruct) ChangeTicketStatus(
 	}, nil
 }
 
-func (s *TicketServiceStruct) AssignBrigade(
-	ctx context.Context,
-	in models.AssignBrigadeInput,
-) (*models.AssignBrigadeResult, error) {
+func (s *TicketServiceStruct) AssignBrigade(ctx context.Context, in *models.AssignBrigadeInput) (*models.AssignBrigadeResult, error) {
 	if err := in.Validate(); err != nil {
 		return nil, fmt.Errorf("service: AssignBrigade(): validate: %w", err)
 	}
@@ -146,10 +128,7 @@ func (s *TicketServiceStruct) AssignBrigade(
 	}, nil
 }
 
-func (s *TicketServiceStruct) CancelTicket(
-	ctx context.Context,
-	in models.CancelTicketInput,
-) (*models.CancelTicketResult, error) {
+func (s *TicketServiceStruct) CancelTicket(ctx context.Context, in *models.CancelTicketInput) (*models.CancelTicketResult, error) {
 	if err := in.Validate(); err != nil {
 		return nil, fmt.Errorf("service: CancelTicket(): validate: %w", err)
 	}
@@ -173,10 +152,7 @@ func (s *TicketServiceStruct) CancelTicket(
 	}, nil
 }
 
-func (s *TicketServiceStruct) CompleteTicket(
-	ctx context.Context,
-	in models.CompleteTicketInput,
-) (*models.CompleteTicketResult, error) {
+func (s *TicketServiceStruct) CompleteTicket(ctx context.Context, in *models.CompleteTicketInput) (*models.CompleteTicketResult, error) {
 	if err := in.Validate(); err != nil {
 		return nil, fmt.Errorf("service: CompleteTicket(): validate: %w", err)
 	}
@@ -200,10 +176,7 @@ func (s *TicketServiceStruct) CompleteTicket(
 	}, nil
 }
 
-func (s *TicketServiceStruct) GetTicketStatusHistory(
-	ctx context.Context,
-	in models.GetTicketStatusHistoryInput,
-) (*models.GetTicketStatusHistoryResult, error) {
+func (s *TicketServiceStruct) GetTicketStatusHistory(ctx context.Context, in *models.GetTicketStatusHistoryInput) (*models.GetTicketStatusHistoryResult, error) {
 	if err := in.Validate(); err != nil {
 		return nil, fmt.Errorf("service: GetTicketStatusHistory(): validate: %w", err)
 	}
