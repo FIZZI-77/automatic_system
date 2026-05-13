@@ -13,24 +13,20 @@ const (
 	MaxLimit     = int32(100)
 )
 
-func validateUUID(value string, field string) error {
-	if strings.TrimSpace(value) == "" {
+func validateUUID(value uuid.UUID, field string) error {
+	if value == uuid.Nil {
 		return fmt.Errorf("%s is required", field)
-	}
-
-	if _, err := uuid.Parse(value); err != nil {
-		return fmt.Errorf("%s must be valid uuid", field)
 	}
 
 	return nil
 }
 
-func validateOptionalUUID(value string, field string) error {
-	if strings.TrimSpace(value) == "" {
+func validateOptionalUUID(value *uuid.UUID, field string) error {
+	if value == nil {
 		return nil
 	}
 
-	if _, err := uuid.Parse(value); err != nil {
+	if *value == uuid.Nil {
 		return fmt.Errorf("%s must be valid uuid", field)
 	}
 
@@ -51,14 +47,18 @@ func validateText(value string, field string, maxLen int) error {
 	return nil
 }
 
-func validateOptionalText(value string, field string, maxLen int) error {
-	value = strings.TrimSpace(value)
-
-	if value == "" {
+func validateOptionalText(value *string, field string, maxLen int) error {
+	if value == nil {
 		return nil
 	}
 
-	if len(value) > maxLen {
+	trimmed := strings.TrimSpace(*value)
+
+	if trimmed == "" {
+		return fmt.Errorf("%s cannot be empty", field)
+	}
+
+	if len(trimmed) > maxLen {
 		return fmt.Errorf("%s must be less than %d characters", field, maxLen)
 	}
 
@@ -162,11 +162,11 @@ func (in *ListTicketsInput) Validate() error {
 		return err
 	}
 
-	if in.Status != "" && !in.Status.IsValid() {
+	if in.Status != nil && !in.Status.IsValid() {
 		return errors.New("status is invalid")
 	}
 
-	if in.Priority != "" && !in.Priority.IsValid() {
+	if in.Priority != nil && !in.Priority.IsValid() {
 		return errors.New("priority is invalid")
 	}
 
@@ -216,7 +216,7 @@ func (in *UpdateTicketInput) Validate() error {
 		return err
 	}
 
-	if in.Priority != "" && !in.Priority.IsValid() {
+	if in.Priority != nil && !in.Priority.IsValid() {
 		return errors.New("priority is invalid")
 	}
 
@@ -400,6 +400,10 @@ func (in *UpdateCategoryInput) Validate() error {
 
 	if err := validateOptionalText(in.Description, "description", 1000); err != nil {
 		return err
+	}
+
+	if in.Name == nil && in.Description == nil && in.IsActive == nil {
+		return errors.New("at least one field must be provided for update")
 	}
 
 	return nil

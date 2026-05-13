@@ -18,10 +18,7 @@ func NewCategoryServiceStruct(repo *repository.Repository) *CategoryServiceStruc
 	}
 }
 
-func (s *CategoryServiceStruct) CreateCategory(
-	ctx context.Context,
-	in models.CreateCategoryInput,
-) (*models.CreateCategoryResult, error) {
+func (s *CategoryServiceStruct) CreateCategory(ctx context.Context, in *models.CreateCategoryInput) (*models.CreateCategoryResult, error) {
 	if err := in.Validate(); err != nil {
 		return nil, fmt.Errorf("service: CreateCategory(): validate: %w", err)
 	}
@@ -36,10 +33,7 @@ func (s *CategoryServiceStruct) CreateCategory(
 	}, nil
 }
 
-func (s *CategoryServiceStruct) GetCategory(
-	ctx context.Context,
-	in models.GetCategoryInput,
-) (*models.GetCategoryResult, error) {
+func (s *CategoryServiceStruct) GetCategory(ctx context.Context, in *models.GetCategoryInput) (*models.GetCategoryResult, error) {
 	if err := in.Validate(); err != nil {
 		return nil, fmt.Errorf("service: GetCategory(): validate: %w", err)
 	}
@@ -54,10 +48,7 @@ func (s *CategoryServiceStruct) GetCategory(
 	}, nil
 }
 
-func (s *CategoryServiceStruct) ListCategories(
-	ctx context.Context,
-	in models.ListCategoriesInput,
-) (*models.ListCategoriesResult, error) {
+func (s *CategoryServiceStruct) ListCategories(ctx context.Context, in *models.ListCategoriesInput) (*models.ListCategoriesResult, error) {
 	if err := in.Validate(); err != nil {
 		return nil, fmt.Errorf("service: ListCategories(): validate: %w", err)
 	}
@@ -73,10 +64,7 @@ func (s *CategoryServiceStruct) ListCategories(
 	}, nil
 }
 
-func (s *CategoryServiceStruct) UpdateCategory(
-	ctx context.Context,
-	in models.UpdateCategoryInput,
-) (*models.UpdateCategoryResult, error) {
+func (s *CategoryServiceStruct) UpdateCategory(ctx context.Context, in *models.UpdateCategoryInput) (*models.UpdateCategoryResult, error) {
 	if err := in.Validate(); err != nil {
 		return nil, fmt.Errorf("service: UpdateCategory(): validate: %w", err)
 	}
@@ -91,10 +79,7 @@ func (s *CategoryServiceStruct) UpdateCategory(
 	}, nil
 }
 
-func (s *CategoryServiceStruct) DeleteCategory(
-	ctx context.Context,
-	in models.DeleteCategoryInput,
-) (*models.DeleteCategoryResult, error) {
+func (s *CategoryServiceStruct) DeleteCategory(ctx context.Context, in *models.DeleteCategoryInput) (*models.DeleteCategoryResult, error) {
 	if err := in.Validate(); err != nil {
 		return nil, fmt.Errorf("service: DeleteCategory(): validate: %w", err)
 	}
