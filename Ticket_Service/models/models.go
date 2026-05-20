@@ -1,6 +1,10 @@
 package models
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type TicketStatus string
 
@@ -84,12 +88,12 @@ func (s SortOrder) IsValid() bool {
 }
 
 type Ticket struct {
-	ID           string `json:"id"`
-	DepartmentID string `json:"department_id"`
-	CategoryID   string `json:"category_id"`
+	ID           uuid.UUID `json:"id"`
+	DepartmentID uuid.UUID `json:"department_id"`
+	CategoryID   uuid.UUID `json:"category_id"`
 
-	UserID    string  `json:"user_id"`
-	BrigadeID *string `json:"brigade_id,omitempty"`
+	UserID    uuid.UUID  `json:"user_id"`
+	BrigadeID *uuid.UUID `json:"brigade_id,omitempty"`
 
 	Title       string         `json:"title"`
 	Description string         `json:"description"`
@@ -108,7 +112,7 @@ type Ticket struct {
 }
 
 type TicketCategory struct {
-	ID          string    `json:"id"`
+	ID          uuid.UUID `json:"id"`
 	Code        string    `json:"code"`
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
@@ -118,22 +122,22 @@ type TicketCategory struct {
 }
 
 type TicketStatusHistory struct {
-	ID       string `json:"id"`
-	TicketID string `json:"ticket_id"`
+	ID       uuid.UUID `json:"id"`
+	TicketID uuid.UUID `json:"ticket_id"`
 
-	OldStatus TicketStatus `json:"old_status"`
-	NewStatus TicketStatus `json:"new_status"`
+	OldStatus *TicketStatus `json:"old_status,omitempty"`
+	NewStatus TicketStatus  `json:"new_status"`
 
-	ChangedBy string `json:"changed_by"`
-	Comment   string `json:"comment"`
+	ChangedBy *uuid.UUID `json:"changed_by,omitempty"`
+	Comment   *string    `json:"comment,omitempty"`
 
 	CreatedAt time.Time `json:"created_at"`
 }
 
 type CreateTicketInput struct {
-	DepartmentID string
-	CategoryID   string
-	UserID       string
+	DepartmentID uuid.UUID
+	CategoryID   uuid.UUID
+	UserID       uuid.UUID
 
 	Title       string
 	Description string
@@ -149,7 +153,7 @@ type CreateTicketResult struct {
 }
 
 type GetTicketInput struct {
-	TicketID string
+	TicketID uuid.UUID
 }
 
 type GetTicketResult struct {
@@ -157,13 +161,13 @@ type GetTicketResult struct {
 }
 
 type ListTicketsInput struct {
-	DepartmentID string
-	UserID       string
-	BrigadeID    string
-	CategoryID   string
+	DepartmentID *uuid.UUID
+	UserID       *uuid.UUID
+	BrigadeID    *uuid.UUID
+	CategoryID   *uuid.UUID
 
-	Status   TicketStatus
-	Priority TicketPriority
+	Status   *TicketStatus
+	Priority *TicketPriority
 
 	CreatedFrom *time.Time
 	CreatedTo   *time.Time
@@ -181,19 +185,18 @@ type ListTicketsResult struct {
 }
 
 type UpdateTicketInput struct {
-	TicketID string
+	TicketID uuid.UUID
 
-	Title       string
-	Description string
-	CategoryID  string
-	Priority    TicketPriority
+	Title       *string
+	Description *string
+	CategoryID  *uuid.UUID
+	Priority    *TicketPriority
 
-	Address string
-
+	Address   *string
 	Latitude  *float64
 	Longitude *float64
 
-	UpdatedBy string
+	UpdatedBy *uuid.UUID
 }
 
 type UpdateTicketResult struct {
@@ -201,10 +204,10 @@ type UpdateTicketResult struct {
 }
 
 type ChangeTicketStatusInput struct {
-	TicketID  string
+	TicketID  uuid.UUID
 	NewStatus TicketStatus
-	ChangedBy string
-	Comment   string
+	ChangedBy uuid.UUID
+	Comment   *string
 }
 
 type ChangeTicketStatusResult struct {
@@ -212,10 +215,10 @@ type ChangeTicketStatusResult struct {
 }
 
 type AssignBrigadeInput struct {
-	TicketID   string
-	BrigadeID  string
-	AssignedBy string
-	Comment    string
+	TicketID   uuid.UUID
+	BrigadeID  uuid.UUID
+	AssignedBy uuid.UUID
+	Comment    *string
 }
 
 type AssignBrigadeResult struct {
@@ -223,8 +226,8 @@ type AssignBrigadeResult struct {
 }
 
 type CancelTicketInput struct {
-	TicketID   string
-	CanceledBy string
+	TicketID   uuid.UUID
+	CanceledBy uuid.UUID
 	Reason     string
 }
 
@@ -233,9 +236,9 @@ type CancelTicketResult struct {
 }
 
 type CompleteTicketInput struct {
-	TicketID    string
-	CompletedBy string
-	Comment     string
+	TicketID    uuid.UUID
+	CompletedBy uuid.UUID
+	Comment     *string
 }
 
 type CompleteTicketResult struct {
@@ -243,7 +246,7 @@ type CompleteTicketResult struct {
 }
 
 type GetTicketStatusHistoryInput struct {
-	TicketID string
+	TicketID uuid.UUID
 	Limit    int32
 	Offset   int32
 }
@@ -256,7 +259,7 @@ type GetTicketStatusHistoryResult struct {
 type CreateCategoryInput struct {
 	Code        string
 	Name        string
-	Description string
+	Description *string
 }
 
 type CreateCategoryResult struct {
@@ -264,7 +267,7 @@ type CreateCategoryResult struct {
 }
 
 type GetCategoryInput struct {
-	CategoryID string
+	CategoryID uuid.UUID
 }
 
 type GetCategoryResult struct {
@@ -283,9 +286,10 @@ type ListCategoriesResult struct {
 }
 
 type UpdateCategoryInput struct {
-	CategoryID  string
-	Name        string
-	Description string
+	CategoryID uuid.UUID
+
+	Name        *string
+	Description *string
 	IsActive    *bool
 }
 
@@ -294,7 +298,7 @@ type UpdateCategoryResult struct {
 }
 
 type DeleteCategoryInput struct {
-	CategoryID string
+	CategoryID uuid.UUID
 }
 
 type DeleteCategoryResult struct {

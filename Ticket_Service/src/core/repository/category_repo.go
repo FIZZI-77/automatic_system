@@ -23,9 +23,9 @@ func NewCategoryRepository(db *sql.DB) *CategoryRepoStruct {
 }
 
 type categoryEventPayload struct {
-	EventID    string    `json:"event_id"`
+	EventID    uuid.UUID `json:"event_id"`
 	EventType  string    `json:"event_type"`
-	CategoryID string    `json:"category_id"`
+	CategoryID uuid.UUID `json:"category_id"`
 	Code       string    `json:"code"`
 	Name       string    `json:"name"`
 	IsActive   bool      `json:"is_active"`
@@ -33,7 +33,7 @@ type categoryEventPayload struct {
 	UpdatedAt  time.Time `json:"updated_at"`
 }
 
-func (c *CategoryRepoStruct) CreateCategory(ctx context.Context, in models.CreateCategoryInput) (*models.TicketCategory, error) {
+func (c *CategoryRepoStruct) CreateCategory(ctx context.Context, in *models.CreateCategoryInput) (*models.TicketCategory, error) {
 	tx, err := c.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("repository: CreateCategory(): begin tx: %w", err)
@@ -93,7 +93,7 @@ func (c *CategoryRepoStruct) CreateCategory(ctx context.Context, in models.Creat
 	return category, nil
 }
 
-func (c *CategoryRepoStruct) GetCategoryByID(ctx context.Context, categoryID string) (*models.TicketCategory, error) {
+func (c *CategoryRepoStruct) GetCategoryByID(ctx context.Context, categoryID uuid.UUID) (*models.TicketCategory, error) {
 	const query = `
 		SELECT
 			id,
@@ -117,7 +117,7 @@ func (c *CategoryRepoStruct) GetCategoryByID(ctx context.Context, categoryID str
 	return category, nil
 }
 
-func (c *CategoryRepoStruct) ListCategories(ctx context.Context, in models.ListCategoriesInput) ([]*models.TicketCategory, int64, error) {
+func (c *CategoryRepoStruct) ListCategories(ctx context.Context, in *models.ListCategoriesInput) ([]*models.TicketCategory, int64, error) {
 	whereSQL := ""
 	args := make([]any, 0)
 
@@ -180,7 +180,7 @@ func (c *CategoryRepoStruct) ListCategories(ctx context.Context, in models.ListC
 	return categories, total, nil
 }
 
-func (c *CategoryRepoStruct) UpdateCategory(ctx context.Context, in models.UpdateCategoryInput) (*models.TicketCategory, error) {
+func (c *CategoryRepoStruct) UpdateCategory(ctx context.Context, in *models.UpdateCategoryInput) (*models.TicketCategory, error) {
 	tx, err := c.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("repository: UpdateCategory(): begin tx: %w", err)
@@ -235,7 +235,7 @@ func (c *CategoryRepoStruct) UpdateCategory(ctx context.Context, in models.Updat
 	return category, nil
 }
 
-func (c *CategoryRepoStruct) DeleteCategory(ctx context.Context, in models.DeleteCategoryInput) (*models.TicketCategory, error) {
+func (c *CategoryRepoStruct) DeleteCategory(ctx context.Context, in *models.DeleteCategoryInput) (*models.TicketCategory, error) {
 	tx, err := c.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("repository: DeleteCategory(): begin tx: %w", err)
@@ -304,13 +304,12 @@ func scanCategory(s scanner) (*models.TicketCategory, error) {
 	return &category, nil
 }
 
-func (c *CategoryRepoStruct) insertCategoryOutboxEvent(
-	ctx context.Context,
+func (c *CategoryRepoStruct) insertCategoryOutboxEvent(ctx context.Context,
 	tx *sql.Tx,
 	eventType string,
 	category *models.TicketCategory,
 ) error {
-	eventID := uuid.NewString()
+	eventID := uuid.New()
 
 	payload := categoryEventPayload{
 		EventID:    eventID,
