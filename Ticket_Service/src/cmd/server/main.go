@@ -6,7 +6,6 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -22,7 +21,14 @@ import (
 )
 
 func main() {
-	err := godotenv.Load(".env")
+
+	logger, err := pkg.NewLogger()
+	if err != nil {
+		panic(err)
+	}
+	defer logger.Sync()
+
+	err = godotenv.Load(".env")
 	if err != nil {
 		log.Fatal("error loading .env file")
 	}
@@ -58,8 +64,8 @@ func main() {
 	grpcServer := grpc.NewServer()
 
 	repo := repository.NewRepository(db)
-	ticketService := service.NewService(repo)
-	ticketHandler := handler.NewTicketHandler(ticketService)
+	ticketService := service.NewService(repo, logger)
+	ticketHandler := handler.NewTicketHandler(ticketService, logger)
 
 	ticketv1.RegisterTicketServiceServer(grpcServer, ticketHandler)
 
@@ -102,22 +108,4 @@ func main() {
 	}
 
 	log.Println("ticket service stopped")
-}
-
-func mustInt(value string) int {
-	n, err := strconv.Atoi(strings.TrimSpace(value))
-	if err != nil {
-		log.Fatalf("invalid int value %q: %v", value, err)
-	}
-
-	return n
-}
-
-func mustBool(value string) bool {
-	b, err := strconv.ParseBool(strings.TrimSpace(value))
-	if err != nil {
-		log.Fatalf("invalid bool value %q: %v", value, err)
-	}
-
-	return b
 }
