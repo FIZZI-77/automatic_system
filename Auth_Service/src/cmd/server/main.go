@@ -1,12 +1,12 @@
 package main
 
 import (
-	authv1 "auth/auth/v1"
 	"auth/pkg"
 	"auth/src/core/handler"
 	"auth/src/core/repository"
 	"auth/src/core/service"
 	"context"
+	v1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/auth/v1"
 	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
 	"log"
@@ -79,13 +79,14 @@ func main() {
 		UseStartTLS:     mustBool(os.Getenv("SMTP_USE_STARTTLS")),
 		Timeout:         10 * time.Second,
 	}, logger)
+
 	if err != nil {
 		log.Fatalf("failed to init mail jwt: %v", err)
 	}
 	authService := service.NewAuthService(repo, privateKey, keyID, mailService, logger)
 	authHandler := handler.NewAuthHandler(authService, logger)
 
-	authv1.RegisterAuthServiceServer(grpcServer, authHandler)
+	v1.RegisterAuthServiceServer(grpcServer, authHandler)
 
 	serverErrCh := make(chan error, 1)
 
