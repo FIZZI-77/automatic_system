@@ -3,6 +3,9 @@ package handler
 import (
 	"context"
 	"fmt"
+	"time"
+
+	"go.uber.org/zap"
 
 	ticketv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/ticket/v1"
 	"github.com/google/uuid"
@@ -14,26 +17,54 @@ import (
 type TicketHandler struct {
 	ticketv1.UnimplementedTicketServiceServer
 	service *service.Service
+	logger  *zap.Logger
 }
 
-func NewTicketHandler(service *service.Service) *TicketHandler {
-	return &TicketHandler{service: service}
+func NewTicketHandler(service *service.Service, logger *zap.Logger) *TicketHandler {
+	return &TicketHandler{service: service, logger: logger}
 }
 
 func (t *TicketHandler) CreateTicket(ctx context.Context, req *ticketv1.CreateTicketRequest) (*ticketv1.CreateTicketResponse, error) {
+	start := time.Now()
+
+	t.logger.Info("gRPC request received",
+		zap.String("method", "CreateTicket"),
+		zap.String("user_id", req.UserId),
+		zap.String("department_id", req.DepartmentId),
+		zap.String("category_id", req.CategoryId),
+	)
+
 	departmentID, err := uuid.Parse(req.GetDepartmentId())
 	if err != nil {
-		return nil, fmt.Errorf("handler: CreateTicket(): invalid department_id: %w", err)
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "CreateTicket"),
+			zap.String("user_id", req.UserId),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
+		return nil, err
 	}
 
 	categoryID, err := uuid.Parse(req.GetCategoryId())
 	if err != nil {
-		return nil, fmt.Errorf("handler: CreateTicket(): invalid category_id: %w", err)
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "CreateTicket"),
+			zap.String("user_id", req.UserId),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
+		return nil, err
 	}
 
 	userID, err := uuid.Parse(req.GetUserId())
 	if err != nil {
-		return nil, fmt.Errorf("handler: CreateTicket(): invalid user_id: %w", err)
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "CreateTicket"),
+			zap.String("user_id", req.UserId),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
+		return nil, err
 	}
 
 	in := &models.CreateTicketInput{
@@ -50,8 +81,21 @@ func (t *TicketHandler) CreateTicket(ctx context.Context, req *ticketv1.CreateTi
 
 	res, err := t.service.CreateTicket(ctx, in)
 	if err != nil {
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "CreateTicket"),
+			zap.String("user_id", req.UserId),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
 		return nil, err
 	}
+
+	t.logger.Info("gRPC request succeeded",
+		zap.String("method", "CreateTicket"),
+		zap.String("user_id", req.UserId),
+		zap.String("ticket_id", res.Ticket.ID.String()),
+		zap.Duration("duration", time.Since(start)),
+	)
 
 	return &ticketv1.CreateTicketResponse{
 		Ticket: ToProtoTicket(res.Ticket),
@@ -59,8 +103,21 @@ func (t *TicketHandler) CreateTicket(ctx context.Context, req *ticketv1.CreateTi
 }
 
 func (t *TicketHandler) GetTicket(ctx context.Context, req *ticketv1.GetTicketRequest) (*ticketv1.GetTicketResponse, error) {
+	start := time.Now()
+
+	t.logger.Info("gRPC request received",
+		zap.String("method", "GetTicket"),
+		zap.String("ticket_id", req.GetTicketId()),
+	)
+
 	ticketID, err := uuid.Parse(req.GetTicketId())
 	if err != nil {
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "GetTicket"),
+			zap.String("ticket_id", req.GetTicketId()),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("handler: GetTicket(): invalid ticket_id: %w", err)
 	}
 
@@ -70,8 +127,21 @@ func (t *TicketHandler) GetTicket(ctx context.Context, req *ticketv1.GetTicketRe
 
 	res, err := t.service.GetTicket(ctx, in)
 	if err != nil {
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "GetTicket"),
+			zap.String("ticket_id", req.GetTicketId()),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
 		return nil, err
 	}
+
+	t.logger.Info("gRPC request succeeded",
+		zap.String("method", "GetTicket"),
+		zap.String("ticket_id", req.GetTicketId()),
+		zap.String("status", string(res.Ticket.Status)),
+		zap.Duration("duration", time.Since(start)),
+	)
 
 	return &ticketv1.GetTicketResponse{
 		Ticket: ToProtoTicket(res.Ticket),
@@ -79,23 +149,57 @@ func (t *TicketHandler) GetTicket(ctx context.Context, req *ticketv1.GetTicketRe
 }
 
 func (t *TicketHandler) ListTickets(ctx context.Context, req *ticketv1.ListTicketsRequest) (*ticketv1.ListTicketsResponse, error) {
+	start := time.Now()
+
+	t.logger.Info("gRPC request received",
+		zap.String("method", "ListTickets"),
+		zap.String("department_id", req.GetDepartmentId()),
+		zap.String("user_id", req.GetUserId()),
+		zap.String("brigade_id", req.GetBrigadeId()),
+		zap.String("category_id", req.GetCategoryId()),
+	)
+
 	departmentID, err := parseOptionalUUID(req.GetDepartmentId(), "department_id")
 	if err != nil {
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "ListTickets"),
+			zap.String("department_id", req.GetDepartmentId()),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("handler: ListTickets(): %w", err)
 	}
 
 	userID, err := parseOptionalUUID(req.GetUserId(), "user_id")
 	if err != nil {
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "ListTickets"),
+			zap.String("user_id", req.GetUserId()),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("handler: ListTickets(): %w", err)
 	}
 
 	brigadeID, err := parseOptionalUUID(req.GetBrigadeId(), "brigade_id")
 	if err != nil {
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "ListTickets"),
+			zap.String("brigade_id", req.GetBrigadeId()),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("handler: ListTickets(): %w", err)
 	}
 
 	categoryID, err := parseOptionalUUID(req.GetCategoryId(), "category_id")
 	if err != nil {
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "ListTickets"),
+			zap.String("category_id", req.GetCategoryId()),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("handler: ListTickets(): %w", err)
 	}
 
@@ -116,22 +220,23 @@ func (t *TicketHandler) ListTickets(ctx context.Context, req *ticketv1.ListTicke
 		UserID:       userID,
 		BrigadeID:    brigadeID,
 		CategoryID:   categoryID,
-
-		Status:   status,
-		Priority: priority,
-
-		CreatedFrom: FromProtoTimestamp(req.GetCreatedFrom()),
-		CreatedTo:   FromProtoTimestamp(req.GetCreatedTo()),
-
-		Limit:  req.GetLimit(),
-		Offset: req.GetOffset(),
-
-		SortBy:    FromProtoSortBy(req.GetSortBy()),
-		SortOrder: FromProtoSortOrder(req.GetSortOrder()),
+		Status:       status,
+		Priority:     priority,
+		CreatedFrom:  FromProtoTimestamp(req.GetCreatedFrom()),
+		CreatedTo:    FromProtoTimestamp(req.GetCreatedTo()),
+		Limit:        req.GetLimit(),
+		Offset:       req.GetOffset(),
+		SortBy:       FromProtoSortBy(req.GetSortBy()),
+		SortOrder:    FromProtoSortOrder(req.GetSortOrder()),
 	}
 
 	res, err := t.service.ListTickets(ctx, in)
 	if err != nil {
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "ListTickets"),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
 		return nil, err
 	}
 
@@ -140,6 +245,13 @@ func (t *TicketHandler) ListTickets(ctx context.Context, req *ticketv1.ListTicke
 		tickets = append(tickets, ToProtoTicket(ticket))
 	}
 
+	t.logger.Info("gRPC request succeeded",
+		zap.String("method", "ListTickets"),
+		zap.Int("count", len(tickets)),
+		zap.Int64("total", res.Total),
+		zap.Duration("duration", time.Since(start)),
+	)
+
 	return &ticketv1.ListTicketsResponse{
 		Tickets: tickets,
 		Total:   res.Total,
@@ -147,18 +259,44 @@ func (t *TicketHandler) ListTickets(ctx context.Context, req *ticketv1.ListTicke
 }
 
 func (t *TicketHandler) UpdateTicket(ctx context.Context, req *ticketv1.UpdateTicketRequest) (*ticketv1.UpdateTicketResponse, error) {
+	start := time.Now()
+
+	t.logger.Info("gRPC request received",
+		zap.String("method", "UpdateTicket"),
+		zap.String("ticket_id", req.GetTicketId()),
+		zap.String("updated_by", req.GetUpdatedBy()),
+	)
+
 	ticketID, err := uuid.Parse(req.GetTicketId())
 	if err != nil {
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "UpdateTicket"),
+			zap.String("ticket_id", req.GetTicketId()),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("handler: UpdateTicket(): invalid ticket_id: %w", err)
 	}
 
 	categoryID, err := parseOptionalUUID(req.GetCategoryId(), "category_id")
 	if err != nil {
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "UpdateTicket"),
+			zap.String("category_id", req.GetCategoryId()),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("handler: UpdateTicket(): %w", err)
 	}
 
 	updatedBy, err := parseOptionalUUID(req.GetUpdatedBy(), "updated_by")
 	if err != nil {
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "UpdateTicket"),
+			zap.String("updated_by", req.GetUpdatedBy()),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("handler: UpdateTicket(): %w", err)
 	}
 
@@ -190,8 +328,20 @@ func (t *TicketHandler) UpdateTicket(ctx context.Context, req *ticketv1.UpdateTi
 
 	res, err := t.service.UpdateTicket(ctx, in)
 	if err != nil {
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "UpdateTicket"),
+			zap.String("ticket_id", req.GetTicketId()),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
 		return nil, err
 	}
+
+	t.logger.Info("gRPC request succeeded",
+		zap.String("method", "UpdateTicket"),
+		zap.String("ticket_id", req.GetTicketId()),
+		zap.Duration("duration", time.Since(start)),
+	)
 
 	return &ticketv1.UpdateTicketResponse{
 		Ticket: ToProtoTicket(res.Ticket),
@@ -199,13 +349,34 @@ func (t *TicketHandler) UpdateTicket(ctx context.Context, req *ticketv1.UpdateTi
 }
 
 func (t *TicketHandler) ChangeTicketStatus(ctx context.Context, req *ticketv1.ChangeTicketStatusRequest) (*ticketv1.ChangeTicketStatusResponse, error) {
+	start := time.Now()
+
+	t.logger.Info("gRPC request received",
+		zap.String("method", "ChangeTicketStatus"),
+		zap.String("ticket_id", req.GetTicketId()),
+		zap.String("new_status", req.GetNewStatus().String()),
+		zap.String("changed_by", req.GetChangedBy()),
+	)
+
 	ticketID, err := uuid.Parse(req.GetTicketId())
 	if err != nil {
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "ChangeTicketStatus"),
+			zap.String("ticket_id", req.GetTicketId()),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("handler: ChangeTicketStatus(): invalid ticket_id: %w", err)
 	}
 
 	changedBy, err := uuid.Parse(req.GetChangedBy())
 	if err != nil {
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "ChangeTicketStatus"),
+			zap.String("changed_by", req.GetChangedBy()),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("handler: ChangeTicketStatus(): invalid changed_by: %w", err)
 	}
 
@@ -218,8 +389,22 @@ func (t *TicketHandler) ChangeTicketStatus(ctx context.Context, req *ticketv1.Ch
 
 	res, err := t.service.ChangeTicketStatus(ctx, in)
 	if err != nil {
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "ChangeTicketStatus"),
+			zap.String("ticket_id", req.GetTicketId()),
+			zap.String("new_status", req.GetNewStatus().String()),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
 		return nil, err
 	}
+
+	t.logger.Info("gRPC request succeeded",
+		zap.String("method", "ChangeTicketStatus"),
+		zap.String("ticket_id", req.GetTicketId()),
+		zap.String("new_status", req.GetNewStatus().String()),
+		zap.Duration("duration", time.Since(start)),
+	)
 
 	return &ticketv1.ChangeTicketStatusResponse{
 		Ticket: ToProtoTicket(res.Ticket),
@@ -227,18 +412,45 @@ func (t *TicketHandler) ChangeTicketStatus(ctx context.Context, req *ticketv1.Ch
 }
 
 func (t *TicketHandler) AssignBrigade(ctx context.Context, req *ticketv1.AssignBrigadeRequest) (*ticketv1.AssignBrigadeResponse, error) {
+	start := time.Now()
+
+	t.logger.Info("gRPC request received",
+		zap.String("method", "AssignBrigade"),
+		zap.String("ticket_id", req.GetTicketId()),
+		zap.String("brigade_id", req.GetBrigadeId()),
+		zap.String("assigned_by", req.GetAssignedBy()),
+	)
+
 	ticketID, err := uuid.Parse(req.GetTicketId())
 	if err != nil {
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "AssignBrigade"),
+			zap.String("ticket_id", req.GetTicketId()),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("handler: AssignBrigade(): invalid ticket_id: %w", err)
 	}
 
 	brigadeID, err := uuid.Parse(req.GetBrigadeId())
 	if err != nil {
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "AssignBrigade"),
+			zap.String("brigade_id", req.GetBrigadeId()),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("handler: AssignBrigade(): invalid brigade_id: %w", err)
 	}
 
 	assignedBy, err := uuid.Parse(req.GetAssignedBy())
 	if err != nil {
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "AssignBrigade"),
+			zap.String("assigned_by", req.GetAssignedBy()),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("handler: AssignBrigade(): invalid assigned_by: %w", err)
 	}
 
@@ -251,8 +463,22 @@ func (t *TicketHandler) AssignBrigade(ctx context.Context, req *ticketv1.AssignB
 
 	res, err := t.service.AssignBrigade(ctx, in)
 	if err != nil {
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "AssignBrigade"),
+			zap.String("ticket_id", req.GetTicketId()),
+			zap.String("brigade_id", req.GetBrigadeId()),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
 		return nil, err
 	}
+
+	t.logger.Info("gRPC request succeeded",
+		zap.String("method", "AssignBrigade"),
+		zap.String("ticket_id", req.GetTicketId()),
+		zap.String("brigade_id", req.GetBrigadeId()),
+		zap.Duration("duration", time.Since(start)),
+	)
 
 	return &ticketv1.AssignBrigadeResponse{
 		Ticket: ToProtoTicket(res.Ticket),
@@ -260,13 +486,33 @@ func (t *TicketHandler) AssignBrigade(ctx context.Context, req *ticketv1.AssignB
 }
 
 func (t *TicketHandler) CancelTicket(ctx context.Context, req *ticketv1.CancelTicketRequest) (*ticketv1.CancelTicketResponse, error) {
+	start := time.Now()
+
+	t.logger.Info("gRPC request received",
+		zap.String("method", "CancelTicket"),
+		zap.String("ticket_id", req.GetTicketId()),
+		zap.String("canceled_by", req.GetCanceledBy()),
+	)
+
 	ticketID, err := uuid.Parse(req.GetTicketId())
 	if err != nil {
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "CancelTicket"),
+			zap.String("ticket_id", req.GetTicketId()),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("handler: CancelTicket(): invalid ticket_id: %w", err)
 	}
 
 	canceledBy, err := uuid.Parse(req.GetCanceledBy())
 	if err != nil {
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "CancelTicket"),
+			zap.String("canceled_by", req.GetCanceledBy()),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("handler: CancelTicket(): invalid canceled_by: %w", err)
 	}
 
@@ -278,8 +524,20 @@ func (t *TicketHandler) CancelTicket(ctx context.Context, req *ticketv1.CancelTi
 
 	res, err := t.service.CancelTicket(ctx, in)
 	if err != nil {
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "CancelTicket"),
+			zap.String("ticket_id", req.GetTicketId()),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
 		return nil, err
 	}
+
+	t.logger.Info("gRPC request succeeded",
+		zap.String("method", "CancelTicket"),
+		zap.String("ticket_id", req.GetTicketId()),
+		zap.Duration("duration", time.Since(start)),
+	)
 
 	return &ticketv1.CancelTicketResponse{
 		Ticket: ToProtoTicket(res.Ticket),
@@ -287,13 +545,33 @@ func (t *TicketHandler) CancelTicket(ctx context.Context, req *ticketv1.CancelTi
 }
 
 func (t *TicketHandler) CompleteTicket(ctx context.Context, req *ticketv1.CompleteTicketRequest) (*ticketv1.CompleteTicketResponse, error) {
+	start := time.Now()
+
+	t.logger.Info("gRPC request received",
+		zap.String("method", "CompleteTicket"),
+		zap.String("ticket_id", req.GetTicketId()),
+		zap.String("completed_by", req.GetCompletedBy()),
+	)
+
 	ticketID, err := uuid.Parse(req.GetTicketId())
 	if err != nil {
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "CompleteTicket"),
+			zap.String("ticket_id", req.GetTicketId()),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("handler: CompleteTicket(): invalid ticket_id: %w", err)
 	}
 
 	completedBy, err := uuid.Parse(req.GetCompletedBy())
 	if err != nil {
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "CompleteTicket"),
+			zap.String("completed_by", req.GetCompletedBy()),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("handler: CompleteTicket(): invalid completed_by: %w", err)
 	}
 
@@ -305,8 +583,20 @@ func (t *TicketHandler) CompleteTicket(ctx context.Context, req *ticketv1.Comple
 
 	res, err := t.service.CompleteTicket(ctx, in)
 	if err != nil {
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "CompleteTicket"),
+			zap.String("ticket_id", req.GetTicketId()),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
 		return nil, err
 	}
+
+	t.logger.Info("gRPC request succeeded",
+		zap.String("method", "CompleteTicket"),
+		zap.String("ticket_id", req.GetTicketId()),
+		zap.Duration("duration", time.Since(start)),
+	)
 
 	return &ticketv1.CompleteTicketResponse{
 		Ticket: ToProtoTicket(res.Ticket),
@@ -314,8 +604,21 @@ func (t *TicketHandler) CompleteTicket(ctx context.Context, req *ticketv1.Comple
 }
 
 func (t *TicketHandler) GetTicketStatusHistory(ctx context.Context, req *ticketv1.GetTicketStatusHistoryRequest) (*ticketv1.GetTicketStatusHistoryResponse, error) {
+	start := time.Now()
+
+	t.logger.Info("gRPC request received",
+		zap.String("method", "GetTicketStatusHistory"),
+		zap.String("ticket_id", req.GetTicketId()),
+	)
+
 	ticketID, err := uuid.Parse(req.GetTicketId())
 	if err != nil {
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "GetTicketStatusHistory"),
+			zap.String("ticket_id", req.GetTicketId()),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("handler: GetTicketStatusHistory(): invalid ticket_id: %w", err)
 	}
 
@@ -327,6 +630,12 @@ func (t *TicketHandler) GetTicketStatusHistory(ctx context.Context, req *ticketv
 
 	res, err := t.service.GetTicketStatusHistory(ctx, in)
 	if err != nil {
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "GetTicketStatusHistory"),
+			zap.String("ticket_id", req.GetTicketId()),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
 		return nil, err
 	}
 
@@ -335,6 +644,14 @@ func (t *TicketHandler) GetTicketStatusHistory(ctx context.Context, req *ticketv
 		history = append(history, toProtoStatusHistory(item))
 	}
 
+	t.logger.Info("gRPC request succeeded",
+		zap.String("method", "GetTicketStatusHistory"),
+		zap.String("ticket_id", req.GetTicketId()),
+		zap.Int("count", len(history)),
+		zap.Int64("total", res.Total),
+		zap.Duration("duration", time.Since(start)),
+	)
+
 	return &ticketv1.GetTicketStatusHistoryResponse{
 		History: history,
 		Total:   res.Total,
@@ -342,6 +659,14 @@ func (t *TicketHandler) GetTicketStatusHistory(ctx context.Context, req *ticketv
 }
 
 func (t *TicketHandler) CreateCategory(ctx context.Context, req *ticketv1.CreateCategoryRequest) (*ticketv1.CreateCategoryResponse, error) {
+	start := time.Now()
+
+	t.logger.Info("gRPC request received",
+		zap.String("method", "CreateCategory"),
+		zap.String("code", req.GetCode()),
+		zap.String("name", req.GetName()),
+	)
+
 	in := &models.CreateCategoryInput{
 		Code:        req.GetCode(),
 		Name:        req.GetName(),
@@ -350,8 +675,21 @@ func (t *TicketHandler) CreateCategory(ctx context.Context, req *ticketv1.Create
 
 	res, err := t.service.CreateCategory(ctx, in)
 	if err != nil {
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "CreateCategory"),
+			zap.String("code", req.GetCode()),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
 		return nil, err
 	}
+
+	t.logger.Info("gRPC request succeeded",
+		zap.String("method", "CreateCategory"),
+		zap.String("category_id", res.Category.ID.String()),
+		zap.String("code", req.GetCode()),
+		zap.Duration("duration", time.Since(start)),
+	)
 
 	return &ticketv1.CreateCategoryResponse{
 		Category: toProtoCategory(res.Category),
@@ -359,8 +697,21 @@ func (t *TicketHandler) CreateCategory(ctx context.Context, req *ticketv1.Create
 }
 
 func (t *TicketHandler) GetCategory(ctx context.Context, req *ticketv1.GetCategoryRequest) (*ticketv1.GetCategoryResponse, error) {
+	start := time.Now()
+
+	t.logger.Info("gRPC request received",
+		zap.String("method", "GetCategory"),
+		zap.String("category_id", req.GetCategoryId()),
+	)
+
 	categoryID, err := uuid.Parse(req.GetCategoryId())
 	if err != nil {
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "GetCategory"),
+			zap.String("category_id", req.GetCategoryId()),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("handler: GetCategory(): invalid category_id: %w", err)
 	}
 
@@ -370,8 +721,21 @@ func (t *TicketHandler) GetCategory(ctx context.Context, req *ticketv1.GetCatego
 
 	res, err := t.service.GetCategory(ctx, in)
 	if err != nil {
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "GetCategory"),
+			zap.String("category_id", req.GetCategoryId()),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
 		return nil, err
 	}
+
+	t.logger.Info("gRPC request succeeded",
+		zap.String("method", "GetCategory"),
+		zap.String("category_id", req.GetCategoryId()),
+		zap.String("code", res.Category.Code),
+		zap.Duration("duration", time.Since(start)),
+	)
 
 	return &ticketv1.GetCategoryResponse{
 		Category: toProtoCategory(res.Category),
@@ -379,6 +743,13 @@ func (t *TicketHandler) GetCategory(ctx context.Context, req *ticketv1.GetCatego
 }
 
 func (t *TicketHandler) ListCategories(ctx context.Context, req *ticketv1.ListCategoriesRequest) (*ticketv1.ListCategoriesResponse, error) {
+	start := time.Now()
+
+	t.logger.Info("gRPC request received",
+		zap.String("method", "ListCategories"),
+		zap.Bool("only_active", req.GetOnlyActive()),
+	)
+
 	in := &models.ListCategoriesInput{
 		OnlyActive: req.GetOnlyActive(),
 		Limit:      req.GetLimit(),
@@ -387,6 +758,11 @@ func (t *TicketHandler) ListCategories(ctx context.Context, req *ticketv1.ListCa
 
 	res, err := t.service.ListCategories(ctx, in)
 	if err != nil {
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "ListCategories"),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
 		return nil, err
 	}
 
@@ -395,6 +771,13 @@ func (t *TicketHandler) ListCategories(ctx context.Context, req *ticketv1.ListCa
 		categories = append(categories, toProtoCategory(category))
 	}
 
+	t.logger.Info("gRPC request succeeded",
+		zap.String("method", "ListCategories"),
+		zap.Int("count", len(categories)),
+		zap.Int64("total", res.Total),
+		zap.Duration("duration", time.Since(start)),
+	)
+
 	return &ticketv1.ListCategoriesResponse{
 		Categories: categories,
 		Total:      res.Total,
@@ -402,8 +785,22 @@ func (t *TicketHandler) ListCategories(ctx context.Context, req *ticketv1.ListCa
 }
 
 func (t *TicketHandler) UpdateCategory(ctx context.Context, req *ticketv1.UpdateCategoryRequest) (*ticketv1.UpdateCategoryResponse, error) {
+	start := time.Now()
+
+	t.logger.Info("gRPC request received",
+		zap.String("method", "UpdateCategory"),
+		zap.String("category_id", req.GetCategoryId()),
+		zap.String("name", req.GetName()),
+	)
+
 	categoryID, err := uuid.Parse(req.GetCategoryId())
 	if err != nil {
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "UpdateCategory"),
+			zap.String("category_id", req.GetCategoryId()),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("handler: UpdateCategory(): invalid category_id: %w", err)
 	}
 
@@ -418,8 +815,21 @@ func (t *TicketHandler) UpdateCategory(ctx context.Context, req *ticketv1.Update
 
 	res, err := t.service.UpdateCategory(ctx, in)
 	if err != nil {
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "UpdateCategory"),
+			zap.String("category_id", req.GetCategoryId()),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
 		return nil, err
 	}
+
+	t.logger.Info("gRPC request succeeded",
+		zap.String("method", "UpdateCategory"),
+		zap.String("category_id", req.GetCategoryId()),
+		zap.String("code", res.Category.Code),
+		zap.Duration("duration", time.Since(start)),
+	)
 
 	return &ticketv1.UpdateCategoryResponse{
 		Category: toProtoCategory(res.Category),
@@ -427,8 +837,21 @@ func (t *TicketHandler) UpdateCategory(ctx context.Context, req *ticketv1.Update
 }
 
 func (t *TicketHandler) DeleteCategory(ctx context.Context, req *ticketv1.DeleteCategoryRequest) (*ticketv1.DeleteCategoryResponse, error) {
+	start := time.Now()
+
+	t.logger.Info("gRPC request received",
+		zap.String("method", "DeleteCategory"),
+		zap.String("category_id", req.GetCategoryId()),
+	)
+
 	categoryID, err := uuid.Parse(req.GetCategoryId())
 	if err != nil {
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "DeleteCategory"),
+			zap.String("category_id", req.GetCategoryId()),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("handler: DeleteCategory(): invalid category_id: %w", err)
 	}
 
@@ -438,8 +861,21 @@ func (t *TicketHandler) DeleteCategory(ctx context.Context, req *ticketv1.Delete
 
 	res, err := t.service.DeleteCategory(ctx, in)
 	if err != nil {
+		t.logger.Warn("gRPC request failed",
+			zap.String("method", "DeleteCategory"),
+			zap.String("category_id", req.GetCategoryId()),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+		)
 		return nil, err
 	}
+
+	t.logger.Info("gRPC request succeeded",
+		zap.String("method", "DeleteCategory"),
+		zap.String("category_id", req.GetCategoryId()),
+		zap.String("code", res.Category.Code),
+		zap.Duration("duration", time.Since(start)),
+	)
 
 	return &ticketv1.DeleteCategoryResponse{
 		Category: toProtoCategory(res.Category),

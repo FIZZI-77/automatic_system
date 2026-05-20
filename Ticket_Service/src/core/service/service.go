@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"go.uber.org/zap"
 	"ticket/models"
 	"ticket/src/core/repository"
 )
@@ -33,9 +34,9 @@ type Service struct {
 	CategoryService
 }
 
-func NewService(repo *repository.Repository) *Service {
+func NewService(repo *repository.Repository, logger *zap.Logger) *Service {
 	return &Service{
-		TicketService:   NewTicketServiceStruct(repo),
-		CategoryService: NewCategoryServiceStruct(repo),
+		TicketService:   NewTicketServiceStruct(repo, logger),
+		CategoryService: NewCategoryServiceStruct(repo, logger),
 	}
 }
