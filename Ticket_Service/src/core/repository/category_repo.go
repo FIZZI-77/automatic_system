@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"ticket/models"
 )
 
@@ -38,12 +39,7 @@ func (c *CategoryRepoStruct) CreateCategory(ctx context.Context, in *models.Crea
 	if err != nil {
 		return nil, fmt.Errorf("repository: CreateCategory(): begin tx: %w", err)
 	}
-	defer func(tx *sql.Tx) {
-		err := tx.Rollback()
-		if err != nil {
-
-		}
-	}(tx)
+	defer tx.Rollback()
 
 	categoryID := uuid.NewString()
 
@@ -79,6 +75,10 @@ func (c *CategoryRepoStruct) CreateCategory(ctx context.Context, in *models.Crea
 
 	category, err := scanCategory(row)
 	if err != nil {
+		if isUniqueViolation(err) {
+			return nil, fmt.Errorf("repository: CreateCategory(): %w", models.ErrAlreadyExists)
+		}
+
 		return nil, fmt.Errorf("repository: CreateCategory(): insert category: %w", err)
 	}
 
@@ -185,19 +185,14 @@ func (c *CategoryRepoStruct) UpdateCategory(ctx context.Context, in *models.Upda
 	if err != nil {
 		return nil, fmt.Errorf("repository: UpdateCategory(): begin tx: %w", err)
 	}
-	defer func(tx *sql.Tx) {
-		err = tx.Rollback()
-		if err != nil {
-
-		}
-	}(tx)
+	defer tx.Rollback()
 
 	const query = `
 		UPDATE ticket_categories
 		SET
 			name = COALESCE(NULLIF($1, ''), name),
 			description = COALESCE(NULLIF($2, ''), description),
-			is_active = $3,
+			is_active = COALESCE($3, is_active),
 			updated_at = now()
 		WHERE id = $4
 		RETURNING
@@ -221,6 +216,10 @@ func (c *CategoryRepoStruct) UpdateCategory(ctx context.Context, in *models.Upda
 
 	category, err := scanCategory(row)
 	if err != nil {
+		if isUniqueViolation(err) {
+			return nil, fmt.Errorf("repository: UpdateCategory(): %w", models.ErrAlreadyExists)
+		}
+
 		return nil, fmt.Errorf("repository: UpdateCategory(): update category: %w", err)
 	}
 
@@ -240,12 +239,7 @@ func (c *CategoryRepoStruct) DeleteCategory(ctx context.Context, in *models.Dele
 	if err != nil {
 		return nil, fmt.Errorf("repository: DeleteCategory(): begin tx: %w", err)
 	}
-	defer func(tx *sql.Tx) {
-		err := tx.Rollback()
-		if err != nil {
-
-		}
-	}(tx)
+	defer tx.Rollback()
 
 	const query = `
 		UPDATE ticket_categories
@@ -302,6 +296,11 @@ func scanCategory(s scanner) (*models.TicketCategory, error) {
 	}
 
 	return &category, nil
+}
+
+func isUniqueViolation(err error) bool {
+	var pqErr *pq.Error
+	return errors.As(err, &pqErr) && pqErr.Code == "23505"
 }
 
 func (c *CategoryRepoStruct) insertCategoryOutboxEvent(ctx context.Context,

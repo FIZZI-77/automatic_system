@@ -37,7 +37,7 @@ func (s *CategoryServiceStruct) CreateCategory(ctx context.Context, in *models.C
 			zap.Duration("duration", time.Since(start)),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: CreateCategory(): validate: %w", err)
+		return nil, fmt.Errorf("service: CreateCategory(): %w: %v", models.ErrValidation, err)
 	}
 
 	category, err := s.repo.CreateCategory(ctx, in)
@@ -74,7 +74,7 @@ func (s *CategoryServiceStruct) GetCategory(ctx context.Context, in *models.GetC
 			zap.Duration("duration", time.Since(start)),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: GetCategory(): validate: %w", err)
+		return nil, fmt.Errorf("service: GetCategory(): %w: %v", models.ErrValidation, err)
 	}
 
 	category, err := s.repo.GetCategoryByID(ctx, in.CategoryID)
@@ -112,7 +112,7 @@ func (s *CategoryServiceStruct) ListCategories(ctx context.Context, in *models.L
 			zap.Duration("duration", time.Since(start)),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: ListCategories(): validate: %w", err)
+		return nil, fmt.Errorf("service: ListCategories(): %w: %v", models.ErrValidation, err)
 	}
 
 	categories, total, err := s.repo.ListCategories(ctx, in)
@@ -156,7 +156,7 @@ func (s *CategoryServiceStruct) UpdateCategory(ctx context.Context, in *models.U
 			zap.Duration("duration", time.Since(start)),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: UpdateCategory(): validate: %w", err)
+		return nil, fmt.Errorf("service: UpdateCategory(): %w: %v", models.ErrValidation, err)
 	}
 
 	category, err := s.repo.UpdateCategory(ctx, in)
@@ -194,7 +194,7 @@ func (s *CategoryServiceStruct) DeleteCategory(ctx context.Context, in *models.D
 			zap.Duration("duration", time.Since(start)),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: DeleteCategory(): validate: %w", err)
+		return nil, fmt.Errorf("service: DeleteCategory(): %w: %v", models.ErrValidation, err)
 	}
 
 	category, err := s.repo.DeleteCategory(ctx, in)
