@@ -1,9 +1,11 @@
 package repository
 
 import (
+	"auth/models"
 	"context"
 	"database/sql"
 	"fmt"
+
 	"github.com/google/uuid"
 )
 
@@ -264,4 +266,147 @@ func (t *TXRepoStruct) ResetPassword(ctx context.Context, userID uuid.UUID, pass
 	}
 
 	return int32(sessionRowsAffected), nil
+}
+
+func (t *TXRepoStruct) ResetPasswordWithToken(ctx context.Context, userID uuid.UUID, passwordHash string, tokenID uuid.UUID) (int32, error) {
+	tx, err := t.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, fmt.Errorf("tx_repo: ResetPasswordWithToken(): cant begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	const markTokenUsedQuery = `
+		UPDATE one_time_tokens
+		SET used_at = now()
+		WHERE id = $1
+		  AND user_id = $2
+		  AND type = $3
+		  AND used_at IS NULL
+		  AND expires_at > now()
+	`
+
+	result, err := tx.ExecContext(ctx, markTokenUsedQuery, tokenID, userID, models.TokenTypePasswordReset)
+	if err != nil {
+		return 0, fmt.Errorf("tx_repo: ResetPasswordWithToken(): mark token used: %w", err)
+	}
+
+	tokenRowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("tx_repo: ResetPasswordWithToken(): token rowsAffected: %w", err)
+	}
+
+	if tokenRowsAffected == 0 {
+		return 0, fmt.Errorf("tx_repo: ResetPasswordWithToken(): token not found, expired or already used")
+	}
+
+	const updatePasswordQuery = `
+		UPDATE users
+		SET password_hash = $1, updated_at = now()
+		WHERE id = $2
+	`
+
+	result, err = tx.ExecContext(ctx, updatePasswordQuery, passwordHash, userID)
+	if err != nil {
+		return 0, fmt.Errorf("tx_repo: ResetPasswordWithToken(): update password: %w", err)
+	}
+
+	userRowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("tx_repo: ResetPasswordWithToken(): user rowsAffected: %w", err)
+	}
+
+	if userRowsAffected == 0 {
+		return 0, fmt.Errorf("tx_repo: ResetPasswordWithToken(): user not found")
+	}
+
+	const revokeSessionsQuery = `
+		UPDATE sessions
+		SET is_revoked = TRUE, revoked_at = now()
+		WHERE user_id = $1 AND is_revoked = FALSE
+	`
+
+	result, err = tx.ExecContext(ctx, revokeSessionsQuery, userID)
+	if err != nil {
+		return 0, fmt.Errorf("tx_repo: ResetPasswordWithToken(): revoke sessions: %w", err)
+	}
+
+	sessionRowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("tx_repo: ResetPasswordWithToken(): session rowsAffected: %w", err)
+	}
+
+	const revokeTokensQuery = `
+		UPDATE refresh_tokens
+		SET is_revoked = TRUE, revoked_at = now()
+		WHERE user_id = $1 AND is_revoked = FALSE
+	`
+
+	_, err = tx.ExecContext(ctx, revokeTokensQuery, userID)
+	if err != nil {
+		return 0, fmt.Errorf("tx_repo: ResetPasswordWithToken(): revoke tokens: %w", err)
+	}
+
+	if err = tx.Commit(); err != nil {
+		return 0, fmt.Errorf("tx_repo: ResetPasswordWithToken(): commit: %w", err)
+	}
+
+	return int32(sessionRowsAffected), nil
+}
+
+func (t *TXRepoStruct) VerifyEmail(ctx context.Context, userID uuid.UUID, tokenID uuid.UUID) error {
+	tx, err := t.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("tx_repo: VerifyEmail(): cant begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	const markTokenUsedQuery = `
+		UPDATE one_time_tokens
+		SET used_at = now()
+		WHERE id = $1
+		  AND user_id = $2
+		  AND type = $3
+		  AND used_at IS NULL
+		  AND expires_at > now()
+	`
+
+	result, err := tx.ExecContext(ctx, markTokenUsedQuery, tokenID, userID, models.TokenTypeEmailVerification)
+	if err != nil {
+		return fmt.Errorf("tx_repo: VerifyEmail(): mark token used: %w", err)
+	}
+
+	tokenRowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("tx_repo: VerifyEmail(): token rowsAffected: %w", err)
+	}
+
+	if tokenRowsAffected == 0 {
+		return fmt.Errorf("tx_repo: VerifyEmail(): token not found, expired or already used")
+	}
+
+	const verifyUserQuery = `
+		UPDATE users
+		SET email_verified = TRUE, updated_at = now()
+		WHERE id = $1
+	`
+
+	result, err = tx.ExecContext(ctx, verifyUserQuery, userID)
+	if err != nil {
+		return fmt.Errorf("tx_repo: VerifyEmail(): verify user: %w", err)
+	}
+
+	userRowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("tx_repo: VerifyEmail(): user rowsAffected: %w", err)
+	}
+
+	if userRowsAffected == 0 {
+		return fmt.Errorf("tx_repo: VerifyEmail(): user not found")
+	}
+
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("tx_repo: VerifyEmail(): commit: %w", err)
+	}
+
+	return nil
 }

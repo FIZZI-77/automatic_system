@@ -42,6 +42,8 @@ type TXRepository interface {
 	Logout(ctx context.Context, sessionID uuid.UUID) error
 	LogoutAll(ctx context.Context, userID uuid.UUID) (int64, error)
 	ResetPassword(ctx context.Context, userID uuid.UUID, passwordHash string) (int32, error)
+	ResetPasswordWithToken(ctx context.Context, userID uuid.UUID, passwordHash string, tokenID uuid.UUID) (int32, error)
+	VerifyEmail(ctx context.Context, userID uuid.UUID, tokenID uuid.UUID) error
 }
 
 type OneTimeTokenRepo interface {

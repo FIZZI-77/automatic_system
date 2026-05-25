@@ -59,7 +59,7 @@ func (a *AuthServiceStruct) Register(ctx context.Context, in models.RegisterInpu
 		a.logger.Warn("registration failed - user already exists",
 			zap.String("email", in.Email),
 		)
-		return nil, fmt.Errorf("jwt: Register(): user with this email already exists")
+		return nil, fmt.Errorf("jwt: Register(): %w", models.ErrUserAlreadyExists)
 	}
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		a.logger.Error("failed to check existing user",
@@ -136,7 +136,7 @@ func (a *AuthServiceStruct) Login(ctx context.Context, in models.LoginInput) (*m
 		a.logger.Warn("login failed - user not found",
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("jwt: Login(): user with this email does not exist")
+		return nil, fmt.Errorf("jwt: Login(): %w", models.ErrUserNotFound)
 	}
 
 	if !existingUser.IsActive {
@@ -144,7 +144,7 @@ func (a *AuthServiceStruct) Login(ctx context.Context, in models.LoginInput) (*m
 			zap.String("user_id", existingUser.ID.String()),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("jwt: Login(): user is not active")
+		return nil, fmt.Errorf("jwt: Login(): %w", models.ErrUserInactive)
 	}
 	err = bcrypt.CompareHashAndPassword([]byte(existingUser.PasswordHash), []byte(in.Password))
 	if err != nil {
@@ -152,7 +152,7 @@ func (a *AuthServiceStruct) Login(ctx context.Context, in models.LoginInput) (*m
 			zap.String("user_id", existingUser.ID.String()),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("jwt: Login(): invalid password: %w", err)
+		return nil, fmt.Errorf("jwt: Login(): %w", models.ErrInvalidPassword)
 	}
 
 	sessionID, err := a.repo.CreateSession(ctx, &models.Session{
@@ -266,7 +266,7 @@ func (a *AuthServiceStruct) Refresh(ctx context.Context, in models.RefreshInput)
 			zap.String("client_id", in.ClientID),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("jwt: Refresh(): invalid refresh token")
+		return nil, fmt.Errorf("jwt: Refresh(): %w", models.ErrInvalidRefreshToken)
 	}
 
 	if refreshToken.ExpiresAt.Before(now) {
@@ -274,7 +274,7 @@ func (a *AuthServiceStruct) Refresh(ctx context.Context, in models.RefreshInput)
 			zap.String("client_id", in.ClientID),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("jwt: Refresh(): invalid refresh token, token has expired")
+		return nil, fmt.Errorf("jwt: Refresh(): %w", models.ErrRefreshTokenExpired)
 	}
 
 	if refreshToken.ReplacedByTokenID != nil {
@@ -282,7 +282,7 @@ func (a *AuthServiceStruct) Refresh(ctx context.Context, in models.RefreshInput)
 			zap.String("client_id", in.ClientID),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("jwt: Refresh(): invalid refresh token, token has been replaced")
+		return nil, fmt.Errorf("jwt: Refresh(): %w", models.ErrRefreshTokenReplaced)
 	}
 
 	session, err := a.repo.GetSessionByID(ctx, refreshToken.SessionID)
@@ -299,7 +299,7 @@ func (a *AuthServiceStruct) Refresh(ctx context.Context, in models.RefreshInput)
 			zap.String("client_id", in.ClientID),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("jwt: Refresh(): invalid refresh token, session does not exist")
+		return nil, fmt.Errorf("jwt: Refresh(): %w", models.ErrSessionNotFound)
 	}
 
 	if session.ExpiresAt.Before(now) {
@@ -307,7 +307,7 @@ func (a *AuthServiceStruct) Refresh(ctx context.Context, in models.RefreshInput)
 			zap.String("client_id", in.ClientID),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("jwt: Refresh(): invalid refresh token, session has expired")
+		return nil, fmt.Errorf("jwt: Refresh(): %w", models.ErrSessionExpired)
 	}
 
 	roles, err := a.repo.GetRolesByUserID(ctx, refreshToken.UserID)
@@ -399,7 +399,7 @@ func (a *AuthServiceStruct) Logout(ctx context.Context, in models.LogoutInput) e
 			zap.String("user_id", in.UserID.String()),
 			zap.Error(err),
 		)
-		return fmt.Errorf("jwt: Logout(): invalid session")
+		return fmt.Errorf("jwt: Logout(): %w", models.ErrInvalidSession)
 	}
 
 	err = a.repo.Logout(ctx, session.ID)
@@ -446,7 +446,7 @@ func (a *AuthServiceStruct) LogoutAll(ctx context.Context, in models.LogoutAllIn
 			zap.String("user_id", in.UserID.String()),
 			zap.Error(err),
 		)
-		return 0, fmt.Errorf("jwt: LogoutAll(): invalid user")
+		return 0, fmt.Errorf("jwt: LogoutAll(): %w", models.ErrUserNotFound)
 	}
 
 	count, err := a.repo.LogoutAll(ctx, existingUser.ID)
@@ -485,7 +485,7 @@ func (a *AuthServiceStruct) GetUserAuthInfo(ctx context.Context, userID uuid.UUI
 			zap.String("user_id", userID.String()),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("jwt: GetUserAuthInfo(): invalid user")
+		return nil, fmt.Errorf("jwt: GetUserAuthInfo(): %w", models.ErrUserNotFound)
 	}
 
 	roles, err := a.repo.GetRolesByUserID(ctx, userID)
@@ -603,7 +603,7 @@ func (a *AuthServiceStruct) ChangePassword(ctx context.Context, in models.Change
 			zap.String("user_id", in.UserID.String()),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("jwt: ChangePassword(): user not found")
+		return nil, fmt.Errorf("jwt: ChangePassword(): %w", models.ErrUserNotFound)
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(existingUser.PasswordHash), []byte(in.OldPassword))
@@ -612,7 +612,7 @@ func (a *AuthServiceStruct) ChangePassword(ctx context.Context, in models.Change
 			zap.String("user_id", in.UserID.String()),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("jwt: ChangePassword(): invalid old password")
+		return nil, fmt.Errorf("jwt: ChangePassword(): %w", models.ErrInvalidOldPassword)
 	}
 
 	newHashPassword, err := bcrypt.GenerateFromPassword([]byte(in.NewPassword), bcrypt.DefaultCost)
@@ -674,14 +674,14 @@ func (a *AuthServiceStruct) SendVerification(ctx context.Context, in models.Send
 			zap.String("user_id", in.UserID.String()),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("jwt: SendVerificationEmail(): user not found")
+		return nil, fmt.Errorf("jwt: SendVerificationEmail(): %w", models.ErrUserNotFound)
 	}
 
 	if user.EmailVerified {
 		a.logger.Warn("sendVerification failed - email is already verified",
 			zap.String("user_id", in.UserID.String()),
 		)
-		return nil, fmt.Errorf("jwt: SendVerificationEmail(): email already verified")
+		return nil, fmt.Errorf("jwt: SendVerificationEmail(): %w", models.ErrEmailAlreadyVerified)
 	}
 
 	err = a.repo.RevokeUnusedTokensByUserIDAndType(ctx, user.ID, models.TokenTypeEmailVerification)
@@ -763,17 +763,17 @@ func (a *AuthServiceStruct) VerifyEmail(ctx context.Context, in models.VerifyEma
 	}
 	if token == nil || errors.Is(err, sql.ErrNoRows) {
 		a.logger.Warn("verifyEmail failed - token not found")
-		return nil, fmt.Errorf("jwt: VerifyEmail(): invalid token")
+		return nil, fmt.Errorf("jwt: VerifyEmail(): %w", models.ErrInvalidToken)
 	}
 
 	if token.UsedAt != nil {
 		a.logger.Warn("verifyEmail failed - token already used")
-		return nil, fmt.Errorf("jwt: VerifyEmail(): token already used")
+		return nil, fmt.Errorf("jwt: VerifyEmail(): %w", models.ErrTokenAlreadyUsed)
 	}
 
 	if token.ExpiresAt.Before(time.Now()) {
 		a.logger.Warn("verifyEmail failed - token expired")
-		return nil, fmt.Errorf("jwt: VerifyEmail(): token expired")
+		return nil, fmt.Errorf("jwt: VerifyEmail(): %w", models.ErrTokenExpired)
 	}
 
 	user, err := a.repo.GetUserByID(ctx, token.UserID)
@@ -785,25 +785,15 @@ func (a *AuthServiceStruct) VerifyEmail(ctx context.Context, in models.VerifyEma
 	}
 	if user == nil || errors.Is(err, sql.ErrNoRows) {
 		a.logger.Warn("verifyEmail failed - user not found")
-		return nil, fmt.Errorf("jwt: VerifyEmail(): user not found")
+		return nil, fmt.Errorf("jwt: VerifyEmail(): %w", models.ErrUserNotFound)
 	}
 
-	user.EmailVerified = true
-
-	err = a.repo.UpdateUser(ctx, user)
+	err = a.repo.VerifyEmail(ctx, user.ID, token.ID)
 	if err != nil {
-		a.logger.Error("failed to update user",
+		a.logger.Error("failed to verify email",
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("jwt: VerifyEmail(): cant update user: %w", err)
-	}
-
-	err = a.repo.MarkOneTimeTokenUsed(ctx, token.ID)
-	if err != nil {
-		a.logger.Error("failed to mark one-time token",
-			zap.Error(err),
-		)
-		return nil, fmt.Errorf("jwt: VerifyEmail(): cant mark token used: %w", err)
+		return nil, fmt.Errorf("jwt: VerifyEmail(): verify email tx failed: %w", err)
 	}
 
 	a.logger.Info("verify email successfully",
@@ -921,17 +911,17 @@ func (a *AuthServiceStruct) ResetPassword(ctx context.Context, in models.ResetPa
 	}
 	if token == nil || errors.Is(err, sql.ErrNoRows) {
 		a.logger.Warn("ResetPassword failed - token not found")
-		return nil, fmt.Errorf("jwt: ResetPassword(): invalid token")
+		return nil, fmt.Errorf("jwt: ResetPassword(): %w", models.ErrInvalidToken)
 	}
 
 	if token.UsedAt != nil {
 		a.logger.Warn("ResetPassword failed - token already used")
-		return nil, fmt.Errorf("jwt: ResetPassword(): token already used")
+		return nil, fmt.Errorf("jwt: ResetPassword(): %w", models.ErrTokenAlreadyUsed)
 	}
 
 	if token.ExpiresAt.Before(time.Now()) {
 		a.logger.Warn("ResetPassword failed - token expired")
-		return nil, fmt.Errorf("jwt: ResetPassword(): token expired")
+		return nil, fmt.Errorf("jwt: ResetPassword(): %w", models.ErrTokenExpired)
 	}
 
 	user, err := a.repo.GetUserByID(ctx, token.UserID)
@@ -941,7 +931,7 @@ func (a *AuthServiceStruct) ResetPassword(ctx context.Context, in models.ResetPa
 	}
 	if user == nil || errors.Is(err, sql.ErrNoRows) {
 		a.logger.Warn("ResetPassword failed - user not found")
-		return nil, fmt.Errorf("jwt: ResetPassword(): user not found")
+		return nil, fmt.Errorf("jwt: ResetPassword(): %w", models.ErrUserNotFound)
 	}
 
 	newHashPassword, err := bcrypt.GenerateFromPassword([]byte(in.NewPassword), bcrypt.DefaultCost)
@@ -952,20 +942,12 @@ func (a *AuthServiceStruct) ResetPassword(ctx context.Context, in models.ResetPa
 		return nil, fmt.Errorf("jwt: ResetPassword(): cant generate password hash: %w", err)
 	}
 
-	count, err := a.repo.ResetPassword(ctx, user.ID, string(newHashPassword))
+	count, err := a.repo.ResetPasswordWithToken(ctx, user.ID, string(newHashPassword), token.ID)
 	if err != nil {
 		a.logger.Error("failed to reset password",
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("jwt: ResetPassword(): tx reset failed: %w", err)
-	}
-
-	err = a.repo.MarkOneTimeTokenUsed(ctx, token.ID)
-	if err != nil {
-		a.logger.Error("failed to mark one-time token",
-			zap.Error(err),
-		)
-		return nil, fmt.Errorf("jwt: ResetPassword(): cant mark token used: %w", err)
 	}
 
 	a.logger.Info("reset email successfully",

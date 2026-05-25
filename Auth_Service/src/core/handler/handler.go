@@ -4,6 +4,7 @@ import (
 	"auth/models"
 	"auth/src/core/service"
 	"context"
+	"errors"
 	v1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/auth/v1"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -49,7 +50,7 @@ func (h *AuthHandler) Register(ctx context.Context, req *v1.RegisterRequest) (*v
 			zap.Duration("duration", time.Since(start)),
 			zap.String("error", err.Error()),
 		)
-		return nil, status.Errorf(codes.Internal, "failed register: %v", err)
+		return nil, authStatusError("Register", err)
 	}
 
 	h.logger.Info("gRPC request succeeded",
@@ -97,7 +98,7 @@ func (h *AuthHandler) Login(ctx context.Context, request *v1.LoginRequest) (*v1.
 			zap.Duration("duration", time.Since(start)),
 			zap.String("error", err.Error()),
 		)
-		return nil, status.Errorf(codes.Internal, "failed Login: %v", err)
+		return nil, authStatusError("Login", err)
 	}
 
 	loginResponse := &v1.LoginResponse{
@@ -157,7 +158,7 @@ func (h *AuthHandler) Logout(ctx context.Context, request *v1.LogoutRequest) (*v
 			zap.Duration("duration", time.Since(start)),
 			zap.Error(err),
 		)
-		return nil, status.Errorf(codes.Internal, "failed Logout: %v", err)
+		return nil, authStatusError("Logout", err)
 	}
 
 	h.logger.Info("gRPC request succeeded",
@@ -199,7 +200,7 @@ func (h *AuthHandler) Refresh(ctx context.Context, request *v1.RefreshRequest) (
 			zap.String("client_id", request.GetClientId()),
 			zap.String("ip", request.GetIp()),
 		)
-		return nil, status.Errorf(codes.Internal, "failed Refresh: %v", err)
+		return nil, authStatusError("Refresh", err)
 	}
 
 	h.logger.Info("gRPC request succeeded",
@@ -251,7 +252,7 @@ func (h *AuthHandler) LogoutAll(ctx context.Context, request *v1.LogoutAllReques
 			zap.Duration("duration", time.Since(start)),
 			zap.Error(err),
 		)
-		return nil, status.Errorf(codes.Internal, "failed LogoutAll: %v", err)
+		return nil, authStatusError("LogoutAll", err)
 	}
 
 	logoutResponse := &v1.LogoutAllResponse{
@@ -295,7 +296,7 @@ func (h *AuthHandler) GetUserAuthInfo(ctx context.Context, request *v1.GetUserAu
 			zap.Duration("duration", time.Since(start)),
 			zap.Error(err),
 		)
-		return nil, status.Errorf(codes.Internal, "failed GetUserAuthInfo: %v", err)
+		return nil, authStatusError("GetUserAuthInfo", err)
 	}
 
 	h.logger.Info("gRPC request succeeded",
@@ -335,7 +336,7 @@ func (h *AuthHandler) GetJWKS(ctx context.Context, _ *v1.GetJWKSRequest) (*v1.Ge
 			zap.Duration("duration", time.Since(start)),
 			zap.Error(err),
 		)
-		return nil, status.Errorf(codes.Internal, "failed GetJWKS: %v", err)
+		return nil, authStatusError("GetJWKS", err)
 	}
 
 	h.logger.Info("gRPC request succeeded",
@@ -396,7 +397,7 @@ func (h *AuthHandler) ChangePassword(ctx context.Context, request *v1.ChangePass
 			zap.Duration("duration", time.Since(start)),
 			zap.Error(err),
 		)
-		return nil, status.Errorf(codes.Internal, "failed ChangePassword: %v", err)
+		return nil, authStatusError("ChangePassword", err)
 	}
 
 	h.logger.Info("gRPC request succeeded",
@@ -447,7 +448,7 @@ func (h *AuthHandler) SendVerificationEmail(ctx context.Context, request *v1.Sen
 			zap.Duration("duration", time.Since(start)),
 			zap.Error(err),
 		)
-		return nil, status.Errorf(codes.Internal, "failed SendVerificationEmail: %v", err)
+		return nil, authStatusError("SendVerificationEmail", err)
 	}
 
 	h.logger.Info("gRPC request succeeded",
@@ -484,7 +485,7 @@ func (h *AuthHandler) VerifyEmail(ctx context.Context, request *v1.VerifyEmailRe
 			zap.Duration("duration", time.Since(start)),
 			zap.Error(err),
 		)
-		return nil, status.Errorf(codes.Internal, "failed VerifyEmail: %v", err)
+		return nil, authStatusError("VerifyEmail", err)
 	}
 
 	h.logger.Info("gRPC request succeeded",
@@ -526,7 +527,7 @@ func (h *AuthHandler) RequestPasswordReset(ctx context.Context, request *v1.Requ
 			zap.Duration("duration", time.Since(start)),
 			zap.Error(err),
 		)
-		return nil, status.Errorf(codes.Internal, "failed RequestPasswordReset: %v", err)
+		return nil, authStatusError("RequestPasswordReset", err)
 	}
 
 	h.logger.Info("gRPC request succeeded",
@@ -565,7 +566,7 @@ func (h *AuthHandler) ResetPassword(ctx context.Context, request *v1.ResetPasswo
 			zap.Duration("duration", time.Since(start)),
 			zap.Error(err),
 		)
-		return nil, status.Errorf(codes.Internal, "failed ResetPassword: %v", err)
+		return nil, authStatusError("ResetPassword", err)
 	}
 
 	h.logger.Info("gRPC request succeeded",
@@ -580,4 +581,73 @@ func (h *AuthHandler) ResetPassword(ctx context.Context, request *v1.ResetPasswo
 	}
 
 	return response, nil
+}
+
+func authStatusError(method string, err error) error {
+	return status.Errorf(authErrorCode(err), "failed %s: %v", method, err)
+}
+
+func authErrorCode(err error) codes.Code {
+	if err == nil {
+		return codes.OK
+	}
+
+	if isValidationError(err) {
+		return codes.InvalidArgument
+	}
+
+	switch {
+	case errors.Is(err, models.ErrUserAlreadyExists):
+		return codes.AlreadyExists
+	case errors.Is(err, models.ErrUserNotFound),
+		errors.Is(err, models.ErrSessionNotFound):
+		return codes.NotFound
+	case errors.Is(err, models.ErrInvalidPassword),
+		errors.Is(err, models.ErrInvalidOldPassword),
+		errors.Is(err, models.ErrInvalidRefreshToken),
+		errors.Is(err, models.ErrInvalidToken):
+		return codes.Unauthenticated
+	case errors.Is(err, models.ErrUserInactive),
+		errors.Is(err, models.ErrRefreshTokenExpired),
+		errors.Is(err, models.ErrRefreshTokenReplaced),
+		errors.Is(err, models.ErrSessionExpired),
+		errors.Is(err, models.ErrInvalidSession),
+		errors.Is(err, models.ErrEmailAlreadyVerified),
+		errors.Is(err, models.ErrTokenAlreadyUsed),
+		errors.Is(err, models.ErrTokenExpired):
+		return codes.FailedPrecondition
+	default:
+		return codes.Internal
+	}
+}
+
+func isValidationError(err error) bool {
+	validationErrors := []error{
+		models.ErrEmailRequired,
+		models.ErrEmailInvalid,
+		models.ErrPasswordRequired,
+		models.ErrPasswordTooShort,
+		models.ErrUsernameRequired,
+		models.ErrUsernameTooShort,
+		models.ErrUsernameTooLong,
+		models.ErrClientIDRequired,
+		models.ErrIPRequired,
+		models.ErrIPInvalid,
+		models.ErrUserAgentRequired,
+		models.ErrRefreshTokenRequired,
+		models.ErrUserIDRequired,
+		models.ErrSessionIDRequired,
+		models.ErrOldPasswordRequired,
+		models.ErrNewPasswordRequired,
+		models.ErrNewPasswordSameAsOld,
+		models.ErrTokenRequired,
+	}
+
+	for _, validationErr := range validationErrors {
+		if errors.Is(err, validationErr) {
+			return true
+		}
+	}
+
+	return false
 }
