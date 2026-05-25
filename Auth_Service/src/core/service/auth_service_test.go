@@ -119,10 +119,12 @@ func (m *mockRoleRepo) AssignRoleToUser(ctx context.Context, userID uuid.UUID, r
 }
 
 type mockTXRepo struct {
-	changePasswordFunc func(ctx context.Context, userID uuid.UUID, password string, sessionID uuid.UUID, revokeOtherSessions bool) (int32, error)
-	logoutFunc         func(ctx context.Context, sessionID uuid.UUID) error
-	logoutAllFunc      func(ctx context.Context, userID uuid.UUID) (int64, error)
-	resetPasswordFunc  func(ctx context.Context, userID uuid.UUID, passwordHash string) (int32, error)
+	changePasswordFunc         func(ctx context.Context, userID uuid.UUID, password string, sessionID uuid.UUID, revokeOtherSessions bool) (int32, error)
+	logoutFunc                 func(ctx context.Context, sessionID uuid.UUID) error
+	logoutAllFunc              func(ctx context.Context, userID uuid.UUID) (int64, error)
+	resetPasswordFunc          func(ctx context.Context, userID uuid.UUID, passwordHash string) (int32, error)
+	resetPasswordWithTokenFunc func(ctx context.Context, userID uuid.UUID, passwordHash string, tokenID uuid.UUID) (int32, error)
+	verifyEmailFunc            func(ctx context.Context, userID uuid.UUID, tokenID uuid.UUID) error
 }
 
 func (m *mockTXRepo) ChangePassword(ctx context.Context, userID uuid.UUID, password string, sessionID uuid.UUID, revokeOtherSessions bool) (int32, error) {
@@ -139,6 +141,14 @@ func (m *mockTXRepo) LogoutAll(ctx context.Context, userID uuid.UUID) (int64, er
 
 func (m *mockTXRepo) ResetPassword(ctx context.Context, userID uuid.UUID, passwordHash string) (int32, error) {
 	return m.resetPasswordFunc(ctx, userID, passwordHash)
+}
+
+func (m *mockTXRepo) ResetPasswordWithToken(ctx context.Context, userID uuid.UUID, passwordHash string, tokenID uuid.UUID) (int32, error) {
+	return m.resetPasswordWithTokenFunc(ctx, userID, passwordHash, tokenID)
+}
+
+func (m *mockTXRepo) VerifyEmail(ctx context.Context, userID uuid.UUID, tokenID uuid.UUID) error {
+	return m.verifyEmailFunc(ctx, userID, tokenID)
 }
 
 type mockOneTimeTokenRepo struct {
@@ -1021,9 +1031,16 @@ func TestAuthService_VerifyEmail_Success(t *testing.T) {
 				EmailVerified: false,
 			}, nil
 		},
-		updateUserFunc: func(ctx context.Context, user *models.User) error {
-			if !user.EmailVerified {
-				t.Fatal("expected email verified true")
+	}
+
+	txRepo := &mockTXRepo{
+		verifyEmailFunc: func(ctx context.Context, id uuid.UUID, usedTokenID uuid.UUID) error {
+			if id != userID {
+				t.Fatalf("expected user id %s, got %s", userID, id)
+			}
+
+			if usedTokenID != tokenID {
+				t.Fatalf("expected token id %s, got %s", tokenID, usedTokenID)
 			}
 
 			return nil
@@ -1033,6 +1050,7 @@ func TestAuthService_VerifyEmail_Success(t *testing.T) {
 	repo := &repository.Repo{
 		UserRepository:   userRepo,
 		OneTimeTokenRepo: oneTimeRepo,
+		TXRepository:     txRepo,
 	}
 
 	svc := newTestService(repo, &mockMailService{}, t)
@@ -1131,9 +1149,13 @@ func TestAuthService_ResetPassword_Success(t *testing.T) {
 	}
 
 	txRepo := &mockTXRepo{
-		resetPasswordFunc: func(ctx context.Context, id uuid.UUID, passwordHash string) (int32, error) {
+		resetPasswordWithTokenFunc: func(ctx context.Context, id uuid.UUID, passwordHash string, usedTokenID uuid.UUID) (int32, error) {
 			if id != userID {
 				t.Fatalf("expected user id %s, got %s", userID, id)
+			}
+
+			if usedTokenID != tokenID {
+				t.Fatalf("expected token id %s, got %s", tokenID, usedTokenID)
 			}
 
 			if passwordHash == "" {
