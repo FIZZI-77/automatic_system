@@ -1,49 +1,59 @@
 package models
 
 type TicketCategory struct {
-	CategoryID    string `json:"category_id"`
-	CategoryCode  string `json:"category_code"`
-	CategoryName  string `json:"category_name"`
+	ID            string `json:"id"`
+	Code          string `json:"code"`
+	Name          string `json:"name"`
 	Description   string `json:"description"`
 	IsActive      bool   `json:"is_active"`
 	CreatedAtUnix int64  `json:"created_at"`
 	UpdatedAtUnix int64  `json:"updated_at"`
 }
+
 type Ticket struct {
-	TicketID     string `json:"ticket_id"`
-	DepartmentID string `json:"department_id"`
-	CategoryID   string `json:"category_id"`
-	UserID       string `json:"user_id"`
-	BrigadeID    string `json:"brigade_id"`
-	Title        string `json:"title"`
-	Description  string `json:"description"`
-	TicketStatus string `json:"ticket_status"`
+	ID              string  `json:"id"`
+	DepartmentID    string  `json:"department_id"`
+	CategoryID      string  `json:"category_id"`
+	UserID          string  `json:"user_id"`
+	BrigadeID       string  `json:"brigade_id,omitempty"`
+	Title           string  `json:"title"`
+	Description     string  `json:"description"`
+	Status          string  `json:"status"`
+	Priority        string  `json:"priority"`
+	Address         string  `json:"address"`
+	Latitude        float64 `json:"latitude"`
+	Longitude       float64 `json:"longitude"`
+	CreatedAtUnix   int64   `json:"created_at"`
+	UpdatedAtUnix   int64   `json:"updated_at"`
+	AssignedAtUnix  int64   `json:"assigned_at,omitempty"`
+	CompletedAtUnix int64   `json:"completed_at,omitempty"`
+	CanceledAtUnix  int64   `json:"canceled_at,omitempty"`
 }
 
 type TicketStatusHistory struct {
 	ID            string `json:"id"`
 	TicketID      string `json:"ticket_id"`
-	OldStatus     string `json:"old_status"`
+	OldStatus     string `json:"old_status,omitempty"`
 	NewStatus     string `json:"new_status"`
-	ChangeBy      string `json:"change_by"`
-	Comment       string `json:"comment"`
+	ChangedBy     string `json:"changed_by,omitempty"`
+	Comment       string `json:"comment,omitempty"`
 	CreatedAtUnix int64  `json:"created_at"`
 }
 
 type CreateTicketRequest struct {
-	DepartmentID   string  `json:"department_id" binding:"required,uuid"`
-	CategoryID     string  `json:"category_id" binding:"required,uuid"`
-	UserID         string  `json:"user_id" binding:"required,uuid"`
-	Title          string  `json:"title" binding:"required"`
-	Description    string  `json:"description" binding:"required"`
-	TicketPriority string  `json:"ticket_prior" binding:"required,oneof=low medium high emergency"`
-	Address        string  `json:"address" binding:"required"`
-	Latitude       float64 `json:"latitude" binding:"required"`
-	Longitude      float64 `json:"longitude" binding:"required"`
+	DepartmentID string   `json:"department_id" binding:"required,uuid"`
+	CategoryID   string   `json:"category_id" binding:"required,uuid"`
+	UserID       string   `json:"user_id" binding:"required,uuid"`
+	Title        string   `json:"title" binding:"required"`
+	Description  string   `json:"description" binding:"required"`
+	Priority     string   `json:"priority" binding:"required,oneof=low medium high emergency"`
+	Address      string   `json:"address" binding:"required"`
+	Latitude     *float64 `json:"latitude" binding:"required,latitude"`
+	Longitude    *float64 `json:"longitude" binding:"required,longitude"`
 }
 
 type CreateTicketResponse struct {
-	*Ticket
+	Ticket *Ticket `json:"ticket"`
 }
 
 type GetTicketRequest struct {
@@ -51,13 +61,13 @@ type GetTicketRequest struct {
 }
 
 type GetTicketResponse struct {
-	*Ticket
+	Ticket *Ticket `json:"ticket"`
 }
 
 type ListTicketRequest struct {
 	DepartmentID *string `json:"department_id,omitempty" binding:"omitempty,uuid"`
 	CategoryID   *string `json:"category_id,omitempty" binding:"omitempty,uuid"`
-	TicketStatus *string `json:"status,omitempty" binding:"omitempty,oneof=new assigned in_progress done canceled"`
+	Status       *string `json:"status,omitempty" binding:"omitempty,oneof=new assigned in_progress done canceled"`
 	UserID       *string `json:"user_id,omitempty" binding:"omitempty,uuid"`
 	BrigadeID    *string `json:"brigade_id,omitempty" binding:"omitempty,uuid"`
 	Priority     *string `json:"priority,omitempty" binding:"omitempty,oneof=low medium high emergency"`
@@ -81,44 +91,45 @@ type UpdateTicketRequest struct {
 	CategoryID  *string  `json:"category_id,omitempty" binding:"omitempty,uuid"`
 	Priority    *string  `json:"priority,omitempty" binding:"omitempty,oneof=low medium high emergency"`
 	Address     *string  `json:"address,omitempty" binding:"omitempty"`
-	Latitude    *float64 `json:"latitude" binding:"omitempty"`
-	Longitude   *float64 `json:"longitude" binding:"omitempty"`
+	Latitude    *float64 `json:"latitude,omitempty" binding:"omitempty,latitude"`
+	Longitude   *float64 `json:"longitude,omitempty" binding:"omitempty,longitude"`
+	UpdatedBy   *string  `json:"updated_by,omitempty" binding:"omitempty,uuid"`
 }
 
 type UpdateTicketResponse struct {
-	*Ticket
+	Ticket *Ticket `json:"ticket"`
 }
 
 type ChangeTicketStatusRequest struct {
 	TicketID  string `json:"ticket_id" binding:"required,uuid"`
 	NewStatus string `json:"new_status" binding:"required,oneof=new assigned in_progress done canceled"`
-	ChangeBy  string `json:"change_by" binding:"required,uuid"`
+	ChangedBy string `json:"changed_by" binding:"required,uuid"`
 	Comment   string `json:"comment" binding:"omitempty"`
 }
 
 type ChangeTicketStatusResponse struct {
-	*Ticket
+	Ticket *Ticket `json:"ticket"`
 }
 
 type AssignBrigadeRequest struct {
-	TicketID   string  `json:"ticket_id" binding:"required,uuid"`
-	BrigadeID  string  `json:"brigade_id" binding:"required,uuid"`
-	AssignedBy *string `json:"assigned_by,omitempty" binding:"omitempty,uuid"`
-	Comment    string  `json:"comment" binding:"omitempty"`
+	TicketID   string `json:"ticket_id" binding:"required,uuid"`
+	BrigadeID  string `json:"brigade_id" binding:"required,uuid"`
+	AssignedBy string `json:"assigned_by" binding:"required,uuid"`
+	Comment    string `json:"comment" binding:"omitempty"`
 }
 
 type AssignBrigadeResponse struct {
-	*Ticket
+	Ticket *Ticket `json:"ticket"`
 }
 
 type CancelTicketRequest struct {
-	TicketID string  `json:"ticket_id" binding:"required,uuid"`
-	CancelBy string  `json:"cancel_by" binding:"required,uuid"`
-	Reason   *string `json:"reason" binding:"omitempty"`
+	TicketID   string `json:"ticket_id" binding:"required,uuid"`
+	CanceledBy string `json:"canceled_by" binding:"required,uuid"`
+	Reason     string `json:"reason" binding:"required"`
 }
 
 type CancelTicketResponse struct {
-	*Ticket
+	Ticket *Ticket `json:"ticket"`
 }
 
 type CompleteTicketRequest struct {
@@ -128,7 +139,7 @@ type CompleteTicketRequest struct {
 }
 
 type CompleteTicketResponse struct {
-	*Ticket
+	Ticket *Ticket `json:"ticket"`
 }
 
 type GetTicketStatusHistoryRequest struct {
@@ -137,9 +148,9 @@ type GetTicketStatusHistoryRequest struct {
 	Offset   *int32 `json:"offset,omitempty" binding:"omitempty,min=0"`
 }
 
-type GetTicketHistoryResponse struct {
-	Tickets []*Ticket `json:"tickets"`
-	Total   int64     `json:"total"`
+type GetTicketStatusHistoryResponse struct {
+	History []*TicketStatusHistory `json:"history"`
+	Total   int64                  `json:"total"`
 }
 
 type CreateCategoryRequest struct {
@@ -149,7 +160,7 @@ type CreateCategoryRequest struct {
 }
 
 type CreateCategoryResponse struct {
-	*TicketCategory
+	Category *TicketCategory `json:"category"`
 }
 
 type GetCategoryRequest struct {
@@ -157,7 +168,7 @@ type GetCategoryRequest struct {
 }
 
 type GetCategoryResponse struct {
-	*TicketCategory
+	Category *TicketCategory `json:"category"`
 }
 
 type ListCategoriesRequest struct {
@@ -167,24 +178,14 @@ type ListCategoriesRequest struct {
 }
 
 type UpdateCategoryRequest struct {
-	CategoryID  string  `json:"category_id" binding:"required,uuid4"`
+	CategoryID  string  `json:"category_id" binding:"required,uuid"`
 	Name        *string `json:"name,omitempty" binding:"omitempty,min=2,max=255"`
 	Description *string `json:"description,omitempty" binding:"omitempty,max=500"`
 	IsActive    *bool   `json:"is_active,omitempty" binding:"omitempty"`
 }
 
 type DeleteCategoryRequest struct {
-	CategoryID string `json:"category_id" binding:"required,uuid4"`
-}
-
-type CategoryResponse struct {
-	ID            string `json:"id"`
-	Code          string `json:"code"`
-	Name          string `json:"name"`
-	Description   string `json:"description,omitempty"`
-	IsActive      bool   `json:"is_active"`
-	CreatedAtUnix int64  `json:"created_at"`
-	UpdatedAtUnix int64  `json:"updated_at"`
+	CategoryID string `json:"category_id" binding:"required,uuid"`
 }
 
 type ListCategoriesResponse struct {
@@ -193,9 +194,9 @@ type ListCategoriesResponse struct {
 }
 
 type DeleteCategoryResponse struct {
-	*TicketCategory
+	Category *TicketCategory `json:"category"`
 }
 
 type UpdateCategoryResponse struct {
-	*TicketCategory
+	Category *TicketCategory `json:"category"`
 }
