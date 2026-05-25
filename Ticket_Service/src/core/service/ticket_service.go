@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -40,7 +39,7 @@ func (s *TicketServiceStruct) CreateTicket(ctx context.Context, in *models.Creat
 			zap.Duration("duration", time.Since(start)),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: CreateTicket(): validate: %w", err)
+		return nil, fmt.Errorf("service: CreateTicket(): %w: %v", models.ErrValidation, err)
 	}
 
 	ticket, err := s.repo.CreateTicket(ctx, in)
@@ -78,7 +77,7 @@ func (s *TicketServiceStruct) GetTicket(ctx context.Context, in *models.GetTicke
 			zap.Duration("duration", time.Since(start)),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: GetTicket(): validate: %w", err)
+		return nil, fmt.Errorf("service: GetTicket(): %w: %v", models.ErrValidation, err)
 	}
 
 	ticket, err := s.repo.GetTicketByID(ctx, in.TicketID)
@@ -128,7 +127,7 @@ func (s *TicketServiceStruct) ListTickets(ctx context.Context, in *models.ListTi
 			zap.Duration("duration", time.Since(start)),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: ListTickets(): validate: %w", err)
+		return nil, fmt.Errorf("service: ListTickets(): %w: %v", models.ErrValidation, err)
 	}
 
 	tickets, total, err := s.repo.ListTickets(ctx, in)
@@ -172,7 +171,7 @@ func (s *TicketServiceStruct) UpdateTicket(ctx context.Context, in *models.Updat
 			zap.Duration("duration", time.Since(start)),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: UpdateTicket(): validate: %w", err)
+		return nil, fmt.Errorf("service: UpdateTicket(): %w: %v", models.ErrValidation, err)
 	}
 
 	ticket, err := s.repo.UpdateTicket(ctx, in)
@@ -211,28 +210,7 @@ func (s *TicketServiceStruct) ChangeTicketStatus(ctx context.Context, in *models
 			zap.Duration("duration", time.Since(start)),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: ChangeTicketStatus(): validate: %w", err)
-	}
-
-	currentTicket, err := s.repo.GetTicketByID(ctx, in.TicketID)
-	if err != nil {
-		s.logger.Error("ChangeTicketStatus failed to get current ticket",
-			zap.String("ticket_id", in.TicketID.String()),
-			zap.Duration("duration", time.Since(start)),
-			zap.Error(err),
-		)
-		return nil, fmt.Errorf("service: ChangeTicketStatus(): get ticket: %w", err)
-	}
-
-	if err = validateStatusTransition(currentTicket.Status, in.NewStatus); err != nil {
-		s.logger.Warn("ChangeTicketStatus invalid transition",
-			zap.String("ticket_id", in.TicketID.String()),
-			zap.String("current_status", string(currentTicket.Status)),
-			zap.String("new_status", string(in.NewStatus)),
-			zap.Duration("duration", time.Since(start)),
-			zap.Error(err),
-		)
-		return nil, fmt.Errorf("service: ChangeTicketStatus(): %w", err)
+		return nil, fmt.Errorf("service: ChangeTicketStatus(): %w: %v", models.ErrValidation, err)
 	}
 
 	ticket, err := s.repo.ChangeTicketStatus(ctx, in)
@@ -248,7 +226,6 @@ func (s *TicketServiceStruct) ChangeTicketStatus(ctx context.Context, in *models
 
 	s.logger.Info("ChangeTicketStatus success",
 		zap.String("ticket_id", ticket.ID.String()),
-		zap.String("old_status", string(currentTicket.Status)),
 		zap.String("new_status", string(ticket.Status)),
 		zap.Duration("duration", time.Since(start)),
 	)
@@ -273,27 +250,7 @@ func (s *TicketServiceStruct) AssignBrigade(ctx context.Context, in *models.Assi
 			zap.Duration("duration", time.Since(start)),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: AssignBrigade(): validate: %w", err)
-	}
-
-	currentTicket, err := s.repo.GetTicketByID(ctx, in.TicketID)
-	if err != nil {
-		s.logger.Error("AssignBrigade failed to get current ticket",
-			zap.String("ticket_id", in.TicketID.String()),
-			zap.Duration("duration", time.Since(start)),
-			zap.Error(err),
-		)
-		return nil, fmt.Errorf("service: AssignBrigade(): get ticket: %w", err)
-	}
-
-	if err = validateStatusTransition(currentTicket.Status, models.TicketStatusAssigned); err != nil {
-		s.logger.Warn("AssignBrigade invalid transition",
-			zap.String("ticket_id", in.TicketID.String()),
-			zap.String("current_status", string(currentTicket.Status)),
-			zap.Duration("duration", time.Since(start)),
-			zap.Error(err),
-		)
-		return nil, fmt.Errorf("service: AssignBrigade(): %w", err)
+		return nil, fmt.Errorf("service: AssignBrigade(): %w: %v", models.ErrValidation, err)
 	}
 
 	ticket, err := s.repo.AssignBrigade(ctx, in)
@@ -333,27 +290,7 @@ func (s *TicketServiceStruct) CancelTicket(ctx context.Context, in *models.Cance
 			zap.Duration("duration", time.Since(start)),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: CancelTicket(): validate: %w", err)
-	}
-
-	currentTicket, err := s.repo.GetTicketByID(ctx, in.TicketID)
-	if err != nil {
-		s.logger.Error("CancelTicket failed to get current ticket",
-			zap.String("ticket_id", in.TicketID.String()),
-			zap.Duration("duration", time.Since(start)),
-			zap.Error(err),
-		)
-		return nil, fmt.Errorf("service: CancelTicket(): get ticket: %w", err)
-	}
-
-	if err = validateStatusTransition(currentTicket.Status, models.TicketStatusCanceled); err != nil {
-		s.logger.Warn("CancelTicket invalid transition",
-			zap.String("ticket_id", in.TicketID.String()),
-			zap.String("current_status", string(currentTicket.Status)),
-			zap.Duration("duration", time.Since(start)),
-			zap.Error(err),
-		)
-		return nil, fmt.Errorf("service: CancelTicket(): %w", err)
+		return nil, fmt.Errorf("service: CancelTicket(): %w: %v", models.ErrValidation, err)
 	}
 
 	ticket, err := s.repo.CancelTicket(ctx, in)
@@ -391,27 +328,7 @@ func (s *TicketServiceStruct) CompleteTicket(ctx context.Context, in *models.Com
 			zap.Duration("duration", time.Since(start)),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: CompleteTicket(): validate: %w", err)
-	}
-
-	currentTicket, err := s.repo.GetTicketByID(ctx, in.TicketID)
-	if err != nil {
-		s.logger.Error("CompleteTicket failed to get current ticket",
-			zap.String("ticket_id", in.TicketID.String()),
-			zap.Duration("duration", time.Since(start)),
-			zap.Error(err),
-		)
-		return nil, fmt.Errorf("service: CompleteTicket(): get ticket: %w", err)
-	}
-
-	if err = validateStatusTransition(currentTicket.Status, models.TicketStatusDone); err != nil {
-		s.logger.Warn("CompleteTicket invalid transition",
-			zap.String("ticket_id", in.TicketID.String()),
-			zap.String("current_status", string(currentTicket.Status)),
-			zap.Duration("duration", time.Since(start)),
-			zap.Error(err),
-		)
-		return nil, fmt.Errorf("service: CompleteTicket(): %w", err)
+		return nil, fmt.Errorf("service: CompleteTicket(): %w: %v", models.ErrValidation, err)
 	}
 
 	ticket, err := s.repo.CompleteTicket(ctx, in)
@@ -450,7 +367,7 @@ func (s *TicketServiceStruct) GetTicketStatusHistory(ctx context.Context, in *mo
 			zap.Duration("duration", time.Since(start)),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: GetTicketStatusHistory(): validate: %w", err)
+		return nil, fmt.Errorf("service: GetTicketStatusHistory(): %w: %v", models.ErrValidation, err)
 	}
 
 	history, total, err := s.repo.GetTicketStatusHistory(ctx, in)
@@ -474,46 +391,4 @@ func (s *TicketServiceStruct) GetTicketStatusHistory(ctx context.Context, in *mo
 		History: history,
 		Total:   total,
 	}, nil
-}
-
-func validateStatusTransition(from models.TicketStatus, to models.TicketStatus) error {
-	if from == to {
-		return errors.New("new status must be different from current status")
-	}
-
-	if from == models.TicketStatusDone {
-		return errors.New("ticket is already done")
-	}
-
-	if from == models.TicketStatusCanceled {
-		return errors.New("ticket is already canceled")
-	}
-
-	allowedTransitions := map[models.TicketStatus][]models.TicketStatus{
-		models.TicketStatusNew: {
-			models.TicketStatusAssigned,
-			models.TicketStatusCanceled,
-		},
-		models.TicketStatusAssigned: {
-			models.TicketStatusInProgress,
-			models.TicketStatusCanceled,
-		},
-		models.TicketStatusInProgress: {
-			models.TicketStatusDone,
-			models.TicketStatusCanceled,
-		},
-	}
-
-	nextStatuses, ok := allowedTransitions[from]
-	if !ok {
-		return errors.New("invalid current status")
-	}
-
-	for _, allowedStatus := range nextStatuses {
-		if allowedStatus == to {
-			return nil
-		}
-	}
-
-	return fmt.Errorf("invalid status transition: %s -> %s", from, to)
 }

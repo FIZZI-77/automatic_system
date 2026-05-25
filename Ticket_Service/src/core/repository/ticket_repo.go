@@ -23,7 +23,7 @@ func NewTicketRepository(db *sql.DB) *TicketRepoStruct {
 	}
 }
 
-var ErrNotFound = errors.New("not found")
+var ErrNotFound = models.ErrNotFound
 
 type ticketCreatedEventPayload struct {
 	EventID      string    `json:"event_id"`
@@ -53,7 +53,7 @@ func (t *TicketRepoStruct) CreateTicket(ctx context.Context, in *models.CreateTi
 	}
 
 	if !categoryActive {
-		return nil, fmt.Errorf("repository: CreateTicket(): category is not active")
+		return nil, fmt.Errorf("repository: CreateTicket(): %w", models.ErrCategoryInactive)
 	}
 
 	ticketID := uuid.New()
@@ -266,7 +266,7 @@ func (t *TicketRepoStruct) UpdateTicket(ctx context.Context, in *models.UpdateTi
 		}
 
 		if !categoryActive {
-			return nil, fmt.Errorf("repository: UpdateTicket(): category is not active")
+			return nil, fmt.Errorf("repository: UpdateTicket(): %w", models.ErrCategoryInactive)
 		}
 
 		addSet("category_id", *in.CategoryID)
@@ -345,11 +345,16 @@ func (t *TicketRepoStruct) ChangeTicketStatus(ctx context.Context, in *models.Ch
 		return nil, fmt.Errorf("repository: ChangeTicketStatus(): get ticket: %w", err)
 	}
 
+	if err = validateStatusTransition(oldTicket.Status, in.NewStatus); err != nil {
+		return nil, fmt.Errorf("repository: ChangeTicketStatus(): %w", err)
+	}
+
 	const query = `
 		UPDATE tickets
 		SET status = $1,
 		    updated_at = now()
 		WHERE id = $2
+		  AND status NOT IN ('DONE', 'CANCELED')
 		RETURNING
 			id,
 			department_id,
@@ -402,6 +407,10 @@ func (t *TicketRepoStruct) AssignBrigade(ctx context.Context, in *models.AssignB
 	oldTicket, err := t.getTicketByIDForUpdate(ctx, tx, in.TicketID)
 	if err != nil {
 		return nil, fmt.Errorf("repository: AssignBrigade(): get ticket: %w", err)
+	}
+
+	if err = validateStatusTransition(oldTicket.Status, models.TicketStatusAssigned); err != nil {
+		return nil, fmt.Errorf("repository: AssignBrigade(): %w", err)
 	}
 
 	const query = `
@@ -466,6 +475,10 @@ func (t *TicketRepoStruct) CancelTicket(ctx context.Context, in *models.CancelTi
 		return nil, fmt.Errorf("repository: CancelTicket(): get ticket: %w", err)
 	}
 
+	if err = validateStatusTransition(oldTicket.Status, models.TicketStatusCanceled); err != nil {
+		return nil, fmt.Errorf("repository: CancelTicket(): %w", err)
+	}
+
 	const query = `
 		UPDATE tickets
 		SET status = $1,
@@ -525,6 +538,10 @@ func (t *TicketRepoStruct) CompleteTicket(ctx context.Context, in *models.Comple
 	oldTicket, err := t.getTicketByIDForUpdate(ctx, tx, in.TicketID)
 	if err != nil {
 		return nil, fmt.Errorf("repository: CompleteTicket(): get ticket: %w", err)
+	}
+
+	if err = validateStatusTransition(oldTicket.Status, models.TicketStatusDone); err != nil {
+		return nil, fmt.Errorf("repository: CompleteTicket(): %w", err)
 	}
 
 	const query = `
@@ -1008,6 +1025,48 @@ func scanTicketStatusHistory(s scanner) (*models.TicketStatusHistory, error) {
 	}
 
 	return &item, nil
+}
+
+func validateStatusTransition(from models.TicketStatus, to models.TicketStatus) error {
+	if from == to {
+		return fmt.Errorf("%w: new status must be different from current status", models.ErrInvalidStatusTransition)
+	}
+
+	if from == models.TicketStatusDone {
+		return fmt.Errorf("%w: ticket is already done", models.ErrTicketTerminalState)
+	}
+
+	if from == models.TicketStatusCanceled {
+		return fmt.Errorf("%w: ticket is already canceled", models.ErrTicketTerminalState)
+	}
+
+	allowedTransitions := map[models.TicketStatus][]models.TicketStatus{
+		models.TicketStatusNew: {
+			models.TicketStatusAssigned,
+			models.TicketStatusCanceled,
+		},
+		models.TicketStatusAssigned: {
+			models.TicketStatusInProgress,
+			models.TicketStatusCanceled,
+		},
+		models.TicketStatusInProgress: {
+			models.TicketStatusDone,
+			models.TicketStatusCanceled,
+		},
+	}
+
+	nextStatuses, ok := allowedTransitions[from]
+	if !ok {
+		return fmt.Errorf("%w: invalid current status", models.ErrInvalidStatusTransition)
+	}
+
+	for _, allowedStatus := range nextStatuses {
+		if allowedStatus == to {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("%w: %s -> %s", models.ErrInvalidStatusTransition, from, to)
 }
 
 func ticketSortColumn(sortBy models.TicketSortBy) string {
