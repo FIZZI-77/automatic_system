@@ -61,7 +61,9 @@ func main() {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(pkg.RequestIDUnaryServerInterceptor),
+	)
 
 	repo := repository.NewRepository(db)
 	ticketService := service.NewService(repo, logger)

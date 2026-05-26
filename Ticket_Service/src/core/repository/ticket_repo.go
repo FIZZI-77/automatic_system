@@ -285,6 +285,19 @@ func (t *TicketRepoStruct) UpdateTicket(ctx context.Context, in *models.UpdateTi
 		addSet("longitude", *in.Longitude)
 	}
 
+	currentTicket, err := t.getTicketByIDForUpdate(ctx, tx, in.TicketID)
+	if err != nil {
+		return nil, fmt.Errorf("repository: UpdateTicket(): get ticket: %w", err)
+	}
+
+	if !hasPrivilegedRole(in.ActorRoles) && currentTicket.UserID != *in.UpdatedBy {
+		return nil, fmt.Errorf("repository: UpdateTicket(): %w", models.ErrPermissionDenied)
+	}
+
+	if currentTicket.Status == models.TicketStatusDone || currentTicket.Status == models.TicketStatusCanceled {
+		return nil, fmt.Errorf("repository: UpdateTicket(): %w", models.ErrTicketTerminalState)
+	}
+
 	addSet("updated_at", time.Now().UTC())
 
 	args = append(args, in.TicketID)
@@ -1067,6 +1080,17 @@ func validateStatusTransition(from models.TicketStatus, to models.TicketStatus) 
 	}
 
 	return fmt.Errorf("%w: %s -> %s", models.ErrInvalidStatusTransition, from, to)
+}
+
+func hasPrivilegedRole(roles []string) bool {
+	for _, role := range roles {
+		switch role {
+		case "admin", "dispatcher":
+			return true
+		}
+	}
+
+	return false
 }
 
 func ticketSortColumn(sortBy models.TicketSortBy) string {

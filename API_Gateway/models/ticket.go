@@ -124,7 +124,7 @@ type TicketStatusHistory struct {
 type CreateTicketRequest struct {
 	DepartmentID string   `json:"department_id" binding:"required,uuid"`
 	CategoryID   string   `json:"category_id" binding:"required,uuid"`
-	UserID       string   `json:"user_id" binding:"required,uuid"`
+	UserID       string   `json:"user_id,omitempty" binding:"omitempty,uuid"`
 	Title        string   `json:"title" binding:"required"`
 	Description  string   `json:"description" binding:"required"`
 	Priority     string   `json:"priority" binding:"required,oneof=low medium high emergency"`
@@ -184,7 +184,7 @@ type UpdateTicketResponse struct {
 type ChangeTicketStatusRequest struct {
 	TicketID  string `json:"ticket_id" binding:"required,uuid"`
 	NewStatus string `json:"new_status" binding:"required,oneof=new assigned in_progress done canceled"`
-	ChangedBy string `json:"changed_by" binding:"required,uuid"`
+	ChangedBy string `json:"changed_by,omitempty" binding:"omitempty,uuid"`
 	Comment   string `json:"comment" binding:"omitempty"`
 }
 
@@ -195,7 +195,7 @@ type ChangeTicketStatusResponse struct {
 type AssignBrigadeRequest struct {
 	TicketID   string `json:"ticket_id" binding:"required,uuid"`
 	BrigadeID  string `json:"brigade_id" binding:"required,uuid"`
-	AssignedBy string `json:"assigned_by" binding:"required,uuid"`
+	AssignedBy string `json:"assigned_by,omitempty" binding:"omitempty,uuid"`
 	Comment    string `json:"comment" binding:"omitempty"`
 }
 
@@ -205,7 +205,7 @@ type AssignBrigadeResponse struct {
 
 type CancelTicketRequest struct {
 	TicketID   string `json:"ticket_id" binding:"required,uuid"`
-	CanceledBy string `json:"canceled_by" binding:"required,uuid"`
+	CanceledBy string `json:"canceled_by,omitempty" binding:"omitempty,uuid"`
 	Reason     string `json:"reason" binding:"required"`
 }
 
@@ -215,7 +215,7 @@ type CancelTicketResponse struct {
 
 type CompleteTicketRequest struct {
 	TicketID    string  `json:"ticket_id" binding:"required,uuid"`
-	CompletedBy string  `json:"completed_by" binding:"required,uuid"`
+	CompletedBy string  `json:"completed_by,omitempty" binding:"omitempty,uuid"`
 	Comment     *string `json:"comment" binding:"omitempty"`
 }
 
