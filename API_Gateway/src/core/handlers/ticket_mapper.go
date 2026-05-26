@@ -9,7 +9,6 @@ import (
 )
 
 func ToProtoStatus(status string) ticketv1.TicketStatus {
-
 	status = strings.ToUpper(status)
 
 	switch status {
@@ -21,7 +20,7 @@ func ToProtoStatus(status string) ticketv1.TicketStatus {
 		return ticketv1.TicketStatus_TICKET_STATUS_IN_PROGRESS
 	case "DONE":
 		return ticketv1.TicketStatus_TICKET_STATUS_DONE
-	case "CANCELLED":
+	case "CANCELED", "CANCELLED":
 		return ticketv1.TicketStatus_TICKET_STATUS_CANCELED
 	default:
 		return ticketv1.TicketStatus_TICKET_STATUS_UNSPECIFIED
@@ -29,7 +28,7 @@ func ToProtoStatus(status string) ticketv1.TicketStatus {
 }
 
 func ToProtoPriority(priority string) ticketv1.TicketPriority {
-	priorityModel := models.TicketPriority(priority)
+	priorityModel := models.TicketPriority(strings.ToUpper(priority))
 
 	switch priorityModel {
 	case models.TicketPriorityLow:
@@ -45,58 +44,139 @@ func ToProtoPriority(priority string) ticketv1.TicketPriority {
 	}
 }
 
-func ToProtoTimestamp(t time.Time) *timestamppb.Timestamp {
-	if t.IsZero() {
-		return nil
+func ToProtoSortBy(sortBy string) ticketv1.TicketSortBy {
+	switch strings.ToLower(sortBy) {
+	case "created_at":
+		return ticketv1.TicketSortBy_TICKET_SORT_BY_CREATED_AT
+	case "updated_at":
+		return ticketv1.TicketSortBy_TICKET_SORT_BY_UPDATED_AT
+	case "priority":
+		return ticketv1.TicketSortBy_TICKET_SORT_BY_PRIORITY
+	case "status":
+		return ticketv1.TicketSortBy_TICKET_SORT_BY_STATUS
+	default:
+		return ticketv1.TicketSortBy_TICKET_SORT_BY_UNSPECIFIED
 	}
-
-	return timestamppb.New(t)
 }
 
-func ToProtoTimestampPtr(t *time.Time) *timestamppb.Timestamp {
-	if t == nil || t.IsZero() {
-		return nil
+func ToProtoSortOrder(sortOrder string) ticketv1.SortOrder {
+	switch strings.ToLower(sortOrder) {
+	case "asc":
+		return ticketv1.SortOrder_SORT_ORDER_ASC
+	case "desc":
+		return ticketv1.SortOrder_SORT_ORDER_DESC
+	default:
+		return ticketv1.SortOrder_SORT_ORDER_UNSPECIFIED
 	}
-
-	return timestamppb.New(*t)
 }
 
-func ToProtoTicket(ticket *models.Ticket) *ticketv1.Ticket {
-	if ticket == nil {
+func ToProtoTimestamp(value string) (*timestamppb.Timestamp, error) {
+	if value == "" {
+		return nil, nil
+	}
+
+	parsed, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		return nil, err
+	}
+
+	return timestamppb.New(parsed), nil
+}
+
+func FromProtoTicket(t *ticketv1.Ticket) *models.Ticket {
+	if t == nil {
 		return nil
 	}
 
-	brigadeID := ""
-	if ticket.BrigadeID != "" {
-		brigadeID = ticket.BrigadeID
+	return &models.Ticket{
+		ID:              t.GetId(),
+		DepartmentID:    t.GetDepartmentId(),
+		CategoryID:      t.GetCategoryId(),
+		UserID:          t.GetUserId(),
+		BrigadeID:       t.GetBrigadeId(),
+		Title:           t.GetTitle(),
+		Description:     t.GetDescription(),
+		Status:          FromProtoStatus(t.GetStatus()),
+		Priority:        FromProtoPriority(t.GetPriority()),
+		Address:         t.GetAddress(),
+		Latitude:        t.GetLatitude(),
+		Longitude:       t.GetLongitude(),
+		CreatedAtUnix:   timestampUnix(t.GetCreatedAt()),
+		UpdatedAtUnix:   timestampUnix(t.GetUpdatedAt()),
+		AssignedAtUnix:  timestampUnix(t.GetAssignedAt()),
+		CompletedAtUnix: timestampUnix(t.GetCompletedAt()),
+		CanceledAtUnix:  timestampUnix(t.GetCanceledAt()),
+	}
+}
+
+func FromProtoCategory(category *ticketv1.TicketCategory) *models.TicketCategory {
+	if category == nil {
+		return nil
 	}
 
-	assignedAt := time.Unix(ticket.AssignedAtUnix, 0)
-	completedAt := time.Unix(ticket.CompletedAtUnix, 0)
-	canceledAt := time.Unix(ticket.CanceledAtUnix, 0)
-
-	return &ticketv1.Ticket{
-		Id:           ticket.ID,
-		DepartmentId: ticket.DepartmentID,
-		CategoryId:   ticket.CategoryID,
-
-		UserId:    ticket.UserID,
-		BrigadeId: brigadeID,
-
-		Title:       ticket.Title,
-		Description: ticket.Description,
-
-		Status:   ToProtoStatus(ticket.Status),
-		Priority: ToProtoPriority(ticket.Priority),
-
-		Address:   ticket.Address,
-		Latitude:  ticket.Latitude,
-		Longitude: ticket.Longitude,
-
-		CreatedAt:   ToProtoTimestamp(time.Unix(ticket.CreatedAtUnix, 0)),
-		UpdatedAt:   ToProtoTimestamp(time.Unix(ticket.UpdatedAtUnix, 0)),
-		AssignedAt:  ToProtoTimestampPtr(&assignedAt),
-		CompletedAt: ToProtoTimestampPtr(&completedAt),
-		CanceledAt:  ToProtoTimestampPtr(&canceledAt),
+	return &models.TicketCategory{
+		ID:            category.GetId(),
+		Code:          category.GetCode(),
+		Name:          category.GetName(),
+		Description:   category.GetDescription(),
+		IsActive:      category.GetIsActive(),
+		CreatedAtUnix: timestampUnix(category.GetCreatedAt()),
+		UpdatedAtUnix: timestampUnix(category.GetUpdatedAt()),
 	}
+}
+
+func FromProtoStatusHistory(history *ticketv1.TicketStatusHistory) *models.TicketStatusHistory {
+	if history == nil {
+		return nil
+	}
+
+	return &models.TicketStatusHistory{
+		ID:            history.GetId(),
+		TicketID:      history.GetTicketId(),
+		OldStatus:     FromProtoStatus(history.GetOldStatus()),
+		NewStatus:     FromProtoStatus(history.GetNewStatus()),
+		ChangedBy:     history.GetChangedBy(),
+		Comment:       history.GetComment(),
+		CreatedAtUnix: timestampUnix(history.GetCreatedAt()),
+	}
+}
+
+func FromProtoStatus(status ticketv1.TicketStatus) string {
+	switch status {
+	case ticketv1.TicketStatus_TICKET_STATUS_NEW:
+		return string(models.TicketStatusNew)
+	case ticketv1.TicketStatus_TICKET_STATUS_ASSIGNED:
+		return string(models.TicketStatusAssigned)
+	case ticketv1.TicketStatus_TICKET_STATUS_IN_PROGRESS:
+		return string(models.TicketStatusInProgress)
+	case ticketv1.TicketStatus_TICKET_STATUS_DONE:
+		return string(models.TicketStatusDone)
+	case ticketv1.TicketStatus_TICKET_STATUS_CANCELED:
+		return string(models.TicketStatusCanceled)
+	default:
+		return ""
+	}
+}
+
+func FromProtoPriority(priority ticketv1.TicketPriority) string {
+	switch priority {
+	case ticketv1.TicketPriority_TICKET_PRIORITY_LOW:
+		return string(models.TicketPriorityLow)
+	case ticketv1.TicketPriority_TICKET_PRIORITY_MEDIUM:
+		return string(models.TicketPriorityMedium)
+	case ticketv1.TicketPriority_TICKET_PRIORITY_HIGH:
+		return string(models.TicketPriorityHigh)
+	case ticketv1.TicketPriority_TICKET_PRIORITY_EMERGENCY:
+		return string(models.TicketPriorityEmergency)
+	default:
+		return ""
+	}
+}
+
+func timestampUnix(ts *timestamppb.Timestamp) int64 {
+	if ts == nil {
+		return 0
+	}
+
+	return ts.AsTime().Unix()
 }

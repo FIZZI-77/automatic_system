@@ -234,7 +234,11 @@ func (in *UpdateTicketInput) Validate() error {
 		}
 	}
 
-	if err := validateOptionalUUID(in.UpdatedBy, "updated_by"); err != nil {
+	if in.UpdatedBy == nil {
+		return errors.New("updated_by is required")
+	}
+
+	if err := validateUUID(*in.UpdatedBy, "updated_by"); err != nil {
 		return err
 	}
 

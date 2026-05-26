@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/lib/pq"
 	"ticket/models"
 )
@@ -300,7 +301,12 @@ func scanCategory(s scanner) (*models.TicketCategory, error) {
 
 func isUniqueViolation(err error) bool {
 	var pqErr *pq.Error
-	return errors.As(err, &pqErr) && pqErr.Code == "23505"
+	if errors.As(err, &pqErr) && pqErr.Code == "23505" {
+		return true
+	}
+
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
 
 func (c *CategoryRepoStruct) insertCategoryOutboxEvent(ctx context.Context,

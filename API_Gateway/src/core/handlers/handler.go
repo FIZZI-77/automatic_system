@@ -27,9 +27,9 @@ func handleGRPCError(c *gin.Context, err error) {
 	case codes.AlreadyExists:
 		c.JSON(http.StatusConflict, gin.H{"error": st.Message()})
 	case codes.DeadlineExceeded:
-		c.JSON(http.StatusGatewayTimeout, gin.H{"error": "auth service timeout"})
+		c.JSON(http.StatusGatewayTimeout, gin.H{"error": "upstream service timeout"})
 	case codes.Unavailable:
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "auth service unavailable"})
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "upstream service unavailable"})
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 	}
@@ -37,12 +37,14 @@ func handleGRPCError(c *gin.Context, err error) {
 
 type Handler struct {
 	authHandler    *AuthHandler
+	ticketHandler  *TicketHandler
 	authMiddleware *middleware.AuthMiddleware
 }
 
-func NewHandler(authHandler *AuthHandler, authMiddleware *middleware.AuthMiddleware) *Handler {
+func NewHandler(authHandler *AuthHandler, ticketHandler *TicketHandler, authMiddleware *middleware.AuthMiddleware) *Handler {
 	return &Handler{
 		authHandler:    authHandler,
+		ticketHandler:  ticketHandler,
 		authMiddleware: authMiddleware,
 	}
 }
@@ -51,7 +53,8 @@ func (h *Handler) InitRouters() *gin.Engine {
 
 	router := gin.New()
 
-	router.Use(gin.Logger())
+	router.Use(middleware.RequestID())
+	router.Use(middleware.RequestLogger())
 	router.Use(gin.Recovery())
 
 	router.GET("/health", func(c *gin.Context) {
@@ -81,6 +84,30 @@ func (h *Handler) InitRouters() *gin.Engine {
 	}
 
 	router.GET("/.well-known/jwks.json", h.authHandler.GetJWKS)
+
+	privateTickets := router.Group("/tickets")
+	privateTickets.Use(h.authMiddleware.Handle())
+	{
+		privateTickets.POST("/create", h.ticketHandler.CreateTicket)
+		privateTickets.POST("/get", h.ticketHandler.GetTicket)
+		privateTickets.POST("/list", h.ticketHandler.ListTicket)
+		privateTickets.POST("/update", h.ticketHandler.UpdateTicket)
+		privateTickets.POST("/change-status", h.ticketHandler.ChangeTicketStatus)
+		privateTickets.POST("/assign-brigade", h.ticketHandler.AssignBrigade)
+		privateTickets.POST("/cancel", h.ticketHandler.CancelTicket)
+		privateTickets.POST("/complete", h.ticketHandler.CompleteTicket)
+		privateTickets.POST("/status-history", h.ticketHandler.GetTicketStatusHistory)
+	}
+
+	privateCategories := router.Group("/ticket-categories")
+	privateCategories.Use(h.authMiddleware.Handle())
+	{
+		privateCategories.POST("/create", h.ticketHandler.CreateCategory)
+		privateCategories.POST("/get", h.ticketHandler.GetCategory)
+		privateCategories.POST("/list", h.ticketHandler.ListCategories)
+		privateCategories.POST("/update", h.ticketHandler.UpdateCategory)
+		privateCategories.POST("/delete", h.ticketHandler.DeleteCategory)
+	}
 
 	return router
 }
