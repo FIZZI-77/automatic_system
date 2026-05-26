@@ -1,5 +1,86 @@
 package models
 
+type TicketStatus string
+
+const (
+	TicketStatusNew        TicketStatus = "NEW"
+	TicketStatusAssigned   TicketStatus = "ASSIGNED"
+	TicketStatusInProgress TicketStatus = "IN_PROGRESS"
+	TicketStatusDone       TicketStatus = "DONE"
+	TicketStatusCanceled   TicketStatus = "CANCELED"
+)
+
+func (s TicketStatus) IsValid() bool {
+	switch s {
+	case TicketStatusNew,
+		TicketStatusAssigned,
+		TicketStatusInProgress,
+		TicketStatusDone,
+		TicketStatusCanceled:
+		return true
+	default:
+		return false
+	}
+}
+
+type TicketPriority string
+
+const (
+	TicketPriorityLow       TicketPriority = "LOW"
+	TicketPriorityMedium    TicketPriority = "MEDIUM"
+	TicketPriorityHigh      TicketPriority = "HIGH"
+	TicketPriorityEmergency TicketPriority = "EMERGENCY"
+)
+
+func (p TicketPriority) IsValid() bool {
+	switch p {
+	case TicketPriorityLow,
+		TicketPriorityMedium,
+		TicketPriorityHigh,
+		TicketPriorityEmergency:
+		return true
+	default:
+		return false
+	}
+}
+
+type TicketSortBy string
+
+const (
+	TicketSortByCreatedAt TicketSortBy = "created_at"
+	TicketSortByUpdatedAt TicketSortBy = "updated_at"
+	TicketSortByPriority  TicketSortBy = "priority"
+	TicketSortByStatus    TicketSortBy = "status"
+)
+
+func (s TicketSortBy) IsValid() bool {
+	switch s {
+	case TicketSortByCreatedAt,
+		TicketSortByUpdatedAt,
+		TicketSortByPriority,
+		TicketSortByStatus:
+		return true
+	default:
+		return false
+	}
+}
+
+type SortOrder string
+
+const (
+	SortOrderAsc  SortOrder = "asc"
+	SortOrderDesc SortOrder = "desc"
+)
+
+func (s SortOrder) IsValid() bool {
+	switch s {
+	case SortOrderAsc, SortOrderDesc:
+		return true
+	default:
+		return false
+	}
+}
+
 type TicketCategory struct {
 	ID            string `json:"id"`
 	Code          string `json:"code"`
