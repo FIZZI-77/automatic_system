@@ -1,0 +1,5 @@
+./errors.go
+./models.go
+./validator.go
+./validator_fuzz_test.go
+./validator_test.go
