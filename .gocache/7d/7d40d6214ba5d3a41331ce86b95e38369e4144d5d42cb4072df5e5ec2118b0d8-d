@@ -1,4 +1,0 @@
-# test log
-open testdata\fuzz\FuzzCreateCategoryInputValidate
-open testdata\fuzz\FuzzCreateTicketInputValidate
-open testdata\fuzz\FuzzUpdateTicketInputValidate
