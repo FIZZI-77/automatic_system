@@ -217,12 +217,13 @@ func (ah *AuthHandler) ChangePassword(c *gin.Context) {
 		return
 	}
 
+	revokeOtherSessions := req.RevokeOtherSessions
 	res, err := ah.authClient.ChangePassword(ctx, &v1.ChangePasswordRequest{
 		UserId:              c.GetString("user_id"),
 		OldPassword:         req.OldPassword,
 		NewPassword:         req.NewPassword,
 		SessionId:           c.GetString("session_id"),
-		RevokeOtherSessions: req.RevokeOtherSessions,
+		RevokeOtherSessions: &revokeOtherSessions,
 	})
 
 	if err != nil {

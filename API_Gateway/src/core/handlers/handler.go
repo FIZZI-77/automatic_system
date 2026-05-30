@@ -36,16 +36,18 @@ func handleGRPCError(c *gin.Context, err error) {
 }
 
 type Handler struct {
-	authHandler    *AuthHandler
-	ticketHandler  *TicketHandler
-	authMiddleware *middleware.AuthMiddleware
+	authHandler       *AuthHandler
+	ticketHandler     *TicketHandler
+	departmentHandler *DepartmentHandler
+	authMiddleware    *middleware.AuthMiddleware
 }
 
-func NewHandler(authHandler *AuthHandler, ticketHandler *TicketHandler, authMiddleware *middleware.AuthMiddleware) *Handler {
+func NewHandler(authHandler *AuthHandler, ticketHandler *TicketHandler, departmentHandler *DepartmentHandler, authMiddleware *middleware.AuthMiddleware) *Handler {
 	return &Handler{
-		authHandler:    authHandler,
-		ticketHandler:  ticketHandler,
-		authMiddleware: authMiddleware,
+		authHandler:       authHandler,
+		ticketHandler:     ticketHandler,
+		departmentHandler: departmentHandler,
+		authMiddleware:    authMiddleware,
 	}
 }
 
@@ -107,6 +109,16 @@ func (h *Handler) InitRouters() *gin.Engine {
 		privateCategories.POST("/list", h.ticketHandler.ListCategories)
 		privateCategories.POST("/update", h.ticketHandler.UpdateCategory)
 		privateCategories.POST("/delete", h.ticketHandler.DeleteCategory)
+	}
+
+	privateDepartments := router.Group("/departments")
+	privateDepartments.Use(h.authMiddleware.Handle())
+	{
+		privateDepartments.POST("/create", h.departmentHandler.CreateDepartment)
+		privateDepartments.POST("/get", h.departmentHandler.GetDepartmentByID)
+		privateDepartments.POST("/list", h.departmentHandler.ListDepartments)
+		privateDepartments.POST("/update", h.departmentHandler.UpdateDepartment)
+		privateDepartments.POST("/delete", h.departmentHandler.DeleteDepartment)
 	}
 
 	return router

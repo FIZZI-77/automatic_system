@@ -7,6 +7,7 @@ import (
 	"gateway/src/core/middleware"
 	"gateway/src/core/requestid"
 	authv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/auth/v1"
+	departmentv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/department/v1"
 	ticketv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/ticket/v1"
 	"log"
 	"net/http"
@@ -22,6 +23,7 @@ import (
 func main() {
 	authServiceAddr := getEnv("AUTH_SERVICE_ADDR", "localhost:50051")
 	ticketServiceAddr := getEnv("TICKET_SERVICE_ADDR", "localhost:50052")
+	departmentServiceAddr := getEnv("DEPARTMENT_SERVICE_ADDR", "localhost:50053")
 	gatewayAddr := getEnv("GATEWAY_ADDR", ":8080")
 	publicKeyPath := getEnv("JWT_PUBLIC_KEY_PATH", "./keys/public.pem")
 
@@ -47,6 +49,17 @@ func main() {
 
 	ticketClient := ticketv1.NewTicketServiceClient(ticketConn)
 
+	departmentConn, err := grpc.NewClient(
+		departmentServiceAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(requestid.UnaryClientInterceptor),
+	)
+	if err != nil {
+		log.Fatalf("failed to connect to department service: %v", err)
+	}
+
+	departmentClient := departmentv1.NewDepartmentServiceClient(departmentConn)
+
 	authMiddleware, err := middleware.NewAuthMiddleware(
 		publicKeyPath,
 		"auth-jwt",
@@ -58,7 +71,8 @@ func main() {
 
 	authHandler := handlers.NewAuthHandler(authClient)
 	ticketHandler := handlers.NewTicketHandler(ticketClient)
-	handler := handlers.NewHandler(authHandler, ticketHandler, authMiddleware)
+	departmentHandler := handlers.NewDepartmentHandler(departmentClient)
+	handler := handlers.NewHandler(authHandler, ticketHandler, departmentHandler, authMiddleware)
 	router := handler.InitRouters()
 
 	server := &http.Server{
@@ -73,6 +87,7 @@ func main() {
 		log.Printf("api gateway started on %s", gatewayAddr)
 		log.Printf("auth service address: %s", authServiceAddr)
 		log.Printf("ticket service address: %s", ticketServiceAddr)
+		log.Printf("department service address: %s", departmentServiceAddr)
 
 		if err = server.ListenAndServe(); err != nil && !errors.Is(http.ErrServerClosed, err) {
 			log.Fatalf("failed to start api gateway: %v", err)
@@ -104,6 +119,10 @@ func main() {
 
 	if err = ticketConn.Close(); err != nil {
 		log.Printf("failed to close ticket grpc connection: %v", err)
+	}
+
+	if err = departmentConn.Close(); err != nil {
+		log.Printf("failed to close department grpc connection: %v", err)
 	}
 
 	log.Println("api gateway stopped")

@@ -43,3 +43,5 @@ require (
 )
 
 replace auth => ../Auth_Service
+
+replace github.com/FIZZI-77/automatic-system-contracts => C:/Users/zapru/GolandProjects/automatic-system-contracts

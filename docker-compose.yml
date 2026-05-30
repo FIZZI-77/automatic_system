@@ -12,6 +12,7 @@ services:
       GATEWAY_ADDR: ":8081"
       AUTH_SERVICE_ADDR: "auth-service:50051"
       TICKET_SERVICE_ADDR: "ticket-service:50052"
+      DEPARTMENT_SERVICE_ADDR: "department-service:50053"
       JWT_PUBLIC_KEY_PATH: "/app/keys/public.pem"
       JWT_ISSUER: "auth-jwt"
       JWT_AUDIENCE: "api-gateway"
@@ -20,6 +21,7 @@ services:
     depends_on:
       - auth-service
       - ticket-service
+      - department-service
     restart: unless-stopped
 
   ticket-service:
@@ -69,6 +71,27 @@ services:
       - ./Auth_Service/keys:/app/keys:ro
     restart: unless-stopped
 
+  department-service:
+    build:
+      context: ./Department_Service
+      dockerfile: Dockerfile
+    container_name: department-service
+    ports:
+      - "50053:50053"
+    env_file:
+      - ./Department_Service/.env
+    environment:
+      GRPC_ADDR: ":50053"
+      GRPC_PORT: "50053"
+      DB_HOST: ${DEPARTMENT_DB_HOST}
+      DB_PORT: ${DEPARTMENT_DB_PORT}
+    depends_on:
+      postgres-department:
+        condition: service_healthy
+      migrator-department:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
   postgres-auth:
     image: postgres:16
     container_name: auth-postgres
@@ -105,6 +128,26 @@ services:
     restart: unless-stopped
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${TICKET_DB_USERNAME} -d ${TICKET_DB_NAME}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  postgres-department:
+    image: postgres:16
+    container_name: department-postgres
+    env_file:
+      - ./Department_Service/.env
+    environment:
+      POSTGRES_USER: ${DEPARTMENT_DB_USERNAME}
+      POSTGRES_PASSWORD: ${DEPARTMENT_DB_PASSWORD}
+      POSTGRES_DB: ${DEPARTMENT_DB_NAME}
+    ports:
+      - "${DEPARTMENT_DB_PUBLISHED_PORT}:${DEPARTMENT_DB_PORT}"
+    volumes:
+      - postgres_department_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DEPARTMENT_DB_USERNAME} -d ${DEPARTMENT_DB_NAME}" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -160,6 +203,28 @@ services:
         goose -dir /migrations up
       "
 
+  migrator-department:
+    build:
+      context: ./Department_Service/migrator
+      dockerfile: Dockerfile
+    container_name: department-migrator
+    env_file:
+      - ./Department_Service/.env
+    depends_on:
+      postgres-department:
+        condition: service_healthy
+    volumes:
+      - ./Department_Service/scheme:/migrations
+    environment:
+      GOOSE_DRIVER: postgres
+      GOOSE_DBSTRING: postgres://${DEPARTMENT_DB_USERNAME}:${DEPARTMENT_DB_PASSWORD}@${DEPARTMENT_DB_HOST}:${DEPARTMENT_DB_PORT}/${DEPARTMENT_DB_NAME}?sslmode=${DEPARTMENT_DB_SSLMODE}
+    command: >
+      sh -c "
+        echo 'Running migrations...' &&
+        goose -dir /migrations up
+      "
+
 volumes:
   postgres_auth_data:
   postgres_ticket_data:
+  postgres_department_data:

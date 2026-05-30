@@ -83,6 +83,24 @@ func (t *TicketHandler) CreateTicket(ctx context.Context, req *ticketv1.CreateTi
 
 	actor := actorFromContext(ctx)
 
+	if req.Latitude == nil {
+		logger.Warn("gRPC request failed",
+			zap.String("method", "CreateTicket"),
+			zap.String("user_id", req.UserId),
+			zap.Duration("duration", time.Since(start)),
+		)
+		return nil, ticketStatusError("CreateTicket", fmt.Errorf("%w: latitude is required", models.ErrValidation))
+	}
+
+	if req.Longitude == nil {
+		logger.Warn("gRPC request failed",
+			zap.String("method", "CreateTicket"),
+			zap.String("user_id", req.UserId),
+			zap.Duration("duration", time.Since(start)),
+		)
+		return nil, ticketStatusError("CreateTicket", fmt.Errorf("%w: longitude is required", models.ErrValidation))
+	}
+
 	in := &models.CreateTicketInput{
 		DepartmentID: departmentID,
 		CategoryID:   categoryID,
@@ -182,7 +200,7 @@ func (t *TicketHandler) ListTickets(ctx context.Context, req *ticketv1.ListTicke
 		zap.String("category_id", req.GetCategoryId()),
 	)
 
-	departmentID, err := parseOptionalUUID(req.GetDepartmentId(), "department_id")
+	departmentID, err := parseOptionalUUIDPtr(req.DepartmentId, "department_id")
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "ListTickets"),
@@ -193,7 +211,7 @@ func (t *TicketHandler) ListTickets(ctx context.Context, req *ticketv1.ListTicke
 		return nil, ticketStatusError("ListTickets", fmt.Errorf("%w: %v", models.ErrValidation, err))
 	}
 
-	userID, err := parseOptionalUUID(req.GetUserId(), "user_id")
+	userID, err := parseOptionalUUIDPtr(req.UserId, "user_id")
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "ListTickets"),
@@ -204,7 +222,7 @@ func (t *TicketHandler) ListTickets(ctx context.Context, req *ticketv1.ListTicke
 		return nil, ticketStatusError("ListTickets", fmt.Errorf("%w: %v", models.ErrValidation, err))
 	}
 
-	brigadeID, err := parseOptionalUUID(req.GetBrigadeId(), "brigade_id")
+	brigadeID, err := parseOptionalUUIDPtr(req.BrigadeId, "brigade_id")
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "ListTickets"),
@@ -215,7 +233,7 @@ func (t *TicketHandler) ListTickets(ctx context.Context, req *ticketv1.ListTicke
 		return nil, ticketStatusError("ListTickets", fmt.Errorf("%w: %v", models.ErrValidation, err))
 	}
 
-	categoryID, err := parseOptionalUUID(req.GetCategoryId(), "category_id")
+	categoryID, err := parseOptionalUUIDPtr(req.CategoryId, "category_id")
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "ListTickets"),
@@ -227,13 +245,13 @@ func (t *TicketHandler) ListTickets(ctx context.Context, req *ticketv1.ListTicke
 	}
 
 	var status *models.TicketStatus
-	if req.GetStatus() != ticketv1.TicketStatus_TICKET_STATUS_UNSPECIFIED {
+	if req.Status != nil && req.GetStatus() != ticketv1.TicketStatus_TICKET_STATUS_UNSPECIFIED {
 		v := FromProtoStatus(req.GetStatus())
 		status = &v
 	}
 
 	var priority *models.TicketPriority
-	if req.GetPriority() != ticketv1.TicketPriority_TICKET_PRIORITY_UNSPECIFIED {
+	if req.Priority != nil && req.GetPriority() != ticketv1.TicketPriority_TICKET_PRIORITY_UNSPECIFIED {
 		v := FromProtoPriority(req.GetPriority())
 		priority = &v
 	}
@@ -305,7 +323,7 @@ func (t *TicketHandler) UpdateTicket(ctx context.Context, req *ticketv1.UpdateTi
 		return nil, ticketStatusError("UpdateTicket", fmt.Errorf("%w: invalid ticket_id: %v", models.ErrValidation, err))
 	}
 
-	categoryID, err := parseOptionalUUID(req.GetCategoryId(), "category_id")
+	categoryID, err := parseOptionalUUIDPtr(req.CategoryId, "category_id")
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "UpdateTicket"),
@@ -328,7 +346,7 @@ func (t *TicketHandler) UpdateTicket(ctx context.Context, req *ticketv1.UpdateTi
 	}
 
 	var priority *models.TicketPriority
-	if req.GetPriority() != ticketv1.TicketPriority_TICKET_PRIORITY_UNSPECIFIED {
+	if req.Priority != nil && req.GetPriority() != ticketv1.TicketPriority_TICKET_PRIORITY_UNSPECIFIED {
 		v := FromProtoPriority(req.GetPriority())
 		priority = &v
 	}
@@ -336,11 +354,11 @@ func (t *TicketHandler) UpdateTicket(ctx context.Context, req *ticketv1.UpdateTi
 	actor := actorFromContext(ctx)
 	in := &models.UpdateTicketInput{
 		TicketID:    ticketID,
-		Title:       optionalString(req.GetTitle()),
-		Description: optionalString(req.GetDescription()),
+		Title:       req.Title,
+		Description: req.Description,
 		CategoryID:  categoryID,
 		Priority:    priority,
-		Address:     optionalString(req.GetAddress()),
+		Address:     req.Address,
 		UpdatedBy:   updatedBy,
 		ActorRoles:  actor.Roles,
 	}
@@ -852,8 +870,8 @@ func (t *TicketHandler) UpdateCategory(ctx context.Context, req *ticketv1.Update
 
 	in := &models.UpdateCategoryInput{
 		CategoryID:  categoryID,
-		Name:        optionalString(req.GetName()),
-		Description: optionalString(req.GetDescription()),
+		Name:        req.Name,
+		Description: req.Description,
 		ActorRoles:  actorFromContext(ctx).Roles,
 	}
 
@@ -944,6 +962,14 @@ func parseOptionalUUID(value string, field string) (*uuid.UUID, error) {
 	}
 
 	return &parsed, nil
+}
+
+func parseOptionalUUIDPtr(value *string, field string) (*uuid.UUID, error) {
+	if value == nil {
+		return nil, nil
+	}
+
+	return parseOptionalUUID(*value, field)
 }
 
 func optionalString(value string) *string {

@@ -1,0 +1,29 @@
+package pkg
+
+import (
+	"encoding/json"
+
+	"go.uber.org/zap"
+)
+
+func NewLogger() (*zap.Logger, error) {
+	rawJSON := []byte(`{
+	  "level": "debug",
+	  "encoding": "json",
+	  "outputPaths": ["stdout", "/tmp/logs"],
+	  "errorOutputPaths": ["stderr"],
+	  "initialFields": {"service": "department"},
+	  "encoderConfig": {
+	    "messageKey": "message",
+	    "levelKey": "level",
+	    "levelEncoder": "lowercase"
+	  }
+	}`)
+
+	var cfg zap.Config
+	if err := json.Unmarshal(rawJSON, &cfg); err != nil {
+		return nil, err
+	}
+
+	return cfg.Build(zap.AddCaller(), zap.AddCallerSkip(2))
+}
