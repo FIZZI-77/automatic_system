@@ -599,7 +599,7 @@ func TestAuthHandler_ChangePassword_Success(t *testing.T) {
 		SessionId:           sessionID.String(),
 		OldPassword:         "old-password",
 		NewPassword:         "new-password",
-		RevokeOtherSessions: true,
+		RevokeOtherSessions: boolPtr(true),
 	})
 
 	if err != nil {
@@ -613,6 +613,10 @@ func TestAuthHandler_ChangePassword_Success(t *testing.T) {
 	if resp.GetInvalidatedSessionsCount() != 2 {
 		t.Fatalf("expected invalidated_sessions_count 2, got %d", resp.GetInvalidatedSessionsCount())
 	}
+}
+
+func boolPtr(value bool) *bool {
+	return &value
 }
 
 func TestAuthHandler_ChangePassword_InvalidUserID(t *testing.T) {

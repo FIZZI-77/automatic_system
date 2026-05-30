@@ -274,3 +274,235 @@ tickets/{ticket_id}/{file_id}/{safe_file_name}
 - Ticket Service остается владельцем правил доступа к заявке.
 - File Service хранит файл, метаданные и выдает presigned URL.
 - Доступ к вложениям должен наследовать доступ к заявке: пользователь может загружать и скачивать файл только тогда, когда имеет доступ к связанной заявке.
+
+## Profile Service и Brigade Service
+
+### Полная логика Profile Service
+
+Profile Service отвечает не за авторизацию, а за рабочий профиль сотрудника. Auth Service остается владельцем учетной записи, пароля, сессий и ролей доступа.
+
+Расширенные сущности:
+
+- `profiles` - основной профиль сотрудника.
+- `profile_departments` - если сотрудник может состоять в нескольких департаментах.
+- `profile_skills` - навыки и специализации сотрудника.
+- `profile_certifications` - допуски, сертификаты, сроки действия.
+- `profile_schedule` - регулярный график работы.
+- `profile_absences` - отпуск, больничный, временная недоступность.
+- `profile_status_history` - история изменения статуса.
+
+Статусы профиля:
+
+- `ACTIVE` - сотрудник активен.
+- `INACTIVE` - временно не используется.
+- `ON_SHIFT` - сотрудник на смене.
+- `OFF_SHIFT` - сотрудник вне смены.
+- `SUSPENDED` - заблокирован для операционной работы.
+
+Расширенные методы:
+
+- `CreateProfile`
+- `GetProfileByID`
+- `GetProfileByUserID`
+- `ListProfiles`
+- `ListProfilesByDepartment`
+- `UpdateProfile`
+- `DeactivateProfile`
+- `AssignProfileToDepartment`
+- `RemoveProfileFromDepartment`
+- `ListProfileDepartments`
+- `SetProfileStatus`
+- `GetProfileStatusHistory`
+- `AddProfileSkill`
+- `RemoveProfileSkill`
+- `ListProfileSkills`
+- `AddProfileCertification`
+- `RemoveProfileCertification`
+- `ListProfileCertifications`
+- `SetProfileSchedule`
+- `GetProfileSchedule`
+- `AddProfileAbsence`
+- `RemoveProfileAbsence`
+- `GetProfileAvailability`
+- `CheckProfileCanJoinBrigade`
+
+Доменные проверки:
+
+- нельзя создать два профиля на один `user_id`;
+- нельзя привязать профиль к несуществующему `department_id`;
+- нельзя добавить сотрудника в бригаду, если профиль неактивен или заблокирован;
+- нельзя добавить сотрудника в бригаду другого департамента без явной cross-department модели;
+- нельзя считать сотрудника доступным, если он вне смены, в отпуске, на больничном или `SUSPENDED`;
+- сертификаты и навыки должны учитываться при проверке допуска к типу работ.
+
+События:
+
+- `ProfileCreated`
+- `ProfileUpdated`
+- `ProfileDeactivated`
+- `ProfileDepartmentChanged`
+- `ProfileStatusChanged`
+- `ProfileSkillAdded`
+- `ProfileSkillRemoved`
+- `ProfileAvailabilityChanged`
+
+### Полная логика Brigade Service
+
+Brigade Service отвечает за бригады как операционные единицы: состав, специализацию, принадлежность к департаменту, смены и доступность. Он не должен выбирать лучшую бригаду для заявки - это зона Dispatch Service.
+
+Расширенные сущности:
+
+- `brigades` - основная таблица бригад.
+- `brigade_members` - состав бригады.
+- `brigade_member_history` - история изменения состава.
+- `brigade_skills` - специализации бригады.
+- `brigade_schedule` - график работы бригады.
+- `brigade_status_history` - история статусов.
+- `brigade_zones` - зоны обслуживания, если нужны.
+- `brigade_departments` - только если бригада может обслуживать несколько департаментов.
+
+Статусы бригады:
+
+- `ACTIVE` - бригада заведена и может использоваться.
+- `INACTIVE` - временно не используется.
+- `AVAILABLE` - доступна для назначения.
+- `BUSY` - занята заявкой.
+- `ON_ROUTE` - едет к заявке.
+- `ON_SITE` - работает на месте.
+- `OFFLINE` - недоступна.
+- `ARCHIVED` - архивирована.
+
+Роли участников:
+
+- `LEAD` - старший бригады.
+- `DRIVER` - водитель.
+- `TECHNICIAN` - исполнитель/техник.
+- `TRAINEE` - стажер, если нужен.
+
+Расширенные методы:
+
+- `CreateBrigade`
+- `GetBrigadeByID`
+- `ListBrigades`
+- `ListBrigadesByDepartment`
+- `UpdateBrigade`
+- `DeactivateBrigade`
+- `ArchiveBrigade`
+- `AddBrigadeMember`
+- `RemoveBrigadeMember`
+- `ChangeBrigadeMemberRole`
+- `ListBrigadeMembers`
+- `GetBrigadeMemberHistory`
+- `SetBrigadeStatus`
+- `GetBrigadeStatusHistory`
+- `AddBrigadeSkill`
+- `RemoveBrigadeSkill`
+- `ListBrigadeSkills`
+- `SetBrigadeSchedule`
+- `GetBrigadeSchedule`
+- `SetBrigadeZone`
+- `ListBrigadeZones`
+- `GetAvailableBrigades`
+- `CheckBrigadeCanHandleTicket`
+
+Доменные проверки:
+
+- нельзя создать две активные бригады с одинаковым названием в одном департаменте;
+- нельзя создать бригаду с несуществующим `department_id`;
+- нельзя добавить одного сотрудника в одну бригаду дважды;
+- нельзя добавить неактивный или заблокированный профиль;
+- нельзя добавить профиль из другого департамента, если бригада не cross-department;
+- в активной бригаде должен быть минимум один участник;
+- для некоторых типов работ можно требовать `LEAD`, `DRIVER` или конкретный skill/certification;
+- `AVAILABLE` возможен только если бригада активна, на смене и имеет валидный состав;
+- нельзя назначать бригаду на заявку другого департамента;
+- нельзя назначать бригаду, если она `BUSY`, `OFFLINE`, `INACTIVE` или `ARCHIVED`.
+
+События:
+
+- `BrigadeCreated`
+- `BrigadeUpdated`
+- `BrigadeDeactivated`
+- `BrigadeArchived`
+- `BrigadeMemberAdded`
+- `BrigadeMemberRemoved`
+- `BrigadeMemberRoleChanged`
+- `BrigadeStatusChanged`
+- `BrigadeAvailabilityChanged`
+- `BrigadeSkillAdded`
+- `BrigadeSkillRemoved`
+
+Граница ответственности:
+
+- Brigade Service говорит, существует ли бригада, кто в составе, к какому департаменту относится, доступна ли она и может ли выполнить тип работ.
+- Ticket Service хранит заявку, `department_id`, статус и назначенный `brigade_id`.
+- Location Service хранит текущие координаты.
+- Routing Service считает расстояние и маршрут.
+- Dispatch Service выбирает лучшую бригаду и инициирует назначение.
+
+Department Service должен оставаться справочником департаментов и владеть только таблицей `departments`. Он не должен хранить связи с пользователями, бригадами или услугами. Другие сервисы должны ссылаться на департамент через `department_id`.
+
+### Profile Service
+
+Profile Service должен владеть профилями пользователей/сотрудников и их привязкой к департаменту.
+
+Рекомендуемые поля профиля:
+
+- `id`
+- `user_id` - ссылка на пользователя из Auth Service
+- `department_id` - ссылка на Department Service
+- `full_name`
+- `phone`
+- `position`
+- `status`
+- `created_at`
+- `updated_at`
+
+Рекомендуемые методы:
+
+- `CreateProfile`
+- `GetProfileByID`
+- `GetProfileByUserID`
+- `ListProfiles`
+- `ListProfilesByDepartment`
+- `UpdateProfile`
+- `DeactivateProfile`
+
+Если сотрудник может работать только в одном департаменте, достаточно поля `profiles.department_id`. Если сотрудник может состоять в нескольких департаментах, связь нужно хранить в Profile Service через таблицу `profile_departments`, а не в Department Service.
+
+Перед записью `department_id` Profile Service должен синхронно проверять департамент через `DepartmentService.GetDepartmentByID` или использовать локальную read-model/cache по событиям `departments.events`.
+
+### Brigade Service
+
+Brigade Service должен владеть бригадами, составом бригад и их принадлежностью к департаменту.
+
+Рекомендуемые поля бригады:
+
+- `id`
+- `department_id` - ссылка на Department Service
+- `name`
+- `status`
+- `specialization`
+- `created_at`
+- `updated_at`
+
+Рекомендуемые таблицы:
+
+- `brigades` - основная таблица бригад
+- `brigade_members` - участники бригады, ссылки на `profile_id` или `user_id`
+
+Рекомендуемые методы:
+
+- `CreateBrigade`
+- `GetBrigadeByID`
+- `ListBrigades`
+- `ListBrigadesByDepartment`
+- `UpdateBrigade`
+- `DeactivateBrigade`
+- `AddBrigadeMember`
+- `RemoveBrigadeMember`
+- `ListBrigadeMembers`
+
+Если бригада принадлежит одному департаменту, достаточно поля `brigades.department_id`. Если бригада может обслуживать несколько департаментов, связь нужно хранить в Brigade Service через таблицу `brigade_departments`.
+
+Ticket Service должен хранить `ticket.department_id` и опционально `ticket.brigade_id`. При назначении бригады нужно проверять, что бригада из Brigade Service относится к тому же `department_id`, что и заявка.

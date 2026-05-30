@@ -38,8 +38,8 @@ func (th *TicketHandler) CreateTicket(c *gin.Context) {
 		Description:  req.Description,
 		Priority:     ToProtoPriority(req.Priority),
 		Address:      req.Address,
-		Latitude:     valueOrZero(req.Latitude),
-		Longitude:    valueOrZero(req.Longitude),
+		Latitude:     req.Latitude,
+		Longitude:    req.Longitude,
 	})
 	if err != nil {
 		handleGRPCError(c, err)
@@ -319,7 +319,7 @@ func (th *TicketHandler) ListCategories(c *gin.Context) {
 	ctx = ticketActorContext(ctx, c)
 
 	res, err := th.ticketClient.ListCategories(ctx, &ticketv1.ListCategoriesRequest{
-		OnlyActive: boolOrDefault(req.OnlyActive, false),
+		OnlyActive: req.OnlyActive,
 		Limit:      int32OrZero(req.Limit),
 		Offset:     int32OrZero(req.Offset),
 	})
@@ -351,8 +351,8 @@ func (th *TicketHandler) UpdateCategory(c *gin.Context) {
 
 	res, err := th.ticketClient.UpdateCategory(ctx, &ticketv1.UpdateCategoryRequest{
 		CategoryId:  req.CategoryID,
-		Name:        stringOrEmpty(req.Name),
-		Description: stringOrEmpty(req.Description),
+		Name:        req.Name,
+		Description: req.Description,
 		IsActive:    req.IsActive,
 	})
 	if err != nil {
@@ -399,25 +399,29 @@ func bindJSON(c *gin.Context, req any) bool {
 
 func buildListTicketsRequest(c *gin.Context, req *models.ListTicketRequest) (*ticketv1.ListTicketsRequest, bool) {
 	protoReq := &ticketv1.ListTicketsRequest{
-		DepartmentId: stringOrEmpty(req.DepartmentID),
-		UserId:       stringOrEmpty(req.UserID),
-		BrigadeId:    stringOrEmpty(req.BrigadeID),
-		CategoryId:   stringOrEmpty(req.CategoryID),
+		DepartmentId: req.DepartmentID,
+		UserId:       req.UserID,
+		BrigadeId:    req.BrigadeID,
+		CategoryId:   req.CategoryID,
 		Limit:        int32OrZero(req.Limit),
 		Offset:       int32OrZero(req.Offset),
 	}
 
 	if req.Status != nil {
-		protoReq.Status = ToProtoStatus(*req.Status)
+		status := ToProtoStatus(*req.Status)
+		protoReq.Status = &status
 	}
 	if req.Priority != nil {
-		protoReq.Priority = ToProtoPriority(*req.Priority)
+		priority := ToProtoPriority(*req.Priority)
+		protoReq.Priority = &priority
 	}
 	if req.SortBy != nil {
-		protoReq.SortBy = ToProtoSortBy(*req.SortBy)
+		sortBy := ToProtoSortBy(*req.SortBy)
+		protoReq.SortBy = &sortBy
 	}
 	if req.SortOrder != nil {
-		protoReq.SortOrder = ToProtoSortOrder(*req.SortOrder)
+		sortOrder := ToProtoSortOrder(*req.SortOrder)
+		protoReq.SortOrder = &sortOrder
 	}
 	if req.CreatedFrom != nil {
 		createdFrom, err := ToProtoTimestamp(*req.CreatedFrom)
@@ -442,17 +446,18 @@ func buildListTicketsRequest(c *gin.Context, req *models.ListTicketRequest) (*ti
 func buildUpdateTicketRequest(req *models.UpdateTicketRequest, updatedBy string) *ticketv1.UpdateTicketRequest {
 	protoReq := &ticketv1.UpdateTicketRequest{
 		TicketId:    req.TicketID,
-		Title:       stringOrEmpty(req.Title),
-		Description: stringOrEmpty(req.Description),
-		CategoryId:  stringOrEmpty(req.CategoryID),
-		Address:     stringOrEmpty(req.Address),
+		Title:       req.Title,
+		Description: req.Description,
+		CategoryId:  req.CategoryID,
+		Address:     req.Address,
 		Latitude:    req.Latitude,
 		Longitude:   req.Longitude,
 		UpdatedBy:   updatedBy,
 	}
 
 	if req.Priority != nil {
-		protoReq.Priority = ToProtoPriority(*req.Priority)
+		priority := ToProtoPriority(*req.Priority)
+		protoReq.Priority = &priority
 	}
 
 	return protoReq

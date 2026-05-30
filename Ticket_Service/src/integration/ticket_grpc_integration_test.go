@@ -119,8 +119,8 @@ func TestTicketGRPCIntegration_TicketLifecycle(t *testing.T) {
 		Description:  "Created by gRPC integration test",
 		Priority:     ticketv1.TicketPriority_TICKET_PRIORITY_HIGH,
 		Address:      "gRPC street 1",
-		Latitude:     55.751244,
-		Longitude:    37.618423,
+		Latitude:     float64Ptr(55.751244),
+		Longitude:    float64Ptr(37.618423),
 	})
 	if err != nil {
 		t.Fatalf("grpc create ticket failed: %v", err)
@@ -225,7 +225,7 @@ func TestTicketGRPCIntegration_UpdateCategoryExplicitFalse(t *testing.T) {
 	}
 
 	allResp, err := grpcApp.client.ListCategories(adminCtx, &ticketv1.ListCategoriesRequest{
-		OnlyActive: false,
+		OnlyActive: boolPtr(false),
 		Limit:      100,
 	})
 	if err != nil {
@@ -243,7 +243,7 @@ func TestTicketGRPCIntegration_UpdateCategoryExplicitFalse(t *testing.T) {
 	}
 
 	activeResp, err := grpcApp.client.ListCategories(adminCtx, &ticketv1.ListCategoriesRequest{
-		OnlyActive: true,
+		OnlyActive: boolPtr(true),
 		Limit:      100,
 	})
 	if err != nil {
@@ -255,6 +255,10 @@ func TestTicketGRPCIntegration_UpdateCategoryExplicitFalse(t *testing.T) {
 			t.Fatal("expected inactive category to be absent when only_active is true")
 		}
 	}
+}
+
+func float64Ptr(value float64) *float64 {
+	return &value
 }
 
 func TestTicketGRPCIntegration_PermissionDeniedWithoutPrivilegedRole(t *testing.T) {

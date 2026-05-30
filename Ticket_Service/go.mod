@@ -16,6 +16,8 @@ require (
 	google.golang.org/protobuf v1.36.11
 )
 
+replace github.com/FIZZI-77/automatic-system-contracts => C:/Users/zapru/GolandProjects/automatic-system-contracts
+
 require (
 	dario.cat/mergo v1.0.2 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
