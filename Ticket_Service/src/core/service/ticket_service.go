@@ -39,7 +39,7 @@ func (s *TicketServiceStruct) CreateTicket(ctx context.Context, in *models.Creat
 	if err := in.Validate(); err != nil {
 		logger.Warn("CreateTicket validation failed",
 			zap.String("user_id", in.UserID.String()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("service: CreateTicket(): %w: %v", models.ErrValidation, err)
@@ -55,7 +55,7 @@ func (s *TicketServiceStruct) CreateTicket(ctx context.Context, in *models.Creat
 	if err != nil {
 		logger.Error("CreateTicket failed",
 			zap.String("user_id", in.UserID.String()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("service: CreateTicket(): %w", err)
@@ -65,7 +65,7 @@ func (s *TicketServiceStruct) CreateTicket(ctx context.Context, in *models.Creat
 		zap.String("ticket_id", ticket.ID.String()),
 		zap.String("user_id", in.UserID.String()),
 		zap.String("status", string(ticket.Status)),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	return &models.CreateTicketResult{
@@ -84,7 +84,7 @@ func (s *TicketServiceStruct) GetTicket(ctx context.Context, in *models.GetTicke
 	if err := in.Validate(); err != nil {
 		logger.Warn("GetTicket validation failed",
 			zap.String("ticket_id", in.TicketID.String()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("service: GetTicket(): %w: %v", models.ErrValidation, err)
@@ -94,7 +94,7 @@ func (s *TicketServiceStruct) GetTicket(ctx context.Context, in *models.GetTicke
 	if err != nil {
 		logger.Error("GetTicket failed",
 			zap.String("ticket_id", in.TicketID.String()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("service: GetTicket(): %w", err)
@@ -107,7 +107,7 @@ func (s *TicketServiceStruct) GetTicket(ctx context.Context, in *models.GetTicke
 	logger.Info("GetTicket success",
 		zap.String("ticket_id", ticket.ID.String()),
 		zap.String("status", string(ticket.Status)),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	return &models.GetTicketResult{
@@ -148,7 +148,7 @@ func (s *TicketServiceStruct) ListTickets(ctx context.Context, in *models.ListTi
 
 	if err := in.Validate(); err != nil {
 		logger.Warn("ListTickets validation failed",
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("service: ListTickets(): %w: %v", models.ErrValidation, err)
@@ -157,7 +157,7 @@ func (s *TicketServiceStruct) ListTickets(ctx context.Context, in *models.ListTi
 	tickets, total, err := s.repo.ListTickets(ctx, in)
 	if err != nil {
 		logger.Error("ListTickets failed",
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("service: ListTickets(): %w", err)
@@ -166,7 +166,7 @@ func (s *TicketServiceStruct) ListTickets(ctx context.Context, in *models.ListTi
 	logger.Info("ListTickets success",
 		zap.Int("count", len(tickets)),
 		zap.Int64("total", total),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	return &models.ListTicketsResult{
@@ -193,7 +193,7 @@ func (s *TicketServiceStruct) UpdateTicket(ctx context.Context, in *models.Updat
 	if err := in.Validate(); err != nil {
 		logger.Warn("UpdateTicket validation failed",
 			zap.String("ticket_id", in.TicketID.String()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("service: UpdateTicket(): %w: %v", models.ErrValidation, err)
@@ -203,7 +203,7 @@ func (s *TicketServiceStruct) UpdateTicket(ctx context.Context, in *models.Updat
 	if err != nil {
 		logger.Error("UpdateTicket failed",
 			zap.String("ticket_id", in.TicketID.String()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("service: UpdateTicket(): %w", err)
@@ -212,7 +212,7 @@ func (s *TicketServiceStruct) UpdateTicket(ctx context.Context, in *models.Updat
 	logger.Info("UpdateTicket success",
 		zap.String("ticket_id", ticket.ID.String()),
 		zap.String("status", string(ticket.Status)),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	return &models.UpdateTicketResult{
@@ -233,7 +233,7 @@ func (s *TicketServiceStruct) ChangeTicketStatus(ctx context.Context, in *models
 	if err := in.Validate(); err != nil {
 		logger.Warn("ChangeTicketStatus validation failed",
 			zap.String("ticket_id", in.TicketID.String()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("service: ChangeTicketStatus(): %w: %v", models.ErrValidation, err)
@@ -248,7 +248,7 @@ func (s *TicketServiceStruct) ChangeTicketStatus(ctx context.Context, in *models
 		logger.Error("ChangeTicketStatus failed",
 			zap.String("ticket_id", in.TicketID.String()),
 			zap.String("new_status", string(in.NewStatus)),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("service: ChangeTicketStatus(): %w", err)
@@ -257,7 +257,7 @@ func (s *TicketServiceStruct) ChangeTicketStatus(ctx context.Context, in *models
 	logger.Info("ChangeTicketStatus success",
 		zap.String("ticket_id", ticket.ID.String()),
 		zap.String("new_status", string(ticket.Status)),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	return &models.ChangeTicketStatusResult{
@@ -278,7 +278,7 @@ func (s *TicketServiceStruct) AssignBrigade(ctx context.Context, in *models.Assi
 	if err := in.Validate(); err != nil {
 		logger.Warn("AssignBrigade validation failed",
 			zap.String("ticket_id", in.TicketID.String()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("service: AssignBrigade(): %w: %v", models.ErrValidation, err)
@@ -293,7 +293,7 @@ func (s *TicketServiceStruct) AssignBrigade(ctx context.Context, in *models.Assi
 		logger.Error("AssignBrigade failed",
 			zap.String("ticket_id", in.TicketID.String()),
 			zap.String("brigade_id", in.BrigadeID.String()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("service: AssignBrigade(): %w", err)
@@ -303,7 +303,7 @@ func (s *TicketServiceStruct) AssignBrigade(ctx context.Context, in *models.Assi
 		zap.String("ticket_id", ticket.ID.String()),
 		zap.String("brigade_id", in.BrigadeID.String()),
 		zap.String("status", string(ticket.Status)),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	return &models.AssignBrigadeResult{
@@ -323,7 +323,7 @@ func (s *TicketServiceStruct) CancelTicket(ctx context.Context, in *models.Cance
 	if err := in.Validate(); err != nil {
 		logger.Warn("CancelTicket validation failed",
 			zap.String("ticket_id", in.TicketID.String()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("service: CancelTicket(): %w: %v", models.ErrValidation, err)
@@ -342,7 +342,7 @@ func (s *TicketServiceStruct) CancelTicket(ctx context.Context, in *models.Cance
 	if err != nil {
 		logger.Error("CancelTicket failed",
 			zap.String("ticket_id", in.TicketID.String()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("service: CancelTicket(): %w", err)
@@ -351,7 +351,7 @@ func (s *TicketServiceStruct) CancelTicket(ctx context.Context, in *models.Cance
 	logger.Info("CancelTicket success",
 		zap.String("ticket_id", ticket.ID.String()),
 		zap.String("status", string(ticket.Status)),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	return &models.CancelTicketResult{
@@ -371,7 +371,7 @@ func (s *TicketServiceStruct) CompleteTicket(ctx context.Context, in *models.Com
 	if err := in.Validate(); err != nil {
 		logger.Warn("CompleteTicket validation failed",
 			zap.String("ticket_id", in.TicketID.String()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("service: CompleteTicket(): %w: %v", models.ErrValidation, err)
@@ -385,7 +385,7 @@ func (s *TicketServiceStruct) CompleteTicket(ctx context.Context, in *models.Com
 	if err != nil {
 		logger.Error("CompleteTicket failed",
 			zap.String("ticket_id", in.TicketID.String()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("service: CompleteTicket(): %w", err)
@@ -394,7 +394,7 @@ func (s *TicketServiceStruct) CompleteTicket(ctx context.Context, in *models.Com
 	logger.Info("CompleteTicket success",
 		zap.String("ticket_id", ticket.ID.String()),
 		zap.String("status", string(ticket.Status)),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	return &models.CompleteTicketResult{
@@ -415,7 +415,7 @@ func (s *TicketServiceStruct) GetTicketStatusHistory(ctx context.Context, in *mo
 	if err := in.Validate(); err != nil {
 		logger.Warn("GetTicketStatusHistory validation failed",
 			zap.String("ticket_id", in.TicketID.String()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("service: GetTicketStatusHistory(): %w: %v", models.ErrValidation, err)
@@ -434,7 +434,7 @@ func (s *TicketServiceStruct) GetTicketStatusHistory(ctx context.Context, in *mo
 	if err != nil {
 		logger.Error("GetTicketStatusHistory failed",
 			zap.String("ticket_id", in.TicketID.String()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("service: GetTicketStatusHistory(): %w", err)
@@ -444,7 +444,7 @@ func (s *TicketServiceStruct) GetTicketStatusHistory(ctx context.Context, in *mo
 		zap.String("ticket_id", in.TicketID.String()),
 		zap.Int("count", len(history)),
 		zap.Int64("total", total),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	return &models.GetTicketStatusHistoryResult{

@@ -37,6 +37,11 @@ func (h *DepartmentHandler) CreateDepartment(ctx context.Context, req *departmen
 	start := time.Now()
 	logger := h.logger.With(pkg.RequestIDField(ctx))
 
+	logger.Info("gRPC request received",
+		zap.String("method", "CreateDepartment"),
+		zap.String("name", req.GetName()),
+	)
+
 	in := &models.CreateDepartmentInput{
 		Name:        req.GetName(),
 		Description: req.GetDescription(),
@@ -45,28 +50,76 @@ func (h *DepartmentHandler) CreateDepartment(ctx context.Context, req *departmen
 
 	res, err := h.service.CreateDepartment(ctx, in)
 	if err != nil {
-		logger.Warn("CreateDepartment failed", zap.Duration("duration", time.Since(start)), zap.Error(err))
+		logger.Warn("gRPC request failed",
+			zap.String("method", "CreateDepartment"),
+			zap.String("name", req.GetName()),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		)
 		return nil, departmentStatusError("CreateDepartment", err)
 	}
+
+	logger.Info("gRPC request succeeded",
+		zap.String("method", "CreateDepartment"),
+		zap.String("department_id", res.Department.ID.String()),
+		zap.String("name", res.Department.Name),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
+	)
 
 	return &departmentv1.CreateDepartmentResponse{Department: ToProtoDepartment(res.Department)}, nil
 }
 
 func (h *DepartmentHandler) GetDepartmentByID(ctx context.Context, req *departmentv1.GetDepartmentByIDRequest) (*departmentv1.GetDepartmentByIDResponse, error) {
+	start := time.Now()
+	logger := h.logger.With(pkg.RequestIDField(ctx))
+
+	logger.Info("gRPC request received",
+		zap.String("method", "GetDepartmentByID"),
+		zap.String("department_id", req.GetId()),
+	)
+
 	id, err := parseUUID(req.GetId(), "id")
 	if err != nil {
+		logger.Warn("gRPC request failed",
+			zap.String("method", "GetDepartmentByID"),
+			zap.String("department_id", req.GetId()),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		)
 		return nil, departmentStatusError("GetDepartmentByID", fmt.Errorf("%w: %v", models.ErrValidation, err))
 	}
 
 	res, err := h.service.GetDepartmentByID(ctx, &models.GetDepartmentByIDInput{ID: id})
 	if err != nil {
+		logger.Warn("gRPC request failed",
+			zap.String("method", "GetDepartmentByID"),
+			zap.String("department_id", req.GetId()),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		)
 		return nil, departmentStatusError("GetDepartmentByID", err)
 	}
+
+	logger.Info("gRPC request succeeded",
+		zap.String("method", "GetDepartmentByID"),
+		zap.String("department_id", res.Department.ID.String()),
+		zap.String("name", res.Department.Name),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
+	)
 
 	return &departmentv1.GetDepartmentByIDResponse{Department: ToProtoDepartment(res.Department)}, nil
 }
 
 func (h *DepartmentHandler) ListDepartments(ctx context.Context, req *departmentv1.ListDepartmentsRequest) (*departmentv1.ListDepartmentsResponse, error) {
+	start := time.Now()
+	logger := h.logger.With(pkg.RequestIDField(ctx))
+
+	logger.Info("gRPC request received",
+		zap.String("method", "ListDepartments"),
+		zap.Int32("limit", req.GetLimit()),
+		zap.Int32("offset", req.GetOffset()),
+	)
+
 	var statusValue *models.DepartmentStatus
 	if req.Status != nil && req.GetStatus() != departmentv1.DepartmentStatus_DEPARTMENT_STATUS_UNSPECIFIED {
 		status := FromProtoStatus(req.GetStatus())
@@ -89,6 +142,11 @@ func (h *DepartmentHandler) ListDepartments(ctx context.Context, req *department
 
 	res, err := h.service.ListDepartments(ctx, in)
 	if err != nil {
+		logger.Warn("gRPC request failed",
+			zap.String("method", "ListDepartments"),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		)
 		return nil, departmentStatusError("ListDepartments", err)
 	}
 
@@ -97,12 +155,33 @@ func (h *DepartmentHandler) ListDepartments(ctx context.Context, req *department
 		departments = append(departments, ToProtoDepartment(item))
 	}
 
+	logger.Info("gRPC request succeeded",
+		zap.String("method", "ListDepartments"),
+		zap.Int("count", len(departments)),
+		zap.Int64("total", res.Total),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
+	)
+
 	return &departmentv1.ListDepartmentsResponse{Departments: departments, Total: res.Total}, nil
 }
 
 func (h *DepartmentHandler) UpdateDepartment(ctx context.Context, req *departmentv1.UpdateDepartmentRequest) (*departmentv1.UpdateDepartmentResponse, error) {
+	start := time.Now()
+	logger := h.logger.With(pkg.RequestIDField(ctx))
+
+	logger.Info("gRPC request received",
+		zap.String("method", "UpdateDepartment"),
+		zap.String("department_id", req.GetId()),
+	)
+
 	id, err := parseUUID(req.GetId(), "id")
 	if err != nil {
+		logger.Warn("gRPC request failed",
+			zap.String("method", "UpdateDepartment"),
+			zap.String("department_id", req.GetId()),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		)
 		return nil, departmentStatusError("UpdateDepartment", fmt.Errorf("%w: %v", models.ErrValidation, err))
 	}
 
@@ -120,15 +199,42 @@ func (h *DepartmentHandler) UpdateDepartment(ctx context.Context, req *departmen
 		ActorRoles:  actorFromContext(ctx).Roles,
 	})
 	if err != nil {
+		logger.Warn("gRPC request failed",
+			zap.String("method", "UpdateDepartment"),
+			zap.String("department_id", req.GetId()),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		)
 		return nil, departmentStatusError("UpdateDepartment", err)
 	}
+
+	logger.Info("gRPC request succeeded",
+		zap.String("method", "UpdateDepartment"),
+		zap.String("department_id", res.Department.ID.String()),
+		zap.String("status", string(res.Department.Status)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
+	)
 
 	return &departmentv1.UpdateDepartmentResponse{Department: ToProtoDepartment(res.Department)}, nil
 }
 
 func (h *DepartmentHandler) DeleteDepartment(ctx context.Context, req *departmentv1.DeleteDepartmentRequest) (*departmentv1.DeleteDepartmentResponse, error) {
+	start := time.Now()
+	logger := h.logger.With(pkg.RequestIDField(ctx))
+
+	logger.Info("gRPC request received",
+		zap.String("method", "DeleteDepartment"),
+		zap.String("department_id", req.GetId()),
+	)
+
 	id, err := parseUUID(req.GetId(), "id")
 	if err != nil {
+		logger.Warn("gRPC request failed",
+			zap.String("method", "DeleteDepartment"),
+			zap.String("department_id", req.GetId()),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		)
 		return nil, departmentStatusError("DeleteDepartment", fmt.Errorf("%w: %v", models.ErrValidation, err))
 	}
 
@@ -137,8 +243,21 @@ func (h *DepartmentHandler) DeleteDepartment(ctx context.Context, req *departmen
 		ActorRoles: actorFromContext(ctx).Roles,
 	})
 	if err != nil {
+		logger.Warn("gRPC request failed",
+			zap.String("method", "DeleteDepartment"),
+			zap.String("department_id", req.GetId()),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		)
 		return nil, departmentStatusError("DeleteDepartment", err)
 	}
+
+	logger.Info("gRPC request succeeded",
+		zap.String("method", "DeleteDepartment"),
+		zap.String("department_id", res.Department.ID.String()),
+		zap.String("status", string(res.Department.Status)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
+	)
 
 	return &departmentv1.DeleteDepartmentResponse{Department: ToProtoDepartment(res.Department)}, nil
 }

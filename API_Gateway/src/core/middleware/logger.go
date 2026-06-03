@@ -2,6 +2,8 @@ package middleware
 
 import (
 	"log"
+	"strconv"
+	"strings"
 	"time"
 
 	"gateway/src/core/requestid"
@@ -22,15 +24,23 @@ func RequestLogger() gin.HandlerFunc {
 		}
 
 		requestID, _ := requestid.FromContext(c.Request.Context())
-		log.Printf(
-			"request_id=%s method=%s path=%s status=%d latency=%s client_ip=%s errors=%q",
-			requestID,
-			c.Request.Method,
-			path,
-			c.Writer.Status(),
-			time.Since(start),
-			c.ClientIP(),
-			c.Errors.ByType(gin.ErrorTypePrivate).String(),
-		)
+		fields := []string{
+			"request_id=" + requestID,
+			"method=" + c.Request.Method,
+			"path=" + path,
+			"status=" + strconv.Itoa(c.Writer.Status()),
+			"duration=" + strconv.FormatInt(time.Since(start).Milliseconds(), 10),
+			"client_ip=" + c.ClientIP(),
+			"user_agent=" + strconv.Quote(c.Request.UserAgent()),
+		}
+
+		if userID := c.GetString("user_id"); userID != "" {
+			fields = append(fields, "user_id="+userID)
+		}
+		if errors := c.Errors.ByType(gin.ErrorTypePrivate).String(); errors != "" {
+			fields = append(fields, "errors="+strconv.Quote(errors))
+		}
+
+		log.Printf("http request completed %s", strings.Join(fields, " "))
 	}
 }

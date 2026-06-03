@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"gateway/pkg/closer"
 	"gateway/src/core/handlers"
 	"gateway/src/core/middleware"
 	"gateway/src/core/requestid"
@@ -21,6 +22,8 @@ import (
 )
 
 func main() {
+	dependencies := closer.New()
+
 	authServiceAddr := getEnv("AUTH_SERVICE_ADDR", "localhost:50051")
 	ticketServiceAddr := getEnv("TICKET_SERVICE_ADDR", "localhost:50052")
 	departmentServiceAddr := getEnv("DEPARTMENT_SERVICE_ADDR", "localhost:50053")
@@ -35,6 +38,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to connect to auth service: %v", err)
 	}
+	dependencies.Add("auth grpc connection", authConn.Close)
+	defer closeDependencies(dependencies)
 
 	authClient := authv1.NewAuthServiceClient(authConn)
 
@@ -46,6 +51,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to connect to ticket service: %v", err)
 	}
+	dependencies.Add("ticket grpc connection", ticketConn.Close)
 
 	ticketClient := ticketv1.NewTicketServiceClient(ticketConn)
 
@@ -57,6 +63,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to connect to department service: %v", err)
 	}
+	dependencies.Add("department grpc connection", departmentConn.Close)
 
 	departmentClient := departmentv1.NewDepartmentServiceClient(departmentConn)
 
@@ -83,6 +90,8 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
+	serverErrCh := make(chan error, 1)
+
 	go func() {
 		log.Printf("api gateway started on %s", gatewayAddr)
 		log.Printf("auth service address: %s", authServiceAddr)
@@ -90,7 +99,7 @@ func main() {
 		log.Printf("department service address: %s", departmentServiceAddr)
 
 		if err = server.ListenAndServe(); err != nil && !errors.Is(http.ErrServerClosed, err) {
-			log.Fatalf("failed to start api gateway: %v", err)
+			serverErrCh <- err
 		}
 	}()
 
@@ -102,30 +111,35 @@ func main() {
 		syscall.SIGTERM,
 	)
 
-	<-quit
+	select {
+	case sig := <-quit:
+		log.Printf("received signal: %v", sig)
+	case err := <-serverErrCh:
+		log.Printf("api gateway failed: %v", err)
+		return
+	}
 
 	log.Println("shutting down api gateway...")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
 	if err = server.Shutdown(ctx); err != nil {
 		log.Printf("failed to shutdown http server gracefully: %v", err)
 	}
 
-	if err = authConn.Close(); err != nil {
-		log.Printf("failed to close auth grpc connection: %v", err)
-	}
-
-	if err = ticketConn.Close(); err != nil {
-		log.Printf("failed to close ticket grpc connection: %v", err)
-	}
-
-	if err = departmentConn.Close(); err != nil {
-		log.Printf("failed to close department grpc connection: %v", err)
-	}
+	closeDependencies(dependencies)
 
 	log.Println("api gateway stopped")
+}
+
+func closeDependencies(dependencies *closer.Closer) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := dependencies.Close(ctx); err != nil {
+		log.Printf("failed to close dependencies: %v", err)
+	}
 }
 
 func getEnv(key string, defaultValue string) string {
