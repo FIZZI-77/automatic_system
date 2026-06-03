@@ -36,7 +36,7 @@ func (s *CategoryServiceStruct) CreateCategory(ctx context.Context, in *models.C
 	if err := in.Validate(); err != nil {
 		logger.Warn("CreateCategory validation failed",
 			zap.String("code", in.Code),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("service: CreateCategory(): %w: %v", models.ErrValidation, err)
@@ -50,7 +50,7 @@ func (s *CategoryServiceStruct) CreateCategory(ctx context.Context, in *models.C
 	if err != nil {
 		logger.Error("CreateCategory failed",
 			zap.String("code", in.Code),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("service: CreateCategory(): %w", err)
@@ -59,7 +59,7 @@ func (s *CategoryServiceStruct) CreateCategory(ctx context.Context, in *models.C
 	logger.Info("CreateCategory success",
 		zap.String("category_id", category.ID.String()),
 		zap.String("code", category.Code),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	return &models.CreateCategoryResult{
@@ -78,7 +78,7 @@ func (s *CategoryServiceStruct) GetCategory(ctx context.Context, in *models.GetC
 	if err := in.Validate(); err != nil {
 		logger.Warn("GetCategory validation failed",
 			zap.String("category_id", in.CategoryID.String()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("service: GetCategory(): %w: %v", models.ErrValidation, err)
@@ -88,7 +88,7 @@ func (s *CategoryServiceStruct) GetCategory(ctx context.Context, in *models.GetC
 	if err != nil {
 		logger.Error("GetCategory failed",
 			zap.String("category_id", in.CategoryID.String()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("service: GetCategory(): %w", err)
@@ -97,7 +97,7 @@ func (s *CategoryServiceStruct) GetCategory(ctx context.Context, in *models.GetC
 	logger.Info("GetCategory success",
 		zap.String("category_id", category.ID.String()),
 		zap.String("code", category.Code),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	return &models.GetCategoryResult{
@@ -117,7 +117,7 @@ func (s *CategoryServiceStruct) ListCategories(ctx context.Context, in *models.L
 
 	if err := in.Validate(); err != nil {
 		logger.Warn("ListCategories validation failed",
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("service: ListCategories(): %w: %v", models.ErrValidation, err)
@@ -126,7 +126,7 @@ func (s *CategoryServiceStruct) ListCategories(ctx context.Context, in *models.L
 	categories, total, err := s.repo.ListCategories(ctx, in)
 	if err != nil {
 		logger.Error("ListCategories failed",
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("service: ListCategories(): %w", err)
@@ -135,7 +135,7 @@ func (s *CategoryServiceStruct) ListCategories(ctx context.Context, in *models.L
 	logger.Info("ListCategories success",
 		zap.Int("count", len(categories)),
 		zap.Int64("total", total),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	return &models.ListCategoriesResult{
@@ -162,7 +162,7 @@ func (s *CategoryServiceStruct) UpdateCategory(ctx context.Context, in *models.U
 	if err := in.Validate(); err != nil {
 		logger.Warn("UpdateCategory validation failed",
 			zap.String("category_id", in.CategoryID.String()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("service: UpdateCategory(): %w: %v", models.ErrValidation, err)
@@ -176,7 +176,7 @@ func (s *CategoryServiceStruct) UpdateCategory(ctx context.Context, in *models.U
 	if err != nil {
 		logger.Error("UpdateCategory failed",
 			zap.String("category_id", in.CategoryID.String()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("service: UpdateCategory(): %w", err)
@@ -185,7 +185,7 @@ func (s *CategoryServiceStruct) UpdateCategory(ctx context.Context, in *models.U
 	logger.Info("UpdateCategory success",
 		zap.String("category_id", category.ID.String()),
 		zap.String("code", category.Code),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	return &models.UpdateCategoryResult{
@@ -205,7 +205,7 @@ func (s *CategoryServiceStruct) DeleteCategory(ctx context.Context, in *models.D
 	if err := in.Validate(); err != nil {
 		logger.Warn("DeleteCategory validation failed",
 			zap.String("category_id", in.CategoryID.String()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("service: DeleteCategory(): %w: %v", models.ErrValidation, err)
@@ -219,7 +219,7 @@ func (s *CategoryServiceStruct) DeleteCategory(ctx context.Context, in *models.D
 	if err != nil {
 		logger.Error("DeleteCategory failed",
 			zap.String("category_id", in.CategoryID.String()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("service: DeleteCategory(): %w", err)
@@ -228,7 +228,7 @@ func (s *CategoryServiceStruct) DeleteCategory(ctx context.Context, in *models.D
 	logger.Info("DeleteCategory success",
 		zap.String("category_id", category.ID.String()),
 		zap.String("code", category.Code),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	return &models.DeleteCategoryResult{

@@ -53,7 +53,7 @@ func (t *TicketHandler) CreateTicket(ctx context.Context, req *ticketv1.CreateTi
 		logger.Warn("gRPC request failed",
 			zap.String("method", "CreateTicket"),
 			zap.String("user_id", req.UserId),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("CreateTicket", fmt.Errorf("%w: invalid department_id: %v", models.ErrValidation, err))
@@ -64,7 +64,7 @@ func (t *TicketHandler) CreateTicket(ctx context.Context, req *ticketv1.CreateTi
 		logger.Warn("gRPC request failed",
 			zap.String("method", "CreateTicket"),
 			zap.String("user_id", req.UserId),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("CreateTicket", fmt.Errorf("%w: invalid category_id: %v", models.ErrValidation, err))
@@ -75,7 +75,7 @@ func (t *TicketHandler) CreateTicket(ctx context.Context, req *ticketv1.CreateTi
 		logger.Warn("gRPC request failed",
 			zap.String("method", "CreateTicket"),
 			zap.String("user_id", req.UserId),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("CreateTicket", fmt.Errorf("%w: invalid user_id: %v", models.ErrValidation, err))
@@ -87,7 +87,7 @@ func (t *TicketHandler) CreateTicket(ctx context.Context, req *ticketv1.CreateTi
 		logger.Warn("gRPC request failed",
 			zap.String("method", "CreateTicket"),
 			zap.String("user_id", req.UserId),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 		)
 		return nil, ticketStatusError("CreateTicket", fmt.Errorf("%w: latitude is required", models.ErrValidation))
 	}
@@ -96,7 +96,7 @@ func (t *TicketHandler) CreateTicket(ctx context.Context, req *ticketv1.CreateTi
 		logger.Warn("gRPC request failed",
 			zap.String("method", "CreateTicket"),
 			zap.String("user_id", req.UserId),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 		)
 		return nil, ticketStatusError("CreateTicket", fmt.Errorf("%w: longitude is required", models.ErrValidation))
 	}
@@ -120,7 +120,7 @@ func (t *TicketHandler) CreateTicket(ctx context.Context, req *ticketv1.CreateTi
 		logger.Warn("gRPC request failed",
 			zap.String("method", "CreateTicket"),
 			zap.String("user_id", req.UserId),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("CreateTicket", err)
@@ -130,7 +130,7 @@ func (t *TicketHandler) CreateTicket(ctx context.Context, req *ticketv1.CreateTi
 		zap.String("method", "CreateTicket"),
 		zap.String("user_id", req.UserId),
 		zap.String("ticket_id", res.Ticket.ID.String()),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	return &ticketv1.CreateTicketResponse{
@@ -152,7 +152,7 @@ func (t *TicketHandler) GetTicket(ctx context.Context, req *ticketv1.GetTicketRe
 		logger.Warn("gRPC request failed",
 			zap.String("method", "GetTicket"),
 			zap.String("ticket_id", req.GetTicketId()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("GetTicket", fmt.Errorf("%w: invalid ticket_id: %v", models.ErrValidation, err))
@@ -170,7 +170,7 @@ func (t *TicketHandler) GetTicket(ctx context.Context, req *ticketv1.GetTicketRe
 		logger.Warn("gRPC request failed",
 			zap.String("method", "GetTicket"),
 			zap.String("ticket_id", req.GetTicketId()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("GetTicket", err)
@@ -180,7 +180,7 @@ func (t *TicketHandler) GetTicket(ctx context.Context, req *ticketv1.GetTicketRe
 		zap.String("method", "GetTicket"),
 		zap.String("ticket_id", req.GetTicketId()),
 		zap.String("status", string(res.Ticket.Status)),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	return &ticketv1.GetTicketResponse{
@@ -205,7 +205,7 @@ func (t *TicketHandler) ListTickets(ctx context.Context, req *ticketv1.ListTicke
 		logger.Warn("gRPC request failed",
 			zap.String("method", "ListTickets"),
 			zap.String("department_id", req.GetDepartmentId()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("ListTickets", fmt.Errorf("%w: %v", models.ErrValidation, err))
@@ -216,7 +216,7 @@ func (t *TicketHandler) ListTickets(ctx context.Context, req *ticketv1.ListTicke
 		logger.Warn("gRPC request failed",
 			zap.String("method", "ListTickets"),
 			zap.String("user_id", req.GetUserId()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("ListTickets", fmt.Errorf("%w: %v", models.ErrValidation, err))
@@ -227,7 +227,7 @@ func (t *TicketHandler) ListTickets(ctx context.Context, req *ticketv1.ListTicke
 		logger.Warn("gRPC request failed",
 			zap.String("method", "ListTickets"),
 			zap.String("brigade_id", req.GetBrigadeId()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("ListTickets", fmt.Errorf("%w: %v", models.ErrValidation, err))
@@ -238,7 +238,7 @@ func (t *TicketHandler) ListTickets(ctx context.Context, req *ticketv1.ListTicke
 		logger.Warn("gRPC request failed",
 			zap.String("method", "ListTickets"),
 			zap.String("category_id", req.GetCategoryId()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("ListTickets", fmt.Errorf("%w: %v", models.ErrValidation, err))
@@ -278,7 +278,7 @@ func (t *TicketHandler) ListTickets(ctx context.Context, req *ticketv1.ListTicke
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "ListTickets"),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("ListTickets", err)
@@ -293,7 +293,7 @@ func (t *TicketHandler) ListTickets(ctx context.Context, req *ticketv1.ListTicke
 		zap.String("method", "ListTickets"),
 		zap.Int("count", len(tickets)),
 		zap.Int64("total", res.Total),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	return &ticketv1.ListTicketsResponse{
@@ -317,7 +317,7 @@ func (t *TicketHandler) UpdateTicket(ctx context.Context, req *ticketv1.UpdateTi
 		logger.Warn("gRPC request failed",
 			zap.String("method", "UpdateTicket"),
 			zap.String("ticket_id", req.GetTicketId()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("UpdateTicket", fmt.Errorf("%w: invalid ticket_id: %v", models.ErrValidation, err))
@@ -328,7 +328,7 @@ func (t *TicketHandler) UpdateTicket(ctx context.Context, req *ticketv1.UpdateTi
 		logger.Warn("gRPC request failed",
 			zap.String("method", "UpdateTicket"),
 			zap.String("category_id", req.GetCategoryId()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("UpdateTicket", fmt.Errorf("%w: %v", models.ErrValidation, err))
@@ -339,7 +339,7 @@ func (t *TicketHandler) UpdateTicket(ctx context.Context, req *ticketv1.UpdateTi
 		logger.Warn("gRPC request failed",
 			zap.String("method", "UpdateTicket"),
 			zap.String("updated_by", req.GetUpdatedBy()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("UpdateTicket", fmt.Errorf("%w: %v", models.ErrValidation, err))
@@ -378,7 +378,7 @@ func (t *TicketHandler) UpdateTicket(ctx context.Context, req *ticketv1.UpdateTi
 		logger.Warn("gRPC request failed",
 			zap.String("method", "UpdateTicket"),
 			zap.String("ticket_id", req.GetTicketId()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("UpdateTicket", err)
@@ -387,7 +387,7 @@ func (t *TicketHandler) UpdateTicket(ctx context.Context, req *ticketv1.UpdateTi
 	logger.Info("gRPC request succeeded",
 		zap.String("method", "UpdateTicket"),
 		zap.String("ticket_id", req.GetTicketId()),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	return &ticketv1.UpdateTicketResponse{
@@ -411,7 +411,7 @@ func (t *TicketHandler) ChangeTicketStatus(ctx context.Context, req *ticketv1.Ch
 		logger.Warn("gRPC request failed",
 			zap.String("method", "ChangeTicketStatus"),
 			zap.String("ticket_id", req.GetTicketId()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("ChangeTicketStatus", fmt.Errorf("%w: invalid ticket_id: %v", models.ErrValidation, err))
@@ -422,7 +422,7 @@ func (t *TicketHandler) ChangeTicketStatus(ctx context.Context, req *ticketv1.Ch
 		logger.Warn("gRPC request failed",
 			zap.String("method", "ChangeTicketStatus"),
 			zap.String("changed_by", req.GetChangedBy()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("ChangeTicketStatus", fmt.Errorf("%w: invalid changed_by: %v", models.ErrValidation, err))
@@ -442,7 +442,7 @@ func (t *TicketHandler) ChangeTicketStatus(ctx context.Context, req *ticketv1.Ch
 			zap.String("method", "ChangeTicketStatus"),
 			zap.String("ticket_id", req.GetTicketId()),
 			zap.String("new_status", req.GetNewStatus().String()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("ChangeTicketStatus", err)
@@ -452,7 +452,7 @@ func (t *TicketHandler) ChangeTicketStatus(ctx context.Context, req *ticketv1.Ch
 		zap.String("method", "ChangeTicketStatus"),
 		zap.String("ticket_id", req.GetTicketId()),
 		zap.String("new_status", req.GetNewStatus().String()),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	return &ticketv1.ChangeTicketStatusResponse{
@@ -476,7 +476,7 @@ func (t *TicketHandler) AssignBrigade(ctx context.Context, req *ticketv1.AssignB
 		logger.Warn("gRPC request failed",
 			zap.String("method", "AssignBrigade"),
 			zap.String("ticket_id", req.GetTicketId()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("AssignBrigade", fmt.Errorf("%w: invalid ticket_id: %v", models.ErrValidation, err))
@@ -487,7 +487,7 @@ func (t *TicketHandler) AssignBrigade(ctx context.Context, req *ticketv1.AssignB
 		logger.Warn("gRPC request failed",
 			zap.String("method", "AssignBrigade"),
 			zap.String("brigade_id", req.GetBrigadeId()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("AssignBrigade", fmt.Errorf("%w: invalid brigade_id: %v", models.ErrValidation, err))
@@ -498,7 +498,7 @@ func (t *TicketHandler) AssignBrigade(ctx context.Context, req *ticketv1.AssignB
 		logger.Warn("gRPC request failed",
 			zap.String("method", "AssignBrigade"),
 			zap.String("assigned_by", req.GetAssignedBy()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("AssignBrigade", fmt.Errorf("%w: invalid assigned_by: %v", models.ErrValidation, err))
@@ -518,7 +518,7 @@ func (t *TicketHandler) AssignBrigade(ctx context.Context, req *ticketv1.AssignB
 			zap.String("method", "AssignBrigade"),
 			zap.String("ticket_id", req.GetTicketId()),
 			zap.String("brigade_id", req.GetBrigadeId()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("AssignBrigade", err)
@@ -528,7 +528,7 @@ func (t *TicketHandler) AssignBrigade(ctx context.Context, req *ticketv1.AssignB
 		zap.String("method", "AssignBrigade"),
 		zap.String("ticket_id", req.GetTicketId()),
 		zap.String("brigade_id", req.GetBrigadeId()),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	return &ticketv1.AssignBrigadeResponse{
@@ -551,7 +551,7 @@ func (t *TicketHandler) CancelTicket(ctx context.Context, req *ticketv1.CancelTi
 		logger.Warn("gRPC request failed",
 			zap.String("method", "CancelTicket"),
 			zap.String("ticket_id", req.GetTicketId()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("CancelTicket", fmt.Errorf("%w: invalid ticket_id: %v", models.ErrValidation, err))
@@ -562,7 +562,7 @@ func (t *TicketHandler) CancelTicket(ctx context.Context, req *ticketv1.CancelTi
 		logger.Warn("gRPC request failed",
 			zap.String("method", "CancelTicket"),
 			zap.String("canceled_by", req.GetCanceledBy()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("CancelTicket", fmt.Errorf("%w: invalid canceled_by: %v", models.ErrValidation, err))
@@ -580,7 +580,7 @@ func (t *TicketHandler) CancelTicket(ctx context.Context, req *ticketv1.CancelTi
 		logger.Warn("gRPC request failed",
 			zap.String("method", "CancelTicket"),
 			zap.String("ticket_id", req.GetTicketId()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("CancelTicket", err)
@@ -589,7 +589,7 @@ func (t *TicketHandler) CancelTicket(ctx context.Context, req *ticketv1.CancelTi
 	logger.Info("gRPC request succeeded",
 		zap.String("method", "CancelTicket"),
 		zap.String("ticket_id", req.GetTicketId()),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	return &ticketv1.CancelTicketResponse{
@@ -612,7 +612,7 @@ func (t *TicketHandler) CompleteTicket(ctx context.Context, req *ticketv1.Comple
 		logger.Warn("gRPC request failed",
 			zap.String("method", "CompleteTicket"),
 			zap.String("ticket_id", req.GetTicketId()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("CompleteTicket", fmt.Errorf("%w: invalid ticket_id: %v", models.ErrValidation, err))
@@ -623,7 +623,7 @@ func (t *TicketHandler) CompleteTicket(ctx context.Context, req *ticketv1.Comple
 		logger.Warn("gRPC request failed",
 			zap.String("method", "CompleteTicket"),
 			zap.String("completed_by", req.GetCompletedBy()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("CompleteTicket", fmt.Errorf("%w: invalid completed_by: %v", models.ErrValidation, err))
@@ -641,7 +641,7 @@ func (t *TicketHandler) CompleteTicket(ctx context.Context, req *ticketv1.Comple
 		logger.Warn("gRPC request failed",
 			zap.String("method", "CompleteTicket"),
 			zap.String("ticket_id", req.GetTicketId()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("CompleteTicket", err)
@@ -650,7 +650,7 @@ func (t *TicketHandler) CompleteTicket(ctx context.Context, req *ticketv1.Comple
 	logger.Info("gRPC request succeeded",
 		zap.String("method", "CompleteTicket"),
 		zap.String("ticket_id", req.GetTicketId()),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	return &ticketv1.CompleteTicketResponse{
@@ -672,7 +672,7 @@ func (t *TicketHandler) GetTicketStatusHistory(ctx context.Context, req *ticketv
 		logger.Warn("gRPC request failed",
 			zap.String("method", "GetTicketStatusHistory"),
 			zap.String("ticket_id", req.GetTicketId()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("GetTicketStatusHistory", fmt.Errorf("%w: invalid ticket_id: %v", models.ErrValidation, err))
@@ -692,7 +692,7 @@ func (t *TicketHandler) GetTicketStatusHistory(ctx context.Context, req *ticketv
 		logger.Warn("gRPC request failed",
 			zap.String("method", "GetTicketStatusHistory"),
 			zap.String("ticket_id", req.GetTicketId()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("GetTicketStatusHistory", err)
@@ -708,7 +708,7 @@ func (t *TicketHandler) GetTicketStatusHistory(ctx context.Context, req *ticketv
 		zap.String("ticket_id", req.GetTicketId()),
 		zap.Int("count", len(history)),
 		zap.Int64("total", res.Total),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	return &ticketv1.GetTicketStatusHistoryResponse{
@@ -739,7 +739,7 @@ func (t *TicketHandler) CreateCategory(ctx context.Context, req *ticketv1.Create
 		logger.Warn("gRPC request failed",
 			zap.String("method", "CreateCategory"),
 			zap.String("code", req.GetCode()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("CreateCategory", err)
@@ -749,7 +749,7 @@ func (t *TicketHandler) CreateCategory(ctx context.Context, req *ticketv1.Create
 		zap.String("method", "CreateCategory"),
 		zap.String("category_id", res.Category.ID.String()),
 		zap.String("code", req.GetCode()),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	return &ticketv1.CreateCategoryResponse{
@@ -771,7 +771,7 @@ func (t *TicketHandler) GetCategory(ctx context.Context, req *ticketv1.GetCatego
 		logger.Warn("gRPC request failed",
 			zap.String("method", "GetCategory"),
 			zap.String("category_id", req.GetCategoryId()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("GetCategory", fmt.Errorf("%w: invalid category_id: %v", models.ErrValidation, err))
@@ -786,7 +786,7 @@ func (t *TicketHandler) GetCategory(ctx context.Context, req *ticketv1.GetCatego
 		logger.Warn("gRPC request failed",
 			zap.String("method", "GetCategory"),
 			zap.String("category_id", req.GetCategoryId()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("GetCategory", err)
@@ -796,7 +796,7 @@ func (t *TicketHandler) GetCategory(ctx context.Context, req *ticketv1.GetCatego
 		zap.String("method", "GetCategory"),
 		zap.String("category_id", req.GetCategoryId()),
 		zap.String("code", res.Category.Code),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	return &ticketv1.GetCategoryResponse{
@@ -823,7 +823,7 @@ func (t *TicketHandler) ListCategories(ctx context.Context, req *ticketv1.ListCa
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "ListCategories"),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("ListCategories", err)
@@ -838,7 +838,7 @@ func (t *TicketHandler) ListCategories(ctx context.Context, req *ticketv1.ListCa
 		zap.String("method", "ListCategories"),
 		zap.Int("count", len(categories)),
 		zap.Int64("total", res.Total),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	return &ticketv1.ListCategoriesResponse{
@@ -862,7 +862,7 @@ func (t *TicketHandler) UpdateCategory(ctx context.Context, req *ticketv1.Update
 		logger.Warn("gRPC request failed",
 			zap.String("method", "UpdateCategory"),
 			zap.String("category_id", req.GetCategoryId()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("UpdateCategory", fmt.Errorf("%w: invalid category_id: %v", models.ErrValidation, err))
@@ -885,7 +885,7 @@ func (t *TicketHandler) UpdateCategory(ctx context.Context, req *ticketv1.Update
 		logger.Warn("gRPC request failed",
 			zap.String("method", "UpdateCategory"),
 			zap.String("category_id", req.GetCategoryId()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("UpdateCategory", err)
@@ -895,7 +895,7 @@ func (t *TicketHandler) UpdateCategory(ctx context.Context, req *ticketv1.Update
 		zap.String("method", "UpdateCategory"),
 		zap.String("category_id", req.GetCategoryId()),
 		zap.String("code", res.Category.Code),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	return &ticketv1.UpdateCategoryResponse{
@@ -917,7 +917,7 @@ func (t *TicketHandler) DeleteCategory(ctx context.Context, req *ticketv1.Delete
 		logger.Warn("gRPC request failed",
 			zap.String("method", "DeleteCategory"),
 			zap.String("category_id", req.GetCategoryId()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("DeleteCategory", fmt.Errorf("%w: invalid category_id: %v", models.ErrValidation, err))
@@ -933,7 +933,7 @@ func (t *TicketHandler) DeleteCategory(ctx context.Context, req *ticketv1.Delete
 		logger.Warn("gRPC request failed",
 			zap.String("method", "DeleteCategory"),
 			zap.String("category_id", req.GetCategoryId()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, ticketStatusError("DeleteCategory", err)
@@ -943,7 +943,7 @@ func (t *TicketHandler) DeleteCategory(ctx context.Context, req *ticketv1.Delete
 		zap.String("method", "DeleteCategory"),
 		zap.String("category_id", req.GetCategoryId()),
 		zap.String("code", res.Category.Code),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	return &ticketv1.DeleteCategoryResponse{

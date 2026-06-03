@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"department/pkg"
+	"department/pkg/closer"
 	"department/src/core/handler"
 	"department/src/core/repository"
 	"department/src/core/service"
@@ -21,6 +22,8 @@ import (
 )
 
 func main() {
+	dependencies := closer.New()
+
 	logger, err := pkg.NewLogger()
 	if err != nil {
 		panic(err)
@@ -42,7 +45,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to connect db: %v", err)
 	}
-	defer db.Close()
+	dependencies.Add("postgres", db.Close)
+	defer closeDependencies(dependencies)
 
 	grpcPort := os.Getenv("GRPC_PORT")
 	if strings.TrimSpace(grpcPort) == "" {
@@ -54,7 +58,12 @@ func main() {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
-	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(pkg.RequestIDUnaryServerInterceptor))
+	grpcServer := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(
+			pkg.RequestIDUnaryServerInterceptor,
+			pkg.AccessLogUnaryServerInterceptor(logger),
+		),
+	)
 	repo := repository.NewRepository(db)
 	departmentService := service.NewService(repo, logger)
 	departmentHandler := handler.NewDepartmentHandler(departmentService, logger)
@@ -75,10 +84,11 @@ func main() {
 	case sig := <-sigCh:
 		log.Printf("received signal: %v", sig)
 	case err = <-serverErrCh:
-		log.Fatalf("grpc server failed: %v", err)
+		log.Printf("grpc server failed: %v", err)
+		return
 	}
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
 	done := make(chan struct{})
@@ -95,5 +105,16 @@ func main() {
 		grpcServer.Stop()
 	}
 
+	closeDependencies(dependencies)
+
 	log.Println("department service stopped")
+}
+
+func closeDependencies(dependencies *closer.Closer) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := dependencies.Close(ctx); err != nil {
+		log.Printf("failed to close dependencies: %v", err)
+	}
 }

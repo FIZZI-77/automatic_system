@@ -506,3 +506,21 @@ Brigade Service должен владеть бригадами, составом
 Если бригада принадлежит одному департаменту, достаточно поля `brigades.department_id`. Если бригада может обслуживать несколько департаментов, связь нужно хранить в Brigade Service через таблицу `brigade_departments`.
 
 Ticket Service должен хранить `ticket.department_id` и опционально `ticket.brigade_id`. При назначении бригады нужно проверять, что бригада из Brigade Service относится к тому же `department_id`, что и заявка.
+
+## Production readiness TODO
+
+- Config validation: вынести чтение env в typed config для каждого сервиса, проверять обязательные поля на старте, задавать безопасные defaults.
+- Health/readiness: добавить gRPC health checking для Auth/Ticket/Department/Brigade и readiness проверки DB/dependencies/migrations.
+- Panic recovery: добавить gRPC recovery interceptor, чтобы panic в handler/service не ронял процесс.
+- Metrics: добавить Prometheus/OpenTelemetry metrics для request count, latency histogram, error codes, DB pool stats и базовых business metrics.
+- Distributed tracing: добавить OpenTelemetry traces для цепочек `API Gateway -> gRPC service -> DB`.
+- Rate limiting: добавить rate limit в API Gateway для `login`, `register`, `refresh`, `request-password-reset`, `reset-password`.
+- Request limits: ограничить размер HTTP body в API Gateway, особенно до реализации File/S3 attachments.
+- CORS: добавить env-configurable CORS middleware для будущего frontend.
+- DB pool tuning: настроить `SetMaxOpenConns`, `SetMaxIdleConns`, `SetConnMaxLifetime`, `SetConnMaxIdleTime` для каждого Postgres connection pool.
+- Department tests: довести Department Service до уровня Auth/Ticket: validator, service, repository, integration tests.
+- API Gateway tests: добавить tests для middleware, request_id propagation, gRPC error mapping и handlers с mock gRPC clients.
+- Outbox relay: если outbox остается частью архитектуры, реализовать worker/relay, retry policy и error/dead-letter state.
+- CI pipeline: добавить автоматический `go test`, lint, race tests, migration checks и сборку Docker images.
+- Secrets management: для production заменить `.env` на secret manager/Kubernetes secrets/CI secrets.
+- Shared package: позже вынести `closer`, `requestid`, `accesslog`, config helpers и error helpers в общий shared module, чтобы убрать дублирование между сервисами.
