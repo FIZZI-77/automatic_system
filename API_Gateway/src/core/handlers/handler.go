@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"gateway/src/core/middleware"
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -25,6 +27,8 @@ func handleGRPCError(c *gin.Context, err error) {
 	case codes.NotFound:
 		c.JSON(http.StatusNotFound, gin.H{"error": st.Message()})
 	case codes.AlreadyExists:
+		c.JSON(http.StatusConflict, gin.H{"error": st.Message()})
+	case codes.Aborted:
 		c.JSON(http.StatusConflict, gin.H{"error": st.Message()})
 	case codes.DeadlineExceeded:
 		c.JSON(http.StatusGatewayTimeout, gin.H{"error": "upstream service timeout"})
@@ -56,6 +60,16 @@ func (h *Handler) InitRouters() *gin.Engine {
 	router := gin.New()
 
 	router.Use(middleware.RequestID())
+	router.Use(middleware.IdempotencyKey())
+	router.Use(middleware.RateLimit(middleware.RateLimitConfig{
+		Name:   "global",
+		Limit:  300,
+		Burst:  100,
+		Window: time.Minute,
+		SkipFunc: func(c *gin.Context) bool {
+			return c.Request.URL.Path == "/health"
+		},
+	}))
 	router.Use(middleware.RequestLogger())
 	router.Use(gin.Recovery())
 
@@ -66,6 +80,15 @@ func (h *Handler) InitRouters() *gin.Engine {
 	})
 
 	publicAuth := router.Group("/auth")
+	publicAuth.Use(middleware.RateLimit(middleware.RateLimitConfig{
+		Name:   "public-auth",
+		Limit:  20,
+		Burst:  10,
+		Window: time.Minute,
+		KeyFunc: func(c *gin.Context) string {
+			return c.ClientIP() + ":" + c.Request.URL.Path
+		},
+	}))
 	{
 		publicAuth.POST("/register", h.authHandler.Register)
 		publicAuth.POST("/login", h.authHandler.Login)
@@ -77,6 +100,19 @@ func (h *Handler) InitRouters() *gin.Engine {
 
 	privateAuth := router.Group("/auth")
 	privateAuth.Use(h.authMiddleware.Handle())
+	privateAuth.Use(middleware.RateLimit(middleware.RateLimitConfig{
+		Name:   "private-auth",
+		Limit:  30,
+		Burst:  10,
+		Window: time.Minute,
+		KeyFunc: func(c *gin.Context) string {
+			userID := c.GetString("user_id")
+			if userID == "" {
+				userID = c.ClientIP()
+			}
+			return userID + ":" + c.Request.URL.Path
+		},
+	}))
 	{
 		privateAuth.POST("/logout", h.authHandler.Logout)
 		privateAuth.POST("/logout-all", h.authHandler.LogoutAll)

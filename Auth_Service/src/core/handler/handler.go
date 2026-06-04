@@ -612,6 +612,10 @@ func authErrorCode(err error) codes.Code {
 	switch {
 	case errors.Is(err, models.ErrUserAlreadyExists):
 		return codes.AlreadyExists
+	case errors.Is(err, models.ErrIdempotencyConflict):
+		return codes.AlreadyExists
+	case errors.Is(err, models.ErrIdempotencyInProgress):
+		return codes.Aborted
 	case errors.Is(err, models.ErrUserNotFound),
 		errors.Is(err, models.ErrSessionNotFound):
 		return codes.NotFound
@@ -627,7 +631,8 @@ func authErrorCode(err error) codes.Code {
 		errors.Is(err, models.ErrInvalidSession),
 		errors.Is(err, models.ErrEmailAlreadyVerified),
 		errors.Is(err, models.ErrTokenAlreadyUsed),
-		errors.Is(err, models.ErrTokenExpired):
+		errors.Is(err, models.ErrTokenExpired),
+		errors.Is(err, models.ErrIdempotencyFailed):
 		return codes.FailedPrecondition
 	default:
 		return codes.Internal

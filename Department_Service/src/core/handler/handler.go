@@ -307,6 +307,12 @@ func departmentErrorCode(err error) codes.Code {
 		return codes.NotFound
 	case errors.Is(err, models.ErrAlreadyExists):
 		return codes.AlreadyExists
+	case errors.Is(err, models.ErrIdempotencyConflict):
+		return codes.AlreadyExists
+	case errors.Is(err, models.ErrIdempotencyInProgress):
+		return codes.Aborted
+	case errors.Is(err, models.ErrIdempotencyFailed):
+		return codes.FailedPrecondition
 	case errors.Is(err, models.ErrPermissionDenied):
 		return codes.PermissionDenied
 	default:

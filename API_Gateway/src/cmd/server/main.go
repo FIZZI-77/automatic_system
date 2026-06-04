@@ -5,8 +5,10 @@ import (
 	"errors"
 	"gateway/pkg/closer"
 	"gateway/src/core/handlers"
+	"gateway/src/core/idempotency"
 	"gateway/src/core/middleware"
 	"gateway/src/core/requestid"
+	"gateway/src/core/retry"
 	authv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/auth/v1"
 	departmentv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/department/v1"
 	ticketv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/ticket/v1"
@@ -33,7 +35,11 @@ func main() {
 	authConn, err := grpc.NewClient(
 		authServiceAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithUnaryInterceptor(requestid.UnaryClientInterceptor),
+		grpc.WithChainUnaryInterceptor(
+			requestid.UnaryClientInterceptor,
+			idempotency.UnaryClientInterceptor,
+			retry.UnaryClientInterceptor,
+		),
 	)
 	if err != nil {
 		log.Fatalf("failed to connect to auth service: %v", err)
@@ -46,7 +52,11 @@ func main() {
 	ticketConn, err := grpc.NewClient(
 		ticketServiceAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithUnaryInterceptor(requestid.UnaryClientInterceptor),
+		grpc.WithChainUnaryInterceptor(
+			requestid.UnaryClientInterceptor,
+			idempotency.UnaryClientInterceptor,
+			retry.UnaryClientInterceptor,
+		),
 	)
 	if err != nil {
 		log.Fatalf("failed to connect to ticket service: %v", err)
@@ -58,7 +68,11 @@ func main() {
 	departmentConn, err := grpc.NewClient(
 		departmentServiceAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithUnaryInterceptor(requestid.UnaryClientInterceptor),
+		grpc.WithChainUnaryInterceptor(
+			requestid.UnaryClientInterceptor,
+			idempotency.UnaryClientInterceptor,
+			retry.UnaryClientInterceptor,
+		),
 	)
 	if err != nil {
 		log.Fatalf("failed to connect to department service: %v", err)

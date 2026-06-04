@@ -51,7 +51,13 @@ func (s *TicketServiceStruct) CreateTicket(ctx context.Context, in *models.Creat
 		}
 	}
 
-	ticket, err := s.repo.CreateTicket(ctx, in)
+	result, err := s.withIdempotency(ctx, "CreateTicket", idempotencyActor(in.ActorUserID, in.UserID), in, func() (any, uuid.UUID, error) {
+		ticket, err := s.repo.CreateTicket(ctx, in)
+		if err != nil {
+			return nil, uuid.Nil, err
+		}
+		return &models.CreateTicketResult{Ticket: ticket}, ticket.ID, nil
+	})
 	if err != nil {
 		logger.Error("CreateTicket failed",
 			zap.String("user_id", in.UserID.String()),
@@ -60,6 +66,11 @@ func (s *TicketServiceStruct) CreateTicket(ctx context.Context, in *models.Creat
 		)
 		return nil, fmt.Errorf("service: CreateTicket(): %w", err)
 	}
+	createResult, err := cachedResult[models.CreateTicketResult](result)
+	if err != nil {
+		return nil, fmt.Errorf("service: CreateTicket(): idempotency result: %w", err)
+	}
+	ticket := createResult.Ticket
 
 	logger.Info("CreateTicket success",
 		zap.String("ticket_id", ticket.ID.String()),
@@ -68,9 +79,7 @@ func (s *TicketServiceStruct) CreateTicket(ctx context.Context, in *models.Creat
 		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
-	return &models.CreateTicketResult{
-		Ticket: ticket,
-	}, nil
+	return createResult, nil
 }
 
 func (s *TicketServiceStruct) GetTicket(ctx context.Context, in *models.GetTicketInput) (*models.GetTicketResult, error) {
@@ -199,7 +208,13 @@ func (s *TicketServiceStruct) UpdateTicket(ctx context.Context, in *models.Updat
 		return nil, fmt.Errorf("service: UpdateTicket(): %w: %v", models.ErrValidation, err)
 	}
 
-	ticket, err := s.repo.UpdateTicket(ctx, in)
+	result, err := s.withIdempotency(ctx, "UpdateTicket", idempotencyActor(in.UpdatedBy, uuid.Nil), in, func() (any, uuid.UUID, error) {
+		ticket, err := s.repo.UpdateTicket(ctx, in)
+		if err != nil {
+			return nil, uuid.Nil, err
+		}
+		return &models.UpdateTicketResult{Ticket: ticket}, ticket.ID, nil
+	})
 	if err != nil {
 		logger.Error("UpdateTicket failed",
 			zap.String("ticket_id", in.TicketID.String()),
@@ -208,6 +223,11 @@ func (s *TicketServiceStruct) UpdateTicket(ctx context.Context, in *models.Updat
 		)
 		return nil, fmt.Errorf("service: UpdateTicket(): %w", err)
 	}
+	updateResult, err := cachedResult[models.UpdateTicketResult](result)
+	if err != nil {
+		return nil, fmt.Errorf("service: UpdateTicket(): idempotency result: %w", err)
+	}
+	ticket := updateResult.Ticket
 
 	logger.Info("UpdateTicket success",
 		zap.String("ticket_id", ticket.ID.String()),
@@ -215,9 +235,7 @@ func (s *TicketServiceStruct) UpdateTicket(ctx context.Context, in *models.Updat
 		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
-	return &models.UpdateTicketResult{
-		Ticket: ticket,
-	}, nil
+	return updateResult, nil
 }
 
 func (s *TicketServiceStruct) ChangeTicketStatus(ctx context.Context, in *models.ChangeTicketStatusInput) (*models.ChangeTicketStatusResult, error) {
@@ -243,7 +261,13 @@ func (s *TicketServiceStruct) ChangeTicketStatus(ctx context.Context, in *models
 		return nil, fmt.Errorf("service: ChangeTicketStatus(): %w", models.ErrPermissionDenied)
 	}
 
-	ticket, err := s.repo.ChangeTicketStatus(ctx, in)
+	result, err := s.withIdempotency(ctx, "ChangeTicketStatus", in.ChangedBy.String(), in, func() (any, uuid.UUID, error) {
+		ticket, err := s.repo.ChangeTicketStatus(ctx, in)
+		if err != nil {
+			return nil, uuid.Nil, err
+		}
+		return &models.ChangeTicketStatusResult{Ticket: ticket}, ticket.ID, nil
+	})
 	if err != nil {
 		logger.Error("ChangeTicketStatus failed",
 			zap.String("ticket_id", in.TicketID.String()),
@@ -253,6 +277,11 @@ func (s *TicketServiceStruct) ChangeTicketStatus(ctx context.Context, in *models
 		)
 		return nil, fmt.Errorf("service: ChangeTicketStatus(): %w", err)
 	}
+	statusResult, err := cachedResult[models.ChangeTicketStatusResult](result)
+	if err != nil {
+		return nil, fmt.Errorf("service: ChangeTicketStatus(): idempotency result: %w", err)
+	}
+	ticket := statusResult.Ticket
 
 	logger.Info("ChangeTicketStatus success",
 		zap.String("ticket_id", ticket.ID.String()),
@@ -260,9 +289,7 @@ func (s *TicketServiceStruct) ChangeTicketStatus(ctx context.Context, in *models
 		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
-	return &models.ChangeTicketStatusResult{
-		Ticket: ticket,
-	}, nil
+	return statusResult, nil
 }
 
 func (s *TicketServiceStruct) AssignBrigade(ctx context.Context, in *models.AssignBrigadeInput) (*models.AssignBrigadeResult, error) {
@@ -288,7 +315,13 @@ func (s *TicketServiceStruct) AssignBrigade(ctx context.Context, in *models.Assi
 		return nil, fmt.Errorf("service: AssignBrigade(): %w", models.ErrPermissionDenied)
 	}
 
-	ticket, err := s.repo.AssignBrigade(ctx, in)
+	result, err := s.withIdempotency(ctx, "AssignBrigade", in.AssignedBy.String(), in, func() (any, uuid.UUID, error) {
+		ticket, err := s.repo.AssignBrigade(ctx, in)
+		if err != nil {
+			return nil, uuid.Nil, err
+		}
+		return &models.AssignBrigadeResult{Ticket: ticket}, ticket.ID, nil
+	})
 	if err != nil {
 		logger.Error("AssignBrigade failed",
 			zap.String("ticket_id", in.TicketID.String()),
@@ -298,6 +331,11 @@ func (s *TicketServiceStruct) AssignBrigade(ctx context.Context, in *models.Assi
 		)
 		return nil, fmt.Errorf("service: AssignBrigade(): %w", err)
 	}
+	assignResult, err := cachedResult[models.AssignBrigadeResult](result)
+	if err != nil {
+		return nil, fmt.Errorf("service: AssignBrigade(): idempotency result: %w", err)
+	}
+	ticket := assignResult.Ticket
 
 	logger.Info("AssignBrigade success",
 		zap.String("ticket_id", ticket.ID.String()),
@@ -306,9 +344,7 @@ func (s *TicketServiceStruct) AssignBrigade(ctx context.Context, in *models.Assi
 		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
-	return &models.AssignBrigadeResult{
-		Ticket: ticket,
-	}, nil
+	return assignResult, nil
 }
 
 func (s *TicketServiceStruct) CancelTicket(ctx context.Context, in *models.CancelTicketInput) (*models.CancelTicketResult, error) {
@@ -338,7 +374,13 @@ func (s *TicketServiceStruct) CancelTicket(ctx context.Context, in *models.Cance
 		return nil, fmt.Errorf("service: CancelTicket(): %w", models.ErrPermissionDenied)
 	}
 
-	ticket, err := s.repo.CancelTicket(ctx, in)
+	result, err := s.withIdempotency(ctx, "CancelTicket", in.CanceledBy.String(), in, func() (any, uuid.UUID, error) {
+		ticket, err := s.repo.CancelTicket(ctx, in)
+		if err != nil {
+			return nil, uuid.Nil, err
+		}
+		return &models.CancelTicketResult{Ticket: ticket}, ticket.ID, nil
+	})
 	if err != nil {
 		logger.Error("CancelTicket failed",
 			zap.String("ticket_id", in.TicketID.String()),
@@ -347,6 +389,11 @@ func (s *TicketServiceStruct) CancelTicket(ctx context.Context, in *models.Cance
 		)
 		return nil, fmt.Errorf("service: CancelTicket(): %w", err)
 	}
+	cancelResult, err := cachedResult[models.CancelTicketResult](result)
+	if err != nil {
+		return nil, fmt.Errorf("service: CancelTicket(): idempotency result: %w", err)
+	}
+	ticket := cancelResult.Ticket
 
 	logger.Info("CancelTicket success",
 		zap.String("ticket_id", ticket.ID.String()),
@@ -354,9 +401,7 @@ func (s *TicketServiceStruct) CancelTicket(ctx context.Context, in *models.Cance
 		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
-	return &models.CancelTicketResult{
-		Ticket: ticket,
-	}, nil
+	return cancelResult, nil
 }
 
 func (s *TicketServiceStruct) CompleteTicket(ctx context.Context, in *models.CompleteTicketInput) (*models.CompleteTicketResult, error) {
@@ -381,7 +426,13 @@ func (s *TicketServiceStruct) CompleteTicket(ctx context.Context, in *models.Com
 		return nil, fmt.Errorf("service: CompleteTicket(): %w", models.ErrPermissionDenied)
 	}
 
-	ticket, err := s.repo.CompleteTicket(ctx, in)
+	result, err := s.withIdempotency(ctx, "CompleteTicket", in.CompletedBy.String(), in, func() (any, uuid.UUID, error) {
+		ticket, err := s.repo.CompleteTicket(ctx, in)
+		if err != nil {
+			return nil, uuid.Nil, err
+		}
+		return &models.CompleteTicketResult{Ticket: ticket}, ticket.ID, nil
+	})
 	if err != nil {
 		logger.Error("CompleteTicket failed",
 			zap.String("ticket_id", in.TicketID.String()),
@@ -390,6 +441,11 @@ func (s *TicketServiceStruct) CompleteTicket(ctx context.Context, in *models.Com
 		)
 		return nil, fmt.Errorf("service: CompleteTicket(): %w", err)
 	}
+	completeResult, err := cachedResult[models.CompleteTicketResult](result)
+	if err != nil {
+		return nil, fmt.Errorf("service: CompleteTicket(): idempotency result: %w", err)
+	}
+	ticket := completeResult.Ticket
 
 	logger.Info("CompleteTicket success",
 		zap.String("ticket_id", ticket.ID.String()),
@@ -397,9 +453,7 @@ func (s *TicketServiceStruct) CompleteTicket(ctx context.Context, in *models.Com
 		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
-	return &models.CompleteTicketResult{
-		Ticket: ticket,
-	}, nil
+	return completeResult, nil
 }
 
 func (s *TicketServiceStruct) GetTicketStatusHistory(ctx context.Context, in *models.GetTicketStatusHistoryInput) (*models.GetTicketStatusHistoryResult, error) {

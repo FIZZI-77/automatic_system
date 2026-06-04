@@ -62,6 +62,7 @@ func main() {
 	grpcServer := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
 			pkg.RequestIDUnaryServerInterceptor,
+			pkg.IdempotencyKeyUnaryServerInterceptor,
 			pkg.AccessLogUnaryServerInterceptor(logger),
 		),
 	)
