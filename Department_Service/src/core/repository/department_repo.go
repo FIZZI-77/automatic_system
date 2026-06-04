@@ -17,14 +17,29 @@ type scanner interface {
 }
 
 type DepartmentRepoStruct struct {
-	db *sql.DB
+	db DBTX
 }
 
-func NewDepartmentRepository(db *sql.DB) *DepartmentRepoStruct {
+func NewDepartmentRepository(db DBTX) *DepartmentRepoStruct {
 	return &DepartmentRepoStruct{db: db}
 }
 
 func (r *DepartmentRepoStruct) CreateDepartment(ctx context.Context, in *models.CreateDepartmentInput) (*models.Department, error) {
+	var department *models.Department
+	err := withTransaction(ctx, r.db, "CreateDepartment()", func(txExec DBTX) error {
+		txRepo := NewDepartmentRepository(txExec)
+		var err error
+		department, err = txRepo.createDepartment(ctx, in)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return department, nil
+}
+
+func (r *DepartmentRepoStruct) createDepartment(ctx context.Context, in *models.CreateDepartmentInput) (*models.Department, error) {
 	const query = `
 		INSERT INTO departments (
 			id,
@@ -53,6 +68,10 @@ func (r *DepartmentRepoStruct) CreateDepartment(ctx context.Context, in *models.
 			return nil, fmt.Errorf("repository: CreateDepartment(): %w", models.ErrAlreadyExists)
 		}
 		return nil, fmt.Errorf("repository: CreateDepartment(): %w", err)
+	}
+
+	if err = insertOutboxEvent(ctx, r.db, "department", department.ID, "department.created", department); err != nil {
+		return nil, fmt.Errorf("repository: CreateDepartment(): insert outbox event: %w", err)
 	}
 
 	return department, nil
@@ -138,12 +157,21 @@ func (r *DepartmentRepoStruct) ListDepartments(ctx context.Context, in *models.L
 }
 
 func (r *DepartmentRepoStruct) UpdateDepartment(ctx context.Context, in *models.UpdateDepartmentInput) (*models.Department, error) {
-	tx, err := r.db.BeginTx(ctx, nil)
+	var department *models.Department
+	err := withTransaction(ctx, r.db, "UpdateDepartment()", func(txExec DBTX) error {
+		txRepo := NewDepartmentRepository(txExec)
+		var err error
+		department, err = txRepo.updateDepartment(ctx, in)
+		return err
+	})
 	if err != nil {
-		return nil, fmt.Errorf("repository: UpdateDepartment(): begin tx: %w", err)
+		return nil, err
 	}
-	defer tx.Rollback()
 
+	return department, nil
+}
+
+func (r *DepartmentRepoStruct) updateDepartment(ctx context.Context, in *models.UpdateDepartmentInput) (*models.Department, error) {
 	const query = `
 		UPDATE departments
 		SET
@@ -155,7 +183,7 @@ func (r *DepartmentRepoStruct) UpdateDepartment(ctx context.Context, in *models.
 		RETURNING id, name, description, status, created_at, updated_at
 	`
 
-	department, err := scanDepartment(tx.QueryRowContext(ctx, query, in.Name, in.Description, in.Status, in.ID))
+	department, err := scanDepartment(r.db.QueryRowContext(ctx, query, in.Name, in.Description, in.Status, in.ID))
 	if err != nil {
 		if isUniqueViolation(err) {
 			return nil, fmt.Errorf("repository: UpdateDepartment(): %w", models.ErrAlreadyExists)
@@ -163,20 +191,29 @@ func (r *DepartmentRepoStruct) UpdateDepartment(ctx context.Context, in *models.
 		return nil, fmt.Errorf("repository: UpdateDepartment(): %w", err)
 	}
 
-	if err = tx.Commit(); err != nil {
-		return nil, fmt.Errorf("repository: UpdateDepartment(): commit: %w", err)
+	if err = insertOutboxEvent(ctx, r.db, "department", department.ID, "department.updated", department); err != nil {
+		return nil, fmt.Errorf("repository: UpdateDepartment(): insert outbox event: %w", err)
 	}
 
 	return department, nil
 }
 
 func (r *DepartmentRepoStruct) DeleteDepartment(ctx context.Context, in *models.DeleteDepartmentInput) (*models.Department, error) {
-	tx, err := r.db.BeginTx(ctx, nil)
+	var department *models.Department
+	err := withTransaction(ctx, r.db, "DeleteDepartment()", func(txExec DBTX) error {
+		txRepo := NewDepartmentRepository(txExec)
+		var err error
+		department, err = txRepo.deleteDepartment(ctx, in)
+		return err
+	})
 	if err != nil {
-		return nil, fmt.Errorf("repository: DeleteDepartment(): begin tx: %w", err)
+		return nil, err
 	}
-	defer tx.Rollback()
 
+	return department, nil
+}
+
+func (r *DepartmentRepoStruct) deleteDepartment(ctx context.Context, in *models.DeleteDepartmentInput) (*models.Department, error) {
 	const query = `
 		UPDATE departments
 		SET
@@ -186,13 +223,13 @@ func (r *DepartmentRepoStruct) DeleteDepartment(ctx context.Context, in *models.
 		RETURNING id, name, description, status, created_at, updated_at
 	`
 
-	department, err := scanDepartment(tx.QueryRowContext(ctx, query, models.DepartmentStatusArchived, in.ID))
+	department, err := scanDepartment(r.db.QueryRowContext(ctx, query, models.DepartmentStatusArchived, in.ID))
 	if err != nil {
 		return nil, fmt.Errorf("repository: DeleteDepartment(): %w", err)
 	}
 
-	if err = tx.Commit(); err != nil {
-		return nil, fmt.Errorf("repository: DeleteDepartment(): commit: %w", err)
+	if err = insertOutboxEvent(ctx, r.db, "department", department.ID, "department.archived", department); err != nil {
+		return nil, fmt.Errorf("repository: DeleteDepartment(): insert outbox event: %w", err)
 	}
 
 	return department, nil

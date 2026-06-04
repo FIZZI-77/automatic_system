@@ -11,10 +11,10 @@ import (
 )
 
 type OneTimeTokenRepoStruct struct {
-	db *sql.DB
+	db DBTX
 }
 
-func NewOneTimeTokenRepoStruct(db *sql.DB) *OneTimeTokenRepoStruct {
+func NewOneTimeTokenRepoStruct(db DBTX) *OneTimeTokenRepoStruct {
 	return &OneTimeTokenRepoStruct{db: db}
 }
 

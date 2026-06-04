@@ -55,58 +55,65 @@ func (a *AuthServiceStruct) Register(ctx context.Context, in models.RegisterInpu
 		return nil, err
 	}
 
-	existingUser, err := a.repo.GetUserByEmail(ctx, in.Email)
+	idempotentResult, err := a.withIdempotency(ctx, "Register", in.Email, in, func() (any, uuid.UUID, error) {
+		existingUser, err := a.repo.GetUserByEmail(ctx, in.Email)
 
-	if err == nil && existingUser != nil {
-		logger.Warn("registration failed - user already exists",
-			zap.String("email", in.Email),
+		if err == nil && existingUser != nil {
+			logger.Warn("registration failed - user already exists",
+				zap.String("email", in.Email),
+			)
+			return nil, uuid.Nil, fmt.Errorf("jwt: Register(): %w", models.ErrUserAlreadyExists)
+		}
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			logger.Error("failed to check existing user",
+				zap.String("email", in.Email),
+				zap.Error(err),
+			)
+			return nil, uuid.Nil, err
+		}
+
+		passwordHash, err := bcrypt.GenerateFromPassword([]byte(in.Password), bcrypt.DefaultCost)
+		if err != nil {
+			logger.Error("failed to generate password hash", zap.Error(err))
+			return nil, uuid.Nil, fmt.Errorf("jwt: Register(): cant hash password: %w", err)
+		}
+
+		user := &models.User{
+			Username:      in.Username,
+			Email:         in.Email,
+			PasswordHash:  string(passwordHash),
+			IsActive:      true,
+			EmailVerified: false,
+		}
+
+		id, err := a.repo.CreateUser(ctx, user)
+
+		if err != nil {
+			logger.Error("failed to create user in database",
+				zap.String("email", in.Email),
+				zap.Error(err),
+			)
+			return nil, uuid.Nil, err
+		}
+
+		result := &models.RegisterResult{
+			UserID:        id.String(),
+			Email:         user.Email,
+			EmailVerified: false,
+		}
+
+		logger.Info("user registration successful",
+			zap.String("email", id.String()),
+			zap.String("username", in.Username),
 		)
-		return nil, fmt.Errorf("jwt: Register(): %w", models.ErrUserAlreadyExists)
-	}
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		logger.Error("failed to check existing user",
-			zap.String("email", in.Email),
-			zap.Error(err),
-		)
+
+		return result, id, nil
+	})
+	if err != nil {
 		return nil, err
 	}
 
-	passwordHash, err := bcrypt.GenerateFromPassword([]byte(in.Password), bcrypt.DefaultCost)
-	if err != nil {
-		logger.Error("failed to generate password hash", zap.Error(err))
-		return nil, fmt.Errorf("jwt: Register(): cant hash password: %w", err)
-	}
-
-	user := &models.User{
-		Username:      in.Username,
-		Email:         in.Email,
-		PasswordHash:  string(passwordHash),
-		IsActive:      true,
-		EmailVerified: false,
-	}
-
-	id, err := a.repo.CreateUser(ctx, user)
-
-	if err != nil {
-		logger.Error("failed to create user in database",
-			zap.String("email", in.Email),
-			zap.Error(err),
-		)
-		return nil, err
-	}
-
-	result := &models.RegisterResult{
-		UserID:        id.String(),
-		Email:         user.Email,
-		EmailVerified: false,
-	}
-
-	logger.Info("user registration successful",
-		zap.String("email", id.String()),
-		zap.String("username", in.Username),
-	)
-
-	return result, nil
+	return cachedResult[models.RegisterResult](idempotentResult)
 }
 
 func (a *AuthServiceStruct) Login(ctx context.Context, in models.LoginInput) (*models.LoginResult, error) {
@@ -599,61 +606,67 @@ func (a *AuthServiceStruct) ChangePassword(ctx context.Context, in models.Change
 		return nil, err
 	}
 
-	existingUser, err := a.repo.GetUserByID(ctx, in.UserID)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		logger.Error("failed to get existing user",
+	idempotentResult, err := a.withIdempotency(ctx, "ChangePassword", in.UserID.String(), in, func() (any, uuid.UUID, error) {
+		existingUser, err := a.repo.GetUserByID(ctx, in.UserID)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			logger.Error("failed to get existing user",
+				zap.String("user_id", in.UserID.String()),
+				zap.Error(err),
+			)
+			return nil, uuid.Nil, err
+		}
+		if existingUser == nil || errors.Is(err, sql.ErrNoRows) {
+			logger.Warn("changePassword failed - user not found",
+				zap.String("user_id", in.UserID.String()),
+				zap.Error(err),
+			)
+			return nil, uuid.Nil, fmt.Errorf("jwt: ChangePassword(): %w", models.ErrUserNotFound)
+		}
+
+		err = bcrypt.CompareHashAndPassword([]byte(existingUser.PasswordHash), []byte(in.OldPassword))
+		if err != nil {
+			logger.Error("failed to compare old password",
+				zap.String("user_id", in.UserID.String()),
+				zap.Error(err),
+			)
+			return nil, uuid.Nil, fmt.Errorf("jwt: ChangePassword(): %w", models.ErrInvalidOldPassword)
+		}
+
+		newHashPassword, err := bcrypt.GenerateFromPassword([]byte(in.NewPassword), bcrypt.DefaultCost)
+		if err != nil {
+			logger.Error("failed to generate new password",
+				zap.String("user_id", in.UserID.String()),
+				zap.Error(err),
+			)
+			return nil, uuid.Nil, fmt.Errorf("jwt: ChangePassword(): failed to generate new password: %w", err)
+		}
+
+		count, err := a.repo.ChangePassword(ctx, in.UserID, string(newHashPassword), in.SessionID, in.RevokeOtherSessions)
+		if err != nil {
+			logger.Error("failed to change password",
+				zap.String("user_id", in.UserID.String()),
+				zap.Error(err),
+			)
+			return nil, uuid.Nil, fmt.Errorf("jwt: ChangePassword(): failed to change password: %w", err)
+		}
+
+		result := &models.ChangePasswordResult{
+			Success:                  true,
+			InvalidatedSessionsCount: count,
+		}
+
+		logger.Info("user changed password successfully",
 			zap.String("user_id", in.UserID.String()),
-			zap.Error(err),
+			zap.String("session_id", in.SessionID.String()),
 		)
+
+		return result, in.UserID, nil
+	})
+	if err != nil {
 		return nil, err
 	}
-	if existingUser == nil || errors.Is(err, sql.ErrNoRows) {
-		logger.Warn("changePassword failed - user not found",
-			zap.String("user_id", in.UserID.String()),
-			zap.Error(err),
-		)
-		return nil, fmt.Errorf("jwt: ChangePassword(): %w", models.ErrUserNotFound)
-	}
 
-	err = bcrypt.CompareHashAndPassword([]byte(existingUser.PasswordHash), []byte(in.OldPassword))
-	if err != nil {
-		logger.Error("failed to compare old password",
-			zap.String("user_id", in.UserID.String()),
-			zap.Error(err),
-		)
-		return nil, fmt.Errorf("jwt: ChangePassword(): %w", models.ErrInvalidOldPassword)
-	}
-
-	newHashPassword, err := bcrypt.GenerateFromPassword([]byte(in.NewPassword), bcrypt.DefaultCost)
-	if err != nil {
-		logger.Error("failed to generate new password",
-			zap.String("user_id", in.UserID.String()),
-			zap.Error(err),
-		)
-		return nil, fmt.Errorf("jwt: ChangePassword(): failed to generate new password: %w", err)
-	}
-
-	count, err := a.repo.ChangePassword(ctx, in.UserID, string(newHashPassword), in.SessionID, in.RevokeOtherSessions)
-	if err != nil {
-		logger.Error("failed to change password",
-			zap.String("user_id", in.UserID.String()),
-			zap.Error(err),
-		)
-		return nil, fmt.Errorf("jwt: ChangePassword(): failed to change password: %w", err)
-	}
-
-	result := &models.ChangePasswordResult{
-		Success:                  true,
-		InvalidatedSessionsCount: count,
-	}
-
-	logger.Info("user changed password successfully",
-		zap.String("user_id", in.UserID.String()),
-		zap.String("session_id", in.SessionID.String()),
-	)
-
-	return result, nil
-
+	return cachedResult[models.ChangePasswordResult](idempotentResult)
 }
 
 func (a *AuthServiceStruct) SendVerification(ctx context.Context, in models.SendVerificationEmailInput) (*models.SendVerificationEmailResult, error) {
@@ -671,83 +684,90 @@ func (a *AuthServiceStruct) SendVerification(ctx context.Context, in models.Send
 		return nil, err
 	}
 
-	user, err := a.repo.GetUserByID(ctx, in.UserID)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		logger.Error("failed to get user",
-			zap.String("user_id", in.UserID.String()),
-			zap.Error(err),
-		)
-		return nil, fmt.Errorf("jwt: SendVerificationEmail(): cant get user: %w", err)
-	}
-	if user == nil || errors.Is(err, sql.ErrNoRows) {
-		logger.Warn("sendVerification failed - user not found",
-			zap.String("user_id", in.UserID.String()),
-			zap.Error(err),
-		)
-		return nil, fmt.Errorf("jwt: SendVerificationEmail(): %w", models.ErrUserNotFound)
-	}
+	idempotentResult, err := a.withIdempotency(ctx, "SendVerification", in.UserID.String(), in, func() (any, uuid.UUID, error) {
+		user, err := a.repo.GetUserByID(ctx, in.UserID)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			logger.Error("failed to get user",
+				zap.String("user_id", in.UserID.String()),
+				zap.Error(err),
+			)
+			return nil, uuid.Nil, fmt.Errorf("jwt: SendVerificationEmail(): cant get user: %w", err)
+		}
+		if user == nil || errors.Is(err, sql.ErrNoRows) {
+			logger.Warn("sendVerification failed - user not found",
+				zap.String("user_id", in.UserID.String()),
+				zap.Error(err),
+			)
+			return nil, uuid.Nil, fmt.Errorf("jwt: SendVerificationEmail(): %w", models.ErrUserNotFound)
+		}
 
-	if user.EmailVerified {
-		logger.Warn("sendVerification failed - email is already verified",
-			zap.String("user_id", in.UserID.String()),
-		)
-		return nil, fmt.Errorf("jwt: SendVerificationEmail(): %w", models.ErrEmailAlreadyVerified)
-	}
+		if user.EmailVerified {
+			logger.Warn("sendVerification failed - email is already verified",
+				zap.String("user_id", in.UserID.String()),
+			)
+			return nil, uuid.Nil, fmt.Errorf("jwt: SendVerificationEmail(): %w", models.ErrEmailAlreadyVerified)
+		}
 
-	err = a.repo.RevokeUnusedTokensByUserIDAndType(ctx, user.ID, models.TokenTypeEmailVerification)
+		err = a.repo.RevokeUnusedTokensByUserIDAndType(ctx, user.ID, models.TokenTypeEmailVerification)
+		if err != nil {
+			logger.Error("failed to revoke unused tokens",
+				zap.String("user_id", in.UserID.String()),
+				zap.Error(err),
+			)
+			return nil, uuid.Nil, fmt.Errorf("jwt: SendVerificationEmail(): cant revoke old verification tokens: %w", err)
+		}
+
+		rawToken, hashToken, err := a.generateOpaqueToken(ctx)
+		if err != nil {
+			logger.Error("failed to generate opaque token",
+				zap.String("user_id", in.UserID.String()),
+				zap.Error(err),
+			)
+			return nil, uuid.Nil, fmt.Errorf("jwt: SendVerificationEmail(): cant generate token: %w", err)
+		}
+
+		expiresAt := time.Now().Add(verifyEmailTTL)
+
+		token := &models.OneTimeToken{
+			UserID:    user.ID,
+			TokenHash: hashToken,
+			Type:      models.TokenTypeEmailVerification,
+			ExpiresAt: expiresAt,
+		}
+
+		err = a.repo.CreateOneTimeToken(ctx, token)
+		if err != nil {
+			logger.Error("failed to save opaque token",
+				zap.String("user_id", in.UserID.String()),
+				zap.Error(err),
+			)
+			return nil, uuid.Nil, fmt.Errorf("jwt: SendVerificationEmail(): cant create verification token: %w", err)
+		}
+
+		err = a.mailService.SendVerificationEmail(ctx, user.Email, rawToken)
+		if err != nil {
+			logger.Error("failed to send verification email",
+				zap.String("user_id", in.UserID.String()),
+				zap.Error(err),
+			)
+			return nil, uuid.Nil, fmt.Errorf("jwt: SendVerificationEmail(): cant send email: %w", err)
+		}
+
+		logger.Info("send verification email successfully",
+			zap.String("user_id", in.UserID.String()),
+			zap.String("email", in.Email),
+		)
+
+		return &models.SendVerificationEmailResult{
+			Success:       true,
+			ExpiresAtUnix: expiresAt.Unix(),
+		}, user.ID, nil
+	})
 	if err != nil {
-		logger.Error("failed to revoke unused tokens",
-			zap.String("user_id", in.UserID.String()),
-			zap.Error(err),
-		)
-		return nil, fmt.Errorf("jwt: SendVerificationEmail(): cant revoke old verification tokens: %w", err)
+		return nil, err
 	}
 
-	rawToken, hashToken, err := a.generateOpaqueToken(ctx)
-	if err != nil {
-		logger.Error("failed to generate opaque token",
-			zap.String("user_id", in.UserID.String()),
-			zap.Error(err),
-		)
-		return nil, fmt.Errorf("jwt: SendVerificationEmail(): cant generate token: %w", err)
-	}
-
-	expiresAt := time.Now().Add(verifyEmailTTL)
-
-	token := &models.OneTimeToken{
-		UserID:    user.ID,
-		TokenHash: hashToken,
-		Type:      models.TokenTypeEmailVerification,
-		ExpiresAt: expiresAt,
-	}
-
-	err = a.repo.CreateOneTimeToken(ctx, token)
-	if err != nil {
-		logger.Error("failed to save opaque token",
-			zap.String("user_id", in.UserID.String()),
-			zap.Error(err),
-		)
-		return nil, fmt.Errorf("jwt: SendVerificationEmail(): cant create verification token: %w", err)
-	}
-
-	err = a.mailService.SendVerificationEmail(ctx, user.Email, rawToken)
-	if err != nil {
-		logger.Error("failed to send verification email",
-			zap.String("user_id", in.UserID.String()),
-			zap.Error(err),
-		)
-		return nil, fmt.Errorf("jwt: SendVerificationEmail(): cant send email: %w", err)
-	}
-
-	logger.Info("send verification email successfully",
-		zap.String("user_id", in.UserID.String()),
-		zap.String("email", in.Email),
-	)
-
-	return &models.SendVerificationEmailResult{
-		Success:       true,
-		ExpiresAtUnix: expiresAt.Unix(),
-	}, nil
+	return cachedResult[models.SendVerificationEmailResult](idempotentResult)
 }
 
 func (a *AuthServiceStruct) VerifyEmail(ctx context.Context, in models.VerifyEmailInput) (*models.VerifyEmailResult, error) {
@@ -832,72 +852,79 @@ func (a *AuthServiceStruct) RequestPasswordReset(ctx context.Context, in models.
 		return nil, err
 	}
 
-	user, err := a.repo.GetUserByEmail(ctx, in.Email)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		logger.Error("failed to get user",
-			zap.Error(err),
-		)
-		return nil, fmt.Errorf("jwt: RequestPasswordReset(): cant get user: %w", err)
-	}
+	idempotentResult, err := a.withIdempotency(ctx, "RequestPasswordReset", in.Email, in, func() (any, uuid.UUID, error) {
+		user, err := a.repo.GetUserByEmail(ctx, in.Email)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			logger.Error("failed to get user",
+				zap.Error(err),
+			)
+			return nil, uuid.Nil, fmt.Errorf("jwt: RequestPasswordReset(): cant get user: %w", err)
+		}
 
-	if user == nil || errors.Is(err, sql.ErrNoRows) {
-		logger.Warn("RequestPasswordReset failed - user not found")
+		if user == nil || errors.Is(err, sql.ErrNoRows) {
+			logger.Warn("RequestPasswordReset failed - user not found")
+
+			return &models.RequestPasswordResetResult{
+				Success:       true,
+				ExpiresAtUnix: 0,
+			}, uuid.Nil, nil
+		}
+
+		err = a.repo.RevokeUnusedTokensByUserIDAndType(ctx, user.ID, models.TokenTypePasswordReset)
+		if err != nil {
+			logger.Error("failed to revoke unused tokens",
+				zap.Error(err),
+			)
+			return nil, uuid.Nil, fmt.Errorf("jwt: RequestPasswordReset(): cant revoke old reset tokens: %w", err)
+		}
+
+		rawToken, hashToken, err := a.generateOpaqueToken(ctx)
+		if err != nil {
+			logger.Error("failed to generate opaque token",
+				zap.Error(err),
+			)
+			return nil, uuid.Nil, fmt.Errorf("jwt: RequestPasswordReset(): cant generate token: %w", err)
+		}
+
+		expiresAt := time.Now().Add(resetPasswordTTL)
+
+		token := &models.OneTimeToken{
+			UserID:    user.ID,
+			TokenHash: hashToken,
+			Type:      models.TokenTypePasswordReset,
+			ExpiresAt: expiresAt,
+		}
+
+		err = a.repo.CreateOneTimeToken(ctx, token)
+		if err != nil {
+			logger.Error("failed to save opaque token",
+				zap.Error(err),
+			)
+			return nil, uuid.Nil, fmt.Errorf("jwt: RequestPasswordReset(): cant create reset token: %w", err)
+		}
+
+		err = a.mailService.SendPasswordResetEmail(ctx, user.Email, rawToken)
+		if err != nil {
+			logger.Error("failed to send reset password",
+				zap.Error(err),
+			)
+			return nil, uuid.Nil, fmt.Errorf("jwt: RequestPasswordReset(): cant send reset email: %w", err)
+		}
+
+		logger.Info("reset email successfully",
+			zap.String("user_id", user.ID.String()),
+		)
 
 		return &models.RequestPasswordResetResult{
 			Success:       true,
-			ExpiresAtUnix: 0,
-		}, nil
-	}
-
-	err = a.repo.RevokeUnusedTokensByUserIDAndType(ctx, user.ID, models.TokenTypePasswordReset)
+			ExpiresAtUnix: expiresAt.Unix(),
+		}, user.ID, nil
+	})
 	if err != nil {
-		logger.Error("failed to revoke unused tokens",
-			zap.Error(err),
-		)
-		return nil, fmt.Errorf("jwt: RequestPasswordReset(): cant revoke old reset tokens: %w", err)
+		return nil, err
 	}
 
-	rawToken, hashToken, err := a.generateOpaqueToken(ctx)
-	if err != nil {
-		logger.Error("failed to generate opaque token",
-			zap.Error(err),
-		)
-		return nil, fmt.Errorf("jwt: RequestPasswordReset(): cant generate token: %w", err)
-	}
-
-	expiresAt := time.Now().Add(resetPasswordTTL)
-
-	token := &models.OneTimeToken{
-		UserID:    user.ID,
-		TokenHash: hashToken,
-		Type:      models.TokenTypePasswordReset,
-		ExpiresAt: expiresAt,
-	}
-
-	err = a.repo.CreateOneTimeToken(ctx, token)
-	if err != nil {
-		logger.Error("failed to save opaque token",
-			zap.Error(err),
-		)
-		return nil, fmt.Errorf("jwt: RequestPasswordReset(): cant create reset token: %w", err)
-	}
-
-	err = a.mailService.SendPasswordResetEmail(ctx, user.Email, rawToken)
-	if err != nil {
-		logger.Error("failed to send reset password",
-			zap.Error(err),
-		)
-		return nil, fmt.Errorf("jwt: RequestPasswordReset(): cant send reset email: %w", err)
-	}
-
-	logger.Info("reset email successfully",
-		zap.String("user_id", user.ID.String()),
-	)
-
-	return &models.RequestPasswordResetResult{
-		Success:       true,
-		ExpiresAtUnix: expiresAt.Unix(),
-	}, nil
+	return cachedResult[models.RequestPasswordResetResult](idempotentResult)
 }
 
 func (a *AuthServiceStruct) ResetPassword(ctx context.Context, in models.ResetPasswordInput) (*models.ResetPasswordResult, error) {
@@ -912,65 +939,72 @@ func (a *AuthServiceStruct) ResetPassword(ctx context.Context, in models.ResetPa
 		return nil, err
 	}
 
-	sum := sha256.Sum256([]byte(in.Token))
-	hashToken := base64.RawURLEncoding.EncodeToString(sum[:])
+	idempotentResult, err := a.withIdempotency(ctx, "ResetPassword", "", in, func() (any, uuid.UUID, error) {
+		sum := sha256.Sum256([]byte(in.Token))
+		hashToken := base64.RawURLEncoding.EncodeToString(sum[:])
 
-	token, err := a.repo.GetOneTimeTokenByHashAndType(ctx, hashToken, models.TokenTypePasswordReset)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		logger.Error("failed to get one-time token",
-			zap.Error(err),
+		token, err := a.repo.GetOneTimeTokenByHashAndType(ctx, hashToken, models.TokenTypePasswordReset)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			logger.Error("failed to get one-time token",
+				zap.Error(err),
+			)
+			return nil, uuid.Nil, fmt.Errorf("jwt: ResetPassword(): cant get token: %w", err)
+		}
+		if token == nil || errors.Is(err, sql.ErrNoRows) {
+			logger.Warn("ResetPassword failed - token not found")
+			return nil, uuid.Nil, fmt.Errorf("jwt: ResetPassword(): %w", models.ErrInvalidToken)
+		}
+
+		if token.UsedAt != nil {
+			logger.Warn("ResetPassword failed - token already used")
+			return nil, uuid.Nil, fmt.Errorf("jwt: ResetPassword(): %w", models.ErrTokenAlreadyUsed)
+		}
+
+		if token.ExpiresAt.Before(time.Now()) {
+			logger.Warn("ResetPassword failed - token expired")
+			return nil, uuid.Nil, fmt.Errorf("jwt: ResetPassword(): %w", models.ErrTokenExpired)
+		}
+
+		user, err := a.repo.GetUserByID(ctx, token.UserID)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			logger.Error("failed to get user")
+			return nil, uuid.Nil, fmt.Errorf("jwt: ResetPassword(): cant get user: %w", err)
+		}
+		if user == nil || errors.Is(err, sql.ErrNoRows) {
+			logger.Warn("ResetPassword failed - user not found")
+			return nil, uuid.Nil, fmt.Errorf("jwt: ResetPassword(): %w", models.ErrUserNotFound)
+		}
+
+		newHashPassword, err := bcrypt.GenerateFromPassword([]byte(in.NewPassword), bcrypt.DefaultCost)
+		if err != nil {
+			logger.Error("failed to generate new password",
+				zap.Error(err),
+			)
+			return nil, uuid.Nil, fmt.Errorf("jwt: ResetPassword(): cant generate password hash: %w", err)
+		}
+
+		count, err := a.repo.ResetPasswordWithToken(ctx, user.ID, string(newHashPassword), token.ID)
+		if err != nil {
+			logger.Error("failed to reset password",
+				zap.Error(err),
+			)
+			return nil, uuid.Nil, fmt.Errorf("jwt: ResetPassword(): tx reset failed: %w", err)
+		}
+
+		logger.Info("reset email successfully",
+			zap.String("user_id", user.ID.String()),
 		)
-		return nil, fmt.Errorf("jwt: ResetPassword(): cant get token: %w", err)
-	}
-	if token == nil || errors.Is(err, sql.ErrNoRows) {
-		logger.Warn("ResetPassword failed - token not found")
-		return nil, fmt.Errorf("jwt: ResetPassword(): %w", models.ErrInvalidToken)
-	}
 
-	if token.UsedAt != nil {
-		logger.Warn("ResetPassword failed - token already used")
-		return nil, fmt.Errorf("jwt: ResetPassword(): %w", models.ErrTokenAlreadyUsed)
-	}
-
-	if token.ExpiresAt.Before(time.Now()) {
-		logger.Warn("ResetPassword failed - token expired")
-		return nil, fmt.Errorf("jwt: ResetPassword(): %w", models.ErrTokenExpired)
-	}
-
-	user, err := a.repo.GetUserByID(ctx, token.UserID)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		logger.Error("failed to get user")
-		return nil, fmt.Errorf("jwt: ResetPassword(): cant get user: %w", err)
-	}
-	if user == nil || errors.Is(err, sql.ErrNoRows) {
-		logger.Warn("ResetPassword failed - user not found")
-		return nil, fmt.Errorf("jwt: ResetPassword(): %w", models.ErrUserNotFound)
-	}
-
-	newHashPassword, err := bcrypt.GenerateFromPassword([]byte(in.NewPassword), bcrypt.DefaultCost)
+		return &models.ResetPasswordResult{
+			Success:                  true,
+			InvalidatedSessionsCount: count,
+		}, user.ID, nil
+	})
 	if err != nil {
-		logger.Error("failed to generate new password",
-			zap.Error(err),
-		)
-		return nil, fmt.Errorf("jwt: ResetPassword(): cant generate password hash: %w", err)
+		return nil, err
 	}
 
-	count, err := a.repo.ResetPasswordWithToken(ctx, user.ID, string(newHashPassword), token.ID)
-	if err != nil {
-		logger.Error("failed to reset password",
-			zap.Error(err),
-		)
-		return nil, fmt.Errorf("jwt: ResetPassword(): tx reset failed: %w", err)
-	}
-
-	logger.Info("reset email successfully",
-		zap.String("user_id", user.ID.String()),
-	)
-
-	return &models.ResetPasswordResult{
-		Success:                  true,
-		InvalidatedSessionsCount: count,
-	}, nil
+	return cachedResult[models.ResetPasswordResult](idempotentResult)
 }
 
 func (a *AuthServiceStruct) generateAccessToken(ctx context.Context, userID uuid.UUID, sessionID uuid.UUID, roles []string) (string, int64, error) {

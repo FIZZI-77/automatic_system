@@ -4,6 +4,7 @@ import (
 	"auth/models"
 	"context"
 	"database/sql"
+	"fmt"
 	"github.com/google/uuid"
 )
 
@@ -54,6 +55,7 @@ type OneTimeTokenRepo interface {
 }
 
 type Repo struct {
+	db *sql.DB
 	UserRepository
 	SessionRepository
 	RefreshTokenRepository
@@ -64,6 +66,7 @@ type Repo struct {
 
 func NewRepo(db *sql.DB) *Repo {
 	return &Repo{
+		db:                     db,
 		UserRepository:         NewUserRepoStruct(db),
 		SessionRepository:      NewSessionRepoStruct(db),
 		RefreshTokenRepository: NewRefreshTokenRepoStruct(db),
@@ -71,4 +74,36 @@ func NewRepo(db *sql.DB) *Repo {
 		TXRepository:           NewTXRepoStruct(db),
 		OneTimeTokenRepo:       NewOneTimeTokenRepoStruct(db),
 	}
+}
+
+func newRepoWithExecutor(exec DBTX) *Repo {
+	return &Repo{
+		UserRepository:         NewUserRepoStruct(exec),
+		SessionRepository:      NewSessionRepoStruct(exec),
+		RefreshTokenRepository: NewRefreshTokenRepoStruct(exec),
+		RoleRepository:         NewRoleRepoStruct(exec),
+		OneTimeTokenRepo:       NewOneTimeTokenRepoStruct(exec),
+	}
+}
+
+func (r *Repo) WithTx(ctx context.Context, fn func(txRepo *Repo) error) error {
+	if r.db == nil {
+		return fmt.Errorf("repository: WithTx(): root db is unavailable")
+	}
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("repository: WithTx(): begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	if err := fn(newRepoWithExecutor(tx)); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("repository: WithTx(): commit: %w", err)
+	}
+
+	return nil
 }

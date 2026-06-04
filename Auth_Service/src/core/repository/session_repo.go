@@ -11,10 +11,10 @@ import (
 )
 
 type SessionRepoStruct struct {
-	db *sql.DB
+	db DBTX
 }
 
-func NewSessionRepoStruct(db *sql.DB) *SessionRepoStruct {
+func NewSessionRepoStruct(db DBTX) *SessionRepoStruct {
 	return &SessionRepoStruct{db: db}
 }
 

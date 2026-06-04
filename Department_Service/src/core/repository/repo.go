@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"department/models"
 
@@ -18,11 +19,41 @@ type DepartmentRepository interface {
 }
 
 type Repository struct {
+	db *sql.DB
 	DepartmentRepository
 }
 
 func NewRepository(db *sql.DB) *Repository {
 	return &Repository{
+		db:                   db,
 		DepartmentRepository: NewDepartmentRepository(db),
 	}
+}
+
+func newRepositoryWithExecutor(exec DBTX) *Repository {
+	return &Repository{
+		DepartmentRepository: NewDepartmentRepository(exec),
+	}
+}
+
+func (r *Repository) WithTx(ctx context.Context, fn func(txRepo *Repository) error) error {
+	if r.db == nil {
+		return fmt.Errorf("repository: WithTx(): root db is unavailable")
+	}
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("repository: WithTx(): begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	if err = fn(newRepositoryWithExecutor(tx)); err != nil {
+		return err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("repository: WithTx(): commit: %w", err)
+	}
+
+	return nil
 }
