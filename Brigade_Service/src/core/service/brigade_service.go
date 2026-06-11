@@ -96,7 +96,7 @@ func (b *BrigadeServiceStruct) GetBrigadeByID(ctx context.Context, in *models.Ge
 			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: GetBrigadeByID validation failed: %w", err)
+		return nil, fmt.Errorf("service: GetBrigadeByID validation failed: %w: %v", models.ErrValidation, err)
 	}
 
 	brigade, err := b.repo.GetBrigadeByID(ctx, in)
@@ -134,7 +134,7 @@ func (b *BrigadeServiceStruct) ListBrigades(ctx context.Context, in *models.List
 			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: ListBrigades validation failed: %w", err)
+		return nil, fmt.Errorf("service: ListBrigades validation failed: %w: %v", models.ErrValidation, err)
 	}
 
 	isAdmin := false
@@ -199,7 +199,7 @@ func (b *BrigadeServiceStruct) UpdateBrigade(ctx context.Context, in *models.Upd
 			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: UpdateBrigade validation failed: %w", err)
+		return nil, fmt.Errorf("service: UpdateBrigade validation failed: %w: %v", models.ErrValidation, err)
 	}
 
 	current, err := b.repo.GetBrigadeByID(ctx, &models.GetBrigadeByIDInput{ID: in.ID})
@@ -251,7 +251,7 @@ func (b *BrigadeServiceStruct) DeactivateBrigade(ctx context.Context, in *models
 			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: DeactivateBrigade validation failed: %w", err)
+		return nil, fmt.Errorf("service: DeactivateBrigade validation failed: %w: %v", models.ErrValidation, err)
 	}
 
 	current, err := b.repo.GetBrigadeByID(ctx, &models.GetBrigadeByIDInput{ID: in.ID})
@@ -264,7 +264,7 @@ func (b *BrigadeServiceStruct) DeactivateBrigade(ctx context.Context, in *models
 			)
 			return nil, err
 		}
-		return nil, fmt.Errorf("service: DeactivateBrigade: get brigade: %w", err)
+		return nil, fmt.Errorf("service: DeactivateBrigade: get brigade: %w: %v", models.ErrValidation, err)
 	}
 
 	if err = checkPermissionAndDepartmentForAdminAndDispatcher(logger, start, in.ActorRoles, in.ActorDepartmentID, current.Brigade.DepartmentID); err != nil {
@@ -299,7 +299,7 @@ func (b *BrigadeServiceStruct) ArchiveBrigade(ctx context.Context, in *models.Ar
 			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: ArchiveBrigade validation failed: %w", err)
+		return nil, fmt.Errorf("service: ArchiveBrigade validation failed: %w: %v", models.ErrValidation, err)
 	}
 
 	current, err := b.repo.GetBrigadeByID(ctx, &models.GetBrigadeByIDInput{ID: in.ID})
@@ -347,7 +347,7 @@ func (b *BrigadeServiceStruct) SetBrigadeStatus(ctx context.Context, in *models.
 			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: SetBrigadeStatus validation failed: %w", err)
+		return nil, fmt.Errorf("service: SetBrigadeStatus validation failed: %w: %v", models.ErrValidation, err)
 	}
 
 	current, err := b.repo.GetBrigadeByID(ctx, &models.GetBrigadeByIDInput{ID: in.BrigadeID})
@@ -396,7 +396,7 @@ func (b *BrigadeServiceStruct) GetBrigadeStatusHistory(ctx context.Context, in *
 			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: GetBrigadeStatusHistory validation failed: %w", err)
+		return nil, fmt.Errorf("service: GetBrigadeStatusHistory validation failed: %w: %v", models.ErrValidation, err)
 	}
 
 	current, err := b.repo.GetBrigadeByID(ctx, &models.GetBrigadeByIDInput{ID: in.BrigadeID})
@@ -440,7 +440,7 @@ func (b *BrigadeServiceStruct) GetAvailableBrigades(ctx context.Context, in *mod
 			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: GetAvailableBrigades validation failed: %w", err)
+		return nil, fmt.Errorf("service: GetAvailableBrigades validation failed: %w: %v", models.ErrValidation, err)
 	}
 
 	result, err := b.repo.GetAvailableBrigades(ctx, in)
@@ -467,7 +467,7 @@ func (b *BrigadeServiceStruct) CheckBrigadeCanHandleTicket(ctx context.Context, 
 			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: CheckBrigadeCanHandleTicket validation failed: %w", err)
+		return nil, fmt.Errorf("service: CheckBrigadeCanHandleTicket validation failed: %w: %v", models.ErrValidation, err)
 	}
 
 	result, err := b.repo.CheckBrigadeCanHandleTicket(ctx, in)
