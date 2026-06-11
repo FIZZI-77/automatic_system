@@ -57,7 +57,7 @@ func TestCreateTicketInput_Validate_CommonCases(t *testing.T) {
 		{
 			name: "invalid priority",
 			mutate: func(in *CreateTicketInput) {
-				in.Priority = TicketPriority("urgent")
+				in.Priority = "urgent"
 			},
 			wantErr: true,
 		},

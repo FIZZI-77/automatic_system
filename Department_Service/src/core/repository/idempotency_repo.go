@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -39,7 +40,7 @@ func (r *Repository) BeginIdempotency(ctx context.Context, actorKey, operation, 
 	if err == nil {
 		return record, true, nil
 	}
-	if err != sql.ErrNoRows {
+	if !errors.Is(err, sql.ErrNoRows) {
 		return nil, false, fmt.Errorf("repository: BeginIdempotency(): insert: %w", err)
 	}
 

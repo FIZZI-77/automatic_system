@@ -6,4 +6,5 @@ use (
 	./Department_Service
 	.
 	Ticket_Service
+	Brigade_Service
 )

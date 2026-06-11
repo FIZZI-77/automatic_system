@@ -10,6 +10,7 @@ require (
 )
 
 require (
+	github.com/FIZZI-77/automatic-system-contracts v0.0.0-20260526055509-83357b1828f0
 	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/net v0.51.0 // indirect
 	golang.org/x/sys v0.42.0 // indirect
@@ -17,3 +18,5 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260226221140-a57be14db171 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )
+
+replace github.com/FIZZI-77/automatic-system-contracts => C:/Users/zapru/GolandProjects/automatic-system-contracts
