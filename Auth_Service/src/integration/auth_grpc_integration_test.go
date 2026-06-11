@@ -42,11 +42,8 @@ func newGRPCTestApp(t *testing.T) *grpcTestApp {
 		_ = grpcServer.Serve(listener)
 	}()
 
-	ctx := context.Background()
-
-	conn, err := grpc.DialContext(
-		ctx,
-		"bufnet",
+	conn, err := grpc.NewClient(
+		"passthrough:///bufnet",
 		grpc.WithContextDialer(func(ctx context.Context, s string) (net.Conn, error) {
 			return listener.Dial()
 		}),

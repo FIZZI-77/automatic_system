@@ -509,6 +509,16 @@ Ticket Service должен хранить `ticket.department_id` и опцио�
 
 ## Production readiness TODO
 
+## TODO: Profile Service integration for Brigade Service
+
+- After Profile Service is implemented, Brigade Service must resolve the actor's working department by `actor_user_id` through Profile Service, not from client input.
+- `Department Service` remains only a department directory and must not own `user_id -> department_id` mapping.
+- For `CreateBrigade`, `AddBrigadeMember`, `SetBrigadeSchedule`, `CreateBrigadeZone` and other dispatcher operations:
+  - `admin` can operate across departments;
+  - `dispatcher` can operate only inside the department returned by Profile Service for that dispatcher;
+  - reject the operation if `actor_department_id != target department_id`.
+- Temporary MVP option while Profile Service is missing: pass `actor_department_id` from trusted backend context/metadata, but do not trust department identifiers supplied directly by the client for authorization.
+
 - Config validation: вынести чтение env в typed config для каждого сервиса, проверять обязательные поля на старте, задавать безопасные defaults.
 - Health/readiness: добавить gRPC health checking для Auth/Ticket/Department/Brigade и readiness проверки DB/dependencies/migrations.
 - Panic recovery: добавить gRPC recovery interceptor, чтобы panic в handler/service не ронял процесс.

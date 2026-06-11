@@ -196,14 +196,15 @@ type OutboxEvent struct {
 }
 
 type CreateBrigadeInput struct {
-	DepartmentID   uuid.UUID
-	Name           string
-	Description    string
-	Specialization *string
-	ActorUserID    *uuid.UUID
-	ActorRoles     []string
-	RequestID      *string
-	TraceID        *string
+	DepartmentID      uuid.UUID
+	Name              string
+	Description       string
+	Specialization    *string
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+	RequestID         *string
+	TraceID           *string
 }
 
 type CreateBrigadeResult struct {
@@ -211,9 +212,10 @@ type CreateBrigadeResult struct {
 }
 
 type GetBrigadeByIDInput struct {
-	ID          uuid.UUID
-	ActorUserID *uuid.UUID
-	ActorRoles  []string
+	ID                uuid.UUID
+	ActorUserID       *uuid.UUID // only for service
+	ActorDepartmentID *uuid.UUID // only for service
+	ActorRoles        []string   // only for service
 }
 
 type GetBrigadeByIDResult struct {
@@ -221,17 +223,18 @@ type GetBrigadeByIDResult struct {
 }
 
 type ListBrigadesInput struct {
-	DepartmentID   *uuid.UUID
-	Status         *BrigadeStatus
-	Specialization *string
-	CreatedFrom    *time.Time
-	CreatedTo      *time.Time
-	SortBy         BrigadeSortBy
-	SortOrder      SortOrder
-	Limit          int32
-	Offset         int32
-	ActorUserID    *uuid.UUID
-	ActorRoles     []string
+	DepartmentID      *uuid.UUID
+	Status            *BrigadeStatus
+	Specialization    *string
+	CreatedFrom       *time.Time
+	CreatedTo         *time.Time
+	SortBy            BrigadeSortBy
+	SortOrder         SortOrder
+	Limit             int32
+	Offset            int32
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
 }
 
 type ListBrigadesResult struct {
@@ -240,14 +243,15 @@ type ListBrigadesResult struct {
 }
 
 type UpdateBrigadeInput struct {
-	ID             uuid.UUID
-	Name           *string
-	Description    *string
-	Specialization *string
-	ActorUserID    *uuid.UUID
-	ActorRoles     []string
-	RequestID      *string
-	TraceID        *string
+	ID                uuid.UUID
+	Name              *string
+	Description       *string
+	Specialization    *string
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+	RequestID         *string
+	TraceID           *string
 }
 
 type UpdateBrigadeResult struct {
@@ -255,12 +259,14 @@ type UpdateBrigadeResult struct {
 }
 
 type DeactivateBrigadeInput struct {
-	ID              uuid.UUID
-	Reason          string
-	ChangedByUserID *uuid.UUID
-	ActorRoles      []string
-	RequestID       *string
-	TraceID         *string
+	ID                uuid.UUID
+	Reason            string
+	ChangedByUserID   *uuid.UUID
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+	RequestID         *string
+	TraceID           *string
 }
 
 type DeactivateBrigadeResult struct {
@@ -268,12 +274,14 @@ type DeactivateBrigadeResult struct {
 }
 
 type ArchiveBrigadeInput struct {
-	ID              uuid.UUID
-	Reason          string
-	ChangedByUserID *uuid.UUID
-	ActorRoles      []string
-	RequestID       *string
-	TraceID         *string
+	ID                uuid.UUID
+	Reason            string
+	ChangedByUserID   *uuid.UUID
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+	RequestID         *string
+	TraceID           *string
 }
 
 type ArchiveBrigadeResult struct {
@@ -281,13 +289,15 @@ type ArchiveBrigadeResult struct {
 }
 
 type SetBrigadeStatusInput struct {
-	BrigadeID       uuid.UUID
-	Status          BrigadeStatus
-	Reason          string
-	ChangedByUserID *uuid.UUID
-	ActorRoles      []string
-	RequestID       *string
-	TraceID         *string
+	BrigadeID         uuid.UUID
+	Status            BrigadeStatus
+	Reason            string
+	ChangedByUserID   *uuid.UUID
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+	RequestID         *string
+	TraceID           *string
 }
 
 type SetBrigadeStatusResult struct {
@@ -295,9 +305,12 @@ type SetBrigadeStatusResult struct {
 }
 
 type GetBrigadeStatusHistoryInput struct {
-	BrigadeID uuid.UUID
-	Limit     int32
-	Offset    int32
+	BrigadeID         uuid.UUID
+	Limit             int32
+	Offset            int32
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
 }
 
 type GetBrigadeStatusHistoryResult struct {
@@ -306,14 +319,16 @@ type GetBrigadeStatusHistoryResult struct {
 }
 
 type AddBrigadeMemberInput struct {
-	BrigadeID       uuid.UUID
-	UserID          uuid.UUID
-	ProfileID       *uuid.UUID
-	Role            BrigadeMemberRole
-	ChangedByUserID *uuid.UUID
-	ActorRoles      []string
-	RequestID       *string
-	TraceID         *string
+	BrigadeID         uuid.UUID
+	UserID            uuid.UUID
+	ProfileID         *uuid.UUID
+	Role              BrigadeMemberRole
+	ChangedByUserID   *uuid.UUID
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+	RequestID         *string
+	TraceID           *string
 }
 
 type AddBrigadeMemberResult struct {
@@ -321,13 +336,15 @@ type AddBrigadeMemberResult struct {
 }
 
 type RemoveBrigadeMemberInput struct {
-	BrigadeID       uuid.UUID
-	MemberID        uuid.UUID
-	Reason          string
-	ChangedByUserID *uuid.UUID
-	ActorRoles      []string
-	RequestID       *string
-	TraceID         *string
+	BrigadeID         uuid.UUID
+	MemberID          uuid.UUID
+	Reason            string
+	ChangedByUserID   *uuid.UUID
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+	RequestID         *string
+	TraceID           *string
 }
 
 type RemoveBrigadeMemberResult struct {
@@ -335,13 +352,15 @@ type RemoveBrigadeMemberResult struct {
 }
 
 type ChangeBrigadeMemberRoleInput struct {
-	BrigadeID       uuid.UUID
-	MemberID        uuid.UUID
-	Role            BrigadeMemberRole
-	ChangedByUserID *uuid.UUID
-	ActorRoles      []string
-	RequestID       *string
-	TraceID         *string
+	BrigadeID         uuid.UUID
+	MemberID          uuid.UUID
+	Role              BrigadeMemberRole
+	ChangedByUserID   *uuid.UUID
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+	RequestID         *string
+	TraceID           *string
 }
 
 type ChangeBrigadeMemberRoleResult struct {
@@ -349,14 +368,16 @@ type ChangeBrigadeMemberRoleResult struct {
 }
 
 type SetBrigadeMemberAvailabilityInput struct {
-	BrigadeID       uuid.UUID
-	MemberID        uuid.UUID
-	Status          BrigadeMemberAvailabilityStatus
-	Reason          string
-	ChangedByUserID *uuid.UUID
-	ActorRoles      []string
-	RequestID       *string
-	TraceID         *string
+	BrigadeID         uuid.UUID
+	MemberID          uuid.UUID
+	Status            BrigadeMemberAvailabilityStatus
+	Reason            string
+	ChangedByUserID   *uuid.UUID
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+	RequestID         *string
+	TraceID           *string
 }
 
 type SetBrigadeMemberAvailabilityResult struct {
@@ -370,6 +391,9 @@ type ListBrigadeMembersInput struct {
 	AvailabilityStatus *BrigadeMemberAvailabilityStatus
 	Limit              int32
 	Offset             int32
+	ActorUserID        *uuid.UUID
+	ActorDepartmentID  *uuid.UUID
+	ActorRoles         []string
 }
 
 type ListBrigadeMembersResult struct {
@@ -378,10 +402,13 @@ type ListBrigadeMembersResult struct {
 }
 
 type GetBrigadeMemberHistoryInput struct {
-	BrigadeID uuid.UUID
-	MemberID  *uuid.UUID
-	Limit     int32
-	Offset    int32
+	BrigadeID         uuid.UUID
+	MemberID          *uuid.UUID
+	Limit             int32
+	Offset            int32
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
 }
 
 type GetBrigadeMemberHistoryResult struct {
@@ -390,10 +417,13 @@ type GetBrigadeMemberHistoryResult struct {
 }
 
 type GetBrigadeMemberStatusHistoryInput struct {
-	BrigadeID uuid.UUID
-	MemberID  *uuid.UUID
-	Limit     int32
-	Offset    int32
+	BrigadeID         uuid.UUID
+	MemberID          *uuid.UUID
+	Limit             int32
+	Offset            int32
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
 }
 
 type GetBrigadeMemberStatusHistoryResult struct {
@@ -415,6 +445,7 @@ type CreateSkillInput struct {
 	Code        string
 	Name        string
 	Description string
+	ActorUserID *uuid.UUID
 	ActorRoles  []string
 	RequestID   *string
 	TraceID     *string
@@ -430,6 +461,7 @@ type UpdateSkillInput struct {
 	Name        *string
 	Description *string
 	Active      *bool
+	ActorUserID *uuid.UUID
 	ActorRoles  []string
 	RequestID   *string
 	TraceID     *string
@@ -440,10 +472,11 @@ type UpdateSkillResult struct {
 }
 
 type DeactivateSkillInput struct {
-	ID         uuid.UUID
-	ActorRoles []string
-	RequestID  *string
-	TraceID    *string
+	ID          uuid.UUID
+	ActorUserID *uuid.UUID
+	ActorRoles  []string
+	RequestID   *string
+	TraceID     *string
 }
 
 type DeactivateSkillResult struct {
@@ -451,10 +484,12 @@ type DeactivateSkillResult struct {
 }
 
 type ListSkillsInput struct {
-	Active *bool
-	Query  *string
-	Limit  int32
-	Offset int32
+	Active      *bool
+	Query       *string
+	Limit       int32
+	Offset      int32
+	ActorUserID *uuid.UUID
+	ActorRoles  []string
 }
 
 type ListSkillsResult struct {
@@ -463,11 +498,13 @@ type ListSkillsResult struct {
 }
 
 type AddBrigadeSkillInput struct {
-	BrigadeID  uuid.UUID
-	SkillID    uuid.UUID
-	ActorRoles []string
-	RequestID  *string
-	TraceID    *string
+	BrigadeID         uuid.UUID
+	SkillID           uuid.UUID
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+	RequestID         *string
+	TraceID           *string
 }
 
 type AddBrigadeSkillResult struct {
@@ -475,11 +512,13 @@ type AddBrigadeSkillResult struct {
 }
 
 type RemoveBrigadeSkillInput struct {
-	BrigadeID  uuid.UUID
-	SkillID    uuid.UUID
-	ActorRoles []string
-	RequestID  *string
-	TraceID    *string
+	BrigadeID         uuid.UUID
+	SkillID           uuid.UUID
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+	RequestID         *string
+	TraceID           *string
 }
 
 type RemoveBrigadeSkillResult struct {
@@ -487,8 +526,11 @@ type RemoveBrigadeSkillResult struct {
 }
 
 type ListBrigadeSkillsInput struct {
-	BrigadeID uuid.UUID
-	Active    *bool
+	BrigadeID         uuid.UUID
+	Active            *bool
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
 }
 
 type ListBrigadeSkillsResult struct {
@@ -505,11 +547,13 @@ type BrigadeScheduleItem struct {
 }
 
 type SetBrigadeScheduleInput struct {
-	BrigadeID  uuid.UUID
-	Items      []*BrigadeScheduleItem
-	ActorRoles []string
-	RequestID  *string
-	TraceID    *string
+	BrigadeID         uuid.UUID
+	Items             []*BrigadeScheduleItem
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+	RequestID         *string
+	TraceID           *string
 }
 
 type SetBrigadeScheduleResult struct {
@@ -517,8 +561,11 @@ type SetBrigadeScheduleResult struct {
 }
 
 type ListBrigadeScheduleInput struct {
-	BrigadeID uuid.UUID
-	Active    *bool
+	BrigadeID         uuid.UUID
+	Active            *bool
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
 }
 
 type ListBrigadeScheduleResult struct {
@@ -526,14 +573,16 @@ type ListBrigadeScheduleResult struct {
 }
 
 type CreateBrigadeZoneInput struct {
-	BrigadeID    uuid.UUID
-	DepartmentID uuid.UUID
-	Name         string
-	GeoJSON      string
-	Priority     int32
-	ActorRoles   []string
-	RequestID    *string
-	TraceID      *string
+	BrigadeID         uuid.UUID
+	DepartmentID      uuid.UUID
+	Name              string
+	GeoJSON           string
+	Priority          int32
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+	RequestID         *string
+	TraceID           *string
 }
 
 type CreateBrigadeZoneResult struct {
@@ -541,14 +590,16 @@ type CreateBrigadeZoneResult struct {
 }
 
 type UpdateBrigadeZoneInput struct {
-	ID         uuid.UUID
-	Name       *string
-	GeoJSON    *string
-	Priority   *int32
-	Active     *bool
-	ActorRoles []string
-	RequestID  *string
-	TraceID    *string
+	ID                uuid.UUID
+	Name              *string
+	GeoJSON           *string
+	Priority          *int32
+	Active            *bool
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+	RequestID         *string
+	TraceID           *string
 }
 
 type UpdateBrigadeZoneResult struct {
@@ -556,10 +607,12 @@ type UpdateBrigadeZoneResult struct {
 }
 
 type DeleteBrigadeZoneInput struct {
-	ID         uuid.UUID
-	ActorRoles []string
-	RequestID  *string
-	TraceID    *string
+	ID                uuid.UUID
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+	RequestID         *string
+	TraceID           *string
 }
 
 type DeleteBrigadeZoneResult struct {
@@ -567,8 +620,11 @@ type DeleteBrigadeZoneResult struct {
 }
 
 type ListBrigadeZonesInput struct {
-	BrigadeID uuid.UUID
-	Active    *bool
+	BrigadeID         uuid.UUID
+	Active            *bool
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
 }
 
 type ListBrigadeZonesResult struct {
