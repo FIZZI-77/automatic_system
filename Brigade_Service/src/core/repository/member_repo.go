@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 type MemberRepoStruct struct {
@@ -28,6 +29,9 @@ func (m *MemberRepoStruct) AddBrigadeMember(ctx context.Context, in *models.AddB
 
 	member, err := m.insertBrigadeMember(ctx, tx, in)
 	if err != nil {
+		if isMemberUniqueViolation(err) {
+			return nil, fmt.Errorf("repo: AddBrigadeMember: %w", models.ErrAlreadyExists)
+		}
 		return nil, fmt.Errorf("repo: AddBrigadeMember: insert member: %w", err)
 	}
 
@@ -361,16 +365,16 @@ func (m *MemberRepoStruct) GetBrigadeByUserID(ctx context.Context, in *models.Ge
 
 	query := fmt.Sprintf(`
 		SELECT
-			m.id,
-			m.department_id,
-			m.name,
-			m.description,
-			m.status,
-			m.specialization,
-			m.created_at,
-			m.updated_at,
-			m.deactivated_at,
-			m.archived_at,
+			b.id,
+			b.department_id,
+			b.name,
+			b.description,
+			b.status,
+			b.specialization,
+			b.created_at,
+			b.updated_at,
+			b.deactivated_at,
+			b.archived_at,
 			bm.id,
 			bm.brigade_id,
 			bm.user_id,
@@ -384,7 +388,7 @@ func (m *MemberRepoStruct) GetBrigadeByUserID(ctx context.Context, in *models.Ge
 			bm.created_at,
 			bm.updated_at
 		FROM brigade_members bm
-		JOIN brigades b ON m.id = bm.brigade_id
+		JOIN brigades b ON b.id = bm.brigade_id
 		WHERE bm.user_id = $1
 		%s
 		ORDER BY bm.joined_at DESC
@@ -770,4 +774,19 @@ func scanBrigadeMemberStatusHistory(row scanner) (*models.BrigadeMemberStatusHis
 		item.RequestID = &requestID.String
 	}
 	return &item, nil
+}
+
+func isMemberUniqueViolation(err error) bool {
+	var pqErr *pq.Error
+	if !errors.As(err, &pqErr) {
+		return false
+	}
+
+	if pqErr.Code != "23505" {
+		return false
+	}
+
+	return pqErr.Constraint == "" ||
+		pqErr.Constraint == "brigade_members_active_user_uidx" ||
+		pqErr.Constraint == "brigade_members_active_profile_uidx"
 }

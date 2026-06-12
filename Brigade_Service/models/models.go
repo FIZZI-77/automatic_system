@@ -648,6 +648,7 @@ type FindBrigadesByPointInput struct {
 	Latitude         float64
 	OnlyAvailable    bool
 	RequiredSkillIDs []uuid.UUID
+	RequiredRoles    []BrigadeMemberRole
 	Limit            int32
 	Offset           int32
 }
@@ -662,6 +663,7 @@ type GetAvailableBrigadesInput struct {
 	Longitude        *float64
 	Latitude         *float64
 	RequiredSkillIDs []uuid.UUID
+	RequiredRoles    []BrigadeMemberRole
 	Limit            int32
 	Offset           int32
 }
@@ -677,6 +679,7 @@ type CheckBrigadeCanHandleTicketInput struct {
 	Longitude        float64
 	Latitude         float64
 	RequiredSkillIDs []uuid.UUID
+	RequiredRoles    []BrigadeMemberRole
 }
 
 type CheckBrigadeCanHandleTicketResult struct {

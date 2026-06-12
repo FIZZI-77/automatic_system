@@ -178,6 +178,16 @@ func validateRequiredSkillIDs(ids []uuid.UUID) error {
 	return nil
 }
 
+func validateRequiredRoles(roles []BrigadeMemberRole) error {
+	for i, role := range roles {
+		if !role.IsValid() {
+			return fmt.Errorf("required_roles[%d] is invalid", i)
+		}
+	}
+
+	return nil
+}
+
 func validateTimeRange(from *time.Time, to *time.Time, fromField string, toField string) error {
 	if from != nil && to != nil && from.After(*to) {
 		return fmt.Errorf("%s must be before %s", fromField, toField)
@@ -656,6 +666,9 @@ func (in *FindBrigadesByPointInput) Validate() error {
 	if err := validateRequiredSkillIDs(in.RequiredSkillIDs); err != nil {
 		return err
 	}
+	if err := validateRequiredRoles(in.RequiredRoles); err != nil {
+		return err
+	}
 
 	in.Limit, in.Offset = normalizeLimitOffset(in.Limit, in.Offset)
 	return nil
@@ -672,6 +685,9 @@ func (in *GetAvailableBrigadesInput) Validate() error {
 		return err
 	}
 	if err := validateRequiredSkillIDs(in.RequiredSkillIDs); err != nil {
+		return err
+	}
+	if err := validateRequiredRoles(in.RequiredRoles); err != nil {
 		return err
 	}
 
@@ -693,5 +709,9 @@ func (in *CheckBrigadeCanHandleTicketInput) Validate() error {
 		return err
 	}
 
-	return validateRequiredSkillIDs(in.RequiredSkillIDs)
+	if err := validateRequiredSkillIDs(in.RequiredSkillIDs); err != nil {
+		return err
+	}
+
+	return validateRequiredRoles(in.RequiredRoles)
 }
