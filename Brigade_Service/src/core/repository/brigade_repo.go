@@ -362,6 +362,7 @@ func (b *BrigadeRepoStruct) GetAvailableBrigades(ctx context.Context, in *models
 		DepartmentID:     in.DepartmentID,
 		OnlyAvailable:    true,
 		RequiredSkillIDs: in.RequiredSkillIDs,
+		RequiredRoles:    in.RequiredRoles,
 		Limit:            in.Limit,
 		Offset:           in.Offset,
 	}
@@ -379,7 +380,7 @@ func (b *BrigadeRepoStruct) GetAvailableBrigades(ctx context.Context, in *models
 		}, nil
 	}
 
-	result, err := NewZoneRepo(b.db).listAvailableBrigades(ctx, in.DepartmentID, in.RequiredSkillIDs, in.Limit, in.Offset)
+	result, err := NewZoneRepo(b.db).listAvailableBrigades(ctx, in.DepartmentID, in.RequiredSkillIDs, in.RequiredRoles, in.Limit, in.Offset)
 	if err != nil {
 		return nil, fmt.Errorf("repo: GetAvailableBrigades: %w", err)
 	}
@@ -401,6 +402,12 @@ func (b *BrigadeRepoStruct) CheckBrigadeCanHandleTicket(ctx context.Context, in 
 	if brigade.Brigade.Status != models.BrigadeStatusAvailable {
 		reasons = append(reasons, "brigade is not available")
 	}
+
+	readinessReasons, err := b.CheckBrigadeReadiness(ctx, in.BrigadeID, true, in.RequiredRoles)
+	if err != nil {
+		return nil, fmt.Errorf("repo: CheckBrigadeCanHandleTicket: check readiness: %w", err)
+	}
+	reasons = append(reasons, readinessReasons...)
 
 	covers, err := NewZoneRepo(b.db).CheckBrigadeCoversPoint(ctx, &models.CheckBrigadeCoversPointInput{
 		BrigadeID: in.BrigadeID,
@@ -426,6 +433,130 @@ func (b *BrigadeRepoStruct) CheckBrigadeCanHandleTicket(ctx context.Context, in 
 		CanHandle: len(reasons) == 0,
 		Reasons:   reasons,
 	}, nil
+}
+
+func (b *BrigadeRepoStruct) CheckBrigadeReadiness(ctx context.Context, brigadeID uuid.UUID, requireOnShift bool, requiredRoles []models.BrigadeMemberRole) ([]string, error) {
+	reasons := make([]string, 0)
+
+	hasActiveMembers, err := b.brigadeHasActiveMembers(ctx, brigadeID)
+	if err != nil {
+		return nil, fmt.Errorf("check active members: %w", err)
+	}
+	if !hasActiveMembers {
+		reasons = append(reasons, "brigade has no active members")
+	}
+
+	if requireOnShift {
+		hasAvailableMembers, err := b.brigadeHasAvailableActiveMembers(ctx, brigadeID)
+		if err != nil {
+			return nil, fmt.Errorf("check available active members: %w", err)
+		}
+		if !hasAvailableMembers {
+			reasons = append(reasons, "brigade has no available active members")
+		}
+
+		onShift, err := b.brigadeIsOnShift(ctx, brigadeID)
+		if err != nil {
+			return nil, fmt.Errorf("check shift: %w", err)
+		}
+		if !onShift {
+			reasons = append(reasons, "brigade is not on shift")
+		}
+	}
+
+	hasRoles, err := b.brigadeHasRoles(ctx, brigadeID, requiredRoles)
+	if err != nil {
+		return nil, fmt.Errorf("check roles: %w", err)
+	}
+	if !hasRoles {
+		reasons = append(reasons, "brigade does not have required roles")
+	}
+
+	return reasons, nil
+}
+
+func (b *BrigadeRepoStruct) brigadeHasActiveMembers(ctx context.Context, brigadeID uuid.UUID) (bool, error) {
+	const query = `
+		SELECT EXISTS (
+			SELECT 1
+			FROM brigade_members
+			WHERE brigade_id = $1
+			  AND active = true
+		)
+	`
+
+	var exists bool
+	if err := b.db.QueryRowContext(ctx, query, brigadeID).Scan(&exists); err != nil {
+		return false, err
+	}
+
+	return exists, nil
+}
+
+func (b *BrigadeRepoStruct) brigadeHasAvailableActiveMembers(ctx context.Context, brigadeID uuid.UUID) (bool, error) {
+	const query = `
+		SELECT EXISTS (
+			SELECT 1
+			FROM brigade_members
+			WHERE brigade_id = $1
+			  AND active = true
+			  AND availability_status = $2
+		)
+	`
+
+	var exists bool
+	if err := b.db.QueryRowContext(ctx, query, brigadeID, string(models.BrigadeMemberAvailabilityAvailable)).Scan(&exists); err != nil {
+		return false, err
+	}
+
+	return exists, nil
+}
+
+func (b *BrigadeRepoStruct) brigadeIsOnShift(ctx context.Context, brigadeID uuid.UUID) (bool, error) {
+	const query = `
+		SELECT EXISTS (
+			SELECT 1
+			FROM brigade_schedule
+			WHERE brigade_id = $1
+			  AND active = true
+			  AND (valid_from IS NULL OR (now() AT TIME ZONE timezone)::date >= valid_from)
+			  AND (valid_to IS NULL OR (now() AT TIME ZONE timezone)::date <= valid_to)
+			  AND EXTRACT(ISODOW FROM now() AT TIME ZONE timezone)::int = day_of_week
+			  AND (
+				(starts_at < ends_at AND (now() AT TIME ZONE timezone)::time >= starts_at AND (now() AT TIME ZONE timezone)::time < ends_at)
+				OR
+				(starts_at > ends_at AND ((now() AT TIME ZONE timezone)::time >= starts_at OR (now() AT TIME ZONE timezone)::time < ends_at))
+			  )
+		)
+	`
+
+	var exists bool
+	if err := b.db.QueryRowContext(ctx, query, brigadeID).Scan(&exists); err != nil {
+		return false, err
+	}
+
+	return exists, nil
+}
+
+func (b *BrigadeRepoStruct) brigadeHasRoles(ctx context.Context, brigadeID uuid.UUID, requiredRoles []models.BrigadeMemberRole) (bool, error) {
+	if len(requiredRoles) == 0 {
+		return true, nil
+	}
+
+	const query = `
+		SELECT COUNT(DISTINCT role)
+		FROM brigade_members
+		WHERE brigade_id = $1
+		  AND active = true
+		  AND role = ANY($2)
+	`
+
+	var count int
+	if err := b.db.QueryRowContext(ctx, query, brigadeID, pq.Array(roleStrings(requiredRoles))).Scan(&count); err != nil {
+		return false, err
+	}
+
+	return count == len(requiredRoles), nil
 }
 
 func scanBrigade(row scanner) (*models.Brigade, error) {
@@ -719,6 +850,14 @@ func uuidStrings(ids []uuid.UUID) []string {
 	values := make([]string, 0, len(ids))
 	for _, id := range ids {
 		values = append(values, id.String())
+	}
+	return values
+}
+
+func roleStrings(roles []models.BrigadeMemberRole) []string {
+	values := make([]string, 0, len(roles))
+	for _, role := range roles {
+		values = append(values, string(role))
 	}
 	return values
 }

@@ -1,0 +1,436 @@
+﻿{
+    "name":  "Authomatic City Services - Brigade Service gRPC examples",
+    "server":  "{{brigade_grpc_addr}}",
+    "proto":  "C:\\Users\\zapru\\GolandProjects\\automatic-system-contracts\\brigade\\v1\\brigade.proto",
+    "package":  "brigade.v1",
+    "service":  "brigade.v1.BrigadeService",
+    "common_metadata":  {
+                            "x-actor-user-id":  "{{actor_user_id}}",
+                            "x-actor-department-id":  "{{actor_department_id}}",
+                            "x-actor-roles":  "{{actor_roles}}",
+                            "x-request-id":  "{{request_id}}",
+                            "x-idempotency-key":  "{{idempotency_key}}"
+                        },
+    "requests":  [
+                     {
+                         "group":  "Brigades",
+                         "name":  "CreateBrigade",
+                         "service":  "brigade.v1.BrigadeService",
+                         "method":  "CreateBrigade",
+                         "metadata":  {
+                                          "x-actor-department-id":  "{{actor_department_id}}",
+                                          "x-actor-user-id":  "{{actor_user_id}}",
+                                          "x-idempotency-key":  "{{idempotency_key}}",
+                                          "x-actor-roles":  "{{actor_roles}}",
+                                          "x-request-id":  "{{request_id}}"
+                                      },
+                         "message":  "{\n  \"department_id\": \"{{department_id}}\",\n  \"name\": \"North utility brigade\",\n  \"description\": \"Default test brigade\",\n  \"specialization\": \"WATER_SUPPLY\"\n}"
+                     },
+                     {
+                         "group":  "Brigades",
+                         "name":  "GetBrigadeByID",
+                         "service":  "brigade.v1.BrigadeService",
+                         "method":  "GetBrigadeByID",
+                         "metadata":  {
+                                          "x-actor-department-id":  "{{actor_department_id}}",
+                                          "x-actor-user-id":  "{{actor_user_id}}",
+                                          "x-actor-roles":  "{{actor_roles}}"
+                                      },
+                         "message":  "{\n  \"id\": \"{{brigade_id}}\"\n}"
+                     },
+                     {
+                         "group":  "Brigades",
+                         "name":  "ListBrigades",
+                         "service":  "brigade.v1.BrigadeService",
+                         "method":  "ListBrigades",
+                         "metadata":  {
+                                          "x-actor-department-id":  "{{actor_department_id}}",
+                                          "x-actor-user-id":  "{{actor_user_id}}",
+                                          "x-actor-roles":  "{{actor_roles}}"
+                                      },
+                         "message":  "{\n  \"department_id\": \"{{department_id}}\",\n  \"status\": \"BRIGADE_STATUS_ACTIVE\",\n  \"limit\": 20,\n  \"offset\": 0,\n  \"sort_by\": \"BRIGADE_SORT_BY_CREATED_AT\",\n  \"sort_order\": \"SORT_ORDER_DESC\"\n}"
+                     },
+                     {
+                         "group":  "Brigades",
+                         "name":  "UpdateBrigade",
+                         "service":  "brigade.v1.BrigadeService",
+                         "method":  "UpdateBrigade",
+                         "metadata":  {
+                                          "x-actor-department-id":  "{{actor_department_id}}",
+                                          "x-actor-user-id":  "{{actor_user_id}}",
+                                          "x-idempotency-key":  "{{idempotency_key}}",
+                                          "x-actor-roles":  "{{actor_roles}}",
+                                          "x-request-id":  "{{request_id}}"
+                                      },
+                         "message":  "{\n  \"id\": \"{{brigade_id}}\",\n  \"name\": \"North utility brigade updated\",\n  \"description\": \"Updated from Postman\",\n  \"specialization\": \"WATER_REPAIR\"\n}"
+                     },
+                     {
+                         "group":  "Brigades",
+                         "name":  "SetBrigadeStatus AVAILABLE",
+                         "service":  "brigade.v1.BrigadeService",
+                         "method":  "SetBrigadeStatus",
+                         "metadata":  {
+                                          "x-actor-department-id":  "{{actor_department_id}}",
+                                          "x-actor-user-id":  "{{actor_user_id}}",
+                                          "x-idempotency-key":  "{{idempotency_key}}",
+                                          "x-actor-roles":  "{{actor_roles}}",
+                                          "x-request-id":  "{{request_id}}"
+                                      },
+                         "message":  "{\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"status\": \"BRIGADE_STATUS_AVAILABLE\",\n  \"reason\": \"Ready for dispatch\",\n  \"changed_by_user_id\": \"{{changed_by_user_id}}\"\n}"
+                     },
+                     {
+                         "group":  "Brigades",
+                         "name":  "GetBrigadeStatusHistory",
+                         "service":  "brigade.v1.BrigadeService",
+                         "method":  "GetBrigadeStatusHistory",
+                         "metadata":  {
+                                          "x-actor-department-id":  "{{actor_department_id}}",
+                                          "x-actor-user-id":  "{{actor_user_id}}",
+                                          "x-actor-roles":  "{{actor_roles}}"
+                                      },
+                         "message":  "{\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"limit\": 20,\n  \"offset\": 0\n}"
+                     },
+                     {
+                         "group":  "Brigades",
+                         "name":  "DeactivateBrigade",
+                         "service":  "brigade.v1.BrigadeService",
+                         "method":  "DeactivateBrigade",
+                         "metadata":  {
+                                          "x-actor-department-id":  "{{actor_department_id}}",
+                                          "x-actor-user-id":  "{{actor_user_id}}",
+                                          "x-idempotency-key":  "{{idempotency_key}}",
+                                          "x-actor-roles":  "{{actor_roles}}",
+                                          "x-request-id":  "{{request_id}}"
+                                      },
+                         "message":  "{\n  \"id\": \"{{brigade_id}}\",\n  \"reason\": \"Temporary disabled\",\n  \"changed_by_user_id\": \"{{changed_by_user_id}}\"\n}"
+                     },
+                     {
+                         "group":  "Brigades",
+                         "name":  "ArchiveBrigade",
+                         "service":  "brigade.v1.BrigadeService",
+                         "method":  "ArchiveBrigade",
+                         "metadata":  {
+                                          "x-actor-department-id":  "{{actor_department_id}}",
+                                          "x-actor-user-id":  "{{actor_user_id}}",
+                                          "x-idempotency-key":  "{{idempotency_key}}",
+                                          "x-actor-roles":  "{{actor_roles}}",
+                                          "x-request-id":  "{{request_id}}"
+                                      },
+                         "message":  "{\n  \"id\": \"{{brigade_id}}\",\n  \"reason\": \"Archived from Postman\",\n  \"changed_by_user_id\": \"{{changed_by_user_id}}\"\n}"
+                     },
+                     {
+                         "group":  "Members",
+                         "name":  "AddBrigadeMember",
+                         "service":  "brigade.v1.BrigadeService",
+                         "method":  "AddBrigadeMember",
+                         "metadata":  {
+                                          "x-actor-department-id":  "{{actor_department_id}}",
+                                          "x-actor-user-id":  "{{actor_user_id}}",
+                                          "x-idempotency-key":  "{{idempotency_key}}",
+                                          "x-actor-roles":  "{{actor_roles}}",
+                                          "x-request-id":  "{{request_id}}"
+                                      },
+                         "message":  "{\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"user_id\": \"{{user_id}}\",\n  \"profile_id\": \"{{profile_id}}\",\n  \"role\": \"BRIGADE_MEMBER_ROLE_LEAD\",\n  \"changed_by_user_id\": \"{{changed_by_user_id}}\"\n}"
+                     },
+                     {
+                         "group":  "Members",
+                         "name":  "ListBrigadeMembers",
+                         "service":  "brigade.v1.BrigadeService",
+                         "method":  "ListBrigadeMembers",
+                         "metadata":  {
+                                          "x-actor-department-id":  "{{actor_department_id}}",
+                                          "x-actor-user-id":  "{{actor_user_id}}",
+                                          "x-actor-roles":  "{{actor_roles}}"
+                                      },
+                         "message":  "{\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"active\": true,\n  \"limit\": 20,\n  \"offset\": 0\n}"
+                     },
+                     {
+                         "group":  "Members",
+                         "name":  "ChangeBrigadeMemberRole",
+                         "service":  "brigade.v1.BrigadeService",
+                         "method":  "ChangeBrigadeMemberRole",
+                         "metadata":  {
+                                          "x-actor-department-id":  "{{actor_department_id}}",
+                                          "x-actor-user-id":  "{{actor_user_id}}",
+                                          "x-idempotency-key":  "{{idempotency_key}}",
+                                          "x-actor-roles":  "{{actor_roles}}",
+                                          "x-request-id":  "{{request_id}}"
+                                      },
+                         "message":  "{\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"member_id\": \"{{member_id}}\",\n  \"role\": \"BRIGADE_MEMBER_ROLE_DRIVER\",\n  \"changed_by_user_id\": \"{{changed_by_user_id}}\"\n}"
+                     },
+                     {
+                         "group":  "Members",
+                         "name":  "SetBrigadeMemberAvailability",
+                         "service":  "brigade.v1.BrigadeService",
+                         "method":  "SetBrigadeMemberAvailability",
+                         "metadata":  {
+                                          "x-actor-department-id":  "{{actor_department_id}}",
+                                          "x-actor-user-id":  "{{actor_user_id}}",
+                                          "x-idempotency-key":  "{{idempotency_key}}",
+                                          "x-actor-roles":  "{{actor_roles}}",
+                                          "x-request-id":  "{{request_id}}"
+                                      },
+                         "message":  "{\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"member_id\": \"{{member_id}}\",\n  \"status\": \"BRIGADE_MEMBER_AVAILABILITY_STATUS_AVAILABLE\",\n  \"reason\": \"Started shift\",\n  \"changed_by_user_id\": \"{{changed_by_user_id}}\"\n}"
+                     },
+                     {
+                         "group":  "Members",
+                         "name":  "GetBrigadeMemberHistory",
+                         "service":  "brigade.v1.BrigadeService",
+                         "method":  "GetBrigadeMemberHistory",
+                         "metadata":  {
+                                          "x-actor-department-id":  "{{actor_department_id}}",
+                                          "x-actor-user-id":  "{{actor_user_id}}",
+                                          "x-actor-roles":  "{{actor_roles}}"
+                                      },
+                         "message":  "{\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"member_id\": \"{{member_id}}\",\n  \"limit\": 20,\n  \"offset\": 0\n}"
+                     },
+                     {
+                         "group":  "Members",
+                         "name":  "GetBrigadeMemberStatusHistory",
+                         "service":  "brigade.v1.BrigadeService",
+                         "method":  "GetBrigadeMemberStatusHistory",
+                         "metadata":  {
+                                          "x-actor-department-id":  "{{actor_department_id}}",
+                                          "x-actor-user-id":  "{{actor_user_id}}",
+                                          "x-actor-roles":  "{{actor_roles}}"
+                                      },
+                         "message":  "{\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"member_id\": \"{{member_id}}\",\n  \"limit\": 20,\n  \"offset\": 0\n}"
+                     },
+                     {
+                         "group":  "Members",
+                         "name":  "GetBrigadeByUserID",
+                         "service":  "brigade.v1.BrigadeService",
+                         "method":  "GetBrigadeByUserID",
+                         "metadata":  {
+
+                                      },
+                         "message":  "{\n  \"user_id\": \"{{user_id}}\",\n  \"only_active\": true\n}"
+                     },
+                     {
+                         "group":  "Members",
+                         "name":  "RemoveBrigadeMember",
+                         "service":  "brigade.v1.BrigadeService",
+                         "method":  "RemoveBrigadeMember",
+                         "metadata":  {
+                                          "x-actor-department-id":  "{{actor_department_id}}",
+                                          "x-actor-user-id":  "{{actor_user_id}}",
+                                          "x-idempotency-key":  "{{idempotency_key}}",
+                                          "x-actor-roles":  "{{actor_roles}}",
+                                          "x-request-id":  "{{request_id}}"
+                                      },
+                         "message":  "{\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"member_id\": \"{{member_id}}\",\n  \"reason\": \"Removed from Postman\",\n  \"changed_by_user_id\": \"{{changed_by_user_id}}\"\n}"
+                     },
+                     {
+                         "group":  "Skills",
+                         "name":  "CreateSkill",
+                         "service":  "brigade.v1.BrigadeService",
+                         "method":  "CreateSkill",
+                         "metadata":  {
+                                          "x-actor-roles":  "admin",
+                                          "x-actor-user-id":  "{{actor_user_id}}",
+                                          "x-idempotency-key":  "{{idempotency_key}}",
+                                          "x-request-id":  "{{request_id}}"
+                                      },
+                         "message":  "{\n  \"code\": \"WATER_REPAIR\",\n  \"name\": \"Water repair\",\n  \"description\": \"Can repair water supply issues\"\n}"
+                     },
+                     {
+                         "group":  "Skills",
+                         "name":  "ListSkills",
+                         "service":  "brigade.v1.BrigadeService",
+                         "method":  "ListSkills",
+                         "metadata":  {
+                                          "x-actor-user-id":  "{{actor_user_id}}",
+                                          "x-actor-roles":  "{{actor_roles}}"
+                                      },
+                         "message":  "{\n  \"active\": true,\n  \"query\": \"water\",\n  \"limit\": 20,\n  \"offset\": 0\n}"
+                     },
+                     {
+                         "group":  "Skills",
+                         "name":  "UpdateSkill",
+                         "service":  "brigade.v1.BrigadeService",
+                         "method":  "UpdateSkill",
+                         "metadata":  {
+                                          "x-actor-roles":  "admin",
+                                          "x-actor-user-id":  "{{actor_user_id}}",
+                                          "x-idempotency-key":  "{{idempotency_key}}",
+                                          "x-request-id":  "{{request_id}}"
+                                      },
+                         "message":  "{\n  \"id\": \"{{skill_id}}\",\n  \"code\": \"WATER_REPAIR\",\n  \"name\": \"Water repair updated\",\n  \"description\": \"Updated skill\",\n  \"active\": true\n}"
+                     },
+                     {
+                         "group":  "Skills",
+                         "name":  "AddBrigadeSkill",
+                         "service":  "brigade.v1.BrigadeService",
+                         "method":  "AddBrigadeSkill",
+                         "metadata":  {
+                                          "x-actor-department-id":  "{{actor_department_id}}",
+                                          "x-actor-user-id":  "{{actor_user_id}}",
+                                          "x-idempotency-key":  "{{idempotency_key}}",
+                                          "x-actor-roles":  "{{actor_roles}}",
+                                          "x-request-id":  "{{request_id}}"
+                                      },
+                         "message":  "{\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"skill_id\": \"{{skill_id}}\"\n}"
+                     },
+                     {
+                         "group":  "Skills",
+                         "name":  "ListBrigadeSkills",
+                         "service":  "brigade.v1.BrigadeService",
+                         "method":  "ListBrigadeSkills",
+                         "metadata":  {
+                                          "x-actor-department-id":  "{{actor_department_id}}",
+                                          "x-actor-user-id":  "{{actor_user_id}}",
+                                          "x-actor-roles":  "{{actor_roles}}"
+                                      },
+                         "message":  "{\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"active\": true\n}"
+                     },
+                     {
+                         "group":  "Skills",
+                         "name":  "RemoveBrigadeSkill",
+                         "service":  "brigade.v1.BrigadeService",
+                         "method":  "RemoveBrigadeSkill",
+                         "metadata":  {
+                                          "x-actor-department-id":  "{{actor_department_id}}",
+                                          "x-actor-user-id":  "{{actor_user_id}}",
+                                          "x-idempotency-key":  "{{idempotency_key}}",
+                                          "x-actor-roles":  "{{actor_roles}}",
+                                          "x-request-id":  "{{request_id}}"
+                                      },
+                         "message":  "{\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"skill_id\": \"{{skill_id}}\"\n}"
+                     },
+                     {
+                         "group":  "Skills",
+                         "name":  "DeactivateSkill",
+                         "service":  "brigade.v1.BrigadeService",
+                         "method":  "DeactivateSkill",
+                         "metadata":  {
+                                          "x-actor-roles":  "admin",
+                                          "x-actor-user-id":  "{{actor_user_id}}",
+                                          "x-idempotency-key":  "{{idempotency_key}}",
+                                          "x-request-id":  "{{request_id}}"
+                                      },
+                         "message":  "{\n  \"id\": \"{{skill_id}}\"\n}"
+                     },
+                     {
+                         "group":  "Schedule",
+                         "name":  "SetBrigadeSchedule",
+                         "service":  "brigade.v1.BrigadeService",
+                         "method":  "SetBrigadeSchedule",
+                         "metadata":  {
+                                          "x-actor-department-id":  "{{actor_department_id}}",
+                                          "x-actor-user-id":  "{{actor_user_id}}",
+                                          "x-idempotency-key":  "{{idempotency_key}}",
+                                          "x-actor-roles":  "{{actor_roles}}",
+                                          "x-request-id":  "{{request_id}}"
+                                      },
+                         "message":  "{\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"items\": [\n    {\n      \"day_of_week\": 1,\n      \"starts_at\": \"09:00\",\n      \"ends_at\": \"18:00\",\n      \"timezone\": \"Europe/Moscow\",\n      \"valid_from\": \"2026-06-12\"\n    },\n    {\n      \"day_of_week\": 2,\n      \"starts_at\": \"09:00\",\n      \"ends_at\": \"18:00\",\n      \"timezone\": \"Europe/Moscow\",\n      \"valid_from\": \"2026-06-12\"\n    }\n  ]\n}"
+                     },
+                     {
+                         "group":  "Schedule",
+                         "name":  "ListBrigadeSchedule",
+                         "service":  "brigade.v1.BrigadeService",
+                         "method":  "ListBrigadeSchedule",
+                         "metadata":  {
+                                          "x-actor-department-id":  "{{actor_department_id}}",
+                                          "x-actor-user-id":  "{{actor_user_id}}",
+                                          "x-actor-roles":  "{{actor_roles}}"
+                                      },
+                         "message":  "{\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"active\": true\n}"
+                     },
+                     {
+                         "group":  "Zones And Availability",
+                         "name":  "CreateBrigadeZone",
+                         "service":  "brigade.v1.BrigadeService",
+                         "method":  "CreateBrigadeZone",
+                         "metadata":  {
+                                          "x-actor-department-id":  "{{actor_department_id}}",
+                                          "x-actor-user-id":  "{{actor_user_id}}",
+                                          "x-idempotency-key":  "{{idempotency_key}}",
+                                          "x-actor-roles":  "{{actor_roles}}",
+                                          "x-request-id":  "{{request_id}}"
+                                      },
+                         "message":  "{\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"department_id\": \"{{department_id}}\",\n  \"name\": \"Center zone\",\n  \"geo_json\": \"{\\\"type\\\":\\\"Polygon\\\",\\\"coordinates\\\":[[[37.50,55.70],[37.75,55.70],[37.75,55.85],[37.50,55.85],[37.50,55.70]]]}\",\n  \"priority\": 10\n}"
+                     },
+                     {
+                         "group":  "Zones And Availability",
+                         "name":  "ListBrigadeZones",
+                         "service":  "brigade.v1.BrigadeService",
+                         "method":  "ListBrigadeZones",
+                         "metadata":  {
+                                          "x-actor-department-id":  "{{actor_department_id}}",
+                                          "x-actor-user-id":  "{{actor_user_id}}",
+                                          "x-actor-roles":  "{{actor_roles}}"
+                                      },
+                         "message":  "{\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"active\": true\n}"
+                     },
+                     {
+                         "group":  "Zones And Availability",
+                         "name":  "UpdateBrigadeZone",
+                         "service":  "brigade.v1.BrigadeService",
+                         "method":  "UpdateBrigadeZone",
+                         "metadata":  {
+                                          "x-actor-department-id":  "{{actor_department_id}}",
+                                          "x-actor-user-id":  "{{actor_user_id}}",
+                                          "x-idempotency-key":  "{{idempotency_key}}",
+                                          "x-actor-roles":  "{{actor_roles}}",
+                                          "x-request-id":  "{{request_id}}"
+                                      },
+                         "message":  "{\n  \"id\": \"{{zone_id}}\",\n  \"name\": \"Center zone updated\",\n  \"priority\": 20,\n  \"active\": true\n}"
+                     },
+                     {
+                         "group":  "Zones And Availability",
+                         "name":  "CheckBrigadeCoversPoint",
+                         "service":  "brigade.v1.BrigadeService",
+                         "method":  "CheckBrigadeCoversPoint",
+                         "metadata":  {
+
+                                      },
+                         "message":  "{\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"longitude\": {{longitude}},\n  \"latitude\": {{latitude}}\n}"
+                     },
+                     {
+                         "group":  "Zones And Availability",
+                         "name":  "FindBrigadesByPoint",
+                         "service":  "brigade.v1.BrigadeService",
+                         "method":  "FindBrigadesByPoint",
+                         "metadata":  {
+
+                                      },
+                         "message":  "{\n  \"department_id\": \"{{department_id}}\",\n  \"longitude\": {{longitude}},\n  \"latitude\": {{latitude}},\n  \"only_available\": true,\n  \"required_skill_ids\": [\"{{skill_id}}\"],\n  \"required_roles\": [\"BRIGADE_MEMBER_ROLE_LEAD\", \"BRIGADE_MEMBER_ROLE_DRIVER\"],\n  \"limit\": 20,\n  \"offset\": 0\n}"
+                     },
+                     {
+                         "group":  "Zones And Availability",
+                         "name":  "GetAvailableBrigades",
+                         "service":  "brigade.v1.BrigadeService",
+                         "method":  "GetAvailableBrigades",
+                         "metadata":  {
+                                          "x-actor-department-id":  "{{actor_department_id}}",
+                                          "x-actor-user-id":  "{{actor_user_id}}",
+                                          "x-actor-roles":  "{{actor_roles}}"
+                                      },
+                         "message":  "{\n  \"department_id\": \"{{department_id}}\",\n  \"longitude\": {{longitude}},\n  \"latitude\": {{latitude}},\n  \"required_skill_ids\": [\"{{skill_id}}\"],\n  \"required_roles\": [\"BRIGADE_MEMBER_ROLE_LEAD\"],\n  \"limit\": 20,\n  \"offset\": 0\n}"
+                     },
+                     {
+                         "group":  "Zones And Availability",
+                         "name":  "CheckBrigadeCanHandleTicket",
+                         "service":  "brigade.v1.BrigadeService",
+                         "method":  "CheckBrigadeCanHandleTicket",
+                         "metadata":  {
+
+                                      },
+                         "message":  "{\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"department_id\": \"{{department_id}}\",\n  \"longitude\": {{longitude}},\n  \"latitude\": {{latitude}},\n  \"required_skill_ids\": [\"{{skill_id}}\"],\n  \"required_roles\": [\"BRIGADE_MEMBER_ROLE_LEAD\", \"BRIGADE_MEMBER_ROLE_DRIVER\"]\n}"
+                     },
+                     {
+                         "group":  "Zones And Availability",
+                         "name":  "DeleteBrigadeZone",
+                         "service":  "brigade.v1.BrigadeService",
+                         "method":  "DeleteBrigadeZone",
+                         "metadata":  {
+                                          "x-actor-department-id":  "{{actor_department_id}}",
+                                          "x-actor-user-id":  "{{actor_user_id}}",
+                                          "x-idempotency-key":  "{{idempotency_key}}",
+                                          "x-actor-roles":  "{{actor_roles}}",
+                                          "x-request-id":  "{{request_id}}"
+                                      },
+                         "message":  "{\n  \"id\": \"{{zone_id}}\"\n}"
+                     }
+                 ]
+}

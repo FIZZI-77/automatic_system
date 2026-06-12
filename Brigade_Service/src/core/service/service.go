@@ -2,7 +2,11 @@ package service
 
 import (
 	"brigade/models"
+	"brigade/src/core/repository"
 	"context"
+
+	departmentv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/department/v1"
+	"go.uber.org/zap"
 )
 
 type BrigadeService interface {
@@ -64,4 +68,14 @@ type Service struct {
 	SkillService
 	ScheduleService
 	ZoneService
+}
+
+func NewService(repo *repository.Repo, departmentClient departmentv1.DepartmentServiceClient, logger *zap.Logger) *Service {
+	return &Service{
+		BrigadeService:  NewBrigadeService(repo, departmentClient, logger),
+		MemberService:   NewMemberServiceStruct(repo, logger),
+		SkillService:    NewSkillServiceStruct(repo, logger),
+		ScheduleService: NewScheduleServiceStruct(repo, logger),
+		ZoneService:     NewZoneServiceStruct(repo, logger),
+	}
 }

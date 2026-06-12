@@ -20,6 +20,25 @@ func NewZoneRepo(db *sql.DB) *ZoneRepoStruct {
 	return &ZoneRepoStruct{db: db}
 }
 
+func (z *ZoneRepoStruct) GetBrigadeZoneByID(ctx context.Context, zoneID uuid.UUID) (*models.BrigadeZone, error) {
+	const query = `
+		SELECT
+			id,
+			brigade_id,
+			department_id,
+			name,
+			ST_AsGeoJSON(zone::geometry),
+			priority,
+			active,
+			created_at,
+			updated_at
+		FROM brigade_zones
+		WHERE id = $1
+	`
+
+	return scanBrigadeZone(z.db.QueryRowContext(ctx, query, zoneID))
+}
+
 func (z *ZoneRepoStruct) CreateBrigadeZone(ctx context.Context, in *models.CreateBrigadeZoneInput) (*models.CreateBrigadeZoneResult, error) {
 	tx, err := z.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -259,34 +278,49 @@ func (z *ZoneRepoStruct) CheckBrigadeCoversPoint(ctx context.Context, in *models
 
 func (z *ZoneRepoStruct) FindBrigadesByPoint(ctx context.Context, in *models.FindBrigadesByPointInput) (*models.FindBrigadesByPointResult, error) {
 	whereParts := []string{
-		"z.department_id = $1",
+		"b.department_id = $1",
 		"bz.active = true",
 		"ST_Covers(bz.zone, ST_SetSRID(ST_MakePoint($2, $3), 4326)::geography)",
 	}
 	args := []any{in.DepartmentID, in.Longitude, in.Latitude}
 
 	if in.OnlyAvailable {
-		whereParts = append(whereParts, fmt.Sprintf("z.status = $%d", len(args)+1))
+		whereParts = append(whereParts, fmt.Sprintf("b.status = $%d", len(args)+1))
 		args = append(args, string(models.BrigadeStatusAvailable))
+		whereParts = append(whereParts, brigadeHasActiveMembersSQL("b.id"))
+		whereParts = append(whereParts, brigadeHasAvailableActiveMembersSQL("b.id"))
+		whereParts = append(whereParts, brigadeIsOnShiftSQL("b.id"))
 	}
 	if len(in.RequiredSkillIDs) > 0 {
 		whereParts = append(whereParts, fmt.Sprintf(`
 			(
 				SELECT COUNT(DISTINCT bs.skill_id)
 				FROM brigade_skills bs
-				WHERE bs.brigade_id = z.id
+				WHERE bs.brigade_id = b.id
 				  AND bs.active = true
 				  AND bs.skill_id = ANY($%d)
 			) = %d
 		`, len(args)+1, len(in.RequiredSkillIDs)))
 		args = append(args, pq.Array(uuidStrings(in.RequiredSkillIDs)))
 	}
+	if len(in.RequiredRoles) > 0 {
+		whereParts = append(whereParts, fmt.Sprintf(`
+			(
+				SELECT COUNT(DISTINCT bm.role)
+				FROM brigade_members bm
+				WHERE bm.brigade_id = b.id
+				  AND bm.active = true
+				  AND bm.role = ANY($%d)
+			) = %d
+		`, len(args)+1, len(in.RequiredRoles)))
+		args = append(args, pq.Array(roleStrings(in.RequiredRoles)))
+	}
 	whereSQL := "WHERE " + strings.Join(whereParts, " AND ")
 
 	countQuery := fmt.Sprintf(`
-		SELECT COUNT(DISTINCT z.id)
+		SELECT COUNT(DISTINCT b.id)
 		FROM brigades b
-		JOIN brigade_zones bz ON bz.brigade_id = z.id
+		JOIN brigade_zones bz ON bz.brigade_id = b.id
 		%s
 	`, whereSQL)
 	var total int64
@@ -297,20 +331,20 @@ func (z *ZoneRepoStruct) FindBrigadesByPoint(ctx context.Context, in *models.Fin
 	args = append(args, in.Limit, in.Offset)
 	query := fmt.Sprintf(`
 		SELECT DISTINCT
-			z.id,
-			z.department_id,
-			z.name,
-			z.description,
-			z.status,
-			z.specialization,
-			z.created_at,
-			z.updated_at,
-			z.deactivated_at,
-			z.archived_at
+			b.id,
+			b.department_id,
+			b.name,
+			b.description,
+			b.status,
+			b.specialization,
+			b.created_at,
+			b.updated_at,
+			b.deactivated_at,
+			b.archived_at
 		FROM brigades b
-		JOIN brigade_zones bz ON bz.brigade_id = z.id
+		JOIN brigade_zones bz ON bz.brigade_id = b.id
 		%s
-		ORDER BY z.created_at DESC
+		ORDER BY b.created_at DESC
 		LIMIT $%d OFFSET $%d
 	`, whereSQL, len(args)-1, len(args))
 
@@ -334,8 +368,8 @@ func (z *ZoneRepoStruct) FindBrigadesByPoint(ctx context.Context, in *models.Fin
 	return &models.FindBrigadesByPointResult{Brigades: brigades, Total: total}, nil
 }
 
-func (z *ZoneRepoStruct) listAvailableBrigades(ctx context.Context, departmentID uuid.UUID, requiredSkillIDs []uuid.UUID, limit int32, offset int32) (*models.GetAvailableBrigadesResult, error) {
-	whereParts := []string{"department_id = $1", "status = $2"}
+func (z *ZoneRepoStruct) listAvailableBrigades(ctx context.Context, departmentID uuid.UUID, requiredSkillIDs []uuid.UUID, requiredRoles []models.BrigadeMemberRole, limit int32, offset int32) (*models.GetAvailableBrigadesResult, error) {
+	whereParts := []string{"department_id = $1", "status = $2", brigadeHasActiveMembersSQL("brigades.id"), brigadeHasAvailableActiveMembersSQL("brigades.id"), brigadeIsOnShiftSQL("brigades.id")}
 	args := []any{departmentID, string(models.BrigadeStatusAvailable)}
 	if len(requiredSkillIDs) > 0 {
 		whereParts = append(whereParts, fmt.Sprintf(`
@@ -348,6 +382,18 @@ func (z *ZoneRepoStruct) listAvailableBrigades(ctx context.Context, departmentID
 			) = %d
 		`, len(args)+1, len(requiredSkillIDs)))
 		args = append(args, pq.Array(uuidStrings(requiredSkillIDs)))
+	}
+	if len(requiredRoles) > 0 {
+		whereParts = append(whereParts, fmt.Sprintf(`
+			(
+				SELECT COUNT(DISTINCT bm.role)
+				FROM brigade_members bm
+				WHERE bm.brigade_id = brigades.id
+				  AND bm.active = true
+				  AND bm.role = ANY($%d)
+			) = %d
+		`, len(args)+1, len(requiredRoles)))
+		args = append(args, pq.Array(roleStrings(requiredRoles)))
 	}
 	whereSQL := "WHERE " + strings.Join(whereParts, " AND ")
 
@@ -384,6 +430,42 @@ func (z *ZoneRepoStruct) listAvailableBrigades(ctx context.Context, departmentID
 		return nil, fmt.Errorf("rows: %w", err)
 	}
 	return &models.GetAvailableBrigadesResult{Brigades: brigades, Total: total}, nil
+}
+
+func brigadeHasActiveMembersSQL(brigadeIDExpr string) string {
+	return fmt.Sprintf(`EXISTS (
+		SELECT 1
+		FROM brigade_members bm
+		WHERE bm.brigade_id = %s
+		  AND bm.active = true
+	)`, brigadeIDExpr)
+}
+
+func brigadeHasAvailableActiveMembersSQL(brigadeIDExpr string) string {
+	return fmt.Sprintf(`EXISTS (
+		SELECT 1
+		FROM brigade_members bm
+		WHERE bm.brigade_id = %s
+		  AND bm.active = true
+		  AND bm.availability_status = 'AVAILABLE'
+	)`, brigadeIDExpr)
+}
+
+func brigadeIsOnShiftSQL(brigadeIDExpr string) string {
+	return fmt.Sprintf(`EXISTS (
+		SELECT 1
+		FROM brigade_schedule sch
+		WHERE sch.brigade_id = %s
+		  AND sch.active = true
+		  AND (sch.valid_from IS NULL OR (now() AT TIME ZONE sch.timezone)::date >= sch.valid_from)
+		  AND (sch.valid_to IS NULL OR (now() AT TIME ZONE sch.timezone)::date <= sch.valid_to)
+		  AND EXTRACT(ISODOW FROM now() AT TIME ZONE sch.timezone)::int = sch.day_of_week
+		  AND (
+			(sch.starts_at < sch.ends_at AND (now() AT TIME ZONE sch.timezone)::time >= sch.starts_at AND (now() AT TIME ZONE sch.timezone)::time < sch.ends_at)
+			OR
+			(sch.starts_at > sch.ends_at AND ((now() AT TIME ZONE sch.timezone)::time >= sch.starts_at OR (now() AT TIME ZONE sch.timezone)::time < sch.ends_at))
+		  )
+	)`, brigadeIDExpr)
 }
 
 func scanBrigadeZone(row scanner) (*models.BrigadeZone, error) {

@@ -35,6 +35,9 @@ func (s *SkillRepoStruct) CreateSkill(ctx context.Context, in *models.CreateSkil
 
 	skill, err := scanSkill(tx.QueryRowContext(ctx, query, in.Code, in.Name, in.Description))
 	if err != nil {
+		if isSkillUniqueViolation(err) {
+			return nil, fmt.Errorf("repo: CreateSkill: %w", models.ErrAlreadyExists)
+		}
 		return nil, fmt.Errorf("repo: CreateSkill: scan skill: %w", err)
 	}
 
@@ -78,6 +81,9 @@ func (s *SkillRepoStruct) UpdateSkill(ctx context.Context, in *models.UpdateSkil
 
 	skill, err := scanSkill(tx.QueryRowContext(ctx, query, in.Code, in.Name, in.Description, in.Active, in.ID))
 	if err != nil {
+		if isSkillUniqueViolation(err) {
+			return nil, fmt.Errorf("repo: UpdateSkill: %w", models.ErrAlreadyExists)
+		}
 		return nil, fmt.Errorf("repo: UpdateSkill: scan skill: %w", err)
 	}
 
@@ -211,6 +217,9 @@ func (s *SkillRepoStruct) AddBrigadeSkill(ctx context.Context, in *models.AddBri
 
 	brigadeSkill, err := scanBrigadeSkill(tx.QueryRowContext(ctx, query, in.BrigadeID, in.SkillID))
 	if err != nil {
+		if isBrigadeSkillUniqueViolation(err) {
+			return nil, fmt.Errorf("repo: AddBrigadeSkill: %w", models.ErrAlreadyExists)
+		}
 		return nil, fmt.Errorf("repo: AddBrigadeSkill: scan brigade skill: %w", err)
 	}
 
@@ -398,4 +407,30 @@ func (s *SkillRepoStruct) brigadeHasSkills(ctx context.Context, brigadeID uuid.U
 	}
 
 	return count == len(skillIDs), nil
+}
+
+func isSkillUniqueViolation(err error) bool {
+	var pqErr *pq.Error
+	if !errors.As(err, &pqErr) {
+		return false
+	}
+
+	if pqErr.Code != "23505" {
+		return false
+	}
+
+	return pqErr.Constraint == "" || pqErr.Constraint == "skills_code_uidx"
+}
+
+func isBrigadeSkillUniqueViolation(err error) bool {
+	var pqErr *pq.Error
+	if !errors.As(err, &pqErr) {
+		return false
+	}
+
+	if pqErr.Code != "23505" {
+		return false
+	}
+
+	return pqErr.Constraint == "" || pqErr.Constraint == "brigade_skills_active_uidx"
 }

@@ -11,7 +11,7 @@ func NewLogger() (*zap.Logger, error) {
 	  "encoding": "json",
 	  "outputPaths": ["stdout", "/tmp/logs"],
 	  "errorOutputPaths": ["stderr"],
-	  "initialFields": {"jwt": "auth"},
+	  "initialFields": {"service: brigade"},
 	  "encoderConfig": {
 	    "messageKey": "message",
 	    "levelKey": "level",
