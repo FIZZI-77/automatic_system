@@ -9,6 +9,9 @@ services:
     environment:
       GATEWAY_ADDR: ":8080"
       AUTH_SERVICE_ADDR: "host.docker.internal:50051"
+      TICKET_SERVICE_ADDR: "host.docker.internal:50052"
+      DEPARTMENT_SERVICE_ADDR: "host.docker.internal:50053"
+      BRIGADE_SERVICE_ADDR: "host.docker.internal:50054"
       JWT_PUBLIC_KEY_PATH: "/app/keys/public.pem"
       JWT_ISSUER: "auth-jwt"
       JWT_AUDIENCE: "api-gateway"

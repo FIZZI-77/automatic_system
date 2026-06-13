@@ -11,6 +11,9 @@ services:
     environment:
       GATEWAY_ADDR: ":8081"
       AUTH_SERVICE_ADDR: "auth-service:50051"
+      TICKET_SERVICE_ADDR: "ticket-service:50052"
+      DEPARTMENT_SERVICE_ADDR: "department-service:50053"
+      BRIGADE_SERVICE_ADDR: "brigade-service:50054"
       JWT_PUBLIC_KEY_PATH: "/app/keys/public.pem"
       JWT_ISSUER: "auth-jwt"
       JWT_AUDIENCE: "api-gateway"
@@ -18,6 +21,32 @@ services:
       - ./API_Gateway/keys/public.pem:/app/keys/public.pem:ro
     depends_on:
       - auth-service
+      - ticket-service
+      - department-service
+      - brigade-service
+    restart: unless-stopped
+
+  ticket-service:
+    build:
+      context: ./Ticket_Service
+      dockerfile: Dockerfile
+    container_name: ticket
+    ports:
+      - "50052:50052"
+    env_file:
+      - ./Ticket_Service/.env
+    environment:
+      GRPC_ADDR: ":50052"
+      DB_HOST: ${TICKET_DB_HOST}
+      DB_PORT: ${TICKET_DB_PORT}
+    depends_on:
+      postgres-ticket:
+        condition: service_healthy
+      migrator-ticket:
+        condition: service_completed_successfully
+
+    volumes:
+      - ./keys:/app/keys:ro
     restart: unless-stopped
 
   auth-service:
@@ -31,38 +60,147 @@ services:
       - ./Auth_Service/.env
     environment:
       GRPC_ADDR: ":50051"
-      DB_HOST: "postgres"
-      DB_PORT: "5432"
+      DB_HOST: ${AUTH_DB_HOST}
+      DB_PORT: ${AUTH_DB_PORT}
       SMTP_HOST: "mailhog"
       SMTP_PORT: "1025"
     depends_on:
-      postgres:
+      postgres-auth:
         condition: service_healthy
-      migrator:
+      migrator-auth:
         condition: service_completed_successfully
     volumes:
       - ./Auth_Service/keys:/app/keys:ro
     restart: unless-stopped
 
-  postgres:
+  department-service:
+    build:
+      context: ./Department_Service
+      dockerfile: Dockerfile
+    container_name: department-service
+    ports:
+      - "50053:50053"
+    env_file:
+      - ./Department_Service/.env
+    environment:
+      GRPC_ADDR: ":50053"
+      GRPC_PORT: "50053"
+      DB_HOST: ${DEPARTMENT_DB_HOST}
+      DB_PORT: ${DEPARTMENT_DB_PORT}
+    depends_on:
+      postgres-department:
+        condition: service_healthy
+      migrator-department:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  brigade-service:
+    build:
+      context: ./Brigade_Service
+      dockerfile: Dockerfile
+    container_name: brigade-service
+    ports:
+      - "50054:50054"
+    env_file:
+      - ./Brigade_Service/.env
+    environment:
+      GRPC_PORT: "50054"
+      DB_HOST: ${BRIGADE_DB_HOST}
+      DB_PORT: ${BRIGADE_DB_PORT}
+      DB_USERNAME: ${BRIGADE_DB_USERNAME}
+      DB_PASSWORD: ${BRIGADE_DB_PASSWORD}
+      DB_NAME: ${BRIGADE_DB_NAME}
+      SSLMODE: ${BRIGADE_DB_SSLMODE}
+      DEPARTMENT_GRPC_ADDR: "department-service:50053"
+    depends_on:
+      postgres-brigade:
+        condition: service_healthy
+      migrator-brigade:
+        condition: service_completed_successfully
+      department-service:
+        condition: service_started
+    restart: unless-stopped
+
+  postgres-auth:
     image: postgres:16
     container_name: auth-postgres
     env_file:
       - ./Auth_Service/.env
     environment:
-      POSTGRES_USER: ${DB_USERNAME}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${AUTH_DB_USERNAME}
+      POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD}
+      POSTGRES_DB: ${AUTH_DB_NAME}
     ports:
-      - "${DB_PORT}:5432"
+      - "${AUTH_DB_PUBLISHED_PORT}:${AUTH_DB_PORT}"
     volumes:
       - postgres_auth_data:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}"]
+      test: ["CMD-SHELL", "pg_isready -U ${AUTH_DB_USERNAME} -d ${AUTH_DB_NAME}"]
       interval: 5s
       timeout: 5s
       retries: 10
+
+  postgres-ticket:
+    image: postgres:16
+    container_name: ticket-postgres
+    env_file:
+      - ./Ticket_Service/.env
+    environment:
+      POSTGRES_USER: ${TICKET_DB_USERNAME}
+      POSTGRES_PASSWORD: ${TICKET_DB_PASSWORD}
+      POSTGRES_DB: ${TICKET_DB_NAME}
+    ports:
+      - "${TICKET_DB_PUBLISHED_PORT}:${TICKET_DB_PORT}"
+    volumes:
+      - postgres_ticket_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${TICKET_DB_USERNAME} -d ${TICKET_DB_NAME}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  postgres-department:
+    image: postgres:16
+    container_name: department-postgres
+    env_file:
+      - ./Department_Service/.env
+    environment:
+      POSTGRES_USER: ${DEPARTMENT_DB_USERNAME}
+      POSTGRES_PASSWORD: ${DEPARTMENT_DB_PASSWORD}
+      POSTGRES_DB: ${DEPARTMENT_DB_NAME}
+    ports:
+      - "${DEPARTMENT_DB_PUBLISHED_PORT}:${DEPARTMENT_DB_PORT}"
+    volumes:
+      - postgres_department_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DEPARTMENT_DB_USERNAME} -d ${DEPARTMENT_DB_NAME}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  postgres-brigade:
+    image: postgis/postgis:16-3.4
+    container_name: brigade-postgres
+    env_file:
+      - ./Brigade_Service/.env
+    environment:
+      POSTGRES_USER: ${BRIGADE_DB_USERNAME}
+      POSTGRES_PASSWORD: ${BRIGADE_DB_PASSWORD}
+      POSTGRES_DB: ${BRIGADE_DB_NAME}
+    ports:
+      - "${BRIGADE_DB_PUBLISHED_PORT}:${BRIGADE_DB_PORT}"
+    volumes:
+      - postgres_brigade_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${BRIGADE_DB_USERNAME} -d ${BRIGADE_DB_NAME}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 
   mailhog:
     image: mailhog/mailhog:latest
@@ -72,7 +210,7 @@ services:
       - "8025:8025"
     restart: unless-stopped
 
-  migrator:
+  migrator-auth:
     build:
       context: ./Auth_Service/migrator
       dockerfile: Dockerfile
@@ -80,13 +218,76 @@ services:
     env_file:
       - ./Auth_Service/.env
     depends_on:
-      postgres:
+      postgres-auth:
         condition: service_healthy
     volumes:
       - ./Auth_Service/scheme:/migrations
     environment:
       GOOSE_DRIVER: postgres
-      GOOSE_DBSTRING: postgres://${DB_USERNAME}:${DB_PASSWORD}@postgres:5432/${DB_NAME}?sslmode=${SSLMODE}
+      GOOSE_DBSTRING: postgres://${AUTH_DB_USERNAME}:${AUTH_DB_PASSWORD}@${AUTH_DB_HOST}:${AUTH_DB_PORT}/${AUTH_DB_NAME}?sslmode=${AUTH_DB_SSLMODE}
+    command: >
+      sh -c "
+        echo 'Running migrations...' &&
+        goose -dir /migrations up
+      "
+
+  migrator-ticket:
+    build:
+      context: ./Ticket_Service/migrator
+      dockerfile: Dockerfile
+    container_name: ticket-migrator
+    env_file:
+      - ./Ticket_Service/.env
+    depends_on:
+      postgres-ticket:
+        condition: service_healthy
+    volumes:
+      - ./Ticket_Service/scheme:/migrations
+    environment:
+      GOOSE_DRIVER: postgres
+      GOOSE_DBSTRING: postgres://${TICKET_DB_USERNAME}:${TICKET_DB_PASSWORD}@${TICKET_DB_HOST}:${TICKET_DB_PORT}/${TICKET_DB_NAME}?sslmode=${TICKET_DB_SSLMODE}
+    command: >
+      sh -c "
+        echo 'Running migrations...' &&
+        goose -dir /migrations up
+      "
+
+  migrator-department:
+    build:
+      context: ./Department_Service/migrator
+      dockerfile: Dockerfile
+    container_name: department-migrator
+    env_file:
+      - ./Department_Service/.env
+    depends_on:
+      postgres-department:
+        condition: service_healthy
+    volumes:
+      - ./Department_Service/scheme:/migrations
+    environment:
+      GOOSE_DRIVER: postgres
+      GOOSE_DBSTRING: postgres://${DEPARTMENT_DB_USERNAME}:${DEPARTMENT_DB_PASSWORD}@${DEPARTMENT_DB_HOST}:${DEPARTMENT_DB_PORT}/${DEPARTMENT_DB_NAME}?sslmode=${DEPARTMENT_DB_SSLMODE}
+    command: >
+      sh -c "
+        echo 'Running migrations...' &&
+        goose -dir /migrations up
+      "
+
+  migrator-brigade:
+    build:
+      context: ./Brigade_Service/migrator
+      dockerfile: Dockerfile
+    container_name: brigade-migrator
+    env_file:
+      - ./Brigade_Service/.env
+    depends_on:
+      postgres-brigade:
+        condition: service_healthy
+    volumes:
+      - ./Brigade_Service/scheme:/migrations
+    environment:
+      GOOSE_DRIVER: postgres
+      GOOSE_DBSTRING: postgres://${BRIGADE_DB_USERNAME}:${BRIGADE_DB_PASSWORD}@${BRIGADE_DB_HOST}:${BRIGADE_DB_PORT}/${BRIGADE_DB_NAME}?sslmode=${BRIGADE_DB_SSLMODE}
     command: >
       sh -c "
         echo 'Running migrations...' &&
@@ -95,3 +296,6 @@ services:
 
 volumes:
   postgres_auth_data:
+  postgres_ticket_data:
+  postgres_department_data:
+  postgres_brigade_data:

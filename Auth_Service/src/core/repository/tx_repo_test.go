@@ -650,6 +650,198 @@ func TestTXRepo_ResetPassword_UnknownUser_ReturnsError(t *testing.T) {
 	}
 }
 
+func TestTXRepo_VerifyEmail_VerifiesUserAndMarksTokenUsed(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	repo := NewRepo(db)
+	txRepo := NewTXRepoStruct(db)
+
+	userID := createTestUser(t, repo)
+	tokenHash := createTestOneTimeToken(t, repo, userID, models.TokenTypeEmailVerification)
+
+	token, err := repo.GetOneTimeTokenByHashAndType(ctx, tokenHash, models.TokenTypeEmailVerification)
+	if err != nil {
+		t.Fatalf("failed to get one-time token: %v", err)
+	}
+
+	err = txRepo.VerifyEmail(ctx, userID, token.ID)
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+
+	user, err := repo.GetUserByID(ctx, userID)
+	if err != nil {
+		t.Fatalf("failed to get user: %v", err)
+	}
+
+	if !user.EmailVerified {
+		t.Fatal("expected user email verified")
+	}
+
+	token, err = repo.GetOneTimeTokenByHashAndType(ctx, tokenHash, models.TokenTypeEmailVerification)
+	if err != nil {
+		t.Fatalf("failed to get updated one-time token: %v", err)
+	}
+
+	if token.UsedAt == nil {
+		t.Fatal("expected token used_at not nil")
+	}
+}
+
+func TestTXRepo_VerifyEmail_AlreadyUsedTokenReturnsError(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	repo := NewRepo(db)
+	txRepo := NewTXRepoStruct(db)
+
+	userID := createTestUser(t, repo)
+	tokenHash := createTestOneTimeToken(t, repo, userID, models.TokenTypeEmailVerification)
+
+	token, err := repo.GetOneTimeTokenByHashAndType(ctx, tokenHash, models.TokenTypeEmailVerification)
+	if err != nil {
+		t.Fatalf("failed to get one-time token: %v", err)
+	}
+
+	if err = txRepo.VerifyEmail(ctx, userID, token.ID); err != nil {
+		t.Fatalf("first verify should succeed, got %v", err)
+	}
+
+	if err = txRepo.VerifyEmail(ctx, userID, token.ID); err == nil {
+		t.Fatal("expected error for already used token")
+	}
+}
+
+func TestTXRepo_ResetPasswordWithToken_UpdatesPasswordRevokesSessionsTokensAndMarksTokenUsed(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	repo := NewRepo(db)
+	txRepo := NewTXRepoStruct(db)
+	refreshRepo := NewRefreshTokenRepoStruct(db)
+
+	userID := createTestUser(t, repo)
+	firstSessionID := createTestSession(t, repo, userID)
+	secondSessionID := createTestSession(t, repo, userID)
+
+	firstTokenHash := fmt.Sprintf("first-token-hash-%s", uuid.New().String())
+	secondTokenHash := fmt.Sprintf("second-token-hash-%s", uuid.New().String())
+
+	err := refreshRepo.CreateToken(ctx, &models.RefreshToken{
+		UserID:    userID,
+		SessionID: firstSessionID,
+		TokenHash: firstTokenHash,
+		IsRevoked: false,
+		ExpiresAt: time.Now().Add(time.Hour),
+	})
+	if err != nil {
+		t.Fatalf("failed to create first refresh token: %v", err)
+	}
+
+	err = refreshRepo.CreateToken(ctx, &models.RefreshToken{
+		UserID:    userID,
+		SessionID: secondSessionID,
+		TokenHash: secondTokenHash,
+		IsRevoked: false,
+		ExpiresAt: time.Now().Add(time.Hour),
+	})
+	if err != nil {
+		t.Fatalf("failed to create second refresh token: %v", err)
+	}
+
+	resetTokenHash := createTestOneTimeToken(t, repo, userID, models.TokenTypePasswordReset)
+	resetToken, err := repo.GetOneTimeTokenByHashAndType(ctx, resetTokenHash, models.TokenTypePasswordReset)
+	if err != nil {
+		t.Fatalf("failed to get reset token: %v", err)
+	}
+
+	newPasswordHash := "reset-password-with-token-hash"
+
+	count, err := txRepo.ResetPasswordWithToken(ctx, userID, newPasswordHash, resetToken.ID)
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+
+	if count != 2 {
+		t.Fatalf("expected revoked sessions count 2, got %d", count)
+	}
+
+	user, err := repo.GetUserByID(ctx, userID)
+	if err != nil {
+		t.Fatalf("failed to get user: %v", err)
+	}
+
+	if user.PasswordHash != newPasswordHash {
+		t.Fatalf("expected password hash %s, got %s", newPasswordHash, user.PasswordHash)
+	}
+
+	firstSession, err := repo.GetSessionByID(ctx, firstSessionID)
+	if err != nil {
+		t.Fatalf("failed to get first session: %v", err)
+	}
+
+	secondSession, err := repo.GetSessionByID(ctx, secondSessionID)
+	if err != nil {
+		t.Fatalf("failed to get second session: %v", err)
+	}
+
+	if !firstSession.IsRevoked || !secondSession.IsRevoked {
+		t.Fatal("expected all user sessions revoked")
+	}
+
+	firstToken, err := getRefreshTokenByHashForTXTest(ctx, db, firstTokenHash)
+	if err != nil {
+		t.Fatalf("failed to get first refresh token: %v", err)
+	}
+
+	secondToken, err := getRefreshTokenByHashForTXTest(ctx, db, secondTokenHash)
+	if err != nil {
+		t.Fatalf("failed to get second refresh token: %v", err)
+	}
+
+	if !firstToken.IsRevoked || !secondToken.IsRevoked {
+		t.Fatal("expected all user refresh tokens revoked")
+	}
+
+	resetToken, err = repo.GetOneTimeTokenByHashAndType(ctx, resetTokenHash, models.TokenTypePasswordReset)
+	if err != nil {
+		t.Fatalf("failed to get updated reset token: %v", err)
+	}
+
+	if resetToken.UsedAt == nil {
+		t.Fatal("expected reset token used_at not nil")
+	}
+}
+
+func TestTXRepo_ResetPasswordWithToken_AlreadyUsedTokenReturnsError(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	repo := NewRepo(db)
+	txRepo := NewTXRepoStruct(db)
+
+	userID := createTestUser(t, repo)
+	tokenHash := createTestOneTimeToken(t, repo, userID, models.TokenTypePasswordReset)
+
+	token, err := repo.GetOneTimeTokenByHashAndType(ctx, tokenHash, models.TokenTypePasswordReset)
+	if err != nil {
+		t.Fatalf("failed to get reset token: %v", err)
+	}
+
+	if _, err = txRepo.ResetPasswordWithToken(ctx, userID, "first-password-hash", token.ID); err != nil {
+		t.Fatalf("first reset should succeed, got %v", err)
+	}
+
+	if _, err = txRepo.ResetPasswordWithToken(ctx, userID, "second-password-hash", token.ID); err == nil {
+		t.Fatal("expected error for already used token")
+	}
+}
+
 func getRefreshTokenByHashForTXTest(ctx context.Context, db *sql.DB, tokenHash string) (*models.RefreshToken, error) {
 	var token models.RefreshToken
 

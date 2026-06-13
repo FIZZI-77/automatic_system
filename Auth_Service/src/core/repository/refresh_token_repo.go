@@ -11,13 +11,31 @@ import (
 )
 
 type RefreshTokenRepoStruct struct {
-	db *sql.DB
+	db       DBTX
+	txSource txBeginner
 }
 
-func NewRefreshTokenRepoStruct(db *sql.DB) *RefreshTokenRepoStruct {
-	return &RefreshTokenRepoStruct{
+func NewRefreshTokenRepoStruct(db DBTX) *RefreshTokenRepoStruct {
+	repo := &RefreshTokenRepoStruct{
 		db: db,
 	}
+	if txSource, ok := db.(txBeginner); ok {
+		repo.txSource = txSource
+	}
+	return repo
+}
+
+func (r *RefreshTokenRepoStruct) beginTx(ctx context.Context, operation string) (*sql.Tx, error) {
+	if r.txSource == nil {
+		return nil, fmt.Errorf("refresh_token_repo: %s: transaction source is unavailable", operation)
+	}
+
+	tx, err := r.txSource.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("refresh_token_repo: %s: cant begin transaction: %w", operation, err)
+	}
+
+	return tx, nil
 }
 
 func (r *RefreshTokenRepoStruct) CreateToken(ctx context.Context, token *models.RefreshToken) error {
@@ -107,9 +125,9 @@ func (r *RefreshTokenRepoStruct) RevokeAllTokenByUserID(ctx context.Context, use
 
 func (r *RefreshTokenRepoStruct) MarkUsedAndReplaceToken(ctx context.Context, oldTokenID uuid.UUID, newToken *models.RefreshToken) error {
 	var newTokenID uuid.UUID
-	tx, err := r.db.BeginTx(ctx, nil)
+	tx, err := r.beginTx(ctx, "MarkUsedAndReplace()")
 	if err != nil {
-		return fmt.Errorf("refresh_token_repo: MarkUsedAndReplace(): cant begin transaction: %w", err)
+		return err
 	}
 
 	const insertNewToken = `INSERT INTO refresh_tokens(user_id, session_id, token_hash, is_revoked, expires_at, used_at, replaced_by_token_id)

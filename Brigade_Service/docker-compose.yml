@@ -1,0 +1,57 @@
+services:
+  brigade-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: brigade
+    ports:
+      - "50054:50054"
+    env_file:
+      - .env
+    environment:
+      GRPC_PORT: "50054"
+      DEPARTMENT_GRPC_ADDR: ${DEPARTMENT_GRPC_ADDR:-host.docker.internal:50053}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: postgres-brigade
+    environment:
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "5435:${DB_PORT}"
+    volumes:
+      - postgres_brigade_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrator:
+    build: ./migrator
+    container_name: brigade-migrator
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./scheme:/migrations
+    environment:
+      GOOSE_DRIVER: postgres
+      GOOSE_DBSTRING: postgres://${DB_USERNAME}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=${SSLMODE}
+    command: >
+      sh -c "
+        echo 'Running migrations...' &&
+        goose -dir /migrations up
+      "
+
+volumes:
+  postgres_brigade_data:

@@ -3,10 +3,12 @@ module gateway
 go 1.25.9
 
 require (
-	auth v0.0.0
+	github.com/FIZZI-77/automatic-system-contracts v0.0.0-20260612100231-7fe516aa3e6a
 	github.com/gin-gonic/gin v1.12.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
-	google.golang.org/grpc v1.80.0
+	golang.org/x/time v0.11.0
+	google.golang.org/grpc v1.81.0
+	google.golang.org/protobuf v1.36.11
 )
 
 require (
@@ -39,7 +41,4 @@ require (
 	golang.org/x/sys v0.43.0 // indirect
 	golang.org/x/text v0.36.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260420184626-e10c466a9529 // indirect
-	google.golang.org/protobuf v1.36.11 // indirect
 )
-
-replace auth => ../Auth_Service
