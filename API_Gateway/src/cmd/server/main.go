@@ -10,6 +10,7 @@ import (
 	"gateway/src/core/requestid"
 	"gateway/src/core/retry"
 	authv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/auth/v1"
+	brigadev1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/brigade/v1"
 	departmentv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/department/v1"
 	ticketv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/ticket/v1"
 	"log"
@@ -29,6 +30,7 @@ func main() {
 	authServiceAddr := getEnv("AUTH_SERVICE_ADDR", "localhost:50051")
 	ticketServiceAddr := getEnv("TICKET_SERVICE_ADDR", "localhost:50052")
 	departmentServiceAddr := getEnv("DEPARTMENT_SERVICE_ADDR", "localhost:50053")
+	brigadeServiceAddr := getEnv("BRIGADE_SERVICE_ADDR", "localhost:50054")
 	gatewayAddr := getEnv("GATEWAY_ADDR", ":8080")
 	publicKeyPath := getEnv("JWT_PUBLIC_KEY_PATH", "./keys/public.pem")
 
@@ -81,6 +83,22 @@ func main() {
 
 	departmentClient := departmentv1.NewDepartmentServiceClient(departmentConn)
 
+	brigadeConn, err := grpc.NewClient(
+		brigadeServiceAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithChainUnaryInterceptor(
+			requestid.UnaryClientInterceptor,
+			idempotency.UnaryClientInterceptor,
+			retry.UnaryClientInterceptor,
+		),
+	)
+	if err != nil {
+		log.Fatalf("failed to connect to brigade service: %v", err)
+	}
+	dependencies.Add("brigade grpc connection", brigadeConn.Close)
+
+	brigadeClient := brigadev1.NewBrigadeServiceClient(brigadeConn)
+
 	authMiddleware, err := middleware.NewAuthMiddleware(
 		publicKeyPath,
 		"auth-jwt",
@@ -93,7 +111,8 @@ func main() {
 	authHandler := handlers.NewAuthHandler(authClient)
 	ticketHandler := handlers.NewTicketHandler(ticketClient)
 	departmentHandler := handlers.NewDepartmentHandler(departmentClient)
-	handler := handlers.NewHandler(authHandler, ticketHandler, departmentHandler, authMiddleware)
+	brigadeHandler := handlers.NewBrigadeHandler(brigadeClient)
+	handler := handlers.NewHandler(authHandler, ticketHandler, departmentHandler, brigadeHandler, authMiddleware)
 	router := handler.InitRouters()
 
 	server := &http.Server{
@@ -111,6 +130,7 @@ func main() {
 		log.Printf("auth service address: %s", authServiceAddr)
 		log.Printf("ticket service address: %s", ticketServiceAddr)
 		log.Printf("department service address: %s", departmentServiceAddr)
+		log.Printf("brigade service address: %s", brigadeServiceAddr)
 
 		if err = server.ListenAndServe(); err != nil && !errors.Is(http.ErrServerClosed, err) {
 			serverErrCh <- err

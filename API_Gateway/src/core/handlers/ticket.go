@@ -471,25 +471,9 @@ func stringOrEmpty(value *string) string {
 	return *value
 }
 
-func valueOrZero(value *float64) float64 {
-	if value == nil {
-		return 0
-	}
-
-	return *value
-}
-
 func int32OrZero(value *int32) int32 {
 	if value == nil {
 		return 0
-	}
-
-	return *value
-}
-
-func boolOrDefault(value *bool, defaultValue bool) bool {
-	if value == nil {
-		return defaultValue
 	}
 
 	return *value

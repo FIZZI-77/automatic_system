@@ -3,7 +3,7 @@ module department
 go 1.25.9
 
 require (
-	github.com/FIZZI-77/automatic-system-contracts v0.0.0-20260526055509-83357b1828f0
+	github.com/FIZZI-77/automatic-system-contracts v0.0.0-20260612100231-7fe516aa3e6a
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/lib/pq v1.12.3
@@ -19,5 +19,3 @@ require (
 	golang.org/x/text v0.34.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260226221140-a57be14db171 // indirect
 )
-
-replace github.com/FIZZI-77/automatic-system-contracts => C:/Users/zapru/GolandProjects/automatic-system-contracts

@@ -4,7 +4,6 @@ import (
 	"context"
 	"strings"
 
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
@@ -31,19 +30,10 @@ func IdempotencyKeyFromContext(ctx context.Context) (string, bool) {
 	return key, true
 }
 
-func IdempotencyKeyField(ctx context.Context) zap.Field {
-	key, ok := IdempotencyKeyFromContext(ctx)
-	if !ok {
-		return zap.Skip()
-	}
-
-	return zap.String("idempotency_key", key)
-}
-
 func IdempotencyKeyUnaryServerInterceptor(
 	ctx context.Context,
 	req interface{},
-	info *grpc.UnaryServerInfo,
+	_ *grpc.UnaryServerInfo,
 	handler grpc.UnaryHandler,
 ) (interface{}, error) {
 	if md, ok := metadata.FromIncomingContext(ctx); ok {

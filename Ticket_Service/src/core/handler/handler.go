@@ -244,10 +244,10 @@ func (t *TicketHandler) ListTickets(ctx context.Context, req *ticketv1.ListTicke
 		return nil, ticketStatusError("ListTickets", fmt.Errorf("%w: %v", models.ErrValidation, err))
 	}
 
-	var status *models.TicketStatus
+	var ticketStatus *models.TicketStatus
 	if req.Status != nil && req.GetStatus() != ticketv1.TicketStatus_TICKET_STATUS_UNSPECIFIED {
 		v := FromProtoStatus(req.GetStatus())
-		status = &v
+		ticketStatus = &v
 	}
 
 	var priority *models.TicketPriority
@@ -262,7 +262,7 @@ func (t *TicketHandler) ListTickets(ctx context.Context, req *ticketv1.ListTicke
 		UserID:       userID,
 		BrigadeID:    brigadeID,
 		CategoryID:   categoryID,
-		Status:       status,
+		Status:       ticketStatus,
 		Priority:     priority,
 		CreatedFrom:  FromProtoTimestamp(req.GetCreatedFrom()),
 		CreatedTo:    FromProtoTimestamp(req.GetCreatedTo()),

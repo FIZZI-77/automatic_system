@@ -1,0 +1,354 @@
+{
+  "info": {
+    "_postman_id": "0df81bd7-251a-4d4e-8f6f-department0001",
+    "name": "Authomatic City Services - Department Service",
+    "description": "HTTP requests for Department Service through API Gateway. Run Auth/Login first to fill access_token.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET /health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/health"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('health is ok', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().status).to.eql('ok');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{test_email}}\",\n  \"password\": \"{{test_password}}\",\n  \"client_id\": \"postman\"\n}"
+            },
+            "url": "{{base_url}}/auth/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('login ok', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('access_token', json.access_token);",
+                  "pm.collectionVariables.set('refresh_token', json.refresh_token);",
+                  "pm.collectionVariables.set('session_id', json.session_id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Departments",
+      "item": [
+        {
+          "name": "CreateDepartment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "X-Request-ID",
+                "value": "{{request_id}}"
+              },
+              {
+                "key": "X-Idempotency-Key",
+                "value": "{{department_idempotency_key}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Utilities Department\",\n  \"description\": \"Department for city utility operations\"\n}"
+            },
+            "url": "{{base_url}}/departments/create"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "if (json.department && json.department.id) {",
+                  "  pm.collectionVariables.set('department_id', json.department.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GetDepartmentByID",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "X-Request-ID",
+                "value": "{{request_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{department_id}}\"\n}"
+            },
+            "url": "{{base_url}}/departments/get"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('get ok', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ListDepartments",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "X-Request-ID",
+                "value": "{{request_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"active\",\n  \"limit\": 20,\n  \"offset\": 0,\n  \"sort_by\": \"created_at\",\n  \"sort_order\": \"desc\"\n}"
+            },
+            "url": "{{base_url}}/departments/list"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('list ok', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "if (Array.isArray(json.departments) && json.departments.length > 0) {",
+                  "  pm.collectionVariables.set('department_id', json.departments[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ListDepartments by created range",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "X-Request-ID",
+                "value": "{{request_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"created_from\": \"2026-01-01T00:00:00Z\",\n  \"created_to\": \"2026-12-31T23:59:59Z\",\n  \"limit\": 20,\n  \"offset\": 0,\n  \"sort_by\": \"name\",\n  \"sort_order\": \"asc\"\n}"
+            },
+            "url": "{{base_url}}/departments/list"
+          }
+        },
+        {
+          "name": "UpdateDepartment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "X-Request-ID",
+                "value": "{{request_id}}"
+              },
+              {
+                "key": "X-Idempotency-Key",
+                "value": "{{department_idempotency_key}}-update"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{department_id}}\",\n  \"name\": \"Utilities Department Updated\",\n  \"description\": \"Updated department description\",\n  \"status\": \"active\"\n}"
+            },
+            "url": "{{base_url}}/departments/update"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('update ok', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DeleteDepartment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "X-Request-ID",
+                "value": "{{request_id}}"
+              },
+              {
+                "key": "X-Idempotency-Key",
+                "value": "{{department_idempotency_key}}-delete"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{department_id}}\"\n}"
+            },
+            "url": "{{base_url}}/departments/delete"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('delete ok', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8081"
+    },
+    {
+      "key": "test_email",
+      "value": "admin@example.local"
+    },
+    {
+      "key": "test_password",
+      "value": "Password123!"
+    },
+    {
+      "key": "access_token",
+      "value": ""
+    },
+    {
+      "key": "refresh_token",
+      "value": ""
+    },
+    {
+      "key": "session_id",
+      "value": ""
+    },
+    {
+      "key": "department_id",
+      "value": "22222222-2222-2222-2222-222222222222"
+    },
+    {
+      "key": "request_id",
+      "value": "postman-department-request-001"
+    },
+    {
+      "key": "department_idempotency_key",
+      "value": "postman-department-idempotency-001"
+    }
+  ]
+}

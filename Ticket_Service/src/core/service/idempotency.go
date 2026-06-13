@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"ticket/models"
 	"ticket/pkg"
@@ -109,10 +108,4 @@ func idempotencyActor(actor *uuid.UUID, fallback uuid.UUID) string {
 		return fallback.String()
 	}
 	return ""
-}
-
-func isIdempotencyError(err error) bool {
-	return errors.Is(err, models.ErrIdempotencyConflict) ||
-		errors.Is(err, models.ErrIdempotencyInProgress) ||
-		errors.Is(err, models.ErrIdempotencyFailed)
 }

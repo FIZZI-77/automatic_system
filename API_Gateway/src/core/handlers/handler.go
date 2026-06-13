@@ -43,14 +43,16 @@ type Handler struct {
 	authHandler       *AuthHandler
 	ticketHandler     *TicketHandler
 	departmentHandler *DepartmentHandler
+	brigadeHandler    *BrigadeHandler
 	authMiddleware    *middleware.AuthMiddleware
 }
 
-func NewHandler(authHandler *AuthHandler, ticketHandler *TicketHandler, departmentHandler *DepartmentHandler, authMiddleware *middleware.AuthMiddleware) *Handler {
+func NewHandler(authHandler *AuthHandler, ticketHandler *TicketHandler, departmentHandler *DepartmentHandler, brigadeHandler *BrigadeHandler, authMiddleware *middleware.AuthMiddleware) *Handler {
 	return &Handler{
 		authHandler:       authHandler,
 		ticketHandler:     ticketHandler,
 		departmentHandler: departmentHandler,
+		brigadeHandler:    brigadeHandler,
 		authMiddleware:    authMiddleware,
 	}
 }
@@ -155,6 +157,69 @@ func (h *Handler) InitRouters() *gin.Engine {
 		privateDepartments.POST("/list", h.departmentHandler.ListDepartments)
 		privateDepartments.POST("/update", h.departmentHandler.UpdateDepartment)
 		privateDepartments.POST("/delete", h.departmentHandler.DeleteDepartment)
+	}
+
+	privateBrigades := router.Group("/brigades")
+	privateBrigades.Use(h.authMiddleware.Handle())
+	{
+		privateBrigades.POST("/create", h.brigadeHandler.CreateBrigade)
+		privateBrigades.POST("/get", h.brigadeHandler.GetBrigadeByID)
+		privateBrigades.POST("/list", h.brigadeHandler.ListBrigades)
+		privateBrigades.POST("/update", h.brigadeHandler.UpdateBrigade)
+		privateBrigades.POST("/deactivate", h.brigadeHandler.DeactivateBrigade)
+		privateBrigades.POST("/archive", h.brigadeHandler.ArchiveBrigade)
+		privateBrigades.POST("/set-status", h.brigadeHandler.SetBrigadeStatus)
+		privateBrigades.POST("/status-history", h.brigadeHandler.GetBrigadeStatusHistory)
+		privateBrigades.POST("/get-by-user", h.brigadeHandler.GetBrigadeByUserID)
+		privateBrigades.POST("/available", h.brigadeHandler.GetAvailableBrigades)
+		privateBrigades.POST("/can-handle-ticket", h.brigadeHandler.CheckBrigadeCanHandleTicket)
+	}
+
+	privateBrigadeMembers := router.Group("/brigade-members")
+	privateBrigadeMembers.Use(h.authMiddleware.Handle())
+	{
+		privateBrigadeMembers.POST("/add", h.brigadeHandler.AddBrigadeMember)
+		privateBrigadeMembers.POST("/remove", h.brigadeHandler.RemoveBrigadeMember)
+		privateBrigadeMembers.POST("/change-role", h.brigadeHandler.ChangeBrigadeMemberRole)
+		privateBrigadeMembers.POST("/set-availability", h.brigadeHandler.SetBrigadeMemberAvailability)
+		privateBrigadeMembers.POST("/list", h.brigadeHandler.ListBrigadeMembers)
+		privateBrigadeMembers.POST("/history", h.brigadeHandler.GetBrigadeMemberHistory)
+		privateBrigadeMembers.POST("/status-history", h.brigadeHandler.GetBrigadeMemberStatusHistory)
+	}
+
+	privateSkills := router.Group("/skills")
+	privateSkills.Use(h.authMiddleware.Handle())
+	{
+		privateSkills.POST("/create", h.brigadeHandler.CreateSkill)
+		privateSkills.POST("/update", h.brigadeHandler.UpdateSkill)
+		privateSkills.POST("/deactivate", h.brigadeHandler.DeactivateSkill)
+		privateSkills.POST("/list", h.brigadeHandler.ListSkills)
+	}
+
+	privateBrigadeSkills := router.Group("/brigade-skills")
+	privateBrigadeSkills.Use(h.authMiddleware.Handle())
+	{
+		privateBrigadeSkills.POST("/add", h.brigadeHandler.AddBrigadeSkill)
+		privateBrigadeSkills.POST("/remove", h.brigadeHandler.RemoveBrigadeSkill)
+		privateBrigadeSkills.POST("/list", h.brigadeHandler.ListBrigadeSkills)
+	}
+
+	privateBrigadeSchedules := router.Group("/brigade-schedules")
+	privateBrigadeSchedules.Use(h.authMiddleware.Handle())
+	{
+		privateBrigadeSchedules.POST("/set", h.brigadeHandler.SetBrigadeSchedule)
+		privateBrigadeSchedules.POST("/list", h.brigadeHandler.ListBrigadeSchedule)
+	}
+
+	privateBrigadeZones := router.Group("/brigade-zones")
+	privateBrigadeZones.Use(h.authMiddleware.Handle())
+	{
+		privateBrigadeZones.POST("/create", h.brigadeHandler.CreateBrigadeZone)
+		privateBrigadeZones.POST("/update", h.brigadeHandler.UpdateBrigadeZone)
+		privateBrigadeZones.POST("/delete", h.brigadeHandler.DeleteBrigadeZone)
+		privateBrigadeZones.POST("/list", h.brigadeHandler.ListBrigadeZones)
+		privateBrigadeZones.POST("/covers-point", h.brigadeHandler.CheckBrigadeCoversPoint)
+		privateBrigadeZones.POST("/find-by-point", h.brigadeHandler.FindBrigadesByPoint)
 	}
 
 	return router
