@@ -113,25 +113,6 @@ func createTestSession(t *testing.T, repo *Repo, userID uuid.UUID) uuid.UUID {
 	return sessionID
 }
 
-func createTestRefreshToken(t *testing.T, repo *Repo, userID uuid.UUID, sessionID uuid.UUID) string {
-	t.Helper()
-
-	tokenHash := fmt.Sprintf("refresh-token-hash-%s", uuid.New().String())
-
-	err := repo.CreateToken(context.Background(), &models.RefreshToken{
-		UserID:    userID,
-		SessionID: sessionID,
-		TokenHash: tokenHash,
-		IsRevoked: false,
-		ExpiresAt: time.Now().Add(time.Hour),
-	})
-	if err != nil {
-		t.Fatalf("failed to create test refresh token: %v", err)
-	}
-
-	return tokenHash
-}
-
 func createTestOneTimeToken(t *testing.T, repo *Repo, userID uuid.UUID, tokenType models.TokenType) string {
 	t.Helper()
 

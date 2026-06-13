@@ -1,5 +1,5 @@
-github.com/FIZZI-77/automatic-system-contracts v0.0.0-20260526055509-83357b1828f0 h1:3dqohpycd86XYidWZUz93AJLlRk5rma+0ad7pmYoy9s=
-github.com/FIZZI-77/automatic-system-contracts v0.0.0-20260526055509-83357b1828f0/go.mod h1:ylszYXEH6aQK/fXBJ/rULlBa0MVFKgg+TtNp8FlZT4o=
+github.com/FIZZI-77/automatic-system-contracts v0.0.0-20260612100231-7fe516aa3e6a h1:UrewnyrpLSmPlvnsN2CAT9JAeD9AgFvwR15blizFjS0=
+github.com/FIZZI-77/automatic-system-contracts v0.0.0-20260612100231-7fe516aa3e6a/go.mod h1:ylszYXEH6aQK/fXBJ/rULlBa0MVFKgg+TtNp8FlZT4o=
 github.com/bytedance/gopkg v0.1.3 h1:TPBSwH8RsouGCBcMBktLt1AymVo2TVsBVCY4b6TnZ/M=
 github.com/bytedance/gopkg v0.1.3/go.mod h1:576VvJ+eJgyCzdjS+c4+77QF3p7ubbtiKARP3TxducM=
 github.com/bytedance/sonic v1.15.0 h1:/PXeWFaR5ElNcVE84U0dOHjiMHQOwNIx3K4ymzh/uSE=

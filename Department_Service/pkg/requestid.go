@@ -43,7 +43,7 @@ func RequestIDField(ctx context.Context) zap.Field {
 func RequestIDUnaryServerInterceptor(
 	ctx context.Context,
 	req interface{},
-	info *grpc.UnaryServerInfo,
+	_ *grpc.UnaryServerInfo,
 	handler grpc.UnaryHandler,
 ) (interface{}, error) {
 	if md, ok := metadata.FromIncomingContext(ctx); ok {

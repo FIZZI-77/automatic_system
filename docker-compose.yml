@@ -13,6 +13,7 @@ services:
       AUTH_SERVICE_ADDR: "auth-service:50051"
       TICKET_SERVICE_ADDR: "ticket-service:50052"
       DEPARTMENT_SERVICE_ADDR: "department-service:50053"
+      BRIGADE_SERVICE_ADDR: "brigade-service:50054"
       JWT_PUBLIC_KEY_PATH: "/app/keys/public.pem"
       JWT_ISSUER: "auth-jwt"
       JWT_AUDIENCE: "api-gateway"
@@ -22,6 +23,7 @@ services:
       - auth-service
       - ticket-service
       - department-service
+      - brigade-service
     restart: unless-stopped
 
   ticket-service:
@@ -92,6 +94,33 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
+  brigade-service:
+    build:
+      context: ./Brigade_Service
+      dockerfile: Dockerfile
+    container_name: brigade-service
+    ports:
+      - "50054:50054"
+    env_file:
+      - ./Brigade_Service/.env
+    environment:
+      GRPC_PORT: "50054"
+      DB_HOST: ${BRIGADE_DB_HOST}
+      DB_PORT: ${BRIGADE_DB_PORT}
+      DB_USERNAME: ${BRIGADE_DB_USERNAME}
+      DB_PASSWORD: ${BRIGADE_DB_PASSWORD}
+      DB_NAME: ${BRIGADE_DB_NAME}
+      SSLMODE: ${BRIGADE_DB_SSLMODE}
+      DEPARTMENT_GRPC_ADDR: "department-service:50053"
+    depends_on:
+      postgres-brigade:
+        condition: service_healthy
+      migrator-brigade:
+        condition: service_completed_successfully
+      department-service:
+        condition: service_started
+    restart: unless-stopped
+
   postgres-auth:
     image: postgres:16
     container_name: auth-postgres
@@ -148,6 +177,26 @@ services:
     restart: unless-stopped
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${DEPARTMENT_DB_USERNAME} -d ${DEPARTMENT_DB_NAME}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  postgres-brigade:
+    image: postgis/postgis:16-3.4
+    container_name: brigade-postgres
+    env_file:
+      - ./Brigade_Service/.env
+    environment:
+      POSTGRES_USER: ${BRIGADE_DB_USERNAME}
+      POSTGRES_PASSWORD: ${BRIGADE_DB_PASSWORD}
+      POSTGRES_DB: ${BRIGADE_DB_NAME}
+    ports:
+      - "${BRIGADE_DB_PUBLISHED_PORT}:${BRIGADE_DB_PORT}"
+    volumes:
+      - postgres_brigade_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${BRIGADE_DB_USERNAME} -d ${BRIGADE_DB_NAME}" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -224,7 +273,29 @@ services:
         goose -dir /migrations up
       "
 
+  migrator-brigade:
+    build:
+      context: ./Brigade_Service/migrator
+      dockerfile: Dockerfile
+    container_name: brigade-migrator
+    env_file:
+      - ./Brigade_Service/.env
+    depends_on:
+      postgres-brigade:
+        condition: service_healthy
+    volumes:
+      - ./Brigade_Service/scheme:/migrations
+    environment:
+      GOOSE_DRIVER: postgres
+      GOOSE_DBSTRING: postgres://${BRIGADE_DB_USERNAME}:${BRIGADE_DB_PASSWORD}@${BRIGADE_DB_HOST}:${BRIGADE_DB_PORT}/${BRIGADE_DB_NAME}?sslmode=${BRIGADE_DB_SSLMODE}
+    command: >
+      sh -c "
+        echo 'Running migrations...' &&
+        goose -dir /migrations up
+      "
+
 volumes:
   postgres_auth_data:
   postgres_ticket_data:
   postgres_department_data:
+  postgres_brigade_data:

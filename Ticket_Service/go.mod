@@ -3,7 +3,7 @@ module ticket
 go 1.25.9
 
 require (
-	github.com/FIZZI-77/automatic-system-contracts v0.0.0-20260512070528-7e8fca2c50c4
+	github.com/FIZZI-77/automatic-system-contracts v0.0.0-20260612100231-7fe516aa3e6a
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.9.2
 	github.com/joho/godotenv v1.5.1
@@ -15,8 +15,6 @@ require (
 	google.golang.org/grpc v1.81.0
 	google.golang.org/protobuf v1.36.11
 )
-
-replace github.com/FIZZI-77/automatic-system-contracts => C:/Users/zapru/GolandProjects/automatic-system-contracts
 
 require (
 	dario.cat/mergo v1.0.2 // indirect

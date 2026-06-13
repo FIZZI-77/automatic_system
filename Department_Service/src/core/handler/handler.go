@@ -122,8 +122,8 @@ func (h *DepartmentHandler) ListDepartments(ctx context.Context, req *department
 
 	var statusValue *models.DepartmentStatus
 	if req.Status != nil && req.GetStatus() != departmentv1.DepartmentStatus_DEPARTMENT_STATUS_UNSPECIFIED {
-		status := FromProtoStatus(req.GetStatus())
-		statusValue = &status
+		departmentStatus := FromProtoStatus(req.GetStatus())
+		statusValue = &departmentStatus
 	}
 
 	in := &models.ListDepartmentsInput{
@@ -187,8 +187,8 @@ func (h *DepartmentHandler) UpdateDepartment(ctx context.Context, req *departmen
 
 	var statusValue *models.DepartmentStatus
 	if req.Status != nil && req.GetStatus() != departmentv1.DepartmentStatus_DEPARTMENT_STATUS_UNSPECIFIED {
-		status := FromProtoStatus(req.GetStatus())
-		statusValue = &status
+		departmentStatus := FromProtoStatus(req.GetStatus())
+		statusValue = &departmentStatus
 	}
 
 	res, err := h.service.UpdateDepartment(ctx, &models.UpdateDepartmentInput{
