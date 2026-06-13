@@ -8,10 +8,10 @@ import (
 )
 
 type RoleRepoStruct struct {
-	db *sql.DB
+	db DBTX
 }
 
-func NewRoleRepoStruct(db *sql.DB) *RoleRepoStruct {
+func NewRoleRepoStruct(db DBTX) *RoleRepoStruct {
 	return &RoleRepoStruct{db: db}
 }
 

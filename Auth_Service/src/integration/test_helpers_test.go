@@ -40,7 +40,7 @@ type fakeMailService struct {
 	lastPasswordResetToken string
 }
 
-func (m *fakeMailService) SendVerificationEmail(ctx context.Context, toEmail string, token string) error {
+func (m *fakeMailService) SendVerificationEmail(_ context.Context, toEmail string, token string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -50,7 +50,7 @@ func (m *fakeMailService) SendVerificationEmail(ctx context.Context, toEmail str
 	return nil
 }
 
-func (m *fakeMailService) SendPasswordResetEmail(ctx context.Context, toEmail string, token string) error {
+func (m *fakeMailService) SendPasswordResetEmail(_ context.Context, toEmail string, token string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

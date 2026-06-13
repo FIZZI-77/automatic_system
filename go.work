@@ -3,6 +3,8 @@ go 1.25.9
 use (
 	./API_Gateway
 	./Auth_Service
+	./Department_Service
 	.
 	Ticket_Service
+	Brigade_Service
 )

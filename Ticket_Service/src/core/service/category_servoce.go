@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"ticket/pkg"
 	"time"
 
 	"go.uber.org/zap"
@@ -24,36 +25,41 @@ func NewCategoryServiceStruct(repo *repository.Repository, logger *zap.Logger) *
 }
 
 func (s *CategoryServiceStruct) CreateCategory(ctx context.Context, in *models.CreateCategoryInput) (*models.CreateCategoryResult, error) {
+	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
 
-	s.logger.Info("CreateCategory",
+	logger.Info("CreateCategory",
 		zap.String("code", in.Code),
 		zap.String("name", in.Name),
 	)
 
 	if err := in.Validate(); err != nil {
-		s.logger.Warn("CreateCategory validation failed",
+		logger.Warn("CreateCategory validation failed",
 			zap.String("code", in.Code),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: CreateCategory(): validate: %w", err)
+		return nil, fmt.Errorf("service: CreateCategory(): %w: %v", models.ErrValidation, err)
+	}
+
+	if !hasPrivilegedRole(in.ActorRoles) {
+		return nil, fmt.Errorf("service: CreateCategory(): %w", models.ErrPermissionDenied)
 	}
 
 	category, err := s.repo.CreateCategory(ctx, in)
 	if err != nil {
-		s.logger.Error("CreateCategory failed",
+		logger.Error("CreateCategory failed",
 			zap.String("code", in.Code),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("service: CreateCategory(): %w", err)
 	}
 
-	s.logger.Info("CreateCategory success",
+	logger.Info("CreateCategory success",
 		zap.String("category_id", category.ID.String()),
 		zap.String("code", category.Code),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	return &models.CreateCategoryResult{
@@ -62,35 +68,36 @@ func (s *CategoryServiceStruct) CreateCategory(ctx context.Context, in *models.C
 }
 
 func (s *CategoryServiceStruct) GetCategory(ctx context.Context, in *models.GetCategoryInput) (*models.GetCategoryResult, error) {
+	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
 
-	s.logger.Info("GetCategory",
+	logger.Info("GetCategory",
 		zap.String("category_id", in.CategoryID.String()),
 	)
 
 	if err := in.Validate(); err != nil {
-		s.logger.Warn("GetCategory validation failed",
+		logger.Warn("GetCategory validation failed",
 			zap.String("category_id", in.CategoryID.String()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: GetCategory(): validate: %w", err)
+		return nil, fmt.Errorf("service: GetCategory(): %w: %v", models.ErrValidation, err)
 	}
 
 	category, err := s.repo.GetCategoryByID(ctx, in.CategoryID)
 	if err != nil {
-		s.logger.Error("GetCategory failed",
+		logger.Error("GetCategory failed",
 			zap.String("category_id", in.CategoryID.String()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("service: GetCategory(): %w", err)
 	}
 
-	s.logger.Info("GetCategory success",
+	logger.Info("GetCategory success",
 		zap.String("category_id", category.ID.String()),
 		zap.String("code", category.Code),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	return &models.GetCategoryResult{
@@ -99,35 +106,36 @@ func (s *CategoryServiceStruct) GetCategory(ctx context.Context, in *models.GetC
 }
 
 func (s *CategoryServiceStruct) ListCategories(ctx context.Context, in *models.ListCategoriesInput) (*models.ListCategoriesResult, error) {
+	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
 
-	s.logger.Info("ListCategories",
+	logger.Info("ListCategories",
 		zap.Bool("only_active", in.OnlyActive),
 		zap.Int32("limit", in.Limit),
 		zap.Int32("offset", in.Offset),
 	)
 
 	if err := in.Validate(); err != nil {
-		s.logger.Warn("ListCategories validation failed",
-			zap.Duration("duration", time.Since(start)),
+		logger.Warn("ListCategories validation failed",
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: ListCategories(): validate: %w", err)
+		return nil, fmt.Errorf("service: ListCategories(): %w: %v", models.ErrValidation, err)
 	}
 
 	categories, total, err := s.repo.ListCategories(ctx, in)
 	if err != nil {
-		s.logger.Error("ListCategories failed",
-			zap.Duration("duration", time.Since(start)),
+		logger.Error("ListCategories failed",
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("service: ListCategories(): %w", err)
 	}
 
-	s.logger.Info("ListCategories success",
+	logger.Info("ListCategories success",
 		zap.Int("count", len(categories)),
 		zap.Int64("total", total),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	return &models.ListCategoriesResult{
@@ -137,42 +145,47 @@ func (s *CategoryServiceStruct) ListCategories(ctx context.Context, in *models.L
 }
 
 func (s *CategoryServiceStruct) UpdateCategory(ctx context.Context, in *models.UpdateCategoryInput) (*models.UpdateCategoryResult, error) {
+	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
 
-	s.logger.Info("UpdateCategory",
+	logger.Info("UpdateCategory",
 		zap.String("category_id", in.CategoryID.String()),
 	)
 
 	if in.Name != nil {
-		s.logger.Debug("UpdateCategory name", zap.String("name", *in.Name))
+		logger.Debug("UpdateCategory name", zap.String("name", *in.Name))
 	}
 	if in.IsActive != nil {
-		s.logger.Debug("UpdateCategory is_active", zap.Bool("is_active", *in.IsActive))
+		logger.Debug("UpdateCategory is_active", zap.Bool("is_active", *in.IsActive))
 	}
 
 	if err := in.Validate(); err != nil {
-		s.logger.Warn("UpdateCategory validation failed",
+		logger.Warn("UpdateCategory validation failed",
 			zap.String("category_id", in.CategoryID.String()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: UpdateCategory(): validate: %w", err)
+		return nil, fmt.Errorf("service: UpdateCategory(): %w: %v", models.ErrValidation, err)
+	}
+
+	if !hasPrivilegedRole(in.ActorRoles) {
+		return nil, fmt.Errorf("service: UpdateCategory(): %w", models.ErrPermissionDenied)
 	}
 
 	category, err := s.repo.UpdateCategory(ctx, in)
 	if err != nil {
-		s.logger.Error("UpdateCategory failed",
+		logger.Error("UpdateCategory failed",
 			zap.String("category_id", in.CategoryID.String()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("service: UpdateCategory(): %w", err)
 	}
 
-	s.logger.Info("UpdateCategory success",
+	logger.Info("UpdateCategory success",
 		zap.String("category_id", category.ID.String()),
 		zap.String("code", category.Code),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	return &models.UpdateCategoryResult{
@@ -181,36 +194,41 @@ func (s *CategoryServiceStruct) UpdateCategory(ctx context.Context, in *models.U
 }
 
 func (s *CategoryServiceStruct) DeleteCategory(ctx context.Context, in *models.DeleteCategoryInput) (*models.DeleteCategoryResult, error) {
+	logger := s.logger.With(pkg.RequestIDField(ctx))
 
 	start := time.Now()
 
-	s.logger.Info("DeleteCategory",
+	logger.Info("DeleteCategory",
 		zap.String("category_id", in.CategoryID.String()),
 	)
 
 	if err := in.Validate(); err != nil {
-		s.logger.Warn("DeleteCategory validation failed",
+		logger.Warn("DeleteCategory validation failed",
 			zap.String("category_id", in.CategoryID.String()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("service: DeleteCategory(): validate: %w", err)
+		return nil, fmt.Errorf("service: DeleteCategory(): %w: %v", models.ErrValidation, err)
+	}
+
+	if !hasPrivilegedRole(in.ActorRoles) {
+		return nil, fmt.Errorf("service: DeleteCategory(): %w", models.ErrPermissionDenied)
 	}
 
 	category, err := s.repo.DeleteCategory(ctx, in)
 	if err != nil {
-		s.logger.Error("DeleteCategory failed",
+		logger.Error("DeleteCategory failed",
 			zap.String("category_id", in.CategoryID.String()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("service: DeleteCategory(): %w", err)
 	}
 
-	s.logger.Info("DeleteCategory success",
+	logger.Info("DeleteCategory success",
 		zap.String("category_id", category.ID.String()),
 		zap.String("code", category.Code),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	return &models.DeleteCategoryResult{

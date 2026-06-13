@@ -2,8 +2,10 @@ package handler
 
 import (
 	"auth/models"
+	"auth/pkg"
 	"auth/src/core/service"
 	"context"
+	"errors"
 	v1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/auth/v1"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -28,8 +30,9 @@ func NewAuthHandler(ser *service.Service, logger *zap.Logger) *AuthHandler {
 func (h *AuthHandler) Register(ctx context.Context, req *v1.RegisterRequest) (*v1.RegisterResponse, error) {
 
 	start := time.Now()
+	logger := h.logger.With(pkg.RequestIDField(ctx))
 
-	h.logger.Info("gRPC request received",
+	logger.Info("gRPC request received",
 		zap.String("method", "Register"),
 		zap.String("email", req.GetEmail()),
 		zap.String("username", req.GetUsername()),
@@ -44,17 +47,17 @@ func (h *AuthHandler) Register(ctx context.Context, req *v1.RegisterRequest) (*v
 	result, err := h.service.Register(ctx, registerInput)
 
 	if err != nil {
-		h.logger.Warn("gRPC request failed",
+		logger.Warn("gRPC request failed",
 			zap.String("method", "Register"),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.String("error", err.Error()),
 		)
-		return nil, status.Errorf(codes.Internal, "failed register: %v", err)
+		return nil, authStatusError("Register", err)
 	}
 
-	h.logger.Info("gRPC request succeeded",
+	logger.Info("gRPC request succeeded",
 		zap.String("method", "Register"),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 		zap.String("user_id", result.UserID),
 		zap.String("email", result.Email),
 	)
@@ -71,8 +74,9 @@ func (h *AuthHandler) Register(ctx context.Context, req *v1.RegisterRequest) (*v
 func (h *AuthHandler) Login(ctx context.Context, request *v1.LoginRequest) (*v1.LoginResponse, error) {
 
 	start := time.Now()
+	logger := h.logger.With(pkg.RequestIDField(ctx))
 
-	h.logger.Info("gRPC request",
+	logger.Info("gRPC request",
 		zap.String("method", "Login"),
 		zap.String("email", request.GetEmail()),
 		zap.String("client_id", request.GetClientId()),
@@ -91,13 +95,13 @@ func (h *AuthHandler) Login(ctx context.Context, request *v1.LoginRequest) (*v1.
 	result, err := h.service.Login(ctx, loginInput)
 
 	if err != nil {
-		h.logger.Warn("gRPC request failed",
+		logger.Warn("gRPC request failed",
 			zap.String("method", "Login"),
 			zap.String("email", request.GetEmail()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.String("error", err.Error()),
 		)
-		return nil, status.Errorf(codes.Internal, "failed Login: %v", err)
+		return nil, authStatusError("Login", err)
 	}
 
 	loginResponse := &v1.LoginResponse{
@@ -109,11 +113,11 @@ func (h *AuthHandler) Login(ctx context.Context, request *v1.LoginRequest) (*v1.
 		TokenType:            result.TokenType,
 	}
 
-	h.logger.Info("gRPC request succeeded",
+	logger.Info("gRPC request succeeded",
 		zap.String("method", "Login"),
 		zap.String("email", request.GetEmail()),
 		zap.String("session_id", result.SessionID.String()),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	return loginResponse, nil
@@ -122,10 +126,11 @@ func (h *AuthHandler) Login(ctx context.Context, request *v1.LoginRequest) (*v1.
 func (h *AuthHandler) Logout(ctx context.Context, request *v1.LogoutRequest) (*v1.LogoutResponse, error) {
 
 	start := time.Now()
+	logger := h.logger.With(pkg.RequestIDField(ctx))
 
 	userID, err := uuid.Parse(request.GetUserId())
 	if err != nil {
-		h.logger.Warn("invalid user_id in request",
+		logger.Warn("invalid user_id in request",
 			zap.String("method", "Logout"),
 			zap.String("user_id", request.GetUserId()),
 			zap.Error(err),
@@ -135,7 +140,7 @@ func (h *AuthHandler) Logout(ctx context.Context, request *v1.LogoutRequest) (*v
 
 	sessionID, err := uuid.Parse(request.GetSessionId())
 	if err != nil {
-		h.logger.Warn("invalid session_id in request",
+		logger.Warn("invalid session_id in request",
 			zap.String("method", "Logout"),
 			zap.String("session_id", request.GetSessionId()),
 			zap.Error(err),
@@ -150,21 +155,21 @@ func (h *AuthHandler) Logout(ctx context.Context, request *v1.LogoutRequest) (*v
 
 	err = h.service.Logout(ctx, logoutInput)
 	if err != nil {
-		h.logger.Warn("gRPC request failed",
+		logger.Warn("gRPC request failed",
 			zap.String("method", "Logout"),
 			zap.String("user_id", userID.String()),
 			zap.String("session_id", sessionID.String()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
-		return nil, status.Errorf(codes.Internal, "failed Logout: %v", err)
+		return nil, authStatusError("Logout", err)
 	}
 
-	h.logger.Info("gRPC request succeeded",
+	logger.Info("gRPC request succeeded",
 		zap.String("method", "Logout"),
 		zap.String("user_id", userID.String()),
 		zap.String("session_id", sessionID.String()),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	logoutResponse := &v1.LogoutResponse{
@@ -176,8 +181,9 @@ func (h *AuthHandler) Logout(ctx context.Context, request *v1.LogoutRequest) (*v
 
 func (h *AuthHandler) Refresh(ctx context.Context, request *v1.RefreshRequest) (*v1.RefreshResponse, error) {
 	start := time.Now()
+	logger := h.logger.With(pkg.RequestIDField(ctx))
 
-	h.logger.Info("gRPC request received",
+	logger.Info("gRPC request received",
 		zap.String("method", "Refresh"),
 		zap.Bool("has_refresh_token", request.GetRefreshToken() != ""),
 		zap.String("client_id", request.GetClientId()),
@@ -193,19 +199,19 @@ func (h *AuthHandler) Refresh(ctx context.Context, request *v1.RefreshRequest) (
 
 	result, err := h.service.Refresh(ctx, refreshInput)
 	if err != nil {
-		h.logger.Info("gRPC request received",
+		logger.Info("gRPC request received",
 			zap.String("method", "Refresh"),
 			zap.Bool("has_refresh_token", request.GetRefreshToken() != ""),
 			zap.String("client_id", request.GetClientId()),
 			zap.String("ip", request.GetIp()),
 		)
-		return nil, status.Errorf(codes.Internal, "failed Refresh: %v", err)
+		return nil, authStatusError("Refresh", err)
 	}
 
-	h.logger.Info("gRPC request succeeded",
+	logger.Info("gRPC request succeeded",
 		zap.String("method", "Refresh"),
 		zap.String("session_id", result.SessionID.String()),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	refreshResponse := &v1.RefreshResponse{
@@ -223,15 +229,16 @@ func (h *AuthHandler) Refresh(ctx context.Context, request *v1.RefreshRequest) (
 func (h *AuthHandler) LogoutAll(ctx context.Context, request *v1.LogoutAllRequest) (*v1.LogoutAllResponse, error) {
 
 	start := time.Now()
+	logger := h.logger.With(pkg.RequestIDField(ctx))
 
-	h.logger.Info("gRPC request received",
+	logger.Info("gRPC request received",
 		zap.String("method", "LogoutAll"),
 		zap.String("user_id", request.GetUserId()),
 	)
 
 	userID, err := uuid.Parse(request.GetUserId())
 	if err != nil {
-		h.logger.Warn("invalid user_id in request",
+		logger.Warn("invalid user_id in request",
 			zap.String("method", "LogoutAll"),
 			zap.String("user_id", request.GetUserId()),
 			zap.Error(err),
@@ -245,13 +252,13 @@ func (h *AuthHandler) LogoutAll(ctx context.Context, request *v1.LogoutAllReques
 
 	result, err := h.service.LogoutAll(ctx, logoutInput)
 	if err != nil {
-		h.logger.Warn("gRPC request failed",
+		logger.Warn("gRPC request failed",
 			zap.String("method", "LogoutAll"),
 			zap.String("user_id", userID.String()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
-		return nil, status.Errorf(codes.Internal, "failed LogoutAll: %v", err)
+		return nil, authStatusError("LogoutAll", err)
 	}
 
 	logoutResponse := &v1.LogoutAllResponse{
@@ -259,11 +266,11 @@ func (h *AuthHandler) LogoutAll(ctx context.Context, request *v1.LogoutAllReques
 		RevokedCount: result,
 	}
 
-	h.logger.Info("gRPC request succeeded",
+	logger.Info("gRPC request succeeded",
 		zap.String("method", "LogoutAll"),
 		zap.String("user_id", userID.String()),
 		zap.Uint32("revoked_count", result),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	return logoutResponse, nil
@@ -271,15 +278,16 @@ func (h *AuthHandler) LogoutAll(ctx context.Context, request *v1.LogoutAllReques
 
 func (h *AuthHandler) GetUserAuthInfo(ctx context.Context, request *v1.GetUserAuthInfoRequest) (*v1.GetUserAuthInfoResponse, error) {
 	start := time.Now()
+	logger := h.logger.With(pkg.RequestIDField(ctx))
 
-	h.logger.Info("gRPC request received",
+	logger.Info("gRPC request received",
 		zap.String("method", "GetUserAuthInfo"),
 		zap.String("user_id", request.GetUserId()),
 	)
 
 	userID, err := uuid.Parse(request.GetUserId())
 	if err != nil {
-		h.logger.Warn("invalid user_id in request",
+		logger.Warn("invalid user_id in request",
 			zap.String("method", "GetUserAuthInfo"),
 			zap.String("user_id", request.GetUserId()),
 			zap.Error(err),
@@ -289,23 +297,23 @@ func (h *AuthHandler) GetUserAuthInfo(ctx context.Context, request *v1.GetUserAu
 
 	user, err := h.service.GetUserAuthInfo(ctx, userID)
 	if err != nil {
-		h.logger.Warn("gRPC request failed",
+		logger.Warn("gRPC request failed",
 			zap.String("method", "GetUserAuthInfo"),
 			zap.String("user_id", userID.String()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
-		return nil, status.Errorf(codes.Internal, "failed GetUserAuthInfo: %v", err)
+		return nil, authStatusError("GetUserAuthInfo", err)
 	}
 
-	h.logger.Info("gRPC request succeeded",
+	logger.Info("gRPC request succeeded",
 		zap.String("method", "GetUserAuthInfo"),
 		zap.String("user_id", userID.String()),
 		zap.String("email", user.Email),
 		zap.Int("roles_count", len(user.Roles)),
 		zap.Bool("is_active", user.IsActive),
 		zap.Bool("email_verified", user.EmailVerified),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	userAuthInfo := &v1.GetUserAuthInfoResponse{
@@ -322,26 +330,27 @@ func (h *AuthHandler) GetUserAuthInfo(ctx context.Context, request *v1.GetUserAu
 
 func (h *AuthHandler) GetJWKS(ctx context.Context, _ *v1.GetJWKSRequest) (*v1.GetJWKSResponse, error) {
 	start := time.Now()
+	logger := h.logger.With(pkg.RequestIDField(ctx))
 
-	h.logger.Info("gRPC request received",
+	logger.Info("gRPC request received",
 		zap.String("method", "GetJWKS"),
 	)
 
 	jwk, err := h.service.GetJWKS(ctx)
 
 	if err != nil {
-		h.logger.Warn("gRPC request failed",
+		logger.Warn("gRPC request failed",
 			zap.String("method", "GetJWKS"),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
-		return nil, status.Errorf(codes.Internal, "failed GetJWKS: %v", err)
+		return nil, authStatusError("GetJWKS", err)
 	}
 
-	h.logger.Info("gRPC request succeeded",
+	logger.Info("gRPC request succeeded",
 		zap.String("method", "GetJWKS"),
 		zap.Int("jwks_size", len(jwk)),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	jWKSResponse := &v1.GetJWKSResponse{
@@ -352,8 +361,9 @@ func (h *AuthHandler) GetJWKS(ctx context.Context, _ *v1.GetJWKSRequest) (*v1.Ge
 
 func (h *AuthHandler) ChangePassword(ctx context.Context, request *v1.ChangePasswordRequest) (*v1.ChangePasswordResponse, error) {
 	start := time.Now()
+	logger := h.logger.With(pkg.RequestIDField(ctx))
 
-	h.logger.Info("gRPC request received",
+	logger.Info("gRPC request received",
 		zap.String("method", "ChangePassword"),
 		zap.String("user_id", request.GetUserId()),
 		zap.String("session_id", request.GetSessionId()),
@@ -362,7 +372,7 @@ func (h *AuthHandler) ChangePassword(ctx context.Context, request *v1.ChangePass
 
 	userID, err := uuid.Parse(request.GetUserId())
 	if err != nil {
-		h.logger.Warn("invalid user_id in request",
+		logger.Warn("invalid user_id in request",
 			zap.String("method", "ChangePassword"),
 			zap.String("user_id", request.GetUserId()),
 			zap.Error(err),
@@ -372,7 +382,7 @@ func (h *AuthHandler) ChangePassword(ctx context.Context, request *v1.ChangePass
 
 	sessionID, err := uuid.Parse(request.GetSessionId())
 	if err != nil {
-		h.logger.Warn("invalid session_id in request",
+		logger.Warn("invalid session_id in request",
 			zap.String("method", "ChangePassword"),
 			zap.String("session_id", request.GetSessionId()),
 			zap.Error(err),
@@ -390,20 +400,20 @@ func (h *AuthHandler) ChangePassword(ctx context.Context, request *v1.ChangePass
 
 	out, err := h.service.ChangePassword(ctx, input)
 	if err != nil {
-		h.logger.Warn("gRPC request failed",
+		logger.Warn("gRPC request failed",
 			zap.String("method", "ChangePassword"),
 			zap.String("user_id", userID.String()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
-		return nil, status.Errorf(codes.Internal, "failed ChangePassword: %v", err)
+		return nil, authStatusError("ChangePassword", err)
 	}
 
-	h.logger.Info("gRPC request succeeded",
+	logger.Info("gRPC request succeeded",
 		zap.String("method", "ChangePassword"),
 		zap.String("user_id", userID.String()),
 		zap.Int32("invalidated_sessions_count", out.InvalidatedSessionsCount),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	response := &v1.ChangePasswordResponse{
@@ -416,8 +426,9 @@ func (h *AuthHandler) ChangePassword(ctx context.Context, request *v1.ChangePass
 
 func (h *AuthHandler) SendVerificationEmail(ctx context.Context, request *v1.SendVerificationEmailRequest) (*v1.SendVerificationEmailResponse, error) {
 	start := time.Now()
+	logger := h.logger.With(pkg.RequestIDField(ctx))
 
-	h.logger.Info("gRPC request received",
+	logger.Info("gRPC request received",
 		zap.String("method", "SendVerificationEmail"),
 		zap.String("user_id", request.GetUserId()),
 		zap.String("email", request.GetEmail()),
@@ -425,7 +436,7 @@ func (h *AuthHandler) SendVerificationEmail(ctx context.Context, request *v1.Sen
 
 	userID, err := uuid.Parse(request.GetUserId())
 	if err != nil {
-		h.logger.Warn("invalid user_id in request",
+		logger.Warn("invalid user_id in request",
 			zap.String("method", "SendVerificationEmail"),
 			zap.String("user_id", request.GetUserId()),
 			zap.Error(err),
@@ -440,22 +451,22 @@ func (h *AuthHandler) SendVerificationEmail(ctx context.Context, request *v1.Sen
 
 	out, err := h.service.SendVerification(ctx, input)
 	if err != nil {
-		h.logger.Warn("gRPC request failed",
+		logger.Warn("gRPC request failed",
 			zap.String("method", "SendVerificationEmail"),
 			zap.String("user_id", userID.String()),
 			zap.String("email", request.GetEmail()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
-		return nil, status.Errorf(codes.Internal, "failed SendVerificationEmail: %v", err)
+		return nil, authStatusError("SendVerificationEmail", err)
 	}
 
-	h.logger.Info("gRPC request succeeded",
+	logger.Info("gRPC request succeeded",
 		zap.String("method", "SendVerificationEmail"),
 		zap.String("user_id", userID.String()),
 		zap.String("email", request.GetEmail()),
 		zap.Int64("expires_at_unix", out.ExpiresAtUnix),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	response := &v1.SendVerificationEmailResponse{
@@ -467,8 +478,9 @@ func (h *AuthHandler) SendVerificationEmail(ctx context.Context, request *v1.Sen
 
 func (h *AuthHandler) VerifyEmail(ctx context.Context, request *v1.VerifyEmailRequest) (*v1.VerifyEmailResponse, error) {
 	start := time.Now()
+	logger := h.logger.With(pkg.RequestIDField(ctx))
 
-	h.logger.Info("gRPC request received",
+	logger.Info("gRPC request received",
 		zap.String("method", "VerifyEmail"),
 		zap.Bool("has_token", request.GetToken() != ""),
 	)
@@ -479,20 +491,20 @@ func (h *AuthHandler) VerifyEmail(ctx context.Context, request *v1.VerifyEmailRe
 
 	out, err := h.service.VerifyEmail(ctx, input)
 	if err != nil {
-		h.logger.Warn("gRPC request failed",
+		logger.Warn("gRPC request failed",
 			zap.String("method", "VerifyEmail"),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
-		return nil, status.Errorf(codes.Internal, "failed VerifyEmail: %v", err)
+		return nil, authStatusError("VerifyEmail", err)
 	}
 
-	h.logger.Info("gRPC request succeeded",
+	logger.Info("gRPC request succeeded",
 		zap.String("method", "VerifyEmail"),
 		zap.String("user_id", out.UserID.String()),
 		zap.String("email", out.Email),
 		zap.Bool("email_verified", out.EmailVerified),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	response := &v1.VerifyEmailResponse{
@@ -508,8 +520,9 @@ func (h *AuthHandler) VerifyEmail(ctx context.Context, request *v1.VerifyEmailRe
 
 func (h *AuthHandler) RequestPasswordReset(ctx context.Context, request *v1.RequestPasswordResetRequest) (*v1.RequestPasswordResetResponse, error) {
 	start := time.Now()
+	logger := h.logger.With(pkg.RequestIDField(ctx))
 
-	h.logger.Info("gRPC request received",
+	logger.Info("gRPC request received",
 		zap.String("method", "RequestPasswordReset"),
 		zap.String("email", request.GetEmail()),
 	)
@@ -520,21 +533,21 @@ func (h *AuthHandler) RequestPasswordReset(ctx context.Context, request *v1.Requ
 
 	out, err := h.service.RequestPasswordReset(ctx, input)
 	if err != nil {
-		h.logger.Warn("gRPC request failed",
+		logger.Warn("gRPC request failed",
 			zap.String("method", "RequestPasswordReset"),
 			zap.String("email", request.GetEmail()),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
-		return nil, status.Errorf(codes.Internal, "failed RequestPasswordReset: %v", err)
+		return nil, authStatusError("RequestPasswordReset", err)
 	}
 
-	h.logger.Info("gRPC request succeeded",
+	logger.Info("gRPC request succeeded",
 		zap.String("method", "RequestPasswordReset"),
 		zap.String("email", request.GetEmail()),
 		zap.Bool("email_exists", out.ExpiresAtUnix != 0),
 		zap.Int64("expires_at_unix", out.ExpiresAtUnix),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	response := &v1.RequestPasswordResetResponse{
@@ -547,8 +560,9 @@ func (h *AuthHandler) RequestPasswordReset(ctx context.Context, request *v1.Requ
 
 func (h *AuthHandler) ResetPassword(ctx context.Context, request *v1.ResetPasswordRequest) (*v1.ResetPasswordResponse, error) {
 	start := time.Now()
+	logger := h.logger.With(pkg.RequestIDField(ctx))
 
-	h.logger.Info("gRPC request received",
+	logger.Info("gRPC request received",
 		zap.String("method", "ResetPassword"),
 		zap.Bool("has_token", request.GetToken() != ""),
 	)
@@ -560,18 +574,18 @@ func (h *AuthHandler) ResetPassword(ctx context.Context, request *v1.ResetPasswo
 
 	out, err := h.service.ResetPassword(ctx, input)
 	if err != nil {
-		h.logger.Warn("gRPC request failed",
+		logger.Warn("gRPC request failed",
 			zap.String("method", "ResetPassword"),
-			zap.Duration("duration", time.Since(start)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		)
-		return nil, status.Errorf(codes.Internal, "failed ResetPassword: %v", err)
+		return nil, authStatusError("ResetPassword", err)
 	}
 
-	h.logger.Info("gRPC request succeeded",
+	logger.Info("gRPC request succeeded",
 		zap.String("method", "ResetPassword"),
 		zap.Uint32("invalidated_sessions_count", uint32(out.InvalidatedSessionsCount)),
-		zap.Duration("duration", time.Since(start)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
 	response := &v1.ResetPasswordResponse{
@@ -580,4 +594,78 @@ func (h *AuthHandler) ResetPassword(ctx context.Context, request *v1.ResetPasswo
 	}
 
 	return response, nil
+}
+
+func authStatusError(method string, err error) error {
+	return status.Errorf(authErrorCode(err), "failed %s: %v", method, err)
+}
+
+func authErrorCode(err error) codes.Code {
+	if err == nil {
+		return codes.OK
+	}
+
+	if isValidationError(err) {
+		return codes.InvalidArgument
+	}
+
+	switch {
+	case errors.Is(err, models.ErrUserAlreadyExists):
+		return codes.AlreadyExists
+	case errors.Is(err, models.ErrIdempotencyConflict):
+		return codes.AlreadyExists
+	case errors.Is(err, models.ErrIdempotencyInProgress):
+		return codes.Aborted
+	case errors.Is(err, models.ErrUserNotFound),
+		errors.Is(err, models.ErrSessionNotFound):
+		return codes.NotFound
+	case errors.Is(err, models.ErrInvalidPassword),
+		errors.Is(err, models.ErrInvalidOldPassword),
+		errors.Is(err, models.ErrInvalidRefreshToken),
+		errors.Is(err, models.ErrInvalidToken):
+		return codes.Unauthenticated
+	case errors.Is(err, models.ErrUserInactive),
+		errors.Is(err, models.ErrRefreshTokenExpired),
+		errors.Is(err, models.ErrRefreshTokenReplaced),
+		errors.Is(err, models.ErrSessionExpired),
+		errors.Is(err, models.ErrInvalidSession),
+		errors.Is(err, models.ErrEmailAlreadyVerified),
+		errors.Is(err, models.ErrTokenAlreadyUsed),
+		errors.Is(err, models.ErrTokenExpired),
+		errors.Is(err, models.ErrIdempotencyFailed):
+		return codes.FailedPrecondition
+	default:
+		return codes.Internal
+	}
+}
+
+func isValidationError(err error) bool {
+	validationErrors := []error{
+		models.ErrEmailRequired,
+		models.ErrEmailInvalid,
+		models.ErrPasswordRequired,
+		models.ErrPasswordTooShort,
+		models.ErrUsernameRequired,
+		models.ErrUsernameTooShort,
+		models.ErrUsernameTooLong,
+		models.ErrClientIDRequired,
+		models.ErrIPRequired,
+		models.ErrIPInvalid,
+		models.ErrUserAgentRequired,
+		models.ErrRefreshTokenRequired,
+		models.ErrUserIDRequired,
+		models.ErrSessionIDRequired,
+		models.ErrOldPasswordRequired,
+		models.ErrNewPasswordRequired,
+		models.ErrNewPasswordSameAsOld,
+		models.ErrTokenRequired,
+	}
+
+	for _, validationErr := range validationErrors {
+		if errors.Is(err, validationErr) {
+			return true
+		}
+	}
+
+	return false
 }

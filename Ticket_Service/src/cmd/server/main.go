@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"ticket/pkg"
+	"ticket/pkg/closer"
 	"ticket/src/core/handler"
 	"ticket/src/core/repository"
 	"ticket/src/core/service"
@@ -21,6 +22,7 @@ import (
 )
 
 func main() {
+	dependencies := closer.New()
 
 	logger, err := pkg.NewLogger()
 	if err != nil {
@@ -44,12 +46,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to connect db: %v", err)
 	}
-
-	defer func() {
-		if err := db.Close(); err != nil {
-			log.Printf("failed to close db: %v", err)
-		}
-	}()
+	dependencies.Add("postgres", db.Close)
+	defer closeDependencies(dependencies)
 
 	grpcPort := os.Getenv("GRPC_PORT")
 	if strings.TrimSpace(grpcPort) == "" {
@@ -61,7 +59,13 @@ func main() {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(
+			pkg.RequestIDUnaryServerInterceptor,
+			pkg.IdempotencyKeyUnaryServerInterceptor,
+			pkg.AccessLogUnaryServerInterceptor(logger),
+		),
+	)
 
 	repo := repository.NewRepository(db)
 	ticketService := service.NewService(repo, logger)
@@ -86,10 +90,11 @@ func main() {
 	case sig := <-sigCh:
 		log.Printf("received signal: %v", sig)
 	case err := <-serverErrCh:
-		log.Fatalf("grpc server failed: %v", err)
+		log.Printf("grpc server failed: %v", err)
+		return
 	}
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
 	done := make(chan struct{})
@@ -107,5 +112,16 @@ func main() {
 		grpcServer.Stop()
 	}
 
+	closeDependencies(dependencies)
+
 	log.Println("ticket service stopped")
+}
+
+func closeDependencies(dependencies *closer.Closer) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := dependencies.Close(ctx); err != nil {
+		log.Printf("failed to close dependencies: %v", err)
+	}
 }

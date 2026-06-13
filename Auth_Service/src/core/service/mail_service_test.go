@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
@@ -142,7 +143,7 @@ func TestSMTPMailService_buildURL_VerifyEmail(t *testing.T) {
 		t.Fatalf("expected nil error, got %v", err)
 	}
 
-	got, err := svc.buildURL("/verify-email", map[string]string{
+	got, err := svc.buildURL(context.Background(), "/verify-email", map[string]string{
 		"token": "abc123",
 	})
 
@@ -162,7 +163,7 @@ func TestSMTPMailService_buildURL_ResetPassword(t *testing.T) {
 		t.Fatalf("expected nil error, got %v", err)
 	}
 
-	got, err := svc.buildURL("/reset-password", map[string]string{
+	got, err := svc.buildURL(context.Background(), "/reset-password", map[string]string{
 		"token": "reset-token",
 	})
 
@@ -185,7 +186,7 @@ func TestSMTPMailService_buildURL_TrimsTrailingSlash(t *testing.T) {
 		t.Fatalf("expected nil error, got %v", err)
 	}
 
-	got, err := svc.buildURL("/verify-email", map[string]string{
+	got, err := svc.buildURL(context.Background(), "/verify-email", map[string]string{
 		"token": "abc123",
 	})
 
@@ -205,7 +206,7 @@ func TestSMTPMailService_buildURL_EncodesToken(t *testing.T) {
 		t.Fatalf("expected nil error, got %v", err)
 	}
 
-	got, err := svc.buildURL("/verify-email", map[string]string{
+	got, err := svc.buildURL(context.Background(), "/verify-email", map[string]string{
 		"token": "a b+c/=",
 	})
 
@@ -227,7 +228,7 @@ func TestSMTPMailService_buildURL_WithBasePath(t *testing.T) {
 		t.Fatalf("expected nil error, got %v", err)
 	}
 
-	got, err := svc.buildURL("/verify-email", map[string]string{
+	got, err := svc.buildURL(context.Background(), "/verify-email", map[string]string{
 		"token": "abc123",
 	})
 

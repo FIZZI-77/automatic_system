@@ -11,14 +11,37 @@ import (
 )
 
 type UserRepoStruct struct {
-	db *sql.DB
+	db DBTX
 }
 
-func NewUserRepoStruct(db *sql.DB) *UserRepoStruct {
+type userRegisteredEventPayload struct {
+	UserID        uuid.UUID `json:"user_id"`
+	Email         string    `json:"email"`
+	Username      string    `json:"username"`
+	IsActive      bool      `json:"is_active"`
+	EmailVerified bool      `json:"email_verified"`
+}
+
+func NewUserRepoStruct(db DBTX) *UserRepoStruct {
 	return &UserRepoStruct{db: db}
 }
 
 func (u *UserRepoStruct) CreateUser(ctx context.Context, user *models.User) (uuid.UUID, error) {
+	var id uuid.UUID
+	err := withTransaction(ctx, u.db, "CreateUser()", func(txExec DBTX) error {
+		txRepo := NewUserRepoStruct(txExec)
+		var err error
+		id, err = txRepo.createUser(ctx, user)
+		return err
+	})
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	return id, nil
+}
+
+func (u *UserRepoStruct) createUser(ctx context.Context, user *models.User) (uuid.UUID, error) {
 	var id uuid.UUID
 	const query = `INSERT INTO users (
 			email, username, password_hash, is_active, email_verified
@@ -40,6 +63,16 @@ func (u *UserRepoStruct) CreateUser(ctx context.Context, user *models.User) (uui
 	}
 
 	logrus.Printf("Created user with id: %v", id)
+
+	if err = insertOutboxEvent(ctx, u.db, "user", id, "auth.user.registered", userRegisteredEventPayload{
+		UserID:        id,
+		Email:         user.Email,
+		Username:      user.Username,
+		IsActive:      user.IsActive,
+		EmailVerified: user.EmailVerified,
+	}); err != nil {
+		return uuid.Nil, fmt.Errorf("user_repo: Create(): insert outbox event: %w", err)
+	}
 
 	return id, nil
 }

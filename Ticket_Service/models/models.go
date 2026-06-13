@@ -146,6 +146,9 @@ type CreateTicketInput struct {
 	Address   string
 	Latitude  float64
 	Longitude float64
+
+	ActorUserID *uuid.UUID
+	ActorRoles  []string
 }
 
 type CreateTicketResult struct {
@@ -153,7 +156,9 @@ type CreateTicketResult struct {
 }
 
 type GetTicketInput struct {
-	TicketID uuid.UUID
+	TicketID    uuid.UUID
+	ActorUserID *uuid.UUID
+	ActorRoles  []string
 }
 
 type GetTicketResult struct {
@@ -177,6 +182,9 @@ type ListTicketsInput struct {
 
 	Limit  int32
 	Offset int32
+
+	ActorUserID *uuid.UUID
+	ActorRoles  []string
 }
 
 type ListTicketsResult struct {
@@ -196,7 +204,8 @@ type UpdateTicketInput struct {
 	Latitude  *float64
 	Longitude *float64
 
-	UpdatedBy *uuid.UUID
+	UpdatedBy  *uuid.UUID
+	ActorRoles []string
 }
 
 type UpdateTicketResult struct {
@@ -204,10 +213,11 @@ type UpdateTicketResult struct {
 }
 
 type ChangeTicketStatusInput struct {
-	TicketID  uuid.UUID
-	NewStatus TicketStatus
-	ChangedBy uuid.UUID
-	Comment   *string
+	TicketID   uuid.UUID
+	NewStatus  TicketStatus
+	ChangedBy  uuid.UUID
+	Comment    *string
+	ActorRoles []string
 }
 
 type ChangeTicketStatusResult struct {
@@ -219,6 +229,7 @@ type AssignBrigadeInput struct {
 	BrigadeID  uuid.UUID
 	AssignedBy uuid.UUID
 	Comment    *string
+	ActorRoles []string
 }
 
 type AssignBrigadeResult struct {
@@ -229,6 +240,7 @@ type CancelTicketInput struct {
 	TicketID   uuid.UUID
 	CanceledBy uuid.UUID
 	Reason     string
+	ActorRoles []string
 }
 
 type CancelTicketResult struct {
@@ -239,6 +251,7 @@ type CompleteTicketInput struct {
 	TicketID    uuid.UUID
 	CompletedBy uuid.UUID
 	Comment     *string
+	ActorRoles  []string
 }
 
 type CompleteTicketResult struct {
@@ -246,9 +259,11 @@ type CompleteTicketResult struct {
 }
 
 type GetTicketStatusHistoryInput struct {
-	TicketID uuid.UUID
-	Limit    int32
-	Offset   int32
+	TicketID    uuid.UUID
+	Limit       int32
+	Offset      int32
+	ActorUserID *uuid.UUID
+	ActorRoles  []string
 }
 
 type GetTicketStatusHistoryResult struct {
@@ -260,6 +275,7 @@ type CreateCategoryInput struct {
 	Code        string
 	Name        string
 	Description *string
+	ActorRoles  []string
 }
 
 type CreateCategoryResult struct {
@@ -291,6 +307,7 @@ type UpdateCategoryInput struct {
 	Name        *string
 	Description *string
 	IsActive    *bool
+	ActorRoles  []string
 }
 
 type UpdateCategoryResult struct {
@@ -299,6 +316,7 @@ type UpdateCategoryResult struct {
 
 type DeleteCategoryInput struct {
 	CategoryID uuid.UUID
+	ActorRoles []string
 }
 
 type DeleteCategoryResult struct {

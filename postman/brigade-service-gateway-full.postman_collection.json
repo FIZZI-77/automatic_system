@@ -1,0 +1,1316 @@
+{
+    "info":  {
+                 "_postman_id":  "2b4dfe4c-5b2c-47f9-9a3c-brigade-full001",
+                 "name":  "Authomatic City Services - Brigade Service Gateway Full",
+                 "description":  "HTTP JSON collection for checking Brigade Service through API Gateway. Run Auth/Login first, then Departments, then Brigade folders top-down.",
+                 "schema":  "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+             },
+    "auth":  {
+                 "type":  "bearer",
+                 "bearer":  [
+                                {
+                                    "key":  "token",
+                                    "value":  "{{access_token}}",
+                                    "type":  "string"
+                                }
+                            ]
+             },
+    "event":  [
+                  {
+                      "listen":  "prerequest",
+                      "script":  {
+                                     "type":  "text/javascript",
+                                     "exec":  [
+                                                  "pm.request.headers.upsert({ key: \u0027Content-Type\u0027, value: \u0027application/json\u0027 });",
+                                                  "pm.request.headers.upsert({ key: \u0027X-Request-ID\u0027, value: pm.variables.replaceIn(\u0027{{$guid}}\u0027) });",
+                                                  "pm.request.headers.upsert({ key: \u0027Idempotency-Key\u0027, value: pm.variables.replaceIn(\u0027{{$guid}}\u0027) });",
+                                                  "const actorDepartmentId = pm.collectionVariables.get(\u0027actor_department_id\u0027) || pm.collectionVariables.get(\u0027department_id\u0027);",
+                                                  "if (actorDepartmentId) {",
+                                                  "  pm.request.headers.upsert({ key: \u0027X-Actor-Department-ID\u0027, value: actorDepartmentId });",
+                                                  "}"
+                                              ]
+                                 }
+                  }
+              ],
+    "variable":  [
+                     {
+                         "key":  "base_url",
+                         "value":  "http://localhost:8081"
+                     },
+                     {
+                         "key":  "test_email",
+                         "value":  "admin@example.com"
+                     },
+                     {
+                         "key":  "test_password",
+                         "value":  "password123"
+                     },
+                     {
+                         "key":  "test_username",
+                         "value":  "postman_admin"
+                     },
+                     {
+                         "key":  "access_token",
+                         "value":  ""
+                     },
+                     {
+                         "key":  "refresh_token",
+                         "value":  ""
+                     },
+                     {
+                         "key":  "actor_department_id",
+                         "value":  ""
+                     },
+                     {
+                         "key":  "changed_by_user_id",
+                         "value":  "11111111-1111-1111-1111-111111111111"
+                     },
+                     {
+                         "key":  "department_id",
+                         "value":  ""
+                     },
+                     {
+                         "key":  "department_name",
+                         "value":  "Postman Operations"
+                     },
+                     {
+                         "key":  "brigade_id",
+                         "value":  ""
+                     },
+                     {
+                         "key":  "brigade_name",
+                         "value":  "Postman Brigade Alpha"
+                     },
+                     {
+                         "key":  "member_id",
+                         "value":  ""
+                     },
+                     {
+                         "key":  "user_id",
+                         "value":  "55555555-5555-5555-5555-555555555555"
+                     },
+                     {
+                         "key":  "profile_id",
+                         "value":  "66666666-6666-6666-6666-666666666666"
+                     },
+                     {
+                         "key":  "skill_id",
+                         "value":  ""
+                     },
+                     {
+                         "key":  "skill_code",
+                         "value":  "water_repair"
+                     },
+                     {
+                         "key":  "zone_id",
+                         "value":  ""
+                     },
+                     {
+                         "key":  "longitude",
+                         "value":  "37.6173"
+                     },
+                     {
+                         "key":  "latitude",
+                         "value":  "55.7558"
+                     },
+                     {
+                         "key":  "category_id",
+                         "value":  ""
+                     },
+                     {
+                         "key":  "category_code",
+                         "value":  "postman_water_incident"
+                     },
+                     {
+                         "key":  "ticket_id",
+                         "value":  ""
+                     },
+                     {
+                         "key":  "reset_token",
+                         "value":  "paste-reset-token-here"
+                     },
+                     {
+                         "key":  "verify_token",
+                         "value":  "paste-verify-token-here"
+                     },
+                     {
+                         "key":  "new_password",
+                         "value":  "password456"
+                     }
+                 ],
+    "item":  [
+                 {
+                     "name":  "00 Health",
+                     "item":  [
+                                  {
+                                      "name":  "GET /health",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{base_url}}/health"
+                                                  },
+                                      "auth":  {
+                                                   "type":  "noauth"
+                                               },
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027health is ok\u0027, function () {",
+                                                                                    "  pm.expect([200]).to.include(pm.response.code);",
+                                                                                    "});",
+                                                                                    "const json = pm.response.json();",
+                                                                                    "pm.expect(json.status).to.eql(\u0027ok\u0027);"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "name":  "GET /.well-known/jwks.json",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{base_url}}/.well-known/jwks.json"
+                                                  },
+                                      "auth":  {
+                                                   "type":  "noauth"
+                                               }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "01 Auth",
+                     "item":  [
+                                  {
+                                      "name":  "POST /auth/register",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"email\": \"{{test_email}}\",\n  \"password\": \"{{test_password}}\",\n  \"username\": \"{{test_username}}\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/auth/register"
+                                                  },
+                                      "auth":  {
+                                                   "type":  "noauth"
+                                               },
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027registered or already exists\u0027, function () {",
+                                                                                    "  pm.expect([201,409]).to.include(pm.response.code);",
+                                                                                    "});",
+                                                                                    "const json = pm.response.json();",
+                                                                                    "if (json.user_id) {",
+                                                                                    "  pm.collectionVariables.set(\u0027changed_by_user_id\u0027, json.user_id);",
+                                                                                    "}"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "name":  "POST /auth/login",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"email\": \"{{test_email}}\",\n  \"password\": \"{{test_password}}\",\n  \"client_id\": \"postman\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/auth/login"
+                                                  },
+                                      "auth":  {
+                                                   "type":  "noauth"
+                                               },
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027login ok\u0027, function () {",
+                                                                                    "  pm.expect([200]).to.include(pm.response.code);",
+                                                                                    "});",
+                                                                                    "const json = pm.response.json();",
+                                                                                    "pm.collectionVariables.set(\u0027access_token\u0027, json.access_token);",
+                                                                                    "pm.collectionVariables.set(\u0027refresh_token\u0027, json.refresh_token);",
+                                                                                    "pm.collectionVariables.set(\u0027session_id\u0027, json.session_id);"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "name":  "POST /auth/refresh",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"refresh_token\": \"{{refresh_token}}\",\n  \"client_id\": \"postman\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/auth/refresh"
+                                                  },
+                                      "auth":  {
+                                                   "type":  "noauth"
+                                               },
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027refresh ok\u0027, function () {",
+                                                                                    "  pm.expect([200]).to.include(pm.response.code);",
+                                                                                    "});",
+                                                                                    "const json = pm.response.json();",
+                                                                                    "pm.collectionVariables.set(\u0027access_token\u0027, json.access_token);",
+                                                                                    "pm.collectionVariables.set(\u0027refresh_token\u0027, json.refresh_token);",
+                                                                                    "pm.collectionVariables.set(\u0027session_id\u0027, json.session_id);"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "name":  "GET /auth/me",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{base_url}}/auth/me"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "POST /auth/change-password",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"old_password\": \"{{test_password}}\",\n  \"new_password\": \"{{new_password}}\",\n  \"revoke_other_sessions\": false\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/auth/change-password"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "POST /auth/send-verification-email",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"email\": \"{{test_email}}\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/auth/send-verification-email"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "POST /auth/verify-email",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"token\": \"{{verify_token}}\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/auth/verify-email"
+                                                  },
+                                      "auth":  {
+                                                   "type":  "noauth"
+                                               }
+                                  },
+                                  {
+                                      "name":  "POST /auth/request-password-reset",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"email\": \"{{test_email}}\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/auth/request-password-reset"
+                                                  },
+                                      "auth":  {
+                                                   "type":  "noauth"
+                                               }
+                                  },
+                                  {
+                                      "name":  "POST /auth/reset-password",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"token\": \"{{reset_token}}\",\n  \"new_password\": \"{{test_password}}\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/auth/reset-password"
+                                                  },
+                                      "auth":  {
+                                                   "type":  "noauth"
+                                               }
+                                  },
+                                  {
+                                      "name":  "POST /auth/logout",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{}"
+                                                               },
+                                                      "url":  "{{base_url}}/auth/logout"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "POST /auth/logout-all",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{}"
+                                                               },
+                                                      "url":  "{{base_url}}/auth/logout-all"
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "02 Departments",
+                     "item":  [
+                                  {
+                                      "name":  "POST /departments/create",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"name\": \"{{department_name}}\",\n  \"description\": \"Department created from Postman\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/departments/create"
+                                                  },
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027department created\u0027, function () {",
+                                                                                    "  pm.expect([200,201]).to.include(pm.response.code);",
+                                                                                    "});",
+                                                                                    "const json = pm.response.json();",
+                                                                                    "const department = json.department || json;",
+                                                                                    "if (department.id) {",
+                                                                                    "  pm.collectionVariables.set(\u0027department_id\u0027, department.id);",
+                                                                                    "  pm.collectionVariables.set(\u0027actor_department_id\u0027, department.id);",
+                                                                                    "}"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "name":  "POST /departments/get",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"id\": \"{{department_id}}\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/departments/get"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "POST /departments/list",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"limit\": 20,\n  \"offset\": 0,\n  \"sort_by\": \"created_at\",\n  \"sort_order\": \"desc\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/departments/list"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "POST /departments/update",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"id\": \"{{department_id}}\",\n  \"name\": \"{{department_name}} Updated\",\n  \"description\": \"Updated from Postman\",\n  \"status\": \"active\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/departments/update"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "POST /departments/delete",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"id\": \"{{department_id}}\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/departments/delete"
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "03 Ticket Categories",
+                     "item":  [
+                                  {
+                                      "name":  "POST /ticket-categories/create",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"code\": \"{{category_code}}\",\n  \"name\": \"Water incident\",\n  \"description\": \"Category created from Postman\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/ticket-categories/create"
+                                                  },
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027category created\u0027, function () {",
+                                                                                    "  pm.expect([200,201]).to.include(pm.response.code);",
+                                                                                    "});",
+                                                                                    "const json = pm.response.json();",
+                                                                                    "if (json.category \u0026\u0026 json.category.id) {",
+                                                                                    "  pm.collectionVariables.set(\u0027category_id\u0027, json.category.id);",
+                                                                                    "}"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "name":  "POST /ticket-categories/get",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"category_id\": \"{{category_id}}\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/ticket-categories/get"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "POST /ticket-categories/list",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"only_active\": true,\n  \"limit\": 20,\n  \"offset\": 0\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/ticket-categories/list"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "POST /ticket-categories/update",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"category_id\": \"{{category_id}}\",\n  \"name\": \"Water incident updated\",\n  \"description\": \"Updated from Postman\",\n  \"is_active\": true\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/ticket-categories/update"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "POST /ticket-categories/delete",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"category_id\": \"{{category_id}}\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/ticket-categories/delete"
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "04 Tickets",
+                     "item":  [
+                                  {
+                                      "name":  "POST /tickets/create",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"department_id\": \"{{department_id}}\",\n  \"category_id\": \"{{category_id}}\",\n  \"title\": \"Postman ticket\",\n  \"description\": \"Ticket created from Postman\",\n  \"priority\": \"medium\",\n  \"address\": \"Moscow center\",\n  \"latitude\": {{latitude}},\n  \"longitude\": {{longitude}}\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/tickets/create"
+                                                  },
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027ticket created\u0027, function () {",
+                                                                                    "  pm.expect([200,201]).to.include(pm.response.code);",
+                                                                                    "});",
+                                                                                    "const json = pm.response.json();",
+                                                                                    "if (json.ticket \u0026\u0026 json.ticket.id) {",
+                                                                                    "  pm.collectionVariables.set(\u0027ticket_id\u0027, json.ticket.id);",
+                                                                                    "}"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "name":  "POST /tickets/get",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"ticket_id\": \"{{ticket_id}}\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/tickets/get"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "POST /tickets/list",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"department_id\": \"{{department_id}}\",\n  \"category_id\": \"{{category_id}}\",\n  \"limit\": 20,\n  \"offset\": 0,\n  \"sort_by\": \"created_at\",\n  \"sort_order\": \"desc\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/tickets/list"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "POST /tickets/update",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"ticket_id\": \"{{ticket_id}}\",\n  \"title\": \"Postman ticket updated\",\n  \"description\": \"Updated from Postman\",\n  \"priority\": \"high\",\n  \"address\": \"Moscow center updated\",\n  \"latitude\": {{latitude}},\n  \"longitude\": {{longitude}}\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/tickets/update"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "POST /tickets/change-status",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"ticket_id\": \"{{ticket_id}}\",\n  \"new_status\": \"in_progress\",\n  \"comment\": \"Postman status change\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/tickets/change-status"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "POST /tickets/assign-brigade",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"ticket_id\": \"{{ticket_id}}\",\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"comment\": \"Postman assign brigade\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/tickets/assign-brigade"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "POST /tickets/complete",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"ticket_id\": \"{{ticket_id}}\",\n  \"comment\": \"Postman complete\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/tickets/complete"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "POST /tickets/cancel",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"ticket_id\": \"{{ticket_id}}\",\n  \"reason\": \"Postman cancel\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/tickets/cancel"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "POST /tickets/status-history",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"ticket_id\": \"{{ticket_id}}\",\n  \"limit\": 20,\n  \"offset\": 0\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/tickets/status-history"
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "05 Brigades",
+                     "item":  [
+                                  {
+                                      "name":  "Create brigade",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"department_id\": \"{{department_id}}\",\n  \"name\": \"{{brigade_name}}\",\n  \"description\": \"Brigade created from Postman\",\n  \"specialization\": \"water\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/brigades/create"
+                                                  },
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027brigade created\u0027, function () {",
+                                                                                    "  pm.expect([200, 201]).to.include(pm.response.code);",
+                                                                                    "});",
+                                                                                    "const json = pm.response.json();",
+                                                                                    "if (json.brigade \u0026\u0026 json.brigade.id) {",
+                                                                                    "  pm.collectionVariables.set(\u0027brigade_id\u0027, json.brigade.id);",
+                                                                                    "}"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "name":  "Get brigade by id",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"id\": \"{{brigade_id}}\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/brigades/get"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "List brigades",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"department_id\": \"{{department_id}}\",\n  \"limit\": 20,\n  \"offset\": 0,\n  \"sort_by\": \"created_at\",\n  \"sort_order\": \"desc\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/brigades/list"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Update brigade",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"id\": \"{{brigade_id}}\",\n  \"name\": \"{{brigade_name}} Updated\",\n  \"description\": \"Updated from Postman\",\n  \"specialization\": \"water_repair\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/brigades/update"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Set status active",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"status\": \"active\",\n  \"reason\": \"Postman activation\",\n  \"changed_by_user_id\": \"{{changed_by_user_id}}\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/brigades/set-status"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Set status available",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"status\": \"available\",\n  \"reason\": \"Postman availability check\",\n  \"changed_by_user_id\": \"{{changed_by_user_id}}\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/brigades/set-status"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Status history",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"limit\": 20,\n  \"offset\": 0\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/brigades/status-history"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Get available brigades",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"department_id\": \"{{department_id}}\",\n  \"longitude\": {{longitude}},\n  \"latitude\": {{latitude}},\n  \"required_skill_ids\": [],\n  \"required_roles\": [\"lead\"],\n  \"limit\": 20,\n  \"offset\": 0\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/brigades/available"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Check brigade can handle ticket",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"department_id\": \"{{department_id}}\",\n  \"longitude\": {{longitude}},\n  \"latitude\": {{latitude}},\n  \"required_skill_ids\": [],\n  \"required_roles\": [\"lead\"]\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/brigades/can-handle-ticket"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Deactivate brigade",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"id\": \"{{brigade_id}}\",\n  \"reason\": \"Postman deactivate\",\n  \"changed_by_user_id\": \"{{changed_by_user_id}}\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/brigades/deactivate"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Archive brigade",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"id\": \"{{brigade_id}}\",\n  \"reason\": \"Postman archive\",\n  \"changed_by_user_id\": \"{{changed_by_user_id}}\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/brigades/archive"
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "06 Brigade Members",
+                     "item":  [
+                                  {
+                                      "name":  "Add member",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"user_id\": \"{{user_id}}\",\n  \"profile_id\": \"{{profile_id}}\",\n  \"role\": \"lead\",\n  \"changed_by_user_id\": \"{{changed_by_user_id}}\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/brigade-members/add"
+                                                  },
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027member added\u0027, function () {",
+                                                                                    "  pm.expect([200, 201]).to.include(pm.response.code);",
+                                                                                    "});",
+                                                                                    "const json = pm.response.json();",
+                                                                                    "if (json.member \u0026\u0026 json.member.id) {",
+                                                                                    "  pm.collectionVariables.set(\u0027member_id\u0027, json.member.id);",
+                                                                                    "}"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "name":  "List members",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"active\": true,\n  \"limit\": 20,\n  \"offset\": 0\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/brigade-members/list"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Change member role",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"member_id\": \"{{member_id}}\",\n  \"role\": \"driver\",\n  \"changed_by_user_id\": \"{{changed_by_user_id}}\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/brigade-members/change-role"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Set member available",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"member_id\": \"{{member_id}}\",\n  \"status\": \"available\",\n  \"reason\": \"Postman available\",\n  \"changed_by_user_id\": \"{{changed_by_user_id}}\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/brigade-members/set-availability"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Member composition history",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"member_id\": \"{{member_id}}\",\n  \"limit\": 20,\n  \"offset\": 0\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/brigade-members/history"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Member status history",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"member_id\": \"{{member_id}}\",\n  \"limit\": 20,\n  \"offset\": 0\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/brigade-members/status-history"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Get brigade by user",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"user_id\": \"{{user_id}}\",\n  \"only_active\": true\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/brigades/get-by-user"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Remove member",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"member_id\": \"{{member_id}}\",\n  \"reason\": \"Postman remove\",\n  \"changed_by_user_id\": \"{{changed_by_user_id}}\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/brigade-members/remove"
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "07 Skills",
+                     "item":  [
+                                  {
+                                      "name":  "Create skill",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"code\": \"{{skill_code}}\",\n  \"name\": \"Water repair\",\n  \"description\": \"Water incidents skill\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/skills/create"
+                                                  },
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027skill created\u0027, function () {",
+                                                                                    "  pm.expect([200, 201]).to.include(pm.response.code);",
+                                                                                    "});",
+                                                                                    "const json = pm.response.json();",
+                                                                                    "if (json.skill \u0026\u0026 json.skill.id) {",
+                                                                                    "  pm.collectionVariables.set(\u0027skill_id\u0027, json.skill.id);",
+                                                                                    "}"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "name":  "List skills",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"active\": true,\n  \"query\": \"water\",\n  \"limit\": 20,\n  \"offset\": 0\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/skills/list"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Update skill",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"id\": \"{{skill_id}}\",\n  \"name\": \"Water emergency repair\",\n  \"description\": \"Updated from Postman\",\n  \"active\": true\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/skills/update"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Add skill to brigade",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"skill_id\": \"{{skill_id}}\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/brigade-skills/add"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "List brigade skills",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"active\": true\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/brigade-skills/list"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Remove brigade skill",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"skill_id\": \"{{skill_id}}\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/brigade-skills/remove"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Deactivate skill",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"id\": \"{{skill_id}}\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/skills/deactivate"
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "08 Schedules",
+                     "item":  [
+                                  {
+                                      "name":  "Set brigade schedule",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"items\": [\n    {\n      \"day_of_week\": 1,\n      \"starts_at\": \"09:00\",\n      \"ends_at\": \"18:00\",\n      \"timezone\": \"Europe/Moscow\"\n    },\n    {\n      \"day_of_week\": 2,\n      \"starts_at\": \"09:00\",\n      \"ends_at\": \"18:00\",\n      \"timezone\": \"Europe/Moscow\"\n    }\n  ]\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/brigade-schedules/set"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "List brigade schedule",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"active\": true\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/brigade-schedules/list"
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "09 Zones",
+                     "item":  [
+                                  {
+                                      "name":  "Create brigade zone",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"department_id\": \"{{department_id}}\",\n  \"name\": \"Moscow center zone\",\n  \"priority\": 10,\n  \"geo_json\": \"{\\\"type\\\":\\\"Polygon\\\",\\\"coordinates\\\":[[[37.50,55.70],[37.75,55.70],[37.75,55.85],[37.50,55.85],[37.50,55.70]]]}\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/brigade-zones/create"
+                                                  },
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027zone created\u0027, function () {",
+                                                                                    "  pm.expect([200, 201]).to.include(pm.response.code);",
+                                                                                    "});",
+                                                                                    "const json = pm.response.json();",
+                                                                                    "if (json.zone \u0026\u0026 json.zone.id) {",
+                                                                                    "  pm.collectionVariables.set(\u0027zone_id\u0027, json.zone.id);",
+                                                                                    "}"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "name":  "List brigade zones",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"active\": true\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/brigade-zones/list"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Check brigade covers point",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"longitude\": {{longitude}},\n  \"latitude\": {{latitude}}\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/brigade-zones/covers-point"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Find brigades by point",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"department_id\": \"{{department_id}}\",\n  \"longitude\": {{longitude}},\n  \"latitude\": {{latitude}},\n  \"only_available\": false,\n  \"required_skill_ids\": [],\n  \"required_roles\": [],\n  \"limit\": 20,\n  \"offset\": 0\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/brigade-zones/find-by-point"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Update brigade zone",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"id\": \"{{zone_id}}\",\n  \"name\": \"Moscow center zone updated\",\n  \"priority\": 20,\n  \"active\": true\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/brigade-zones/update"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Delete brigade zone",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"id\": \"{{zone_id}}\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/brigade-zones/delete"
+                                                  }
+                                  }
+                              ]
+                 }
+             ]
+}
