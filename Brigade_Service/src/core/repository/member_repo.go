@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/lib/pq"
 )
 
@@ -777,6 +778,13 @@ func scanBrigadeMemberStatusHistory(row scanner) (*models.BrigadeMemberStatusHis
 }
 
 func isMemberUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		return pgErr.ConstraintName == "" ||
+			pgErr.ConstraintName == "brigade_members_active_user_uidx" ||
+			pgErr.ConstraintName == "brigade_members_active_profile_uidx"
+	}
+
 	var pqErr *pq.Error
 	if !errors.As(err, &pqErr) {
 		return false

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/lib/pq"
 )
 
@@ -410,6 +411,11 @@ func (s *SkillRepoStruct) brigadeHasSkills(ctx context.Context, brigadeID uuid.U
 }
 
 func isSkillUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		return pgErr.ConstraintName == "" || pgErr.ConstraintName == "skills_code_uidx"
+	}
+
 	var pqErr *pq.Error
 	if !errors.As(err, &pqErr) {
 		return false
@@ -423,6 +429,11 @@ func isSkillUniqueViolation(err error) bool {
 }
 
 func isBrigadeSkillUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		return pgErr.ConstraintName == "" || pgErr.ConstraintName == "brigade_skills_active_uidx"
+	}
+
 	var pqErr *pq.Error
 	if !errors.As(err, &pqErr) {
 		return false
