@@ -1,0 +1,52 @@
+[
+    {
+        "email":  "k6-business-0001@load.local",
+        "password":  "Password123!",
+        "client_id":  "k6-business-0001"
+    },
+    {
+        "email":  "k6-business-0002@load.local",
+        "password":  "Password123!",
+        "client_id":  "k6-business-0002"
+    },
+    {
+        "email":  "k6-business-0003@load.local",
+        "password":  "Password123!",
+        "client_id":  "k6-business-0003"
+    },
+    {
+        "email":  "k6-business-0004@load.local",
+        "password":  "Password123!",
+        "client_id":  "k6-business-0004"
+    },
+    {
+        "email":  "k6-business-0005@load.local",
+        "password":  "Password123!",
+        "client_id":  "k6-business-0005"
+    },
+    {
+        "email":  "k6-business-0006@load.local",
+        "password":  "Password123!",
+        "client_id":  "k6-business-0006"
+    },
+    {
+        "email":  "k6-business-0007@load.local",
+        "password":  "Password123!",
+        "client_id":  "k6-business-0007"
+    },
+    {
+        "email":  "k6-business-0008@load.local",
+        "password":  "Password123!",
+        "client_id":  "k6-business-0008"
+    },
+    {
+        "email":  "k6-business-0009@load.local",
+        "password":  "Password123!",
+        "client_id":  "k6-business-0009"
+    },
+    {
+        "email":  "k6-business-0010@load.local",
+        "password":  "Password123!",
+        "client_id":  "k6-business-0010"
+    }
+]

@@ -54,6 +54,9 @@ func main() {
 	departmentConn, err := grpc.NewClient(
 		envOrDefault("DEPARTMENT_GRPC_ADDR", "localhost:50053"),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithChainUnaryInterceptor(
+			pkg.RequestIDUnaryClientInterceptor,
+		),
 	)
 	if err != nil {
 		log.Fatalf("failed to create department grpc client: %v", err)
