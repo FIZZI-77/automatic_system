@@ -228,7 +228,7 @@ func FuzzSetBrigadeScheduleInputValidate(f *testing.F) {
 	f.Fuzz(func(t *testing.T, brigadeIDRaw string, dayOfWeek int16, startsAt string, endsAt string, timezone string, includeItem bool) {
 		brigadeID, _ := uuid.Parse(brigadeIDRaw)
 
-		items := []*BrigadeScheduleItem{}
+		var items []*BrigadeScheduleItem
 		if includeItem {
 			items = append(items, &BrigadeScheduleItem{
 				DayOfWeek: dayOfWeek,

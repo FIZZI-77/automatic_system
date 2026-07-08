@@ -671,3 +671,12 @@ Asset/Infrastructure Service
   -> Analytics Service: failures, repeat incidents, district statistics
   -> Report Service: department and city infrastructure reports
 ```
+
+Потенциальные улучшения в бд:
+
+```text
+- За место INSERT, если идет вставка нескольких строк лучше использовать CopyFrom из pgx 
+- Там где надо можно использовать upsert
+- Сделать два пула, ReadPool и WritePool. чтобы записи на чтение трогали только реплики, а основную master ноду только на запись. 
+- Добавить уровень логирования Debug или Info в pgxpool
+```

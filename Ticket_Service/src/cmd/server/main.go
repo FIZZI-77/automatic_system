@@ -46,7 +46,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to connect db: %v", err)
 	}
-	dependencies.Add("postgres", db.Close)
+	dependencies.Add("postgres", func() error {
+		db.Close()
+		return nil
+	})
 	defer closeDependencies(dependencies)
 
 	grpcPort := os.Getenv("GRPC_PORT")
@@ -67,7 +70,7 @@ func main() {
 		),
 	)
 
-	repo := repository.NewRepository(db)
+	repo := repository.NewRepository(repository.DBPools{Write: db, Read: db})
 	ticketService := service.NewService(repo, logger)
 	ticketHandler := handler.NewTicketHandler(ticketService, logger)
 

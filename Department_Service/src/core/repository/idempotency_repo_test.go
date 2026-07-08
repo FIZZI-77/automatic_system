@@ -12,7 +12,7 @@ func TestIdempotencyRepository_BeginCompleteReplay(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	repo := NewRepository(db)
+	repo := NewRepository(DBPools{Write: db, Read: db})
 	ctx := context.Background()
 
 	record, acquired, err := repo.BeginIdempotency(ctx, "actor", "CreateDepartment", "key-1", "hash-1", time.Hour)
@@ -54,7 +54,7 @@ func TestIdempotencyRepository_Fail(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	repo := NewRepository(db)
+	repo := NewRepository(DBPools{Write: db, Read: db})
 	ctx := context.Background()
 
 	_, acquired, err := repo.BeginIdempotency(ctx, "actor", "UpdateDepartment", "key-2", "hash-2", time.Hour)

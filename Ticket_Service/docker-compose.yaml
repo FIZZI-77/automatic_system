@@ -1,34 +1,117 @@
 version: "3.9"
 
 services:
-  ticket-service:
+  # ========== API GATEWAY ==========
+  api-gateway:
     build:
       context: .
-      dockerfile: Dockerfile
-    container_name: ticket
+      dockerfile: API_Gateway/Dockerfile
+    container_name: api-gateway
     ports:
-      - "50052:50052"
-    env_file:
-      - .env
-    depends_on:
-      postgres:
-        condition: service_healthy
-      migrator:
-        condition: service_completed_successfully
-
+      - "8081:8081"
+    environment:
+      GATEWAY_ADDR: ":8081"
+      AUTH_SERVICE_ADDR: "auth-service:50051"
+      TICKET_SERVICE_ADDR: "ticket-service:50052"  # Добавляем адрес ticket-сервиса
+      JWT_PUBLIC_KEY_PATH: "/app/keys/public.pem"
+      JWT_ISSUER: "auth-jwt"
+      JWT_AUDIENCE: "api-gateway"
     volumes:
-      - ./keys:/app/keys:ro
+      - ./API_Gateway/keys/public.pem:/app/keys/public.pem:ro
+    depends_on:
+      - auth-service
+      - ticket-service
     restart: unless-stopped
+    networks:
+      - microservices-network
 
-  postgres:
+  # ========== AUTH SERVICE ==========
+  auth-service:
+    build:
+      context: ./Auth_Service
+      dockerfile: Dockerfile
+    container_name: auth-service
+    ports:
+      - "50051:50051"
+    env_file:
+      - ./Auth_Service/.env
+    environment:
+      GRPC_ADDR: ":50051"
+      DB_HOST: "auth-postgres"
+      DB_PORT: "5432"
+      SMTP_HOST: "mailhog"
+      SMTP_PORT: "1025"
+    depends_on:
+      auth-postgres:
+        condition: service_healthy
+      auth-migrator:
+        condition: service_completed_successfully
+    volumes:
+      - ./Auth_Service/keys:/app/keys:ro
+    restart: unless-stopped
+    networks:
+      - microservices-network
+
+  # ========== AUTH POSTGRES ==========
+  auth-postgres:
     image: postgres:16
-    container_name: ticket-postgres
+    container_name: auth-postgres
+    env_file:
+      - ./Auth_Service/.env
     environment:
       POSTGRES_USER: ${DB_USERNAME}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
     ports:
-      - "5433:${DB_PORT}"
+      - "5432:5432"  # Стандартный порт для auth бд
+    volumes:
+      - postgres_auth_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - microservices-network
+
+  # ========== TICKET SERVICE ==========
+  ticket-service:
+    build:
+      context: ./Ticket_Service  # Путь к директории с ticket сервисом
+      dockerfile: Dockerfile
+    container_name: ticket-service
+    ports:
+      - "50052:50052"
+    env_file:
+      - ./Ticket_Service/.env  # Свой .env файл для ticket сервиса
+    environment:
+      GRPC_ADDR: ":50052"
+      DB_HOST: "ticket-postgres"
+      DB_PORT: "5432"
+    depends_on:
+      ticket-postgres:
+        condition: service_healthy
+      ticket-migrator:
+        condition: service_completed_successfully
+    volumes:
+      - ./Ticket_Service/keys:/app/keys:ro  # Если нужны ключи
+    restart: unless-stopped
+    networks:
+      - microservices-network
+
+  # ========== TICKET POSTGRES ==========
+  ticket-postgres:
+    image: postgres:16
+    container_name: ticket-postgres
+    env_file:
+      - ./Ticket_Service/.env
+    environment:
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "5433:5432"  # Пробрасываем на другой порт хоста, чтобы не конфликтовать с auth бд
     volumes:
       - postgres_ticket_data:/var/lib/postgresql/data
     restart: unless-stopped
@@ -37,23 +120,72 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    networks:
+      - microservices-network
 
-  migrator:
-    build: ./migrator
-    container_name: migrator
+  # ========== MAILHOG ==========
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: auth-mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    restart: unless-stopped
+    networks:
+      - microservices-network
+
+  # ========== AUTH MIGRATOR ==========
+  auth-migrator:
+    build:
+      context: ./Auth_Service/migrator
+      dockerfile: Dockerfile
+    container_name: auth-migrator
+    env_file:
+      - ./Auth_Service/.env
     depends_on:
-      postgres:
+      auth-postgres:
         condition: service_healthy
     volumes:
-      - ./scheme:/migrations
+      - ./Auth_Service/scheme:/migrations
     environment:
       GOOSE_DRIVER: postgres
-      GOOSE_DBSTRING: postgres://${DB_USERNAME}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=${SSLMODE}
+      GOOSE_DBSTRING: postgres://${DB_USERNAME}:${DB_PASSWORD}@auth-postgres:5432/${DB_NAME}?sslmode=${SSLMODE}
     command: >
       sh -c "
-        echo 'Running migrations...' &&
+        echo 'Running auth migrations...' &&
         goose -dir /migrations up
       "
+    networks:
+      - microservices-network
+
+  # ========== TICKET MIGRATOR ==========
+  ticket-migrator:
+    build:
+      context: ./Ticket_Service/migrator  # Путь к migrator в ticket сервисе
+      dockerfile: Dockerfile
+    container_name: ticket-migrator
+    env_file:
+      - ./Ticket_Service/.env
+    depends_on:
+      ticket-postgres:
+        condition: service_healthy
+    volumes:
+      - ./Ticket_Service/scheme:/migrations
+    environment:
+      GOOSE_DRIVER: postgres
+      GOOSE_DBSTRING: postgres://${DB_USERNAME}:${DB_PASSWORD}@ticket-postgres:5432/${DB_NAME}?sslmode=${SSLMODE}
+    command: >
+      sh -c "
+        echo 'Running ticket migrations...' &&
+        goose -dir /migrations up
+      "
+    networks:
+      - microservices-network
+
+networks:
+  microservices-network:
+    driver: bridge
 
 volumes:
+  postgres_auth_data:
   postgres_ticket_data:

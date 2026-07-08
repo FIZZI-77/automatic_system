@@ -13,7 +13,7 @@ func TestDepartmentRepository_CreateGetListUpdateDelete(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	repo := NewRepository(db)
+	repo := NewRepository(DBPools{Write: db, Read: db})
 	ctx := context.Background()
 
 	created, err := repo.CreateDepartment(ctx, &models.CreateDepartmentInput{
@@ -78,7 +78,7 @@ func TestDepartmentRepository_CreateDuplicateName(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	repo := NewRepository(db)
+	repo := NewRepository(DBPools{Write: db, Read: db})
 	ctx := context.Background()
 
 	_, err := repo.CreateDepartment(ctx, &models.CreateDepartmentInput{Name: "Roads"})
@@ -96,7 +96,7 @@ func TestDepartmentRepository_ListFilters(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	repo := NewRepository(db)
+	repo := NewRepository(DBPools{Write: db, Read: db})
 	ctx := context.Background()
 
 	active := createTestDepartment(t, repo)
@@ -138,7 +138,7 @@ func TestDepartmentRepository_OutboxEventsCreated(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	repo := NewRepository(db)
+	repo := NewRepository(DBPools{Write: db, Read: db})
 	ctx := context.Background()
 
 	department := createTestDepartment(t, repo)
@@ -151,7 +151,7 @@ func TestDepartmentRepository_OutboxEventsCreated(t *testing.T) {
 	}
 
 	var count int
-	err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM outbox_events WHERE aggregate_id = $1`, department.ID).Scan(&count)
+	err := db.QueryRow(ctx, `SELECT COUNT(*) FROM outbox_events WHERE aggregate_id = $1`, department.ID).Scan(&count)
 	if err != nil {
 		t.Fatalf("count outbox events failed: %v", err)
 	}

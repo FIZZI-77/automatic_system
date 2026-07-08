@@ -11,6 +11,7 @@ import (
 	"department/src/core/repository"
 	"department/src/core/service"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/pressly/goose/v3"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
@@ -21,7 +22,7 @@ import (
 )
 
 type testApp struct {
-	db         *sql.DB
+	db         *pgxpool.Pool
 	repo       *repository.Repository
 	department *service.DepartmentServiceStruct
 	cleanup    func()
@@ -61,16 +62,30 @@ func newTestApp(t *testing.T) *testApp {
 	waitForDB(t, ctx, db)
 	runGooseMigrations(t, db)
 
-	repo := repository.NewRepository(db)
+	pool, err := pgxpool.New(ctx, connStr)
+	if err != nil {
+		_ = db.Close()
+		_ = container.Terminate(ctx)
+		t.Fatalf("failed to create pgx pool: %v", err)
+	}
+	if err = pool.Ping(ctx); err != nil {
+		pool.Close()
+		_ = db.Close()
+		_ = container.Terminate(ctx)
+		t.Fatalf("failed to ping pgx pool: %v", err)
+	}
+
+	repo := repository.NewRepository(repository.DBPools{Write: pool, Read: pool})
 	departmentService := service.NewDepartmentServiceStruct(repo, zap.NewNop())
 
 	cleanup := func() {
+		pool.Close()
 		_ = db.Close()
 		_ = container.Terminate(ctx)
 	}
 
 	return &testApp{
-		db:         db,
+		db:         pool,
 		repo:       repo,
 		department: departmentService,
 		cleanup:    cleanup,
