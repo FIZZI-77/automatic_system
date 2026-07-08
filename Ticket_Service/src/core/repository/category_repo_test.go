@@ -13,7 +13,7 @@ func TestCategoryRepo_CreateCategory_DuplicateCodeReturnsAlreadyExists(t *testin
 	defer cleanup()
 
 	ctx := context.Background()
-	repo := NewRepository(db)
+	repo := NewRepository(DBPools{Write: db, Read: db})
 
 	in := &models.CreateCategoryInput{
 		Code:        "water",
@@ -45,7 +45,7 @@ func TestCategoryRepo_UpdateCategory_NilIsActivePreservesValue(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	repo := NewRepository(db)
+	repo := NewRepository(DBPools{Write: db, Read: db})
 
 	category := createTestCategory(t, repo)
 
@@ -71,7 +71,7 @@ func TestCategoryRepo_ListCategories_FiltersOnlyActive(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	repo := NewRepository(db)
+	repo := NewRepository(DBPools{Write: db, Read: db})
 
 	active := createTestCategory(t, repo)
 	inactive := createTestCategory(t, repo)
@@ -112,7 +112,7 @@ func TestCategoryRepo_UpdateCategory_ExplicitFalseDeactivatesCategory(t *testing
 	defer cleanup()
 
 	ctx := context.Background()
-	repo := NewRepository(db)
+	repo := NewRepository(DBPools{Write: db, Read: db})
 
 	category := createTestCategory(t, repo)
 	isActive := false
@@ -135,7 +135,7 @@ func TestCategoryRepo_DeleteCategory_DeactivatesCategory(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	repo := NewRepository(db)
+	repo := NewRepository(DBPools{Write: db, Read: db})
 
 	category := createTestCategory(t, repo)
 

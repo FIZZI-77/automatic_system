@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 	"github.com/testcontainers/testcontainers-go"
@@ -19,7 +20,7 @@ import (
 	"ticket/models"
 )
 
-func setupTestDB(t *testing.T) (*sql.DB, func()) {
+func setupTestDB(t *testing.T) (*pgxpool.Pool, func()) {
 	t.Helper()
 
 	ctx := context.Background()
@@ -67,7 +68,24 @@ func setupTestDB(t *testing.T) (*sql.DB, func()) {
 	waitForDB(t, ctx, db)
 	runMigrations(t, db)
 
-	return db, cleanup
+	pool, err := pgxpool.New(ctx, connStr)
+	if err != nil {
+		cleanup()
+		t.Fatalf("failed to create pgx pool: %v", err)
+	}
+	if err = pool.Ping(ctx); err != nil {
+		pool.Close()
+		cleanup()
+		t.Fatalf("failed to ping pgx pool: %v", err)
+	}
+
+	cleanup = func() {
+		pool.Close()
+		_ = db.Close()
+		_ = container.Terminate(ctx)
+	}
+
+	return pool, cleanup
 }
 
 func runMigrations(t *testing.T, db *sql.DB) {

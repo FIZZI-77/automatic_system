@@ -15,7 +15,7 @@ func TestTicketRepo_ChangeTicketStatus_ValidTransitionUpdatesTicketAndHistory(t 
 	defer cleanup()
 
 	ctx := context.Background()
-	repo := NewRepository(db)
+	repo := NewRepository(DBPools{Write: db, Read: db})
 
 	category := createTestCategory(t, repo)
 	ticket := createTestTicket(t, repo, category.ID)
@@ -71,7 +71,7 @@ func TestTicketRepo_CreateGetListUpdateTicket_CommonFlow(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	repo := NewRepository(db)
+	repo := NewRepository(DBPools{Write: db, Read: db})
 
 	category := createTestCategory(t, repo)
 	ticket := createTestTicket(t, repo, category.ID)
@@ -141,7 +141,7 @@ func TestTicketRepo_UpdateTicket_NonAuthorReturnsPermissionDenied(t *testing.T) 
 	defer cleanup()
 
 	ctx := context.Background()
-	repo := NewRepository(db)
+	repo := NewRepository(DBPools{Write: db, Read: db})
 
 	category := createTestCategory(t, repo)
 	ticket := createTestTicket(t, repo, category.ID)
@@ -177,7 +177,7 @@ func TestTicketRepo_CreateTicket_InactiveCategoryReturnsDomainError(t *testing.T
 	defer cleanup()
 
 	ctx := context.Background()
-	repo := NewRepository(db)
+	repo := NewRepository(DBPools{Write: db, Read: db})
 
 	category := createTestCategory(t, repo)
 	isActive := false
@@ -216,7 +216,7 @@ func TestTicketRepo_ChangeTicketStatus_InvalidTransitionReturnsDomainError(t *te
 	defer cleanup()
 
 	ctx := context.Background()
-	repo := NewRepository(db)
+	repo := NewRepository(DBPools{Write: db, Read: db})
 
 	category := createTestCategory(t, repo)
 	ticket := createTestTicket(t, repo, category.ID)
@@ -250,7 +250,7 @@ func TestTicketRepo_AssignComplete_CommonFlow(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	repo := NewRepository(db)
+	repo := NewRepository(DBPools{Write: db, Read: db})
 
 	category := createTestCategory(t, repo)
 	ticket := createTestTicket(t, repo, category.ID)
@@ -308,7 +308,7 @@ func TestTicketRepo_ChangeTicketStatus_TerminalTicketCannotBeChanged(t *testing.
 	defer cleanup()
 
 	ctx := context.Background()
-	repo := NewRepository(db)
+	repo := NewRepository(DBPools{Write: db, Read: db})
 
 	category := createTestCategory(t, repo)
 	ticket := createTestTicket(t, repo, category.ID)
@@ -351,7 +351,7 @@ func TestTicketRepo_AssignBrigade_TerminalTicketCannotBeChanged(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	repo := NewRepository(db)
+	repo := NewRepository(DBPools{Write: db, Read: db})
 
 	category := createTestCategory(t, repo)
 	ticket := createTestTicket(t, repo, category.ID)

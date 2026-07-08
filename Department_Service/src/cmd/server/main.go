@@ -45,7 +45,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to connect db: %v", err)
 	}
-	dependencies.Add("postgres", db.Close)
+	dependencies.Add("postgres", func() error {
+		db.Close()
+		return nil
+	})
 	defer closeDependencies(dependencies)
 
 	grpcPort := os.Getenv("GRPC_PORT")
@@ -65,7 +68,7 @@ func main() {
 			pkg.AccessLogUnaryServerInterceptor(logger),
 		),
 	)
-	repo := repository.NewRepository(db)
+	repo := repository.NewRepository(repository.DBPools{Write: db, Read: db})
 	departmentService := service.NewService(repo, logger)
 	departmentHandler := handler.NewDepartmentHandler(departmentService, logger)
 	departmentv1.RegisterDepartmentServiceServer(grpcServer, departmentHandler)
