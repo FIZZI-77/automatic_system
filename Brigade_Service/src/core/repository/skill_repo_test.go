@@ -13,7 +13,7 @@ func TestSkillRepository_CreateListUpdateDeactivate(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	repo := NewRepo(db)
+	repo := NewRepository(DBPools{Write: db, Read: db})
 	ctx := context.Background()
 
 	created, err := repo.CreateSkill(ctx, &models.CreateSkillInput{Code: "plumbing", Name: "Plumbing"})
@@ -54,7 +54,7 @@ func TestSkillRepository_DuplicateCode(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	repo := NewRepo(db)
+	repo := NewRepository(DBPools{Write: db, Read: db})
 	ctx := context.Background()
 
 	_, err := repo.CreateSkill(ctx, &models.CreateSkillInput{Code: "plumbing", Name: "Plumbing"})
@@ -72,7 +72,7 @@ func TestSkillRepository_BrigadeSkills(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	repo := NewRepo(db)
+	repo := NewRepository(DBPools{Write: db, Read: db})
 	ctx := context.Background()
 	brigade := createTestBrigade(t, repo, uuid.New())
 	skill := createTestSkill(t, repo)

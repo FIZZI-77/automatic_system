@@ -12,7 +12,7 @@ func TestMemberRepository_AddListChangeAvailabilityRemove(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	repo := NewRepo(db)
+	repo := NewRepository(DBPools{Write: db, Read: db})
 	ctx := context.Background()
 	brigade := createTestBrigade(t, repo, uuid.New())
 	userID := uuid.New()

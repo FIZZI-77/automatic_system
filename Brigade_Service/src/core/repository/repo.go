@@ -3,9 +3,9 @@ package repository
 import (
 	"brigade/models"
 	"context"
-	"database/sql"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type BrigadeRepo interface {
@@ -58,7 +58,9 @@ type ZoneRepo interface {
 	FindBrigadesByPoint(ctx context.Context, in *models.FindBrigadesByPointInput) (*models.FindBrigadesByPointResult, error)
 }
 
-type Repo struct {
+type Repository struct {
+	writePool *pgxpool.Pool
+	readPool  *pgxpool.Pool
 	BrigadeRepo
 	MemberRepo
 	SkillRepo
@@ -66,12 +68,20 @@ type Repo struct {
 	ZoneRepo
 }
 
-func NewRepo(db *sql.DB) *Repo {
-	return &Repo{
-		BrigadeRepo:  NewBrigadeRepo(db),
-		MemberRepo:   NewMemberRepo(db),
-		SkillRepo:    NewSkillRepo(db),
-		ScheduleRepo: NewScheduleRepo(db),
-		ZoneRepo:     NewZoneRepo(db),
+type Repo = Repository
+
+func NewRepository(pools DBPools) *Repository {
+	if pools.Read == nil {
+		pools.Read = pools.Write
+	}
+
+	return &Repository{
+		writePool:    pools.Write,
+		readPool:     pools.Read,
+		BrigadeRepo:  NewBrigadeRepo(pools.Write, pools.Read),
+		MemberRepo:   NewMemberRepo(pools.Write, pools.Read),
+		SkillRepo:    NewSkillRepo(pools.Write, pools.Read),
+		ScheduleRepo: NewScheduleRepo(pools.Write, pools.Read),
+		ZoneRepo:     NewZoneRepo(pools.Write, pools.Read),
 	}
 }

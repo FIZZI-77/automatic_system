@@ -1227,8 +1227,11 @@ func brigadeErrorCode(err error) codes.Code {
 	case errors.Is(err, models.ErrScheduleConflict),
 		errors.Is(err, models.ErrBrigadeUnavailable),
 		errors.Is(err, models.ErrBrigadeCannotHandle),
+		errors.Is(err, models.ErrDepartmentInactive),
 		errors.Is(err, models.ErrIdempotencyFailed):
 		return codes.FailedPrecondition
+	case errors.Is(err, models.ErrDependencyUnavailable):
+		return codes.Unavailable
 	default:
 		return codes.Internal
 	}

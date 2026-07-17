@@ -12,12 +12,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-func setupTestDB(t *testing.T) (*sql.DB, func()) {
+func setupTestDB(t *testing.T) (*pgxpool.Pool, func()) {
 	t.Helper()
 
 	ctx := context.Background()
@@ -47,22 +48,32 @@ func setupTestDB(t *testing.T) (*sql.DB, func()) {
 		t.Fatalf("failed to get connection string: %v", err)
 	}
 
-	db, err := sql.Open("pgx", connStr)
+	migrationDB, err := sql.Open("pgx", connStr)
 	if err != nil {
 		cleanup()
 		t.Fatalf("failed to open db: %v", err)
 	}
 
 	cleanup = func() {
-		_ = db.Close()
+		_ = migrationDB.Close()
 		_ = container.Terminate(ctx)
 	}
 
-	waitForDB(t, ctx, db)
+	waitForDB(t, ctx, migrationDB)
 
-	runMigrations(t, db)
+	runMigrations(t, migrationDB)
+	pool, err := pgxpool.New(ctx, connStr)
+	if err != nil {
+		cleanup()
+		t.Fatalf("failed to open pgx pool: %v", err)
+	}
+	cleanup = func() {
+		pool.Close()
+		_ = migrationDB.Close()
+		_ = container.Terminate(ctx)
+	}
 
-	return db, cleanup
+	return pool, cleanup
 }
 
 func runMigrations(t *testing.T, db *sql.DB) {

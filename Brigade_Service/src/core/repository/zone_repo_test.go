@@ -17,7 +17,7 @@ func TestZoneRepository_CreateListUpdateDeleteAndCovers(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	repo := NewRepo(db)
+	repo := NewRepository(DBPools{Write: db, Read: db})
 	ctx := context.Background()
 	departmentID := uuid.New()
 	brigade := createTestBrigade(t, repo, departmentID)
@@ -81,7 +81,7 @@ func TestZoneRepository_FindBrigadesByPoint(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	repo := NewRepo(db)
+	repo := NewRepository(DBPools{Write: db, Read: db})
 	ctx := context.Background()
 	departmentID := uuid.New()
 	brigade := createTestBrigade(t, repo, departmentID)

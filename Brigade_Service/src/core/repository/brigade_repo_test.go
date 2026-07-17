@@ -13,7 +13,7 @@ func TestBrigadeRepository_CreateGetListUpdateStatus(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	repo := NewRepo(db)
+	repo := NewRepository(DBPools{Write: db, Read: db})
 	ctx := context.Background()
 	departmentID := uuid.New()
 
@@ -76,7 +76,7 @@ func TestBrigadeRepository_DuplicateName(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	repo := NewRepo(db)
+	repo := NewRepository(DBPools{Write: db, Read: db})
 	ctx := context.Background()
 	departmentID := uuid.New()
 
@@ -95,7 +95,7 @@ func TestBrigadeRepository_Readiness(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	repo := NewRepo(db)
+	repo := NewRepository(DBPools{Write: db, Read: db})
 	ctx := context.Background()
 	brigade := createTestBrigade(t, repo, uuid.New())
 
