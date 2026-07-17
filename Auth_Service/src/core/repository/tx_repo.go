@@ -3,33 +3,43 @@ package repository
 import (
 	"auth/models"
 	"context"
-	"database/sql"
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type TXRepoStruct struct {
-	db *sql.DB
+	writePool *pgxpool.Pool
 }
 
-func NewTXRepoStruct(db *sql.DB) *TXRepoStruct {
-	return &TXRepoStruct{db}
+type authTx struct {
+	pgx.Tx
+	ctx context.Context
 }
 
-func insertAuthOutboxEvent(ctx context.Context, tx *sql.Tx, aggregateType string, aggregateID uuid.UUID, eventType string, payload any) error {
+func (t authTx) Commit() error   { return t.Tx.Commit(t.ctx) }
+func (t authTx) Rollback() error { return t.Tx.Rollback(t.ctx) }
+
+func NewTXRepoStruct(writePool *pgxpool.Pool) *TXRepoStruct {
+	return &TXRepoStruct{writePool: writePool}
+}
+
+func insertAuthOutboxEvent(ctx context.Context, tx DBTX, aggregateType string, aggregateID uuid.UUID, eventType string, payload any) error {
 	return insertOutboxEvent(ctx, tx, aggregateType, aggregateID, eventType, payload)
 }
 
 func (t *TXRepoStruct) ChangePassword(ctx context.Context, userID uuid.UUID, password string, sessionID uuid.UUID, revokeOtherSessions bool) (int32, error) {
-	tx, err := t.db.BeginTx(ctx, nil)
+	pgxTx, err := t.writePool.Begin(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("tx_repo: ChangePassword() :cant begin transaction: %w", err)
 	}
+	tx := authTx{Tx: pgxTx, ctx: ctx}
 
 	const updatePassword = `UPDATE users SET password_hash=$1 WHERE id = $2;`
 
-	_, err = tx.ExecContext(ctx, updatePassword, password, userID)
+	_, err = tx.Exec(ctx, updatePassword, password, userID)
 
 	if err != nil {
 		errTX := tx.Rollback()
@@ -41,7 +51,7 @@ func (t *TXRepoStruct) ChangePassword(ctx context.Context, userID uuid.UUID, pas
 
 	if !revokeOtherSessions {
 		const revokeSessionQuery = `UPDATE sessions SET is_revoked = TRUE, revoked_at = now() WHERE id = $1 AND is_revoked = FALSE `
-		result, err := tx.ExecContext(ctx, revokeSessionQuery, sessionID)
+		result, err := tx.Exec(ctx, revokeSessionQuery, sessionID)
 		if err != nil {
 			errTX := tx.Rollback()
 			if errTX != nil {
@@ -50,18 +60,10 @@ func (t *TXRepoStruct) ChangePassword(ctx context.Context, userID uuid.UUID, pas
 			return 0, fmt.Errorf("tx_repo: ChangePassword() :revoke session failed: %w", err)
 		}
 
-		rowAffected, err := result.RowsAffected()
-		if err != nil {
-			errTX := tx.Rollback()
-			if errTX != nil {
-				return 0, fmt.Errorf("tx_repo: changePassword(): RowsAffected failed: %v; rollback failed: %w", err, errTX)
-			}
-			return 0, fmt.Errorf("tx_repo: ChangePassword(): RowsAffected failed: %w", err)
-
-		}
+		rowAffected := result.RowsAffected()
 
 		const revokeTokenQuery = `UPDATE refresh_tokens SET is_revoked = TRUE, revoked_at = now() WHERE session_id = $1 AND is_revoked = FALSE`
-		_, err = tx.ExecContext(ctx, revokeTokenQuery, sessionID)
+		_, err = tx.Exec(ctx, revokeTokenQuery, sessionID)
 		if err != nil {
 			errTX := tx.Rollback()
 			if errTX != nil {
@@ -90,7 +92,7 @@ func (t *TXRepoStruct) ChangePassword(ctx context.Context, userID uuid.UUID, pas
 	}
 
 	const revokeSessionsQuery = `UPDATE sessions SET is_revoked = TRUE, revoked_at = now() WHERE user_id = $1 AND is_revoked = FALSE`
-	result, err := tx.ExecContext(ctx, revokeSessionsQuery, userID)
+	result, err := tx.Exec(ctx, revokeSessionsQuery, userID)
 	if err != nil {
 		errTX := tx.Rollback()
 		if errTX != nil {
@@ -99,18 +101,10 @@ func (t *TXRepoStruct) ChangePassword(ctx context.Context, userID uuid.UUID, pas
 		return 0, fmt.Errorf("tx_repo: ChangePassword() :revoke session failed: %w", err)
 	}
 
-	rowAffected, err := result.RowsAffected()
-	if err != nil {
-		errTX := tx.Rollback()
-		if errTX != nil {
-			return 0, fmt.Errorf("tx_repo: changePassword(): RowsAffected failed: %v; rollback failed: %w", err, errTX)
-		}
-		return 0, fmt.Errorf("tx_repo: ChangePassword(): RowsAffected failed: %w", err)
-
-	}
+	rowAffected := result.RowsAffected()
 
 	const revokeTokensQuery = `UPDATE refresh_tokens SET is_revoked = TRUE, revoked_at = now() WHERE user_id = $1 AND is_revoked = FALSE`
-	_, err = tx.ExecContext(ctx, revokeTokensQuery, userID)
+	_, err = tx.Exec(ctx, revokeTokensQuery, userID)
 	if err != nil {
 		errTX := tx.Rollback()
 		if errTX != nil {
@@ -139,14 +133,15 @@ func (t *TXRepoStruct) ChangePassword(ctx context.Context, userID uuid.UUID, pas
 }
 
 func (t *TXRepoStruct) Logout(ctx context.Context, sessionID uuid.UUID) error {
-	tx, err := t.db.BeginTx(ctx, nil)
+	pgxTx, err := t.writePool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("tx_repo: logout() :cant begin transaction: %w", err)
 	}
+	tx := authTx{Tx: pgxTx, ctx: ctx}
 
 	const revokeSessionQuery = `UPDATE sessions SET is_revoked = TRUE, revoked_at = now() WHERE id = $1 AND is_revoked = FALSE`
 
-	_, err = tx.ExecContext(ctx, revokeSessionQuery, sessionID)
+	_, err = tx.Exec(ctx, revokeSessionQuery, sessionID)
 	if err != nil {
 		errTX := tx.Rollback()
 		if errTX != nil {
@@ -157,7 +152,7 @@ func (t *TXRepoStruct) Logout(ctx context.Context, sessionID uuid.UUID) error {
 	}
 
 	const revokeTokenQuery = `UPDATE refresh_tokens SET is_revoked = TRUE, revoked_at = now() WHERE session_id = $1 AND is_revoked = FALSE`
-	_, err = tx.ExecContext(ctx, revokeTokenQuery, sessionID)
+	_, err = tx.Exec(ctx, revokeTokenQuery, sessionID)
 	if err != nil {
 		errTX := tx.Rollback()
 		if errTX != nil {
@@ -183,13 +178,14 @@ func (t *TXRepoStruct) Logout(ctx context.Context, sessionID uuid.UUID) error {
 }
 
 func (t *TXRepoStruct) LogoutAll(ctx context.Context, userID uuid.UUID) (int64, error) {
-	tx, err := t.db.BeginTx(ctx, nil)
+	pgxTx, err := t.writePool.Begin(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("tx_repo: LogoutAll() :cant begin transaction: %w", err)
 	}
+	tx := authTx{Tx: pgxTx, ctx: ctx}
 	const revokeSessionsQuery = `UPDATE sessions SET is_revoked = TRUE, revoked_at = now() WHERE user_id = $1 AND is_revoked = FALSE`
 
-	result, err := tx.ExecContext(ctx, revokeSessionsQuery, userID)
+	result, err := tx.Exec(ctx, revokeSessionsQuery, userID)
 	if err != nil {
 		errTX := tx.Rollback()
 		if errTX != nil {
@@ -199,17 +195,10 @@ func (t *TXRepoStruct) LogoutAll(ctx context.Context, userID uuid.UUID) (int64, 
 		return 0, fmt.Errorf("tx_repo: LogoutAll(): revoke sessions failed: %w", err)
 	}
 
-	rowAffected, err := result.RowsAffected()
-	if err != nil {
-		errTX := tx.Rollback()
-		if errTX != nil {
-			return 0, fmt.Errorf("tx_repo: LogoutAll(): RowsAffected failed: %v; rollback failed: %w", err, errTX)
-		}
-		return 0, fmt.Errorf("tx_repo: LogoutAll(): RowsAffected failed: %w", err)
-	}
+	rowAffected := result.RowsAffected()
 
 	const revokeTokensQuery = `UPDATE refresh_tokens SET is_revoked = TRUE, revoked_at = now() WHERE user_id = $1 AND is_revoked = FALSE`
-	_, err = tx.ExecContext(ctx, revokeTokensQuery, userID)
+	_, err = tx.Exec(ctx, revokeTokensQuery, userID)
 
 	if err != nil {
 		errTX := tx.Rollback()
@@ -239,10 +228,11 @@ func (t *TXRepoStruct) LogoutAll(ctx context.Context, userID uuid.UUID) (int64, 
 }
 
 func (t *TXRepoStruct) ResetPassword(ctx context.Context, userID uuid.UUID, passwordHash string) (int32, error) {
-	tx, err := t.db.BeginTx(ctx, nil)
+	pgxTx, err := t.writePool.Begin(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("tx_repo: ResetPassword(): cant begin transaction: %w", err)
 	}
+	tx := authTx{Tx: pgxTx, ctx: ctx}
 
 	const updatePasswordQuery = `
 		UPDATE users
@@ -250,7 +240,7 @@ func (t *TXRepoStruct) ResetPassword(ctx context.Context, userID uuid.UUID, pass
 		WHERE id = $2
 	`
 
-	result, err := tx.ExecContext(ctx, updatePasswordQuery, passwordHash, userID)
+	result, err := tx.Exec(ctx, updatePasswordQuery, passwordHash, userID)
 	if err != nil {
 		if errTX := tx.Rollback(); errTX != nil {
 			return 0, fmt.Errorf("tx_repo: ResetPassword(): update password failed: %v; rollback failed: %w", err, errTX)
@@ -258,13 +248,7 @@ func (t *TXRepoStruct) ResetPassword(ctx context.Context, userID uuid.UUID, pass
 		return 0, fmt.Errorf("tx_repo: ResetPassword(): cant update password: %w", err)
 	}
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		if errTX := tx.Rollback(); errTX != nil {
-			return 0, fmt.Errorf("tx_repo: ResetPassword(): rowsAffected failed: %v; rollback failed: %w", err, errTX)
-		}
-		return 0, fmt.Errorf("tx_repo: ResetPassword(): cant get affected rows after password update: %w", err)
-	}
+	rowsAffected := result.RowsAffected()
 
 	if rowsAffected == 0 {
 		if errTX := tx.Rollback(); errTX != nil {
@@ -279,7 +263,7 @@ func (t *TXRepoStruct) ResetPassword(ctx context.Context, userID uuid.UUID, pass
 		WHERE user_id = $1 AND is_revoked = FALSE
 	`
 
-	result, err = tx.ExecContext(ctx, revokeSessionsQuery, userID)
+	result, err = tx.Exec(ctx, revokeSessionsQuery, userID)
 	if err != nil {
 		if errTX := tx.Rollback(); errTX != nil {
 			return 0, fmt.Errorf("tx_repo: ResetPassword(): revoke sessions failed: %v; rollback failed: %w", err, errTX)
@@ -287,13 +271,7 @@ func (t *TXRepoStruct) ResetPassword(ctx context.Context, userID uuid.UUID, pass
 		return 0, fmt.Errorf("tx_repo: ResetPassword(): cant revoke sessions: %w", err)
 	}
 
-	sessionRowsAffected, err := result.RowsAffected()
-	if err != nil {
-		if errTX := tx.Rollback(); errTX != nil {
-			return 0, fmt.Errorf("tx_repo: ResetPassword(): session rowsAffected failed: %v; rollback failed: %w", err, errTX)
-		}
-		return 0, fmt.Errorf("tx_repo: ResetPassword(): cant get affected rows after revoking sessions: %w", err)
-	}
+	sessionRowsAffected := result.RowsAffected()
 
 	const revokeTokensQuery = `
 		UPDATE refresh_tokens
@@ -301,7 +279,7 @@ func (t *TXRepoStruct) ResetPassword(ctx context.Context, userID uuid.UUID, pass
 		WHERE user_id = $1 AND is_revoked = FALSE
 	`
 
-	_, err = tx.ExecContext(ctx, revokeTokensQuery, userID)
+	_, err = tx.Exec(ctx, revokeTokensQuery, userID)
 	if err != nil {
 		if errTX := tx.Rollback(); errTX != nil {
 			return 0, fmt.Errorf("tx_repo: ResetPassword(): revoke tokens failed: %v; rollback failed: %w", err, errTX)
@@ -327,10 +305,11 @@ func (t *TXRepoStruct) ResetPassword(ctx context.Context, userID uuid.UUID, pass
 }
 
 func (t *TXRepoStruct) ResetPasswordWithToken(ctx context.Context, userID uuid.UUID, passwordHash string, tokenID uuid.UUID) (int32, error) {
-	tx, err := t.db.BeginTx(ctx, nil)
+	pgxTx, err := t.writePool.Begin(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("tx_repo: ResetPasswordWithToken(): cant begin transaction: %w", err)
 	}
+	tx := authTx{Tx: pgxTx, ctx: ctx}
 	defer tx.Rollback()
 
 	const markTokenUsedQuery = `
@@ -343,15 +322,12 @@ func (t *TXRepoStruct) ResetPasswordWithToken(ctx context.Context, userID uuid.U
 		  AND expires_at > now()
 	`
 
-	result, err := tx.ExecContext(ctx, markTokenUsedQuery, tokenID, userID, models.TokenTypePasswordReset)
+	result, err := tx.Exec(ctx, markTokenUsedQuery, tokenID, userID, models.TokenTypePasswordReset)
 	if err != nil {
 		return 0, fmt.Errorf("tx_repo: ResetPasswordWithToken(): mark token used: %w", err)
 	}
 
-	tokenRowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return 0, fmt.Errorf("tx_repo: ResetPasswordWithToken(): token rowsAffected: %w", err)
-	}
+	tokenRowsAffected := result.RowsAffected()
 
 	if tokenRowsAffected == 0 {
 		return 0, fmt.Errorf("tx_repo: ResetPasswordWithToken(): token not found, expired or already used")
@@ -363,15 +339,12 @@ func (t *TXRepoStruct) ResetPasswordWithToken(ctx context.Context, userID uuid.U
 		WHERE id = $2
 	`
 
-	result, err = tx.ExecContext(ctx, updatePasswordQuery, passwordHash, userID)
+	result, err = tx.Exec(ctx, updatePasswordQuery, passwordHash, userID)
 	if err != nil {
 		return 0, fmt.Errorf("tx_repo: ResetPasswordWithToken(): update password: %w", err)
 	}
 
-	userRowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return 0, fmt.Errorf("tx_repo: ResetPasswordWithToken(): user rowsAffected: %w", err)
-	}
+	userRowsAffected := result.RowsAffected()
 
 	if userRowsAffected == 0 {
 		return 0, fmt.Errorf("tx_repo: ResetPasswordWithToken(): user not found")
@@ -383,15 +356,12 @@ func (t *TXRepoStruct) ResetPasswordWithToken(ctx context.Context, userID uuid.U
 		WHERE user_id = $1 AND is_revoked = FALSE
 	`
 
-	result, err = tx.ExecContext(ctx, revokeSessionsQuery, userID)
+	result, err = tx.Exec(ctx, revokeSessionsQuery, userID)
 	if err != nil {
 		return 0, fmt.Errorf("tx_repo: ResetPasswordWithToken(): revoke sessions: %w", err)
 	}
 
-	sessionRowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return 0, fmt.Errorf("tx_repo: ResetPasswordWithToken(): session rowsAffected: %w", err)
-	}
+	sessionRowsAffected := result.RowsAffected()
 
 	const revokeTokensQuery = `
 		UPDATE refresh_tokens
@@ -399,7 +369,7 @@ func (t *TXRepoStruct) ResetPasswordWithToken(ctx context.Context, userID uuid.U
 		WHERE user_id = $1 AND is_revoked = FALSE
 	`
 
-	_, err = tx.ExecContext(ctx, revokeTokensQuery, userID)
+	_, err = tx.Exec(ctx, revokeTokensQuery, userID)
 	if err != nil {
 		return 0, fmt.Errorf("tx_repo: ResetPasswordWithToken(): revoke tokens: %w", err)
 	}
@@ -420,10 +390,11 @@ func (t *TXRepoStruct) ResetPasswordWithToken(ctx context.Context, userID uuid.U
 }
 
 func (t *TXRepoStruct) VerifyEmail(ctx context.Context, userID uuid.UUID, tokenID uuid.UUID) error {
-	tx, err := t.db.BeginTx(ctx, nil)
+	pgxTx, err := t.writePool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("tx_repo: VerifyEmail(): cant begin transaction: %w", err)
 	}
+	tx := authTx{Tx: pgxTx, ctx: ctx}
 	defer tx.Rollback()
 
 	const markTokenUsedQuery = `
@@ -436,15 +407,12 @@ func (t *TXRepoStruct) VerifyEmail(ctx context.Context, userID uuid.UUID, tokenI
 		  AND expires_at > now()
 	`
 
-	result, err := tx.ExecContext(ctx, markTokenUsedQuery, tokenID, userID, models.TokenTypeEmailVerification)
+	result, err := tx.Exec(ctx, markTokenUsedQuery, tokenID, userID, models.TokenTypeEmailVerification)
 	if err != nil {
 		return fmt.Errorf("tx_repo: VerifyEmail(): mark token used: %w", err)
 	}
 
-	tokenRowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("tx_repo: VerifyEmail(): token rowsAffected: %w", err)
-	}
+	tokenRowsAffected := result.RowsAffected()
 
 	if tokenRowsAffected == 0 {
 		return fmt.Errorf("tx_repo: VerifyEmail(): token not found, expired or already used")
@@ -456,15 +424,12 @@ func (t *TXRepoStruct) VerifyEmail(ctx context.Context, userID uuid.UUID, tokenI
 		WHERE id = $1
 	`
 
-	result, err = tx.ExecContext(ctx, verifyUserQuery, userID)
+	result, err = tx.Exec(ctx, verifyUserQuery, userID)
 	if err != nil {
 		return fmt.Errorf("tx_repo: VerifyEmail(): verify user: %w", err)
 	}
 
-	userRowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("tx_repo: VerifyEmail(): user rowsAffected: %w", err)
-	}
+	userRowsAffected := result.RowsAffected()
 
 	if userRowsAffected == 0 {
 		return fmt.Errorf("tx_repo: VerifyEmail(): user not found")

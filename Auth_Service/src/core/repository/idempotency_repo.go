@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type IdempotencyRecord struct {
@@ -16,7 +18,7 @@ type IdempotencyRecord struct {
 }
 
 func (r *Repo) BeginIdempotency(ctx context.Context, actorKey, operation, key, requestHash string, ttl time.Duration) (*IdempotencyRecord, bool, error) {
-	if r.db == nil {
+	if r.writePool == nil {
 		return nil, false, fmt.Errorf("repository: BeginIdempotency(): root db is unavailable")
 	}
 
@@ -35,12 +37,12 @@ func (r *Repo) BeginIdempotency(ctx context.Context, actorKey, operation, key, r
 	`
 
 	record := &IdempotencyRecord{}
-	err := r.db.QueryRowContext(ctx, query, actorKey, operation, key, requestHash, expiresAt).
+	err := r.writePool.QueryRow(ctx, query, actorKey, operation, key, requestHash, expiresAt).
 		Scan(&record.Status, &record.RequestHash, &record.Response, &record.Error)
 	if err == nil {
 		return record, true, nil
 	}
-	if !errors.Is(err, sql.ErrNoRows) {
+	if !errors.Is(err, pgx.ErrNoRows) {
 		return nil, false, fmt.Errorf("repository: BeginIdempotency(): insert: %w", err)
 	}
 
@@ -51,7 +53,7 @@ func (r *Repo) BeginIdempotency(ctx context.Context, actorKey, operation, key, r
 		  AND operation = $2
 		  AND idempotency_key = $3
 	`
-	err = r.db.QueryRowContext(ctx, selectQuery, actorKey, operation, key).
+	err = r.writePool.QueryRow(ctx, selectQuery, actorKey, operation, key).
 		Scan(&record.Status, &record.RequestHash, &record.Response, &record.Error)
 	if err != nil {
 		return nil, false, fmt.Errorf("repository: BeginIdempotency(): select: %w", err)
@@ -61,7 +63,7 @@ func (r *Repo) BeginIdempotency(ctx context.Context, actorKey, operation, key, r
 }
 
 func (r *Repo) CompleteIdempotency(ctx context.Context, actorKey, operation, key string, response []byte, resourceType string, resourceID any) error {
-	if r.db == nil {
+	if r.writePool == nil {
 		return fmt.Errorf("repository: CompleteIdempotency(): root db is unavailable")
 	}
 
@@ -77,7 +79,7 @@ func (r *Repo) CompleteIdempotency(ctx context.Context, actorKey, operation, key
 		  AND operation = $2
 		  AND idempotency_key = $3
 	`
-	_, err := r.db.ExecContext(ctx, query, actorKey, operation, key, response, resourceType, resourceID)
+	_, err := r.writePool.Exec(ctx, query, actorKey, operation, key, response, resourceType, resourceID)
 	if err != nil {
 		return fmt.Errorf("repository: CompleteIdempotency(): update: %w", err)
 	}
@@ -86,7 +88,7 @@ func (r *Repo) CompleteIdempotency(ctx context.Context, actorKey, operation, key
 }
 
 func (r *Repo) FailIdempotency(ctx context.Context, actorKey, operation, key string, operationErr error) error {
-	if r.db == nil {
+	if r.writePool == nil {
 		return fmt.Errorf("repository: FailIdempotency(): root db is unavailable")
 	}
 
@@ -104,7 +106,7 @@ func (r *Repo) FailIdempotency(ctx context.Context, actorKey, operation, key str
 		  AND operation = $2
 		  AND idempotency_key = $3
 	`
-	_, err := r.db.ExecContext(ctx, query, actorKey, operation, key, errText)
+	_, err := r.writePool.Exec(ctx, query, actorKey, operation, key, errText)
 	if err != nil {
 		return fmt.Errorf("repository: FailIdempotency(): update: %w", err)
 	}

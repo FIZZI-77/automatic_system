@@ -277,74 +277,428 @@ tickets/{ticket_id}/{file_id}/{safe_file_name}
 
 ## Profile Service и Brigade Service
 
-### Полная логика Profile Service
+### Базовая логика Profile Service — реализовать до навыков и сертификатов
 
-Profile Service отвечает не за авторизацию, а за рабочий профиль сотрудника. Auth Service остается владельцем учетной записи, пароля, сессий и ролей доступа.
+Profile Service не отвечает за авторизацию. Auth Service остается владельцем учетной записи, email, username, пароля, сессий, JWT и глобальных ролей доступа.
 
-Расширенные сущности:
+Profile Service владеет двумя разными сущностями:
 
-- `profiles` - основной профиль сотрудника.
-- `profile_departments` - если сотрудник может состоять в нескольких департаментах.
-- `profile_skills` - навыки и специализации сотрудника.
-- `profile_certifications` - допуски, сертификаты, сроки действия.
-- `profile_schedule` - регулярный график работы.
-- `profile_absences` - отпуск, больничный, временная недоступность.
-- `profile_status_history` - история изменения статуса.
+- `user_profiles` — персональный профиль любого пользователя системы;
+- `work_profiles` — опциональное рабочее расширение пользовательского профиля только для сотрудника;
+- `work_profile_status_history` — история рабочих статусов;
+- `idempotency_keys` — идемпотентность изменяющих операций;
+- `outbox_events` — атомарная запись доменных событий.
 
-Статусы профиля:
+Связи и обязательные бизнес-правила:
 
-- `ACTIVE` - сотрудник активен.
-- `INACTIVE` - временно не используется.
-- `ON_SHIFT` - сотрудник на смене.
-- `OFF_SHIFT` - сотрудник вне смены.
-- `SUSPENDED` - заблокирован для операционной работы.
+- `Auth user 1 -> 0..1 UserProfile`;
+- `UserProfile 1 -> 0..1 WorkProfile`;
+- обычный пользователь может работать с заявками без `WorkProfile`;
+- участник бригады обязан иметь действующий `WorkProfile`;
+- один `WorkProfile` принадлежит ровно одному департаменту;
+- `department_id` хранится непосредственно в `work_profiles`;
+- таблицу many-to-many `profile_departments` создавать не нужно;
+- перед записью `department_id` проверять Department Service;
+- физический FK между БД Profile и Department не создавать;
+- деактивация `WorkProfile` не удаляет и не деактивирует `UserProfile`.
 
-Расширенные методы:
+Статусы рабочего профиля:
 
-- `CreateProfile`
-- `GetProfileByID`
-- `GetProfileByUserID`
-- `ListProfiles`
-- `ListProfilesByDepartment`
-- `UpdateProfile`
-- `DeactivateProfile`
-- `AssignProfileToDepartment`
-- `RemoveProfileFromDepartment`
-- `ListProfileDepartments`
-- `SetProfileStatus`
-- `GetProfileStatusHistory`
-- `AddProfileSkill`
-- `RemoveProfileSkill`
-- `ListProfileSkills`
-- `AddProfileCertification`
-- `RemoveProfileCertification`
-- `ListProfileCertifications`
-- `SetProfileSchedule`
-- `GetProfileSchedule`
-- `AddProfileAbsence`
-- `RemoveProfileAbsence`
-- `GetProfileAvailability`
+- `ACTIVE` — сотрудник активен;
+- `INACTIVE` — рабочий профиль временно не используется или сотрудник уволен;
+- `ON_SHIFT` — сотрудник находится на смене;
+- `OFF_SHIFT` — сотрудник вне смены;
+- `SUSPENDED` — сотрудник заблокирован для операционной работы.
+
+Методы P0:
+
+- `CreateUserProfile`
+- `GetUserProfileByID`
+- `GetUserProfileByUserID`
+- `GetMyUserProfile`
+- `ListUserProfiles`
+- `UpdateUserProfile`
+- `CreateWorkProfile`
+- `GetWorkProfileByID`
+- `GetWorkProfileByUserID`
+- `ListWorkProfiles`
+- `UpdateWorkProfile`
+- `DeactivateWorkProfile`
+- `ChangeWorkProfileDepartment`
+- `SetWorkProfileStatus`
+- `GetWorkProfileStatusHistory`
+- `ResolveWorkingDepartment`
 - `CheckProfileCanJoinBrigade`
 
-Доменные проверки:
+Проверки P0:
 
-- нельзя создать два профиля на один `user_id`;
-- нельзя привязать профиль к несуществующему `department_id`;
-- нельзя добавить сотрудника в бригаду, если профиль неактивен или заблокирован;
-- нельзя добавить сотрудника в бригаду другого департамента без явной cross-department модели;
-- нельзя считать сотрудника доступным, если он вне смены, в отпуске, на больничном или `SUSPENDED`;
-- сертификаты и навыки должны учитываться при проверке допуска к типу работ.
+- нельзя создать два `UserProfile` на один `user_id`;
+- нельзя создать два `WorkProfile` для одного `UserProfile`;
+- нельзя создать `WorkProfile` без существующего активного департамента;
+- нельзя сохранить рабочий профиль без `department_id`;
+- нельзя добавить пользователя в бригаду, если `WorkProfile` отсутствует;
+- нельзя добавить сотрудника в бригаду другого департамента;
+- нельзя добавить сотрудника со статусом `INACTIVE`, `OFF_SHIFT` или `SUSPENDED`;
+- Brigade Service не должен доверять переданным клиентом `work_profile_id` и `actor_department_id`;
+- канонические `work_profile_id`, `user_id` и `department_id` получать через Profile Service.
 
-События:
+События P0:
 
-- `ProfileCreated`
-- `ProfileUpdated`
-- `ProfileDeactivated`
-- `ProfileDepartmentChanged`
-- `ProfileStatusChanged`
-- `ProfileSkillAdded`
-- `ProfileSkillRemoved`
-- `ProfileAvailabilityChanged`
+- `UserProfileCreated`
+- `UserProfileUpdated`
+- `WorkProfileCreated`
+- `WorkProfileUpdated`
+- `WorkProfileDeactivated`
+- `WorkProfileDepartmentChanged`
+- `WorkProfileStatusChanged`
+
+После реализации P0 отдельно добавить графики, отсутствия и вычисление доступности:
+
+- `work_profile_schedule` — регулярный график;
+- `work_profile_absences` — отпуск, больничный и временная недоступность;
+- `SetWorkProfileSchedule`;
+- `GetWorkProfileSchedule`;
+- `AddWorkProfileAbsence`;
+- `RemoveWorkProfileAbsence`;
+- `GetWorkProfileAvailability`;
+- нельзя считать сотрудника доступным вне смены, в отпуске, на больничном или при `SUSPENDED`.
+
+### Future TODO: навыки, квалификации и сертификаты сотрудников
+
+Этот этап выполнять только после завершения основной логики Profile Service, интеграции с Auth/Department/Brigade, idempotency, outbox и базовых тестов.
+
+#### Граница ответственности
+
+- Profile Service владеет навыками конкретного сотрудника, сертификатами, допусками, сроками действия и результатом верификации;
+- Brigade Service владеет составом бригады, заявленными операционными возможностями бригады и решением `может ли бригада выполнить заявку`;
+- File Service после его появления хранит бинарные файлы сертификатов в S3/MinIO;
+- Profile Service хранит только `certificate_file_id` и метаданные документа;
+- Dispatch Service использует итоговую проверку Brigade Service и не должен самостоятельно собирать навыки работников;
+- общих таблиц и межсервисных FK между Profile и Brigade не создавать.
+
+#### Что уже есть в Brigade Service
+
+Сейчас Brigade Service содержит:
+
+- `skills` — справочник навыков с `id`, `code`, `name`, `description`, `active`;
+- `brigade_skills` — навыки/возможности, вручную назначенные бригаде;
+- методы `CreateSkill`, `UpdateSkill`, `DeactivateSkill`, `ListSkills`;
+- методы `AddBrigadeSkill`, `RemoveBrigadeSkill`, `ListBrigadeSkills`;
+- `CheckBrigadeCanHandleTicket`, который проверяет департамент, статус `AVAILABLE`, активный состав, роли, смену, зону и наличие `required_skill_ids` в `brigade_skills`.
+
+Текущая реализация не проверяет навыки конкретных участников. Запись в `brigade_skills` не содержит информации, какой сотрудник или сертификат обеспечивает этот навык.
+
+#### Важное правило интеграции
+
+Не реализовывать простое копирование:
+
+```text
+AddBrigadeMember
+  -> взять skills сотрудника
+  -> INSERT в brigade_skills
+```
+
+Такой подход теряет источник навыка и ломается в случаях:
+
+- несколько сотрудников имеют один навык;
+- один сотрудник покидает бригаду, но другой с тем же навыком остается;
+- сертификат истек или был отозван;
+- сотрудник получил `SUSPENDED`, `INACTIVE` или стал недоступен;
+- один навык подтвержден несколькими сертификатами;
+- навык бригады обеспечивается оборудованием, а не человеком;
+- событие было доставлено повторно или пришло не по порядку.
+
+`brigade_skills` оставить для заявленных возможностей бригады. Навыки активного состава хранить отдельно с указанием конкретного участника и источника подтверждения.
+
+#### Владение справочником skills на первом этапе
+
+Чтобы не ломать уже реализованный Brigade Service, на первом этапе оставить `skills` источником истины в Brigade Service.
+
+Profile Service не должен синхронно вызывать Brigade Service при каждом чтении профиля. Возможные варианты проверки `skill_id` при административных операциях:
+
+1. временно использовать внутренний `GetSkillByID`/batch gRPC вызов;
+2. целевой вариант — читать события `SkillCreated`, `SkillUpdated`, `SkillDeactivated` и держать локальную read-model `skill_catalog_projection`.
+
+Не создавать второй независимый каталог с другими UUID. Один skill должен иметь одинаковый стабильный `skill_id` в Profile и Brigade.
+
+Позже отдельно решить, следует ли вынести общий каталог человеческих компетенций из Brigade Service в Profile/Competency Service. Это не должно блокировать первый этап сертификатов.
+
+#### Таблицы Profile Service
+
+Рекомендуемые таблицы:
+
+```text
+certification_types
+certification_type_skills
+work_profile_certifications
+work_profile_skill_grants
+processed_events
+skill_catalog_projection  # если используется событийная read-model каталога
+```
+
+`certification_types`:
+
+- `id`;
+- `code` — уникальный стабильный код типа сертификата;
+- `name`;
+- `description`;
+- `default_validity_days` — NULL, если срок не ограничен;
+- `requires_file`;
+- `active`;
+- `created_at`;
+- `updated_at`.
+
+`certification_type_skills` связывает тип сертификата с навыками, которые он может подтвердить:
+
+- `certification_type_id`;
+- `skill_id` — логическая ссылка на единый skill catalog;
+- `proficiency_level` — опциональный уровень;
+- `active`;
+- unique active `(certification_type_id, skill_id)`.
+
+`work_profile_certifications`:
+
+- `id`;
+- `work_profile_id`;
+- `certification_type_id`;
+- `number`;
+- `issuer`;
+- `issued_at`;
+- `expires_at` — NULL для бессрочного документа;
+- `status`;
+- `certificate_file_id` — логическая ссылка на File Service;
+- `verified_by_user_id`;
+- `verified_at`;
+- `rejection_reason`;
+- `created_at`;
+- `updated_at`.
+
+Статусы сертификата:
+
+- `PENDING` — загружен и ожидает проверки;
+- `VERIFIED` — проверен и может выдавать навыки;
+- `REJECTED` — проверка не пройдена;
+- `EXPIRED` — срок действия закончился;
+- `REVOKED` — документ отозван до окончания срока.
+
+`work_profile_skill_grants` хранит не просто итоговый список навыков, а отдельные основания выдачи:
+
+- `id`;
+- `work_profile_id`;
+- `skill_id`;
+- `source_type` — `MANUAL` или `CERTIFICATION`;
+- `source_id` — `certification_id` для автоматической выдачи, NULL/ID административного решения для ручной;
+- `proficiency_level` — опционально;
+- `valid_until` — NULL для бессрочной ручной выдачи;
+- `active`;
+- `granted_by_user_id`;
+- `created_at`;
+- `revoked_at`;
+- unique active по источнику, чтобы повторная обработка не создавала дубли.
+
+Один навык может иметь несколько активных grants. Истечение одного сертификата не должно удалять навык, если остается другой действующий сертификат или ручная выдача.
+
+Эффективный навык существует, если есть хотя бы один действующий grant:
+
+```sql
+EXISTS (
+    SELECT 1
+    FROM work_profile_skill_grants
+    WHERE work_profile_id = $1
+      AND skill_id = $2
+      AND active = true
+      AND (valid_until IS NULL OR valid_until > now())
+)
+```
+
+#### Методы Profile Service для навыков и сертификатов
+
+Административные методы:
+
+- `CreateCertificationType`
+- `UpdateCertificationType`
+- `DeactivateCertificationType`
+- `ListCertificationTypes`
+- `MapCertificationTypeToSkill`
+- `RemoveCertificationTypeSkill`
+- `AddWorkProfileCertification`
+- `VerifyWorkProfileCertification`
+- `RejectWorkProfileCertification`
+- `RevokeWorkProfileCertification`
+- `ListWorkProfileCertifications`
+- `GrantWorkProfileSkillManually`
+- `RevokeWorkProfileSkillGrant`
+
+Read/integration методы:
+
+- `ListEffectiveWorkProfileSkills(work_profile_id)`;
+- `BatchListEffectiveWorkProfileSkills(work_profile_ids)`;
+- `CheckWorkProfileHasSkills(work_profile_id, required_skill_ids)`;
+- методы должны учитывать `active`, `valid_until`, статус сертификата и статус `WorkProfile`.
+
+#### Жизненный цикл сертификата
+
+```text
+Сотрудник/admin добавляет сертификат
+  -> status PENDING
+  -> файл загружается через File Service
+  -> admin/HR проверяет номер, издателя, даты и файл
+  -> status VERIFIED
+  -> Profile Service создает grants по certification_type_skills
+  -> публикуются события изменения навыков
+```
+
+При `REJECTED` grants не создаются.
+
+При `EXPIRED` или `REVOKED`:
+
+- деактивировать только grants, у которых `source_id` равен этому сертификату;
+- не затрагивать ручные grants и grants других сертификатов;
+- пересчитать эффективные навыки;
+- опубликовать события только для реально изменившегося effective state.
+
+Добавить периодический worker:
+
+- искать `VERIFIED` сертификаты с `expires_at <= now()`;
+- атомарно менять статус на `EXPIRED`;
+- деактивировать связанные grants;
+- записывать outbox events;
+- поддерживать безопасный повтор запуска и конкурентную обработку через `FOR UPDATE SKIP LOCKED` или аналогичный механизм.
+
+#### Интеграция при добавлении участника в Brigade Service
+
+P0 flow остается обязательным:
+
+```text
+AddBrigadeMember(user_id)
+  -> Profile.CheckProfileCanJoinBrigade(user_id, brigade.department_id)
+  <- canonical user_id, user_profile_id, work_profile_id, department_id, allowed, reason
+  -> INSERT brigade_members с canonical work_profile_id
+```
+
+После реализации навыков расширить flow:
+
+```text
+AddBrigadeMember
+  -> CheckProfileCanJoinBrigade
+  -> ListEffectiveWorkProfileSkills(work_profile_id)
+  -> локальная транзакция Brigade DB:
+       INSERT brigade_members
+       INSERT brigade_member_skills
+       INSERT outbox_event
+```
+
+Если получение навыков недоступно:
+
+- добавление участника не должно сохранять частичное состояние;
+- вернуть `Unavailable`, либо явно разрешить добавление с `skills_sync_status = PENDING` только после отдельного продуктового решения;
+- рекомендуемое начальное поведение — fail closed и повтор команды с idempotency key.
+
+#### Проекция навыков участников в Brigade Service
+
+Добавить отдельную таблицу `brigade_member_skills`, не смешивать ее с `brigade_skills`:
+
+```text
+id
+brigade_id
+member_id
+work_profile_id
+skill_id
+source_grant_id
+proficiency_level
+valid_until
+active
+created_at
+updated_at
+```
+
+Ограничения:
+
+- FK внутри Brigade DB на `brigade_id` и `member_id`;
+- `work_profile_id`, `skill_id`, `source_grant_id` — логические внешние ссылки;
+- unique active `(member_id, skill_id, source_grant_id)`;
+- удаление/деактивация одного участника не удаляет навык другого участника;
+- удаление участника деактивирует только его `brigade_member_skills`;
+- повтор одного события не создает дубль.
+
+#### События Profile Service для Brigade Service
+
+Публиковать через transactional outbox в `profiles.events.v1`:
+
+- `WorkProfileSkillGranted`
+- `WorkProfileSkillRevoked`
+- `WorkProfileEffectiveSkillsChanged`
+- `CertificationAdded`
+- `CertificationVerified`
+- `CertificationRejected`
+- `CertificationExpired`
+- `CertificationRevoked`
+- `WorkProfileStatusChanged`
+
+Минимальный payload события навыка:
+
+```text
+event_id
+event_version
+event_type
+work_profile_id
+skill_id
+source_grant_id
+proficiency_level
+valid_until
+active
+occurred_at
+request_id
+```
+
+Brigade consumer:
+
+- хранит `event_id` в `processed_events` для идемпотентности;
+- выполняет upsert по `source_grant_id`;
+- обрабатывает повторную доставку безопасно;
+- учитывает version/occurred_at и не применяет устаревшее состояние поверх нового;
+- использует retry и DLQ для необрабатываемых событий;
+- периодически выполняет reconciliation с Profile Service batch-методом.
+
+#### Проверка возможности выполнить заявку
+
+После реализации проекции `CheckBrigadeCanHandleTicket` должен учитывать два разных слоя:
+
+1. `brigade_skills` — заявленные/административно назначенные возможности бригады;
+2. `brigade_member_skills` — реально подтвержденные навыки доступного активного состава.
+
+Минимальное правило для человеческой компетенции:
+
+```text
+required skill присутствует в active brigade_skills
+AND
+required skill присутствует хотя бы у одного active/AVAILABLE участника
+AND
+grant активен и не просрочен
+```
+
+Если для навыка требуется несколько специалистов, добавить в требования заявки/категории `required_member_count` и считать distinct `member_id`.
+
+Роли `LEAD`, `DRIVER`, `TECHNICIAN`, `TRAINEE` остаются ролями внутри бригады и не заменяются skills.
+
+Возможности оборудования, например `HAS_BUCKET_TRUCK`, не должны зависеть от сертификатов работников. Позже разделить человеческие компетенции и технические capabilities через поле `skill_kind` или отдельный каталог.
+
+#### Production checks для этапа навыков
+
+- нельзя выдать навык по сертификату в статусе, отличном от `VERIFIED`;
+- нельзя верифицировать сертификат несуществующего/неактивного WorkProfile;
+- `expires_at` не может быть раньше `issued_at`;
+- отозванный или истекший сертификат не дает effective skill;
+- ручная выдача требует admin/HR роли и обязательную причину;
+- все verify/reject/revoke/grant операции идемпотентны;
+- изменение сертификата, grants и outbox выполняется в одной транзакции;
+- файл сертификата не хранится в PostgreSQL Profile Service;
+- события не должны содержать бинарный файл или лишние персональные данные;
+- consumer Brigade Service выдерживает duplicate/out-of-order события;
+- при удалении одного из двух сотрудников с одинаковым skill бригада сохраняет навык второго;
+- при истечении одного из двух подтверждений одного skill effective skill сохраняется;
+- при отсутствии других подтверждений effective skill отзывается и Brigade projection обновляется;
+- unit, repository, integration и end-to-end тесты покрывают добавление участника, верификацию, истечение, отзыв, повтор события и reconciliation.
 
 ### Полная логика Brigade Service
 
@@ -444,31 +798,17 @@ Department Service должен оставаться справочником д
 
 ### Profile Service
 
-Profile Service должен владеть профилями пользователей/сотрудников и их привязкой к департаменту.
+Profile Service должен владеть двумя сущностями: `UserProfile` для персональных данных любого пользователя и опциональным `WorkProfile` для служебных данных сотрудника.
 
-Рекомендуемые поля профиля:
+- `user_profiles.user_id` уникально ссылается на пользователя Auth Service;
+- `work_profiles.user_profile_id` задает связь `UserProfile 1 -> 0..1 WorkProfile`;
+- `work_profiles.department_id` обязателен;
+- один рабочий профиль может принадлежать только одному департаменту;
+- таблица `profile_departments` не используется;
+- персональные поля не дублируются в `work_profiles`;
+- рабочие статусы, должность, табельный номер, навыки и сертификаты относятся только к `WorkProfile`.
 
-- `id`
-- `user_id` - ссылка на пользователя из Auth Service
-- `department_id` - ссылка на Department Service
-- `full_name`
-- `phone`
-- `position`
-- `status`
-- `created_at`
-- `updated_at`
-
-Рекомендуемые методы:
-
-- `CreateProfile`
-- `GetProfileByID`
-- `GetProfileByUserID`
-- `ListProfiles`
-- `ListProfilesByDepartment`
-- `UpdateProfile`
-- `DeactivateProfile`
-
-Если сотрудник может работать только в одном департаменте, достаточно поля `profiles.department_id`. Если сотрудник может состоять в нескольких департаментах, связь нужно хранить в Profile Service через таблицу `profile_departments`, а не в Department Service.
+Полный список P0-методов, правил и отложенный этап навыков/сертификатов описаны выше в разделах `Базовая логика Profile Service` и `Future TODO: навыки, квалификации и сертификаты сотрудников`.
 
 Перед записью `department_id` Profile Service должен синхронно проверять департамент через `DepartmentService.GetDepartmentByID` или использовать локальную read-model/cache по событиям `departments.events`.
 

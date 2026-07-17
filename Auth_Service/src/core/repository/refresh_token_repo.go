@@ -3,34 +3,41 @@ package repository
 import (
 	"auth/models"
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sirupsen/logrus"
 )
 
 type RefreshTokenRepoStruct struct {
-	db       DBTX
-	txSource txBeginner
+	writeDB   DBTX
+	readDB    DBTX
+	writePool *pgxpool.Pool
 }
 
-func NewRefreshTokenRepoStruct(db DBTX) *RefreshTokenRepoStruct {
-	repo := &RefreshTokenRepoStruct{
-		db: db,
+func NewRefreshTokenRepoStruct(writeDB DBTX, readDB ...DBTX) *RefreshTokenRepoStruct {
+	reader := writeDB
+	if len(readDB) > 0 && readDB[0] != nil {
+		reader = readDB[0]
 	}
-	if txSource, ok := db.(txBeginner); ok {
-		repo.txSource = txSource
+	repo := &RefreshTokenRepoStruct{
+		writeDB: writeDB,
+		readDB:  reader,
+	}
+	if pool, ok := writeDB.(*pgxpool.Pool); ok {
+		repo.writePool = pool
 	}
 	return repo
 }
 
-func (r *RefreshTokenRepoStruct) beginTx(ctx context.Context, operation string) (*sql.Tx, error) {
-	if r.txSource == nil {
+func (r *RefreshTokenRepoStruct) beginTx(ctx context.Context, operation string) (pgx.Tx, error) {
+	if r.writePool == nil {
 		return nil, fmt.Errorf("refresh_token_repo: %s: transaction source is unavailable", operation)
 	}
 
-	tx, err := r.txSource.BeginTx(ctx, nil)
+	tx, err := r.writePool.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("refresh_token_repo: %s: cant begin transaction: %w", operation, err)
 	}
@@ -44,7 +51,7 @@ func (r *RefreshTokenRepoStruct) CreateToken(ctx context.Context, token *models.
 	const query = `INSERT INTO refresh_tokens(user_id, session_id, token_hash, is_revoked, expires_at, used_at, replaced_by_token_id)
 	VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`
 
-	err := r.db.QueryRowContext(ctx, query,
+	err := r.writeDB.QueryRow(ctx, query,
 		token.UserID,
 		token.SessionID,
 		token.TokenHash,
@@ -68,7 +75,7 @@ func (r *RefreshTokenRepoStruct) GetByTokenHash(ctx context.Context, tokenHash s
 	const query = `SELECT id, user_id, session_id, token_hash, is_revoked, revoked_at, expires_at, used_at, replaced_by_token_id, created_at
 	FROM refresh_tokens WHERE token_hash = $1 AND is_revoked = FALSE`
 
-	err := r.db.QueryRowContext(ctx, query, tokenHash).Scan(
+	err := r.readDB.QueryRow(ctx, query, tokenHash).Scan(
 		&token.ID,
 		&token.UserID,
 		&token.SessionID,
@@ -81,7 +88,7 @@ func (r *RefreshTokenRepoStruct) GetByTokenHash(ctx context.Context, tokenHash s
 		&token.CreatedAt,
 	)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, fmt.Errorf("refresh_token_repo: GetByTokenHash(): token not found %w", err)
 		}
 		return nil, fmt.Errorf("refresh_token_repo: GetByTokenHash(): %w", err)
@@ -93,7 +100,7 @@ func (r *RefreshTokenRepoStruct) GetByTokenHash(ctx context.Context, tokenHash s
 
 func (r *RefreshTokenRepoStruct) RevokeTokenByID(ctx context.Context, tokenID uuid.UUID) error {
 	const query = `UPDATE refresh_tokens SET is_revoked = TRUE, revoked_at = now() WHERE id = $1 AND is_revoked = FALSE`
-	_, err := r.db.ExecContext(ctx, query, tokenID)
+	_, err := r.writeDB.Exec(ctx, query, tokenID)
 	if err != nil {
 		return fmt.Errorf("refresh_token_repo: RevokeByID(): cant revoke refresh token: %w", err)
 	}
@@ -103,7 +110,7 @@ func (r *RefreshTokenRepoStruct) RevokeTokenByID(ctx context.Context, tokenID uu
 
 func (r *RefreshTokenRepoStruct) RevokeTokenBySessionID(ctx context.Context, sessionID uuid.UUID) error {
 	const query = `UPDATE refresh_tokens SET is_revoked = TRUE, revoked_at = now() WHERE session_id = $1 AND is_revoked = FALSE`
-	_, err := r.db.ExecContext(ctx, query, sessionID)
+	_, err := r.writeDB.Exec(ctx, query, sessionID)
 	if err != nil {
 		return fmt.Errorf("refresh_token_repo: RevokeBySessionID(): cant revoke refresh token: %w", err)
 	}
@@ -114,7 +121,7 @@ func (r *RefreshTokenRepoStruct) RevokeTokenBySessionID(ctx context.Context, ses
 
 func (r *RefreshTokenRepoStruct) RevokeAllTokenByUserID(ctx context.Context, userID uuid.UUID) error {
 	const query = `UPDATE refresh_tokens SET is_revoked = TRUE, revoked_at = now() WHERE user_id = $1 AND is_revoked = FALSE`
-	_, err := r.db.ExecContext(ctx, query, userID)
+	_, err := r.writeDB.Exec(ctx, query, userID)
 	if err != nil {
 		return fmt.Errorf("refresh_token_repo: RevokeAllByUserID(): cant revoke refresh token: %w", err)
 	}
@@ -129,11 +136,12 @@ func (r *RefreshTokenRepoStruct) MarkUsedAndReplaceToken(ctx context.Context, ol
 	if err != nil {
 		return err
 	}
+	defer rollbackTxOnCancel(ctx, tx)()
 
 	const insertNewToken = `INSERT INTO refresh_tokens(user_id, session_id, token_hash, is_revoked, expires_at, used_at, replaced_by_token_id)
 	VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`
 
-	err = tx.QueryRowContext(
+	err = tx.QueryRow(
 		ctx,
 		insertNewToken,
 		newToken.UserID,
@@ -146,10 +154,6 @@ func (r *RefreshTokenRepoStruct) MarkUsedAndReplaceToken(ctx context.Context, ol
 	).Scan(&newTokenID)
 
 	if err != nil {
-		errTx := tx.Rollback()
-		if errTx != nil {
-			return fmt.Errorf("refresh_token_repo: MarkUsedAndReplace(): cant rollback transaction: %w", err)
-		}
 		return fmt.Errorf("refresh_token_repo: MarkUsedAndReplace(): failed insert new token, transaction rollback: %w", err)
 	}
 
@@ -159,32 +163,17 @@ func (r *RefreshTokenRepoStruct) MarkUsedAndReplaceToken(ctx context.Context, ol
 	SET is_revoked = true, revoked_at = now(), used_at = now(), replaced_by_token_id = $1
 	WHERE id = $2 AND is_revoked = FALSE`
 
-	result, err := tx.ExecContext(ctx, updateOldToken, newTokenID, oldTokenID)
+	result, err := tx.Exec(ctx, updateOldToken, newTokenID, oldTokenID)
 	if err != nil {
-		errTx := tx.Rollback()
-		if errTx != nil {
-			return fmt.Errorf("refresh_token_repo: MarkUsedAndReplace(): cant rollback transaction: %w", errTx)
-		}
 		return fmt.Errorf("refresh_token_repo: MarkUsedAndReplace(): failed update old token, transaction rollback: %w", err)
 	}
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		if rollbackErr := tx.Rollback(); rollbackErr != nil {
-			return fmt.Errorf("refresh_token_repo: MarkUsedAndReplace(): rowsAffected failed: %v; rollback failed: %w", err, rollbackErr)
-		}
-		return fmt.Errorf("refresh_token_repo: MarkUsedAndReplace(): cant get affected rows: %w", err)
-	}
-
-	if rowsAffected == 0 {
-		if rollbackErr := tx.Rollback(); rollbackErr != nil {
-			return fmt.Errorf("refresh_token_repo: MarkUsedAndReplace(): old token not updated; rollback failed: %w", rollbackErr)
-		}
+	if result.RowsAffected() == 0 {
 		return fmt.Errorf("refresh_token_repo: MarkUsedAndReplace(): old token not found or already revoked")
 	}
 	logrus.Printf("refresh token updated")
 
-	err = tx.Commit()
+	err = tx.Commit(ctx)
 	if err != nil {
 		return fmt.Errorf("refresh_token_repo: MarkUsedAndReplace(): cant commit transaction: %w", err)
 	}

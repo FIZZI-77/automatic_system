@@ -429,6 +429,8 @@ func TestBrigadeErrorCode(t *testing.T) {
 		{name: "already exists", err: models.ErrAlreadyExists, code: codes.AlreadyExists},
 		{name: "permission", err: models.ErrPermissionDenied, code: codes.PermissionDenied},
 		{name: "unavailable", err: models.ErrBrigadeUnavailable, code: codes.FailedPrecondition},
+		{name: "department inactive", err: models.ErrDepartmentInactive, code: codes.FailedPrecondition},
+		{name: "dependency unavailable", err: models.ErrDependencyUnavailable, code: codes.Unavailable},
 		{name: "unknown", err: errors.New("boom"), code: codes.Internal},
 	}
 

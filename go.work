@@ -4,6 +4,7 @@ use (
 	./API_Gateway
 	./Auth_Service
 	./Department_Service
+	./Profile_service
 	.
 	Ticket_Service
 	Brigade_Service

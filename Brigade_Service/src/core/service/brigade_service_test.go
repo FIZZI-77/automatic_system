@@ -290,6 +290,30 @@ func TestBrigadeService_CreateBrigade_DepartmentInactive(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
+	if !errors.Is(err, models.ErrDepartmentInactive) {
+		t.Fatalf("expected ErrDepartmentInactive, got %v", err)
+	}
+}
+
+func TestMapDepartmentServiceError(t *testing.T) {
+	tests := []struct {
+		name   string
+		err    error
+		target error
+	}{
+		{name: "not found", err: status.Error(codes.NotFound, "missing"), target: models.ErrNotFound},
+		{name: "unavailable", err: status.Error(codes.Unavailable, "down"), target: models.ErrDependencyUnavailable},
+		{name: "deadline", err: status.Error(codes.DeadlineExceeded, "slow"), target: models.ErrDependencyUnavailable},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := mapDepartmentServiceError(tt.err)
+			if !errors.Is(got, tt.target) {
+				t.Fatalf("expected %v, got %v", tt.target, got)
+			}
+		})
+	}
 }
 
 func TestBrigadeService_CreateBrigade_DepartmentRetry(t *testing.T) {

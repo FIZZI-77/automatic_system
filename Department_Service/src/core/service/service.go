@@ -22,6 +22,10 @@ type Service struct {
 }
 
 func NewService(repo *repository.Repository, logger *zap.Logger) *Service {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+
 	return &Service{
 		DepartmentService: NewDepartmentServiceStruct(repo, logger),
 	}

@@ -3,30 +3,31 @@ package repository
 import (
 	"brigade/models"
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/lib/pq"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type SkillRepoStruct struct {
-	db *sql.DB
+	writePool *pgxpool.Pool
+	readPool  *pgxpool.Pool
 }
 
-func NewSkillRepo(db *sql.DB) *SkillRepoStruct {
-	return &SkillRepoStruct{db: db}
+func NewSkillRepo(writePool *pgxpool.Pool, readPool *pgxpool.Pool) *SkillRepoStruct {
+	return &SkillRepoStruct{writePool: writePool, readPool: readPool}
 }
 
 func (s *SkillRepoStruct) CreateSkill(ctx context.Context, in *models.CreateSkillInput) (*models.CreateSkillResult, error) {
-	tx, err := s.db.BeginTx(ctx, nil)
+	tx, err := s.writePool.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("repo: CreateSkill: begin tx: %w", err)
 	}
-	defer tx.Rollback()
+	defer rollbackTxOnCancel(ctx, tx)()
 
 	const query = `
 		INSERT INTO skills (code, name, description)
@@ -34,7 +35,7 @@ func (s *SkillRepoStruct) CreateSkill(ctx context.Context, in *models.CreateSkil
 		RETURNING id, code, name, description, active, created_at, updated_at
 	`
 
-	skill, err := scanSkill(tx.QueryRowContext(ctx, query, in.Code, in.Name, in.Description))
+	skill, err := scanSkill(tx.QueryRow(ctx, query, in.Code, in.Name, in.Description))
 	if err != nil {
 		if isSkillUniqueViolation(err) {
 			return nil, fmt.Errorf("repo: CreateSkill: %w", models.ErrAlreadyExists)
@@ -54,7 +55,7 @@ func (s *SkillRepoStruct) CreateSkill(ctx context.Context, in *models.CreateSkil
 		return nil, fmt.Errorf("repo: CreateSkill: insert outbox event: %w", err)
 	}
 
-	if err = tx.Commit(); err != nil {
+	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repo: CreateSkill: commit tx: %w", err)
 	}
 
@@ -62,11 +63,11 @@ func (s *SkillRepoStruct) CreateSkill(ctx context.Context, in *models.CreateSkil
 }
 
 func (s *SkillRepoStruct) UpdateSkill(ctx context.Context, in *models.UpdateSkillInput) (*models.UpdateSkillResult, error) {
-	tx, err := s.db.BeginTx(ctx, nil)
+	tx, err := s.writePool.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("repo: UpdateSkill: begin tx: %w", err)
 	}
-	defer tx.Rollback()
+	defer rollbackTxOnCancel(ctx, tx)()
 
 	const query = `
 		UPDATE skills
@@ -80,7 +81,7 @@ func (s *SkillRepoStruct) UpdateSkill(ctx context.Context, in *models.UpdateSkil
 		RETURNING id, code, name, description, active, created_at, updated_at
 	`
 
-	skill, err := scanSkill(tx.QueryRowContext(ctx, query, in.Code, in.Name, in.Description, in.Active, in.ID))
+	skill, err := scanSkill(tx.QueryRow(ctx, query, in.Code, in.Name, in.Description, in.Active, in.ID))
 	if err != nil {
 		if isSkillUniqueViolation(err) {
 			return nil, fmt.Errorf("repo: UpdateSkill: %w", models.ErrAlreadyExists)
@@ -101,7 +102,7 @@ func (s *SkillRepoStruct) UpdateSkill(ctx context.Context, in *models.UpdateSkil
 		return nil, fmt.Errorf("repo: UpdateSkill: insert outbox event: %w", err)
 	}
 
-	if err = tx.Commit(); err != nil {
+	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repo: UpdateSkill: commit tx: %w", err)
 	}
 
@@ -109,11 +110,11 @@ func (s *SkillRepoStruct) UpdateSkill(ctx context.Context, in *models.UpdateSkil
 }
 
 func (s *SkillRepoStruct) DeactivateSkill(ctx context.Context, in *models.DeactivateSkillInput) (*models.DeactivateSkillResult, error) {
-	tx, err := s.db.BeginTx(ctx, nil)
+	tx, err := s.writePool.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("repo: DeactivateSkill: begin tx: %w", err)
 	}
-	defer tx.Rollback()
+	defer rollbackTxOnCancel(ctx, tx)()
 
 	const query = `
 		UPDATE skills
@@ -122,7 +123,7 @@ func (s *SkillRepoStruct) DeactivateSkill(ctx context.Context, in *models.Deacti
 		RETURNING id, code, name, description, active, created_at, updated_at
 	`
 
-	skill, err := scanSkill(tx.QueryRowContext(ctx, query, in.ID))
+	skill, err := scanSkill(tx.QueryRow(ctx, query, in.ID))
 	if err != nil {
 		return nil, fmt.Errorf("repo: DeactivateSkill: scan skill: %w", err)
 	}
@@ -138,7 +139,7 @@ func (s *SkillRepoStruct) DeactivateSkill(ctx context.Context, in *models.Deacti
 		return nil, fmt.Errorf("repo: DeactivateSkill: insert outbox event: %w", err)
 	}
 
-	if err = tx.Commit(); err != nil {
+	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repo: DeactivateSkill: commit tx: %w", err)
 	}
 
@@ -169,7 +170,7 @@ func (s *SkillRepoStruct) ListSkills(ctx context.Context, in *models.ListSkillsI
 
 	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM skills %s", whereSQL)
 	var total int64
-	if err := s.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
+	if err := s.readPool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, fmt.Errorf("repo: ListSkills: count: %w", err)
 	}
 
@@ -182,7 +183,7 @@ func (s *SkillRepoStruct) ListSkills(ctx context.Context, in *models.ListSkillsI
 		LIMIT $%d OFFSET $%d
 	`, whereSQL, len(args)-1, len(args))
 
-	rows, err := s.db.QueryContext(ctx, query, args...)
+	rows, err := s.readPool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("repo: ListSkills: query: %w", err)
 	}
@@ -204,11 +205,11 @@ func (s *SkillRepoStruct) ListSkills(ctx context.Context, in *models.ListSkillsI
 }
 
 func (s *SkillRepoStruct) AddBrigadeSkill(ctx context.Context, in *models.AddBrigadeSkillInput) (*models.AddBrigadeSkillResult, error) {
-	tx, err := s.db.BeginTx(ctx, nil)
+	tx, err := s.writePool.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("repo: AddBrigadeSkill: begin tx: %w", err)
 	}
-	defer tx.Rollback()
+	defer rollbackTxOnCancel(ctx, tx)()
 
 	const query = `
 		INSERT INTO brigade_skills (brigade_id, skill_id)
@@ -216,7 +217,7 @@ func (s *SkillRepoStruct) AddBrigadeSkill(ctx context.Context, in *models.AddBri
 		RETURNING id, brigade_id, skill_id, active, created_at, updated_at
 	`
 
-	brigadeSkill, err := scanBrigadeSkill(tx.QueryRowContext(ctx, query, in.BrigadeID, in.SkillID))
+	brigadeSkill, err := scanBrigadeSkill(tx.QueryRow(ctx, query, in.BrigadeID, in.SkillID))
 	if err != nil {
 		if isBrigadeSkillUniqueViolation(err) {
 			return nil, fmt.Errorf("repo: AddBrigadeSkill: %w", models.ErrAlreadyExists)
@@ -235,7 +236,7 @@ func (s *SkillRepoStruct) AddBrigadeSkill(ctx context.Context, in *models.AddBri
 		return nil, fmt.Errorf("repo: AddBrigadeSkill: insert outbox event: %w", err)
 	}
 
-	if err = tx.Commit(); err != nil {
+	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repo: AddBrigadeSkill: commit tx: %w", err)
 	}
 
@@ -243,11 +244,11 @@ func (s *SkillRepoStruct) AddBrigadeSkill(ctx context.Context, in *models.AddBri
 }
 
 func (s *SkillRepoStruct) RemoveBrigadeSkill(ctx context.Context, in *models.RemoveBrigadeSkillInput) (*models.RemoveBrigadeSkillResult, error) {
-	tx, err := s.db.BeginTx(ctx, nil)
+	tx, err := s.writePool.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("repo: RemoveBrigadeSkill: begin tx: %w", err)
 	}
-	defer tx.Rollback()
+	defer rollbackTxOnCancel(ctx, tx)()
 
 	const query = `
 		UPDATE brigade_skills
@@ -256,7 +257,7 @@ func (s *SkillRepoStruct) RemoveBrigadeSkill(ctx context.Context, in *models.Rem
 		RETURNING id, brigade_id, skill_id, active, created_at, updated_at
 	`
 
-	brigadeSkill, err := scanBrigadeSkill(tx.QueryRowContext(ctx, query, in.BrigadeID, in.SkillID))
+	brigadeSkill, err := scanBrigadeSkill(tx.QueryRow(ctx, query, in.BrigadeID, in.SkillID))
 	if err != nil {
 		return nil, fmt.Errorf("repo: RemoveBrigadeSkill: scan brigade skill: %w", err)
 	}
@@ -272,7 +273,7 @@ func (s *SkillRepoStruct) RemoveBrigadeSkill(ctx context.Context, in *models.Rem
 		return nil, fmt.Errorf("repo: RemoveBrigadeSkill: insert outbox event: %w", err)
 	}
 
-	if err = tx.Commit(); err != nil {
+	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repo: RemoveBrigadeSkill: commit tx: %w", err)
 	}
 
@@ -309,7 +310,7 @@ func (s *SkillRepoStruct) ListBrigadeSkills(ctx context.Context, in *models.List
 		ORDER BY s.code ASC
 	`, whereSQL)
 
-	rows, err := s.db.QueryContext(ctx, query, args...)
+	rows, err := s.readPool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("repo: ListBrigadeSkills: query: %w", err)
 	}
@@ -333,7 +334,7 @@ func scanSkill(row scanner) (*models.Skill, error) {
 	var skill models.Skill
 	err := row.Scan(&skill.ID, &skill.Code, &skill.Name, &skill.Description, &skill.Active, &skill.CreatedAt, &skill.UpdatedAt)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, models.ErrNotFound
 		}
 		return nil, err
@@ -345,7 +346,7 @@ func scanBrigadeSkill(row scanner) (*models.BrigadeSkill, error) {
 	var item models.BrigadeSkill
 	err := row.Scan(&item.ID, &item.BrigadeID, &item.SkillID, &item.Active, &item.CreatedAt, &item.UpdatedAt)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, models.ErrNotFound
 		}
 		return nil, err
@@ -356,7 +357,7 @@ func scanBrigadeSkill(row scanner) (*models.BrigadeSkill, error) {
 func scanBrigadeSkillWithSkill(row scanner) (*models.BrigadeSkill, error) {
 	item, skill, err := scanBrigadeSkillWithSkillRaw(row)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, models.ErrNotFound
 		}
 		return nil, err
@@ -403,7 +404,7 @@ func (s *SkillRepoStruct) brigadeHasSkills(ctx context.Context, brigadeID uuid.U
 	`
 
 	var count int
-	if err := s.db.QueryRowContext(ctx, query, brigadeID, pq.Array(uuidStrings(skillIDs))).Scan(&count); err != nil {
+	if err := s.readPool.QueryRow(ctx, query, brigadeID, uuidStrings(skillIDs)).Scan(&count); err != nil {
 		return false, err
 	}
 
@@ -416,16 +417,7 @@ func isSkillUniqueViolation(err error) bool {
 		return pgErr.ConstraintName == "" || pgErr.ConstraintName == "skills_code_uidx"
 	}
 
-	var pqErr *pq.Error
-	if !errors.As(err, &pqErr) {
-		return false
-	}
-
-	if pqErr.Code != "23505" {
-		return false
-	}
-
-	return pqErr.Constraint == "" || pqErr.Constraint == "skills_code_uidx"
+	return false
 }
 
 func isBrigadeSkillUniqueViolation(err error) bool {
@@ -434,14 +426,5 @@ func isBrigadeSkillUniqueViolation(err error) bool {
 		return pgErr.ConstraintName == "" || pgErr.ConstraintName == "brigade_skills_active_uidx"
 	}
 
-	var pqErr *pq.Error
-	if !errors.As(err, &pqErr) {
-		return false
-	}
-
-	if pqErr.Code != "23505" {
-		return false
-	}
-
-	return pqErr.Constraint == "" || pqErr.Constraint == "brigade_skills_active_uidx"
+	return false
 }

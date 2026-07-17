@@ -3,12 +3,12 @@ package repository
 import (
 	"auth/models"
 	"context"
-	"database/sql"
 	"fmt"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func TestTXRepo_Logout_RevokesSessionAndTokens(t *testing.T) {
@@ -842,7 +842,7 @@ func TestTXRepo_ResetPasswordWithToken_AlreadyUsedTokenReturnsError(t *testing.T
 	}
 }
 
-func getRefreshTokenByHashForTXTest(ctx context.Context, db *sql.DB, tokenHash string) (*models.RefreshToken, error) {
+func getRefreshTokenByHashForTXTest(ctx context.Context, db *pgxpool.Pool, tokenHash string) (*models.RefreshToken, error) {
 	var token models.RefreshToken
 
 	const query = `
@@ -851,7 +851,7 @@ func getRefreshTokenByHashForTXTest(ctx context.Context, db *sql.DB, tokenHash s
 		WHERE token_hash = $1
 	`
 
-	err := db.QueryRowContext(ctx, query, tokenHash).Scan(
+	err := db.QueryRow(ctx, query, tokenHash).Scan(
 		&token.ID,
 		&token.UserID,
 		&token.SessionID,

@@ -48,7 +48,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to connect db: %v", err)
 	}
-	dependencies.Add("postgres", db.Close)
+	dependencies.Add("postgres", func() error {
+		db.Close()
+		return nil
+	})
 	defer closeDependencies(dependencies)
 
 	departmentConn, err := grpc.NewClient(
@@ -77,7 +80,7 @@ func main() {
 		),
 	)
 
-	repo := repository.NewRepo(db)
+	repo := repository.NewRepository(repository.DBPools{Write: db, Read: db})
 	departmentClient := departmentv1.NewDepartmentServiceClient(departmentConn)
 	brigadeService := service.NewService(repo, departmentClient, logger)
 	brigadeHandler := handler.NewBrigadeHandler(brigadeService, logger)

@@ -11,16 +11,18 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/lib/pq"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type BrigadeRepoStruct struct {
-	db *sql.DB
+	writePool *pgxpool.Pool
+	readPool  *pgxpool.Pool
 }
 
-func NewBrigadeRepo(db *sql.DB) *BrigadeRepoStruct {
-	return &BrigadeRepoStruct{db: db}
+func NewBrigadeRepo(writePool *pgxpool.Pool, readPool *pgxpool.Pool) *BrigadeRepoStruct {
+	return &BrigadeRepoStruct{writePool: writePool, readPool: readPool}
 }
 
 type scanner interface {
@@ -40,12 +42,12 @@ type brigadeCreatedEventPayload struct {
 }
 
 func (b *BrigadeRepoStruct) CreateBrigade(ctx context.Context, in *models.CreateBrigadeInput) (*models.CreateBrigadeResult, error) {
-	tx, err := b.db.BeginTx(ctx, nil)
+	tx, err := b.writePool.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("repo: CreateBrigade: begin tx: %w", err)
 	}
 
-	defer tx.Rollback()
+	defer rollbackTxOnCancel(ctx, tx)()
 
 	brigade, err := b.insertBrigade(ctx, tx, in)
 	if err != nil {
@@ -71,14 +73,14 @@ func (b *BrigadeRepoStruct) CreateBrigade(ctx context.Context, in *models.Create
 		return nil, fmt.Errorf("repo: CreateBrigade: insert outbox event: %w", err)
 	}
 
-	if err = tx.Commit(); err != nil {
+	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repo: CreateBrigade: commit tx: %w", err)
 	}
 
 	return &models.CreateBrigadeResult{Brigade: brigade}, nil
 }
 
-func (b *BrigadeRepoStruct) insertBrigade(ctx context.Context, tx *sql.Tx, in *models.CreateBrigadeInput) (*models.Brigade, error) {
+func (b *BrigadeRepoStruct) insertBrigade(ctx context.Context, tx pgx.Tx, in *models.CreateBrigadeInput) (*models.Brigade, error) {
 	const query = `
 		INSERT INTO brigades (
 			department_id,
@@ -100,7 +102,7 @@ func (b *BrigadeRepoStruct) insertBrigade(ctx context.Context, tx *sql.Tx, in *m
 			archived_at
 	`
 
-	row := tx.QueryRowContext(ctx, query, in.DepartmentID, in.Name, in.Description, in.Specialization)
+	row := tx.QueryRow(ctx, query, in.DepartmentID, in.Name, in.Description, in.Specialization)
 	return scanBrigade(row)
 }
 
@@ -121,7 +123,7 @@ func (b *BrigadeRepoStruct) GetBrigadeByID(ctx context.Context, in *models.GetBr
 		WHERE id = $1
 	`
 
-	row := b.db.QueryRowContext(ctx, query, in.ID)
+	row := b.readPool.QueryRow(ctx, query, in.ID)
 
 	brigade, err := scanBrigade(row)
 	if err != nil {
@@ -168,7 +170,7 @@ func (b *BrigadeRepoStruct) ListBrigades(ctx context.Context, in *models.ListBri
 	`, whereSQL)
 
 	var total int64
-	if err := b.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
+	if err := b.readPool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, fmt.Errorf("repo: ListBrigades: scan count: %w", err)
 	}
 
@@ -197,7 +199,7 @@ func (b *BrigadeRepoStruct) ListBrigades(ctx context.Context, in *models.ListBri
 		LIMIT $%d OFFSET $%d
 	`, whereSQL, sortBy, sortOrder, limitArg, offsetArg)
 
-	rows, err := b.db.QueryContext(ctx, listQuery, args...)
+	rows, err := b.readPool.Query(ctx, listQuery, args...)
 	if err != nil {
 		return nil, fmt.Errorf("repo: ListBrigades: query: %w", err)
 	}
@@ -225,11 +227,11 @@ func (b *BrigadeRepoStruct) ListBrigades(ctx context.Context, in *models.ListBri
 }
 
 func (b *BrigadeRepoStruct) UpdateBrigade(ctx context.Context, in *models.UpdateBrigadeInput) (*models.UpdateBrigadeResult, error) {
-	tx, err := b.db.BeginTx(ctx, nil)
+	tx, err := b.writePool.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("repo: UpdateBrigade: begin tx: %w", err)
 	}
-	defer tx.Rollback()
+	defer rollbackTxOnCancel(ctx, tx)()
 
 	const query = `
 		UPDATE brigades
@@ -252,7 +254,7 @@ func (b *BrigadeRepoStruct) UpdateBrigade(ctx context.Context, in *models.Update
 			archived_at
 	`
 
-	brigade, err := scanBrigade(tx.QueryRowContext(ctx, query, in.Name, in.Description, in.Specialization, in.ID))
+	brigade, err := scanBrigade(tx.QueryRow(ctx, query, in.Name, in.Description, in.Specialization, in.ID))
 	if err != nil {
 		return nil, fmt.Errorf("repo: UpdateBrigade: scan brigade: %w", err)
 	}
@@ -275,7 +277,7 @@ func (b *BrigadeRepoStruct) UpdateBrigade(ctx context.Context, in *models.Update
 		return nil, fmt.Errorf("repo: UpdateBrigade: insert outbox event: %w", err)
 	}
 
-	if err = tx.Commit(); err != nil {
+	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repo: UpdateBrigade: commit tx: %w", err)
 	}
 
@@ -317,7 +319,7 @@ func (b *BrigadeRepoStruct) GetBrigadeStatusHistory(ctx context.Context, in *mod
 	`
 
 	var total int64
-	if err := b.db.QueryRowContext(ctx, countQuery, in.BrigadeID).Scan(&total); err != nil {
+	if err := b.readPool.QueryRow(ctx, countQuery, in.BrigadeID).Scan(&total); err != nil {
 		return nil, fmt.Errorf("repo: GetBrigadeStatusHistory: count: %w", err)
 	}
 
@@ -337,7 +339,7 @@ func (b *BrigadeRepoStruct) GetBrigadeStatusHistory(ctx context.Context, in *mod
 		LIMIT $2 OFFSET $3
 	`
 
-	rows, err := b.db.QueryContext(ctx, query, in.BrigadeID, in.Limit, in.Offset)
+	rows, err := b.readPool.Query(ctx, query, in.BrigadeID, in.Limit, in.Offset)
 	if err != nil {
 		return nil, fmt.Errorf("repo: GetBrigadeStatusHistory: query: %w", err)
 	}
@@ -371,7 +373,7 @@ func (b *BrigadeRepoStruct) GetAvailableBrigades(ctx context.Context, in *models
 	if in.Longitude != nil && in.Latitude != nil {
 		findInput.Longitude = *in.Longitude
 		findInput.Latitude = *in.Latitude
-		result, err := NewZoneRepo(b.db).FindBrigadesByPoint(ctx, findInput)
+		result, err := NewZoneRepo(b.writePool, b.readPool).FindBrigadesByPoint(ctx, findInput)
 		if err != nil {
 			return nil, err
 		}
@@ -381,7 +383,7 @@ func (b *BrigadeRepoStruct) GetAvailableBrigades(ctx context.Context, in *models
 		}, nil
 	}
 
-	result, err := NewZoneRepo(b.db).listAvailableBrigades(ctx, in.DepartmentID, in.RequiredSkillIDs, in.RequiredRoles, in.Limit, in.Offset)
+	result, err := NewZoneRepo(b.writePool, b.readPool).listAvailableBrigades(ctx, in.DepartmentID, in.RequiredSkillIDs, in.RequiredRoles, in.Limit, in.Offset)
 	if err != nil {
 		return nil, fmt.Errorf("repo: GetAvailableBrigades: %w", err)
 	}
@@ -410,7 +412,7 @@ func (b *BrigadeRepoStruct) CheckBrigadeCanHandleTicket(ctx context.Context, in 
 	}
 	reasons = append(reasons, readinessReasons...)
 
-	covers, err := NewZoneRepo(b.db).CheckBrigadeCoversPoint(ctx, &models.CheckBrigadeCoversPointInput{
+	covers, err := NewZoneRepo(b.writePool, b.readPool).CheckBrigadeCoversPoint(ctx, &models.CheckBrigadeCoversPointInput{
 		BrigadeID: in.BrigadeID,
 		Longitude: in.Longitude,
 		Latitude:  in.Latitude,
@@ -422,7 +424,7 @@ func (b *BrigadeRepoStruct) CheckBrigadeCanHandleTicket(ctx context.Context, in 
 		reasons = append(reasons, "brigade does not cover ticket location")
 	}
 
-	hasSkills, err := NewSkillRepo(b.db).brigadeHasSkills(ctx, in.BrigadeID, in.RequiredSkillIDs)
+	hasSkills, err := NewSkillRepo(b.writePool, b.readPool).brigadeHasSkills(ctx, in.BrigadeID, in.RequiredSkillIDs)
 	if err != nil {
 		return nil, fmt.Errorf("repo: CheckBrigadeCanHandleTicket: check skills: %w", err)
 	}
@@ -487,7 +489,7 @@ func (b *BrigadeRepoStruct) brigadeHasActiveMembers(ctx context.Context, brigade
 	`
 
 	var exists bool
-	if err := b.db.QueryRowContext(ctx, query, brigadeID).Scan(&exists); err != nil {
+	if err := b.readPool.QueryRow(ctx, query, brigadeID).Scan(&exists); err != nil {
 		return false, err
 	}
 
@@ -506,7 +508,7 @@ func (b *BrigadeRepoStruct) brigadeHasAvailableActiveMembers(ctx context.Context
 	`
 
 	var exists bool
-	if err := b.db.QueryRowContext(ctx, query, brigadeID, string(models.BrigadeMemberAvailabilityAvailable)).Scan(&exists); err != nil {
+	if err := b.readPool.QueryRow(ctx, query, brigadeID, string(models.BrigadeMemberAvailabilityAvailable)).Scan(&exists); err != nil {
 		return false, err
 	}
 
@@ -532,7 +534,7 @@ func (b *BrigadeRepoStruct) brigadeIsOnShift(ctx context.Context, brigadeID uuid
 	`
 
 	var exists bool
-	if err := b.db.QueryRowContext(ctx, query, brigadeID).Scan(&exists); err != nil {
+	if err := b.readPool.QueryRow(ctx, query, brigadeID).Scan(&exists); err != nil {
 		return false, err
 	}
 
@@ -553,7 +555,7 @@ func (b *BrigadeRepoStruct) brigadeHasRoles(ctx context.Context, brigadeID uuid.
 	`
 
 	var count int
-	if err := b.db.QueryRowContext(ctx, query, brigadeID, pq.Array(roleStrings(requiredRoles))).Scan(&count); err != nil {
+	if err := b.readPool.QueryRow(ctx, query, brigadeID, roleStrings(requiredRoles)).Scan(&count); err != nil {
 		return false, err
 	}
 
@@ -579,7 +581,7 @@ func scanBrigade(row scanner) (*models.Brigade, error) {
 		&archivedAt,
 	)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, models.ErrNotFound
 		}
 
@@ -610,11 +612,11 @@ func (b *BrigadeRepoStruct) setBrigadeStatusWithTx(
 	setDeactivatedAt bool,
 	setArchivedAt bool,
 ) (*models.Brigade, error) {
-	tx, err := b.db.BeginTx(ctx, nil)
+	tx, err := b.writePool.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("begin tx: %w", err)
 	}
-	defer tx.Rollback()
+	defer rollbackTxOnCancel(ctx, tx)()
 
 	current, err := b.getBrigadeByIDForUpdate(ctx, tx, brigadeID)
 	if err != nil {
@@ -642,7 +644,7 @@ func (b *BrigadeRepoStruct) setBrigadeStatusWithTx(
 			archived_at
 	`
 
-	brigade, err := scanBrigade(tx.QueryRowContext(ctx, query, string(status), setDeactivatedAt, setArchivedAt, brigadeID))
+	brigade, err := scanBrigade(tx.QueryRow(ctx, query, string(status), setDeactivatedAt, setArchivedAt, brigadeID))
 	if err != nil {
 		return nil, fmt.Errorf("update brigade status: %w", err)
 	}
@@ -679,14 +681,14 @@ func (b *BrigadeRepoStruct) setBrigadeStatusWithTx(
 		return nil, fmt.Errorf("insert outbox event: %w", err)
 	}
 
-	if err = tx.Commit(); err != nil {
+	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("commit tx: %w", err)
 	}
 
 	return brigade, nil
 }
 
-func (b *BrigadeRepoStruct) getBrigadeByIDForUpdate(ctx context.Context, tx *sql.Tx, brigadeID uuid.UUID) (*models.Brigade, error) {
+func (b *BrigadeRepoStruct) getBrigadeByIDForUpdate(ctx context.Context, tx pgx.Tx, brigadeID uuid.UUID) (*models.Brigade, error) {
 	const query = `
 		SELECT
 			id,
@@ -704,12 +706,12 @@ func (b *BrigadeRepoStruct) getBrigadeByIDForUpdate(ctx context.Context, tx *sql
 		FOR UPDATE
 	`
 
-	return scanBrigade(tx.QueryRowContext(ctx, query, brigadeID))
+	return scanBrigade(tx.QueryRow(ctx, query, brigadeID))
 }
 
 func (b *BrigadeRepoStruct) insertBrigadeStatusHistory(
 	ctx context.Context,
-	tx *sql.Tx,
+	tx pgx.Tx,
 	brigadeID uuid.UUID,
 	fromStatus *models.BrigadeStatus,
 	toStatus models.BrigadeStatus,
@@ -735,7 +737,7 @@ func (b *BrigadeRepoStruct) insertBrigadeStatusHistory(
 		fromStatusValue = &value
 	}
 
-	_, err := tx.ExecContext(ctx, query, brigadeID, fromStatusValue, string(toStatus), reason, changedBy, requestID)
+	_, err := tx.Exec(ctx, query, brigadeID, fromStatusValue, string(toStatus), reason, changedBy, requestID)
 	return err
 }
 
@@ -779,7 +781,7 @@ func scanBrigadeStatusHistory(row scanner) (*models.BrigadeStatusHistory, error)
 
 func insertOutboxEvent(
 	ctx context.Context,
-	tx *sql.Tx,
+	tx pgx.Tx,
 	aggregateType string,
 	aggregateID uuid.UUID,
 	eventType string,
@@ -804,7 +806,7 @@ func insertOutboxEvent(
 		VALUES ($1, $2, $3, $4, $5, $6)
 	`
 
-	_, err = tx.ExecContext(
+	_, err = tx.Exec(
 		ctx,
 		query,
 		aggregateType,
@@ -869,14 +871,5 @@ func isBrigadeNameUniqueViolation(err error) bool {
 		return pgErr.ConstraintName == "" || pgErr.ConstraintName == "brigades_department_name_active_uidx"
 	}
 
-	var pqErr *pq.Error
-	if !errors.As(err, &pqErr) {
-		return false
-	}
-
-	if pqErr.Code != "23505" {
-		return false
-	}
-
-	return pqErr.Constraint == "" || pqErr.Constraint == "brigades_department_name_active_uidx"
+	return false
 }

@@ -68,7 +68,7 @@ func (b *BrigadeServiceStruct) CreateBrigade(ctx context.Context, in *models.Cre
 
 	departmentData := department.GetDepartment()
 	if departmentData == nil || departmentData.Status != departmentv1.DepartmentStatus_DEPARTMENT_STATUS_ACTIVE {
-		err = errors.New("service: CreateBrigade error: department is not active")
+		err = models.ErrDepartmentInactive
 		log.Warn("CreateBrigade error: department is not active",
 			zap.String("name", in.Name),
 			zap.Int64("duration", time.Since(start).Milliseconds()),
@@ -152,7 +152,22 @@ func (b *BrigadeServiceStruct) getDepartmentByIDWithRetry(ctx context.Context, l
 		backoff *= 2
 	}
 
-	return nil, lastErr
+	return nil, mapDepartmentServiceError(lastErr)
+}
+
+func mapDepartmentServiceError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	switch status.Code(err) {
+	case codes.NotFound:
+		return fmt.Errorf("department service: %w", models.ErrNotFound)
+	case codes.Unavailable, codes.DeadlineExceeded, codes.ResourceExhausted:
+		return fmt.Errorf("department service: %w: %v", models.ErrDependencyUnavailable, err)
+	default:
+		return err
+	}
 }
 
 func isRetryableDepartmentError(err error) bool {

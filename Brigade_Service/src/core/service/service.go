@@ -1,9 +1,10 @@
 package service
 
 import (
+	"context"
+
 	"brigade/models"
 	"brigade/src/core/repository"
-	"context"
 
 	departmentv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/department/v1"
 	"go.uber.org/zap"
@@ -71,6 +72,10 @@ type Service struct {
 }
 
 func NewService(repo *repository.Repo, departmentClient departmentv1.DepartmentServiceClient, logger *zap.Logger) *Service {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+
 	return &Service{
 		BrigadeService:  NewBrigadeService(repo, departmentClient, logger),
 		MemberService:   NewMemberServiceStruct(repo, logger),

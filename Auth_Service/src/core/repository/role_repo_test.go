@@ -2,10 +2,10 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func TestRoleRepo_AssignRoleToUser_And_GetRolesByUserID(t *testing.T) {
@@ -188,7 +188,7 @@ func TestRoleRepo_AssignRoleToUser_UnknownRole(t *testing.T) {
 	}
 }
 
-func createTestRole(t *testing.T, db *sql.DB, name string) uuid.UUID {
+func createTestRole(t *testing.T, db *pgxpool.Pool, name string) uuid.UUID {
 	t.Helper()
 
 	var roleID uuid.UUID
@@ -200,7 +200,7 @@ func createTestRole(t *testing.T, db *sql.DB, name string) uuid.UUID {
 		RETURNING id
 	`
 
-	err := db.QueryRowContext(context.Background(), query, name).Scan(&roleID)
+	err := db.QueryRow(context.Background(), query, name).Scan(&roleID)
 	if err != nil {
 		t.Fatalf("failed to create test role %s: %v", name, err)
 	}
