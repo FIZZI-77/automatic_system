@@ -44,15 +44,17 @@ type Handler struct {
 	ticketHandler     *TicketHandler
 	departmentHandler *DepartmentHandler
 	brigadeHandler    *BrigadeHandler
+	profileHandler    *ProfileHandler
 	authMiddleware    *middleware.AuthMiddleware
 }
 
-func NewHandler(authHandler *AuthHandler, ticketHandler *TicketHandler, departmentHandler *DepartmentHandler, brigadeHandler *BrigadeHandler, authMiddleware *middleware.AuthMiddleware) *Handler {
+func NewHandler(authHandler *AuthHandler, ticketHandler *TicketHandler, departmentHandler *DepartmentHandler, brigadeHandler *BrigadeHandler, profileHandler *ProfileHandler, authMiddleware *middleware.AuthMiddleware) *Handler {
 	return &Handler{
 		authHandler:       authHandler,
 		ticketHandler:     ticketHandler,
 		departmentHandler: departmentHandler,
 		brigadeHandler:    brigadeHandler,
+		profileHandler:    profileHandler,
 		authMiddleware:    authMiddleware,
 	}
 }
@@ -220,6 +222,75 @@ func (h *Handler) InitRouters() *gin.Engine {
 		privateBrigadeZones.POST("/list", h.brigadeHandler.ListBrigadeZones)
 		privateBrigadeZones.POST("/covers-point", h.brigadeHandler.CheckBrigadeCoversPoint)
 		privateBrigadeZones.POST("/find-by-point", h.brigadeHandler.FindBrigadesByPoint)
+	}
+
+	privateUserProfiles := router.Group("/user-profiles")
+	privateUserProfiles.Use(h.authMiddleware.Handle())
+	{
+		privateUserProfiles.POST("/create", h.profileHandler.CreateUserProfile)
+		privateUserProfiles.POST("/get", h.profileHandler.GetUserProfileByID)
+		privateUserProfiles.POST("/get-by-user", h.profileHandler.GetUserProfileByUserID)
+		privateUserProfiles.GET("/me", h.profileHandler.GetMyUserProfile)
+		privateUserProfiles.POST("/list", h.profileHandler.ListUserProfiles)
+		privateUserProfiles.POST("/update", h.profileHandler.UpdateUserProfile)
+	}
+
+	privateWorkProfiles := router.Group("/work-profiles")
+	privateWorkProfiles.Use(h.authMiddleware.Handle())
+	{
+		privateWorkProfiles.POST("/create", h.profileHandler.CreateWorkProfile)
+		privateWorkProfiles.POST("/get", h.profileHandler.GetWorkProfileByID)
+		privateWorkProfiles.POST("/get-by-user", h.profileHandler.GetWorkProfileByUserID)
+		privateWorkProfiles.POST("/list", h.profileHandler.ListWorkProfiles)
+		privateWorkProfiles.POST("/update", h.profileHandler.UpdateWorkProfile)
+		privateWorkProfiles.POST("/deactivate", h.profileHandler.DeactivateWorkProfile)
+		privateWorkProfiles.POST("/change-department", h.profileHandler.ChangeWorkProfileDepartment)
+		privateWorkProfiles.POST("/set-status", h.profileHandler.SetWorkProfileStatus)
+		privateWorkProfiles.POST("/status-history", h.profileHandler.GetWorkProfileStatusHistory)
+	}
+
+	privateProfileChecks := router.Group("/profile-checks")
+	privateProfileChecks.Use(h.authMiddleware.Handle())
+	{
+		privateProfileChecks.POST("/resolve-working-department", h.profileHandler.ResolveWorkingDepartment)
+		privateProfileChecks.POST("/can-join-brigade", h.profileHandler.CheckProfileCanJoinBrigade)
+	}
+
+	privateCertificationTypes := router.Group("/certification-types")
+	privateCertificationTypes.Use(h.authMiddleware.Handle())
+	{
+		privateCertificationTypes.POST("/create", h.profileHandler.CreateCertificationType)
+		privateCertificationTypes.POST("/update", h.profileHandler.UpdateCertificationType)
+		privateCertificationTypes.POST("/list", h.profileHandler.ListCertificationTypes)
+	}
+
+	privateCertificationTypeSkills := router.Group("/certification-type-skills")
+	privateCertificationTypeSkills.Use(h.authMiddleware.Handle())
+	{
+		privateCertificationTypeSkills.POST("/add", h.profileHandler.AddCertificationTypeSkill)
+		privateCertificationTypeSkills.POST("/remove", h.profileHandler.RemoveCertificationTypeSkill)
+		privateCertificationTypeSkills.POST("/list", h.profileHandler.ListCertificationTypeSkills)
+	}
+
+	privateWorkProfileCertifications := router.Group("/work-profile-certifications")
+	privateWorkProfileCertifications.Use(h.authMiddleware.Handle())
+	{
+		privateWorkProfileCertifications.POST("/upload", h.profileHandler.UploadWorkProfileCertification)
+		privateWorkProfileCertifications.POST("/verify", h.profileHandler.VerifyWorkProfileCertification)
+		privateWorkProfileCertifications.POST("/reject", h.profileHandler.RejectWorkProfileCertification)
+		privateWorkProfileCertifications.POST("/revoke", h.profileHandler.RevokeWorkProfileCertification)
+		privateWorkProfileCertifications.POST("/expire", h.profileHandler.ExpireWorkProfileCertifications)
+		privateWorkProfileCertifications.POST("/list", h.profileHandler.ListWorkProfileCertifications)
+	}
+
+	privateWorkProfileSkills := router.Group("/work-profile-skills")
+	privateWorkProfileSkills.Use(h.authMiddleware.Handle())
+	{
+		privateWorkProfileSkills.POST("/grant-manual", h.profileHandler.GrantManualWorkProfileSkill)
+		privateWorkProfileSkills.POST("/revoke", h.profileHandler.RevokeWorkProfileSkillGrant)
+		privateWorkProfileSkills.POST("/list-effective", h.profileHandler.ListEffectiveWorkProfileSkills)
+		privateWorkProfileSkills.POST("/batch-list-effective", h.profileHandler.BatchListEffectiveWorkProfileSkills)
+		privateWorkProfileSkills.POST("/has-skills", h.profileHandler.CheckWorkProfileHasSkills)
 	}
 
 	return router

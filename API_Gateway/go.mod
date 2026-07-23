@@ -11,6 +11,8 @@ require (
 	google.golang.org/protobuf v1.36.11
 )
 
+replace github.com/FIZZI-77/automatic-system-contracts => C:/contracts
+
 require (
 	github.com/bytedance/gopkg v0.1.3 // indirect
 	github.com/bytedance/sonic v1.15.0 // indirect
