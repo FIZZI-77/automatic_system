@@ -31,7 +31,7 @@ func main() {
 	defer logger.Sync()
 
 	err = godotenv.Load(".env")
-	if err != nil {
+	if err != nil && !os.IsNotExist(err) {
 		log.Fatal("error loading .env file")
 	}
 
@@ -51,6 +51,7 @@ func main() {
 		return nil
 	})
 	defer closeDependencies(dependencies)
+	startOutboxRelay(db, dependencies, logger)
 
 	grpcPort := os.Getenv("GRPC_PORT")
 	if strings.TrimSpace(grpcPort) == "" {

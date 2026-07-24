@@ -432,10 +432,41 @@ func (b *BrigadeRepoStruct) CheckBrigadeCanHandleTicket(ctx context.Context, in 
 		reasons = append(reasons, "brigade does not have required skills")
 	}
 
+	hasMemberSkills, err := b.brigadeHasAvailableMemberSkills(ctx, in.BrigadeID, in.RequiredSkillIDs)
+	if err != nil {
+		return nil, fmt.Errorf("repo: CheckBrigadeCanHandleTicket: check member skills: %w", err)
+	}
+	if !hasMemberSkills {
+		reasons = append(reasons, "available brigade members do not have required verified skills")
+	}
+
 	return &models.CheckBrigadeCanHandleTicketResult{
 		CanHandle: len(reasons) == 0,
 		Reasons:   reasons,
 	}, nil
+}
+
+func (b *BrigadeRepoStruct) brigadeHasAvailableMemberSkills(ctx context.Context, brigadeID uuid.UUID, requiredSkillIDs []uuid.UUID) (bool, error) {
+	if len(requiredSkillIDs) == 0 {
+		return true, nil
+	}
+	const query = `
+		SELECT COUNT(DISTINCT bms.skill_id)
+		FROM brigade_member_skills bms
+		JOIN brigade_members bm ON bm.id = bms.member_id
+		WHERE bms.brigade_id = $1
+		  AND bms.skill_id = ANY($2)
+		  AND bms.active = true
+		  AND bms.work_profile_active = true
+		  AND (bms.valid_until IS NULL OR bms.valid_until > now())
+		  AND bm.active = true
+		  AND bm.availability_status = 'AVAILABLE'
+	`
+	var count int
+	if err := b.readPool.QueryRow(ctx, query, brigadeID, requiredSkillIDs).Scan(&count); err != nil {
+		return false, err
+	}
+	return count == len(requiredSkillIDs), nil
 }
 
 func (b *BrigadeRepoStruct) CheckBrigadeReadiness(ctx context.Context, brigadeID uuid.UUID, requireOnShift bool, requiredRoles []models.BrigadeMemberRole) ([]string, error) {

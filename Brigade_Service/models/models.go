@@ -329,6 +329,17 @@ type AddBrigadeMemberInput struct {
 	ActorRoles        []string
 	RequestID         *string
 	TraceID           *string
+	InitialSkills     []BrigadeMemberSkillSeed
+}
+
+type BrigadeMemberSkillSeed struct {
+	WorkProfileID    uuid.UUID
+	SkillID          uuid.UUID
+	SourceGrantID    uuid.UUID
+	ProficiencyLevel *string
+	ValidUntil       *time.Time
+	Active           bool
+	OccurredAt       time.Time
 }
 
 type AddBrigadeMemberResult struct {

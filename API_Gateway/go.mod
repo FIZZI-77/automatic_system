@@ -3,15 +3,13 @@ module gateway
 go 1.25.9
 
 require (
-	github.com/FIZZI-77/automatic-system-contracts v0.0.0-20260612100231-7fe516aa3e6a
+	github.com/FIZZI-77/automatic-system-contracts v0.0.0-20260723100425-6bc26ce7216d
 	github.com/gin-gonic/gin v1.12.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	golang.org/x/time v0.11.0
 	google.golang.org/grpc v1.81.0
 	google.golang.org/protobuf v1.36.11
 )
-
-replace github.com/FIZZI-77/automatic-system-contracts => C:/contracts
 
 require (
 	github.com/bytedance/gopkg v0.1.3 // indirect
