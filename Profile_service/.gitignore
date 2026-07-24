@@ -1,0 +1,7 @@
+.idea
+.env
+.gocache
+tmp
+bin
+coverage.out
+*.test

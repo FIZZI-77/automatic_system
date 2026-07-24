@@ -30,7 +30,7 @@ func main() {
 	defer logger.Sync()
 
 	err = godotenv.Load(".env")
-	if err != nil {
+	if err != nil && !os.IsNotExist(err) {
 		log.Fatal("error loading .env file")
 	}
 
@@ -50,6 +50,7 @@ func main() {
 		return nil
 	})
 	defer closeDependencies(dependencies)
+	startOutboxRelay(db, dependencies, logger)
 
 	privateKey, err := pkg.LoadRSAPrivateKey(os.Getenv("JWT_PRIVATE_KEY_PATH"))
 	if err != nil {

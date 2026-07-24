@@ -55,3 +55,18 @@ func RequestIDUnaryServerInterceptor(
 
 	return handler(ctx, req)
 }
+
+func RequestIDUnaryClientInterceptor(
+	ctx context.Context,
+	method string,
+	req interface{},
+	reply interface{},
+	cc *grpc.ClientConn,
+	invoker grpc.UnaryInvoker,
+	opts ...grpc.CallOption,
+) error {
+	if requestID, ok := RequestIDFromContext(ctx); ok {
+		ctx = metadata.AppendToOutgoingContext(ctx, requestIDMetadataKey, requestID)
+	}
+	return invoker(ctx, method, req, reply, cc, opts...)
+}

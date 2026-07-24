@@ -38,6 +38,26 @@ func (m *MemberRepoStruct) AddBrigadeMember(ctx context.Context, in *models.AddB
 		return nil, fmt.Errorf("repo: AddBrigadeMember: insert member: %w", err)
 	}
 
+	for _, skill := range in.InitialSkills {
+		if _, err = tx.Exec(ctx, `
+			INSERT INTO brigade_member_skills (
+				brigade_id, member_id, work_profile_id, skill_id, source_grant_id,
+				proficiency_level, valid_until, active, source_occurred_at
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+			ON CONFLICT (member_id, source_grant_id) DO UPDATE SET
+				skill_id = EXCLUDED.skill_id,
+				proficiency_level = EXCLUDED.proficiency_level,
+				valid_until = EXCLUDED.valid_until,
+				active = EXCLUDED.active,
+				source_occurred_at = EXCLUDED.source_occurred_at,
+				updated_at = now()`,
+			member.BrigadeID, member.ID, skill.WorkProfileID, skill.SkillID,
+			skill.SourceGrantID, skill.ProficiencyLevel, skill.ValidUntil,
+			skill.Active, skill.OccurredAt); err != nil {
+			return nil, fmt.Errorf("repo: AddBrigadeMember: insert initial skill projection: %w", err)
+		}
+	}
+
 	if err = m.insertBrigadeMemberHistory(ctx, tx, member, models.BrigadeMemberHistoryActionAdded, nil, &member.Role, in.ChangedByUserID, in.RequestID); err != nil {
 		return nil, fmt.Errorf("repo: AddBrigadeMember: insert history: %w", err)
 	}
@@ -134,6 +154,13 @@ func (m *MemberRepoStruct) RemoveBrigadeMember(ctx context.Context, in *models.R
 
 	if err = m.insertBrigadeMemberHistory(ctx, tx, member, models.BrigadeMemberHistoryActionRemoved, &member.Role, nil, in.ChangedByUserID, in.RequestID); err != nil {
 		return nil, fmt.Errorf("repo: RemoveBrigadeMember: insert history: %w", err)
+	}
+
+	if _, err = tx.Exec(ctx, `
+		UPDATE brigade_member_skills
+		SET active = false, updated_at = now()
+		WHERE member_id = $1 AND active = true`, removed.ID); err != nil {
+		return nil, fmt.Errorf("repo: RemoveBrigadeMember: deactivate member skills: %w", err)
 	}
 
 	payload := map[string]any{

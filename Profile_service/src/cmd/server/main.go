@@ -12,14 +12,18 @@ import (
 	"syscall"
 	"time"
 
+	authv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/auth/v1"
+	departmentv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/department/v1"
 	profilev1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/profile/v1"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"profile/pkg"
 	"profile/pkg/closer"
 	"profile/src/core/handler"
 	"profile/src/core/repository"
 	"profile/src/core/service"
+	"profile/src/infrastructure/grpcdeps"
 )
 
 func main() {
@@ -31,7 +35,7 @@ func main() {
 	}
 	defer logger.Sync()
 
-	if err = loadEnvFile(".env"); err != nil {
+	if err = loadEnvFile(".env"); err != nil && !os.IsNotExist(err) {
 		log.Fatal("error loading .env file")
 	}
 
@@ -51,6 +55,27 @@ func main() {
 		return nil
 	})
 	defer closeDependencies(dependencies)
+	startOutboxRelay(db, dependencies, logger)
+
+	authConn, err := grpc.NewClient(
+		envOrDefault("AUTH_GRPC_ADDR", "localhost:50051"),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithChainUnaryInterceptor(pkg.RequestIDUnaryClientInterceptor),
+	)
+	if err != nil {
+		log.Fatalf("failed to create auth grpc client: %v", err)
+	}
+	dependencies.Add("auth grpc", authConn.Close)
+
+	departmentConn, err := grpc.NewClient(
+		envOrDefault("DEPARTMENT_GRPC_ADDR", "localhost:50053"),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithChainUnaryInterceptor(pkg.RequestIDUnaryClientInterceptor),
+	)
+	if err != nil {
+		log.Fatalf("failed to create department grpc client: %v", err)
+	}
+	dependencies.Add("department grpc", departmentConn.Close)
 
 	grpcPort := envOrDefault("GRPC_PORT", "50055")
 	lis, err := net.Listen("tcp", ":"+grpcPort)
@@ -67,7 +92,11 @@ func main() {
 	)
 
 	repo := repository.NewRepository(repository.DBPools{Write: db, Read: db})
-	profileService := service.NewService(repo, service.Dependencies{}, logger)
+	profileService := service.NewService(repo, service.Dependencies{
+		UserAccountChecker: grpcdeps.NewUserChecker(authv1.NewAuthServiceClient(authConn)),
+		DepartmentChecker:  grpcdeps.NewDepartmentChecker(departmentv1.NewDepartmentServiceClient(departmentConn)),
+	}, logger)
+	startCertificationExpiryWorker(profileService.CertificationService, dependencies, logger)
 	profileHandler := handler.NewProfileHandler(profileService, logger)
 
 	profilev1.RegisterProfileServiceServer(grpcServer, profileHandler)
