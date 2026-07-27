@@ -17,8 +17,7 @@ RUN go mod download && \
 COPY . .
 
 # Дополнительная загрузка недостающих зависимостей
-RUN go get -d ./... && \
-    go mod tidy
+RUN go mod tidy
 
 # Сборка приложения
 RUN go build -o server ./src/cmd/server
