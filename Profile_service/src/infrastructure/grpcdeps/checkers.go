@@ -42,6 +42,7 @@ func (c *DepartmentChecker) EnsureDepartmentActive(ctx context.Context, departme
 		return fmt.Errorf("department GetDepartmentByID: %w", err)
 	}
 	if response.GetDepartment() == nil ||
+		response.GetDepartment().GetId() != departmentID.String() ||
 		response.GetDepartment().GetStatus() != departmentv1.DepartmentStatus_DEPARTMENT_STATUS_ACTIVE {
 		return fmt.Errorf("department %s does not exist or is inactive", departmentID)
 	}

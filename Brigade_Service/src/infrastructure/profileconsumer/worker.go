@@ -69,6 +69,7 @@ type statusPayload struct {
 }
 
 func New(db *pgxpool.Pool, cfg Config, logger *zap.Logger) (*Worker, error) {
+	cfg.Brokers = cleanBrokers(cfg.Brokers)
 	if len(cfg.Brokers) == 0 || strings.TrimSpace(cfg.Topic) == "" || strings.TrimSpace(cfg.GroupID) == "" {
 		return nil, errors.New("profile consumer: brokers, topic and group id are required")
 	}
@@ -295,11 +296,24 @@ func (w *Worker) retryOrDLQ(ctx context.Context, message kafka.Message, processE
 func retryCount(headers []kafka.Header) int {
 	for _, header := range headers {
 		if strings.EqualFold(header.Key, retryHeader) {
-			value, _ := strconv.Atoi(string(header.Value))
+			value, err := strconv.Atoi(string(header.Value))
+			if err != nil || value < 0 {
+				return 0
+			}
 			return value
 		}
 	}
 	return 0
+}
+
+func cleanBrokers(values []string) []string {
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		if value = strings.TrimSpace(value); value != "" {
+			result = append(result, value)
+		}
+	}
+	return result
 }
 
 func upsertHeader(headers []kafka.Header, key, value string) []kafka.Header {

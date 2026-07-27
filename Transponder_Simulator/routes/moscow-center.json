@@ -1,0 +1,12 @@
+{
+  "name": "Moscow center demo route",
+  "points": [
+    {"latitude": 55.755826, "longitude": 37.617300, "speed_kmh": 0, "accuracy_meters": 3.5},
+    {"latitude": 55.756420, "longitude": 37.619150, "speed_kmh": 18},
+    {"latitude": 55.757080, "longitude": 37.621210, "speed_kmh": 32},
+    {"latitude": 55.758020, "longitude": 37.623100, "speed_kmh": 38},
+    {"latitude": 55.759100, "longitude": 37.621740, "speed_kmh": 25},
+    {"latitude": 55.758340, "longitude": 37.619420, "speed_kmh": 20},
+    {"latitude": 55.757100, "longitude": 37.617920, "speed_kmh": 12}
+  ]
+}
