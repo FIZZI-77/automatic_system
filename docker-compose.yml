@@ -125,7 +125,7 @@ services:
     volumes:
       - postgres_auth_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U \"$${DB_USERNAME}\" -d \"$${DB_NAME}\""]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -141,7 +141,7 @@ services:
     volumes:
       - postgres_ticket_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U \"$${DB_USERNAME}\" -d \"$${DB_NAME}\""]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -157,7 +157,7 @@ services:
     volumes:
       - postgres_department_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U \"$${DB_USERNAME}\" -d \"$${DB_NAME}\""]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -173,7 +173,7 @@ services:
     volumes:
       - postgres_brigade_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U \"$${DB_USERNAME}\" -d \"$${DB_NAME}\""]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -189,7 +189,7 @@ services:
     volumes:
       - postgres_profile_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U \"$${DB_USERNAME}\" -d \"$${DB_NAME}\""]
       interval: 5s
       timeout: 5s
       retries: 10
