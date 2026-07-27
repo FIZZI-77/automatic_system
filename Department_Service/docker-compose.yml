@@ -9,6 +9,7 @@ services:
     env_file:
       - .env
     environment:
+      KAFKA_BROKERS: host.docker.internal:29092
       GRPC_PORT: "50053"
     depends_on:
       migrator:

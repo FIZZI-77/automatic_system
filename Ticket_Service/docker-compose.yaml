@@ -6,6 +6,8 @@ services:
     container_name: ticket-service
     env_file:
       - .env
+    environment:
+      KAFKA_BROKERS: host.docker.internal:29092
     ports:
       - "50052:50052"
     depends_on:

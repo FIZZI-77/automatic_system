@@ -8,6 +8,8 @@ services:
       - "8080:8080"
     env_file:
       - .env
+    environment:
+      KAFKA_BROKERS: host.docker.internal:29092
     depends_on:
       migrator:
         condition: service_completed_successfully
