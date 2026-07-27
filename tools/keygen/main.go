@@ -9,12 +9,21 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func main() {
 	outputDir := flag.String("out", "keys", "output directory")
 	flag.Parse()
 
+	if strings.EqualFold(filepath.Ext(*outputDir), ".pem") {
+		panic(fmt.Errorf("-out expects a directory, not a PEM file path: %s", *outputDir))
+	}
+	if info, err := os.Stat(*outputDir); err == nil && !info.IsDir() {
+		panic(fmt.Errorf("-out path exists and is not a directory: %s", *outputDir))
+	} else if err != nil && !os.IsNotExist(err) {
+		panic(err)
+	}
 	if err := os.MkdirAll(*outputDir, 0o755); err != nil {
 		panic(err)
 	}

@@ -9,7 +9,12 @@ services:
     ports:
       - "${API_GATEWAY_PORT}:8081"
     volumes:
-      - ./keys/public.pem:/app/keys/public.pem:ro
+      - type: bind
+        source: ./keys/public.pem
+        target: /app/keys/public.pem
+        read_only: true
+        bind:
+          create_host_path: false
     depends_on:
       auth-service:
         condition: service_started
@@ -33,7 +38,12 @@ services:
     ports:
       - "${AUTH_GRPC_PORT}:50051"
     volumes:
-      - ./keys/private.pem:/app/keys/private.pem:ro
+      - type: bind
+        source: ./keys/private.pem
+        target: /app/keys/private.pem
+        read_only: true
+        bind:
+          create_host_path: false
     depends_on:
       migrator-auth:
         condition: service_completed_successfully

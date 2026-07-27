@@ -15,7 +15,12 @@ services:
         condition: service_completed_successfully
       
     volumes:
-      - ./keys:/app/keys:ro
+      - type: bind
+        source: ../keys/private.pem
+        target: /app/keys/private.pem
+        read_only: true
+        bind:
+          create_host_path: false
     restart: unless-stopped
 
   postgres-auth:
