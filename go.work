@@ -5,6 +5,7 @@ use (
 	./Auth_Service
 	./Department_Service
 	./Profile_service
+	./Transponder_Simulator
 	.
 	Ticket_Service
 	Brigade_Service

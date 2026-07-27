@@ -4,57 +4,23 @@ services:
       context: .
       dockerfile: API_Gateway/Dockerfile
     container_name: api-gateway
-    ports:
-      - "8081:8081"
     env_file:
-      - ./.env
-    environment:
-      GATEWAY_ADDR: ":8081"
-      AUTH_SERVICE_ADDR: ${AUTH_GRPC_ADDR}
-      TICKET_SERVICE_ADDR: ${TICKET_GRPC_ADDR}
-      DEPARTMENT_SERVICE_ADDR: ${DEPARTMENT_GRPC_ADDR}
-      BRIGADE_SERVICE_ADDR: ${BRIGADE_GRPC_ADDR}
-      PROFILE_SERVICE_ADDR: ${PROFILE_GRPC_ADDR}
-      JWT_PUBLIC_KEY_PATH: ${JWT_PUBLIC_KEY_PATH}
-      JWT_ISSUER: ${JWT_ISSUER}
-      JWT_AUDIENCE: ${JWT_AUDIENCE}
+      - ./API_Gateway/.env
+    ports:
+      - "${API_GATEWAY_PORT}:8081"
     volumes:
       - ./keys/public.pem:/app/keys/public.pem:ro
     depends_on:
-      - auth-service
-      - ticket-service
-      - department-service
-      - brigade-service
-      - profile-service
-    restart: unless-stopped
-
-  ticket-service:
-    build:
-      context: ./Ticket_Service
-      dockerfile: Dockerfile
-    container_name: ticket
-    ports:
-      - "50052:50052"
-    env_file:
-      - ./.env
-    environment:
-      GRPC_ADDR: ":50052"
-      DB_HOST: ${TICKET_DB_HOST}
-      DB_PORT: ${TICKET_DB_PORT}
-      DB_USERNAME: ${TICKET_DB_USERNAME}
-      DB_PASSWORD: ${TICKET_DB_PASSWORD}
-      DB_NAME: ${TICKET_DB_NAME}
-      SSLMODE: ${TICKET_DB_SSLMODE}
-      KAFKA_BROKERS: ${KAFKA_BROKERS}
-      OUTBOX_WORKER_COUNT: ${OUTBOX_WORKER_COUNT}
-    depends_on:
-      postgres-ticket:
-        condition: service_healthy
-      migrator-ticket:
-        condition: service_completed_successfully
-      kafka:
-        condition: service_healthy
-
+      auth-service:
+        condition: service_started
+      ticket-service:
+        condition: service_started
+      department-service:
+        condition: service_started
+      brigade-service:
+        condition: service_started
+      profile-service:
+        condition: service_started
     restart: unless-stopped
 
   auth-service:
@@ -62,40 +28,35 @@ services:
       context: ./Auth_Service
       dockerfile: Dockerfile
     container_name: auth-service
-    ports:
-      - "50051:50051"
     env_file:
-      - ./.env
-    environment:
-      GRPC_ADDR: ":50051"
-      DB_HOST: ${AUTH_DB_HOST}
-      DB_PORT: ${AUTH_DB_PORT}
-      DB_USERNAME: ${AUTH_DB_USERNAME}
-      DB_PASSWORD: ${AUTH_DB_PASSWORD}
-      DB_NAME: ${AUTH_DB_NAME}
-      SSLMODE: ${AUTH_DB_SSLMODE}
-      JWT_PRIVATE_KEY_PATH: ${JWT_PRIVATE_KEY_PATH}
-      JWT_KEY_ID: ${JWT_KEY_ID}
-      SMTP_HOST: ${SMTP_HOST}
-      SMTP_PORT: ${SMTP_PORT}
-      SMTP_USERNAME: ${SMTP_USERNAME}
-      SMTP_PASSWORD: ${SMTP_PASSWORD}
-      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL}
-      SMTP_FROM_NAME: ${SMTP_FROM_NAME}
-      SMTP_USE_TLS: ${SMTP_USE_TLS}
-      SMTP_USE_STARTTLS: ${SMTP_USE_STARTTLS}
-      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL}
-      KAFKA_BROKERS: ${KAFKA_BROKERS}
-      OUTBOX_WORKER_COUNT: ${OUTBOX_WORKER_COUNT}
+      - ./Auth_Service/.env
+    ports:
+      - "${AUTH_GRPC_PORT}:50051"
+    volumes:
+      - ./keys/private.pem:/app/keys/private.pem:ro
     depends_on:
-      postgres-auth:
-        condition: service_healthy
       migrator-auth:
         condition: service_completed_successfully
       kafka:
         condition: service_healthy
-    volumes:
-      - ./keys/private.pem:/app/keys/private.pem:ro
+      mailhog:
+        condition: service_started
+    restart: unless-stopped
+
+  ticket-service:
+    build:
+      context: ./Ticket_Service
+      dockerfile: Dockerfile
+    container_name: ticket-service
+    env_file:
+      - ./Ticket_Service/.env
+    ports:
+      - "${TICKET_GRPC_PORT}:50052"
+    depends_on:
+      migrator-ticket:
+        condition: service_completed_successfully
+      kafka:
+        condition: service_healthy
     restart: unless-stopped
 
   department-service:
@@ -103,65 +64,15 @@ services:
       context: ./Department_Service
       dockerfile: Dockerfile
     container_name: department-service
-    ports:
-      - "50053:50053"
     env_file:
-      - ./.env
-    environment:
-      GRPC_ADDR: ":50053"
-      GRPC_PORT: "50053"
-      DB_HOST: ${DEPARTMENT_DB_HOST}
-      DB_PORT: ${DEPARTMENT_DB_PORT}
-      DB_USERNAME: ${DEPARTMENT_DB_USERNAME}
-      DB_PASSWORD: ${DEPARTMENT_DB_PASSWORD}
-      DB_NAME: ${DEPARTMENT_DB_NAME}
-      SSLMODE: ${DEPARTMENT_DB_SSLMODE}
-      KAFKA_BROKERS: ${KAFKA_BROKERS}
-      OUTBOX_WORKER_COUNT: ${OUTBOX_WORKER_COUNT}
+      - ./Department_Service/.env
+    ports:
+      - "${DEPARTMENT_GRPC_PORT}:50053"
     depends_on:
-      postgres-department:
-        condition: service_healthy
       migrator-department:
         condition: service_completed_successfully
       kafka:
         condition: service_healthy
-    restart: unless-stopped
-
-  brigade-service:
-    build:
-      context: ./Brigade_Service
-      dockerfile: Dockerfile
-    container_name: brigade-service
-    ports:
-      - "50054:50054"
-    env_file:
-      - ./.env
-    environment:
-      GRPC_PORT: "50054"
-      DB_HOST: ${BRIGADE_DB_HOST}
-      DB_PORT: ${BRIGADE_DB_PORT}
-      DB_USERNAME: ${BRIGADE_DB_USERNAME}
-      DB_PASSWORD: ${BRIGADE_DB_PASSWORD}
-      DB_NAME: ${BRIGADE_DB_NAME}
-      SSLMODE: ${BRIGADE_DB_SSLMODE}
-      DEPARTMENT_GRPC_ADDR: ${DEPARTMENT_GRPC_ADDR}
-      PROFILE_GRPC_ADDR: ${PROFILE_GRPC_ADDR}
-      KAFKA_BROKERS: ${KAFKA_BROKERS}
-      OUTBOX_WORKER_COUNT: ${OUTBOX_WORKER_COUNT}
-      PROFILE_CONSUMER_WORKER_COUNT: ${PROFILE_CONSUMER_WORKER_COUNT}
-      PROFILE_RETRY_WORKER_COUNT: ${PROFILE_RETRY_WORKER_COUNT}
-      PROFILE_KAFKA_GROUP_ID: ${PROFILE_KAFKA_GROUP_ID}
-    depends_on:
-      postgres-brigade:
-        condition: service_healthy
-      migrator-brigade:
-        condition: service_completed_successfully
-      department-service:
-        condition: service_started
-      kafka:
-        condition: service_healthy
-      profile-service:
-        condition: service_started
     restart: unless-stopped
 
   profile-service:
@@ -169,25 +80,11 @@ services:
       context: ./Profile_service
       dockerfile: Dockerfile
     container_name: profile-service
-    ports:
-      - "50055:50055"
     env_file:
-      - ./.env
-    environment:
-      GRPC_PORT: "50055"
-      DB_HOST: ${PROFILE_DB_HOST}
-      DB_PORT: ${PROFILE_DB_PORT}
-      DB_USERNAME: ${PROFILE_DB_USERNAME}
-      DB_PASSWORD: ${PROFILE_DB_PASSWORD}
-      DB_NAME: ${PROFILE_DB_NAME}
-      SSLMODE: ${PROFILE_DB_SSLMODE}
-      AUTH_GRPC_ADDR: ${AUTH_GRPC_ADDR}
-      DEPARTMENT_GRPC_ADDR: ${DEPARTMENT_GRPC_ADDR}
-      KAFKA_BROKERS: ${KAFKA_BROKERS}
-      OUTBOX_WORKER_COUNT: ${OUTBOX_WORKER_COUNT}
+      - ./Profile_service/.env
+    ports:
+      - "${PROFILE_GRPC_PORT}:50055"
     depends_on:
-      postgres-profile:
-        condition: service_healthy
       migrator-profile:
         condition: service_completed_successfully
       auth-service:
@@ -198,112 +95,195 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  brigade-service:
+    build:
+      context: ./Brigade_Service
+      dockerfile: Dockerfile
+    container_name: brigade-service
+    env_file:
+      - ./Brigade_Service/.env
+    ports:
+      - "${BRIGADE_GRPC_PORT}:50054"
+    depends_on:
+      migrator-brigade:
+        condition: service_completed_successfully
+      department-service:
+        condition: service_started
+      profile-service:
+        condition: service_started
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+
   postgres-auth:
     image: postgres:16
     container_name: auth-postgres
     env_file:
-      - ./.env
-    environment:
-      POSTGRES_USER: ${AUTH_DB_USERNAME}
-      POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD}
-      POSTGRES_DB: ${AUTH_DB_NAME}
+      - ./Auth_Service/.env
     ports:
-      - "${AUTH_DB_PUBLISHED_PORT}:${AUTH_DB_PORT}"
+      - "${AUTH_DB_PUBLISHED_PORT}:5432"
     volumes:
       - postgres_auth_data:/var/lib/postgresql/data
-    restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${AUTH_DB_USERNAME} -d ${AUTH_DB_NAME}"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
+    restart: unless-stopped
 
   postgres-ticket:
     image: postgres:16
     container_name: ticket-postgres
     env_file:
-      - ./.env
-    environment:
-      POSTGRES_USER: ${TICKET_DB_USERNAME}
-      POSTGRES_PASSWORD: ${TICKET_DB_PASSWORD}
-      POSTGRES_DB: ${TICKET_DB_NAME}
+      - ./Ticket_Service/.env
     ports:
-      - "${TICKET_DB_PUBLISHED_PORT}:${TICKET_DB_PORT}"
+      - "${TICKET_DB_PUBLISHED_PORT}:5432"
     volumes:
       - postgres_ticket_data:/var/lib/postgresql/data
-    restart: unless-stopped
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${TICKET_DB_USERNAME} -d ${TICKET_DB_NAME}" ]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
+    restart: unless-stopped
 
   postgres-department:
     image: postgres:16
     container_name: department-postgres
     env_file:
-      - ./.env
-    environment:
-      POSTGRES_USER: ${DEPARTMENT_DB_USERNAME}
-      POSTGRES_PASSWORD: ${DEPARTMENT_DB_PASSWORD}
-      POSTGRES_DB: ${DEPARTMENT_DB_NAME}
+      - ./Department_Service/.env
     ports:
-      - "${DEPARTMENT_DB_PUBLISHED_PORT}:${DEPARTMENT_DB_PORT}"
+      - "${DEPARTMENT_DB_PUBLISHED_PORT}:5432"
     volumes:
       - postgres_department_data:/var/lib/postgresql/data
-    restart: unless-stopped
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${DEPARTMENT_DB_USERNAME} -d ${DEPARTMENT_DB_NAME}" ]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
+    restart: unless-stopped
 
   postgres-brigade:
     image: postgis/postgis:16-3.4
     container_name: brigade-postgres
     env_file:
-      - ./.env
-    environment:
-      POSTGRES_USER: ${BRIGADE_DB_USERNAME}
-      POSTGRES_PASSWORD: ${BRIGADE_DB_PASSWORD}
-      POSTGRES_DB: ${BRIGADE_DB_NAME}
+      - ./Brigade_Service/.env
     ports:
-      - "${BRIGADE_DB_PUBLISHED_PORT}:${BRIGADE_DB_PORT}"
+      - "${BRIGADE_DB_PUBLISHED_PORT}:5432"
     volumes:
       - postgres_brigade_data:/var/lib/postgresql/data
-    restart: unless-stopped
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${BRIGADE_DB_USERNAME} -d ${BRIGADE_DB_NAME}" ]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
+    restart: unless-stopped
 
   postgres-profile:
     image: postgres:16
     container_name: profile-postgres
-    environment:
-      POSTGRES_USER: ${PROFILE_DB_USERNAME}
-      POSTGRES_PASSWORD: ${PROFILE_DB_PASSWORD}
-      POSTGRES_DB: ${PROFILE_DB_NAME}
+    env_file:
+      - ./Profile_service/.env
     ports:
-      - "${PROFILE_DB_PUBLISHED_PORT}:${PROFILE_DB_PORT}"
+      - "${PROFILE_DB_PUBLISHED_PORT}:5432"
     volumes:
       - postgres_profile_data:/var/lib/postgresql/data
-    restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${PROFILE_DB_USERNAME} -d ${PROFILE_DB_NAME}"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
-
-
-  mailhog:
-    image: mailhog/mailhog:latest
-    container_name: auth-mailhog
-    ports:
-      - "1025:1025"
-      - "8025:8025"
     restart: unless-stopped
+
+  migrator-auth:
+    build:
+      context: ./Auth_Service/migrator
+      dockerfile: Dockerfile
+    container_name: auth-migrator
+    env_file:
+      - ./Auth_Service/.env
+    depends_on:
+      postgres-auth:
+        condition: service_healthy
+    volumes:
+      - ./Auth_Service/scheme:/migrations:ro
+    environment:
+      GOOSE_DRIVER: postgres
+    command: >
+      sh -c 'export GOOSE_DBSTRING="postgres://$${DB_USERNAME}:$${DB_PASSWORD}@$${DB_HOST}:$${DB_PORT}/$${DB_NAME}?sslmode=$${SSLMODE}";
+      goose -dir /migrations up'
+
+  migrator-ticket:
+    build:
+      context: ./Ticket_Service/migrator
+      dockerfile: Dockerfile
+    container_name: ticket-migrator
+    env_file:
+      - ./Ticket_Service/.env
+    depends_on:
+      postgres-ticket:
+        condition: service_healthy
+    volumes:
+      - ./Ticket_Service/scheme:/migrations:ro
+    environment:
+      GOOSE_DRIVER: postgres
+    command: >
+      sh -c 'export GOOSE_DBSTRING="postgres://$${DB_USERNAME}:$${DB_PASSWORD}@$${DB_HOST}:$${DB_PORT}/$${DB_NAME}?sslmode=$${SSLMODE}";
+      goose -dir /migrations up'
+
+  migrator-department:
+    build:
+      context: ./Department_Service/migrator
+      dockerfile: Dockerfile
+    container_name: department-migrator
+    env_file:
+      - ./Department_Service/.env
+    depends_on:
+      postgres-department:
+        condition: service_healthy
+    volumes:
+      - ./Department_Service/scheme:/migrations:ro
+    environment:
+      GOOSE_DRIVER: postgres
+    command: >
+      sh -c 'export GOOSE_DBSTRING="postgres://$${DB_USERNAME}:$${DB_PASSWORD}@$${DB_HOST}:$${DB_PORT}/$${DB_NAME}?sslmode=$${SSLMODE}";
+      goose -dir /migrations up'
+
+  migrator-brigade:
+    build:
+      context: ./Brigade_Service/migrator
+      dockerfile: Dockerfile
+    container_name: brigade-migrator
+    env_file:
+      - ./Brigade_Service/.env
+    depends_on:
+      postgres-brigade:
+        condition: service_healthy
+    volumes:
+      - ./Brigade_Service/scheme:/migrations:ro
+    environment:
+      GOOSE_DRIVER: postgres
+    command: >
+      sh -c 'export GOOSE_DBSTRING="postgres://$${DB_USERNAME}:$${DB_PASSWORD}@$${DB_HOST}:$${DB_PORT}/$${DB_NAME}?sslmode=$${SSLMODE}";
+      goose -dir /migrations up'
+
+  migrator-profile:
+    build:
+      context: ./Profile_service/migrator
+      dockerfile: Dockerfile
+    container_name: profile-migrator
+    env_file:
+      - ./Profile_service/.env
+    depends_on:
+      postgres-profile:
+        condition: service_healthy
+    volumes:
+      - ./Profile_service/scheme:/migrations:ro
+    environment:
+      GOOSE_DRIVER: postgres
+    command: >
+      sh -c 'export GOOSE_DBSTRING="postgres://$${DB_USERNAME}:$${DB_PASSWORD}@$${DB_HOST}:$${DB_PORT}/$${DB_NAME}?sslmode=$${SSLMODE}";
+      goose -dir /migrations up'
 
   kafka:
     image: apache/kafka:3.9.1
@@ -314,7 +294,7 @@ services:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_LISTENERS: CONTROLLER://:9093,PLAINTEXT://:9092,PLAINTEXT_HOST://:29092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:${KAFKA_EXTERNAL_PORT}
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
@@ -330,108 +310,13 @@ services:
       retries: 20
     restart: unless-stopped
 
-  migrator-auth:
-    build:
-      context: ./Auth_Service/migrator
-      dockerfile: Dockerfile
-    container_name: auth-migrator
-    env_file:
-      - ./.env
-    depends_on:
-      postgres-auth:
-        condition: service_healthy
-    volumes:
-      - ./Auth_Service/scheme:/migrations
-    environment:
-      GOOSE_DRIVER: postgres
-      GOOSE_DBSTRING: postgres://${AUTH_DB_USERNAME}:${AUTH_DB_PASSWORD}@${AUTH_DB_HOST}:${AUTH_DB_PORT}/${AUTH_DB_NAME}?sslmode=${AUTH_DB_SSLMODE}
-    command: >
-      sh -c "
-        echo 'Running migrations...' &&
-        goose -dir /migrations up
-      "
-
-  migrator-ticket:
-    build:
-      context: ./Ticket_Service/migrator
-      dockerfile: Dockerfile
-    container_name: ticket-migrator
-    env_file:
-      - ./.env
-    depends_on:
-      postgres-ticket:
-        condition: service_healthy
-    volumes:
-      - ./Ticket_Service/scheme:/migrations
-    environment:
-      GOOSE_DRIVER: postgres
-      GOOSE_DBSTRING: postgres://${TICKET_DB_USERNAME}:${TICKET_DB_PASSWORD}@${TICKET_DB_HOST}:${TICKET_DB_PORT}/${TICKET_DB_NAME}?sslmode=${TICKET_DB_SSLMODE}
-    command: >
-      sh -c "
-        echo 'Running migrations...' &&
-        goose -dir /migrations up
-      "
-
-  migrator-department:
-    build:
-      context: ./Department_Service/migrator
-      dockerfile: Dockerfile
-    container_name: department-migrator
-    env_file:
-      - ./.env
-    depends_on:
-      postgres-department:
-        condition: service_healthy
-    volumes:
-      - ./Department_Service/scheme:/migrations
-    environment:
-      GOOSE_DRIVER: postgres
-      GOOSE_DBSTRING: postgres://${DEPARTMENT_DB_USERNAME}:${DEPARTMENT_DB_PASSWORD}@${DEPARTMENT_DB_HOST}:${DEPARTMENT_DB_PORT}/${DEPARTMENT_DB_NAME}?sslmode=${DEPARTMENT_DB_SSLMODE}
-    command: >
-      sh -c "
-        echo 'Running migrations...' &&
-        goose -dir /migrations up
-      "
-
-  migrator-brigade:
-    build:
-      context: ./Brigade_Service/migrator
-      dockerfile: Dockerfile
-    container_name: brigade-migrator
-    env_file:
-      - ./.env
-    depends_on:
-      postgres-brigade:
-        condition: service_healthy
-    volumes:
-      - ./Brigade_Service/scheme:/migrations
-    environment:
-      GOOSE_DRIVER: postgres
-      GOOSE_DBSTRING: postgres://${BRIGADE_DB_USERNAME}:${BRIGADE_DB_PASSWORD}@${BRIGADE_DB_HOST}:${BRIGADE_DB_PORT}/${BRIGADE_DB_NAME}?sslmode=${BRIGADE_DB_SSLMODE}
-    command: >
-      sh -c "
-        echo 'Running migrations...' &&
-        goose -dir /migrations up
-      "
-
-  migrator-profile:
-    build:
-      context: ./Profile_service/migrator
-      dockerfile: Dockerfile
-    container_name: profile-migrator
-    depends_on:
-      postgres-profile:
-        condition: service_healthy
-    volumes:
-      - ./Profile_service/scheme:/migrations
-    environment:
-      GOOSE_DRIVER: postgres
-      GOOSE_DBSTRING: postgres://${PROFILE_DB_USERNAME}:${PROFILE_DB_PASSWORD}@${PROFILE_DB_HOST}:${PROFILE_DB_PORT}/${PROFILE_DB_NAME}?sslmode=${PROFILE_DB_SSLMODE}
-    command: >
-      sh -c "
-        echo 'Running migrations...' &&
-        goose -dir /migrations up
-      "
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: auth-mailhog
+    ports:
+      - "${MAILHOG_SMTP_PORT}:1025"
+      - "${MAILHOG_UI_PORT}:8025"
+    restart: unless-stopped
 
 volumes:
   postgres_auth_data:
