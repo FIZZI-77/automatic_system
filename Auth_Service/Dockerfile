@@ -7,7 +7,7 @@ RUN apk add --no-cache bash git
 
 COPY go.mod go.sum ./
 
-RUN go mod download
+RUN go mod download && go mod verify
 
 COPY . .
 
