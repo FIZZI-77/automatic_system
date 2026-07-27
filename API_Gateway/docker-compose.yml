@@ -16,5 +16,10 @@ services:
       JWT_ISSUER: "auth-jwt"
       JWT_AUDIENCE: "api-gateway"
     volumes:
-      - ./keys/public.pem:/app/keys/public.pem:ro
+      - type: bind
+        source: ../keys/public.pem
+        target: /app/keys/public.pem
+        read_only: true
+        bind:
+          create_host_path: false
     restart: unless-stopped

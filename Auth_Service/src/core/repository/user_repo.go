@@ -67,6 +67,19 @@ func (u *UserRepoStruct) createUser(ctx context.Context, user *models.User) (uui
 		return uuid.Nil, fmt.Errorf("user_repo: Create() :cant create user: %w", err)
 	}
 
+	tag, err := u.writeDB.Exec(ctx, `
+		INSERT INTO user_roles (user_id, role_id)
+		SELECT $1, id
+		FROM roles
+		WHERE name = 'user'
+		ON CONFLICT (user_id, role_id) DO NOTHING`, id)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("user_repo: Create(): assign default role: %w", err)
+	}
+	if tag.RowsAffected() != 1 {
+		return uuid.Nil, fmt.Errorf("user_repo: Create(): default role user is not seeded")
+	}
+
 	logrus.Printf("Created user with id: %v", id)
 
 	if err = insertOutboxEvent(ctx, u.writeDB, "user", id, "auth.user.registered", userRegisteredEventPayload{
