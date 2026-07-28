@@ -14,6 +14,8 @@ var (
 	ErrScheduleConflict      = errors.New("schedule conflict")
 	ErrBrigadeUnavailable    = errors.New("brigade unavailable")
 	ErrBrigadeCannotHandle   = errors.New("brigade cannot handle ticket")
+	ErrDepartmentInactive    = errors.New("department is not active")
+	ErrDependencyUnavailable = errors.New("required dependency is unavailable")
 	ErrIdempotencyConflict   = errors.New("idempotency key reused with different request")
 	ErrIdempotencyInProgress = errors.New("idempotent operation is still processing")
 	ErrIdempotencyFailed     = errors.New("idempotent operation failed previously")

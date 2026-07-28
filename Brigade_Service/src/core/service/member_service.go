@@ -9,19 +9,28 @@ import (
 	"fmt"
 	"time"
 
+	profilev1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/profile/v1"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
 type MemberServiceStruct struct {
-	repo *repository.Repo
-	log  *zap.Logger
+	repo           *repository.Repo
+	log            *zap.Logger
+	profileClient  profilev1.ProfileServiceClient
+	requireProfile bool
 }
 
 func NewMemberServiceStruct(repo *repository.Repo, log *zap.Logger) *MemberServiceStruct {
+	return &MemberServiceStruct{repo: repo, log: log}
+}
+
+func NewMemberServiceStructWithProfile(repo *repository.Repo, profileClient profilev1.ProfileServiceClient, log *zap.Logger) *MemberServiceStruct {
 	return &MemberServiceStruct{
-		repo: repo,
-		log:  log,
+		repo:           repo,
+		log:            log,
+		profileClient:  profileClient,
+		requireProfile: true,
 	}
 }
 
@@ -48,7 +57,68 @@ func (m *MemberServiceStruct) AddBrigadeMember(ctx context.Context, in *models.A
 		return nil, err
 	}
 
-	// TODO: validate user/profile through Profile Service when it is implemented.
+	if m.profileClient == nil && m.requireProfile {
+		return nil, fmt.Errorf("service: AddBrigadeMember: profile service is unavailable: %w", models.ErrDependencyUnavailable)
+	}
+	if m.profileClient != nil {
+		userID := in.UserID.String()
+		check, err := m.profileClient.CheckProfileCanJoinBrigade(ctx, &profilev1.CheckProfileCanJoinBrigadeRequest{
+			UserId: &userID, BrigadeDepartmentId: brigade.DepartmentID.String(),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("service: AddBrigadeMember: check profile: %w", models.ErrDependencyUnavailable)
+		}
+		if !check.GetAllowed() {
+			return nil, fmt.Errorf("service: AddBrigadeMember: profile cannot join brigade (%s): %w", check.GetReason().String(), models.ErrPermissionDenied)
+		}
+		canonicalUserID, err := uuid.Parse(check.GetUserId())
+		if err != nil {
+			return nil, fmt.Errorf("service: AddBrigadeMember: invalid canonical user id: %w", models.ErrDependencyUnavailable)
+		}
+		workProfileID, err := uuid.Parse(check.GetWorkProfileId())
+		if err != nil {
+			return nil, fmt.Errorf("service: AddBrigadeMember: invalid work profile id: %w", models.ErrDependencyUnavailable)
+		}
+		in.UserID = canonicalUserID
+		in.ProfileID = &workProfileID
+
+		skills, err := m.profileClient.ListEffectiveWorkProfileSkills(ctx, &profilev1.ListEffectiveWorkProfileSkillsRequest{
+			WorkProfileId: workProfileID.String(),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("service: AddBrigadeMember: list effective skills: %w", models.ErrDependencyUnavailable)
+		}
+		in.InitialSkills = make([]models.BrigadeMemberSkillSeed, 0, len(skills.GetSkillGrants()))
+		for _, grant := range skills.GetSkillGrants() {
+			grantID, parseErr := uuid.Parse(grant.GetId())
+			if parseErr != nil {
+				return nil, fmt.Errorf("service: AddBrigadeMember: invalid grant id: %w", models.ErrDependencyUnavailable)
+			}
+			skillID, parseErr := uuid.Parse(grant.GetSkillId())
+			if parseErr != nil {
+				return nil, fmt.Errorf("service: AddBrigadeMember: invalid skill id: %w", models.ErrDependencyUnavailable)
+			}
+			var level *string
+			if grant.ProficiencyLevel != nil {
+				value := grant.GetProficiencyLevel()
+				level = &value
+			}
+			var validUntil *time.Time
+			if grant.GetValidUntil() != nil {
+				value := grant.GetValidUntil().AsTime()
+				validUntil = &value
+			}
+			occurredAt := time.Now().UTC()
+			if grant.GetCreatedAt() != nil {
+				occurredAt = grant.GetCreatedAt().AsTime()
+			}
+			in.InitialSkills = append(in.InitialSkills, models.BrigadeMemberSkillSeed{
+				WorkProfileID: workProfileID, SkillID: skillID, SourceGrantID: grantID,
+				ProficiencyLevel: level, ValidUntil: validUntil, Active: grant.GetActive(),
+				OccurredAt: occurredAt,
+			})
+		}
+	}
 	existing, err := m.repo.GetBrigadeByUserID(ctx, &models.GetBrigadeByUserIDInput{
 		UserID:     in.UserID,
 		OnlyActive: true,

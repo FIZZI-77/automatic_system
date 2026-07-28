@@ -2,13 +2,14 @@ FROM golang:1.25-alpine AS builder
 
 WORKDIR /app
 
-COPY API_Gateway ./API_Gateway
-COPY Auth_Service ./Auth_Service
-
 WORKDIR /app/API_Gateway
 
-RUN go mod download
+COPY API_Gateway/go.mod API_Gateway/go.sum ./
+RUN go mod download && go mod verify
 
+COPY API_Gateway ./
+
+RUN go mod tidy
 RUN go build -o /api-gateway ./src/cmd/server
 
 FROM alpine:3.20

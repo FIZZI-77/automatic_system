@@ -2,39 +2,44 @@ package repository
 
 import (
 	"context"
-	"database/sql"
-	"fmt"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type DBTX interface {
-	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
-	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
-	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+type Querier interface {
+	Exec(ctx context.Context, query string, args ...any) (pgconn.CommandTag, error)
+	Query(ctx context.Context, query string, args ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, query string, args ...any) pgx.Row
 }
 
-func withTransaction(ctx context.Context, exec DBTX, operation string, fn func(txExec DBTX) error) error {
-	if tx, ok := exec.(*sql.Tx); ok {
-		return fn(tx)
-	}
+type DBPools struct {
+	Write *pgxpool.Pool
+	Read  *pgxpool.Pool
+}
 
-	db, ok := exec.(*sql.DB)
-	if !ok {
-		return fmt.Errorf("repository: %s: transaction source is unavailable", operation)
-	}
+func rollbackTx(ctx context.Context, tx pgx.Tx) {
+	rollbackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
 
-	tx, err := db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("repository: %s: begin tx: %w", operation, err)
-	}
-	defer tx.Rollback()
+	_ = tx.Rollback(rollbackCtx)
+}
 
-	if err = fn(tx); err != nil {
-		return err
-	}
+func rollbackTxOnCancel(ctx context.Context, tx pgx.Tx) func() {
+	done := make(chan struct{})
+	stop := context.AfterFunc(ctx, func() {
+		defer close(done)
+		rollbackTx(ctx, tx)
+	})
 
-	if err = tx.Commit(); err != nil {
-		return fmt.Errorf("repository: %s: commit: %w", operation, err)
-	}
+	return func() {
+		if stop() {
+			rollbackTx(ctx, tx)
+			return
+		}
 
-	return nil
+		<-done
+	}
 }

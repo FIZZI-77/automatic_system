@@ -2,17 +2,21 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"github.com/google/uuid"
 )
 
 type RoleRepoStruct struct {
-	db DBTX
+	writeDB DBTX
+	readDB  DBTX
 }
 
-func NewRoleRepoStruct(db DBTX) *RoleRepoStruct {
-	return &RoleRepoStruct{db: db}
+func NewRoleRepoStruct(writeDB DBTX, readDB ...DBTX) *RoleRepoStruct {
+	reader := writeDB
+	if len(readDB) > 0 && readDB[0] != nil {
+		reader = readDB[0]
+	}
+	return &RoleRepoStruct{writeDB: writeDB, readDB: reader}
 }
 
 func (r *RoleRepoStruct) GetRolesByUserID(ctx context.Context, userID uuid.UUID) ([]string, error) {
@@ -23,16 +27,11 @@ func (r *RoleRepoStruct) GetRolesByUserID(ctx context.Context, userID uuid.UUID)
     ON u.role_id = r.id 
     WHERE u.user_id = $1`
 
-	rows, err := r.db.QueryContext(ctx, query, userID)
+	rows, err := r.readDB.Query(ctx, query, userID)
 	if err != nil {
 		return nil, fmt.Errorf("role_repo: GetRolesByUserID(): cant exec query: %w", err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			fmt.Printf("role_repo: GetRolesByUserID(): rows.Close(): %v\n", err)
-		}
-	}(rows)
+	defer rows.Close()
 
 	for rows.Next() {
 		var role string
@@ -50,7 +49,7 @@ func (r *RoleRepoStruct) GetRolesByUserID(ctx context.Context, userID uuid.UUID)
 }
 func (r *RoleRepoStruct) AssignRoleToUser(ctx context.Context, userID uuid.UUID, roleID uuid.UUID) error {
 	const query = `INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2) ON CONFLICT (user_id, role_id) DO NOTHING`
-	_, err := r.db.ExecContext(ctx, query, userID, roleID)
+	_, err := r.writeDB.Exec(ctx, query, userID, roleID)
 	if err != nil {
 		return fmt.Errorf("role_repo: AssignRoleToUser(): cant exec query: %w", err)
 	}

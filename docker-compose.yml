@@ -1,52 +1,31 @@
-version: "3.9"
-
 services:
   api-gateway:
     build:
       context: .
       dockerfile: API_Gateway/Dockerfile
     container_name: api-gateway
-    ports:
-      - "8081:8081"
-    environment:
-      GATEWAY_ADDR: ":8081"
-      AUTH_SERVICE_ADDR: "auth-service:50051"
-      TICKET_SERVICE_ADDR: "ticket-service:50052"
-      DEPARTMENT_SERVICE_ADDR: "department-service:50053"
-      BRIGADE_SERVICE_ADDR: "brigade-service:50054"
-      JWT_PUBLIC_KEY_PATH: "/app/keys/public.pem"
-      JWT_ISSUER: "auth-jwt"
-      JWT_AUDIENCE: "api-gateway"
-    volumes:
-      - ./API_Gateway/keys/public.pem:/app/keys/public.pem:ro
-    depends_on:
-      - auth-service
-      - ticket-service
-      - department-service
-      - brigade-service
-    restart: unless-stopped
-
-  ticket-service:
-    build:
-      context: ./Ticket_Service
-      dockerfile: Dockerfile
-    container_name: ticket
-    ports:
-      - "50052:50052"
     env_file:
-      - ./Ticket_Service/.env
-    environment:
-      GRPC_ADDR: ":50052"
-      DB_HOST: ${TICKET_DB_HOST}
-      DB_PORT: ${TICKET_DB_PORT}
-    depends_on:
-      postgres-ticket:
-        condition: service_healthy
-      migrator-ticket:
-        condition: service_completed_successfully
-
+      - ./API_Gateway/.env
+    ports:
+      - "${API_GATEWAY_PORT}:8081"
     volumes:
-      - ./keys:/app/keys:ro
+      - type: bind
+        source: ./keys/public.pem
+        target: /app/keys/public.pem
+        read_only: true
+        bind:
+          create_host_path: false
+    depends_on:
+      auth-service:
+        condition: service_started
+      ticket-service:
+        condition: service_started
+      department-service:
+        condition: service_started
+      brigade-service:
+        condition: service_started
+      profile-service:
+        condition: service_started
     restart: unless-stopped
 
   auth-service:
@@ -54,23 +33,40 @@ services:
       context: ./Auth_Service
       dockerfile: Dockerfile
     container_name: auth-service
-    ports:
-      - "50051:50051"
     env_file:
       - ./Auth_Service/.env
-    environment:
-      GRPC_ADDR: ":50051"
-      DB_HOST: ${AUTH_DB_HOST}
-      DB_PORT: ${AUTH_DB_PORT}
-      SMTP_HOST: "mailhog"
-      SMTP_PORT: "1025"
+    ports:
+      - "${AUTH_GRPC_PORT}:50051"
+    volumes:
+      - type: bind
+        source: ./keys/private.pem
+        target: /app/keys/private.pem
+        read_only: true
+        bind:
+          create_host_path: false
     depends_on:
-      postgres-auth:
-        condition: service_healthy
       migrator-auth:
         condition: service_completed_successfully
-    volumes:
-      - ./Auth_Service/keys:/app/keys:ro
+      kafka-init:
+        condition: service_completed_successfully
+      mailhog:
+        condition: service_started
+    restart: unless-stopped
+
+  ticket-service:
+    build:
+      context: ./Ticket_Service
+      dockerfile: Dockerfile
+    container_name: ticket-service
+    env_file:
+      - ./Ticket_Service/.env
+    ports:
+      - "${TICKET_GRPC_PORT}:50052"
+    depends_on:
+      migrator-ticket:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   department-service:
@@ -78,19 +74,34 @@ services:
       context: ./Department_Service
       dockerfile: Dockerfile
     container_name: department-service
-    ports:
-      - "50053:50053"
     env_file:
       - ./Department_Service/.env
-    environment:
-      GRPC_ADDR: ":50053"
-      GRPC_PORT: "50053"
-      DB_HOST: ${DEPARTMENT_DB_HOST}
-      DB_PORT: ${DEPARTMENT_DB_PORT}
+    ports:
+      - "${DEPARTMENT_GRPC_PORT}:50053"
     depends_on:
-      postgres-department:
-        condition: service_healthy
       migrator-department:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  profile-service:
+    build:
+      context: ./Profile_service
+      dockerfile: Dockerfile
+    container_name: profile-service
+    env_file:
+      - ./Profile_service/.env
+    ports:
+      - "${PROFILE_GRPC_PORT}:50055"
+    depends_on:
+      migrator-profile:
+        condition: service_completed_successfully
+      auth-service:
+        condition: service_started
+      department-service:
+        condition: service_started
+      kafka-init:
         condition: service_completed_successfully
     restart: unless-stopped
 
@@ -99,26 +110,19 @@ services:
       context: ./Brigade_Service
       dockerfile: Dockerfile
     container_name: brigade-service
-    ports:
-      - "50054:50054"
     env_file:
       - ./Brigade_Service/.env
-    environment:
-      GRPC_PORT: "50054"
-      DB_HOST: ${BRIGADE_DB_HOST}
-      DB_PORT: ${BRIGADE_DB_PORT}
-      DB_USERNAME: ${BRIGADE_DB_USERNAME}
-      DB_PASSWORD: ${BRIGADE_DB_PASSWORD}
-      DB_NAME: ${BRIGADE_DB_NAME}
-      SSLMODE: ${BRIGADE_DB_SSLMODE}
-      DEPARTMENT_GRPC_ADDR: "department-service:50053"
+    ports:
+      - "${BRIGADE_GRPC_PORT}:50054"
     depends_on:
-      postgres-brigade:
-        condition: service_healthy
       migrator-brigade:
         condition: service_completed_successfully
       department-service:
         condition: service_started
+      profile-service:
+        condition: service_started
+      kafka-init:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   postgres-auth:
@@ -126,88 +130,79 @@ services:
     container_name: auth-postgres
     env_file:
       - ./Auth_Service/.env
-    environment:
-      POSTGRES_USER: ${AUTH_DB_USERNAME}
-      POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD}
-      POSTGRES_DB: ${AUTH_DB_NAME}
     ports:
-      - "${AUTH_DB_PUBLISHED_PORT}:${AUTH_DB_PORT}"
+      - "${AUTH_DB_PUBLISHED_PORT}:5432"
     volumes:
       - postgres_auth_data:/var/lib/postgresql/data
-    restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${AUTH_DB_USERNAME} -d ${AUTH_DB_NAME}"]
+      test: ["CMD-SHELL", "pg_isready -U \"$${DB_USERNAME}\" -d \"$${DB_NAME}\""]
       interval: 5s
       timeout: 5s
       retries: 10
+    restart: unless-stopped
 
   postgres-ticket:
     image: postgres:16
     container_name: ticket-postgres
     env_file:
       - ./Ticket_Service/.env
-    environment:
-      POSTGRES_USER: ${TICKET_DB_USERNAME}
-      POSTGRES_PASSWORD: ${TICKET_DB_PASSWORD}
-      POSTGRES_DB: ${TICKET_DB_NAME}
     ports:
-      - "${TICKET_DB_PUBLISHED_PORT}:${TICKET_DB_PORT}"
+      - "${TICKET_DB_PUBLISHED_PORT}:5432"
     volumes:
       - postgres_ticket_data:/var/lib/postgresql/data
-    restart: unless-stopped
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${TICKET_DB_USERNAME} -d ${TICKET_DB_NAME}" ]
+      test: ["CMD-SHELL", "pg_isready -U \"$${DB_USERNAME}\" -d \"$${DB_NAME}\""]
       interval: 5s
       timeout: 5s
       retries: 10
+    restart: unless-stopped
 
   postgres-department:
     image: postgres:16
     container_name: department-postgres
     env_file:
       - ./Department_Service/.env
-    environment:
-      POSTGRES_USER: ${DEPARTMENT_DB_USERNAME}
-      POSTGRES_PASSWORD: ${DEPARTMENT_DB_PASSWORD}
-      POSTGRES_DB: ${DEPARTMENT_DB_NAME}
     ports:
-      - "${DEPARTMENT_DB_PUBLISHED_PORT}:${DEPARTMENT_DB_PORT}"
+      - "${DEPARTMENT_DB_PUBLISHED_PORT}:5432"
     volumes:
       - postgres_department_data:/var/lib/postgresql/data
-    restart: unless-stopped
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${DEPARTMENT_DB_USERNAME} -d ${DEPARTMENT_DB_NAME}" ]
+      test: ["CMD-SHELL", "pg_isready -U \"$${DB_USERNAME}\" -d \"$${DB_NAME}\""]
       interval: 5s
       timeout: 5s
       retries: 10
+    restart: unless-stopped
 
   postgres-brigade:
     image: postgis/postgis:16-3.4
     container_name: brigade-postgres
     env_file:
       - ./Brigade_Service/.env
-    environment:
-      POSTGRES_USER: ${BRIGADE_DB_USERNAME}
-      POSTGRES_PASSWORD: ${BRIGADE_DB_PASSWORD}
-      POSTGRES_DB: ${BRIGADE_DB_NAME}
     ports:
-      - "${BRIGADE_DB_PUBLISHED_PORT}:${BRIGADE_DB_PORT}"
+      - "${BRIGADE_DB_PUBLISHED_PORT}:5432"
     volumes:
       - postgres_brigade_data:/var/lib/postgresql/data
-    restart: unless-stopped
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${BRIGADE_DB_USERNAME} -d ${BRIGADE_DB_NAME}" ]
+      test: ["CMD-SHELL", "pg_isready -U \"$${DB_USERNAME}\" -d \"$${DB_NAME}\""]
       interval: 5s
       timeout: 5s
       retries: 10
+    restart: unless-stopped
 
-
-  mailhog:
-    image: mailhog/mailhog:latest
-    container_name: auth-mailhog
+  postgres-profile:
+    image: postgres:16
+    container_name: profile-postgres
+    env_file:
+      - ./Profile_service/.env
     ports:
-      - "1025:1025"
-      - "8025:8025"
+      - "${PROFILE_DB_PUBLISHED_PORT}:5432"
+    volumes:
+      - postgres_profile_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${DB_USERNAME}\" -d \"$${DB_NAME}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     restart: unless-stopped
 
   migrator-auth:
@@ -221,15 +216,12 @@ services:
       postgres-auth:
         condition: service_healthy
     volumes:
-      - ./Auth_Service/scheme:/migrations
+      - ./Auth_Service/scheme:/migrations:ro
     environment:
       GOOSE_DRIVER: postgres
-      GOOSE_DBSTRING: postgres://${AUTH_DB_USERNAME}:${AUTH_DB_PASSWORD}@${AUTH_DB_HOST}:${AUTH_DB_PORT}/${AUTH_DB_NAME}?sslmode=${AUTH_DB_SSLMODE}
     command: >
-      sh -c "
-        echo 'Running migrations...' &&
-        goose -dir /migrations up
-      "
+      sh -c 'export GOOSE_DBSTRING="postgres://$${DB_USERNAME}:$${DB_PASSWORD}@$${DB_HOST}:$${DB_PORT}/$${DB_NAME}?sslmode=$${SSLMODE}";
+      goose -dir /migrations up'
 
   migrator-ticket:
     build:
@@ -242,15 +234,12 @@ services:
       postgres-ticket:
         condition: service_healthy
     volumes:
-      - ./Ticket_Service/scheme:/migrations
+      - ./Ticket_Service/scheme:/migrations:ro
     environment:
       GOOSE_DRIVER: postgres
-      GOOSE_DBSTRING: postgres://${TICKET_DB_USERNAME}:${TICKET_DB_PASSWORD}@${TICKET_DB_HOST}:${TICKET_DB_PORT}/${TICKET_DB_NAME}?sslmode=${TICKET_DB_SSLMODE}
     command: >
-      sh -c "
-        echo 'Running migrations...' &&
-        goose -dir /migrations up
-      "
+      sh -c 'export GOOSE_DBSTRING="postgres://$${DB_USERNAME}:$${DB_PASSWORD}@$${DB_HOST}:$${DB_PORT}/$${DB_NAME}?sslmode=$${SSLMODE}";
+      goose -dir /migrations up'
 
   migrator-department:
     build:
@@ -263,15 +252,12 @@ services:
       postgres-department:
         condition: service_healthy
     volumes:
-      - ./Department_Service/scheme:/migrations
+      - ./Department_Service/scheme:/migrations:ro
     environment:
       GOOSE_DRIVER: postgres
-      GOOSE_DBSTRING: postgres://${DEPARTMENT_DB_USERNAME}:${DEPARTMENT_DB_PASSWORD}@${DEPARTMENT_DB_HOST}:${DEPARTMENT_DB_PORT}/${DEPARTMENT_DB_NAME}?sslmode=${DEPARTMENT_DB_SSLMODE}
     command: >
-      sh -c "
-        echo 'Running migrations...' &&
-        goose -dir /migrations up
-      "
+      sh -c 'export GOOSE_DBSTRING="postgres://$${DB_USERNAME}:$${DB_PASSWORD}@$${DB_HOST}:$${DB_PORT}/$${DB_NAME}?sslmode=$${SSLMODE}";
+      goose -dir /migrations up'
 
   migrator-brigade:
     build:
@@ -284,18 +270,209 @@ services:
       postgres-brigade:
         condition: service_healthy
     volumes:
-      - ./Brigade_Service/scheme:/migrations
+      - ./Brigade_Service/scheme:/migrations:ro
     environment:
       GOOSE_DRIVER: postgres
-      GOOSE_DBSTRING: postgres://${BRIGADE_DB_USERNAME}:${BRIGADE_DB_PASSWORD}@${BRIGADE_DB_HOST}:${BRIGADE_DB_PORT}/${BRIGADE_DB_NAME}?sslmode=${BRIGADE_DB_SSLMODE}
     command: >
-      sh -c "
-        echo 'Running migrations...' &&
-        goose -dir /migrations up
-      "
+      sh -c 'export GOOSE_DBSTRING="postgres://$${DB_USERNAME}:$${DB_PASSWORD}@$${DB_HOST}:$${DB_PORT}/$${DB_NAME}?sslmode=$${SSLMODE}";
+      goose -dir /migrations up'
+
+  migrator-profile:
+    build:
+      context: ./Profile_service/migrator
+      dockerfile: Dockerfile
+    container_name: profile-migrator
+    env_file:
+      - ./Profile_service/.env
+    depends_on:
+      postgres-profile:
+        condition: service_healthy
+    volumes:
+      - ./Profile_service/scheme:/migrations:ro
+    environment:
+      GOOSE_DRIVER: postgres
+    command: >
+      sh -c 'export GOOSE_DBSTRING="postgres://$${DB_USERNAME}:$${DB_PASSWORD}@$${DB_HOST}:$${DB_PORT}/$${DB_NAME}?sslmode=$${SSLMODE}";
+      goose -dir /migrations up'
+
+  kafka-1:
+    image: apache/kafka:3.9.1
+    hostname: kafka-1
+    container_name: kafka-1
+    depends_on:
+      kafka-storage-init:
+        condition: service_completed_successfully
+    ports:
+      - "${KAFKA_EXTERNAL_PORT}:29092"
+    volumes:
+      - kafka_1_data:/tmp/kraft-combined-logs
+    environment:
+      CLUSTER_ID: 4L6g3nShT-eMCtK--X86sw
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: CONTROLLER://:9093,PLAINTEXT://:9092,PLAINTEXT_HOST://:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-1:9092,PLAINTEXT_HOST://localhost:${KAFKA_EXTERNAL_PORT}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-1:9093,2@kafka-2:9093,3@kafka-3:9093
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"]
+      start_period: 15s
+      interval: 5s
+      timeout: 10s
+      retries: 20
+    restart: unless-stopped
+
+  kafka-2:
+    image: apache/kafka:3.9.1
+    hostname: kafka-2
+    container_name: kafka-2
+    depends_on:
+      kafka-storage-init:
+        condition: service_completed_successfully
+    volumes:
+      - kafka_2_data:/tmp/kraft-combined-logs
+    environment:
+      CLUSTER_ID: 4L6g3nShT-eMCtK--X86sw
+      KAFKA_NODE_ID: 2
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: CONTROLLER://:9093,PLAINTEXT://:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-2:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-1:9093,2@kafka-2:9093,3@kafka-3:9093
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"]
+      start_period: 15s
+      interval: 5s
+      timeout: 10s
+      retries: 20
+    restart: unless-stopped
+
+  kafka-3:
+    image: apache/kafka:3.9.1
+    hostname: kafka-3
+    container_name: kafka-3
+    depends_on:
+      kafka-storage-init:
+        condition: service_completed_successfully
+    volumes:
+      - kafka_3_data:/tmp/kraft-combined-logs
+    environment:
+      CLUSTER_ID: 4L6g3nShT-eMCtK--X86sw
+      KAFKA_NODE_ID: 3
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: CONTROLLER://:9093,PLAINTEXT://:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-3:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-1:9093,2@kafka-2:9093,3@kafka-3:9093
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"]
+      start_period: 15s
+      interval: 5s
+      timeout: 10s
+      retries: 20
+    restart: unless-stopped
+
+  kafka-storage-init:
+    image: apache/kafka:3.9.1
+    container_name: kafka-storage-init
+    user: "0:0"
+    volumes:
+      - kafka_1_data:/data/kafka-1
+      - kafka_2_data:/data/kafka-2
+      - kafka_3_data:/data/kafka-3
+    command:
+      - /bin/bash
+      - -ec
+      - chown -R 1000:1000 /data/kafka-1 /data/kafka-2 /data/kafka-3
+    restart: "no"
+
+  kafka-init:
+    image: apache/kafka:3.9.1
+    container_name: kafka-init
+    depends_on:
+      kafka-1:
+        condition: service_healthy
+      kafka-2:
+        condition: service_healthy
+      kafka-3:
+        condition: service_healthy
+    command:
+      - /bin/bash
+      - -ec
+      - |
+        topics=(
+          auth.events.v1
+          profiles.events.v1
+          departments.events.v1
+          brigades.events.v1
+          tickets.events.v1
+        )
+        for topic in "$${topics[@]}"; do
+          /opt/kafka/bin/kafka-topics.sh \
+            --bootstrap-server kafka-1:9092,kafka-2:9092,kafka-3:9092 \
+            --create --if-not-exists \
+            --topic "$${topic}" \
+            --partitions 6 \
+            --replication-factor 3 \
+            --config min.insync.replicas=2
+        done
+        /opt/kafka/bin/kafka-topics.sh \
+          --bootstrap-server kafka-1:9092,kafka-2:9092,kafka-3:9092 \
+          --create --if-not-exists \
+          --topic profiles.events.v1.retry \
+          --partitions 2 \
+          --replication-factor 3 \
+          --config min.insync.replicas=2
+        /opt/kafka/bin/kafka-topics.sh \
+          --bootstrap-server kafka-1:9092,kafka-2:9092,kafka-3:9092 \
+          --create --if-not-exists \
+          --topic profiles.events.v1.dlq \
+          --partitions 2 \
+          --replication-factor 3 \
+          --config min.insync.replicas=2
+    restart: "no"
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: auth-mailhog
+    ports:
+      - "${MAILHOG_SMTP_PORT}:1025"
+      - "${MAILHOG_UI_PORT}:8025"
+    restart: unless-stopped
 
 volumes:
   postgres_auth_data:
   postgres_ticket_data:
   postgres_department_data:
   postgres_brigade_data:
+  postgres_profile_data:
+  kafka_1_data:
+  kafka_2_data:
+  kafka_3_data:

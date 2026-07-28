@@ -1,0 +1,131 @@
+package repository
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+)
+
+type IdempotencyRecord struct {
+	Status      string
+	RequestHash string
+	Response    []byte
+	Error       sql.NullString
+}
+
+func (r *Repository) BeginIdempotency(
+	ctx context.Context,
+	actorKey string,
+	operation string,
+	key string,
+	requestHash string,
+	ttl time.Duration,
+) (*IdempotencyRecord, bool, error) {
+	if r.writePool == nil {
+		return nil, false, fmt.Errorf("repository: BeginIdempotency(): write pool is unavailable")
+	}
+
+	expiresAt := time.Now().UTC().Add(ttl)
+	const insertQuery = `
+		INSERT INTO idempotency_keys (
+			actor_key,
+			operation,
+			idempotency_key,
+			request_hash,
+			expires_at
+		)
+		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (actor_key, operation, idempotency_key) DO NOTHING
+		RETURNING status, request_hash, response, error
+	`
+
+	record := &IdempotencyRecord{}
+	err := r.writePool.QueryRow(ctx, insertQuery, actorKey, operation, key, requestHash, expiresAt).Scan(
+		&record.Status,
+		&record.RequestHash,
+		&record.Response,
+		&record.Error,
+	)
+	if err == nil {
+		return record, true, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return nil, false, fmt.Errorf("repository: BeginIdempotency(): insert: %w", err)
+	}
+
+	const selectQuery = `
+		SELECT status, request_hash, response, error
+		FROM idempotency_keys
+		WHERE actor_key = $1
+		  AND operation = $2
+		  AND idempotency_key = $3
+	`
+	err = r.writePool.QueryRow(ctx, selectQuery, actorKey, operation, key).Scan(
+		&record.Status,
+		&record.RequestHash,
+		&record.Response,
+		&record.Error,
+	)
+	if err != nil {
+		return nil, false, fmt.Errorf("repository: BeginIdempotency(): select: %w", err)
+	}
+
+	return record, false, nil
+}
+
+func (r *Repository) CompleteIdempotency(
+	ctx context.Context,
+	actorKey string,
+	operation string,
+	key string,
+	response []byte,
+	resourceType string,
+	resourceID any,
+) error {
+	if r.writePool == nil {
+		return fmt.Errorf("repository: CompleteIdempotency(): write pool is unavailable")
+	}
+
+	const query = `
+		UPDATE idempotency_keys
+		SET status = 'COMPLETED',
+			response = $4::jsonb,
+			error = NULL,
+			resource_type = $5,
+			resource_id = $6,
+			updated_at = now()
+		WHERE actor_key = $1
+		  AND operation = $2
+		  AND idempotency_key = $3
+	`
+	if _, err := r.writePool.Exec(ctx, query, actorKey, operation, key, response, resourceType, resourceID); err != nil {
+		return fmt.Errorf("repository: CompleteIdempotency(): update: %w", err)
+	}
+	return nil
+}
+
+func (r *Repository) FailIdempotency(ctx context.Context, actorKey string, operation string, key string, operationErr error) error {
+	if r.writePool == nil {
+		return fmt.Errorf("repository: FailIdempotency(): write pool is unavailable")
+	}
+
+	errText := ""
+	if operationErr != nil {
+		errText = operationErr.Error()
+	}
+	const query = `
+		UPDATE idempotency_keys
+		SET status = 'FAILED', error = $4, updated_at = now()
+		WHERE actor_key = $1
+		  AND operation = $2
+		  AND idempotency_key = $3
+	`
+	if _, err := r.writePool.Exec(ctx, query, actorKey, operation, key, errText); err != nil {
+		return fmt.Errorf("repository: FailIdempotency(): update: %w", err)
+	}
+	return nil
+}

@@ -30,7 +30,7 @@ func main() {
 	defer logger.Sync()
 
 	err = godotenv.Load(".env")
-	if err != nil {
+	if err != nil && !os.IsNotExist(err) {
 		log.Fatal("error loading .env file")
 	}
 
@@ -45,8 +45,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to connect db: %v", err)
 	}
-	dependencies.Add("postgres", db.Close)
+	dependencies.Add("postgres", func() error {
+		db.Close()
+		return nil
+	})
 	defer closeDependencies(dependencies)
+	startOutboxRelay(db, dependencies, logger)
 
 	privateKey, err := pkg.LoadRSAPrivateKey(os.Getenv("JWT_PRIVATE_KEY_PATH"))
 	if err != nil {
@@ -71,7 +75,7 @@ func main() {
 		),
 	)
 
-	repo := repository.NewRepo(db)
+	repo := repository.NewRepository(repository.DBPools{Write: db, Read: db})
 	mailService, err := service.NewSMTPMailService(service.SMTPMailConfig{
 		Host:            os.Getenv("SMTP_HOST"),
 		Port:            mustInt(os.Getenv("SMTP_PORT")),
@@ -88,7 +92,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to init mail jwt: %v", err)
 	}
-	authService := service.NewAuthService(repo, privateKey, keyID, mailService, logger)
+	authService := service.NewService(repo, privateKey, keyID, mailService, logger)
 	authHandler := handler.NewAuthHandler(authService, logger)
 
 	v1.RegisterAuthServiceServer(grpcServer, authHandler)

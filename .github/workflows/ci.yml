@@ -1,4 +1,4 @@
-name: Auth Service CI/CD
+name: Automatic City Services CI/CD
 
 on:
   push:
@@ -6,30 +6,56 @@ on:
       - main
       - develop
     tags:
-      - 'v*'
+      - "v*"
   pull_request:
     branches:
       - main
       - develop
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
   packages: write
 
 env:
+  GO_VERSION: "1.25.9"
   REGISTRY: ghcr.io
-  GO_VERSION: '1.25'
-  SERVICE_NAME: auth-service
-  SERVICE_PATH: Auth_Service
 
 jobs:
-  test:
-    name: Test Auth Service
+  go-quality:
+    name: Go CI / ${{ matrix.name }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: contracts
+            path: .
+          - name: api-gateway
+            path: API_Gateway
+          - name: auth-service
+            path: Auth_Service
+          - name: ticket-service
+            path: Ticket_Service
+          - name: department-service
+            path: Department_Service
+          - name: brigade-service
+            path: Brigade_Service
+          - name: profile-service
+            path: Profile_service
+          - name: transponder-simulator
+            path: Transponder_Simulator
 
     defaults:
       run:
-        working-directory: ${{ env.SERVICE_PATH }}
+        working-directory: ${{ matrix.path }}
+
+    env:
+      GOWORK: "off"
 
     steps:
       - name: Checkout repository
@@ -40,29 +66,97 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-          cache-dependency-path: ${{ env.SERVICE_PATH }}/go.sum
+          cache-dependency-path: ${{ matrix.path }}/go.mod
 
-      - name: Show Go workspace
-        run: go env GOWORK
-
-      - name: Download dependencies
-        run: go mod download
+      - name: Download and verify dependencies
+        run: |
+          go mod download
+          go mod verify
 
       - name: Check formatting
-        run: test -z "$(gofmt -l .)"
+        shell: bash
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "The following files are not gofmt-formatted:"
+            echo "$unformatted"
+            exit 1
+          fi
 
       - name: Run go vet
         run: go vet ./...
 
-      - name: Run tests
-        run: go test -v -race ./...
+      - name: Run tests with race detector
+        run: go test -race -count=1 ./...
 
-  docker-build-and-push:
-    name: Build and push Auth Service image
+  compose-validation:
+    name: Validate Docker Compose
     runs-on: ubuntu-latest
-    needs: test
 
-    if: github.event_name == 'push'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prepare CI environment files
+        shell: bash
+        run: |
+          cp .env.example .env
+          cp API_Gateway/.env.example API_Gateway/.env
+          cp Auth_Service/.env.example Auth_Service/.env
+          cp Ticket_Service/.env.example Ticket_Service/.env
+          cp Department_Service/.env.example Department_Service/.env
+          cp Brigade_Service/.env.example Brigade_Service/.env
+          cp Profile_service/.env.example Profile_service/.env
+
+      - name: Validate resolved Compose configuration
+        run: docker compose config --quiet
+
+  docker-images:
+    name: Docker / ${{ matrix.image }}
+    runs-on: ubuntu-latest
+    needs:
+      - go-quality
+      - compose-validation
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: api-gateway
+            context: .
+            dockerfile: API_Gateway/Dockerfile
+          - image: auth-service
+            context: Auth_Service
+            dockerfile: Auth_Service/Dockerfile
+          - image: ticket-service
+            context: Ticket_Service
+            dockerfile: Ticket_Service/Dockerfile
+          - image: department-service
+            context: Department_Service
+            dockerfile: Department_Service/Dockerfile
+          - image: brigade-service
+            context: Brigade_Service
+            dockerfile: Brigade_Service/Dockerfile
+          - image: profile-service
+            context: Profile_service
+            dockerfile: Profile_service/Dockerfile
+          - image: transponder-simulator
+            context: Transponder_Simulator
+            dockerfile: Transponder_Simulator/Dockerfile
+          - image: auth-migrator
+            context: Auth_Service/migrator
+            dockerfile: Auth_Service/migrator/Dockerfile
+          - image: ticket-migrator
+            context: Ticket_Service/migrator
+            dockerfile: Ticket_Service/migrator/Dockerfile
+          - image: department-migrator
+            context: Department_Service/migrator
+            dockerfile: Department_Service/migrator/Dockerfile
+          - image: brigade-migrator
+            context: Brigade_Service/migrator
+            dockerfile: Brigade_Service/migrator/Dockerfile
+          - image: profile-migrator
+            context: Profile_service/migrator
+            dockerfile: Profile_service/migrator/Dockerfile
 
     steps:
       - name: Checkout repository
@@ -72,33 +166,31 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Login to GitHub Container Registry
+        if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Generate Docker image metadata
+      - name: Generate image metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.SERVICE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.image }}
           tags: |
             type=ref,event=branch
             type=ref,event=tag
             type=sha,prefix=sha-
+            type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Create .env file for Docker build
-        run: |
-          cat > ${{ env.SERVICE_PATH }}/.env <<EOF
-          APP_ENV=${{ secrets.APP_ENV }}
-          EOF
-
-      - name: Build and push Docker image
+      - name: Build and optionally publish image
         uses: docker/build-push-action@v6
         with:
-          context: ./${{ env.SERVICE_PATH }}
-          file: ./${{ env.SERVICE_PATH }}/Dockerfile
-          push: true
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}

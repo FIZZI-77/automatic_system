@@ -2,14 +2,15 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 
 	"department/models"
 
 	"github.com/google/uuid"
-	"github.com/lib/pq"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type scanner interface {
@@ -17,29 +18,38 @@ type scanner interface {
 }
 
 type DepartmentRepoStruct struct {
-	db DBTX
+	writePool *pgxpool.Pool
+	readPool  *pgxpool.Pool
 }
 
-func NewDepartmentRepository(db DBTX) *DepartmentRepoStruct {
-	return &DepartmentRepoStruct{db: db}
+func NewDepartmentRepository(writePool *pgxpool.Pool, readPool *pgxpool.Pool) *DepartmentRepoStruct {
+	if readPool == nil {
+		readPool = writePool
+	}
+
+	return &DepartmentRepoStruct{writePool: writePool, readPool: readPool}
 }
 
 func (r *DepartmentRepoStruct) CreateDepartment(ctx context.Context, in *models.CreateDepartmentInput) (*models.Department, error) {
-	var department *models.Department
-	err := withTransaction(ctx, r.db, "CreateDepartment()", func(txExec DBTX) error {
-		txRepo := NewDepartmentRepository(txExec)
-		var err error
-		department, err = txRepo.createDepartment(ctx, in)
-		return err
-	})
+	tx, err := r.writePool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("repository: CreateDepartment(): begin tx: %w", err)
+	}
+	defer rollbackTxOnCancel(ctx, tx)()
+
+	department, err := r.createDepartment(ctx, tx, in)
 	if err != nil {
 		return nil, err
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("repository: CreateDepartment(): commit: %w", err)
 	}
 
 	return department, nil
 }
 
-func (r *DepartmentRepoStruct) createDepartment(ctx context.Context, in *models.CreateDepartmentInput) (*models.Department, error) {
+func (r *DepartmentRepoStruct) createDepartment(ctx context.Context, q Querier, in *models.CreateDepartmentInput) (*models.Department, error) {
 	const query = `
 		INSERT INTO departments (
 			id,
@@ -53,7 +63,7 @@ func (r *DepartmentRepoStruct) createDepartment(ctx context.Context, in *models.
 		RETURNING id, name, description, status, created_at, updated_at
 	`
 
-	row := r.db.QueryRowContext(
+	row := q.QueryRow(
 		ctx,
 		query,
 		uuid.New(),
@@ -70,7 +80,7 @@ func (r *DepartmentRepoStruct) createDepartment(ctx context.Context, in *models.
 		return nil, fmt.Errorf("repository: CreateDepartment(): %w", err)
 	}
 
-	if err = insertOutboxEvent(ctx, r.db, "department", department.ID, "department.created", department); err != nil {
+	if err = insertOutboxEvent(ctx, q, "department", department.ID, "department.created", department); err != nil {
 		return nil, fmt.Errorf("repository: CreateDepartment(): insert outbox event: %w", err)
 	}
 
@@ -84,7 +94,7 @@ func (r *DepartmentRepoStruct) GetDepartmentByID(ctx context.Context, id uuid.UU
 		WHERE id = $1
 	`
 
-	department, err := scanDepartment(r.db.QueryRowContext(ctx, query, id))
+	department, err := scanDepartment(r.readPool.QueryRow(ctx, query, id))
 	if err != nil {
 		return nil, fmt.Errorf("repository: GetDepartmentByID(): %w", err)
 	}
@@ -112,7 +122,7 @@ func (r *DepartmentRepoStruct) ListDepartments(ctx context.Context, in *models.L
 	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM departments %s", whereSQL)
 
 	var total int64
-	if err := r.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
+	if err := r.readPool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("repository: ListDepartments(): count: %w", err)
 	}
 
@@ -134,7 +144,7 @@ func (r *DepartmentRepoStruct) ListDepartments(ctx context.Context, in *models.L
 		LIMIT $%d OFFSET $%d
 	`, whereSQL, sortColumn, sortOrder, limitArg, offsetArg)
 
-	rows, err := r.db.QueryContext(ctx, listQuery, args...)
+	rows, err := r.readPool.Query(ctx, listQuery, args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("repository: ListDepartments(): query: %w", err)
 	}
@@ -157,21 +167,25 @@ func (r *DepartmentRepoStruct) ListDepartments(ctx context.Context, in *models.L
 }
 
 func (r *DepartmentRepoStruct) UpdateDepartment(ctx context.Context, in *models.UpdateDepartmentInput) (*models.Department, error) {
-	var department *models.Department
-	err := withTransaction(ctx, r.db, "UpdateDepartment()", func(txExec DBTX) error {
-		txRepo := NewDepartmentRepository(txExec)
-		var err error
-		department, err = txRepo.updateDepartment(ctx, in)
-		return err
-	})
+	tx, err := r.writePool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("repository: UpdateDepartment(): begin tx: %w", err)
+	}
+	defer rollbackTxOnCancel(ctx, tx)()
+
+	department, err := r.updateDepartment(ctx, tx, in)
 	if err != nil {
 		return nil, err
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("repository: UpdateDepartment(): commit: %w", err)
 	}
 
 	return department, nil
 }
 
-func (r *DepartmentRepoStruct) updateDepartment(ctx context.Context, in *models.UpdateDepartmentInput) (*models.Department, error) {
+func (r *DepartmentRepoStruct) updateDepartment(ctx context.Context, q Querier, in *models.UpdateDepartmentInput) (*models.Department, error) {
 	const query = `
 		UPDATE departments
 		SET
@@ -183,7 +197,7 @@ func (r *DepartmentRepoStruct) updateDepartment(ctx context.Context, in *models.
 		RETURNING id, name, description, status, created_at, updated_at
 	`
 
-	department, err := scanDepartment(r.db.QueryRowContext(ctx, query, in.Name, in.Description, in.Status, in.ID))
+	department, err := scanDepartment(q.QueryRow(ctx, query, in.Name, in.Description, in.Status, in.ID))
 	if err != nil {
 		if isUniqueViolation(err) {
 			return nil, fmt.Errorf("repository: UpdateDepartment(): %w", models.ErrAlreadyExists)
@@ -191,7 +205,7 @@ func (r *DepartmentRepoStruct) updateDepartment(ctx context.Context, in *models.
 		return nil, fmt.Errorf("repository: UpdateDepartment(): %w", err)
 	}
 
-	if err = insertOutboxEvent(ctx, r.db, "department", department.ID, "department.updated", department); err != nil {
+	if err = insertOutboxEvent(ctx, q, "department", department.ID, "department.updated", department); err != nil {
 		return nil, fmt.Errorf("repository: UpdateDepartment(): insert outbox event: %w", err)
 	}
 
@@ -199,21 +213,25 @@ func (r *DepartmentRepoStruct) updateDepartment(ctx context.Context, in *models.
 }
 
 func (r *DepartmentRepoStruct) DeleteDepartment(ctx context.Context, in *models.DeleteDepartmentInput) (*models.Department, error) {
-	var department *models.Department
-	err := withTransaction(ctx, r.db, "DeleteDepartment()", func(txExec DBTX) error {
-		txRepo := NewDepartmentRepository(txExec)
-		var err error
-		department, err = txRepo.deleteDepartment(ctx, in)
-		return err
-	})
+	tx, err := r.writePool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("repository: DeleteDepartment(): begin tx: %w", err)
+	}
+	defer rollbackTxOnCancel(ctx, tx)()
+
+	department, err := r.deleteDepartment(ctx, tx, in)
 	if err != nil {
 		return nil, err
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("repository: DeleteDepartment(): commit: %w", err)
 	}
 
 	return department, nil
 }
 
-func (r *DepartmentRepoStruct) deleteDepartment(ctx context.Context, in *models.DeleteDepartmentInput) (*models.Department, error) {
+func (r *DepartmentRepoStruct) deleteDepartment(ctx context.Context, q Querier, in *models.DeleteDepartmentInput) (*models.Department, error) {
 	const query = `
 		UPDATE departments
 		SET
@@ -223,12 +241,12 @@ func (r *DepartmentRepoStruct) deleteDepartment(ctx context.Context, in *models.
 		RETURNING id, name, description, status, created_at, updated_at
 	`
 
-	department, err := scanDepartment(r.db.QueryRowContext(ctx, query, models.DepartmentStatusArchived, in.ID))
+	department, err := scanDepartment(q.QueryRow(ctx, query, models.DepartmentStatusArchived, in.ID))
 	if err != nil {
 		return nil, fmt.Errorf("repository: DeleteDepartment(): %w", err)
 	}
 
-	if err = insertOutboxEvent(ctx, r.db, "department", department.ID, "department.archived", department); err != nil {
+	if err = insertOutboxEvent(ctx, q, "department", department.ID, "department.archived", department); err != nil {
 		return nil, fmt.Errorf("repository: DeleteDepartment(): insert outbox event: %w", err)
 	}
 
@@ -247,7 +265,7 @@ func scanDepartment(s scanner) (*models.Department, error) {
 		&department.UpdatedAt,
 	)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, models.ErrNotFound
 		}
 		return nil, err
@@ -270,8 +288,8 @@ func departmentSortColumn(sortBy models.DepartmentSortBy) string {
 }
 
 func isUniqueViolation(err error) bool {
-	var pqErr *pq.Error
-	if errors.As(err, &pqErr) && pqErr.Code == "23505" {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 		return true
 	}
 

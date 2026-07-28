@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   auth-service:
     build:
@@ -10,30 +8,33 @@ services:
       - "8080:8080"
     env_file:
       - .env
+    environment:
+      KAFKA_BROKERS: host.docker.internal:29092
     depends_on:
-      postgres:
-        condition: service_healthy
       migrator:
         condition: service_completed_successfully
       
     volumes:
-      - ./keys:/app/keys:ro
+      - type: bind
+        source: ../keys/private.pem
+        target: /app/keys/private.pem
+        read_only: true
+        bind:
+          create_host_path: false
     restart: unless-stopped
 
-  postgres:
+  postgres-auth:
     image: postgres:16
     container_name: auth-postgres
-    environment:
-      POSTGRES_USER: ${DB_USERNAME}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${DB_NAME}
+    env_file:
+      - .env
     ports:
-      - "${DB_PORT}:5432"
+      - "5432:5432"
     volumes:
       - postgres_auth_data:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}"]
+      test: ["CMD-SHELL", "pg_isready -U \"$${DB_USERNAME}\" -d \"$${DB_NAME}\""]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -48,20 +49,19 @@ services:
 
   migrator:
     build: ./migrator
-    container_name: migrator
+    container_name: auth-migrator
+    env_file:
+      - .env
     depends_on:
-      postgres:
+      postgres-auth:
         condition: service_healthy
     volumes:
       - ./scheme:/migrations
     environment:
       GOOSE_DRIVER: postgres
-      GOOSE_DBSTRING: postgres://${DB_USERNAME}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=${SSLMODE}
     command: >
-      sh -c "
-        echo 'Running migrations...' &&
-        goose -dir /migrations up
-      "
+      sh -c 'export GOOSE_DBSTRING="postgres://$${DB_USERNAME}:$${DB_PASSWORD}@$${DB_HOST}:$${DB_PORT}/$${DB_NAME}?sslmode=$${SSLMODE}";
+      goose -dir /migrations up'
 
 volumes:
   postgres_auth_data:

@@ -3,9 +3,9 @@ package repository
 import (
 	"auth/models"
 	"context"
-	"database/sql"
 	"fmt"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type UserRepository interface {
@@ -54,8 +54,9 @@ type OneTimeTokenRepo interface {
 	RevokeUnusedTokensByUserIDAndType(ctx context.Context, userID uuid.UUID, tokenType models.TokenType) error
 }
 
-type Repo struct {
-	db *sql.DB
+type Repository struct {
+	writePool *pgxpool.Pool
+	readPool  *pgxpool.Pool
 	UserRepository
 	SessionRepository
 	RefreshTokenRepository
@@ -64,16 +65,27 @@ type Repo struct {
 	OneTimeTokenRepo
 }
 
-func NewRepo(db *sql.DB) *Repo {
-	return &Repo{
-		db:                     db,
-		UserRepository:         NewUserRepoStruct(db),
-		SessionRepository:      NewSessionRepoStruct(db),
-		RefreshTokenRepository: NewRefreshTokenRepoStruct(db),
-		RoleRepository:         NewRoleRepoStruct(db),
-		TXRepository:           NewTXRepoStruct(db),
-		OneTimeTokenRepo:       NewOneTimeTokenRepoStruct(db),
+type Repo = Repository
+
+func NewRepository(pools DBPools) *Repository {
+	if pools.Read == nil {
+		pools.Read = pools.Write
 	}
+	return &Repository{
+		writePool:              pools.Write,
+		readPool:               pools.Read,
+		UserRepository:         NewUserRepoStruct(pools.Write, pools.Read),
+		SessionRepository:      NewSessionRepoStruct(pools.Write, pools.Read),
+		RefreshTokenRepository: NewRefreshTokenRepoStruct(pools.Write, pools.Read),
+		RoleRepository:         NewRoleRepoStruct(pools.Write, pools.Read),
+		TXRepository:           NewTXRepoStruct(pools.Write),
+		OneTimeTokenRepo:       NewOneTimeTokenRepoStruct(pools.Write, pools.Read),
+	}
+}
+
+// NewRepo is kept as a compatibility alias for existing callers.
+func NewRepo(db *pgxpool.Pool) *Repo {
+	return NewRepository(DBPools{Write: db, Read: db})
 }
 
 func newRepoWithExecutor(exec DBTX) *Repo {
@@ -87,21 +99,21 @@ func newRepoWithExecutor(exec DBTX) *Repo {
 }
 
 func (r *Repo) WithTx(ctx context.Context, fn func(txRepo *Repo) error) error {
-	if r.db == nil {
+	if r.writePool == nil {
 		return fmt.Errorf("repository: WithTx(): root db is unavailable")
 	}
 
-	tx, err := r.db.BeginTx(ctx, nil)
+	tx, err := r.writePool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("repository: WithTx(): begin tx: %w", err)
 	}
-	defer tx.Rollback()
+	defer rollbackTxOnCancel(ctx, tx)()
 
 	if err := fn(newRepoWithExecutor(tx)); err != nil {
 		return err
 	}
 
-	if err := tx.Commit(); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("repository: WithTx(): commit: %w", err)
 	}
 

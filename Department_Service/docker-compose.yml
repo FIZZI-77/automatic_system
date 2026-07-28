@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   department-service:
     build:
@@ -11,28 +9,25 @@ services:
     env_file:
       - .env
     environment:
+      KAFKA_BROKERS: host.docker.internal:29092
       GRPC_PORT: "50053"
     depends_on:
-      postgres:
-        condition: service_healthy
       migrator:
         condition: service_completed_successfully
     restart: unless-stopped
 
-  postgres:
+  postgres-department:
     image: postgres:16
     container_name: department-postgres
-    environment:
-      POSTGRES_USER: ${DB_USERNAME}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${DB_NAME}
+    env_file:
+      - .env
     ports:
-      - "5434:${DB_PORT}"
+      - "5434:5432"
     volumes:
       - postgres_department_data:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}"]
+      test: ["CMD-SHELL", "pg_isready -U \"$${DB_USERNAME}\" -d \"$${DB_NAME}\""]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -40,19 +35,18 @@ services:
   migrator:
     build: ./migrator
     container_name: department-migrator
+    env_file:
+      - .env
     depends_on:
-      postgres:
+      postgres-department:
         condition: service_healthy
     volumes:
       - ./scheme:/migrations
     environment:
       GOOSE_DRIVER: postgres
-      GOOSE_DBSTRING: postgres://${DB_USERNAME}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=${SSLMODE}
     command: >
-      sh -c "
-        echo 'Running migrations...' &&
-        goose -dir /migrations up
-      "
+      sh -c 'export GOOSE_DBSTRING="postgres://$${DB_USERNAME}:$${DB_PASSWORD}@$${DB_HOST}:$${DB_PORT}/$${DB_NAME}?sslmode=$${SSLMODE}";
+      goose -dir /migrations up'
 
 volumes:
   postgres_department_data:

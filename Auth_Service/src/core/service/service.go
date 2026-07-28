@@ -1,10 +1,12 @@
 package service
 
 import (
-	"auth/models"
-	"auth/src/core/repository"
 	"context"
 	"crypto/rsa"
+
+	"auth/models"
+	"auth/src/core/repository"
+
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
@@ -34,8 +36,18 @@ type Service struct {
 	MailService
 }
 
-func NewAuthService(repo *repository.Repo, privateKey *rsa.PrivateKey, keyID string, mailService MailService, logger *zap.Logger) *Service {
+func NewService(repo *repository.Repository, privateKey *rsa.PrivateKey, keyID string, mailService MailService, logger *zap.Logger) *Service {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+
 	return &Service{
 		AuthService: NewAuthServiceStruct(repo, privateKey, keyID, mailService, logger),
+		MailService: mailService,
 	}
+}
+
+// NewAuthService is kept as a compatibility alias for existing callers.
+func NewAuthService(repo *repository.Repo, privateKey *rsa.PrivateKey, keyID string, mailService MailService, logger *zap.Logger) *Service {
+	return NewService(repo, privateKey, keyID, mailService, logger)
 }

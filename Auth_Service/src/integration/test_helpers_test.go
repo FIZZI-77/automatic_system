@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/pressly/goose/v3"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
@@ -23,7 +24,7 @@ import (
 )
 
 type testApp struct {
-	db      *sql.DB
+	db      *pgxpool.Pool
 	repo    *repository.Repo
 	auth    *service.AuthServiceStruct
 	mail    *fakeMailService
@@ -100,22 +101,29 @@ func newTestApp(t *testing.T) *testApp {
 		t.Fatalf("failed to get connection string: %v", err)
 	}
 
-	db, err := sql.Open("pgx", connStr)
+	migrationDB, err := sql.Open("pgx", connStr)
 	if err != nil {
 		_ = container.Terminate(ctx)
 		t.Fatalf("failed to open db: %v", err)
 	}
 
-	waitForDB(t, ctx, db)
+	waitForDB(t, ctx, migrationDB)
 
-	runGooseMigrations(t, db)
+	runGooseMigrations(t, migrationDB)
+	db, err := pgxpool.New(ctx, connStr)
+	if err != nil {
+		_ = migrationDB.Close()
+		_ = container.Terminate(ctx)
+		t.Fatalf("failed to open pgx pool: %v", err)
+	}
 
-	repo := repository.NewRepo(db)
+	repo := repository.NewRepository(repository.DBPools{Write: db, Read: db})
 	mail := &fakeMailService{}
 
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		_ = db.Close()
+		db.Close()
+		_ = migrationDB.Close()
 		_ = container.Terminate(ctx)
 		t.Fatalf("failed to generate rsa key: %v", err)
 	}
@@ -129,7 +137,8 @@ func newTestApp(t *testing.T) *testApp {
 	)
 
 	cleanup := func() {
-		_ = db.Close()
+		db.Close()
+		_ = migrationDB.Close()
 		_ = container.Terminate(ctx)
 	}
 
