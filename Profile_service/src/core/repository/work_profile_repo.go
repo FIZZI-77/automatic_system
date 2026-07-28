@@ -337,8 +337,8 @@ func (w *WorkProfileRepoStruct) SetWorkProfileStatus(ctx context.Context, in *mo
 	const query = `
 		UPDATE work_profiles
 		SET
-			status = $1,
-			deactivated_at = CASE WHEN $1 = 'INACTIVE' THEN now() ELSE NULL END,
+			status = $1::varchar,
+			deactivated_at = CASE WHEN $1::varchar = 'INACTIVE' THEN now() ELSE NULL END,
 			updated_at = now()
 		WHERE id = $2
 	`

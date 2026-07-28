@@ -6,6 +6,7 @@ const hostname = (__ENV.HOSTNAME || "local").toLowerCase().replace(/[^a-z0-9-]/g
 const password = __ENV.K6_USER_PASSWORD || "Password123!";
 const sleepSeconds = Number(__ENV.K6_SLEEP_SECONDS || "1");
 const includeBusiness = (__ENV.K6_INCLUDE_BUSINESS || "false").toLowerCase() === "true";
+const includeRestricted = (__ENV.K6_INCLUDE_RESTRICTED || "false").toLowerCase() === "true";
 
 export const options = {
   vus: Number(__ENV.K6_VUS || "1"),
@@ -86,9 +87,13 @@ export default function (user) {
     requests.push(
       ["POST", `${baseUrl}/tickets/list`, JSON.stringify({ limit: 20, offset: 0 }), { headers }],
       ["POST", `${baseUrl}/departments/list`, JSON.stringify({ limit: 20, offset: 0 }), { headers }],
-      ["POST", `${baseUrl}/brigades/list`, JSON.stringify({ limit: 20, offset: 0 }), { headers }],
       ["POST", `${baseUrl}/ticket-categories/list`, JSON.stringify({ limit: 20, offset: 0 }), { headers }],
     );
+    if (includeRestricted) {
+      requests.push(
+        ["POST", `${baseUrl}/brigades/list`, JSON.stringify({ limit: 20, offset: 0 }), { headers }],
+      );
+    }
   }
 
   const responses = http.batch(requests);
@@ -99,8 +104,10 @@ export default function (user) {
   if (includeBusiness) {
     check(responses[2], { "tickets list ok": (res) => res.status === 200 });
     check(responses[3], { "departments list ok": (res) => res.status === 200 });
-    check(responses[4], { "brigades list ok": (res) => res.status === 200 });
-    check(responses[5], { "categories list ok": (res) => res.status === 200 });
+    check(responses[4], { "categories list ok": (res) => res.status === 200 });
+    if (includeRestricted) {
+      check(responses[5], { "brigades list forbidden for user": (res) => res.status === 403 });
+    }
   }
 
   sleep(sleepSeconds);

@@ -28,7 +28,7 @@ func handleGRPCError(c *gin.Context, err error) {
 		c.JSON(http.StatusNotFound, gin.H{"error": st.Message()})
 	case codes.AlreadyExists:
 		c.JSON(http.StatusConflict, gin.H{"error": st.Message()})
-	case codes.Aborted:
+	case codes.Aborted, codes.FailedPrecondition:
 		c.JSON(http.StatusConflict, gin.H{"error": st.Message()})
 	case codes.DeadlineExceeded:
 		c.JSON(http.StatusGatewayTimeout, gin.H{"error": "upstream service timeout"})
