@@ -40,6 +40,7 @@ The compose file defaults to:
 - `K6_USER_OFFSET=0`
 - `K6_SLEEP_SECONDS=1`
 - `K6_INCLUDE_BUSINESS=false`
+- `K6_INCLUDE_RESTRICTED=false`
 
 By default, each k6 container registers a unique user, logs in, then repeatedly calls `/health` and `/auth/me`.
 
@@ -56,8 +57,10 @@ This also calls:
 
 - `POST /tickets/list`
 - `POST /departments/list`
-- `POST /brigades/list`
 - `POST /ticket-categories/list`
+
+Set `K6_INCLUDE_RESTRICTED=true` to additionally verify that a regular user receives
+`403 Forbidden` from the admin-only `POST /brigades/list` endpoint.
 
 ## Full Business Flow
 

@@ -1020,3 +1020,61 @@ Asset/Infrastructure Service
 - Сделать два пула, ReadPool и WritePool. чтобы записи на чтение трогали только реплики, а основную master ноду только на запись. 
 - Добавить уровень логирования Debug или Info в pgxpool
 ```
+
+## Масштабирование PostgreSQL: репликация и будущий шардинг
+
+Зафиксированное архитектурное решение:
+
+- `Ticket Service` в будущем шардировать по `department_id`, когда метрики подтвердят, что один PostgreSQL primary упирается в CPU, IOPS, размер данных или write throughput.
+- До появления реальной необходимости в шардинге использовать для Ticket Service primary, standby, read replicas, партиционирование крупных таблиц и архивирование истории.
+- `Auth Service`, `Department Service`, `Profile Service` и `Brigade Service` не шардировать без отдельного пересмотра архитектуры; масштабировать их PostgreSQL через репликацию.
+- API Gateway собственной БД не имеет, поэтому репликация или шардинг ему не требуются.
+
+План репликации:
+
+- `Auth Service`: primary + synchronous standby для failover с минимальным риском потери пользователей, сессий и токенов; при необходимости отдельная asynchronous read replica.
+- `Department Service`: primary + standby. Данных немного, поэтому шардинг не нужен; справочные чтения дополнительно распространять через Kafka-проекции.
+- `Profile Service`: primary + standby + read replica для списков, поиска и профильных read-запросов.
+- `Brigade Service`: primary + standby + read replica для поиска доступных бригад, зон, расписаний, состава и навыков.
+- `Ticket Service`: сначала primary + synchronous standby + read replicas; позднее перейти к шардам.
+
+Механизм PostgreSQL HA:
+
+- использовать Patroni для управления PostgreSQL primary/standby, автоматического failover, promotion, switchover и защиты от split-brain;
+- в Docker/VM-окружении использовать Patroni с кластером etcd или Consul как distributed configuration store;
+- в Kubernetes использовать PostgreSQL Operator на базе Patroni либо оператор с эквивалентными HA-гарантиями;
+- предоставить отдельные стабильные endpoints для записи и чтения: `postgres-primary` и `postgres-replicas`;
+- использовать HAProxy или Kubernetes Services для маршрутизации к текущему primary и доступным replicas;
+- использовать PgBouncer для пула соединений и быстрого переподключения после failover;
+- Patroni не считать заменой backup/PITR, мониторинга, streaming replication или PgBouncer;
+- регулярно проводить автоматизированные failover-тесты и проверять RPO, RTO, replication lag и восстановление соединений приложений.
+
+Совместная работа с Istio:
+
+- Patroni отвечает за роли PostgreSQL и failover, Istio — за сетевой трафик сервисов; Istio не заменяет Patroni, HAProxy или PgBouncer;
+- PostgreSQL/Patroni pods по умолчанию держать вне service mesh (`sidecar.istio.io/inject: "false"`), если нет подтверждённой необходимости проксировать DB-трафик через Envoy;
+- Go-сервисы могут оставаться внутри Istio mesh и подключаться к PgBouncer или стабильным Kubernetes Services;
+- Patroni REST API и PostgreSQL health probes не должны блокироваться Istio mTLS или сетевыми политиками;
+- после failover старые DB-соединения считаются недействительными: приложения должны переподключаться и безопасно повторять только идемпотентные операции.
+
+Правила будущего шардинга Ticket Service:
+
+- shard key: `department_id`;
+- заявку и связанные данные хранить на одном шарде: `tickets`, status history, assignment history, attachment metadata, idempotency keys и outbox events;
+- не использовать `ticket_id` как основной shard key, поскольку основные операционные выборки выполняются в границах департамента;
+- для маршрутизации поддерживать единый алгоритм `department_id -> shard`;
+- глобальные отчёты и межшардовую аналитику строить асинхронно через Kafka и отдельные read-модели/ClickHouse;
+- межшардовые транзакции не вводить: согласованность между шардами и сервисами обеспечивать событиями, outbox/inbox и идемпотентными consumer'ами;
+- миграцию департамента между шардами проектировать как отдельный управляемый процесс с двойной записью или временной остановкой изменений, верификацией и переключением маршрута.
+
+Порядок внедрения:
+
+1. Настроить backup, point-in-time recovery и регулярную проверку восстановления.
+2. Развернуть PostgreSQL streaming replication под управлением Patroni и DCS-кластер etcd/Consul.
+3. Добавить PgBouncer и стабильные write/read endpoints через HAProxy или Kubernetes Services.
+4. Настроить автоматический failover и регулярно проверять его контролируемым отключением primary.
+5. Разделить подключения приложений на `WRITE_DB` и `READ_DB`; транзакции и проверки актуального состояния всегда направлять в primary.
+6. Добавить мониторинг replication lag, CPU, IOPS, locks, latency, размера таблиц и скорости роста.
+7. Партиционировать по времени крупные history/outbox/inbox таблицы и настроить архивирование.
+8. Добавить read replicas для Ticket, Profile и Brigade.
+9. Начинать шардинг Ticket Service только по измеренным порогам и после нагрузочных тестов.

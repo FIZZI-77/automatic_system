@@ -13,9 +13,11 @@ services:
       K6_USER_OFFSET: ${K6_USER_OFFSET:-0}
       K6_SLEEP_SECONDS: ${K6_SLEEP_SECONDS:-1}
       K6_INCLUDE_BUSINESS: ${K6_INCLUDE_BUSINESS:-false}
+      K6_INCLUDE_RESTRICTED: ${K6_INCLUDE_RESTRICTED:-false}
       K6_USERS_FILE: /scripts/users.json
     volumes:
       - ./load-tests:/scripts:ro
     command:
       - run
+      - --quiet
       - ${K6_SCRIPT:-/scripts/real-ip-user.js}
