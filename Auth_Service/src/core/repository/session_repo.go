@@ -55,7 +55,7 @@ func (s *SessionRepoStruct) CreateSession(ctx context.Context, session *models.S
 func (s *SessionRepoStruct) GetSessionByID(ctx context.Context, id uuid.UUID) (*models.Session, error) {
 	var session models.Session
 
-	const query = `SELECT id, user_id, client_id, ip::text, user_agent, is_revoked, revoked_at, expires_at, last_seen_at, created_at FROM sessions WHERE id = $1`
+	const query = `SELECT id, user_id, client_id, host(ip), user_agent, is_revoked, revoked_at, expires_at, last_seen_at, created_at FROM sessions WHERE id = $1`
 
 	err := s.readDB.QueryRow(ctx, query, id).Scan(
 		&session.ID,
@@ -83,7 +83,7 @@ func (s *SessionRepoStruct) GetSessionByID(ctx context.Context, id uuid.UUID) (*
 func (s *SessionRepoStruct) GetSessionByUserID(ctx context.Context, userID uuid.UUID) ([]*models.Session, error) {
 	var sessions []*models.Session
 
-	const query = `SELECT id, user_id, client_id, ip::text, user_agent, is_revoked, revoked_at, expires_at, last_seen_at, created_at FROM sessions WHERE user_id = $1`
+	const query = `SELECT id, user_id, client_id, host(ip), user_agent, is_revoked, revoked_at, expires_at, last_seen_at, created_at FROM sessions WHERE user_id = $1`
 
 	rows, err := s.readDB.Query(ctx, query, userID)
 	if err != nil {

@@ -64,10 +64,12 @@ func TestUserProfileRepository_CreateGetListUpdate(t *testing.T) {
 	}
 
 	newName := "Updated Repo User"
+	emailContact := models.PreferredContactMethodEmail
 	updated, err := repo.UpdateUserProfile(ctx, &models.UpdateUserProfileInput{
-		ID:         created.UserProfile.ID,
-		FullName:   &newName,
-		ClearPhone: true,
+		ID:                     created.UserProfile.ID,
+		FullName:               &newName,
+		ClearPhone:             true,
+		PreferredContactMethod: &emailContact,
 	})
 	if err != nil {
 		t.Fatalf("update user profile failed: %v", err)
@@ -88,12 +90,17 @@ func TestUserProfileRepository_DuplicateUserID(t *testing.T) {
 	ctx := context.Background()
 	userID := uuid.New()
 
-	_, err := repo.CreateUserProfile(ctx, &models.CreateUserProfileInput{UserID: userID, FullName: "Duplicate User"})
+	input := &models.CreateUserProfileInput{
+		UserID:                 userID,
+		FullName:               "Duplicate User",
+		PreferredContactMethod: models.PreferredContactMethodEmail,
+	}
+	_, err := repo.CreateUserProfile(ctx, input)
 	if err != nil {
 		t.Fatalf("first create failed: %v", err)
 	}
 
-	_, err = repo.CreateUserProfile(ctx, &models.CreateUserProfileInput{UserID: userID, FullName: "Duplicate User"})
+	_, err = repo.CreateUserProfile(ctx, input)
 	if !errors.Is(err, models.ErrAlreadyExists) {
 		t.Fatalf("expected already exists, got %v", err)
 	}
