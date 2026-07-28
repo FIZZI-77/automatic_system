@@ -11,27 +11,28 @@ services:
     environment:
       GRPC_PORT: "50054"
       DEPARTMENT_GRPC_ADDR: ${DEPARTMENT_GRPC_ADDR:-host.docker.internal:50053}
+      PROFILE_GRPC_ADDR: ${PROFILE_GRPC_ADDR:-host.docker.internal:50055}
+      KAFKA_BROKERS: host.docker.internal:29092
+      OUTBOX_WORKER_COUNT: ${OUTBOX_WORKER_COUNT:-4}
+      PROFILE_CONSUMER_WORKER_COUNT: ${PROFILE_CONSUMER_WORKER_COUNT:-4}
+      PROFILE_RETRY_WORKER_COUNT: ${PROFILE_RETRY_WORKER_COUNT:-2}
     depends_on:
-      postgres:
-        condition: service_healthy
       migrator:
         condition: service_completed_successfully
     restart: unless-stopped
 
-  postgres:
+  postgres-brigade:
     image: postgis/postgis:16-3.4
     container_name: postgres-brigade
-    environment:
-      POSTGRES_USER: ${DB_USERNAME}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${DB_NAME}
+    env_file:
+      - .env
     ports:
-      - "5435:${DB_PORT}"
+      - "5435:5432"
     volumes:
       - postgres_brigade_data:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}"]
+      test: ["CMD-SHELL", "pg_isready -U \"$${DB_USERNAME}\" -d \"$${DB_NAME}\""]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -39,19 +40,18 @@ services:
   migrator:
     build: ./migrator
     container_name: brigade-migrator
+    env_file:
+      - .env
     depends_on:
-      postgres:
+      postgres-brigade:
         condition: service_healthy
     volumes:
       - ./scheme:/migrations
     environment:
       GOOSE_DRIVER: postgres
-      GOOSE_DBSTRING: postgres://${DB_USERNAME}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=${SSLMODE}
     command: >
-      sh -c "
-        echo 'Running migrations...' &&
-        goose -dir /migrations up
-      "
+      sh -c 'export GOOSE_DBSTRING="postgres://$${DB_USERNAME}:$${DB_PASSWORD}@$${DB_HOST}:$${DB_PORT}/$${DB_NAME}?sslmode=$${SSLMODE}";
+      goose -dir /migrations up'
 
 volumes:
   postgres_brigade_data:

@@ -35,7 +35,7 @@ func insertOutboxEvent(
 		VALUES ($1, $2, $3, $4, $5::jsonb, 'PENDING', 0, now())
 	`
 
-	_, err = exec.ExecContext(
+	_, err = exec.Exec(
 		ctx,
 		query,
 		uuid.New(),

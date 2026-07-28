@@ -30,7 +30,7 @@ func main() {
 	}
 	defer logger.Sync()
 
-	if err = godotenv.Load(".env"); err != nil {
+	if err = godotenv.Load(".env"); err != nil && !os.IsNotExist(err) {
 		log.Fatal("error loading .env file")
 	}
 
@@ -45,8 +45,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to connect db: %v", err)
 	}
-	dependencies.Add("postgres", db.Close)
+	dependencies.Add("postgres", func() error {
+		db.Close()
+		return nil
+	})
 	defer closeDependencies(dependencies)
+	startOutboxRelay(db, dependencies, logger)
 
 	grpcPort := os.Getenv("GRPC_PORT")
 	if strings.TrimSpace(grpcPort) == "" {
@@ -65,7 +69,7 @@ func main() {
 			pkg.AccessLogUnaryServerInterceptor(logger),
 		),
 	)
-	repo := repository.NewRepository(db)
+	repo := repository.NewRepository(repository.DBPools{Write: db, Read: db})
 	departmentService := service.NewService(repo, logger)
 	departmentHandler := handler.NewDepartmentHandler(departmentService, logger)
 	departmentv1.RegisterDepartmentServiceServer(grpcServer, departmentHandler)

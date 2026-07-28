@@ -2,9 +2,11 @@ package service
 
 import (
 	"context"
-	"go.uber.org/zap"
+
 	"ticket/models"
 	"ticket/src/core/repository"
+
+	"go.uber.org/zap"
 )
 
 type TicketService interface {
@@ -35,6 +37,10 @@ type Service struct {
 }
 
 func NewService(repo *repository.Repository, logger *zap.Logger) *Service {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+
 	return &Service{
 		TicketService:   NewTicketServiceStruct(repo, logger),
 		CategoryService: NewCategoryServiceStruct(repo, logger),

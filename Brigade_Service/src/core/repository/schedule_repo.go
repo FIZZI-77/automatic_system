@@ -10,29 +10,32 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type ScheduleRepoStruct struct {
-	db *sql.DB
+	writePool *pgxpool.Pool
+	readPool  *pgxpool.Pool
 }
 
-func NewScheduleRepo(db *sql.DB) *ScheduleRepoStruct {
-	return &ScheduleRepoStruct{db: db}
+func NewScheduleRepo(writePool *pgxpool.Pool, readPool *pgxpool.Pool) *ScheduleRepoStruct {
+	return &ScheduleRepoStruct{writePool: writePool, readPool: readPool}
 }
 
 func (s *ScheduleRepoStruct) SetBrigadeSchedule(ctx context.Context, in *models.SetBrigadeScheduleInput) (*models.SetBrigadeScheduleResult, error) {
-	tx, err := s.db.BeginTx(ctx, nil)
+	tx, err := s.writePool.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("repo: SetBrigadeSchedule: begin tx: %w", err)
 	}
-	defer tx.Rollback()
+	defer rollbackTxOnCancel(ctx, tx)()
 
 	const deactivateQuery = `
 		UPDATE brigade_schedule
 		SET active = false, updated_at = now()
 		WHERE brigade_id = $1 AND active = true
 	`
-	if _, err = tx.ExecContext(ctx, deactivateQuery, in.BrigadeID); err != nil {
+	if _, err = tx.Exec(ctx, deactivateQuery, in.BrigadeID); err != nil {
 		return nil, fmt.Errorf("repo: SetBrigadeSchedule: deactivate old schedule: %w", err)
 	}
 
@@ -55,14 +58,14 @@ func (s *ScheduleRepoStruct) SetBrigadeSchedule(ctx context.Context, in *models.
 		return nil, fmt.Errorf("repo: SetBrigadeSchedule: insert outbox event: %w", err)
 	}
 
-	if err = tx.Commit(); err != nil {
+	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repo: SetBrigadeSchedule: commit tx: %w", err)
 	}
 
 	return &models.SetBrigadeScheduleResult{Schedule: schedule}, nil
 }
 
-func (s *ScheduleRepoStruct) insertBrigadeScheduleItem(ctx context.Context, tx *sql.Tx, brigadeID uuid.UUID, item *models.BrigadeScheduleItem) (*models.BrigadeSchedule, error) {
+func (s *ScheduleRepoStruct) insertBrigadeScheduleItem(ctx context.Context, tx pgx.Tx, brigadeID uuid.UUID, item *models.BrigadeScheduleItem) (*models.BrigadeSchedule, error) {
 	timezone := item.Timezone
 	if timezone == "" {
 		timezone = "Europe/Moscow"
@@ -93,7 +96,7 @@ func (s *ScheduleRepoStruct) insertBrigadeScheduleItem(ctx context.Context, tx *
 			updated_at
 	`
 
-	return scanBrigadeSchedule(tx.QueryRowContext(ctx, query, brigadeID, item.DayOfWeek, item.StartsAt, item.EndsAt, timezone, item.ValidFrom, item.ValidTo))
+	return scanBrigadeSchedule(tx.QueryRow(ctx, query, brigadeID, item.DayOfWeek, item.StartsAt, item.EndsAt, timezone, item.ValidFrom, item.ValidTo))
 }
 
 func (s *ScheduleRepoStruct) ListBrigadeSchedule(ctx context.Context, in *models.ListBrigadeScheduleInput) (*models.ListBrigadeScheduleResult, error) {
@@ -123,7 +126,7 @@ func (s *ScheduleRepoStruct) ListBrigadeSchedule(ctx context.Context, in *models
 		ORDER BY day_of_week ASC, starts_at ASC
 	`, whereSQL)
 
-	rows, err := s.db.QueryContext(ctx, query, args...)
+	rows, err := s.readPool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("repo: ListBrigadeSchedule: query: %w", err)
 	}
@@ -162,7 +165,7 @@ func scanBrigadeSchedule(row scanner) (*models.BrigadeSchedule, error) {
 		&item.UpdatedAt,
 	)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, models.ErrNotFound
 		}
 		return nil, err

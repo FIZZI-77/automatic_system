@@ -2,10 +2,10 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func TestRoleRepo_AssignRoleToUser_And_GetRolesByUserID(t *testing.T) {
@@ -30,12 +30,12 @@ func TestRoleRepo_AssignRoleToUser_And_GetRolesByUserID(t *testing.T) {
 		t.Fatalf("expected nil error, got %v", err)
 	}
 
-	if len(roles) != 1 {
-		t.Fatalf("expected 1 role, got %d", len(roles))
+	if len(roles) != 2 {
+		t.Fatalf("expected default user and assigned admin roles, got %d", len(roles))
 	}
 
-	if roles[0] != "admin" {
-		t.Fatalf("expected role admin, got %s", roles[0])
+	if !containsRole(roles, "admin") || !containsRole(roles, "user") {
+		t.Fatalf("expected roles admin and user, got %v", roles)
 	}
 }
 
@@ -85,7 +85,7 @@ func TestRoleRepo_GetRolesByUserID_MultipleRoles(t *testing.T) {
 	}
 }
 
-func TestRoleRepo_GetRolesByUserID_NoRoles(t *testing.T) {
+func TestRoleRepo_GetRolesByUserID_DefaultUserRole(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
@@ -100,8 +100,8 @@ func TestRoleRepo_GetRolesByUserID_NoRoles(t *testing.T) {
 		t.Fatalf("expected nil error, got %v", err)
 	}
 
-	if len(roles) != 0 {
-		t.Fatalf("expected 0 roles, got %d", len(roles))
+	if len(roles) != 1 || roles[0] != "user" {
+		t.Fatalf("expected default user role, got %v", roles)
 	}
 }
 
@@ -148,12 +148,12 @@ func TestRoleRepo_AssignRoleToUser_DuplicateDoesNothing(t *testing.T) {
 		t.Fatalf("expected nil error, got %v", err)
 	}
 
-	if len(roles) != 1 {
-		t.Fatalf("expected 1 role after duplicate assign, got %d", len(roles))
+	if len(roles) != 2 {
+		t.Fatalf("expected default user and one admin role after duplicate assign, got %d", len(roles))
 	}
 
-	if roles[0] != "admin" {
-		t.Fatalf("expected role admin, got %s", roles[0])
+	if !containsRole(roles, "admin") || !containsRole(roles, "user") {
+		t.Fatalf("expected roles admin and user, got %v", roles)
 	}
 }
 
@@ -188,7 +188,7 @@ func TestRoleRepo_AssignRoleToUser_UnknownRole(t *testing.T) {
 	}
 }
 
-func createTestRole(t *testing.T, db *sql.DB, name string) uuid.UUID {
+func createTestRole(t *testing.T, db *pgxpool.Pool, name string) uuid.UUID {
 	t.Helper()
 
 	var roleID uuid.UUID
@@ -200,7 +200,7 @@ func createTestRole(t *testing.T, db *sql.DB, name string) uuid.UUID {
 		RETURNING id
 	`
 
-	err := db.QueryRowContext(context.Background(), query, name).Scan(&roleID)
+	err := db.QueryRow(context.Background(), query, name).Scan(&roleID)
 	if err != nil {
 		t.Fatalf("failed to create test role %s: %v", name, err)
 	}
@@ -210,4 +210,13 @@ func createTestRole(t *testing.T, db *sql.DB, name string) uuid.UUID {
 	}
 
 	return roleID
+}
+
+func containsRole(roles []string, expected string) bool {
+	for _, role := range roles {
+		if role == expected {
+			return true
+		}
+	}
+	return false
 }

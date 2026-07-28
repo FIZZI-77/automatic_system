@@ -2,12 +2,11 @@ package repository
 
 import (
 	"context"
-	"database/sql"
-	"fmt"
 
 	"department/models"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type DepartmentRepository interface {
@@ -19,41 +18,19 @@ type DepartmentRepository interface {
 }
 
 type Repository struct {
-	db *sql.DB
+	writePool *pgxpool.Pool
+	readPool  *pgxpool.Pool
 	DepartmentRepository
 }
 
-func NewRepository(db *sql.DB) *Repository {
+func NewRepository(pools DBPools) *Repository {
+	if pools.Read == nil {
+		pools.Read = pools.Write
+	}
+
 	return &Repository{
-		db:                   db,
-		DepartmentRepository: NewDepartmentRepository(db),
+		writePool:            pools.Write,
+		readPool:             pools.Read,
+		DepartmentRepository: NewDepartmentRepository(pools.Write, pools.Read),
 	}
-}
-
-func newRepositoryWithExecutor(exec DBTX) *Repository {
-	return &Repository{
-		DepartmentRepository: NewDepartmentRepository(exec),
-	}
-}
-
-func (r *Repository) WithTx(ctx context.Context, fn func(txRepo *Repository) error) error {
-	if r.db == nil {
-		return fmt.Errorf("repository: WithTx(): root db is unavailable")
-	}
-
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("repository: WithTx(): begin tx: %w", err)
-	}
-	defer tx.Rollback()
-
-	if err = fn(newRepositoryWithExecutor(tx)); err != nil {
-		return err
-	}
-
-	if err = tx.Commit(); err != nil {
-		return fmt.Errorf("repository: WithTx(): commit: %w", err)
-	}
-
-	return nil
 }

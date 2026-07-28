@@ -14,6 +14,7 @@ import (
 
 	brigadev1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/brigade/v1"
 	departmentv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/department/v1"
+	profilev1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/profile/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -33,7 +34,7 @@ func main() {
 	}
 	defer logger.Sync()
 
-	if err = loadEnvFile(".env"); err != nil {
+	if err = loadEnvFile(".env"); err != nil && !os.IsNotExist(err) {
 		log.Fatal("error loading .env file")
 	}
 
@@ -48,17 +49,35 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to connect db: %v", err)
 	}
-	dependencies.Add("postgres", db.Close)
+	dependencies.Add("postgres", func() error {
+		db.Close()
+		return nil
+	})
 	defer closeDependencies(dependencies)
+	startOutboxRelay(db, dependencies, logger)
+	startProfileConsumer(db, dependencies, logger)
 
 	departmentConn, err := grpc.NewClient(
 		envOrDefault("DEPARTMENT_GRPC_ADDR", "localhost:50053"),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithChainUnaryInterceptor(
+			pkg.RequestIDUnaryClientInterceptor,
+		),
 	)
 	if err != nil {
 		log.Fatalf("failed to create department grpc client: %v", err)
 	}
 	dependencies.Add("department grpc", departmentConn.Close)
+
+	profileConn, err := grpc.NewClient(
+		envOrDefault("PROFILE_GRPC_ADDR", "localhost:50055"),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithChainUnaryInterceptor(pkg.RequestIDUnaryClientInterceptor),
+	)
+	if err != nil {
+		log.Fatalf("failed to create profile grpc client: %v", err)
+	}
+	dependencies.Add("profile grpc", profileConn.Close)
 
 	grpcPort := envOrDefault("GRPC_PORT", "50054")
 	lis, err := net.Listen("tcp", ":"+grpcPort)
@@ -69,14 +88,16 @@ func main() {
 	grpcServer := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
 			pkg.RequestIDUnaryServerInterceptor,
+			profileDepartmentInterceptor(profilev1.NewProfileServiceClient(profileConn)),
 			pkg.IdempotencyKeyUnaryServerInterceptor,
 			pkg.AccessLogUnaryServerInterceptor(logger),
 		),
 	)
 
-	repo := repository.NewRepo(db)
+	repo := repository.NewRepository(repository.DBPools{Write: db, Read: db})
 	departmentClient := departmentv1.NewDepartmentServiceClient(departmentConn)
-	brigadeService := service.NewService(repo, departmentClient, logger)
+	profileClient := profilev1.NewProfileServiceClient(profileConn)
+	brigadeService := service.NewServiceWithProfile(repo, departmentClient, profileClient, logger)
 	brigadeHandler := handler.NewBrigadeHandler(brigadeService, logger)
 
 	brigadev1.RegisterBrigadeServiceServer(grpcServer, brigadeHandler)
