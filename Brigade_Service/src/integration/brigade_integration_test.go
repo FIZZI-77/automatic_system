@@ -34,6 +34,16 @@ func TestBrigadeServiceIntegration_CreateManageAndFind(t *testing.T) {
 	}
 	brigadeID := createResult.Brigade.ID
 
+	skillResult, err := app.service.CreateSkill(ctx, &models.CreateSkillInput{
+		Code:       uniqueName("skill"),
+		Name:       "Integration skill",
+		ActorRoles: []string{"admin"},
+	})
+	if err != nil {
+		t.Fatalf("create skill failed: %v", err)
+	}
+	app.profile.skillIDs = []uuid.UUID{skillResult.Skill.ID}
+
 	memberResult, err := app.service.AddBrigadeMember(ctx, &models.AddBrigadeMemberInput{
 		BrigadeID:         brigadeID,
 		UserID:            uuid.New(),
@@ -47,15 +57,6 @@ func TestBrigadeServiceIntegration_CreateManageAndFind(t *testing.T) {
 	}
 	if memberResult.Member.ID == uuid.Nil {
 		t.Fatal("expected member id")
-	}
-
-	skillResult, err := app.service.CreateSkill(ctx, &models.CreateSkillInput{
-		Code:       uniqueName("skill"),
-		Name:       "Integration skill",
-		ActorRoles: []string{"admin"},
-	})
-	if err != nil {
-		t.Fatalf("create skill failed: %v", err)
 	}
 
 	_, err = app.service.AddBrigadeSkill(ctx, &models.AddBrigadeSkillInput{

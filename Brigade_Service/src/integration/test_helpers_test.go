@@ -12,6 +12,8 @@ import (
 	"time"
 
 	departmentv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/department/v1"
+	profilev1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/profile/v1"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
@@ -27,10 +29,38 @@ type testApp struct {
 	db      *pgxpool.Pool
 	repo    *repository.Repo
 	service *service.Service
+	profile *fakeProfileClient
 	cleanup func()
 }
 
 type fakeDepartmentClient struct{}
+
+type fakeProfileClient struct {
+	profilev1.ProfileServiceClient
+	skillIDs []uuid.UUID
+}
+
+func (f *fakeProfileClient) CheckProfileCanJoinBrigade(ctx context.Context, in *profilev1.CheckProfileCanJoinBrigadeRequest, opts ...grpc.CallOption) (*profilev1.CheckProfileCanJoinBrigadeResponse, error) {
+	return &profilev1.CheckProfileCanJoinBrigadeResponse{
+		UserProfileId: uuid.NewString(),
+		WorkProfileId: uuid.NewString(),
+		UserId:        in.GetUserId(),
+		Allowed:       true,
+	}, nil
+}
+
+func (f *fakeProfileClient) ListEffectiveWorkProfileSkills(ctx context.Context, in *profilev1.ListEffectiveWorkProfileSkillsRequest, opts ...grpc.CallOption) (*profilev1.ListEffectiveWorkProfileSkillsResponse, error) {
+	grants := make([]*profilev1.WorkProfileSkillGrant, 0, len(f.skillIDs))
+	for _, skillID := range f.skillIDs {
+		grants = append(grants, &profilev1.WorkProfileSkillGrant{
+			Id:            uuid.NewString(),
+			WorkProfileId: in.GetWorkProfileId(),
+			SkillId:       skillID.String(),
+			Active:        true,
+		})
+	}
+	return &profilev1.ListEffectiveWorkProfileSkillsResponse{SkillGrants: grants}, nil
+}
 
 func (f *fakeDepartmentClient) CreateDepartment(ctx context.Context, in *departmentv1.CreateDepartmentRequest, opts ...grpc.CallOption) (*departmentv1.CreateDepartmentResponse, error) {
 	return nil, nil
@@ -95,7 +125,8 @@ func newTestApp(t *testing.T) *testApp {
 	}
 
 	repo := repository.NewRepository(repository.DBPools{Write: db, Read: db})
-	brigadeService := service.NewService(repo, &fakeDepartmentClient{}, zap.NewNop())
+	profileClient := &fakeProfileClient{}
+	brigadeService := service.NewServiceWithProfile(repo, &fakeDepartmentClient{}, profileClient, zap.NewNop())
 
 	cleanup := func() {
 		db.Close()
@@ -107,6 +138,7 @@ func newTestApp(t *testing.T) *testApp {
 		db:      db,
 		repo:    repo,
 		service: brigadeService,
+		profile: profileClient,
 		cleanup: cleanup,
 	}
 }
