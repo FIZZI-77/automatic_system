@@ -31,7 +31,7 @@ func (r *OneTimeTokenRepoStruct) CreateOneTimeToken(ctx context.Context, token *
 		RETURNING id, created_at
 	`
 
-	err := r.writeDB.QueryRow(
+	err := commandExec(ctx, r.writeDB).QueryRow(
 		ctx,
 		query,
 		token.UserID,
@@ -48,11 +48,7 @@ func (r *OneTimeTokenRepoStruct) CreateOneTimeToken(ctx context.Context, token *
 	return nil
 }
 
-func (r *OneTimeTokenRepoStruct) GetOneTimeTokenByHashAndType(
-	ctx context.Context,
-	tokenHash string,
-	tokenType models.TokenType,
-) (*models.OneTimeToken, error) {
+func (r *OneTimeTokenRepoStruct) GetOneTimeTokenByHashAndType(ctx context.Context, tokenHash string, tokenType models.TokenType) (*models.OneTimeToken, error) {
 	var token models.OneTimeToken
 
 	const query = `
@@ -87,7 +83,7 @@ func (r *OneTimeTokenRepoStruct) MarkOneTimeTokenUsed(ctx context.Context, token
 		WHERE id = $1 AND used_at IS NULL
 	`
 
-	result, err := r.writeDB.Exec(ctx, query, tokenID)
+	result, err := commandExec(ctx, r.writeDB).Exec(ctx, query, tokenID)
 	if err != nil {
 		return fmt.Errorf("one_time_token_repo: MarkOneTimeTokenUsed(): %w", err)
 	}
@@ -101,11 +97,7 @@ func (r *OneTimeTokenRepoStruct) MarkOneTimeTokenUsed(ctx context.Context, token
 	return nil
 }
 
-func (r *OneTimeTokenRepoStruct) RevokeUnusedTokensByUserIDAndType(
-	ctx context.Context,
-	userID uuid.UUID,
-	tokenType models.TokenType,
-) error {
+func (r *OneTimeTokenRepoStruct) RevokeUnusedTokensByUserIDAndType(ctx context.Context, userID uuid.UUID, tokenType models.TokenType) error {
 	const query = `
 		UPDATE one_time_tokens
 		SET used_at = NOW()
@@ -115,7 +107,7 @@ func (r *OneTimeTokenRepoStruct) RevokeUnusedTokensByUserIDAndType(
 		  AND expires_at > NOW()
 	`
 
-	_, err := r.writeDB.Exec(ctx, query, userID, tokenType)
+	_, err := commandExec(ctx, r.writeDB).Exec(ctx, query, userID, tokenType)
 	if err != nil {
 		return fmt.Errorf("one_time_token_repo: RevokeUnusedTokensByUserIDAndType(): %w", err)
 	}

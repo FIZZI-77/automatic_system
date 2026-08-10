@@ -22,11 +22,11 @@ func withIdempotency[T any](
 	operation string,
 	actorKey string,
 	request any,
-	fn func() (*T, uuid.UUID, error),
+	fn func(context.Context) (*T, uuid.UUID, error),
 ) (*T, error) {
 	key, ok := profilepkg.IdempotencyKeyFromContext(ctx)
 	if !ok {
-		result, _, err := fn()
+		result, _, err := fn(ctx)
 		return result, err
 	}
 
@@ -35,7 +35,10 @@ func withIdempotency[T any](
 		return nil, err
 	}
 
-	record, acquired, err := repo.BeginIdempotency(ctx, actorKey, operation, key, requestHash, idempotencyTTL)
+	rawResult, record, acquired, err := repo.RunIdempotentTx(ctx, actorKey, operation, key, requestHash, idempotencyTTL, func(txCtx context.Context) (any, any, error) {
+		result, resourceID, runErr := fn(txCtx)
+		return result, resourceID, runErr
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -60,22 +63,10 @@ func withIdempotency[T any](
 		}
 	}
 
-	result, resourceID, err := fn()
-	if err != nil {
-		_ = repo.FailIdempotency(ctx, actorKey, operation, key, err)
-		return nil, err
+	result, ok := rawResult.(*T)
+	if !ok {
+		return nil, fmt.Errorf("service: idempotency: unexpected result type %T", rawResult)
 	}
-
-	response, err := json.Marshal(result)
-	if err != nil {
-		_ = repo.FailIdempotency(ctx, actorKey, operation, key, err)
-		return nil, fmt.Errorf("service: idempotency: encode response: %w", err)
-	}
-
-	if err = repo.CompleteIdempotency(ctx, actorKey, operation, key, response, operation, resourceID); err != nil {
-		return nil, err
-	}
-
 	return result, nil
 }
 

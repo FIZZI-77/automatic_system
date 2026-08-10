@@ -28,7 +28,7 @@ func NewWorkProfileRepository(writePool *pgxpool.Pool, readPool *pgxpool.Pool) *
 }
 
 func (w *WorkProfileRepoStruct) CreateWorkProfile(ctx context.Context, in *models.CreateWorkProfileInput) (*models.CreateWorkProfileResult, error) {
-	tx, err := w.writePool.Begin(ctx)
+	tx, err := beginCommandTx(ctx, w.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: CreateWorkProfile(): begin tx: %w", err)
 	}
@@ -89,7 +89,7 @@ func (w *WorkProfileRepoStruct) CreateWorkProfile(ctx context.Context, in *model
 }
 
 func (w *WorkProfileRepoStruct) UpdateWorkProfile(ctx context.Context, in *models.UpdateWorkProfileInput) (*models.UpdateWorkProfileResult, error) {
-	tx, err := w.writePool.Begin(ctx)
+	tx, err := beginCommandTx(ctx, w.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: UpdateWorkProfile(): begin tx: %w", err)
 	}
@@ -231,7 +231,7 @@ func (w *WorkProfileRepoStruct) ListWorkProfiles(ctx context.Context, in *models
 }
 
 func (w *WorkProfileRepoStruct) DeactivateWorkProfile(ctx context.Context, in *models.DeactivateWorkProfileInput) (*models.DeactivateWorkProfileResult, error) {
-	tx, err := w.writePool.Begin(ctx)
+	tx, err := beginCommandTx(ctx, w.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: DeactivateWorkProfile(): begin tx: %w", err)
 	}
@@ -278,7 +278,7 @@ func (w *WorkProfileRepoStruct) DeactivateWorkProfile(ctx context.Context, in *m
 }
 
 func (w *WorkProfileRepoStruct) ChangeWorkProfileDepartment(ctx context.Context, in *models.ChangeWorkProfileDepartmentInput) (*models.ChangeWorkProfileDepartmentResult, error) {
-	tx, err := w.writePool.Begin(ctx)
+	tx, err := beginCommandTx(ctx, w.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: ChangeWorkProfileDepartment(): begin tx: %w", err)
 	}
@@ -316,7 +316,7 @@ func (w *WorkProfileRepoStruct) ChangeWorkProfileDepartment(ctx context.Context,
 }
 
 func (w *WorkProfileRepoStruct) SetWorkProfileStatus(ctx context.Context, in *models.SetWorkProfileStatusInput) (*models.SetWorkProfileStatusResult, error) {
-	tx, err := w.writePool.Begin(ctx)
+	tx, err := beginCommandTx(ctx, w.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: SetWorkProfileStatus(): begin tx: %w", err)
 	}

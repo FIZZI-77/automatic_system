@@ -49,7 +49,7 @@ type ticketCreatedEventPayload struct {
 }
 
 func (t *TicketRepoStruct) CreateTicket(ctx context.Context, in *models.CreateTicketInput) (*models.Ticket, error) {
-	tx, err := t.writePool.Begin(ctx)
+	tx, err := beginCommandTx(ctx, t.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: CreateTicket(): begin tx: %w", err)
 	}
@@ -253,7 +253,7 @@ func (t *TicketRepoStruct) ListTickets(ctx context.Context, in *models.ListTicke
 }
 
 func (t *TicketRepoStruct) UpdateTicket(ctx context.Context, in *models.UpdateTicketInput) (*models.Ticket, error) {
-	tx, err := t.writePool.Begin(ctx)
+	tx, err := beginCommandTx(ctx, t.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: UpdateTicket(): begin tx: %w", err)
 	}
@@ -371,7 +371,7 @@ func (t *TicketRepoStruct) updateTicket(ctx context.Context, q Querier, in *mode
 }
 
 func (t *TicketRepoStruct) ChangeTicketStatus(ctx context.Context, in *models.ChangeTicketStatusInput) (*models.Ticket, error) {
-	tx, err := t.writePool.Begin(ctx)
+	tx, err := beginCommandTx(ctx, t.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: ChangeTicketStatus(): begin tx: %w", err)
 	}
@@ -443,7 +443,7 @@ func (t *TicketRepoStruct) changeTicketStatus(ctx context.Context, q Querier, in
 }
 
 func (t *TicketRepoStruct) AssignBrigade(ctx context.Context, in *models.AssignBrigadeInput) (*models.Ticket, error) {
-	tx, err := t.writePool.Begin(ctx)
+	tx, err := beginCommandTx(ctx, t.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: AssignBrigade(): begin tx: %w", err)
 	}
@@ -517,7 +517,7 @@ func (t *TicketRepoStruct) assignBrigade(ctx context.Context, q Querier, in *mod
 }
 
 func (t *TicketRepoStruct) CancelTicket(ctx context.Context, in *models.CancelTicketInput) (*models.Ticket, error) {
-	tx, err := t.writePool.Begin(ctx)
+	tx, err := beginCommandTx(ctx, t.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: CancelTicket(): begin tx: %w", err)
 	}
@@ -590,7 +590,7 @@ func (t *TicketRepoStruct) cancelTicket(ctx context.Context, q Querier, in *mode
 }
 
 func (t *TicketRepoStruct) CompleteTicket(ctx context.Context, in *models.CompleteTicketInput) (*models.Ticket, error) {
-	tx, err := t.writePool.Begin(ctx)
+	tx, err := beginCommandTx(ctx, t.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: CompleteTicket(): begin tx: %w", err)
 	}

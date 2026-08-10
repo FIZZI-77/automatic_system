@@ -28,9 +28,10 @@ func NewRepository(pools DBPools) *Repository {
 		pools.Read = pools.Write
 	}
 
+	departmentRepo := NewDepartmentRepository(pools.Write, pools.Read)
 	return &Repository{
 		writePool:            pools.Write,
 		readPool:             pools.Read,
-		DepartmentRepository: NewDepartmentRepository(pools.Write, pools.Read),
+		DepartmentRepository: departmentRepo,
 	}
 }

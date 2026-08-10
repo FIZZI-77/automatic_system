@@ -16,10 +16,10 @@ import (
 
 const idempotencyTTL = 24 * time.Hour
 
-func (s *DepartmentServiceStruct) withIdempotency(ctx context.Context, operation string, actorKey string, request any, fn func() (any, uuid.UUID, error)) (any, error) {
+func (s *DepartmentServiceStruct) withIdempotency(ctx context.Context, operation string, actorKey string, request any, fn func(context.Context) (any, uuid.UUID, error)) (any, error) {
 	key, ok := pkg.IdempotencyKeyFromContext(ctx)
 	if !ok {
-		result, _, err := fn()
+		result, _, err := fn(ctx)
 		return result, err
 	}
 
@@ -28,7 +28,10 @@ func (s *DepartmentServiceStruct) withIdempotency(ctx context.Context, operation
 		return nil, err
 	}
 
-	record, acquired, err := s.repo.BeginIdempotency(ctx, actorKey, operation, key, requestHash, idempotencyTTL)
+	result, record, acquired, err := s.repo.RunIdempotentTx(ctx, actorKey, operation, key, requestHash, idempotencyTTL, func(txCtx context.Context) (any, any, error) {
+		value, resourceID, runErr := fn(txCtx)
+		return value, resourceID, runErr
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -52,22 +55,6 @@ func (s *DepartmentServiceStruct) withIdempotency(ctx context.Context, operation
 		default:
 			return nil, fmt.Errorf("service: idempotency: unknown status %q", record.Status)
 		}
-	}
-
-	result, resourceID, err := fn()
-	if err != nil {
-		_ = s.repo.FailIdempotency(ctx, actorKey, operation, key, err)
-		return nil, err
-	}
-
-	response, err := json.Marshal(result)
-	if err != nil {
-		_ = s.repo.FailIdempotency(ctx, actorKey, operation, key, err)
-		return nil, fmt.Errorf("service: idempotency: encode response: %w", err)
-	}
-
-	if err = s.repo.CompleteIdempotency(ctx, actorKey, operation, key, response, operation, resourceID); err != nil {
-		return nil, err
 	}
 
 	return result, nil

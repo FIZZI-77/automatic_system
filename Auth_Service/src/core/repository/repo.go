@@ -94,6 +94,7 @@ func newRepoWithExecutor(exec DBTX) *Repo {
 		SessionRepository:      NewSessionRepoStruct(exec),
 		RefreshTokenRepository: NewRefreshTokenRepoStruct(exec),
 		RoleRepository:         NewRoleRepoStruct(exec),
+		TXRepository:           NewTXRepoStruct(exec),
 		OneTimeTokenRepo:       NewOneTimeTokenRepoStruct(exec),
 	}
 }

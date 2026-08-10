@@ -55,7 +55,7 @@ func (a *AuthServiceStruct) Register(ctx context.Context, in models.RegisterInpu
 		return nil, err
 	}
 
-	idempotentResult, err := a.withIdempotency(ctx, "Register", in.Email, in, func() (any, uuid.UUID, error) {
+	idempotentResult, err := a.withIdempotency(ctx, "Register", in.Email, in, func(ctx context.Context) (any, uuid.UUID, error) {
 		existingUser, err := a.repo.GetUserByEmail(ctx, in.Email)
 
 		if err == nil && existingUser != nil {
@@ -183,6 +183,7 @@ func (a *AuthServiceStruct) Login(ctx context.Context, in models.LoginInput) (*m
 
 	role, err := a.repo.GetRolesByUserID(ctx, existingUser.ID)
 	if err != nil {
+		a.cleanupFailedLogin(ctx, sessionID, logger)
 		logger.Error("failed to get roles for user",
 			zap.String("user_id", existingUser.ID.String()),
 			zap.Error(err),
@@ -192,6 +193,7 @@ func (a *AuthServiceStruct) Login(ctx context.Context, in models.LoginInput) (*m
 
 	token, exp, err := a.generateAccessToken(ctx, existingUser.ID, sessionID, role)
 	if err != nil {
+		a.cleanupFailedLogin(ctx, sessionID, logger)
 		logger.Error("failed to generate access token",
 			zap.String("user_id", existingUser.ID.String()),
 			zap.Error(err),
@@ -201,6 +203,7 @@ func (a *AuthServiceStruct) Login(ctx context.Context, in models.LoginInput) (*m
 
 	refreshToken, refreshHashToken, expRefresh, err := a.generateRefreshToken(ctx)
 	if err != nil {
+		a.cleanupFailedLogin(ctx, sessionID, logger)
 		logger.Error("failed to generate refresh token",
 			zap.String("user_id", existingUser.ID.String()),
 			zap.Error(err),
@@ -218,6 +221,7 @@ func (a *AuthServiceStruct) Login(ctx context.Context, in models.LoginInput) (*m
 
 	err = a.repo.CreateToken(ctx, refresh)
 	if err != nil {
+		a.cleanupFailedLogin(ctx, sessionID, logger)
 		logger.Error("failed to create refresh token",
 			zap.String("user_id", existingUser.ID.String()),
 			zap.Error(err),
@@ -313,6 +317,14 @@ func (a *AuthServiceStruct) Refresh(ctx context.Context, in models.RefreshInput)
 		return nil, fmt.Errorf("jwt: Refresh(): %w", models.ErrSessionNotFound)
 	}
 
+	if session.IsRevoked || session.UserID != refreshToken.UserID || session.ClientID != in.ClientID {
+		logger.Warn("refresh failed - session does not match refresh request",
+			zap.String("client_id", in.ClientID),
+			zap.String("session_id", refreshToken.SessionID.String()),
+		)
+		return nil, fmt.Errorf("jwt: Refresh(): %w", models.ErrInvalidRefreshToken)
+	}
+
 	if session.ExpiresAt.Before(now) {
 		logger.Warn("refresh failed - session expired",
 			zap.String("client_id", in.ClientID),
@@ -346,6 +358,10 @@ func (a *AuthServiceStruct) Refresh(ctx context.Context, in models.RefreshInput)
 			zap.Error(err),
 		)
 		return nil, err
+	}
+
+	if sessionExpiry := session.ExpiresAt.Unix(); expRefresh > sessionExpiry {
+		expRefresh = sessionExpiry
 	}
 
 	refresh := &models.RefreshToken{
@@ -413,6 +429,13 @@ func (a *AuthServiceStruct) Logout(ctx context.Context, in models.LogoutInput) e
 		)
 		return fmt.Errorf("jwt: Logout(): %w", models.ErrInvalidSession)
 	}
+	if session.UserID != in.UserID {
+		logger.Warn("logout failed - session belongs to another user",
+			zap.String("user_id", in.UserID.String()),
+			zap.String("session_id", in.SessionID.String()),
+		)
+		return fmt.Errorf("jwt: Logout(): %w", models.ErrInvalidSession)
+	}
 
 	err = a.repo.Logout(ctx, session.ID)
 	if err != nil {
@@ -429,6 +452,17 @@ func (a *AuthServiceStruct) Logout(ctx context.Context, in models.LogoutInput) e
 	)
 
 	return nil
+}
+
+func (a *AuthServiceStruct) cleanupFailedLogin(ctx context.Context, sessionID uuid.UUID, logger *zap.Logger) {
+	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+	defer cancel()
+	if err := a.repo.Logout(cleanupCtx, sessionID); err != nil {
+		logger.Error("failed to clean up session after unsuccessful login",
+			zap.String("session_id", sessionID.String()),
+			zap.Error(err),
+		)
+	}
 }
 
 func (a *AuthServiceStruct) LogoutAll(ctx context.Context, in models.LogoutAllInput) (uint32, error) {
@@ -606,7 +640,7 @@ func (a *AuthServiceStruct) ChangePassword(ctx context.Context, in models.Change
 		return nil, err
 	}
 
-	idempotentResult, err := a.withIdempotency(ctx, "ChangePassword", in.UserID.String(), in, func() (any, uuid.UUID, error) {
+	idempotentResult, err := a.withIdempotency(ctx, "ChangePassword", in.UserID.String(), in, func(ctx context.Context) (any, uuid.UUID, error) {
 		existingUser, err := a.repo.GetUserByID(ctx, in.UserID)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			logger.Error("failed to get existing user",
@@ -684,7 +718,7 @@ func (a *AuthServiceStruct) SendVerification(ctx context.Context, in models.Send
 		return nil, err
 	}
 
-	idempotentResult, err := a.withIdempotency(ctx, "SendVerification", in.UserID.String(), in, func() (any, uuid.UUID, error) {
+	idempotentResult, err := a.withExternalSideEffectIdempotency(ctx, "SendVerification", in.UserID.String(), in, func(ctx context.Context) (any, uuid.UUID, error) {
 		user, err := a.repo.GetUserByID(ctx, in.UserID)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			logger.Error("failed to get user",
@@ -852,7 +886,7 @@ func (a *AuthServiceStruct) RequestPasswordReset(ctx context.Context, in models.
 		return nil, err
 	}
 
-	idempotentResult, err := a.withIdempotency(ctx, "RequestPasswordReset", in.Email, in, func() (any, uuid.UUID, error) {
+	idempotentResult, err := a.withExternalSideEffectIdempotency(ctx, "RequestPasswordReset", in.Email, in, func(ctx context.Context) (any, uuid.UUID, error) {
 		user, err := a.repo.GetUserByEmail(ctx, in.Email)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			logger.Error("failed to get user",
@@ -939,7 +973,7 @@ func (a *AuthServiceStruct) ResetPassword(ctx context.Context, in models.ResetPa
 		return nil, err
 	}
 
-	idempotentResult, err := a.withIdempotency(ctx, "ResetPassword", "", in, func() (any, uuid.UUID, error) {
+	idempotentResult, err := a.withIdempotency(ctx, "ResetPassword", "", in, func(ctx context.Context) (any, uuid.UUID, error) {
 		sum := sha256.Sum256([]byte(in.Token))
 		hashToken := base64.RawURLEncoding.EncodeToString(sum[:])
 

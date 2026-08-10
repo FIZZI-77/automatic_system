@@ -47,7 +47,7 @@ func (s *WorkProfileServiceStruct) CreateWorkProfile(ctx context.Context, in *mo
 		return nil, err
 	}
 
-	result, err := runCommand(ctx, s.repo, method, in.ActorUserID, in, func() (*models.CreateWorkProfileResult, uuid.UUID, error) {
+	result, err := runCommand(ctx, s.repo, method, in.ActorUserID, in, func(ctx context.Context) (*models.CreateWorkProfileResult, uuid.UUID, error) {
 		result, err := s.repo.CreateWorkProfile(ctx, in)
 		if err != nil {
 			return nil, uuid.Nil, err
@@ -161,7 +161,7 @@ func (s *WorkProfileServiceStruct) UpdateWorkProfile(ctx context.Context, in *mo
 		return nil, permissionDenied(method)
 	}
 
-	result, err := runCommand(ctx, s.repo, method, in.ActorUserID, in, func() (*models.UpdateWorkProfileResult, uuid.UUID, error) {
+	result, err := runCommand(ctx, s.repo, method, in.ActorUserID, in, func(ctx context.Context) (*models.UpdateWorkProfileResult, uuid.UUID, error) {
 		result, err := s.repo.UpdateWorkProfile(ctx, in)
 		if err != nil {
 			return nil, uuid.Nil, err
@@ -190,7 +190,7 @@ func (s *WorkProfileServiceStruct) DeactivateWorkProfile(ctx context.Context, in
 		return nil, permissionDenied(method)
 	}
 
-	result, err := runCommand(ctx, s.repo, method, in.ActorUserID, in, func() (*models.DeactivateWorkProfileResult, uuid.UUID, error) {
+	result, err := runCommand(ctx, s.repo, method, in.ActorUserID, in, func(ctx context.Context) (*models.DeactivateWorkProfileResult, uuid.UUID, error) {
 		result, err := s.repo.DeactivateWorkProfile(ctx, in)
 		if err != nil {
 			return nil, uuid.Nil, err
@@ -226,7 +226,7 @@ func (s *WorkProfileServiceStruct) ChangeWorkProfileDepartment(ctx context.Conte
 		return nil, err
 	}
 
-	result, err := runCommand(ctx, s.repo, method, in.ActorUserID, in, func() (*models.ChangeWorkProfileDepartmentResult, uuid.UUID, error) {
+	result, err := runCommand(ctx, s.repo, method, in.ActorUserID, in, func(ctx context.Context) (*models.ChangeWorkProfileDepartmentResult, uuid.UUID, error) {
 		result, err := s.repo.ChangeWorkProfileDepartment(ctx, in)
 		if err != nil {
 			return nil, uuid.Nil, err
@@ -267,7 +267,7 @@ func (s *WorkProfileServiceStruct) SetWorkProfileStatus(ctx context.Context, in 
 		}
 	}
 
-	result, err := runCommand(ctx, s.repo, method, in.ActorUserID, in, func() (*models.SetWorkProfileStatusResult, uuid.UUID, error) {
+	result, err := runCommand(ctx, s.repo, method, in.ActorUserID, in, func(ctx context.Context) (*models.SetWorkProfileStatusResult, uuid.UUID, error) {
 		result, err := s.repo.SetWorkProfileStatus(ctx, in)
 		if err != nil {
 			return nil, uuid.Nil, err

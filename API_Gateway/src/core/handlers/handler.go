@@ -45,16 +45,29 @@ type Handler struct {
 	departmentHandler *DepartmentHandler
 	brigadeHandler    *BrigadeHandler
 	profileHandler    *ProfileHandler
+	locationHandler   *LocationHandler
+	routingHandler    *RoutingHandler
 	authMiddleware    *middleware.AuthMiddleware
 }
 
-func NewHandler(authHandler *AuthHandler, ticketHandler *TicketHandler, departmentHandler *DepartmentHandler, brigadeHandler *BrigadeHandler, profileHandler *ProfileHandler, authMiddleware *middleware.AuthMiddleware) *Handler {
+func NewHandler(
+	authHandler *AuthHandler,
+	ticketHandler *TicketHandler,
+	departmentHandler *DepartmentHandler,
+	brigadeHandler *BrigadeHandler,
+	profileHandler *ProfileHandler,
+	locationHandler *LocationHandler,
+	routingHandler *RoutingHandler,
+	authMiddleware *middleware.AuthMiddleware,
+) *Handler {
 	return &Handler{
 		authHandler:       authHandler,
 		ticketHandler:     ticketHandler,
 		departmentHandler: departmentHandler,
 		brigadeHandler:    brigadeHandler,
 		profileHandler:    profileHandler,
+		locationHandler:   locationHandler,
+		routingHandler:    routingHandler,
 		authMiddleware:    authMiddleware,
 	}
 }
@@ -222,6 +235,39 @@ func (h *Handler) InitRouters() *gin.Engine {
 		privateBrigadeZones.POST("/list", h.brigadeHandler.ListBrigadeZones)
 		privateBrigadeZones.POST("/covers-point", h.brigadeHandler.CheckBrigadeCoversPoint)
 		privateBrigadeZones.POST("/find-by-point", h.brigadeHandler.FindBrigadesByPoint)
+	}
+
+	privateLocations := router.Group("/locations")
+	privateLocations.Use(h.authMiddleware.Handle())
+	{
+		privateLocations.POST("/record", h.locationHandler.RecordPosition)
+		privateLocations.POST("/current", h.locationHandler.GetCurrentLocation)
+		privateLocations.POST("/current-batch", h.locationHandler.GetCurrentLocations)
+		privateLocations.POST("/history", h.locationHandler.ListPositionHistory)
+		privateLocations.POST("/nearby", h.locationHandler.FindNearbyBrigades)
+	}
+
+	privateGeoZones := router.Group("/geo-zones")
+	privateGeoZones.Use(h.authMiddleware.Handle())
+	{
+		privateGeoZones.POST("/create", h.locationHandler.CreateGeoZone)
+		privateGeoZones.POST("/update", h.locationHandler.UpdateGeoZone)
+		privateGeoZones.POST("/delete", h.locationHandler.DeleteGeoZone)
+		privateGeoZones.POST("/list", h.locationHandler.ListGeoZones)
+		privateGeoZones.POST("/check-point", h.locationHandler.CheckPointInZones)
+	}
+
+	privateRoutes := router.Group("/routing")
+	privateRoutes.Use(h.authMiddleware.Handle())
+	{
+		privateRoutes.POST("/build", h.routingHandler.BuildRoute)
+		privateRoutes.POST("/matrix", h.routingHandler.BuildMatrix)
+		privateRoutes.POST("/rank-candidates", h.routingHandler.RankCandidates)
+		privateRoutes.POST("/create", h.routingHandler.CreateRoute)
+		privateRoutes.POST("/get", h.routingHandler.GetRoute)
+		privateRoutes.POST("/recalculate", h.routingHandler.RecalculateRoute)
+		privateRoutes.POST("/set-status", h.routingHandler.SetRouteStatus)
+		privateRoutes.POST("/list", h.routingHandler.ListRoutes)
 	}
 
 	privateUserProfiles := router.Group("/user-profiles")

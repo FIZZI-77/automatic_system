@@ -28,7 +28,7 @@ func NewUserProfileRepository(writePool *pgxpool.Pool, readPool *pgxpool.Pool) *
 }
 
 func (u *UserProfileRepoStruct) CreateUserProfile(ctx context.Context, in *models.CreateUserProfileInput) (*models.CreateUserProfileResult, error) {
-	tx, err := u.writePool.Begin(ctx)
+	tx, err := beginCommandTx(ctx, u.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: CreateUserProfile(): begin tx: %w", err)
 	}
@@ -88,7 +88,7 @@ func (u *UserProfileRepoStruct) createUserProfile(ctx context.Context, q Querier
 }
 
 func (u *UserProfileRepoStruct) UpdateUserProfile(ctx context.Context, in *models.UpdateUserProfileInput) (*models.UpdateUserProfileResult, error) {
-	tx, err := u.writePool.Begin(ctx)
+	tx, err := beginCommandTx(ctx, u.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: UpdateUserProfile(): begin tx: %w", err)
 	}

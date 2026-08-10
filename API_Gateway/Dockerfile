@@ -1,16 +1,15 @@
 FROM golang:1.25-alpine AS builder
 
-WORKDIR /app
+WORKDIR /workspace
 
-WORKDIR /app/API_Gateway
+COPY --from=contracts . /contracts
+COPY API_Gateway /gateway
 
-COPY API_Gateway/go.mod API_Gateway/go.sum ./
+WORKDIR /gateway
+
+RUN go mod edit -replace github.com/FIZZI-77/automatic-system-contracts=/contracts
 RUN go mod download && go mod verify
-
-COPY API_Gateway ./
-
-RUN go mod tidy
-RUN go build -o /api-gateway ./src/cmd/server
+RUN CGO_ENABLED=0 go build -o /api-gateway ./src/cmd/server
 
 FROM alpine:3.20
 

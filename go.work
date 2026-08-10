@@ -1,12 +1,17 @@
-go 1.25.9
+﻿go 1.25.9
 
 use (
+	../contracts
 	./API_Gateway
 	./Auth_Service
 	./Department_Service
+	./Dispatch_Service
+	./Location_Service
 	./Profile_service
+	./Routing_Service
 	./Transponder_Simulator
 	.
 	Ticket_Service
 	Brigade_Service
 )
+

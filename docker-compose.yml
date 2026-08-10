@@ -1,8 +1,10 @@
-services:
+﻿services:
   api-gateway:
     build:
       context: .
       dockerfile: API_Gateway/Dockerfile
+      additional_contexts:
+        contracts: ../contracts
     container_name: api-gateway
     env_file:
       - ./API_Gateway/.env
@@ -25,6 +27,10 @@ services:
       brigade-service:
         condition: service_started
       profile-service:
+        condition: service_started
+      location-service:
+        condition: service_started
+      routing-service:
         condition: service_started
     restart: unless-stopped
 
@@ -60,6 +66,10 @@ services:
     container_name: ticket-service
     env_file:
       - ./Ticket_Service/.env
+    environment:
+      LOCATION_SERVICE_ADDR: location-service:50056
+      ROUTING_SERVICE_ADDR: routing-service:50057
+      KAFKA_ROUTING_TOPIC: routing.events.v1
     ports:
       - "${TICKET_GRPC_PORT}:50052"
     depends_on:
@@ -112,6 +122,9 @@ services:
     container_name: brigade-service
     env_file:
       - ./Brigade_Service/.env
+    environment:
+      KAFKA_ROUTING_TOPIC: routing.events.v1
+      KAFKA_TICKET_TOPIC: tickets.events.v1
     ports:
       - "${BRIGADE_GRPC_PORT}:50054"
     depends_on:
@@ -123,6 +136,126 @@ services:
         condition: service_started
       kafka-init:
         condition: service_completed_successfully
+    restart: unless-stopped
+
+  location-service:
+    build:
+      context: .
+      dockerfile: Location_Service/Dockerfile
+      additional_contexts:
+        contracts: ../contracts
+        service: ./Location_Service
+    container_name: location-service
+    environment:
+      DATABASE_URL: postgres://location:location@postgres-location:5432/location?sslmode=disable
+      REDIS_MASTER_NAME: location-master
+      REDIS_SENTINEL_ADDRS: redis-location-sentinel-1:26379,redis-location-sentinel-2:26379,redis-location-sentinel-3:26379
+      REDIS_SENTINEL_PASSWORD: ""
+      REDIS_PASSWORD: ""
+      REDIS_DB: "0"
+      REDIS_POOL_SIZE: "20"
+      REDIS_MIN_IDLE_CONNS: "5"
+      GRPC_PORT: "50056"
+      HTTP_PORT: "8080"
+      LOG_LEVEL: info
+      TRANSPONDER_API_KEY: ${TRANSPONDER_API_KEY:-}
+      HISTORY_BUFFER_CAPACITY: "10000"
+      HISTORY_BATCH_SIZE: "500"
+      HISTORY_FLUSH_INTERVAL: 5s
+      SIGNAL_SCAN_INTERVAL: 5s
+      SIGNAL_STALE_AFTER: 15s
+      SIGNAL_OFFLINE_AFTER: 60s
+      SIGNAL_BATCH_SIZE: "500"
+      SHUTDOWN_TIMEOUT: 20s
+      KAFKA_BROKERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
+      KAFKA_LOCATION_TOPIC: locations.events.v1
+      REDIS_EVENTS_STREAM: locations:events
+      REDIS_EVENTS_GROUP: location-kafka-relay
+      REDIS_EVENTS_CONSUMER: location-service
+    ports:
+      - "${LOCATION_GRPC_PORT}:50056"
+      - "${LOCATION_HTTP_PORT}:8080"
+    depends_on:
+      migrator-location:
+        condition: service_completed_successfully
+      redis-location-sentinel-1:
+        condition: service_healthy
+      redis-location-sentinel-2:
+        condition: service_healthy
+      redis-location-sentinel-3:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+
+  routing-service:
+    build:
+      context: .
+      dockerfile: Routing_Service/Dockerfile
+      additional_contexts:
+        contracts: ../contracts
+        service: ./Routing_Service
+    container_name: routing-service
+    environment:
+      DATABASE_URL: postgres://routing:routing@postgres-routing:5432/routing?sslmode=disable
+      GRPC_PORT: "50057"
+      VALHALLA_URL: http://valhalla:8002
+      VALHALLA_TIMEOUT: 15s
+      KAFKA_BROKERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
+      KAFKA_ROUTING_TOPIC: routing.events.v1
+      KAFKA_TICKET_TOPIC: tickets.events.v1
+      OUTBOX_WORKER_COUNT: "4"
+      SHUTDOWN_TIMEOUT: 20s
+      LOG_LEVEL: info
+    ports:
+      - "${ROUTING_GRPC_PORT}:50057"
+    depends_on:
+      migrator-routing:
+        condition: service_completed_successfully
+      valhalla:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres-routing:
+    image: postgres:16
+    container_name: routing-postgres
+    environment:
+      POSTGRES_USER: routing
+      POSTGRES_PASSWORD: routing
+      POSTGRES_DB: routing
+    ports:
+      - "${ROUTING_DB_PUBLISHED_PORT}:5432"
+    volumes:
+      - postgres_routing_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U routing -d routing"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  valhalla:
+    image: ghcr.io/nilsnolde/docker-valhalla/valhalla:latest
+    container_name: valhalla
+    environment:
+      tile_urls: ${VALHALLA_TILE_URL}
+      serve_tiles: "True"
+      build_elevation: "False"
+      build_admins: "True"
+      build_time_zones: "True"
+      server_threads: "2"
+    ports:
+      - "${VALHALLA_PORT}:8002"
+    volumes:
+      - valhalla_data:/custom_files
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/status"]
+      start_period: 10m
+      interval: 15s
+      timeout: 10s
+      retries: 20
     restart: unless-stopped
 
   postgres-auth:
@@ -203,6 +336,138 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    restart: unless-stopped
+
+  postgres-location:
+    image: postgis/postgis:16-3.4
+    container_name: location-postgres
+    environment:
+      POSTGRES_USER: location
+      POSTGRES_PASSWORD: location
+      POSTGRES_DB: location
+    ports:
+      - "${LOCATION_DB_PUBLISHED_PORT}:5432"
+    volumes:
+      - postgres_location_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U location -d location"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+    restart: unless-stopped
+
+  redis-location-master:
+    image: redis:7.4-alpine
+    container_name: location-redis-master
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${LOCATION_REDIS_PUBLISHED_PORT}:6379"
+    volumes:
+      - redis_location_master_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+    restart: unless-stopped
+
+  redis-location-replica-1:
+    image: redis:7.4-alpine
+    container_name: location-redis-replica-1
+    command: ["redis-server", "--appendonly", "yes", "--replicaof", "redis-location-master", "6379"]
+    ports:
+      - "${LOCATION_REDIS_REPLICA_1_PORT}:6379"
+    volumes:
+      - redis_location_replica_1_data:/data
+    depends_on:
+      redis-location-master:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+    restart: unless-stopped
+
+  redis-location-replica-2:
+    image: redis:7.4-alpine
+    container_name: location-redis-replica-2
+    command: ["redis-server", "--appendonly", "yes", "--replicaof", "redis-location-master", "6379"]
+    ports:
+      - "${LOCATION_REDIS_REPLICA_2_PORT}:6379"
+    volumes:
+      - redis_location_replica_2_data:/data
+    depends_on:
+      redis-location-master:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+    restart: unless-stopped
+
+  redis-location-sentinel-1:
+    image: redis:7.4-alpine
+    container_name: location-redis-sentinel-1
+    command: ["sh", "-c", "test -f /data/sentinel.conf || cp /sentinel/sentinel.conf /data/sentinel.conf; exec redis-server /data/sentinel.conf --sentinel"]
+    ports:
+      - "${LOCATION_REDIS_SENTINEL_1_PORT}:26379"
+    volumes:
+      - ./Location_Service/redis/sentinel.conf:/sentinel/sentinel.conf:ro
+      - redis_location_sentinel_1_data:/data
+    depends_on:
+      redis-location-replica-1:
+        condition: service_healthy
+      redis-location-replica-2:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "26379", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+    restart: unless-stopped
+
+  redis-location-sentinel-2:
+    image: redis:7.4-alpine
+    container_name: location-redis-sentinel-2
+    command: ["sh", "-c", "test -f /data/sentinel.conf || cp /sentinel/sentinel.conf /data/sentinel.conf; exec redis-server /data/sentinel.conf --sentinel"]
+    ports:
+      - "${LOCATION_REDIS_SENTINEL_2_PORT}:26379"
+    volumes:
+      - ./Location_Service/redis/sentinel.conf:/sentinel/sentinel.conf:ro
+      - redis_location_sentinel_2_data:/data
+    depends_on:
+      redis-location-replica-1:
+        condition: service_healthy
+      redis-location-replica-2:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "26379", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+    restart: unless-stopped
+
+  redis-location-sentinel-3:
+    image: redis:7.4-alpine
+    container_name: location-redis-sentinel-3
+    command: ["sh", "-c", "test -f /data/sentinel.conf || cp /sentinel/sentinel.conf /data/sentinel.conf; exec redis-server /data/sentinel.conf --sentinel"]
+    ports:
+      - "${LOCATION_REDIS_SENTINEL_3_PORT}:26379"
+    volumes:
+      - ./Location_Service/redis/sentinel.conf:/sentinel/sentinel.conf:ro
+      - redis_location_sentinel_3_data:/data
+    depends_on:
+      redis-location-replica-1:
+        condition: service_healthy
+      redis-location-replica-2:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "26379", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
     restart: unless-stopped
 
   migrator-auth:
@@ -294,6 +559,36 @@ services:
     command: >
       sh -c 'export GOOSE_DBSTRING="postgres://$${DB_USERNAME}:$${DB_PASSWORD}@$${DB_HOST}:$${DB_PORT}/$${DB_NAME}?sslmode=$${SSLMODE}";
       goose -dir /migrations up'
+
+  migrator-location:
+    build:
+      context: ./Location_Service/migrator
+      dockerfile: Dockerfile
+    container_name: location-migrator
+    environment:
+      GOOSE_DRIVER: postgres
+      GOOSE_DBSTRING: postgres://location:location@postgres-location:5432/location?sslmode=disable
+    command: ["-dir", "/migrations", "up"]
+    volumes:
+      - ./Location_Service/scheme:/migrations:ro
+    depends_on:
+      postgres-location:
+        condition: service_healthy
+
+  migrator-routing:
+    build:
+      context: ./Routing_Service/migrator
+      dockerfile: Dockerfile
+    container_name: routing-migrator
+    environment:
+      GOOSE_DRIVER: postgres
+      GOOSE_DBSTRING: postgres://routing:routing@postgres-routing:5432/routing?sslmode=disable
+    command: ["-dir", "/migrations", "up"]
+    volumes:
+      - ./Routing_Service/scheme:/migrations:ro
+    depends_on:
+      postgres-routing:
+        condition: service_healthy
 
   kafka-1:
     image: apache/kafka:3.9.1
@@ -476,3 +771,12 @@ volumes:
   kafka_1_data:
   kafka_2_data:
   kafka_3_data:
+  postgres_location_data:
+  postgres_routing_data:
+  valhalla_data:
+  redis_location_master_data:
+  redis_location_replica_1_data:
+  redis_location_replica_2_data:
+  redis_location_sentinel_1_data:
+  redis_location_sentinel_2_data:
+  redis_location_sentinel_3_data:
