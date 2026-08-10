@@ -145,18 +145,22 @@ func (s *Service) Confirm(ctx context.Context, in *models.ConfirmInput) (*models
 	}
 	location, err := s.deps.Location.GetCurrentLocation(ctx, &locationv1.GetCurrentLocationRequest{SubjectType: locationv1.SubjectType_SUBJECT_TYPE_BRIGADE, SubjectId: op.BrigadeID.String()})
 	if err != nil || location.GetLocation() == nil || location.GetLocation().GetPosition() == nil {
-		if err == nil { err = errors.New("brigade location unavailable") }
+		if err == nil {
+			err = errors.New("brigade location unavailable")
+		}
 		return s.failAndRelease(ctx, op, in.ConfirmedBy, err)
 	}
 	position := location.GetLocation().GetPosition()
 	route, err := s.deps.Routing.CreateRoute(ctx, &routingv1.CreateRouteRequest{
 		TicketId: op.TicketID.String(), BrigadeId: op.BrigadeID.String(),
-		Origin: &routingv1.Point{Latitude: position.GetLatitude(), Longitude: position.GetLongitude()},
+		Origin:      &routingv1.Point{Latitude: position.GetLatitude(), Longitude: position.GetLongitude()},
 		Destination: &routingv1.Point{Latitude: ticket.GetLatitude(), Longitude: ticket.GetLongitude()},
-		Options: &routingv1.RouteOptions{TravelMode: routingv1.TravelMode_TRAVEL_MODE_AUTO},
+		Options:     &routingv1.RouteOptions{TravelMode: routingv1.TravelMode_TRAVEL_MODE_AUTO},
 	})
 	if err != nil || route.GetRoute() == nil {
-		if err == nil { err = errors.New("routing returned an empty route") }
+		if err == nil {
+			err = errors.New("routing returned an empty route")
+		}
 		return s.failAndRelease(ctx, op, in.ConfirmedBy, err)
 	}
 	routeID, err := uuid.Parse(route.GetRoute().GetId())
@@ -177,12 +181,20 @@ func (s *Service) Confirm(ctx context.Context, in *models.ConfirmInput) (*models
 	return s.repo.FinishConfirm(ctx, op.ID, op.Version)
 }
 
-func (s *Service) Get(ctx context.Context, id uuid.UUID) (*models.Operation, error) { return s.repo.Get(ctx, id) }
+func (s *Service) Get(ctx context.Context, id uuid.UUID) (*models.Operation, error) {
+	return s.repo.Get(ctx, id)
+}
 
 func (s *Service) List(ctx context.Context, in *models.ListInput) ([]*models.Operation, int64, error) {
-	if in == nil { in = &models.ListInput{} }
-	if in.Limit <= 0 { in.Limit = 50 }
-	if in.Limit > 200 || in.Offset < 0 { return nil, 0, fmt.Errorf("%w: pagination", models.ErrInvalidArgument) }
+	if in == nil {
+		in = &models.ListInput{}
+	}
+	if in.Limit <= 0 {
+		in.Limit = 50
+	}
+	if in.Limit > 200 || in.Offset < 0 {
+		return nil, 0, fmt.Errorf("%w: pagination", models.ErrInvalidArgument)
+	}
 	return s.repo.List(ctx, in)
 }
 
@@ -191,59 +203,103 @@ func (s *Service) Cancel(ctx context.Context, in *models.CancelInput) (*models.O
 		return nil, fmt.Errorf("%w: cancel input", models.ErrInvalidArgument)
 	}
 	op, err := s.repo.Get(ctx, in.ID)
-	if err != nil { return nil, err }
-	if op.Version != in.ExpectedVersion || (op.Status != models.StatusPending && op.Status != models.StatusReserved) { return nil, models.ErrConflict }
-	if op.BrigadeID != nil { s.release(forwardMetadata(ctx), *op.BrigadeID, in.CancelledBy) }
+	if err != nil {
+		return nil, err
+	}
+	if op.Version != in.ExpectedVersion || (op.Status != models.StatusPending && op.Status != models.StatusReserved) {
+		return nil, models.ErrConflict
+	}
 	reason := in.Reason
-	if reason == "" { reason = "cancelled by dispatcher" }
-	return s.repo.SetTerminal(ctx, op.ID, models.StatusCancelled, reason, op.Version)
+	if reason == "" {
+		reason = "cancelled by dispatcher"
+	}
+	cancelled, err := s.repo.SetTerminal(ctx, op.ID, models.StatusCancelled, reason, op.Version)
+	if err != nil {
+		return nil, err
+	}
+	if op.BrigadeID != nil {
+		s.release(forwardMetadata(ctx), *op.BrigadeID, in.CancelledBy)
+	}
+	return cancelled, nil
 }
 
 func (s *Service) reserveExisting(ctx context.Context, op *models.Operation, brigadeID uuid.UUID, skills []uuid.UUID, actor uuid.UUID) (*models.Operation, error) {
 	ticket, err := s.getNewTicket(ctx, op.TicketID)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	check, err := s.deps.Brigades.CheckBrigadeCanHandleTicket(ctx, &brigadev1.CheckBrigadeCanHandleTicketRequest{BrigadeId: brigadeID.String(), DepartmentId: ticket.GetDepartmentId(), Longitude: ticket.GetLongitude(), Latitude: ticket.GetLatitude(), RequiredSkillIds: uuidStrings(skills)})
-	if err != nil { return nil, fmt.Errorf("check brigade: %w", err) }
-	if !check.GetCanHandle() { return nil, fmt.Errorf("%w: brigade cannot handle ticket: %v", models.ErrConflict, check.GetReasons()) }
+	if err != nil {
+		return nil, fmt.Errorf("check brigade: %w", err)
+	}
+	if !check.GetCanHandle() {
+		return nil, fmt.Errorf("%w: brigade cannot handle ticket: %v", models.ErrConflict, check.GetReasons())
+	}
 	_, err = s.deps.Brigades.SetBrigadeStatus(ctx, &brigadev1.SetBrigadeStatusRequest{BrigadeId: brigadeID.String(), Status: brigadev1.BrigadeStatus_BRIGADE_STATUS_BUSY, Reason: "dispatch reservation", ChangedByUserId: actor.String()})
-	if err != nil { return nil, fmt.Errorf("reserve brigade: %w", err) }
+	if err != nil {
+		return nil, fmt.Errorf("reserve brigade: %w", err)
+	}
 	reserved, err := s.repo.SetReserved(ctx, op.ID, brigadeID, op.Version)
-	if err != nil { s.release(ctx, brigadeID, actor); return nil, err }
+	if err != nil {
+		s.release(ctx, brigadeID, actor)
+		return nil, err
+	}
 	return reserved, nil
 }
 
 func (s *Service) getNewTicket(ctx context.Context, id uuid.UUID) (*ticketv1.Ticket, error) {
 	response, err := s.deps.Tickets.GetTicket(ctx, &ticketv1.GetTicketRequest{TicketId: id.String()})
-	if err != nil { return nil, fmt.Errorf("get ticket: %w", err) }
-	if response.GetTicket() == nil { return nil, models.ErrNotFound }
-	if response.GetTicket().GetStatus() != ticketv1.TicketStatus_TICKET_STATUS_NEW { return nil, fmt.Errorf("%w: ticket is not NEW", models.ErrConflict) }
+	if err != nil {
+		return nil, fmt.Errorf("get ticket: %w", err)
+	}
+	if response.GetTicket() == nil {
+		return nil, models.ErrNotFound
+	}
+	if response.GetTicket().GetStatus() != ticketv1.TicketStatus_TICKET_STATUS_NEW {
+		return nil, fmt.Errorf("%w: ticket is not NEW", models.ErrConflict)
+	}
 	return response.GetTicket(), nil
 }
 
 func (s *Service) failAndRelease(ctx context.Context, op *models.Operation, actor uuid.UUID, cause error) (*models.Operation, error) {
-	if op.BrigadeID != nil { s.release(ctx, *op.BrigadeID, actor) }
-	_, _ = s.repo.SetFailed(ctx, op.ID, cause.Error(), op.Version)
+	failed, transitionErr := s.repo.SetFailed(ctx, op.ID, cause.Error(), op.Version)
+	if transitionErr != nil {
+		return nil, errors.Join(cause, transitionErr)
+	}
+	if failed.BrigadeID != nil {
+		s.release(ctx, *failed.BrigadeID, actor)
+	}
 	return nil, cause
 }
 
 func (s *Service) release(ctx context.Context, id, actor uuid.UUID) {
 	_, err := s.deps.Brigades.SetBrigadeStatus(ctx, &brigadev1.SetBrigadeStatusRequest{BrigadeId: id.String(), Status: brigadev1.BrigadeStatus_BRIGADE_STATUS_AVAILABLE, Reason: "dispatch reservation released", ChangedByUserId: actor.String()})
-	if err != nil { s.log.Error("release brigade", zap.Error(err), zap.String("brigade_id", id.String())) }
+	if err != nil {
+		s.log.Error("release brigade", zap.Error(err), zap.String("brigade_id", id.String()))
+	}
 }
 
 func (s *Service) cancelRoute(ctx context.Context, id string) {
 	_, err := s.deps.Routing.SetRouteStatus(ctx, &routingv1.SetRouteStatusRequest{Id: id, Status: routingv1.RouteStatus_ROUTE_STATUS_CANCELLED})
-	if err != nil { s.log.Error("cancel route", zap.Error(err), zap.String("route_id", id)) }
+	if err != nil {
+		s.log.Error("cancel route", zap.Error(err), zap.String("route_id", id))
+	}
 }
 
 func forwardMetadata(ctx context.Context) context.Context {
-	if outgoing, ok := metadata.FromOutgoingContext(ctx); ok && len(outgoing) > 0 { return ctx }
-	if incoming, ok := metadata.FromIncomingContext(ctx); ok { return metadata.NewOutgoingContext(ctx, incoming.Copy()) }
+	if outgoing, ok := metadata.FromOutgoingContext(ctx); ok && len(outgoing) > 0 {
+		return ctx
+	}
+	if incoming, ok := metadata.FromIncomingContext(ctx); ok {
+		return metadata.NewOutgoingContext(ctx, incoming.Copy())
+	}
 	return ctx
 }
 
 func uuidStrings(values []uuid.UUID) []string {
 	result := make([]string, 0, len(values))
-	for _, value := range values { result = append(result, value.String()) }
+	for _, value := range values {
+		result = append(result, value.String())
+	}
 	return result
 }

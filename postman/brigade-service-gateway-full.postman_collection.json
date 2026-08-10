@@ -686,20 +686,6 @@
                                                   }
                                   },
                                   {
-                                      "name":  "POST /tickets/assign-brigade",
-                                      "request":  {
-                                                      "method":  "POST",
-                                                      "header":  [
-
-                                                                 ],
-                                                      "body":  {
-                                                                   "mode":  "raw",
-                                                                   "raw":  "{\n  \"ticket_id\": \"{{ticket_id}}\",\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"comment\": \"Postman assign brigade\"\n}"
-                                                               },
-                                                      "url":  "{{base_url}}/tickets/assign-brigade"
-                                                  }
-                                  },
-                                  {
                                       "name":  "POST /tickets/complete",
                                       "request":  {
                                                       "method":  "POST",

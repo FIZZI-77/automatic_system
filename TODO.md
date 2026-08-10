@@ -1,4 +1,4 @@
-﻿# TODO
+# TODO
 
 В этом файле хранится только ещё не реализованная работа. Описание уже готовых API Gateway, Auth, Department, Ticket, Brigade, Profile, Location и Routing Service удалено.
 
@@ -137,6 +137,7 @@ Ticket
 - Добавить Prometheus/OpenTelemetry metrics.
 - Добавить OpenTelemetry tracing для цепочки Gateway -> gRPC -> DB/Kafka.
 - Добавить Jaeger и централизованное хранение логов.
+- После внедрения Istio добавить Kiali для визуализации service mesh и диагностики межсервисного трафика.
 - Перенести Gateway rate limit из памяти в Redis.
 - Добавить общий лимит размера HTTP body.
 - Добавить CI для unit, integration, fuzz, race, lint, migration checks и Docker images.
@@ -153,6 +154,19 @@ Ticket
 4. Централизованные логи.
 5. Kubernetes после стабилизации сервисов.
 6. Istio только при необходимости mTLS, traffic splitting и mesh observability.
+7. Kiali после Istio и Prometheus — для topology graph, проверки конфигурации mesh и анализа ошибок/задержек.
+
+### Kiali
+
+- Разворачивать Kiali только вместе с Istio: без service mesh он не является заменой Prometheus, Grafana, Jaeger или OpenTelemetry.
+- Подключить Prometheus как обязательный источник метрик, Grafana и Jaeger — как внешние ссылки для перехода от графа сервисов к метрикам и трассировкам.
+- Использовать Kiali для отображения связей Gateway -> gRPC-сервисы, RPS, latency, error rate, retry и состояния mTLS.
+- Включить проверку `VirtualService`, `DestinationRule`, `Gateway`, authorization policies и других ресурсов Istio.
+- Ограничить доступ через SSO/RBAC; не публиковать Kiali напрямую в интернет и не использовать анонимный доступ в production.
+- Настроить отдельные представления и namespace-фильтры для dev, stage и production.
+- Добавить health/readiness probes, resource limits, persistent settings и версионирование конфигурации через Helm/GitOps.
+- Проверить на тестовом окружении сценарии canary release, traffic shifting, circuit breaking, retry и mTLS до включения в production.
+- Не использовать Kiali как систему долгосрочного хранения: retention и alerts остаются в Prometheus/Grafana, трассировки — в Jaeger.
 
 ## Future: Asset / Infrastructure Service
 

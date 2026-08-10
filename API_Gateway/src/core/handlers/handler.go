@@ -47,6 +47,7 @@ type Handler struct {
 	profileHandler    *ProfileHandler
 	locationHandler   *LocationHandler
 	routingHandler    *RoutingHandler
+	dispatchHandler   *DispatchHandler
 	authMiddleware    *middleware.AuthMiddleware
 }
 
@@ -58,6 +59,7 @@ func NewHandler(
 	profileHandler *ProfileHandler,
 	locationHandler *LocationHandler,
 	routingHandler *RoutingHandler,
+	dispatchHandler *DispatchHandler,
 	authMiddleware *middleware.AuthMiddleware,
 ) *Handler {
 	return &Handler{
@@ -68,6 +70,7 @@ func NewHandler(
 		profileHandler:    profileHandler,
 		locationHandler:   locationHandler,
 		routingHandler:    routingHandler,
+		dispatchHandler:   dispatchHandler,
 		authMiddleware:    authMiddleware,
 	}
 }
@@ -148,7 +151,6 @@ func (h *Handler) InitRouters() *gin.Engine {
 		privateTickets.POST("/list", h.ticketHandler.ListTicket)
 		privateTickets.POST("/update", h.ticketHandler.UpdateTicket)
 		privateTickets.POST("/change-status", h.ticketHandler.ChangeTicketStatus)
-		privateTickets.POST("/assign-brigade", h.ticketHandler.AssignBrigade)
 		privateTickets.POST("/cancel", h.ticketHandler.CancelTicket)
 		privateTickets.POST("/complete", h.ticketHandler.CompleteTicket)
 		privateTickets.POST("/status-history", h.ticketHandler.GetTicketStatusHistory)
@@ -268,6 +270,18 @@ func (h *Handler) InitRouters() *gin.Engine {
 		privateRoutes.POST("/recalculate", h.routingHandler.RecalculateRoute)
 		privateRoutes.POST("/set-status", h.routingHandler.SetRouteStatus)
 		privateRoutes.POST("/list", h.routingHandler.ListRoutes)
+	}
+
+	privateDispatch := router.Group("/dispatch")
+	privateDispatch.Use(h.authMiddleware.Handle())
+	{
+		privateDispatch.POST("/preview", h.dispatchHandler.Preview)
+		privateDispatch.POST("/reserve", h.dispatchHandler.Reserve)
+		privateDispatch.POST("/confirm", h.dispatchHandler.Confirm)
+		privateDispatch.POST("/auto", h.dispatchHandler.Auto)
+		privateDispatch.POST("/get", h.dispatchHandler.Get)
+		privateDispatch.POST("/list", h.dispatchHandler.List)
+		privateDispatch.POST("/cancel", h.dispatchHandler.Cancel)
 	}
 
 	privateUserProfiles := router.Group("/user-profiles")

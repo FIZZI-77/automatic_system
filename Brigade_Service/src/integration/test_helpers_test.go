@@ -87,6 +87,8 @@ func (f *fakeDepartmentClient) DeleteDepartment(ctx context.Context, in *departm
 func newTestApp(t *testing.T) *testApp {
 	t.Helper()
 
+	testcontainers.SkipIfProviderIsNotHealthy(t)
+
 	ctx := context.Background()
 	container, err := postgres.Run(ctx,
 		"postgis/postgis:16-3.4-alpine",

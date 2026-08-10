@@ -1,10 +1,8 @@
-﻿services:
+services:
   api-gateway:
     build:
       context: .
       dockerfile: API_Gateway/Dockerfile
-      additional_contexts:
-        contracts: ../contracts
     container_name: api-gateway
     env_file:
       - ./API_Gateway/.env
@@ -31,6 +29,8 @@
       location-service:
         condition: service_started
       routing-service:
+        condition: service_started
+      dispatch-service:
         condition: service_started
     restart: unless-stopped
 
@@ -67,8 +67,6 @@
     env_file:
       - ./Ticket_Service/.env
     environment:
-      LOCATION_SERVICE_ADDR: location-service:50056
-      ROUTING_SERVICE_ADDR: routing-service:50057
       KAFKA_ROUTING_TOPIC: routing.events.v1
     ports:
       - "${TICKET_GRPC_PORT}:50052"
@@ -143,7 +141,6 @@
       context: .
       dockerfile: Location_Service/Dockerfile
       additional_contexts:
-        contracts: ../contracts
         service: ./Location_Service
     container_name: location-service
     environment:
@@ -193,7 +190,6 @@
       context: .
       dockerfile: Routing_Service/Dockerfile
       additional_contexts:
-        contracts: ../contracts
         service: ./Routing_Service
     container_name: routing-service
     environment:
@@ -218,6 +214,50 @@
         condition: service_healthy
     restart: unless-stopped
 
+  dispatch-service:
+    build:
+      context: .
+      dockerfile: Dispatch_Service/Dockerfile
+    container_name: dispatch-service
+    environment:
+      DATABASE_URL: postgres://dispatch:dispatch@postgres-dispatch:5432/dispatch?sslmode=disable
+      GRPC_PORT: "50058"
+      TICKET_SERVICE_ADDR: ticket-service:50052
+      BRIGADE_SERVICE_ADDR: brigade-service:50054
+      RESERVATION_TTL: 2m
+      CLEANUP_INTERVAL: 15s
+    ports:
+      - "${DISPATCH_GRPC_PORT}:50058"
+    depends_on:
+      migrator-dispatch:
+        condition: service_completed_successfully
+      ticket-service:
+        condition: service_started
+      brigade-service:
+        condition: service_started
+      location-service:
+        condition: service_started
+      routing-service:
+        condition: service_started
+    restart: unless-stopped
+
+  postgres-dispatch:
+    image: postgres:16
+    container_name: dispatch-postgres
+    environment:
+      POSTGRES_USER: dispatch
+      POSTGRES_PASSWORD: dispatch
+      POSTGRES_DB: dispatch
+    ports:
+      - "${DISPATCH_DB_PUBLISHED_PORT}:5432"
+    volumes:
+      - postgres_dispatch_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dispatch -d dispatch"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
   postgres-routing:
     image: postgres:16
     container_name: routing-postgres
@@ -575,6 +615,20 @@
       postgres-location:
         condition: service_healthy
 
+  migrator-dispatch:
+    build:
+      context: ./Dispatch_Service/migrator
+      dockerfile: Dockerfile
+    container_name: dispatch-migrator
+    environment:
+      GOOSE_DRIVER: postgres
+      GOOSE_DBSTRING: postgres://dispatch:dispatch@postgres-dispatch:5432/dispatch?sslmode=disable
+    command: ["-dir", "/migrations", "up"]
+    volumes:
+      - ./Dispatch_Service/scheme:/migrations:ro
+    depends_on:
+      postgres-dispatch:
+        condition: service_healthy
   migrator-routing:
     build:
       context: ./Routing_Service/migrator
@@ -773,6 +827,7 @@ volumes:
   kafka_3_data:
   postgres_location_data:
   postgres_routing_data:
+  postgres_dispatch_data:
   valhalla_data:
   redis_location_master_data:
   redis_location_replica_1_data:

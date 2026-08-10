@@ -12,6 +12,7 @@ import (
 	authv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/auth/v1"
 	brigadev1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/brigade/v1"
 	departmentv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/department/v1"
+	dispatchv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/dispatch/v1"
 	locationv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/location/v1"
 	profilev1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/profile/v1"
 	routingv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/routing/v1"
@@ -37,6 +38,7 @@ func main() {
 	profileServiceAddr := getEnv("PROFILE_SERVICE_ADDR", "localhost:50055")
 	locationServiceAddr := getEnv("LOCATION_SERVICE_ADDR", "localhost:50056")
 	routingServiceAddr := getEnv("ROUTING_SERVICE_ADDR", "localhost:50057")
+	dispatchServiceAddr := getEnv("DISPATCH_SERVICE_ADDR", "localhost:50058")
 	gatewayAddr := getEnv("GATEWAY_ADDR", ":8080")
 	publicKeyPath := getEnv("JWT_PUBLIC_KEY_PATH", "./keys/public.pem")
 
@@ -152,6 +154,16 @@ func main() {
 	dependencies.Add("routing grpc connection", routingConn.Close)
 
 	routingClient := routingv1.NewRoutingServiceClient(routingConn)
+	dispatchConn, err := grpc.NewClient(
+		dispatchServiceAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithChainUnaryInterceptor(requestid.UnaryClientInterceptor, idempotency.UnaryClientInterceptor, retry.UnaryClientInterceptor),
+	)
+	if err != nil {
+		log.Fatalf("failed to connect to dispatch service: %v", err)
+	}
+	dependencies.Add("dispatch grpc connection", dispatchConn.Close)
+	dispatchClient := dispatchv1.NewDispatchServiceClient(dispatchConn)
 
 	authMiddleware, err := middleware.NewAuthMiddleware(
 		publicKeyPath,
@@ -169,6 +181,7 @@ func main() {
 	profileHandler := handlers.NewProfileHandler(profileClient)
 	locationHandler := handlers.NewLocationHandler(locationClient)
 	routingHandler := handlers.NewRoutingHandler(routingClient)
+	dispatchHandler := handlers.NewDispatchHandler(dispatchClient)
 	handler := handlers.NewHandler(
 		authHandler,
 		ticketHandler,
@@ -177,6 +190,7 @@ func main() {
 		profileHandler,
 		locationHandler,
 		routingHandler,
+		dispatchHandler,
 		authMiddleware,
 	)
 	router := handler.InitRouters()
