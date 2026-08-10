@@ -184,7 +184,7 @@
         condition: service_healthy
       redis-location-sentinel-3:
         condition: service_healthy
-      kafka:
+      kafka-1:
         condition: service_healthy
     restart: unless-stopped
 
@@ -214,7 +214,7 @@
         condition: service_completed_successfully
       valhalla:
         condition: service_healthy
-      kafka:
+      kafka-1:
         condition: service_healthy
     restart: unless-stopped
 
