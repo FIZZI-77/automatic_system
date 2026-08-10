@@ -1,7 +1,6 @@
-﻿go 1.25.9
+go 1.25.9
 
 use (
-	../contracts
 	./API_Gateway
 	./Auth_Service
 	./Department_Service

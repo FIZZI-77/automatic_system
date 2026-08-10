@@ -4,7 +4,6 @@ services:
       context: ..
       dockerfile: Location_Service/Dockerfile
       additional_contexts:
-        contracts: ../../contracts
         service: .
     environment:
       DATABASE_URL: postgres://location:location@postgres-location:5432/location?sslmode=disable

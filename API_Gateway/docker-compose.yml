@@ -3,8 +3,6 @@ services:
     build:
       context: ..
       dockerfile: API_Gateway/Dockerfile
-      additional_contexts:
-        contracts: ../../contracts
     container_name: api-gateway
     ports:
       - "8080:8080"

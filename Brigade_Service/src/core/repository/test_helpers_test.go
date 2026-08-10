@@ -21,6 +21,8 @@ import (
 func setupTestDB(t *testing.T) (*pgxpool.Pool, func()) {
 	t.Helper()
 
+	testcontainers.SkipIfProviderIsNotHealthy(t)
+
 	ctx := context.Background()
 	container, err := postgres.Run(ctx,
 		"postgis/postgis:16-3.4-alpine",

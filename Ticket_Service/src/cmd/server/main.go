@@ -10,19 +10,14 @@ import (
 	"syscall"
 	"time"
 
+	ticketv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/ticket/v1"
+	"github.com/joho/godotenv"
+	"google.golang.org/grpc"
 	"ticket/pkg"
 	"ticket/pkg/closer"
 	"ticket/src/core/handler"
 	"ticket/src/core/repository"
 	"ticket/src/core/service"
-	"ticket/src/infrastructure/assignmentrouting"
-
-	locationv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/location/v1"
-	routingv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/routing/v1"
-	ticketv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/ticket/v1"
-	"github.com/joho/godotenv"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
@@ -58,20 +53,6 @@ func main() {
 	startOutboxRelay(db, dependencies, logger)
 	startRoutingConsumer(db, dependencies, logger)
 
-	locationConn, err := grpc.NewClient(envRouting("LOCATION_SERVICE_ADDR", "localhost:50056"), grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		log.Fatalf("failed to create location grpc client: %v", err)
-	}
-	dependencies.Add("location grpc", locationConn.Close)
-	routingConn, err := grpc.NewClient(envRouting("ROUTING_SERVICE_ADDR", "localhost:50057"), grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		log.Fatalf("failed to create routing grpc client: %v", err)
-	}
-	dependencies.Add("routing grpc", routingConn.Close)
-	routeCreator, err := assignmentrouting.New(locationv1.NewLocationServiceClient(locationConn), routingv1.NewRoutingServiceClient(routingConn))
-	if err != nil {
-		log.Fatalf("failed to create assignment routing client: %v", err)
-	}
 	grpcPort := os.Getenv("GRPC_PORT")
 	if strings.TrimSpace(grpcPort) == "" {
 		grpcPort = "50052"
@@ -91,7 +72,7 @@ func main() {
 	)
 
 	repo := repository.NewRepository(repository.DBPools{Write: db, Read: db})
-	ticketService := service.NewServiceWithRouteCreator(repo, routeCreator, logger)
+	ticketService := service.NewService(repo, logger)
 	ticketHandler := handler.NewTicketHandler(ticketService, logger)
 
 	ticketv1.RegisterTicketServiceServer(grpcServer, ticketHandler)

@@ -37,7 +37,9 @@ type Operation struct {
 	TicketID      uuid.UUID
 	BrigadeID     *uuid.UUID
 	RouteID       *uuid.UUID
+	Mode          Mode
 	Status        Status
+	Version       int32
 	RequestedBy   uuid.UUID
 	FailureReason *string
 	ExpiresAt     time.Time

@@ -1,4 +1,4 @@
-﻿-- +goose Up
+-- +goose Up
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE TABLE dispatch_operations (
