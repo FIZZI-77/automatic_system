@@ -14,15 +14,17 @@ import (
 )
 
 type TicketServiceStruct struct {
-	repo   *repository.Repository
-	logger *zap.Logger
+	repo         *repository.Repository
+	routeCreator AssignmentRouteCreator
+	logger       *zap.Logger
 }
 
 func NewTicketServiceStruct(repo *repository.Repository, logger *zap.Logger) *TicketServiceStruct {
-	return &TicketServiceStruct{
-		repo:   repo,
-		logger: logger,
-	}
+	return NewTicketServiceStructWithRouteCreator(repo, nil, logger)
+}
+
+func NewTicketServiceStructWithRouteCreator(repo *repository.Repository, routeCreator AssignmentRouteCreator, logger *zap.Logger) *TicketServiceStruct {
+	return &TicketServiceStruct{repo: repo, routeCreator: routeCreator, logger: logger}
 }
 
 func (s *TicketServiceStruct) CreateTicket(ctx context.Context, in *models.CreateTicketInput) (*models.CreateTicketResult, error) {
@@ -51,7 +53,7 @@ func (s *TicketServiceStruct) CreateTicket(ctx context.Context, in *models.Creat
 		}
 	}
 
-	result, err := s.withIdempotency(ctx, "CreateTicket", idempotencyActor(in.ActorUserID, in.UserID), in, func() (any, uuid.UUID, error) {
+	result, err := s.withIdempotency(ctx, "CreateTicket", idempotencyActor(in.ActorUserID, in.UserID), in, func(ctx context.Context) (any, uuid.UUID, error) {
 		ticket, err := s.repo.CreateTicket(ctx, in)
 		if err != nil {
 			return nil, uuid.Nil, err
@@ -208,7 +210,7 @@ func (s *TicketServiceStruct) UpdateTicket(ctx context.Context, in *models.Updat
 		return nil, fmt.Errorf("service: UpdateTicket(): %w: %v", models.ErrValidation, err)
 	}
 
-	result, err := s.withIdempotency(ctx, "UpdateTicket", idempotencyActor(in.UpdatedBy, uuid.Nil), in, func() (any, uuid.UUID, error) {
+	result, err := s.withIdempotency(ctx, "UpdateTicket", idempotencyActor(in.UpdatedBy, uuid.Nil), in, func(ctx context.Context) (any, uuid.UUID, error) {
 		ticket, err := s.repo.UpdateTicket(ctx, in)
 		if err != nil {
 			return nil, uuid.Nil, err
@@ -261,7 +263,7 @@ func (s *TicketServiceStruct) ChangeTicketStatus(ctx context.Context, in *models
 		return nil, fmt.Errorf("service: ChangeTicketStatus(): %w", models.ErrPermissionDenied)
 	}
 
-	result, err := s.withIdempotency(ctx, "ChangeTicketStatus", in.ChangedBy.String(), in, func() (any, uuid.UUID, error) {
+	result, err := s.withIdempotency(ctx, "ChangeTicketStatus", in.ChangedBy.String(), in, func(ctx context.Context) (any, uuid.UUID, error) {
 		ticket, err := s.repo.ChangeTicketStatus(ctx, in)
 		if err != nil {
 			return nil, uuid.Nil, err
@@ -315,7 +317,18 @@ func (s *TicketServiceStruct) AssignBrigade(ctx context.Context, in *models.Assi
 		return nil, fmt.Errorf("service: AssignBrigade(): %w", models.ErrPermissionDenied)
 	}
 
-	result, err := s.withIdempotency(ctx, "AssignBrigade", in.AssignedBy.String(), in, func() (any, uuid.UUID, error) {
+	var reservation *RouteReservation
+	if s.routeCreator != nil {
+		currentTicket, routeErr := s.repo.GetTicketByID(ctx, in.TicketID)
+		if routeErr != nil {
+			return nil, fmt.Errorf("service: AssignBrigade(): get ticket for route: %w", routeErr)
+		}
+		reservation, routeErr = s.routeCreator.CreateForAssignment(ctx, currentTicket, in.BrigadeID)
+		if routeErr != nil {
+			return nil, fmt.Errorf("service: AssignBrigade(): create route: %w", routeErr)
+		}
+	}
+	result, err := s.withIdempotency(ctx, "AssignBrigade", in.AssignedBy.String(), in, func(ctx context.Context) (any, uuid.UUID, error) {
 		ticket, err := s.repo.AssignBrigade(ctx, in)
 		if err != nil {
 			return nil, uuid.Nil, err
@@ -323,6 +336,11 @@ func (s *TicketServiceStruct) AssignBrigade(ctx context.Context, in *models.Assi
 		return &models.AssignBrigadeResult{Ticket: ticket}, ticket.ID, nil
 	})
 	if err != nil {
+		if reservation != nil && reservation.Created {
+			if cancelErr := s.routeCreator.Cancel(ctx, reservation.RouteID); cancelErr != nil {
+				logger.Error("failed to compensate route", zap.String("route_id", reservation.RouteID), zap.Error(cancelErr))
+			}
+		}
 		logger.Error("AssignBrigade failed",
 			zap.String("ticket_id", in.TicketID.String()),
 			zap.String("brigade_id", in.BrigadeID.String()),
@@ -374,7 +392,7 @@ func (s *TicketServiceStruct) CancelTicket(ctx context.Context, in *models.Cance
 		return nil, fmt.Errorf("service: CancelTicket(): %w", models.ErrPermissionDenied)
 	}
 
-	result, err := s.withIdempotency(ctx, "CancelTicket", in.CanceledBy.String(), in, func() (any, uuid.UUID, error) {
+	result, err := s.withIdempotency(ctx, "CancelTicket", in.CanceledBy.String(), in, func(ctx context.Context) (any, uuid.UUID, error) {
 		ticket, err := s.repo.CancelTicket(ctx, in)
 		if err != nil {
 			return nil, uuid.Nil, err
@@ -426,7 +444,7 @@ func (s *TicketServiceStruct) CompleteTicket(ctx context.Context, in *models.Com
 		return nil, fmt.Errorf("service: CompleteTicket(): %w", models.ErrPermissionDenied)
 	}
 
-	result, err := s.withIdempotency(ctx, "CompleteTicket", in.CompletedBy.String(), in, func() (any, uuid.UUID, error) {
+	result, err := s.withIdempotency(ctx, "CompleteTicket", in.CompletedBy.String(), in, func(ctx context.Context) (any, uuid.UUID, error) {
 		ticket, err := s.repo.CompleteTicket(ctx, in)
 		if err != nil {
 			return nil, uuid.Nil, err

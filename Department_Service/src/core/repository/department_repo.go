@@ -31,7 +31,7 @@ func NewDepartmentRepository(writePool *pgxpool.Pool, readPool *pgxpool.Pool) *D
 }
 
 func (r *DepartmentRepoStruct) CreateDepartment(ctx context.Context, in *models.CreateDepartmentInput) (*models.Department, error) {
-	tx, err := r.writePool.Begin(ctx)
+	tx, err := beginCommandTx(ctx, r.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: CreateDepartment(): begin tx: %w", err)
 	}
@@ -167,7 +167,7 @@ func (r *DepartmentRepoStruct) ListDepartments(ctx context.Context, in *models.L
 }
 
 func (r *DepartmentRepoStruct) UpdateDepartment(ctx context.Context, in *models.UpdateDepartmentInput) (*models.Department, error) {
-	tx, err := r.writePool.Begin(ctx)
+	tx, err := beginCommandTx(ctx, r.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: UpdateDepartment(): begin tx: %w", err)
 	}
@@ -213,7 +213,7 @@ func (r *DepartmentRepoStruct) updateDepartment(ctx context.Context, q Querier, 
 }
 
 func (r *DepartmentRepoStruct) DeleteDepartment(ctx context.Context, in *models.DeleteDepartmentInput) (*models.Department, error) {
-	tx, err := r.writePool.Begin(ctx)
+	tx, err := beginCommandTx(ctx, r.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: DeleteDepartment(): begin tx: %w", err)
 	}

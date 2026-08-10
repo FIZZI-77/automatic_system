@@ -56,6 +56,8 @@ func main() {
 	defer closeDependencies(dependencies)
 	startOutboxRelay(db, dependencies, logger)
 	startProfileConsumer(db, dependencies, logger)
+	startRoutingConsumer(db, dependencies, logger)
+	startTicketConsumer(db, dependencies, logger)
 
 	departmentConn, err := grpc.NewClient(
 		envOrDefault("DEPARTMENT_GRPC_ADDR", "localhost:50053"),

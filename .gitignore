@@ -1,5 +1,9 @@
-**/.env
+﻿**/.env
 /keys/private.pem
 .gocache
 .idea
 desktop.ini
+**/.gocache*/
+**/.tmp/
+**/tmp/
+

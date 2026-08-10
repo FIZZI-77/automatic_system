@@ -12,7 +12,9 @@ import (
 	authv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/auth/v1"
 	brigadev1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/brigade/v1"
 	departmentv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/department/v1"
+	locationv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/location/v1"
 	profilev1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/profile/v1"
+	routingv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/routing/v1"
 	ticketv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/ticket/v1"
 	"log"
 	"net/http"
@@ -33,6 +35,8 @@ func main() {
 	departmentServiceAddr := getEnv("DEPARTMENT_SERVICE_ADDR", "localhost:50053")
 	brigadeServiceAddr := getEnv("BRIGADE_SERVICE_ADDR", "localhost:50054")
 	profileServiceAddr := getEnv("PROFILE_SERVICE_ADDR", "localhost:50055")
+	locationServiceAddr := getEnv("LOCATION_SERVICE_ADDR", "localhost:50056")
+	routingServiceAddr := getEnv("ROUTING_SERVICE_ADDR", "localhost:50057")
 	gatewayAddr := getEnv("GATEWAY_ADDR", ":8080")
 	publicKeyPath := getEnv("JWT_PUBLIC_KEY_PATH", "./keys/public.pem")
 
@@ -117,6 +121,38 @@ func main() {
 
 	profileClient := profilev1.NewProfileServiceClient(profileConn)
 
+	locationConn, err := grpc.NewClient(
+		locationServiceAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithChainUnaryInterceptor(
+			requestid.UnaryClientInterceptor,
+			idempotency.UnaryClientInterceptor,
+			retry.UnaryClientInterceptor,
+		),
+	)
+	if err != nil {
+		log.Fatalf("failed to connect to location service: %v", err)
+	}
+	dependencies.Add("location grpc connection", locationConn.Close)
+
+	locationClient := locationv1.NewLocationServiceClient(locationConn)
+
+	routingConn, err := grpc.NewClient(
+		routingServiceAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithChainUnaryInterceptor(
+			requestid.UnaryClientInterceptor,
+			idempotency.UnaryClientInterceptor,
+			retry.UnaryClientInterceptor,
+		),
+	)
+	if err != nil {
+		log.Fatalf("failed to connect to routing service: %v", err)
+	}
+	dependencies.Add("routing grpc connection", routingConn.Close)
+
+	routingClient := routingv1.NewRoutingServiceClient(routingConn)
+
 	authMiddleware, err := middleware.NewAuthMiddleware(
 		publicKeyPath,
 		"auth-jwt",
@@ -131,7 +167,18 @@ func main() {
 	departmentHandler := handlers.NewDepartmentHandler(departmentClient)
 	brigadeHandler := handlers.NewBrigadeHandler(brigadeClient)
 	profileHandler := handlers.NewProfileHandler(profileClient)
-	handler := handlers.NewHandler(authHandler, ticketHandler, departmentHandler, brigadeHandler, profileHandler, authMiddleware)
+	locationHandler := handlers.NewLocationHandler(locationClient)
+	routingHandler := handlers.NewRoutingHandler(routingClient)
+	handler := handlers.NewHandler(
+		authHandler,
+		ticketHandler,
+		departmentHandler,
+		brigadeHandler,
+		profileHandler,
+		locationHandler,
+		routingHandler,
+		authMiddleware,
+	)
 	router := handler.InitRouters()
 
 	server := &http.Server{
@@ -151,6 +198,8 @@ func main() {
 		log.Printf("department service address: %s", departmentServiceAddr)
 		log.Printf("brigade service address: %s", brigadeServiceAddr)
 		log.Printf("profile service address: %s", profileServiceAddr)
+		log.Printf("location service address: %s", locationServiceAddr)
+		log.Printf("routing service address: %s", routingServiceAddr)
 
 		if err = server.ListenAndServe(); err != nil && !errors.Is(http.ErrServerClosed, err) {
 			serverErrCh <- err

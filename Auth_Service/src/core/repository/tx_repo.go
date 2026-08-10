@@ -7,11 +7,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type TXRepoStruct struct {
-	writePool *pgxpool.Pool
+	writeDB DBTX
 }
 
 type authTx struct {
@@ -22,8 +21,8 @@ type authTx struct {
 func (t authTx) Commit() error   { return t.Tx.Commit(t.ctx) }
 func (t authTx) Rollback() error { return t.Tx.Rollback(t.ctx) }
 
-func NewTXRepoStruct(writePool *pgxpool.Pool) *TXRepoStruct {
-	return &TXRepoStruct{writePool: writePool}
+func NewTXRepoStruct(writeDB DBTX) *TXRepoStruct {
+	return &TXRepoStruct{writeDB: writeDB}
 }
 
 func insertAuthOutboxEvent(ctx context.Context, tx DBTX, aggregateType string, aggregateID uuid.UUID, eventType string, payload any) error {
@@ -31,7 +30,7 @@ func insertAuthOutboxEvent(ctx context.Context, tx DBTX, aggregateType string, a
 }
 
 func (t *TXRepoStruct) ChangePassword(ctx context.Context, userID uuid.UUID, password string, sessionID uuid.UUID, revokeOtherSessions bool) (int32, error) {
-	pgxTx, err := t.writePool.Begin(ctx)
+	pgxTx, err := beginNestedAware(ctx, t.writeDB)
 	if err != nil {
 		return 0, fmt.Errorf("tx_repo: ChangePassword() :cant begin transaction: %w", err)
 	}
@@ -133,7 +132,7 @@ func (t *TXRepoStruct) ChangePassword(ctx context.Context, userID uuid.UUID, pas
 }
 
 func (t *TXRepoStruct) Logout(ctx context.Context, sessionID uuid.UUID) error {
-	pgxTx, err := t.writePool.Begin(ctx)
+	pgxTx, err := beginNestedAware(ctx, t.writeDB)
 	if err != nil {
 		return fmt.Errorf("tx_repo: logout() :cant begin transaction: %w", err)
 	}
@@ -178,7 +177,7 @@ func (t *TXRepoStruct) Logout(ctx context.Context, sessionID uuid.UUID) error {
 }
 
 func (t *TXRepoStruct) LogoutAll(ctx context.Context, userID uuid.UUID) (int64, error) {
-	pgxTx, err := t.writePool.Begin(ctx)
+	pgxTx, err := beginNestedAware(ctx, t.writeDB)
 	if err != nil {
 		return 0, fmt.Errorf("tx_repo: LogoutAll() :cant begin transaction: %w", err)
 	}
@@ -228,7 +227,7 @@ func (t *TXRepoStruct) LogoutAll(ctx context.Context, userID uuid.UUID) (int64, 
 }
 
 func (t *TXRepoStruct) ResetPassword(ctx context.Context, userID uuid.UUID, passwordHash string) (int32, error) {
-	pgxTx, err := t.writePool.Begin(ctx)
+	pgxTx, err := beginNestedAware(ctx, t.writeDB)
 	if err != nil {
 		return 0, fmt.Errorf("tx_repo: ResetPassword(): cant begin transaction: %w", err)
 	}
@@ -305,7 +304,7 @@ func (t *TXRepoStruct) ResetPassword(ctx context.Context, userID uuid.UUID, pass
 }
 
 func (t *TXRepoStruct) ResetPasswordWithToken(ctx context.Context, userID uuid.UUID, passwordHash string, tokenID uuid.UUID) (int32, error) {
-	pgxTx, err := t.writePool.Begin(ctx)
+	pgxTx, err := beginNestedAware(ctx, t.writeDB)
 	if err != nil {
 		return 0, fmt.Errorf("tx_repo: ResetPasswordWithToken(): cant begin transaction: %w", err)
 	}
@@ -390,7 +389,7 @@ func (t *TXRepoStruct) ResetPasswordWithToken(ctx context.Context, userID uuid.U
 }
 
 func (t *TXRepoStruct) VerifyEmail(ctx context.Context, userID uuid.UUID, tokenID uuid.UUID) error {
-	pgxTx, err := t.writePool.Begin(ctx)
+	pgxTx, err := beginNestedAware(ctx, t.writeDB)
 	if err != nil {
 		return fmt.Errorf("tx_repo: VerifyEmail(): cant begin transaction: %w", err)
 	}

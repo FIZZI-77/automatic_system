@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -15,6 +16,75 @@ type IdempotencyRecord struct {
 	RequestHash string
 	Response    []byte
 	Error       sql.NullString
+}
+
+func beginIdempotency(ctx context.Context, q Querier, actorKey, operation, key, requestHash string, ttl time.Duration) (*IdempotencyRecord, bool, error) {
+	record := &IdempotencyRecord{}
+	err := q.QueryRow(ctx, `
+		INSERT INTO idempotency_keys (actor_key, operation, idempotency_key, request_hash, expires_at)
+		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (actor_key, operation, idempotency_key) DO NOTHING
+		RETURNING status, request_hash, response, error`,
+		actorKey, operation, key, requestHash, time.Now().UTC().Add(ttl),
+	).Scan(&record.Status, &record.RequestHash, &record.Response, &record.Error)
+	if err == nil {
+		return record, true, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return nil, false, fmt.Errorf("repository: beginIdempotency(): insert: %w", err)
+	}
+	err = q.QueryRow(ctx, `
+		SELECT status, request_hash, response, error FROM idempotency_keys
+		WHERE actor_key = $1 AND operation = $2 AND idempotency_key = $3 FOR UPDATE`,
+		actorKey, operation, key,
+	).Scan(&record.Status, &record.RequestHash, &record.Response, &record.Error)
+	if err != nil {
+		return nil, false, fmt.Errorf("repository: beginIdempotency(): select: %w", err)
+	}
+	return record, false, nil
+}
+
+func completeIdempotency(ctx context.Context, q Querier, actorKey, operation, key string, response []byte, resourceID any) error {
+	result, err := q.Exec(ctx, `
+		UPDATE idempotency_keys SET status = 'COMPLETED', response = $4::jsonb, error = NULL,
+			resource_type = $5, resource_id = $6, updated_at = now()
+		WHERE actor_key = $1 AND operation = $2 AND idempotency_key = $3`,
+		actorKey, operation, key, response, operation, resourceID)
+	if err != nil {
+		return fmt.Errorf("repository: completeIdempotency(): update: %w", err)
+	}
+	if result.RowsAffected() != 1 {
+		return fmt.Errorf("repository: completeIdempotency(): idempotency record not found")
+	}
+	return nil
+}
+
+func (r *Repository) RunIdempotentTx(ctx context.Context, actorKey, operation, key, requestHash string, ttl time.Duration, fn func(context.Context) (any, any, error)) (any, *IdempotencyRecord, bool, error) {
+	tx, err := r.writePool.Begin(ctx)
+	if err != nil {
+		return nil, nil, false, fmt.Errorf("repository: RunIdempotentTx(): begin: %w", err)
+	}
+	defer rollbackTxOnCancel(ctx, tx)()
+	record, acquired, err := beginIdempotency(ctx, tx, actorKey, operation, key, requestHash, ttl)
+	if err != nil || !acquired {
+		return nil, record, acquired, err
+	}
+	txCtx := contextWithCommandTx(ctx, tx)
+	result, resourceID, err := fn(txCtx)
+	if err != nil {
+		return nil, nil, true, err
+	}
+	response, err := json.Marshal(result)
+	if err != nil {
+		return nil, nil, true, fmt.Errorf("repository: RunIdempotentTx(): encode response: %w", err)
+	}
+	if err = completeIdempotency(ctx, tx, actorKey, operation, key, response, resourceID); err != nil {
+		return nil, nil, true, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return nil, nil, true, fmt.Errorf("repository: RunIdempotentTx(): commit: %w", err)
+	}
+	return result, record, true, nil
 }
 
 func (r *Repository) BeginIdempotency(

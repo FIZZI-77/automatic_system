@@ -1,0 +1,179 @@
+services:
+  location-service:
+    build:
+      context: ..
+      dockerfile: Location_Service/Dockerfile
+      additional_contexts:
+        contracts: ../../contracts
+        service: .
+    environment:
+      DATABASE_URL: postgres://location:location@postgres-location:5432/location?sslmode=disable
+      REDIS_MASTER_NAME: location-master
+      REDIS_SENTINEL_ADDRS: redis-location-sentinel-1:26379,redis-location-sentinel-2:26379,redis-location-sentinel-3:26379
+      GRPC_PORT: "50056"
+      HTTP_PORT: "8080"
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      KAFKA_BROKERS: ${KAFKA_BROKERS:-}
+      REDIS_EVENTS_STREAM: locations:events
+      REDIS_EVENTS_GROUP: location-kafka-relay
+      REDIS_EVENTS_CONSUMER: location-service
+      TRANSPONDER_API_KEY: ${TRANSPONDER_API_KEY:-}
+      SHUTDOWN_TIMEOUT: ${SHUTDOWN_TIMEOUT:-20s}
+    ports:
+      - "50056:50056"
+      - "8080:8080"
+    depends_on:
+      migrator:
+        condition: service_completed_successfully
+      redis-location-sentinel-1:
+        condition: service_healthy
+      redis-location-sentinel-2:
+        condition: service_healthy
+      redis-location-sentinel-3:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres-location:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: location
+      POSTGRES_PASSWORD: location
+      POSTGRES_DB: location
+    ports:
+      - "5436:5432"
+    volumes:
+      - postgres_location_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U location -d location"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  redis-location-master:
+    image: redis:7.4-alpine
+    container_name: location-redis-master
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_location_master_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  redis-location-replica-1:
+    image: redis:7.4-alpine
+    container_name: location-redis-replica-1
+    command: ["redis-server", "--appendonly", "yes", "--replicaof", "redis-location-master", "6379"]
+    ports:
+      - "6381:6379"
+    volumes:
+      - redis_location_replica_1_data:/data
+    depends_on:
+      redis-location-master:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  redis-location-replica-2:
+    image: redis:7.4-alpine
+    container_name: location-redis-replica-2
+    command: ["redis-server", "--appendonly", "yes", "--replicaof", "redis-location-master", "6379"]
+    ports:
+      - "6382:6379"
+    volumes:
+      - redis_location_replica_2_data:/data
+    depends_on:
+      redis-location-master:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  redis-location-sentinel-1:
+    image: redis:7.4-alpine
+    container_name: location-redis-sentinel-1
+    command: ["sh", "-c", "test -f /data/sentinel.conf || cp /sentinel/sentinel.conf /data/sentinel.conf; exec redis-server /data/sentinel.conf --sentinel"]
+    ports:
+      - "26379:26379"
+    volumes:
+      - ./redis/sentinel.conf:/sentinel/sentinel.conf:ro
+      - redis_location_sentinel_1_data:/data
+    depends_on:
+      redis-location-replica-1:
+        condition: service_healthy
+      redis-location-replica-2:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "26379", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  redis-location-sentinel-2:
+    image: redis:7.4-alpine
+    container_name: location-redis-sentinel-2
+    command: ["sh", "-c", "test -f /data/sentinel.conf || cp /sentinel/sentinel.conf /data/sentinel.conf; exec redis-server /data/sentinel.conf --sentinel"]
+    ports:
+      - "26380:26379"
+    volumes:
+      - ./redis/sentinel.conf:/sentinel/sentinel.conf:ro
+      - redis_location_sentinel_2_data:/data
+    depends_on:
+      redis-location-replica-1:
+        condition: service_healthy
+      redis-location-replica-2:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "26379", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  redis-location-sentinel-3:
+    image: redis:7.4-alpine
+    container_name: location-redis-sentinel-3
+    command: ["sh", "-c", "test -f /data/sentinel.conf || cp /sentinel/sentinel.conf /data/sentinel.conf; exec redis-server /data/sentinel.conf --sentinel"]
+    ports:
+      - "26381:26379"
+    volumes:
+      - ./redis/sentinel.conf:/sentinel/sentinel.conf:ro
+      - redis_location_sentinel_3_data:/data
+    depends_on:
+      redis-location-replica-1:
+        condition: service_healthy
+      redis-location-replica-2:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "26379", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  migrator:
+    build: ./migrator
+    environment:
+      GOOSE_DRIVER: postgres
+      GOOSE_DBSTRING: postgres://location:location@postgres-location:5432/location?sslmode=disable
+    command: ["-dir", "/migrations", "up"]
+    volumes:
+      - ./scheme:/migrations:ro
+    depends_on:
+      postgres-location:
+        condition: service_healthy
+
+volumes:
+  postgres_location_data:
+  redis_location_master_data:
+  redis_location_replica_1_data:
+  redis_location_replica_2_data:
+  redis_location_sentinel_1_data:
+  redis_location_sentinel_2_data:
+  redis_location_sentinel_3_data:

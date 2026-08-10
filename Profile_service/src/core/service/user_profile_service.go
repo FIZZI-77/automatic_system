@@ -42,7 +42,7 @@ func (s *UserProfileServiceStruct) CreateUserProfile(ctx context.Context, in *mo
 		}
 	}
 
-	result, err := runCommand(ctx, s.repo, method, in.ActorUserID, in, func() (*models.CreateUserProfileResult, uuid.UUID, error) {
+	result, err := runCommand(ctx, s.repo, method, in.ActorUserID, in, func(ctx context.Context) (*models.CreateUserProfileResult, uuid.UUID, error) {
 		result, err := s.repo.CreateUserProfile(ctx, in)
 		if err != nil {
 			return nil, uuid.Nil, err
@@ -168,7 +168,7 @@ func (s *UserProfileServiceStruct) UpdateUserProfile(ctx context.Context, in *mo
 		return nil, permissionDenied(method)
 	}
 
-	result, err := runCommand(ctx, s.repo, method, in.ActorUserID, in, func() (*models.UpdateUserProfileResult, uuid.UUID, error) {
+	result, err := runCommand(ctx, s.repo, method, in.ActorUserID, in, func(ctx context.Context) (*models.UpdateUserProfileResult, uuid.UUID, error) {
 		result, err := s.repo.UpdateUserProfile(ctx, in)
 		if err != nil {
 			return nil, uuid.Nil, err

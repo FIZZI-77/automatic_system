@@ -21,6 +21,38 @@ type DBPools struct {
 	Read  *pgxpool.Pool
 }
 
+type borrowedTx struct{ pgx.Tx }
+
+func (tx borrowedTx) Commit(context.Context) error   { return nil }
+func (tx borrowedTx) Rollback(context.Context) error { return nil }
+
+type commandTxContextKey struct{}
+
+func contextWithCommandTx(ctx context.Context, tx pgx.Tx) context.Context {
+	return context.WithValue(ctx, commandTxContextKey{}, tx)
+}
+
+func commandExec(ctx context.Context, fallback DBTX) DBTX {
+	if tx, ok := ctx.Value(commandTxContextKey{}).(pgx.Tx); ok && tx != nil {
+		return tx
+	}
+	return fallback
+}
+
+func beginNestedAware(ctx context.Context, exec DBTX) (pgx.Tx, error) {
+	if tx, ok := ctx.Value(commandTxContextKey{}).(pgx.Tx); ok && tx != nil {
+		return borrowedTx{Tx: tx}, nil
+	}
+	if tx, ok := exec.(pgx.Tx); ok {
+		return borrowedTx{Tx: tx}, nil
+	}
+	pool, ok := exec.(*pgxpool.Pool)
+	if !ok {
+		return nil, fmt.Errorf("repository: transaction source is unavailable")
+	}
+	return pool.Begin(ctx)
+}
+
 func rollbackTx(ctx context.Context, tx pgx.Tx) {
 	rollbackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
@@ -43,6 +75,9 @@ func rollbackTxOnCancel(ctx context.Context, tx pgx.Tx) func() {
 }
 
 func withTransaction(ctx context.Context, exec DBTX, operation string, fn func(txExec DBTX) error) error {
+	if tx, ok := ctx.Value(commandTxContextKey{}).(pgx.Tx); ok && tx != nil {
+		return fn(tx)
+	}
 	if tx, ok := exec.(pgx.Tx); ok {
 		return fn(tx)
 	}

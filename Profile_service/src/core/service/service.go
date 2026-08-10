@@ -204,7 +204,7 @@ func runCommand[T any](
 	method string,
 	actorUserID *uuid.UUID,
 	request any,
-	command func() (*T, uuid.UUID, error),
+	command func(context.Context) (*T, uuid.UUID, error),
 ) (*T, error) {
 	result, err := withIdempotency(ctx, repo, method, actorKey(actorUserID), request, command)
 	if err != nil {
@@ -221,7 +221,7 @@ func runLoggedCommand[T any](
 	actorUserID *uuid.UUID,
 	request any,
 	fields []zap.Field,
-	command func() (*T, uuid.UUID, error),
+	command func(context.Context) (*T, uuid.UUID, error),
 	successFields func(*T) []zap.Field,
 ) (*T, error) {
 	operationLogger, start := startOperation(ctx, logger, method, fields...)

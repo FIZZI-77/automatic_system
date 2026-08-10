@@ -6,6 +6,7 @@ import (
 	"ticket/pkg"
 	"time"
 
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 
 	"ticket/models"
@@ -46,7 +47,13 @@ func (s *CategoryServiceStruct) CreateCategory(ctx context.Context, in *models.C
 		return nil, fmt.Errorf("service: CreateCategory(): %w", models.ErrPermissionDenied)
 	}
 
-	category, err := s.repo.CreateCategory(ctx, in)
+	result, err := s.withIdempotency(ctx, "CreateCategory", "", in, func(ctx context.Context) (any, uuid.UUID, error) {
+		category, err := s.repo.CreateCategory(ctx, in)
+		if err != nil {
+			return nil, uuid.Nil, err
+		}
+		return &models.CreateCategoryResult{Category: category}, category.ID, nil
+	})
 	if err != nil {
 		logger.Error("CreateCategory failed",
 			zap.String("code", in.Code),
@@ -55,6 +62,11 @@ func (s *CategoryServiceStruct) CreateCategory(ctx context.Context, in *models.C
 		)
 		return nil, fmt.Errorf("service: CreateCategory(): %w", err)
 	}
+	createResult, err := cachedResult[models.CreateCategoryResult](result)
+	if err != nil {
+		return nil, fmt.Errorf("service: CreateCategory(): idempotency result: %w", err)
+	}
+	category := createResult.Category
 
 	logger.Info("CreateCategory success",
 		zap.String("category_id", category.ID.String()),
@@ -62,9 +74,7 @@ func (s *CategoryServiceStruct) CreateCategory(ctx context.Context, in *models.C
 		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
-	return &models.CreateCategoryResult{
-		Category: category,
-	}, nil
+	return createResult, nil
 }
 
 func (s *CategoryServiceStruct) GetCategory(ctx context.Context, in *models.GetCategoryInput) (*models.GetCategoryResult, error) {
@@ -172,7 +182,13 @@ func (s *CategoryServiceStruct) UpdateCategory(ctx context.Context, in *models.U
 		return nil, fmt.Errorf("service: UpdateCategory(): %w", models.ErrPermissionDenied)
 	}
 
-	category, err := s.repo.UpdateCategory(ctx, in)
+	result, err := s.withIdempotency(ctx, "UpdateCategory", "", in, func(ctx context.Context) (any, uuid.UUID, error) {
+		category, err := s.repo.UpdateCategory(ctx, in)
+		if err != nil {
+			return nil, uuid.Nil, err
+		}
+		return &models.UpdateCategoryResult{Category: category}, category.ID, nil
+	})
 	if err != nil {
 		logger.Error("UpdateCategory failed",
 			zap.String("category_id", in.CategoryID.String()),
@@ -181,6 +197,11 @@ func (s *CategoryServiceStruct) UpdateCategory(ctx context.Context, in *models.U
 		)
 		return nil, fmt.Errorf("service: UpdateCategory(): %w", err)
 	}
+	updateResult, err := cachedResult[models.UpdateCategoryResult](result)
+	if err != nil {
+		return nil, fmt.Errorf("service: UpdateCategory(): idempotency result: %w", err)
+	}
+	category := updateResult.Category
 
 	logger.Info("UpdateCategory success",
 		zap.String("category_id", category.ID.String()),
@@ -188,9 +209,7 @@ func (s *CategoryServiceStruct) UpdateCategory(ctx context.Context, in *models.U
 		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
-	return &models.UpdateCategoryResult{
-		Category: category,
-	}, nil
+	return updateResult, nil
 }
 
 func (s *CategoryServiceStruct) DeleteCategory(ctx context.Context, in *models.DeleteCategoryInput) (*models.DeleteCategoryResult, error) {
@@ -215,7 +234,13 @@ func (s *CategoryServiceStruct) DeleteCategory(ctx context.Context, in *models.D
 		return nil, fmt.Errorf("service: DeleteCategory(): %w", models.ErrPermissionDenied)
 	}
 
-	category, err := s.repo.DeleteCategory(ctx, in)
+	result, err := s.withIdempotency(ctx, "DeleteCategory", "", in, func(ctx context.Context) (any, uuid.UUID, error) {
+		category, err := s.repo.DeleteCategory(ctx, in)
+		if err != nil {
+			return nil, uuid.Nil, err
+		}
+		return &models.DeleteCategoryResult{Category: category}, category.ID, nil
+	})
 	if err != nil {
 		logger.Error("DeleteCategory failed",
 			zap.String("category_id", in.CategoryID.String()),
@@ -224,6 +249,11 @@ func (s *CategoryServiceStruct) DeleteCategory(ctx context.Context, in *models.D
 		)
 		return nil, fmt.Errorf("service: DeleteCategory(): %w", err)
 	}
+	deleteResult, err := cachedResult[models.DeleteCategoryResult](result)
+	if err != nil {
+		return nil, fmt.Errorf("service: DeleteCategory(): idempotency result: %w", err)
+	}
+	category := deleteResult.Category
 
 	logger.Info("DeleteCategory success",
 		zap.String("category_id", category.ID.String()),
@@ -231,7 +261,5 @@ func (s *CategoryServiceStruct) DeleteCategory(ctx context.Context, in *models.D
 		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
 
-	return &models.DeleteCategoryResult{
-		Category: category,
-	}, nil
+	return deleteResult, nil
 }

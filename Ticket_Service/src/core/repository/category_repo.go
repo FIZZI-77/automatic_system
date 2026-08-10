@@ -42,7 +42,7 @@ type categoryEventPayload struct {
 }
 
 func (c *CategoryRepoStruct) CreateCategory(ctx context.Context, in *models.CreateCategoryInput) (*models.TicketCategory, error) {
-	tx, err := c.writePool.Begin(ctx)
+	tx, err := beginCommandTx(ctx, c.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: CreateCategory(): begin tx: %w", err)
 	}
@@ -196,7 +196,7 @@ func (c *CategoryRepoStruct) ListCategories(ctx context.Context, in *models.List
 }
 
 func (c *CategoryRepoStruct) UpdateCategory(ctx context.Context, in *models.UpdateCategoryInput) (*models.TicketCategory, error) {
-	tx, err := c.writePool.Begin(ctx)
+	tx, err := beginCommandTx(ctx, c.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: UpdateCategory(): begin tx: %w", err)
 	}
@@ -258,7 +258,7 @@ func (c *CategoryRepoStruct) updateCategory(ctx context.Context, q Querier, in *
 }
 
 func (c *CategoryRepoStruct) DeleteCategory(ctx context.Context, in *models.DeleteCategoryInput) (*models.TicketCategory, error) {
-	tx, err := c.writePool.Begin(ctx)
+	tx, err := beginCommandTx(ctx, c.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: DeleteCategory(): begin tx: %w", err)
 	}

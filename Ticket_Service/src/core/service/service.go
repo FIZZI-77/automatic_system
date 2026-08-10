@@ -37,12 +37,16 @@ type Service struct {
 }
 
 func NewService(repo *repository.Repository, logger *zap.Logger) *Service {
+	return NewServiceWithRouteCreator(repo, nil, logger)
+}
+
+func NewServiceWithRouteCreator(repo *repository.Repository, routeCreator AssignmentRouteCreator, logger *zap.Logger) *Service {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
 
 	return &Service{
-		TicketService:   NewTicketServiceStruct(repo, logger),
+		TicketService:   NewTicketServiceStructWithRouteCreator(repo, routeCreator, logger),
 		CategoryService: NewCategoryServiceStruct(repo, logger),
 	}
 }

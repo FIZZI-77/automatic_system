@@ -1,8 +1,10 @@
 services:
   api-gateway:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: API_Gateway/Dockerfile
+      additional_contexts:
+        contracts: ../../contracts
     container_name: api-gateway
     ports:
       - "8080:8080"
@@ -12,6 +14,8 @@ services:
       TICKET_SERVICE_ADDR: "host.docker.internal:50052"
       DEPARTMENT_SERVICE_ADDR: "host.docker.internal:50053"
       BRIGADE_SERVICE_ADDR: "host.docker.internal:50054"
+      PROFILE_SERVICE_ADDR: "host.docker.internal:50055"
+      LOCATION_SERVICE_ADDR: "host.docker.internal:50056"
       JWT_PUBLIC_KEY_PATH: "/app/keys/public.pem"
       JWT_ISSUER: "auth-jwt"
       JWT_AUDIENCE: "api-gateway"

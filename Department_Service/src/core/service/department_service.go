@@ -46,7 +46,7 @@ func (s *DepartmentServiceStruct) CreateDepartment(ctx context.Context, in *mode
 		return nil, fmt.Errorf("service: CreateDepartment(): %w", models.ErrPermissionDenied)
 	}
 
-	result, err := s.withIdempotency(ctx, "CreateDepartment", "", in, func() (any, uuid.UUID, error) {
+	result, err := s.withIdempotency(ctx, "CreateDepartment", "", in, func(ctx context.Context) (any, uuid.UUID, error) {
 		department, err := s.repo.CreateDepartment(ctx, in)
 		if err != nil {
 			return nil, uuid.Nil, err
@@ -171,7 +171,7 @@ func (s *DepartmentServiceStruct) UpdateDepartment(ctx context.Context, in *mode
 		return nil, fmt.Errorf("service: UpdateDepartment(): %w", models.ErrPermissionDenied)
 	}
 
-	result, err := s.withIdempotency(ctx, "UpdateDepartment", "", in, func() (any, uuid.UUID, error) {
+	result, err := s.withIdempotency(ctx, "UpdateDepartment", "", in, func(ctx context.Context) (any, uuid.UUID, error) {
 		department, err := s.repo.UpdateDepartment(ctx, in)
 		if err != nil {
 			return nil, uuid.Nil, err
@@ -225,7 +225,7 @@ func (s *DepartmentServiceStruct) DeleteDepartment(ctx context.Context, in *mode
 		return nil, fmt.Errorf("service: DeleteDepartment(): %w", models.ErrPermissionDenied)
 	}
 
-	result, err := s.withIdempotency(ctx, "DeleteDepartment", "", in, func() (any, uuid.UUID, error) {
+	result, err := s.withIdempotency(ctx, "DeleteDepartment", "", in, func(ctx context.Context) (any, uuid.UUID, error) {
 		department, err := s.repo.DeleteDepartment(ctx, in)
 		if err != nil {
 			return nil, uuid.Nil, err
