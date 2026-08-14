@@ -59,3 +59,12 @@ func TestClientBuildRouteUsesTruckConstraints(t *testing.T) {
 		t.Fatalf("route = %#v", route)
 	}
 }
+
+func TestMergePolyline6JoinsValhallaLegShapes(t *testing.T) {
+	first := []polylinePoint{{55755800, 37617300}, {55756000, 37618000}}
+	second := []polylinePoint{{55756000, 37618000}, {55757000, 37620000}}
+	merged := decodePolyline6(mergePolyline6([]string{encodePolyline6(first), encodePolyline6(second)}))
+	if len(merged) != 3 || merged[0] != first[0] || merged[1] != first[1] || merged[2] != second[1] {
+		t.Fatalf("merged points = %#v", merged)
+	}
+}
