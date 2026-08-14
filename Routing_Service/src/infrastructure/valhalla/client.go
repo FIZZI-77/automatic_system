@@ -70,6 +70,7 @@ type routeResponse struct {
 				Length float64 `json:"length"`
 				Time   float64 `json:"time"`
 			} `json:"summary"`
+			Shape string `json:"shape"`
 		} `json:"legs"`
 		Locations []location `json:"locations"`
 	} `json:"trip"`
@@ -138,16 +139,94 @@ func (c *Client) BuildRoute(
 		})
 	}
 
+	encodedPolyline := response.Trip.Shape
+	if encodedPolyline == "" {
+		shapes := make([]string, 0, len(response.Trip.Legs))
+		for _, leg := range response.Trip.Legs {
+			if leg.Shape != "" {
+				shapes = append(shapes, leg.Shape)
+			}
+		}
+		encodedPolyline = mergePolyline6(shapes)
+	}
+
 	return &models.CalculatedRoute{
 		Summary: models.RouteSummary{
 			DistanceMeters:  response.Trip.Summary.Length * 1000,
 			DurationSeconds: int64(response.Trip.Summary.Time),
 		},
-		EncodedPolyline: response.Trip.Shape,
+		EncodedPolyline: encodedPolyline,
 		Legs:            legs,
 		SnappedPoints:   snapped,
 		Engine:          "valhalla",
 	}, nil
+}
+
+type polylinePoint struct{ latitude, longitude int64 }
+
+func mergePolyline6(shapes []string) string {
+	points := make([]polylinePoint, 0)
+	for index, shape := range shapes {
+		leg := decodePolyline6(shape)
+		if index > 0 && len(leg) > 0 {
+			leg = leg[1:]
+		}
+		points = append(points, leg...)
+	}
+	return encodePolyline6(points)
+}
+
+func decodePolyline6(encoded string) []polylinePoint {
+	points := make([]polylinePoint, 0)
+	var latitude, longitude int64
+	for index := 0; index < len(encoded); {
+		values := [2]int64{}
+		for coordinate := range values {
+			var result uint64
+			var shift uint
+			for index < len(encoded) {
+				value := encoded[index] - 63
+				index++
+				result |= uint64(value&0x1f) << shift
+				shift += 5
+				if value < 0x20 {
+					break
+				}
+			}
+			value := int64(result >> 1)
+			if result&1 != 0 {
+				value = ^value
+			}
+			values[coordinate] = value
+		}
+		latitude += values[0]
+		longitude += values[1]
+		points = append(points, polylinePoint{latitude: latitude, longitude: longitude})
+	}
+	return points
+}
+
+func encodePolyline6(points []polylinePoint) string {
+	var builder strings.Builder
+	var previousLatitude, previousLongitude int64
+	for _, point := range points {
+		appendPolylineValue(&builder, point.latitude-previousLatitude)
+		appendPolylineValue(&builder, point.longitude-previousLongitude)
+		previousLatitude, previousLongitude = point.latitude, point.longitude
+	}
+	return builder.String()
+}
+
+func appendPolylineValue(builder *strings.Builder, value int64) {
+	encoded := uint64(value << 1)
+	if value < 0 {
+		encoded = uint64(^(value << 1))
+	}
+	for encoded >= 0x20 {
+		builder.WriteByte(byte((0x20 | (encoded & 0x1f)) + 63))
+		encoded >>= 5
+	}
+	builder.WriteByte(byte(encoded + 63))
 }
 
 func (c *Client) BuildMatrix(
