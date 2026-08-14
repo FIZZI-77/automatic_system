@@ -1,0 +1,7 @@
+grpc_port: 50058
+ticket_service_addr: "ticket-service:50052"
+brigade_service_addr: "brigade-service:50054"
+location_service_addr: "location-service:50056"
+routing_service_addr: "routing-service:50057"
+reservation_ttl: "2m"
+cleanup_interval: "15s"

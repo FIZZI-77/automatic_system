@@ -14,6 +14,7 @@ FROM alpine:3.20
 WORKDIR /app
 
 COPY --from=builder /api-gateway /app/api-gateway
+COPY --from=builder /gateway/config.yaml /app/config.yaml
 
 EXPOSE 8081
 

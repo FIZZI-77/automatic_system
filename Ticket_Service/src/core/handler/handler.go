@@ -37,6 +37,74 @@ type actorContext struct {
 	Roles  []string
 }
 
+func (t *TicketHandler) CreateWorkReport(ctx context.Context, req *ticketv1.CreateWorkReportRequest) (*ticketv1.CreateWorkReportResponse, error) {
+	ticketID, err := uuid.Parse(req.GetTicketId())
+	if err != nil {
+		return nil, ticketStatusError("CreateWorkReport", fmt.Errorf("%w: invalid ticket_id", models.ErrValidation))
+	}
+	authorID, err := uuid.Parse(req.GetAuthorUserId())
+	if err != nil {
+		return nil, ticketStatusError("CreateWorkReport", fmt.Errorf("%w: invalid author_user_id", models.ErrValidation))
+	}
+	fileIDs := make([]uuid.UUID, 0, len(req.GetFileIds()))
+	for _, raw := range req.GetFileIds() {
+		id, parseErr := uuid.Parse(raw)
+		if parseErr != nil {
+			return nil, ticketStatusError("CreateWorkReport", fmt.Errorf("%w: invalid file_id", models.ErrValidation))
+		}
+		fileIDs = append(fileIDs, id)
+	}
+	actor := actorFromContext(ctx)
+	if actor.UserID == nil || (*actor.UserID != authorID && !containsRole(actor.Roles, "admin") && !containsRole(actor.Roles, "dispatcher")) {
+		return nil, ticketStatusError("CreateWorkReport", models.ErrPermissionDenied)
+	}
+	report, err := t.service.Reports.Create(ctx, &models.CreateWorkReportInput{TicketID: ticketID, AuthorUserID: authorID, Description: req.GetDescription(), FileIDs: fileIDs, ActorRoles: actor.Roles})
+	if err != nil {
+		return nil, ticketStatusError("CreateWorkReport", err)
+	}
+	return &ticketv1.CreateWorkReportResponse{Report: toProtoWorkReport(report)}, nil
+}
+
+func (t *TicketHandler) ListWorkReports(ctx context.Context, req *ticketv1.ListWorkReportsRequest) (*ticketv1.ListWorkReportsResponse, error) {
+	ticketID, err := uuid.Parse(req.GetTicketId())
+	if err != nil {
+		return nil, ticketStatusError("ListWorkReports", fmt.Errorf("%w: invalid ticket_id", models.ErrValidation))
+	}
+	actor := actorFromContext(ctx)
+	if actor.UserID == nil {
+		return nil, ticketStatusError("ListWorkReports", models.ErrPermissionDenied)
+	}
+	reports, err := t.service.Reports.List(ctx, ticketID, *actor.UserID, actor.Roles)
+	if err != nil {
+		return nil, ticketStatusError("ListWorkReports", err)
+	}
+	result := make([]*ticketv1.WorkReport, 0, len(reports))
+	for _, report := range reports {
+		result = append(result, toProtoWorkReport(report))
+	}
+	return &ticketv1.ListWorkReportsResponse{Reports: result}, nil
+}
+
+func containsRole(roles []string, wanted string) bool {
+	for _, role := range roles {
+		if role == wanted {
+			return true
+		}
+	}
+	return false
+}
+
+func toProtoWorkReport(report *models.WorkReport) *ticketv1.WorkReport {
+	if report == nil {
+		return nil
+	}
+	files := make([]string, 0, len(report.FileIDs))
+	for _, id := range report.FileIDs {
+		files = append(files, id.String())
+	}
+	return &ticketv1.WorkReport{Id: report.ID.String(), TicketId: report.TicketID.String(), AuthorUserId: report.AuthorUserID.String(), Description: report.Description, FileIds: files, CreatedAt: ToProtoTimestamp(report.CreatedAt), UpdatedAt: ToProtoTimestamp(report.UpdatedAt)}
+}
+
 func (t *TicketHandler) CreateTicket(ctx context.Context, req *ticketv1.CreateTicketRequest) (*ticketv1.CreateTicketResponse, error) {
 	start := time.Now()
 	logger := t.logger.With(pkg.RequestIDField(ctx))
@@ -113,6 +181,7 @@ func (t *TicketHandler) CreateTicket(ctx context.Context, req *ticketv1.CreateTi
 		Longitude:    req.GetLongitude(),
 		ActorUserID:  actor.UserID,
 		ActorRoles:   actor.Roles,
+		AssetID:      optionalParsedUUID(req.AssetId),
 	}
 
 	res, err := t.service.CreateTicket(ctx, in)
@@ -978,6 +1047,16 @@ func optionalString(value string) *string {
 	}
 
 	return &value
+}
+func optionalParsedUUID(value *string) *uuid.UUID {
+	if value == nil {
+		return nil
+	}
+	v, e := uuid.Parse(*value)
+	if e != nil {
+		return nil
+	}
+	return &v
 }
 
 func actorFromContext(ctx context.Context) actorContext {

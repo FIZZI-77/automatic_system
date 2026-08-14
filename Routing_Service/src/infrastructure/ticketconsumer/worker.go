@@ -131,11 +131,21 @@ func (w *Worker) apply(ctx context.Context, message kafka.Message) error {
 	if eventType == "" {
 		return errors.New("ticket event misses event_type")
 	}
+	// Routing only owns the lifecycle reaction for terminal ticket events.
+	// Category, create, update and assignment events share the same topic and
+	// must be acknowledged instead of being treated as poison messages.
+	if eventType != "ticket.canceled" && eventType != "ticket.completed" {
+		return nil
+	}
 	var event routeEvent
 	if err = json.Unmarshal(message.Value, &event); err != nil {
 		return fmt.Errorf("decode ticket event: %w", err)
 	}
-	ticketID, err := uuid.Parse(event.ID)
+	ticketIDValue := event.TicketID
+	if ticketIDValue == "" {
+		ticketIDValue = event.ID
+	}
+	ticketID, err := uuid.Parse(ticketIDValue)
 	if err != nil {
 		return fmt.Errorf("invalid ticket_id: %w", err)
 	}

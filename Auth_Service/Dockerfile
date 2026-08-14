@@ -21,6 +21,7 @@ FROM alpine:latest
 WORKDIR /app
 
 COPY --from=build /app/server .
+COPY --from=build /app/config.yaml .
 
 ENV PATH="/root/go/bin:/usr/local/go/bin:${PATH}"
 

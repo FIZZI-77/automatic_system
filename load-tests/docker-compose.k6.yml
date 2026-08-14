@@ -1,5 +1,5 @@
 services:
-  k6-user:
+  k6:
     image: grafana/k6:0.49.0
     profiles:
       - load
@@ -7,9 +7,18 @@ services:
       - api-gateway
     environment:
       BASE_URL: http://api-gateway:8081
-      K6_VUS: ${K6_VUS:-1}
+      K6_PROFILE: ${K6_PROFILE:-load}
+      K6_VUS: ${K6_VUS:-20}
       K6_DURATION: ${K6_DURATION:-2m}
       K6_ITERATIONS: ${K6_ITERATIONS:-}
+      K6_MAX_VUS: ${K6_MAX_VUS:-100}
+      K6_RATE: ${K6_RATE:-20}
+      K6_RATE_TIME_UNIT: ${K6_RATE_TIME_UNIT:-1s}
+      K6_PREALLOCATED_VUS: ${K6_PREALLOCATED_VUS:-20}
+      K6_STRESS_VUS: ${K6_STRESS_VUS:-50}
+      K6_RAMP_UP: ${K6_RAMP_UP:-30s}
+      K6_RAMP_DOWN: ${K6_RAMP_DOWN:-30s}
+      K6_RUN_ID: ${K6_RUN_ID:-local}
       K6_USER_OFFSET: ${K6_USER_OFFSET:-0}
       K6_SLEEP_SECONDS: ${K6_SLEEP_SECONDS:-1}
       K6_INCLUDE_BUSINESS: ${K6_INCLUDE_BUSINESS:-false}
@@ -20,4 +29,19 @@ services:
     command:
       - run
       - --quiet
-      - ${K6_SCRIPT:-/scripts/real-ip-user.js}
+      - ${K6_SCRIPT:-/scripts/user-load.js}
+
+  k6-real-ip:
+    image: grafana/k6:0.49.0
+    profiles:
+      - real-ip
+    depends_on:
+      - api-gateway
+    environment:
+      BASE_URL: http://api-gateway:8081
+      K6_VUS: "1"
+      K6_DURATION: ${K6_DURATION:-2m}
+      K6_SLEEP_SECONDS: ${K6_SLEEP_SECONDS:-1}
+    volumes:
+      - ./load-tests:/scripts:ro
+    command: ["run", "--quiet", "/scripts/real-ip-user.js"]

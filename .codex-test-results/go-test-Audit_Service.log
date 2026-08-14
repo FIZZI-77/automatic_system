@@ -1,0 +1,8 @@
+ok  	audit/models	(cached)
+?   	audit/pkg	[no test files]
+?   	audit/pkg/config	[no test files]
+?   	audit/src/cmd/server	[no test files]
+?   	audit/src/core/handler	[no test files]
+ok  	audit/src/core/repository	(cached)
+ok  	audit/src/core/service	(cached)
+?   	audit/src/infrastructure/eventconsumer	[no test files]

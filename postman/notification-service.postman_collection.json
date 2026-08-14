@@ -1,0 +1,14 @@
+{
+  "info":{"name":"Notification Service via Gateway","schema":"https://schema.getpostman.com/json/collection/v2.1.0/collection.json"},
+  "auth":{"type":"bearer","bearer":[{"key":"token","value":"{{access_token}}","type":"string"}]},
+  "item":[
+    {"name":"Get preferences","request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{}"},"url":"{{base_url}}/notifications/preferences/get"}},
+    {"name":"Update preferences","request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"in_app_enabled\": true,\n  \"push_enabled\": true,\n  \"email_enabled\": true,\n  \"sms_enabled\": false,\n  \"email\": \"{{email}}\"\n}"},"url":"{{base_url}}/notifications/preferences/update"}},
+    {"name":"Register FCM device","event":[{"listen":"test","script":{"exec":["pm.test('device registered',()=>pm.response.to.have.status(201));","pm.collectionVariables.set('device_id',pm.response.json().device.id);"]}}],"request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"token\":\"{{fcm_token}}\",\"platform\":\"android\"}"},"url":"{{base_url}}/notifications/devices/register"}},
+    {"name":"List notifications","event":[{"listen":"test","script":{"exec":["pm.test('notifications returned',()=>pm.response.to.have.status(200));","const x=pm.response.json();if(x.notifications.length)pm.collectionVariables.set('notification_id',x.notifications[0].id);"]}}],"request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"limit\":50}"},"url":"{{base_url}}/notifications/list"}},
+    {"name":"Mark read","request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"notification_id\":\"{{notification_id}}\"}"},"url":"{{base_url}}/notifications/read"}},
+    {"name":"Mark all read","request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{}"},"url":"{{base_url}}/notifications/read-all"}},
+    {"name":"Delete device","request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"device_id\":\"{{device_id}}\"}"},"url":"{{base_url}}/notifications/devices/delete"}}
+  ],
+  "variable":[{"key":"base_url","value":"http://localhost:8081"},{"key":"access_token","value":""},{"key":"email","value":""},{"key":"fcm_token","value":""},{"key":"device_id","value":""},{"key":"notification_id","value":""},{"key":"websocket_url","value":"ws://localhost:8081/notifications/ws?access_token={{access_token}}"}]
+}

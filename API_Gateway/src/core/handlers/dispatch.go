@@ -26,7 +26,19 @@ func (h *DispatchHandler) Preview(c *gin.Context) {
 		return
 	}
 	out, err := h.client.PreviewDispatch(dispatchContext(c), &dispatchv1.PreviewDispatchRequest{TicketId: in.TicketID, RequiredSkillIds: in.RequiredSkillIDs, Limit: in.Limit})
-	dispatchResponse(c, http.StatusOK, err, out)
+	if err != nil {
+		dispatchResponse(c, http.StatusOK, err, nil)
+		return
+	}
+	// Generated protobuf JSON tags omit an empty repeated field, producing `{}`.
+	// The HTTP contract should always expose the candidates collection.
+	candidates := out.GetCandidates()
+	if candidates == nil {
+		candidates = make([]*dispatchv1.DispatchCandidate, 0)
+	}
+	dispatchResponse(c, http.StatusOK, nil, struct {
+		Candidates []*dispatchv1.DispatchCandidate `json:"candidates"`
+	}{Candidates: candidates})
 }
 func (h *DispatchHandler) Reserve(c *gin.Context) {
 	var in models.ReserveBrigadeRequest

@@ -3,6 +3,7 @@ package main
 import (
 	"auth/pkg"
 	"auth/pkg/closer"
+	appconfig "auth/pkg/config"
 	"auth/src/core/handler"
 	"auth/src/core/repository"
 	"auth/src/core/service"
@@ -21,6 +22,9 @@ import (
 )
 
 func main() {
+	if err := appconfig.Load(); err != nil {
+		log.Fatalf("configuration error: %v", err)
+	}
 	dependencies := closer.New()
 
 	logger, err := pkg.NewLogger()

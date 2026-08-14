@@ -1,0 +1,12 @@
+?   	report/models	[no test files]
+?   	report/pkg	[no test files]
+?   	report/pkg/config	[no test files]
+?   	report/src/cmd/server	[no test files]
+?   	report/src/core/handler	[no test files]
+?   	report/src/core/repository	[no test files]
+ok  	report/src/core/service	(cached)
+?   	report/src/infrastructure/analyticsclient	[no test files]
+?   	report/src/infrastructure/fileclient	[no test files]
+ok  	report/src/infrastructure/generator	(cached)
+?   	report/src/infrastructure/outboxrelay	[no test files]
+?   	report/src/infrastructure/reportworker	[no test files]

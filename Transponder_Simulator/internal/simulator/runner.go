@@ -20,7 +20,9 @@ func NewRunner(cfg Config, route Route, sender Sender, logger *log.Logger) *Runn
 
 func (r *Runner) Run(ctx context.Context) error {
 	r.logger.Printf("transponder simulator started: %s route=%q points=%d", r.cfg.String(), r.route.Name, len(r.route.Points))
-	var sequence uint64
+	// Start from wall-clock milliseconds so a container restart does not reset
+	// the device sequence to 1 and get rejected by Location Service as stale.
+	sequence := uint64(now().UnixMilli())
 	for {
 		for index, point := range r.route.Points {
 			select {

@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 type mockAuthService struct {
@@ -599,7 +600,7 @@ func TestAuthHandler_ChangePassword_Success(t *testing.T) {
 		SessionId:           sessionID.String(),
 		OldPassword:         "old-password",
 		NewPassword:         "new-password",
-		RevokeOtherSessions: true,
+		RevokeOtherSessions: proto.Bool(true),
 	})
 
 	if err != nil {

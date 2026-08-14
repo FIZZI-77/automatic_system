@@ -1,0 +1,10 @@
+db_host: "postgres-ticket"
+db_port: 5432
+db_username: "postgres"
+db_name: "ticketdb"
+sslmode: "disable"
+grpc_port: 50052
+kafka_brokers: ["kafka-1:9092", "kafka-2:9092", "kafka-3:9092"]
+kafka_routing_topic: "routing.events.v1"
+routing_consumer_group_id: "ticket-routing-lifecycle-v1"
+outbox_worker_count: 4

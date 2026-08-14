@@ -1,0 +1,50 @@
+syntax = "proto3";
+package asset.v1;
+option go_package = "github.com/FIZZI-77/automatic-system-contracts/gen/go/asset/v1";
+import "google/protobuf/timestamp.proto";
+
+service AssetService {
+  rpc CreateAsset(CreateAssetRequest) returns (AssetResponse);
+  rpc GetAsset(GetAssetRequest) returns (AssetResponse);
+  rpc ListAssets(ListAssetsRequest) returns (ListAssetsResponse);
+  rpc UpdateAsset(UpdateAssetRequest) returns (AssetResponse);
+  rpc ChangeAssetStatus(ChangeAssetStatusRequest) returns (AssetResponse);
+  rpc FindNearbyAssets(FindNearbyAssetsRequest) returns (ListAssetsResponse);
+  rpc RecordIncident(RecordIncidentRequest) returns (IncidentResponse);
+  rpc CompleteRepair(CompleteRepairRequest) returns (RepairResponse);
+  rpc RecordInspection(RecordInspectionRequest) returns (InspectionResponse);
+  rpc CreateMaintenancePlan(CreateMaintenancePlanRequest) returns (MaintenancePlanResponse);
+  rpc ListDueMaintenance(ListDueMaintenanceRequest) returns (ListMaintenancePlansResponse);
+  rpc GetFailurePrediction(GetFailurePredictionRequest) returns (FailurePredictionResponse);
+  rpc RecalculateRisks(RecalculateRisksRequest) returns (RecalculateRisksResponse);
+}
+enum AssetStatus { ASSET_STATUS_UNSPECIFIED=0; ASSET_STATUS_PLANNED=1; ASSET_STATUS_INSTALLED=2; ASSET_STATUS_ACTIVE=3; ASSET_STATUS_DAMAGED=4; ASSET_STATUS_UNDER_REPAIR=5; ASSET_STATUS_NEEDS_REPLACEMENT=6; ASSET_STATUS_REPLACED=7; ASSET_STATUS_DECOMMISSIONED=8; }
+enum RiskLevel { RISK_LEVEL_UNSPECIFIED=0; RISK_LEVEL_LOW=1; RISK_LEVEL_MEDIUM=2; RISK_LEVEL_HIGH=3; RISK_LEVEL_CRITICAL=4; }
+message Asset { string id=1; optional string external_id=2; string department_id=3; string type=4; string name=5; string address=6; string district=7; string municipality=8; string geometry_geo_json=9; AssetStatus status=10; string model=11; string serial_number=12; optional int32 installation_year=13; optional int32 service_life_years=14; optional google.protobuf.Timestamp warranty_until=15; string owner=16; string service_organization=17; string contractor=18; int32 inspection_interval_days=19; int32 response_norm_minutes=20; int32 repair_norm_minutes=21; double criticality=22; double risk_score=23; RiskLevel risk_level=24; optional google.protobuf.Timestamp last_repair_at=25; optional google.protobuf.Timestamp next_inspection_at=26; google.protobuf.Timestamp created_at=27; google.protobuf.Timestamp updated_at=28; }
+message Incident { string id=1; string asset_id=2; optional string ticket_id=3; string failure_type=4; string description=5; string source=6; string priority=7; bool repeated=8; google.protobuf.Timestamp occurred_at=9; }
+message Repair { string id=1; string asset_id=2; optional string incident_id=3; optional string ticket_id=4; optional string brigade_id=5; string description=6; string replaced_components=7; int32 duration_minutes=8; google.protobuf.Timestamp completed_at=9; }
+message Inspection { string id=1; string asset_id=2; string inspector_user_id=3; string kind=4; string result=5; bool defect_found=6; double condition_score=7; string recommendation=8; google.protobuf.Timestamp inspected_at=9; }
+message MaintenancePlan { string id=1; string asset_id=2; string kind=3; int32 interval_days=4; google.protobuf.Timestamp next_due_at=5; bool active=6; optional google.protobuf.Timestamp last_completed_at=7; }
+message FailurePrediction { string asset_id=1; double risk_score=2; RiskLevel risk_level=3; double failure_probability_90d=4; repeated string factors=5; string recommended_action=6; google.protobuf.Timestamp calculated_at=7; }
+message CreateAssetRequest { string actor_user_id=1; repeated string actor_roles=2; optional string external_id=3; string department_id=4; string type=5; string name=6; string address=7; string district=8; string municipality=9; string geometry_geo_json=10; string model=11; string serial_number=12; optional int32 installation_year=13; optional int32 service_life_years=14; optional google.protobuf.Timestamp warranty_until=15; string owner=16; string service_organization=17; string contractor=18; int32 inspection_interval_days=19; int32 response_norm_minutes=20; int32 repair_norm_minutes=21; double criticality=22; }
+message GetAssetRequest { string asset_id=1; }
+message ListAssetsRequest { optional string department_id=1; optional string type=2; optional AssetStatus status=3; optional string district=4; optional RiskLevel risk_level=5; int32 limit=6; int32 offset=7; }
+message ListAssetsResponse { repeated Asset assets=1; int64 total=2; }
+message AssetResponse { Asset asset=1; }
+message UpdateAssetRequest { string asset_id=1; string actor_user_id=2; repeated string actor_roles=3; optional string name=4; optional string address=5; optional string geometry_geo_json=6; optional string contractor=7; optional double criticality=8; }
+message ChangeAssetStatusRequest { string asset_id=1; AssetStatus status=2; string actor_user_id=3; repeated string actor_roles=4; string reason=5; }
+message FindNearbyAssetsRequest { double latitude=1; double longitude=2; double radius_meters=3; optional string type=4; int32 limit=5; }
+message RecordIncidentRequest { string asset_id=1; optional string ticket_id=2; string failure_type=3; string description=4; string source=5; string priority=6; google.protobuf.Timestamp occurred_at=7; string actor_user_id=8; repeated string actor_roles=9; }
+message IncidentResponse { Incident incident=1; FailurePrediction prediction=2; }
+message CompleteRepairRequest { string asset_id=1; optional string incident_id=2; optional string ticket_id=3; optional string brigade_id=4; string description=5; string replaced_components=6; int32 duration_minutes=7; google.protobuf.Timestamp completed_at=8; string actor_user_id=9; repeated string actor_roles=10; }
+message RepairResponse { Repair repair=1; FailurePrediction prediction=2; }
+message RecordInspectionRequest { string asset_id=1; string inspector_user_id=2; string kind=3; string result=4; bool defect_found=5; double condition_score=6; string recommendation=7; google.protobuf.Timestamp inspected_at=8; repeated string actor_roles=9; }
+message InspectionResponse { Inspection inspection=1; FailurePrediction prediction=2; }
+message CreateMaintenancePlanRequest { string asset_id=1; string kind=2; int32 interval_days=3; google.protobuf.Timestamp next_due_at=4; string actor_user_id=5; repeated string actor_roles=6; }
+message MaintenancePlanResponse { MaintenancePlan plan=1; }
+message ListDueMaintenanceRequest { optional string department_id=1; google.protobuf.Timestamp due_before=2; int32 limit=3; int32 offset=4; }
+message ListMaintenancePlansResponse { repeated MaintenancePlan plans=1; int64 total=2; }
+message GetFailurePredictionRequest { string asset_id=1; }
+message FailurePredictionResponse { FailurePrediction prediction=1; }
+message RecalculateRisksRequest { optional string department_id=1; repeated string actor_roles=2; }
+message RecalculateRisksResponse { int64 updated=1; }

@@ -94,6 +94,7 @@ type Ticket struct {
 
 	UserID    uuid.UUID  `json:"user_id"`
 	BrigadeID *uuid.UUID `json:"brigade_id,omitempty"`
+	AssetID   *uuid.UUID `json:"asset_id,omitempty"`
 
 	Title       string         `json:"title"`
 	Description string         `json:"description"`
@@ -146,6 +147,7 @@ type CreateTicketInput struct {
 	Address   string
 	Latitude  float64
 	Longitude float64
+	AssetID   *uuid.UUID
 
 	ActorUserID *uuid.UUID
 	ActorRoles  []string

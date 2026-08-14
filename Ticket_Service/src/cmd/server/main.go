@@ -15,12 +15,16 @@ import (
 	"google.golang.org/grpc"
 	"ticket/pkg"
 	"ticket/pkg/closer"
+	appconfig "ticket/pkg/config"
 	"ticket/src/core/handler"
 	"ticket/src/core/repository"
 	"ticket/src/core/service"
 )
 
 func main() {
+	if err := appconfig.Load(); err != nil {
+		log.Fatalf("configuration error: %v", err)
+	}
 	dependencies := closer.New()
 
 	logger, err := pkg.NewLogger()

@@ -7,5 +7,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -o /dispatch ./src/cmd/server
 
 FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=build /dispatch /dispatch
+COPY --from=build /src/config.yaml /config.yaml
 EXPOSE 50058
+ENV CONFIG_FILE=/config.yaml
 ENTRYPOINT ["/dispatch"]

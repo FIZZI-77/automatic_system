@@ -87,11 +87,19 @@ func NewRepository(
 }
 
 func NewRepositoryFromClients(pools DBPools, redisClient redis.UniversalClient) *Repository {
+	return NewRepositoryFromClientsWithConfig(pools, redisClient, CurrentLocationRepoConfig{})
+}
+
+func NewRepositoryFromClientsWithConfig(
+	pools DBPools,
+	redisClient redis.UniversalClient,
+	currentLocationConfig CurrentLocationRepoConfig,
+) *Repository {
 	if pools.Read == nil {
 		pools.Read = pools.Write
 	}
 	return &Repository{
-		CurrentLocationRepo: NewCurrentLocationRepo(redisClient),
+		CurrentLocationRepo: NewCurrentLocationRepoWithConfig(redisClient, currentLocationConfig),
 		PositionHistoryRepo: NewPositionHistoryRepo(pools.Write, pools.Read),
 		GeoZoneRepo:         NewGeoZoneRepo(pools.Write, pools.Read),
 	}

@@ -1,0 +1,11 @@
+ok  	notification/models	(cached)
+?   	notification/pkg	[no test files]
+?   	notification/pkg/config	[no test files]
+?   	notification/src/cmd/server	[no test files]
+?   	notification/src/core/handler	[no test files]
+?   	notification/src/core/repository	[no test files]
+?   	notification/src/core/service	[no test files]
+?   	notification/src/infrastructure/delivery	[no test files]
+?   	notification/src/infrastructure/eventconsumer	[no test files]
+?   	notification/src/infrastructure/live	[no test files]
+?   	notification/src/infrastructure/sender	[no test files]

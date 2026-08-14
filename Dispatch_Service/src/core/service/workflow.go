@@ -14,7 +14,9 @@ import (
 	ticketv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/ticket/v1"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 func (s *Service) Preview(ctx context.Context, in *models.RecommendInput) ([]models.Candidate, error) {
@@ -57,6 +59,9 @@ func (s *Service) Preview(ctx context.Context, in *models.RecommendInput) ([]mod
 			continue
 		}
 		candidates = append(candidates, &routingv1.Candidate{BrigadeId: id, Location: &routingv1.Point{Latitude: current.GetPosition().GetLatitude(), Longitude: current.GetPosition().GetLongitude()}})
+	}
+	if len(candidates) == 0 {
+		return []models.Candidate{}, nil
 	}
 	ranked, err := s.deps.Routing.RankCandidates(ctx, &routingv1.RankCandidatesRequest{
 		Destination: &routingv1.Point{Latitude: ticket.GetLatitude(), Longitude: ticket.GetLongitude()}, Candidates: candidates,
@@ -106,6 +111,9 @@ func (s *Service) AutoDispatch(ctx context.Context, in *models.AutoInput) (*mode
 	candidates, err := s.Preview(ctx, &models.RecommendInput{TicketID: in.TicketID, RequiredSkillIDs: in.RequiredSkillIDs, Limit: in.CandidateLimit})
 	if err != nil {
 		return nil, err
+	}
+	if len(candidates) == 0 {
+		return nil, fmt.Errorf("%w: no reachable brigade", models.ErrNotFound)
 	}
 	op, err := s.repo.Create(ctx, in.TicketID, in.RequestedBy, models.ModeAutomatic, s.ttl)
 	if err != nil {
@@ -250,6 +258,9 @@ func (s *Service) reserveExisting(ctx context.Context, op *models.Operation, bri
 func (s *Service) getNewTicket(ctx context.Context, id uuid.UUID) (*ticketv1.Ticket, error) {
 	response, err := s.deps.Tickets.GetTicket(ctx, &ticketv1.GetTicketRequest{TicketId: id.String()})
 	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return nil, models.ErrNotFound
+		}
 		return nil, fmt.Errorf("get ticket: %w", err)
 	}
 	if response.GetTicket() == nil {

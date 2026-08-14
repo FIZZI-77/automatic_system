@@ -50,6 +50,10 @@ Ticket
 
 ## File Service
 
+> Реализовано: базовый File Service с PostgreSQL, S3/MinIO, presigned upload/download,
+> confirm/link/delete, лимитами размера и MIME type. Kafka для File Service не используется.
+> Ticket Service содержит отчёты о выполненной работе и связи отчётов с `file_id`.
+
 - Хранить бинарные данные в MinIO для local/dev и S3/Object Storage для production.
 - Хранить метаданные в PostgreSQL: владелец, ресурс, имя, MIME type, размер, checksum, object key, статус и timestamps.
 - Генерировать presigned upload/download URL, не проксируя содержимое через Gateway или gRPC.
@@ -102,6 +106,9 @@ Ticket
 - Не влиять на выполнение транзакционных операций.
 
 ## Report Service
+
+> Реализовано: асинхронные PDF/XLSX/CSV-отчёты по данным Analytics Service, PostgreSQL-очередь,
+> transactional outbox, cancel/retry, хранение результата через File Service в S3/MinIO и Gateway API.
 
 - Формировать PDF, XLSX и CSV по данным Analytics, SLA, Dispatch и других read-моделей.
 - Поддерживать ручные и регламентные отчёты.

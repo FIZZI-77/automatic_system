@@ -15,6 +15,7 @@ import (
 
 	"location/pkg"
 	"location/pkg/closer"
+	appconfig "location/pkg/config"
 	"location/src/core/handler"
 	"location/src/core/httptransport"
 	"location/src/core/repository"
@@ -31,6 +32,9 @@ import (
 )
 
 func main() {
+	if err := appconfig.Load(); err != nil {
+		panic("configuration error: " + err.Error())
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	log, err := pkg.NewLogger()
@@ -52,7 +56,16 @@ func main() {
 	if err = rdb.Ping(ctx).Err(); err != nil {
 		fatalWithCleanup(log, dependencies, "ping redis", err)
 	}
-	repo := repository.NewRepositoryFromClients(repository.DBPools{Write: db, Read: db}, rdb)
+	signalStaleAfter := envDuration("SIGNAL_STALE_AFTER", 15*time.Second)
+	signalOfflineAfter := envDuration("SIGNAL_OFFLINE_AFTER", 60*time.Second)
+	repo := repository.NewRepositoryFromClientsWithConfig(
+		repository.DBPools{Write: db, Read: db},
+		rdb,
+		repository.CurrentLocationRepoConfig{
+			StaleAfter:   signalStaleAfter,
+			OfflineAfter: signalOfflineAfter,
+		},
+	)
 	buffer := service.NewMemoryPositionBuffer(envInt("HISTORY_BUFFER_CAPACITY", 10000))
 	historyWorker, err := positionhistory.New(
 		buffer,
@@ -89,8 +102,8 @@ func main() {
 		locationService,
 		signalmonitor.Config{
 			Interval:     envDuration("SIGNAL_SCAN_INTERVAL", 5*time.Second),
-			StaleAfter:   envDuration("SIGNAL_STALE_AFTER", 15*time.Second),
-			OfflineAfter: envDuration("SIGNAL_OFFLINE_AFTER", 60*time.Second),
+			StaleAfter:   signalStaleAfter,
+			OfflineAfter: signalOfflineAfter,
 			BatchSize:    int32(envInt("SIGNAL_BATCH_SIZE", 500)),
 		},
 		log,

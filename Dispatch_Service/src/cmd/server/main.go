@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	appconfig "dispatch/pkg/config"
 	"dispatch/src/core/handler"
 	"dispatch/src/core/repository"
 	"dispatch/src/core/service"
@@ -25,6 +26,9 @@ import (
 )
 
 func main() {
+	if err := appconfig.Load(); err != nil {
+		log.Fatalf("configuration error: %v", err)
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	logger, _ := zap.NewProduction()

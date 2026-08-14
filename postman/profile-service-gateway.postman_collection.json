@@ -189,8 +189,7 @@
         {"name": "Update work profile", "request": {"method": "POST", "body": {"mode": "raw", "raw": "{\n  \"id\": \"{{work_profile_id}}\",\n  \"employee_number\": \"POSTMAN-002\",\n  \"clear_employee_number\": false,\n  \"position\": \"Senior Field Engineer\"\n}"}, "url": "{{base_url}}/work-profiles/update"}},
         {"name": "Change work profile department", "request": {"method": "POST", "body": {"mode": "raw", "raw": "{\n  \"id\": \"{{work_profile_id}}\",\n  \"department_id\": \"{{new_department_id}}\",\n  \"reason\": \"Postman integration test\"\n}"}, "url": "{{base_url}}/work-profiles/change-department"}},
         {"name": "Set work profile status on shift", "request": {"method": "POST", "body": {"mode": "raw", "raw": "{\n  \"id\": \"{{work_profile_id}}\",\n  \"status\": \"on_shift\",\n  \"reason\": \"Postman integration test\"\n}"}, "url": "{{base_url}}/work-profiles/set-status"}},
-        {"name": "Work profile status history", "request": {"method": "POST", "body": {"mode": "raw", "raw": "{\n  \"work_profile_id\": \"{{work_profile_id}}\",\n  \"limit\": 50,\n  \"offset\": 0\n}"}, "url": "{{base_url}}/work-profiles/status-history"}},
-        {"name": "Deactivate work profile (destructive, run last)", "request": {"method": "POST", "body": {"mode": "raw", "raw": "{\n  \"id\": \"{{work_profile_id}}\",\n  \"reason\": \"Postman cleanup\"\n}"}, "url": "{{base_url}}/work-profiles/deactivate"}}
+        {"name": "Work profile status history", "request": {"method": "POST", "body": {"mode": "raw", "raw": "{\n  \"work_profile_id\": \"{{work_profile_id}}\",\n  \"limit\": 50,\n  \"offset\": 0\n}"}, "url": "{{base_url}}/work-profiles/status-history"}}
       ]
     },
     {
@@ -252,6 +251,12 @@
         {"name": "Batch list effective skills", "request": {"method": "POST", "body": {"mode": "raw", "raw": "{\n  \"work_profile_ids\": [\"{{work_profile_id}}\"]\n}"}, "url": "{{base_url}}/work-profile-skills/batch-list-effective"}},
         {"name": "Check work profile has skills", "request": {"method": "POST", "body": {"mode": "raw", "raw": "{\n  \"work_profile_id\": \"{{work_profile_id}}\",\n  \"required_skill_ids\": [\"{{skill_id}}\"]\n}"}, "url": "{{base_url}}/work-profile-skills/has-skills"}},
         {"name": "Revoke skill grant", "request": {"method": "POST", "body": {"mode": "raw", "raw": "{\n  \"id\": \"{{skill_grant_id}}\",\n  \"reason\": \"Postman cleanup\"\n}"}, "url": "{{base_url}}/work-profile-skills/revoke"}}
+      ]
+    },
+    {
+      "name": "90 Cleanup",
+      "item": [
+        {"name": "Deactivate work profile (destructive, run last)", "request": {"method": "POST", "body": {"mode": "raw", "raw": "{\n  \"id\": \"{{work_profile_id}}\",\n  \"reason\": \"Postman cleanup\"\n}"}, "url": "{{base_url}}/work-profiles/deactivate"}}
       ]
     }
   ]

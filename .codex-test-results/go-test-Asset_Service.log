@@ -1,0 +1,9 @@
+ok  	asset	(cached)
+?   	asset/models	[no test files]
+?   	asset/pkg	[no test files]
+?   	asset/pkg/config	[no test files]
+?   	asset/src/cmd/server	[no test files]
+?   	asset/src/core/handler	[no test files]
+?   	asset/src/core/repository	[no test files]
+ok  	asset/src/core/service	(cached)
+?   	asset/src/infrastructure/outboxrelay	[no test files]

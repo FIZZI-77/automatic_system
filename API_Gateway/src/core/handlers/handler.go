@@ -40,15 +40,23 @@ func handleGRPCError(c *gin.Context, err error) {
 }
 
 type Handler struct {
-	authHandler       *AuthHandler
-	ticketHandler     *TicketHandler
-	departmentHandler *DepartmentHandler
-	brigadeHandler    *BrigadeHandler
-	profileHandler    *ProfileHandler
-	locationHandler   *LocationHandler
-	routingHandler    *RoutingHandler
-	dispatchHandler   *DispatchHandler
-	authMiddleware    *middleware.AuthMiddleware
+	authHandler         *AuthHandler
+	ticketHandler       *TicketHandler
+	departmentHandler   *DepartmentHandler
+	brigadeHandler      *BrigadeHandler
+	profileHandler      *ProfileHandler
+	locationHandler     *LocationHandler
+	routingHandler      *RoutingHandler
+	dispatchHandler     *DispatchHandler
+	fileHandler         *FileHandler
+	slaHandler          *SLAHandler
+	notificationHandler *NotificationHandler
+	auditHandler        *AuditHandler
+	analyticsHandler    *AnalyticsHandler
+	reportHandler       *ReportHandler
+	assetHandler        *AssetHandler
+	authMiddleware      *middleware.AuthMiddleware
+	rateLimiter         *middleware.RedisRateLimiter
 }
 
 func NewHandler(
@@ -60,18 +68,34 @@ func NewHandler(
 	locationHandler *LocationHandler,
 	routingHandler *RoutingHandler,
 	dispatchHandler *DispatchHandler,
+	fileHandler *FileHandler,
+	slaHandler *SLAHandler,
+	notificationHandler *NotificationHandler,
+	auditHandler *AuditHandler,
+	analyticsHandler *AnalyticsHandler,
+	reportHandler *ReportHandler,
+	assetHandler *AssetHandler,
 	authMiddleware *middleware.AuthMiddleware,
+	rateLimiter *middleware.RedisRateLimiter,
 ) *Handler {
 	return &Handler{
-		authHandler:       authHandler,
-		ticketHandler:     ticketHandler,
-		departmentHandler: departmentHandler,
-		brigadeHandler:    brigadeHandler,
-		profileHandler:    profileHandler,
-		locationHandler:   locationHandler,
-		routingHandler:    routingHandler,
-		dispatchHandler:   dispatchHandler,
-		authMiddleware:    authMiddleware,
+		authHandler:         authHandler,
+		ticketHandler:       ticketHandler,
+		departmentHandler:   departmentHandler,
+		brigadeHandler:      brigadeHandler,
+		profileHandler:      profileHandler,
+		locationHandler:     locationHandler,
+		routingHandler:      routingHandler,
+		dispatchHandler:     dispatchHandler,
+		fileHandler:         fileHandler,
+		slaHandler:          slaHandler,
+		notificationHandler: notificationHandler,
+		auditHandler:        auditHandler,
+		analyticsHandler:    analyticsHandler,
+		reportHandler:       reportHandler,
+		assetHandler:        assetHandler,
+		authMiddleware:      authMiddleware,
+		rateLimiter:         rateLimiter,
 	}
 }
 
@@ -81,7 +105,7 @@ func (h *Handler) InitRouters() *gin.Engine {
 
 	router.Use(middleware.RequestID())
 	router.Use(middleware.IdempotencyKey())
-	router.Use(middleware.RateLimit(middleware.RateLimitConfig{
+	router.Use(h.rateLimiter.Middleware(middleware.RateLimitConfig{
 		Name:   "global",
 		Limit:  300,
 		Burst:  100,
@@ -100,7 +124,7 @@ func (h *Handler) InitRouters() *gin.Engine {
 	})
 
 	publicAuth := router.Group("/auth")
-	publicAuth.Use(middleware.RateLimit(middleware.RateLimitConfig{
+	publicAuth.Use(h.rateLimiter.Middleware(middleware.RateLimitConfig{
 		Name:   "public-auth",
 		Limit:  20,
 		Burst:  10,
@@ -120,7 +144,7 @@ func (h *Handler) InitRouters() *gin.Engine {
 
 	privateAuth := router.Group("/auth")
 	privateAuth.Use(h.authMiddleware.Handle())
-	privateAuth.Use(middleware.RateLimit(middleware.RateLimitConfig{
+	privateAuth.Use(h.rateLimiter.Middleware(middleware.RateLimitConfig{
 		Name:   "private-auth",
 		Limit:  30,
 		Burst:  10,
@@ -150,10 +174,93 @@ func (h *Handler) InitRouters() *gin.Engine {
 		privateTickets.POST("/get", h.ticketHandler.GetTicket)
 		privateTickets.POST("/list", h.ticketHandler.ListTicket)
 		privateTickets.POST("/update", h.ticketHandler.UpdateTicket)
+		privateTickets.POST("/assign-brigade", h.ticketHandler.AssignBrigade)
 		privateTickets.POST("/change-status", h.ticketHandler.ChangeTicketStatus)
 		privateTickets.POST("/cancel", h.ticketHandler.CancelTicket)
 		privateTickets.POST("/complete", h.ticketHandler.CompleteTicket)
 		privateTickets.POST("/status-history", h.ticketHandler.GetTicketStatusHistory)
+		privateTickets.POST("/reports/create", h.ticketHandler.CreateWorkReport)
+		privateTickets.POST("/reports/list", h.ticketHandler.ListWorkReports)
+	}
+
+	privateFiles := router.Group("/files")
+	privateFiles.Use(h.authMiddleware.Handle())
+	{
+		privateFiles.POST("/uploads/create", h.fileHandler.CreateUpload)
+		privateFiles.POST("/uploads/confirm", h.fileHandler.ConfirmUpload)
+		privateFiles.POST("/link", h.fileHandler.LinkFile)
+		privateFiles.POST("/download-url", h.fileHandler.GetDownloadURL)
+		privateFiles.POST("/list", h.fileHandler.ListResourceFiles)
+		privateFiles.POST("/delete", h.fileHandler.DeleteFile)
+	}
+	privateSLA := router.Group("/sla")
+	privateSLA.Use(h.authMiddleware.Handle())
+	{
+		privateSLA.POST("/rules/create", h.slaHandler.CreateRule)
+		privateSLA.POST("/rules/update", h.slaHandler.UpdateRule)
+		privateSLA.POST("/rules/delete", h.slaHandler.DeleteRule)
+		privateSLA.POST("/rules/get", h.slaHandler.GetRule)
+		privateSLA.POST("/rules/list", h.slaHandler.ListRules)
+		privateSLA.POST("/tickets/get", h.slaHandler.GetTicketSLA)
+		privateSLA.POST("/tickets/list", h.slaHandler.ListTicketSLAs)
+		privateSLA.POST("/history/list", h.slaHandler.ListHistory)
+	}
+	router.GET("/notifications/ws", h.authMiddleware.HandleWebSocket(), h.notificationHandler.WebSocket)
+	privateNotifications := router.Group("/notifications")
+	privateNotifications.Use(h.authMiddleware.Handle())
+	{
+		privateNotifications.POST("/list", h.notificationHandler.List)
+		privateNotifications.POST("/read", h.notificationHandler.MarkRead)
+		privateNotifications.POST("/read-all", h.notificationHandler.MarkAllRead)
+		privateNotifications.POST("/preferences/get", h.notificationHandler.GetPreferences)
+		privateNotifications.POST("/preferences/update", h.notificationHandler.UpdatePreferences)
+		privateNotifications.POST("/devices/register", h.notificationHandler.RegisterDevice)
+		privateNotifications.POST("/devices/delete", h.notificationHandler.DeleteDevice)
+		privateNotifications.POST("/templates/upsert", h.notificationHandler.UpsertTemplate)
+		privateNotifications.POST("/templates/list", h.notificationHandler.ListTemplates)
+		privateNotifications.POST("/deliveries/list", h.notificationHandler.ListDeliveries)
+	}
+	privateAudit := router.Group("/audit")
+	privateAudit.Use(h.authMiddleware.Handle())
+	{
+		privateAudit.POST("/get", h.auditHandler.Get)
+		privateAudit.POST("/list", h.auditHandler.List)
+	}
+	privateAnalytics := router.Group("/analytics")
+	privateAnalytics.Use(h.authMiddleware.Handle())
+	{
+		privateAnalytics.POST("/tickets/overview", h.analyticsHandler.Overview)
+		privateAnalytics.POST("/sla/summary", h.analyticsHandler.SLA)
+		privateAnalytics.POST("/tickets/breakdown", h.analyticsHandler.Breakdown)
+		privateAnalytics.POST("/tickets/daily", h.analyticsHandler.Daily)
+		privateAnalytics.POST("/assets/summary", h.analyticsHandler.Assets)
+	}
+	privateReports := router.Group("/reports")
+	privateReports.Use(h.authMiddleware.Handle())
+	{
+		privateReports.POST("/create", h.reportHandler.Create)
+		privateReports.POST("/get", h.reportHandler.Get)
+		privateReports.POST("/list", h.reportHandler.List)
+		privateReports.POST("/cancel", h.reportHandler.Cancel)
+		privateReports.POST("/retry", h.reportHandler.Retry)
+		privateReports.POST("/download-url", h.reportHandler.Download)
+	}
+	privateAssets := router.Group("/assets")
+	privateAssets.Use(h.authMiddleware.Handle())
+	{
+		privateAssets.POST("/create", h.assetHandler.Create)
+		privateAssets.POST("/get", h.assetHandler.Get)
+		privateAssets.POST("/update", h.assetHandler.Update)
+		privateAssets.POST("/list", h.assetHandler.List)
+		privateAssets.POST("/status", h.assetHandler.ChangeStatus)
+		privateAssets.POST("/nearby", h.assetHandler.Nearby)
+		privateAssets.POST("/incidents", h.assetHandler.Incident)
+		privateAssets.POST("/repairs", h.assetHandler.Repair)
+		privateAssets.POST("/inspections", h.assetHandler.Inspection)
+		privateAssets.POST("/prediction", h.assetHandler.Prediction)
+		privateAssets.POST("/maintenance/create", h.assetHandler.CreatePlan)
+		privateAssets.POST("/maintenance/due", h.assetHandler.DuePlans)
+		privateAssets.POST("/risks/recalculate", h.assetHandler.Recalculate)
 	}
 
 	privateCategories := router.Group("/ticket-categories")

@@ -20,6 +20,7 @@ import (
 
 	"profile/pkg"
 	"profile/pkg/closer"
+	appconfig "profile/pkg/config"
 	"profile/src/core/handler"
 	"profile/src/core/repository"
 	"profile/src/core/service"
@@ -27,6 +28,9 @@ import (
 )
 
 func main() {
+	if err := appconfig.Load(); err != nil {
+		log.Fatalf("configuration error: %v", err)
+	}
 	dependencies := closer.New()
 
 	logger, err := pkg.NewLogger()

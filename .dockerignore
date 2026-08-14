@@ -1,0 +1,10 @@
+.git
+.idea
+.gocache
+.codex-protoc
+.codex-test-results
+.contract-staging
+**/.git
+**/.idea
+**/*.exe
+**/*.log
