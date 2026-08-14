@@ -1,0 +1,12 @@
+ok  	profile/models	(cached)
+?   	profile/pkg	[no test files]
+?   	profile/pkg/closer	[no test files]
+?   	profile/pkg/config	[no test files]
+?   	profile/src/cmd/server	[no test files]
+ok  	profile/src/core/handler	0.801s
+ok  	profile/src/core/repository	(cached)
+ok  	profile/src/core/service	(cached)
+?   	profile/src/infrastructure/certificationexpiry	[no test files]
+ok  	profile/src/infrastructure/grpcdeps	0.936s
+ok  	profile/src/infrastructure/outboxrelay	(cached)
+ok  	profile/src/integration	15.155s

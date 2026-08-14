@@ -1,4 +1,71 @@
 services:
+  file-service:
+    build:
+      context: ./File_Service
+    container_name: file-service
+    environment:
+      DATABASE_URL: postgres://file:file@postgres-file:5432/file?sslmode=disable
+      GRPC_PORT: "50059"
+      S3_ENDPOINT: http://minio:9000
+      S3_PUBLIC_ENDPOINT: http://localhost:${MINIO_API_PORT:-9000}
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      S3_BUCKET: city-files
+      S3_PATH_STYLE: "true"
+      PRESIGN_TTL: 15m
+    ports:
+      - "${FILE_GRPC_PORT:-50059}:50059"
+    depends_on:
+      migrator-file:
+        condition: service_completed_successfully
+      minio:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres-file:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: file
+      POSTGRES_PASSWORD: file
+      POSTGRES_DB: file
+    ports:
+      - "${FILE_DB_PORT:-5440}:5432"
+    volumes:
+      - file-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U file -d file"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  migrator-file:
+    build:
+      context: ./File_Service
+      dockerfile: migrator/Dockerfile
+    command: ["postgres://file:file@postgres-file:5432/file?sslmode=disable", "up"]
+    depends_on:
+      postgres-file:
+        condition: service_healthy
+    restart: "no"
+
+  minio:
+    image: minio/minio:RELEASE.2025-07-23T15-54-02Z
+    command: server /data --console-address :9001
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
   api-gateway:
     build:
       context: .
@@ -6,6 +73,19 @@ services:
     container_name: api-gateway
     env_file:
       - ./API_Gateway/.env
+    environment:
+      REDIS_ADDR: redis-gateway:6379
+      REDIS_PASSWORD: ${GATEWAY_REDIS_PASSWORD:-}
+      REDIS_DB: "0"
+      RATE_LIMIT_PREFIX: gateway:ratelimit
+      FILE_SERVICE_ADDR: file-service:50059
+      SLA_SERVICE_ADDR: sla-service:50060
+      NOTIFICATION_SERVICE_ADDR: notification-service:50061
+      AUDIT_SERVICE_ADDR: audit-service:50062
+      ANALYTICS_SERVICE_ADDR: analytics-service:50063
+      REPORT_SERVICE_ADDR: report-service:50064
+      ASSET_SERVICE_ADDR: asset-service:50065
+      NOTIFICATION_LIVE_PREFIX: "notifications:user:"
     ports:
       - "${API_GATEWAY_PORT}:8081"
     volumes:
@@ -31,6 +111,10 @@ services:
       routing-service:
         condition: service_started
       dispatch-service:
+        condition: service_started
+      report-service:
+        condition: service_started
+      asset-service:
         condition: service_started
     restart: unless-stopped
 
@@ -160,8 +244,8 @@ services:
       HISTORY_BATCH_SIZE: "500"
       HISTORY_FLUSH_INTERVAL: 5s
       SIGNAL_SCAN_INTERVAL: 5s
-      SIGNAL_STALE_AFTER: 15s
-      SIGNAL_OFFLINE_AFTER: 60s
+      SIGNAL_STALE_AFTER: 5m
+      SIGNAL_OFFLINE_AFTER: 10m
       SIGNAL_BATCH_SIZE: "500"
       SHUTDOWN_TIMEOUT: 20s
       KAFKA_BROKERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
@@ -183,6 +267,105 @@ services:
         condition: service_healthy
       kafka-1:
         condition: service_healthy
+    restart: unless-stopped
+
+  transponder-simulator:
+    image: authomaticcityservices-transponder-simulator:latest
+    build:
+      context: ./Transponder_Simulator
+      dockerfile: Dockerfile
+    container_name: transponder-simulator
+    environment:
+      VEHICLE_ID: ${TRANSPONDER_VEHICLE_ID:-55555555-5555-5555-5555-555555555555}
+      BRIGADE_ID: ${TRANSPONDER_BRIGADE_ID:-e6450e95-77dd-4824-89fa-1657f409be68}
+      DEVICE_ID: ${TRANSPONDER_DEVICE_ID:-simulator-car-001}
+      TARGET_URL: http://location-service:8080/v1/positions
+      TRANSPONDER_API_KEY: ${TRANSPONDER_API_KEY:-}
+      ROUTE_FILE: routes/moscow-center.json
+      SEND_INTERVAL: ${TRANSPONDER_SEND_INTERVAL:-2s}
+      REQUEST_TIMEOUT: 5s
+      RETRY_COUNT: "3"
+      LOOP_ROUTE: "true"
+      DEFAULT_SPEED_KMH: "35"
+      GPS_ACCURACY_METERS: "5"
+    depends_on:
+      redis-gateway:
+        condition: service_healthy
+      file-service:
+        condition: service_started
+      sla-service:
+        condition: service_started
+      notification-service:
+        condition: service_started
+      audit-service:
+        condition: service_started
+      analytics-service:
+        condition: service_started
+      location-service:
+        condition: service_started
+    restart: unless-stopped
+
+  redis-gateway:
+    image: redis:7.4-alpine
+    container_name: gateway-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${GATEWAY_REDIS_PORT:-6379}:6379"
+    volumes:
+      - gateway_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  transponder-simulator-auto:
+    image: authomaticcityservices-transponder-simulator:latest
+    build:
+      context: ./Transponder_Simulator
+      dockerfile: Dockerfile
+    container_name: transponder-simulator-auto
+    environment:
+      VEHICLE_ID: ${TRANSPONDER_AUTO_VEHICLE_ID:-55555555-5555-5555-5555-555555555556}
+      BRIGADE_ID: ${TRANSPONDER_AUTO_BRIGADE_ID:-dd720703-bc5d-4278-8180-29f1f0909e0d}
+      DEVICE_ID: ${TRANSPONDER_AUTO_DEVICE_ID:-simulator-car-002}
+      TARGET_URL: http://location-service:8080/v1/positions
+      TRANSPONDER_API_KEY: ${TRANSPONDER_API_KEY:-}
+      ROUTE_FILE: routes/moscow-center.json
+      SEND_INTERVAL: ${TRANSPONDER_SEND_INTERVAL:-2s}
+      REQUEST_TIMEOUT: 5s
+      RETRY_COUNT: "3"
+      LOOP_ROUTE: "true"
+      DEFAULT_SPEED_KMH: "35"
+      GPS_ACCURACY_METERS: "5"
+    depends_on:
+      location-service:
+        condition: service_started
+    restart: unless-stopped
+
+  transponder-simulator-cancel:
+    image: authomaticcityservices-transponder-simulator:latest
+    build:
+      context: ./Transponder_Simulator
+      dockerfile: Dockerfile
+    container_name: transponder-simulator-cancel
+    environment:
+      VEHICLE_ID: ${TRANSPONDER_CANCEL_VEHICLE_ID:-55555555-5555-5555-5555-555555555557}
+      BRIGADE_ID: ${TRANSPONDER_CANCEL_BRIGADE_ID:-bf9221f9-dbca-4981-abd6-81a977a44054}
+      DEVICE_ID: ${TRANSPONDER_CANCEL_DEVICE_ID:-simulator-car-003}
+      TARGET_URL: http://location-service:8080/v1/positions
+      TRANSPONDER_API_KEY: ${TRANSPONDER_API_KEY:-}
+      ROUTE_FILE: routes/moscow-center.json
+      SEND_INTERVAL: ${TRANSPONDER_SEND_INTERVAL:-2s}
+      REQUEST_TIMEOUT: 5s
+      RETRY_COUNT: "3"
+      LOOP_ROUTE: "true"
+      DEFAULT_SPEED_KMH: "35"
+      GPS_ACCURACY_METERS: "5"
+    depends_on:
+      location-service:
+        condition: service_started
     restart: unless-stopped
 
   routing-service:
@@ -212,6 +395,204 @@ services:
         condition: service_healthy
       kafka-1:
         condition: service_healthy
+    restart: unless-stopped
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: Notification_Service/Dockerfile
+    container_name: notification-service
+    environment:
+      DATABASE_URL: postgres://notification:notification@postgres-notification:5432/notification?sslmode=disable
+      REDIS_ADDR: redis-notification:6379
+      GRPC_PORT: "50061"
+      KAFKA_BROKERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
+      KAFKA_GROUP: notification-service
+      KAFKA_TOPICS: tickets.events.v1,sla.events.v1,dispatch.events.v1,departments.events.v1,brigades.events.v1,locations.events.v1,routing.events.v1,files.events.v1,reports.events.v1
+      SMTP_ADDR: mailhog:1025
+      SMTP_FROM: no-reply@automatic-system.local
+      LIVE_CHANNEL_PREFIX: "notifications:user:"
+      FCM_SERVICE_ACCOUNT_FILE: ${FCM_SERVICE_ACCOUNT_FILE:-}
+    ports:
+      - "${NOTIFICATION_GRPC_PORT:-50061}:50061"
+    depends_on:
+      migrator-notification:
+        condition: service_completed_successfully
+      redis-notification:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      mailhog:
+        condition: service_started
+    restart: unless-stopped
+
+  audit-service:
+    build:
+      context: .
+      dockerfile: Audit_Service/Dockerfile
+    container_name: audit-service
+    environment:
+      DATABASE_URL: postgres://audit:audit@postgres-audit:5432/audit?sslmode=disable
+    ports:
+      - "${AUDIT_GRPC_PORT:-50062}:50062"
+    depends_on:
+      migrator-audit:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  analytics-service:
+    build:
+      context: .
+      dockerfile: Analytics_Service/Dockerfile
+    container_name: analytics-service
+    environment:
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-analytics}
+    ports:
+      - "${ANALYTICS_GRPC_PORT:-50063}:50063"
+    depends_on:
+      clickhouse-init:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  report-service:
+    build:
+      context: .
+      dockerfile: Report_Service/Dockerfile
+    container_name: report-service
+    environment:
+      DATABASE_URL: postgres://report:report@postgres-report:5432/report?sslmode=disable
+    ports:
+      - "${REPORT_GRPC_PORT:-50064}:50064"
+    depends_on:
+      migrator-report:
+        condition: service_completed_successfully
+      analytics-service:
+        condition: service_started
+      file-service:
+        condition: service_started
+      kafka-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  asset-service:
+    build:
+      context: .
+      dockerfile: Asset_Service/Dockerfile
+    container_name: asset-service
+    environment:
+      DATABASE_URL: postgres://asset:asset@postgres-asset:5432/asset?sslmode=disable
+    ports: ["${ASSET_GRPC_PORT:-50065}:50065"]
+    depends_on:
+      migrator-asset: {condition: service_completed_successfully}
+      kafka-init: {condition: service_completed_successfully}
+    restart: unless-stopped
+  postgres-asset:
+    image: postgis/postgis:16-3.4
+    container_name: asset-postgres
+    environment: {POSTGRES_USER: asset, POSTGRES_PASSWORD: asset, POSTGRES_DB: asset}
+    ports: ["${ASSET_DB_PUBLISHED_PORT:-5445}:5432"]
+    volumes: [postgres_asset_data:/var/lib/postgresql/data]
+    healthcheck: {test: ["CMD-SHELL", "pg_isready -U asset -d asset"], interval: 5s, timeout: 5s, retries: 20}
+    restart: unless-stopped
+  migrator-asset:
+    build: {context: ., dockerfile: Asset_Service/migrator/Dockerfile}
+    container_name: asset-migrator
+    environment: {GOOSE_DRIVER: postgres, GOOSE_DBSTRING: "postgres://asset:asset@postgres-asset:5432/asset?sslmode=disable"}
+    command: ["-dir", "/migrations", "up"]
+    volumes: ["./Asset_Service/scheme:/migrations:ro"]
+    depends_on: {postgres-asset: {condition: service_healthy}}
+
+  postgres-report:
+    image: postgres:16
+    container_name: report-postgres
+    environment:
+      POSTGRES_USER: report
+      POSTGRES_PASSWORD: report
+      POSTGRES_DB: report
+    ports:
+      - "${REPORT_DB_PUBLISHED_PORT:-5444}:5432"
+    volumes:
+      - postgres_report_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U report -d report"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  migrator-report:
+    build:
+      context: .
+      dockerfile: Report_Service/migrator/Dockerfile
+    container_name: report-migrator
+    environment:
+      GOOSE_DRIVER: postgres
+      GOOSE_DBSTRING: postgres://report:report@postgres-report:5432/report?sslmode=disable
+    command: ["-dir", "/migrations", "up"]
+    volumes:
+      - ./Report_Service/scheme:/migrations:ro
+    depends_on:
+      postgres-report:
+        condition: service_healthy
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.8
+    container_name: analytics-clickhouse
+    environment:
+      CLICKHOUSE_DB: analytics
+      CLICKHOUSE_USER: analytics
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-analytics}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    ports:
+      - "${CLICKHOUSE_HTTP_PORT:-18123}:8123"
+      - "${CLICKHOUSE_NATIVE_PORT:-19000}:9000"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --user analytics --password \"$$CLICKHOUSE_PASSWORD\" --query 'SELECT 1'"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  clickhouse-init:
+    image: clickhouse/clickhouse-server:25.8
+    container_name: analytics-clickhouse-init
+    environment:
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-analytics}
+    command: ["clickhouse-client", "--host", "clickhouse", "--user", "analytics", "--password", "${CLICKHOUSE_PASSWORD:-analytics}", "--multiquery", "--queries-file", "/schema/001_events.sql"]
+    volumes:
+      - ./Analytics_Service/scheme:/schema:ro
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    restart: "no"
+
+  sla-service:
+    build:
+      context: .
+      dockerfile: SLA_Service/Dockerfile
+    container_name: sla-service
+    environment:
+      DATABASE_URL: postgres://sla:sla@postgres-sla:5432/sla?sslmode=disable
+      GRPC_PORT: "50060"
+      KAFKA_BROKERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
+      KAFKA_TICKET_TOPIC: tickets.events.v1
+      KAFKA_SLA_TOPIC: sla.events.v1
+      KAFKA_CONSUMER_GROUP: sla-service
+      DEADLINE_SCAN_INTERVAL: 1s
+      LOG_LEVEL: info
+    ports:
+      - "${SLA_GRPC_PORT:-50060}:50060"
+    depends_on:
+      migrator-sla:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   dispatch-service:
@@ -256,6 +637,71 @@ services:
       test: ["CMD-SHELL", "pg_isready -U dispatch -d dispatch"]
       interval: 5s
       timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  postgres-sla:
+    image: postgres:16
+    container_name: sla-postgres
+    environment:
+      POSTGRES_USER: sla
+      POSTGRES_PASSWORD: sla
+      POSTGRES_DB: sla
+    ports:
+      - "${SLA_DB_PUBLISHED_PORT:-5441}:5432"
+    volumes:
+      - postgres_sla_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sla -d sla"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  postgres-notification:
+    image: postgres:16
+    container_name: notification-postgres
+    environment:
+      POSTGRES_USER: notification
+      POSTGRES_PASSWORD: notification
+      POSTGRES_DB: notification
+    ports:
+      - "${NOTIFICATION_DB_PUBLISHED_PORT:-5442}:5432"
+    volumes:
+      - postgres_notification_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notification -d notification"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  postgres-audit:
+    image: postgres:16
+    container_name: audit-postgres
+    environment:
+      POSTGRES_USER: audit
+      POSTGRES_PASSWORD: audit
+      POSTGRES_DB: audit
+    ports:
+      - "${AUDIT_DB_PUBLISHED_PORT:-5443}:5432"
+    volumes:
+      - postgres_audit_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U audit -d audit"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  redis-notification:
+    image: redis:7.4-alpine
+    container_name: notification-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${NOTIFICATION_REDIS_PORT:-6383}:6379"
+    volumes:
+      - redis_notification_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
       retries: 10
     restart: unless-stopped
   postgres-routing:
@@ -450,7 +896,7 @@ services:
   redis-location-sentinel-1:
     image: redis:7.4-alpine
     container_name: location-redis-sentinel-1
-    command: ["sh", "-c", "test -f /data/sentinel.conf || cp /sentinel/sentinel.conf /data/sentinel.conf; exec redis-server /data/sentinel.conf --sentinel"]
+    command: ["sh", "-c", "cp /sentinel/sentinel.conf /data/sentinel.conf; exec redis-server /data/sentinel.conf --sentinel"]
     ports:
       - "${LOCATION_REDIS_SENTINEL_1_PORT}:26379"
     volumes:
@@ -471,7 +917,7 @@ services:
   redis-location-sentinel-2:
     image: redis:7.4-alpine
     container_name: location-redis-sentinel-2
-    command: ["sh", "-c", "test -f /data/sentinel.conf || cp /sentinel/sentinel.conf /data/sentinel.conf; exec redis-server /data/sentinel.conf --sentinel"]
+    command: ["sh", "-c", "cp /sentinel/sentinel.conf /data/sentinel.conf; exec redis-server /data/sentinel.conf --sentinel"]
     ports:
       - "${LOCATION_REDIS_SENTINEL_2_PORT}:26379"
     volumes:
@@ -492,7 +938,7 @@ services:
   redis-location-sentinel-3:
     image: redis:7.4-alpine
     container_name: location-redis-sentinel-3
-    command: ["sh", "-c", "test -f /data/sentinel.conf || cp /sentinel/sentinel.conf /data/sentinel.conf; exec redis-server /data/sentinel.conf --sentinel"]
+    command: ["sh", "-c", "cp /sentinel/sentinel.conf /data/sentinel.conf; exec redis-server /data/sentinel.conf --sentinel"]
     ports:
       - "${LOCATION_REDIS_SENTINEL_3_PORT}:26379"
     volumes:
@@ -608,7 +1054,7 @@ services:
     environment:
       GOOSE_DRIVER: postgres
       GOOSE_DBSTRING: postgres://location:location@postgres-location:5432/location?sslmode=disable
-    command: ["-dir", "/migrations", "up"]
+    command: ["goose", "-dir", "/migrations", "up"]
     volumes:
       - ./Location_Service/scheme:/migrations:ro
     depends_on:
@@ -623,11 +1069,53 @@ services:
     environment:
       GOOSE_DRIVER: postgres
       GOOSE_DBSTRING: postgres://dispatch:dispatch@postgres-dispatch:5432/dispatch?sslmode=disable
-    command: ["-dir", "/migrations", "up"]
+    command: ["goose", "-dir", "/migrations", "up"]
     volumes:
       - ./Dispatch_Service/scheme:/migrations:ro
     depends_on:
       postgres-dispatch:
+        condition: service_healthy
+  migrator-sla:
+    build:
+      context: ./SLA_Service/migrator
+      dockerfile: Dockerfile
+    container_name: sla-migrator
+    environment:
+      GOOSE_DRIVER: postgres
+      GOOSE_DBSTRING: postgres://sla:sla@postgres-sla:5432/sla?sslmode=disable
+    command: ["goose", "-dir", "/migrations", "up"]
+    volumes:
+      - ./SLA_Service/scheme:/migrations:ro
+    depends_on:
+      postgres-sla:
+        condition: service_healthy
+  migrator-notification:
+    build:
+      context: ./Notification_Service/migrator
+      dockerfile: Dockerfile
+    container_name: notification-migrator
+    environment:
+      GOOSE_DRIVER: postgres
+      GOOSE_DBSTRING: postgres://notification:notification@postgres-notification:5432/notification?sslmode=disable
+    command: ["goose", "-dir", "/migrations", "up"]
+    volumes:
+      - ./Notification_Service/scheme:/migrations:ro
+    depends_on:
+      postgres-notification:
+        condition: service_healthy
+  migrator-audit:
+    build:
+      context: ./Audit_Service/migrator
+      dockerfile: Dockerfile
+    container_name: audit-migrator
+    environment:
+      GOOSE_DRIVER: postgres
+      GOOSE_DBSTRING: postgres://audit:audit@postgres-audit:5432/audit?sslmode=disable
+    command: ["-dir", "/migrations", "up"]
+    volumes:
+      - ./Audit_Service/scheme:/migrations:ro
+    depends_on:
+      postgres-audit:
         condition: service_healthy
   migrator-routing:
     build:
@@ -637,7 +1125,7 @@ services:
     environment:
       GOOSE_DRIVER: postgres
       GOOSE_DBSTRING: postgres://routing:routing@postgres-routing:5432/routing?sslmode=disable
-    command: ["-dir", "/migrations", "up"]
+    command: ["goose", "-dir", "/migrations", "up"]
     volumes:
       - ./Routing_Service/scheme:/migrations:ro
     depends_on:
@@ -782,6 +1270,12 @@ services:
           departments.events.v1
           brigades.events.v1
           tickets.events.v1
+          routing.events.v1
+          locations.events.v1
+          sla.events.v1
+          notifications.events.v1
+          reports.events.v1
+          assets.events.v1
         )
         for topic in "$${topics[@]}"; do
           /opt/kafka/bin/kafka-topics.sh \
@@ -792,20 +1286,18 @@ services:
             --replication-factor 3 \
             --config min.insync.replicas=2
         done
-        /opt/kafka/bin/kafka-topics.sh \
-          --bootstrap-server kafka-1:9092,kafka-2:9092,kafka-3:9092 \
-          --create --if-not-exists \
-          --topic profiles.events.v1.retry \
-          --partitions 2 \
-          --replication-factor 3 \
-          --config min.insync.replicas=2
-        /opt/kafka/bin/kafka-topics.sh \
-          --bootstrap-server kafka-1:9092,kafka-2:9092,kafka-3:9092 \
-          --create --if-not-exists \
-          --topic profiles.events.v1.dlq \
-          --partitions 2 \
-          --replication-factor 3 \
-          --config min.insync.replicas=2
+        retry_sources=(profiles.events.v1 tickets.events.v1 routing.events.v1)
+        for source in "$${retry_sources[@]}"; do
+          for suffix in retry dlq; do
+            /opt/kafka/bin/kafka-topics.sh \
+              --bootstrap-server kafka-1:9092,kafka-2:9092,kafka-3:9092 \
+              --create --if-not-exists \
+              --topic "$${source}.$${suffix}" \
+              --partitions 2 \
+              --replication-factor 3 \
+              --config min.insync.replicas=2
+          done
+        done
     restart: "no"
 
   mailhog:
@@ -817,6 +1309,9 @@ services:
     restart: unless-stopped
 
 volumes:
+  gateway_redis_data:
+  file-postgres-data:
+  minio-data:
   postgres_auth_data:
   postgres_ticket_data:
   postgres_department_data:
@@ -828,6 +1323,13 @@ volumes:
   postgres_location_data:
   postgres_routing_data:
   postgres_dispatch_data:
+  postgres_sla_data:
+  postgres_notification_data:
+  postgres_audit_data:
+  postgres_report_data:
+  postgres_asset_data:
+  clickhouse_data:
+  redis_notification_data:
   valhalla_data:
   redis_location_master_data:
   redis_location_replica_1_data:

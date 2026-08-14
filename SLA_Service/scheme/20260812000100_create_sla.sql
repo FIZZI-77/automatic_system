@@ -1,0 +1,15 @@
+-- +goose Up
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE TABLE sla_rules(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),name text NOT NULL,department_id uuid,category_id uuid,priority text CHECK(priority IS NULL OR priority IN('LOW','MEDIUM','HIGH','EMERGENCY')),response_seconds bigint NOT NULL CHECK(response_seconds>0),resolution_seconds bigint NOT NULL CHECK(resolution_seconds>=response_seconds),warning_percent integer NOT NULL DEFAULT 80 CHECK(warning_percent BETWEEN 1 AND 99),active boolean NOT NULL DEFAULT true,created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now());
+CREATE UNIQUE INDEX sla_rules_scope_unique ON sla_rules(COALESCE(department_id,'00000000-0000-0000-0000-000000000000'),COALESCE(category_id,'00000000-0000-0000-0000-000000000000'),COALESCE(priority,'*')) WHERE active;
+CREATE TABLE ticket_slas(id uuid PRIMARY KEY,ticket_id uuid NOT NULL UNIQUE,rule_id uuid NOT NULL REFERENCES sla_rules(id),department_id uuid NOT NULL,category_id uuid NOT NULL,priority text NOT NULL,status text NOT NULL CHECK(status IN('ACTIVE','COMPLETED','CANCELLED')),response_deadline timestamptz NOT NULL,resolution_deadline timestamptz NOT NULL,responded_at timestamptz,completed_at timestamptz,response_breached boolean NOT NULL DEFAULT false,resolution_breached boolean NOT NULL DEFAULT false,response_warning_sent boolean NOT NULL DEFAULT false,resolution_warning_sent boolean NOT NULL DEFAULT false,version integer NOT NULL DEFAULT 1,created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now());
+CREATE INDEX ticket_slas_deadlines_idx ON ticket_slas(status,response_deadline,resolution_deadline);
+CREATE INDEX ticket_slas_department_idx ON ticket_slas(department_id,created_at DESC);
+CREATE TABLE sla_history(id uuid PRIMARY KEY,ticket_sla_id uuid NOT NULL REFERENCES ticket_slas(id),ticket_id uuid NOT NULL,event_type text NOT NULL,details text NOT NULL DEFAULT '',occurred_at timestamptz NOT NULL DEFAULT now());
+CREATE INDEX sla_history_ticket_idx ON sla_history(ticket_id,occurred_at DESC);
+CREATE TABLE ticket_event_inbox(event_id text PRIMARY KEY,event_type text NOT NULL,ticket_id uuid NOT NULL,payload jsonb NOT NULL,processed_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE outbox_events(id uuid PRIMARY KEY,aggregate_type text NOT NULL,aggregate_id uuid NOT NULL,event_type text NOT NULL,payload jsonb NOT NULL,status text NOT NULL DEFAULT 'PENDING',attempts integer NOT NULL DEFAULT 0,next_attempt_at timestamptz NOT NULL DEFAULT now(),locked_at timestamptz,last_error text,sent_at timestamptz,created_at timestamptz NOT NULL DEFAULT now());
+CREATE INDEX sla_outbox_pending_idx ON outbox_events(status,next_attempt_at,created_at);
+INSERT INTO sla_rules(name,priority,response_seconds,resolution_seconds,warning_percent) VALUES('Default emergency','EMERGENCY',300,3600,80),('Default high','HIGH',1800,14400,80),('Default medium','MEDIUM',7200,86400,80),('Default low','LOW',14400,259200,80);
+-- +goose Down
+DROP TABLE outbox_events; DROP TABLE ticket_event_inbox; DROP TABLE sla_history; DROP TABLE ticket_slas; DROP TABLE sla_rules;

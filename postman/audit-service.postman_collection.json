@@ -1,0 +1,10 @@
+{
+  "info": {"name": "Audit Service via Gateway", "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"},
+  "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{access_token}}", "type": "string"}]},
+  "item": [
+    {"name": "List audit entries", "event": [{"listen": "test", "script": {"exec": ["pm.test('audit returned',()=>pm.response.to.have.status(200));", "const x=pm.response.json();if(x.entries.length)pm.collectionVariables.set('audit_entry_id',x.entries[0].id);"]}}], "request": {"method": "POST", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\"limit\":50}"}, "url": "{{base_url}}/audit/list"}},
+    {"name": "List ticket audit", "request": {"method": "POST", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\"topic\":\"tickets.events.v1\",\"entity_type\":\"ticket\",\"limit\":50}"}, "url": "{{base_url}}/audit/list"}},
+    {"name": "Get audit entry", "request": {"method": "POST", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\"id\":\"{{audit_entry_id}}\"}"}, "url": "{{base_url}}/audit/get"}}
+  ],
+  "variable": [{"key": "base_url", "value": "http://localhost:8081"}, {"key": "access_token", "value": ""}, {"key": "audit_entry_id", "value": ""}]
+}

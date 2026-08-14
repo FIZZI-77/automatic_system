@@ -1,108 +1,130 @@
-# Real-IP k6 Load Tests
+# k6 load tests
 
-These tests simulate different client IPs by running many k6 containers on the same Docker network as `api-gateway`.
+Основной нагрузочный тест запускается одним контейнером `k6`. Нагрузка создаётся VU и executors внутри k6, поэтому метрики и thresholds формируют единый итоговый отчёт.
 
-One `k6-user` container is one real Docker source IP. Keep `K6_VUS=1` if you want one user per IP.
+## Быстрый запуск
 
-## Start the system
+Стек должен быть запущен:
 
 ```powershell
-docker compose up -d --build
+docker compose up -d
 ```
 
-## Run 10 users with 10 different Docker IPs
+Smoke:
 
 ```powershell
-docker compose -f docker-compose.yml -f load-tests/docker-compose.k6.yml --profile load up --scale k6-user=10 k6-user
+$env:K6_PROFILE="smoke"
+$env:K6_RUN_ID="smoke-$(Get-Date -Format yyyyMMddHHmmss)"
+docker compose -f docker-compose.yml -f load-tests/docker-compose.k6.yml --profile load run --rm k6
 ```
 
-## Run 50 users
+Обычная ramping-нагрузка до 20 VU:
 
 ```powershell
-docker compose -f docker-compose.yml -f load-tests/docker-compose.k6.yml --profile load up --scale k6-user=50 k6-user
-```
-
-## Tune duration
-
-PowerShell:
-
-```powershell
+$env:K6_PROFILE="load"
+$env:K6_VUS="20"
 $env:K6_DURATION="5m"
-docker compose -f docker-compose.yml -f load-tests/docker-compose.k6.yml --profile load up --scale k6-user=20 k6-user
+$env:K6_RUN_ID="load-$(Get-Date -Format yyyyMMddHHmmss)"
+docker compose -f docker-compose.yml -f load-tests/docker-compose.k6.yml --profile load run --rm k6
 ```
 
-The compose file defaults to:
+Один VU получает отдельного пользователя и переиспользует его access token. `K6_RUN_ID` должен отличаться между запусками.
 
-- `BASE_URL=http://api-gateway:8081`
-- `K6_VUS=1`
-- `K6_DURATION=2m`
-- `K6_ITERATIONS=` unset, so duration mode is used
-- `K6_USER_OFFSET=0`
-- `K6_SLEEP_SECONDS=1`
-- `K6_INCLUDE_BUSINESS=false`
-- `K6_INCLUDE_RESTRICTED=false`
+## Профили
 
-By default, each k6 container registers a unique user, logs in, then repeatedly calls `/health` and `/auth/me`.
+Все профили определены через `options.scenarios` в `user-load.js`.
 
-## Include business endpoints
+| Профиль | Executor | Назначение |
+|---|---|---|
+| `smoke` | `shared-iterations` | Быстрая проверка сценария |
+| `load` | `ramping-vus` | Плановая нагрузка с плавным разгоном |
+| `rate` | `constant-arrival-rate` | Точный поток итераций/RPS |
+| `stress` | `ramping-vus` | Поиск деградации при росте нагрузки |
+| `spike` | `ramping-vus` | Резкий скачок нагрузки |
+| `soak` | `constant-vus` | Длительная проверка утечек и деградации |
 
-PowerShell:
+### Constant arrival rate
+
+20 итераций в секунду в течение 5 минут:
 
 ```powershell
-$env:K6_INCLUDE_BUSINESS="true"
-docker compose -f docker-compose.yml -f load-tests/docker-compose.k6.yml --profile load up --scale k6-user=10 k6-user
+$env:K6_PROFILE="rate"
+$env:K6_RATE="20"
+$env:K6_DURATION="5m"
+$env:K6_PREALLOCATED_VUS="20"
+$env:K6_MAX_VUS="100"
+$env:K6_RUN_ID="rate-$(Get-Date -Format yyyyMMddHHmmss)"
+docker compose -f docker-compose.yml -f load-tests/docker-compose.k6.yml --profile load run --rm k6
 ```
 
-This also calls:
+Одна итерация выполняет четыре HTTP-запроса batch, поэтому `K6_RATE=20` создаёт примерно 80 HTTP-запросов в секунду плюс первичный register/login каждого VU.
 
-- `POST /tickets/list`
-- `POST /departments/list`
-- `POST /ticket-categories/list`
+### Stress
 
-Set `K6_INCLUDE_RESTRICTED=true` to additionally verify that a regular user receives
-`403 Forbidden` from the admin-only `POST /brigades/list` endpoint.
+```powershell
+$env:K6_PROFILE="stress"
+$env:K6_VUS="25"
+$env:K6_STRESS_VUS="50"
+$env:K6_MAX_VUS="100"
+$env:K6_RUN_ID="stress-$(Get-Date -Format yyyyMMddHHmmss)"
+docker compose -f docker-compose.yml -f load-tests/docker-compose.k6.yml --profile load run --rm k6
+```
 
-## Full Business Flow
+### Spike
 
-Prepare admin users first:
+```powershell
+$env:K6_PROFILE="spike"
+$env:K6_VUS="10"
+$env:K6_MAX_VUS="100"
+$env:K6_RUN_ID="spike-$(Get-Date -Format yyyyMMddHHmmss)"
+docker compose -f docker-compose.yml -f load-tests/docker-compose.k6.yml --profile load run --rm k6
+```
+
+### Soak
+
+```powershell
+$env:K6_PROFILE="soak"
+$env:K6_VUS="20"
+$env:K6_DURATION="2h"
+$env:K6_RUN_ID="soak-$(Get-Date -Format yyyyMMddHHmmss)"
+docker compose -f docker-compose.yml -f load-tests/docker-compose.k6.yml --profile load run --rm k6
+```
+
+## Полный бизнес-сценарий
+
+Подготовить отдельных admin-пользователей (не меньше максимального количества VU):
 
 ```powershell
 .\load-tests\seed-business-users.ps1 -Count 20
 ```
 
-Then run the full business workflow:
-
-Smoke test one complete pass:
+Запустить один контейнер с 20 VU:
 
 ```powershell
 $env:K6_SCRIPT="/scripts/business-flow.js"
-$env:K6_ITERATIONS="1"
-$env:K6_USER_OFFSET="0"
-$env:K6_SLEEP_SECONDS="0"
-docker compose -f docker-compose.yml -f load-tests/docker-compose.k6.yml --profile load up --scale k6-user=1 k6-user
+$env:K6_VUS="20"
+$env:K6_DURATION="5m"
+docker compose -f docker-compose.yml -f load-tests/docker-compose.k6.yml --profile load run --rm k6
 ```
 
-If a previous run was interrupted after adding a brigade member, bump `K6_USER_OFFSET` to use the next seeded admin user.
+В одном k6-процессе `__VU` корректно распределяет записи из `users.json`. Не запускайте `business-flow.js` через Docker `--scale`: в разных процессах номера `__VU` повторяются.
 
-Load test the same workflow:
+## Проверка rate limit по разным IP
+
+Множество контейнеров оставлено только для теста разных исходных IP:
 
 ```powershell
-$env:K6_SCRIPT="/scripts/business-flow.js"
-$env:K6_ITERATIONS=""
 $env:K6_DURATION="2m"
-docker compose -f docker-compose.yml -f load-tests/docker-compose.k6.yml --profile load up --scale k6-user=5 k6-user
+docker compose -f docker-compose.yml -f load-tests/docker-compose.k6.yml --profile real-ip up --abort-on-container-exit --scale k6-real-ip=10 k6-real-ip
 ```
 
-The full flow covers auth plus department, ticket category, ticket, brigade, member, skill, brigade skill, schedule, zone, availability, status history, assignment, completion, cancellation, and cleanup endpoints.
+Каждый `k6-real-ip` содержит ровно один VU и получает отдельный Docker IP. Этот режим не следует использовать для обычных load/stress/spike/soak тестов: его метрики разделены по контейнерам.
 
-`business-flow.js` logs in once per VU/container and reuses the access token, so the business load test does not accidentally become an `/auth/login` rate-limit test. Seed at least `K6_USER_OFFSET + scaled k6-user containers` users.
+## Thresholds
 
-## Verify that IPs are really different
+Основной сценарий завершается ошибкой, если:
 
-Watch gateway logs while the test is running:
-
-```powershell
-docker compose logs -f api-gateway
-```
-
-Each scaled `k6-user` container gets its own Docker network address, so `gin.Context.ClientIP()` should see different client IPs when the request goes directly to `http://api-gateway:8081` inside the compose network.
+- успешность checks ниже 99%;
+- доля HTTP-ошибок выше 1%;
+- p95 больше 1 секунды;
+- p99 больше 2 секунд.

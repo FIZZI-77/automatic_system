@@ -37,8 +37,11 @@ func TestRunnerSendsRouteOnceInOrder(t *testing.T) {
 		t.Fatalf("events = %d, want 3", len(sender.events))
 	}
 	for index, event := range sender.events {
-		if event.Payload.Sequence != uint64(index+1) || event.Payload.Latitude != float64(index+1) {
+		if event.Payload.Sequence == 0 || event.Payload.Latitude != float64(index+1) {
 			t.Fatalf("event %d = %+v", index, event.Payload)
+		}
+		if index > 0 && event.Payload.Sequence != sender.events[index-1].Payload.Sequence+1 {
+			t.Fatalf("event %d sequence = %d, previous = %d", index, event.Payload.Sequence, sender.events[index-1].Payload.Sequence)
 		}
 	}
 }

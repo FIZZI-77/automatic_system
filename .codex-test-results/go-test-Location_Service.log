@@ -1,0 +1,13 @@
+ok  	location/models	(cached)
+?   	location/pkg	[no test files]
+ok  	location/pkg/closer	(cached)
+?   	location/pkg/config	[no test files]
+?   	location/src/cmd/server	[no test files]
+?   	location/src/core/handler	[no test files]
+?   	location/src/core/httptransport	[no test files]
+ok  	location/src/core/repository	(cached)
+ok  	location/src/core/service	(cached)
+ok  	location/src/infrastructure/positionhistory	(cached)
+?   	location/src/infrastructure/signalmonitor	[no test files]
+?   	location/src/infrastructure/streamrelay	[no test files]
+ok  	location/src/integration	(cached)

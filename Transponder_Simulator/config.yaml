@@ -1,0 +1,6 @@
+interval: "2s"
+request_timeout: "5s"
+loop_route: true
+simulated: true
+default_speed_kmh: 35
+gps_accuracy_meters: 5

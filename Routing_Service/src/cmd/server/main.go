@@ -13,6 +13,7 @@ import (
 
 	"routing/pkg"
 	"routing/pkg/closer"
+	appconfig "routing/pkg/config"
 	"routing/src/core/handler"
 	"routing/src/core/repository"
 	"routing/src/core/service"
@@ -25,6 +26,9 @@ import (
 )
 
 func main() {
+	if err := appconfig.Load(); err != nil {
+		panic("configuration error: " + err.Error())
+	}
 	ctx, stop := signal.NotifyContext(
 		context.Background(),
 		syscall.SIGINT,

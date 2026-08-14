@@ -1,0 +1,12 @@
+ok  	routing/models	(cached)
+?   	routing/pkg	[no test files]
+ok  	routing/pkg/closer	(cached)
+?   	routing/pkg/config	[no test files]
+?   	routing/src/cmd/server	[no test files]
+?   	routing/src/core/handler	[no test files]
+?   	routing/src/core/repository	[no test files]
+ok  	routing/src/core/service	(cached)
+?   	routing/src/infrastructure/outboxrelay	[no test files]
+?   	routing/src/infrastructure/ticketconsumer	[no test files]
+ok  	routing/src/infrastructure/valhalla	(cached)
+ok  	routing/src/integration	(cached)

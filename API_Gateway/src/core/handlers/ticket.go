@@ -20,6 +20,47 @@ func NewTicketHandler(ticketClient ticketv1.TicketServiceClient) *TicketHandler 
 	return &TicketHandler{ticketClient: ticketClient}
 }
 
+func (th *TicketHandler) CreateWorkReport(c *gin.Context) {
+	var req models.CreateWorkReportRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+	ctx = ticketActorContext(ctx, c)
+	res, err := th.ticketClient.CreateWorkReport(ctx, &ticketv1.CreateWorkReportRequest{TicketId: req.TicketID, AuthorUserId: c.GetString("user_id"), Description: req.Description, FileIds: req.FileIDs})
+	if err != nil {
+		handleGRPCError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, fromProtoWorkReport(res.GetReport()))
+}
+func (th *TicketHandler) ListWorkReports(c *gin.Context) {
+	var req models.ListWorkReportsRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+	ctx = ticketActorContext(ctx, c)
+	res, err := th.ticketClient.ListWorkReports(ctx, &ticketv1.ListWorkReportsRequest{TicketId: req.TicketID})
+	if err != nil {
+		handleGRPCError(c, err)
+		return
+	}
+	reports := make([]*models.WorkReport, 0, len(res.GetReports()))
+	for _, r := range res.GetReports() {
+		reports = append(reports, fromProtoWorkReport(r))
+	}
+	c.JSON(http.StatusOK, gin.H{"reports": reports})
+}
+func fromProtoWorkReport(r *ticketv1.WorkReport) *models.WorkReport {
+	if r == nil {
+		return nil
+	}
+	return &models.WorkReport{ID: r.GetId(), TicketID: r.GetTicketId(), AuthorUserID: r.GetAuthorUserId(), Description: r.GetDescription(), FileIDs: r.GetFileIds(), CreatedAt: r.GetCreatedAt().AsTime(), UpdatedAt: r.GetUpdatedAt().AsTime()}
+}
+
 func (th *TicketHandler) CreateTicket(c *gin.Context) {
 	var req models.CreateTicketRequest
 	if !bindJSON(c, &req) {
@@ -40,6 +81,7 @@ func (th *TicketHandler) CreateTicket(c *gin.Context) {
 		Address:      req.Address,
 		Latitude:     req.Latitude,
 		Longitude:    req.Longitude,
+		AssetId:      req.AssetID,
 	})
 	if err != nil {
 		handleGRPCError(c, err)

@@ -1,0 +1,7 @@
+grpc_port: 50060
+kafka_brokers: ["kafka-1:9092", "kafka-2:9092", "kafka-3:9092"]
+kafka_ticket_topic: "tickets.events.v1"
+kafka_sla_topic: "sla.events.v1"
+kafka_consumer_group: "sla-service"
+deadline_scan_interval: "1s"
+log_level: "info"

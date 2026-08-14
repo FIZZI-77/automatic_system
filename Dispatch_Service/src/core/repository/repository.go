@@ -95,7 +95,7 @@ func (r *Repository) List(ctx context.Context, in *models.ListInput) ([]*models.
 	return result, total, rows.Err()
 }
 func (r *Repository) Expire(ctx context.Context) ([]*models.Operation, error) {
-	rows, err := r.db.Query(ctx, baseSelectUpdate+`status='EXPIRED',failure_reason='reservation expired',version=version+1,updated_at=now() WHERE status='RESERVED' AND expires_at<=now()`+returning)
+	rows, err := r.db.Query(ctx, baseSelectUpdate+`status='EXPIRED',failure_reason='dispatch operation expired',version=version+1,updated_at=now() WHERE status IN ('PENDING','RESERVED','CONFIRMING') AND expires_at<=now()`+returning)
 	if err != nil {
 		return nil, err
 	}

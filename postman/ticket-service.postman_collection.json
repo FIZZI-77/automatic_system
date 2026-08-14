@@ -409,6 +409,38 @@
                                                 ]
                                   },
                                   {
+                                      "name":  "Assign brigade",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{access_token}}"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"ticket_id\": \"{{ticket_id}}\",\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"comment\": \"Assigned from Postman\"\n}"
+                                                               },
+                                                      "url":  "{{base_url}}/tickets/assign-brigade"
+                                                  },
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027brigade assigned\u0027, function () { pm.response.to.have.status(200); });"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ]
+                                  },
+                                  {
                                       "name":  "Change status to in_progress",
                                       "request":  {
                                                       "method":  "POST",

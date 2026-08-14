@@ -1,65 +1,66 @@
 package middleware
 
 import (
+	"context"
+	"fmt"
+	"math"
 	"net/http"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"golang.org/x/time/rate"
+	"github.com/redis/go-redis/v9"
 )
 
+const rateLimitScript = `
+local values = redis.call('HMGET', KEYS[1], 'tokens', 'updated_at')
+local tokens = tonumber(values[1]) or tonumber(ARGV[2])
+local updated_at = tonumber(values[2]) or tonumber(ARGV[1])
+local now = tonumber(ARGV[1])
+local burst = tonumber(ARGV[2])
+local refill_per_ms = tonumber(ARGV[3])
+
+tokens = math.min(burst, tokens + math.max(0, now - updated_at) * refill_per_ms)
+local allowed = 0
+local retry_after_ms = 0
+
+if tokens >= 1 then
+  tokens = tokens - 1
+  allowed = 1
+else
+  retry_after_ms = math.ceil((1 - tokens) / refill_per_ms)
+end
+
+redis.call('HSET', KEYS[1], 'tokens', tokens, 'updated_at', now)
+redis.call('PEXPIRE', KEYS[1], ARGV[4])
+return {allowed, math.floor(tokens), retry_after_ms}
+`
+
 type RateLimitConfig struct {
-	Name       string
-	Limit      int
-	Burst      int
-	Window     time.Duration
-	KeyFunc    func(*gin.Context) string
-	SkipFunc   func(*gin.Context) bool
-	RetryAfter time.Duration
+	Name     string
+	Limit    int
+	Burst    int
+	Window   time.Duration
+	KeyFunc  func(*gin.Context) string
+	SkipFunc func(*gin.Context) bool
 }
 
-type rateLimiter struct {
-	mu          sync.Mutex
-	buckets     map[string]*rateBucket
-	limit       int
-	burst       int
-	window      time.Duration
-	lastCleanup time.Time
+type RedisRateLimiter struct {
+	client redis.UniversalClient
+	script *redis.Script
+	prefix string
 }
 
-type rateBucket struct {
-	limiter    *rate.Limiter
-	lastSeenAt time.Time
+func NewRedisRateLimiter(client redis.UniversalClient, prefix string) *RedisRateLimiter {
+	return &RedisRateLimiter{
+		client: client,
+		script: redis.NewScript(rateLimitScript),
+		prefix: prefix,
+	}
 }
 
-func RateLimit(config RateLimitConfig) gin.HandlerFunc {
-	if config.Window <= 0 {
-		config.Window = time.Minute
-	}
-	if config.Limit <= 0 {
-		config.Limit = 60
-	}
-	if config.Burst <= 0 {
-		config.Burst = config.Limit
-	}
-	if config.RetryAfter <= 0 {
-		config.RetryAfter = time.Second
-	}
-	if config.KeyFunc == nil {
-		config.KeyFunc = func(c *gin.Context) string {
-			return c.ClientIP()
-		}
-	}
-
-	limiter := &rateLimiter{
-		buckets:     make(map[string]*rateBucket),
-		limit:       config.Limit,
-		burst:       config.Burst,
-		window:      config.Window,
-		lastCleanup: time.Now(),
-	}
+func (l *RedisRateLimiter) Middleware(config RateLimitConfig) gin.HandlerFunc {
+	config.normalize()
 
 	return func(c *gin.Context) {
 		if config.SkipFunc != nil && config.SkipFunc(c) {
@@ -67,16 +68,18 @@ func RateLimit(config RateLimitConfig) gin.HandlerFunc {
 			return
 		}
 
-		key := config.Name + ":" + config.KeyFunc(c)
-		allowed, remaining, retryAfter := limiter.allow(key, time.Now(), config.RetryAfter)
+		key := fmt.Sprintf("%s:%s:%s", l.prefix, config.Name, config.KeyFunc(c))
+		allowed, remaining, retryAfter, err := l.allow(c.Request.Context(), key, config)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"error": "rate limiter unavailable"})
+			return
+		}
+
 		c.Header("X-RateLimit-Limit", strconv.Itoa(config.Limit))
 		c.Header("X-RateLimit-Remaining", strconv.Itoa(remaining))
-
 		if !allowed {
-			c.Header("Retry-After", strconv.Itoa(int(retryAfter.Seconds())))
-			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
-				"error": "rate limit exceeded",
-			})
+			c.Header("Retry-After", strconv.Itoa(int(math.Ceil(retryAfter.Seconds()))))
+			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{"error": "rate limit exceeded"})
 			return
 		}
 
@@ -84,55 +87,57 @@ func RateLimit(config RateLimitConfig) gin.HandlerFunc {
 	}
 }
 
-func (l *rateLimiter) allow(key string, now time.Time, defaultRetryAfter time.Duration) (bool, int, time.Duration) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
+func (l *RedisRateLimiter) allow(ctx context.Context, key string, config RateLimitConfig) (bool, int, time.Duration, error) {
+	refillPerMillisecond := float64(config.Limit) / float64(config.Window.Milliseconds())
+	ttl := max(config.Window*time.Duration(config.Burst/config.Limit+1), config.Window)
 
-	l.cleanup(now)
-
-	bucket, ok := l.buckets[key]
-	if !ok {
-		bucket = &rateBucket{
-			limiter:    rate.NewLimiter(rate.Every(l.window/time.Duration(l.limit)), l.burst),
-			lastSeenAt: now,
-		}
-		l.buckets[key] = bucket
+	result, err := l.script.Run(ctx, l.client, []string{key},
+		time.Now().UnixMilli(), config.Burst, refillPerMillisecond, ttl.Milliseconds(),
+	).Slice()
+	if err != nil {
+		return false, 0, 0, fmt.Errorf("redis rate limiter: %w", err)
+	}
+	if len(result) != 3 {
+		return false, 0, 0, fmt.Errorf("redis rate limiter: unexpected result")
 	}
 
-	bucket.lastSeenAt = now
-
-	if bucket.limiter.AllowN(now, 1) {
-		return true, int(bucket.limiter.Tokens()), 0
+	allowed, err := redisInt(result[0])
+	if err != nil {
+		return false, 0, 0, err
 	}
-
-	reservation := bucket.limiter.ReserveN(now, 1)
-	if !reservation.OK() {
-		return false, 0, defaultRetryAfter
+	remaining, err := redisInt(result[1])
+	if err != nil {
+		return false, 0, 0, err
 	}
-	retryAfter := reservation.DelayFrom(now)
-	reservation.CancelAt(now)
-
-	if retryAfter <= 0 {
-		retryAfter = defaultRetryAfter
+	retryAfter, err := redisInt(result[2])
+	if err != nil {
+		return false, 0, 0, err
 	}
-	if retryAfter%time.Second != 0 {
-		retryAfter = retryAfter.Truncate(time.Second) + time.Second
-	}
-
-	return false, 0, retryAfter
+	return allowed == 1, int(remaining), time.Duration(retryAfter) * time.Millisecond, nil
 }
 
-func (l *rateLimiter) cleanup(now time.Time) {
-	if now.Sub(l.lastCleanup) < time.Minute {
-		return
+func (c *RateLimitConfig) normalize() {
+	if c.Window <= 0 {
+		c.Window = time.Minute
 	}
-
-	expireBefore := now.Add(-5 * time.Minute)
-	for key, bucket := range l.buckets {
-		if bucket.lastSeenAt.Before(expireBefore) {
-			delete(l.buckets, key)
-		}
+	if c.Limit <= 0 {
+		c.Limit = 60
 	}
+	if c.Burst <= 0 {
+		c.Burst = c.Limit
+	}
+	if c.KeyFunc == nil {
+		c.KeyFunc = func(ctx *gin.Context) string { return ctx.ClientIP() }
+	}
+}
 
-	l.lastCleanup = now
+func redisInt(value any) (int64, error) {
+	switch typed := value.(type) {
+	case int64:
+		return typed, nil
+	case string:
+		return strconv.ParseInt(typed, 10, 64)
+	default:
+		return 0, fmt.Errorf("redis rate limiter: unexpected value %T", value)
+	}
 }

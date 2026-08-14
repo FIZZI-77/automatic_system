@@ -1,0 +1,11 @@
+ok  	ticket/models	(cached)
+?   	ticket/pkg	[no test files]
+?   	ticket/pkg/closer	[no test files]
+?   	ticket/pkg/config	[no test files]
+?   	ticket/src/cmd/server	[no test files]
+?   	ticket/src/core/handler	[no test files]
+ok  	ticket/src/core/repository	(cached)
+ok  	ticket/src/core/service	(cached)
+ok  	ticket/src/infrastructure/outboxrelay	(cached)
+?   	ticket/src/infrastructure/routingconsumer	[no test files]
+ok  	ticket/src/integration	(cached)
