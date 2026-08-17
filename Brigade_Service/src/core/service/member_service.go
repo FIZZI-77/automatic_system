@@ -303,7 +303,15 @@ func (m *MemberServiceStruct) ListBrigadeMembers(ctx context.Context, in *models
 	}
 
 	if err = checkPermissionAndDepartmentForAdminAndDispatcher(log, start, in.ActorRoles, in.ActorDepartmentID, brigade.DepartmentID); err != nil {
-		return nil, err
+		// A worker may see the composition of their own active brigade. All
+		// member mutations remain restricted to admins and dispatchers.
+		if in.ActorUserID == nil {
+			return nil, err
+		}
+		own, ownErr := m.repo.GetBrigadeByUserID(ctx, &models.GetBrigadeByUserIDInput{UserID: *in.ActorUserID, OnlyActive: true})
+		if ownErr != nil || own == nil || own.Brigade == nil || own.Brigade.ID != brigade.ID {
+			return nil, err
+		}
 	}
 
 	result, err := m.repo.ListBrigadeMembers(ctx, in)

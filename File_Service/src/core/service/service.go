@@ -19,7 +19,7 @@ import (
 
 const MaxFileSize int64 = 25 << 20
 
-var allowedTypes = map[string]bool{"image/jpeg": true, "image/png": true, "image/webp": true, "application/pdf": true, "text/csv": true, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": true}
+var allowedTypes = map[string]bool{"image/jpeg": true, "image/png": true, "image/gif": true, "image/webp": true, "application/pdf": true, "text/csv": true, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": true}
 
 type Service struct {
 	repo   *repository.Repository
@@ -92,7 +92,25 @@ func (s *Service) Link(ctx context.Context, id, actor uuid.UUID, privileged bool
 	if f.OwnerUserID != actor && !privileged {
 		return nil, models.ErrPermissionDenied
 	}
-	return s.repo.Link(ctx, id, in)
+	folder := strings.Map(func(value rune) rune {
+		if value >= 'a' && value <= 'z' || value >= 'A' && value <= 'Z' || value >= '0' && value <= '9' || value == '-' || value == '_' {
+			return value
+		}
+		return '-'
+	}, strings.ToLower(strings.TrimSpace(in.ResourceType)))
+	targetKey := fmt.Sprintf("%s/%s/%s-%s", folder, in.ResourceID, f.ID, f.Name)
+	if f.ObjectKey == targetKey {
+		return s.repo.Link(ctx, id, in, targetKey)
+	}
+	if err := s.store.Move(ctx, f.ObjectKey, targetKey); err != nil {
+		return nil, err
+	}
+	linked, err := s.repo.Link(ctx, id, in, targetKey)
+	if err != nil {
+		_ = s.store.Move(ctx, targetKey, f.ObjectKey)
+		return nil, err
+	}
+	return linked, nil
 }
 func (s *Service) Download(ctx context.Context, id, actor uuid.UUID, privileged bool) (*models.PresignedFile, error) {
 	f, err := s.repo.Get(ctx, id)

@@ -1,6 +1,7 @@
 .git
 .idea
 .gocache
+.gocache-contracts
 .codex-protoc
 .codex-test-results
 .contract-staging
@@ -8,3 +9,8 @@
 **/.idea
 **/*.exe
 **/*.log
+Frontend/node_modules
+Frontend/dist
+Frontend/.next
+tmp
+output

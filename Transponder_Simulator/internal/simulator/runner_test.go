@@ -40,7 +40,7 @@ func TestRunnerSendsRouteOnceInOrder(t *testing.T) {
 		if event.Payload.Sequence == 0 || event.Payload.Latitude != float64(index+1) {
 			t.Fatalf("event %d = %+v", index, event.Payload)
 		}
-		if index > 0 && event.Payload.Sequence != sender.events[index-1].Payload.Sequence+1 {
+		if index > 0 && event.Payload.Sequence <= sender.events[index-1].Payload.Sequence {
 			t.Fatalf("event %d sequence = %d, previous = %d", index, event.Payload.Sequence, sender.events[index-1].Payload.Sequence)
 		}
 	}

@@ -19,11 +19,12 @@ type WorkReport struct {
 }
 
 type CreateWorkReportInput struct {
-	TicketID     uuid.UUID
-	AuthorUserID uuid.UUID
-	Description  string
-	FileIDs      []uuid.UUID
-	ActorRoles   []string
+	TicketID       uuid.UUID
+	AuthorUserID   uuid.UUID
+	Description    string
+	FileIDs        []uuid.UUID
+	ActorBrigadeID *uuid.UUID
+	ActorRoles     []string
 }
 
 func (in *CreateWorkReportInput) Validate() error {

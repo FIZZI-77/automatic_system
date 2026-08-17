@@ -7,17 +7,19 @@ import (
 	"strings"
 	"time"
 
+	brigadev1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/brigade/v1"
 	ticketv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/ticket/v1"
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc/metadata"
 )
 
 type TicketHandler struct {
-	ticketClient ticketv1.TicketServiceClient
+	ticketClient  ticketv1.TicketServiceClient
+	brigadeClient brigadev1.BrigadeServiceClient
 }
 
-func NewTicketHandler(ticketClient ticketv1.TicketServiceClient) *TicketHandler {
-	return &TicketHandler{ticketClient: ticketClient}
+func NewTicketHandler(ticketClient ticketv1.TicketServiceClient, brigadeClient brigadev1.BrigadeServiceClient) *TicketHandler {
+	return &TicketHandler{ticketClient: ticketClient, brigadeClient: brigadeClient}
 }
 
 func (th *TicketHandler) CreateWorkReport(c *gin.Context) {
@@ -27,7 +29,10 @@ func (th *TicketHandler) CreateWorkReport(c *gin.Context) {
 	}
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
-	ctx = ticketActorContext(ctx, c)
+	ctx, ok := th.contextWithWorkerBrigade(ctx, c)
+	if !ok {
+		return
+	}
 	res, err := th.ticketClient.CreateWorkReport(ctx, &ticketv1.CreateWorkReportRequest{TicketId: req.TicketID, AuthorUserId: c.GetString("user_id"), Description: req.Description, FileIds: req.FileIDs})
 	if err != nil {
 		handleGRPCError(c, err)
@@ -35,6 +40,32 @@ func (th *TicketHandler) CreateWorkReport(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, fromProtoWorkReport(res.GetReport()))
 }
+
+func actorHasRole(c *gin.Context, expected string) bool {
+	roles, _ := c.Get("roles")
+	values, _ := roles.([]string)
+	for _, role := range values {
+		if role == expected {
+			return true
+		}
+	}
+	return false
+}
+
+func (th *TicketHandler) contextWithWorkerBrigade(ctx context.Context, c *gin.Context) (context.Context, bool) {
+	ctx = ticketActorContext(ctx, c)
+	if !actorHasRole(c, "worker") {
+		return ctx, true
+	}
+	onlyActive := true
+	own, err := th.brigadeClient.GetBrigadeByUserID(ctx, &brigadev1.GetBrigadeByUserIDRequest{UserId: c.GetString("user_id"), OnlyActive: &onlyActive})
+	if err != nil {
+		handleGRPCError(c, err)
+		return ctx, false
+	}
+	return metadata.AppendToOutgoingContext(ctx, "x-actor-brigade-id", own.GetBrigade().GetId()), true
+}
+
 func (th *TicketHandler) ListWorkReports(c *gin.Context) {
 	var req models.ListWorkReportsRequest
 	if !bindJSON(c, &req) {
@@ -42,7 +73,10 @@ func (th *TicketHandler) ListWorkReports(c *gin.Context) {
 	}
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
-	ctx = ticketActorContext(ctx, c)
+	ctx, ok := th.contextWithWorkerBrigade(ctx, c)
+	if !ok {
+		return
+	}
 	res, err := th.ticketClient.ListWorkReports(ctx, &ticketv1.ListWorkReportsRequest{TicketId: req.TicketID})
 	if err != nil {
 		handleGRPCError(c, err)
@@ -101,7 +135,10 @@ func (th *TicketHandler) GetTicket(c *gin.Context) {
 
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
-	ctx = ticketActorContext(ctx, c)
+	ctx, ok := th.contextWithWorkerBrigade(ctx, c)
+	if !ok {
+		return
+	}
 
 	res, err := th.ticketClient.GetTicket(ctx, &ticketv1.GetTicketRequest{
 		TicketId: req.TicketID,
@@ -130,6 +167,17 @@ func (th *TicketHandler) ListTicket(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 	ctx = ticketActorContext(ctx, c)
+	if actorHasRole(c, "worker") {
+		onlyActive := true
+		own, err := th.brigadeClient.GetBrigadeByUserID(ctx, &brigadev1.GetBrigadeByUserIDRequest{UserId: c.GetString("user_id"), OnlyActive: &onlyActive})
+		if err != nil {
+			handleGRPCError(c, err)
+			return
+		}
+		brigadeID := own.GetBrigade().GetId()
+		protoReq.BrigadeId = &brigadeID
+		ctx = metadata.AppendToOutgoingContext(ctx, "x-actor-brigade-id", brigadeID)
+	}
 
 	res, err := th.ticketClient.ListTickets(ctx, protoReq)
 	if err != nil {
@@ -177,7 +225,10 @@ func (th *TicketHandler) ChangeTicketStatus(c *gin.Context) {
 
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
-	ctx = ticketActorContext(ctx, c)
+	ctx, ok := th.contextWithWorkerBrigade(ctx, c)
+	if !ok {
+		return
+	}
 
 	res, err := th.ticketClient.ChangeTicketStatus(ctx, &ticketv1.ChangeTicketStatusRequest{
 		TicketId:  req.TicketID,
@@ -254,7 +305,10 @@ func (th *TicketHandler) CompleteTicket(c *gin.Context) {
 
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
-	ctx = ticketActorContext(ctx, c)
+	ctx, ok := th.contextWithWorkerBrigade(ctx, c)
+	if !ok {
+		return
+	}
 
 	res, err := th.ticketClient.CompleteTicket(ctx, &ticketv1.CompleteTicketRequest{
 		TicketId:    req.TicketID,
@@ -279,7 +333,10 @@ func (th *TicketHandler) GetTicketStatusHistory(c *gin.Context) {
 
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
-	ctx = ticketActorContext(ctx, c)
+	ctx, ok := th.contextWithWorkerBrigade(ctx, c)
+	if !ok {
+		return
+	}
 
 	res, err := th.ticketClient.GetTicketStatusHistory(ctx, &ticketv1.GetTicketStatusHistoryRequest{
 		TicketId: req.TicketID,

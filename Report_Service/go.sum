@@ -1,3 +1,5 @@
+github.com/FIZZI-77/automatic-system-contracts v0.0.0-20260812113141-4cfa009fc88b h1:YofNmLgmChvMbaf5vvkgDJepu463dxgpxSLd/vj0iCg=
+github.com/FIZZI-77/automatic-system-contracts v0.0.0-20260812113141-4cfa009fc88b/go.mod h1:ylszYXEH6aQK/fXBJ/rULlBa0MVFKgg+TtNp8FlZT4o=
 github.com/boombuler/barcode v1.0.0/go.mod h1:paBWMcWSl3LHKBqUq+rly7CNSldXjb2rDl3JlRe0mD8=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
 github.com/cespare/xxhash/v2 v2.3.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=

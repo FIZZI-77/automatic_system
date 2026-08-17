@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	analyticsv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/analytics/v1"
 	filev1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/file/v1"
 	reportv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/report/v1"
@@ -13,6 +14,7 @@ import (
 	healthv1 "google.golang.org/grpc/health/grpc_health_v1"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"report/pkg"
@@ -21,6 +23,7 @@ import (
 	"report/src/core/repository"
 	"report/src/core/service"
 	"report/src/infrastructure/analyticsclient"
+	"report/src/infrastructure/completionhttp"
 	"report/src/infrastructure/fileclient"
 	"report/src/infrastructure/generator"
 	"report/src/infrastructure/outboxrelay"
@@ -54,7 +57,9 @@ func main() {
 	fileConn := dial(must("FILE_SERVICE_ADDR"), logger)
 	defer fileConn.Close()
 	repo := repository.NewRepository(db)
-	svc := service.NewService(repo, analyticsclient.New(analyticsv1.NewAnalyticsServiceClient(analyticsConn)), fileclient.New(filev1.NewFileServiceClient(fileConn), env("FILE_UPLOAD_INTERNAL_ENDPOINT", "http://minio:9000")), generator.New(), logger)
+	files := fileclient.New(filev1.NewFileServiceClient(fileConn), env("FILE_UPLOAD_INTERNAL_ENDPOINT", "http://minio:9000"))
+	reportGenerator := generator.New()
+	svc := service.NewService(repo, analyticsclient.New(analyticsv1.NewAnalyticsServiceClient(analyticsConn)), files, reportGenerator, logger)
 	worker := reportworker.New(svc, logger, duration("WORKER_INTERVAL", time.Second))
 	go run(ctx, "report worker", worker.Run, logger)
 	brokers := split(env("KAFKA_BROKERS", ""))
@@ -79,8 +84,19 @@ func main() {
 			stop()
 		}
 	}()
+	internalServer := completionhttp.HTTPServer(":"+env("INTERNAL_HTTP_PORT", "8084"), completionhttp.New(files, reportGenerator, must("REPORT_INTERNAL_TOKEN"), logger).Handler())
+	go func() {
+		logger.Info("report internal HTTP started", zap.String("address", internalServer.Addr))
+		if err := internalServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) && ctx.Err() == nil {
+			logger.Error("report internal HTTP stopped", zap.Error(err))
+			stop()
+		}
+	}()
 	<-ctx.Done()
 	hs.Shutdown()
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_ = internalServer.Shutdown(shutdownCtx)
 	server.GracefulStop()
 }
 func dial(addr string, l *zap.Logger) *grpc.ClientConn {

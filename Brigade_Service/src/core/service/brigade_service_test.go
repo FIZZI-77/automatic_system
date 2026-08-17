@@ -377,6 +377,26 @@ func TestBrigadeService_GetBrigadeByID_DispatcherWrongDepartment(t *testing.T) {
 	}
 }
 
+func TestBrigadeService_GetBrigadeByID_WorkerOwnActiveBrigade(t *testing.T) {
+	departmentID := uuid.New()
+	brigadeID := uuid.New()
+	workerID := uuid.New()
+	mock := &mockBrigadeRepo{
+		getBrigadeByIDFunc: func(context.Context, *models.GetBrigadeByIDInput) (*models.GetBrigadeByIDResult, error) {
+			return &models.GetBrigadeByIDResult{Brigade: testBrigade(brigadeID, departmentID, models.BrigadeStatusActive)}, nil
+		},
+		getBrigadeByUserIDFunc: func(context.Context, *models.GetBrigadeByUserIDInput) (*models.GetBrigadeByUserIDResult, error) {
+			return &models.GetBrigadeByUserIDResult{Brigade: testBrigade(brigadeID, departmentID, models.BrigadeStatusActive)}, nil
+		},
+	}
+	svc := NewBrigadeService(newTestRepo(mock), nil, zap.NewNop())
+
+	result, err := svc.GetBrigadeByID(context.Background(), &models.GetBrigadeByIDInput{ID: brigadeID, ActorUserID: &workerID, ActorRoles: []string{"worker"}})
+	if err != nil || result == nil || result.Brigade.ID != brigadeID {
+		t.Fatalf("expected worker's own brigade, result=%v err=%v", result, err)
+	}
+}
+
 func TestBrigadeService_ListBrigades_DispatcherScopedToDepartment(t *testing.T) {
 	departmentID := uuid.New()
 	mock := &mockBrigadeRepo{
@@ -533,6 +553,30 @@ func TestMemberService_RemoveBrigadeMember_LastActiveMember(t *testing.T) {
 	}
 	if !errors.Is(err, models.ErrBrigadeUnavailable) {
 		t.Fatalf("expected brigade unavailable, got %v", err)
+	}
+}
+
+func TestMemberService_ListBrigadeMembers_WorkerOwnActiveBrigade(t *testing.T) {
+	departmentID := uuid.New()
+	brigadeID := uuid.New()
+	workerID := uuid.New()
+	memberID := uuid.New()
+	mock := &mockBrigadeRepo{
+		getBrigadeByIDFunc: func(context.Context, *models.GetBrigadeByIDInput) (*models.GetBrigadeByIDResult, error) {
+			return &models.GetBrigadeByIDResult{Brigade: testBrigade(brigadeID, departmentID, models.BrigadeStatusActive)}, nil
+		},
+		getBrigadeByUserIDFunc: func(context.Context, *models.GetBrigadeByUserIDInput) (*models.GetBrigadeByUserIDResult, error) {
+			return &models.GetBrigadeByUserIDResult{Brigade: testBrigade(brigadeID, departmentID, models.BrigadeStatusActive)}, nil
+		},
+		listBrigadeMembersFunc: func(context.Context, *models.ListBrigadeMembersInput) (*models.ListBrigadeMembersResult, error) {
+			return &models.ListBrigadeMembersResult{Members: []*models.BrigadeMember{testMember(memberID, brigadeID, workerID)}, Total: 1}, nil
+		},
+	}
+	svc := NewMemberServiceStruct(newTestRepo(mock), zap.NewNop())
+
+	result, err := svc.ListBrigadeMembers(context.Background(), &models.ListBrigadeMembersInput{BrigadeID: brigadeID, ActorUserID: &workerID, ActorRoles: []string{"worker"}})
+	if err != nil || result == nil || result.Total != 1 {
+		t.Fatalf("expected own brigade members, result=%v err=%v", result, err)
 	}
 }
 

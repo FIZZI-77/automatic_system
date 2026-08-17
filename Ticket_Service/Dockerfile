@@ -16,9 +16,6 @@ RUN go mod download && \
 # Копирование всего кода
 COPY . .
 
-# Дополнительная загрузка недостающих зависимостей
-RUN go mod tidy
-
 # Сборка приложения
 RUN go build -o server ./src/cmd/server
 

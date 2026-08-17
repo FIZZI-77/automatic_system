@@ -206,7 +206,15 @@ func (b *BrigadeServiceStruct) GetBrigadeByID(ctx context.Context, in *models.Ge
 	}
 
 	if err = checkPermissionAndDepartmentForAdminAndDispatcher(log, start, in.ActorRoles, in.ActorDepartmentID, brigade.Brigade.DepartmentID); err != nil {
-		return nil, err
+		// Workers may read only the brigade they actively belong to. This is
+		// needed for the worker workspace and completion-report attribution.
+		if in.ActorUserID == nil {
+			return nil, err
+		}
+		own, ownErr := b.repo.GetBrigadeByUserID(ctx, &models.GetBrigadeByUserIDInput{UserID: *in.ActorUserID, OnlyActive: true})
+		if ownErr != nil || own == nil || own.Brigade == nil || own.Brigade.ID != brigade.Brigade.ID {
+			return nil, err
+		}
 	}
 
 	log.Info("GetBrigadeByID success",

@@ -8,3 +8,9 @@ kafka_brokers: ["kafka-1:9092", "kafka-2:9092", "kafka-3:9092"]
 kafka_routing_topic: "routing.events.v1"
 routing_consumer_group_id: "ticket-routing-lifecycle-v1"
 outbox_worker_count: 4
+ticket_retention_enabled: true
+ticket_archive_after: "24h"
+ticket_purge_after: "720h"
+ticket_archive_interval: "5m"
+ticket_purge_interval: "1h"
+ticket_retention_batch_size: 100

@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"gateway/src/core/middleware"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -13,30 +15,34 @@ import (
 func handleGRPCError(c *gin.Context, err error) {
 	st, ok := status.FromError(err)
 	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		writeAPIError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Внутренняя ошибка сервера")
 		return
 	}
 
 	switch st.Code() {
 	case codes.InvalidArgument:
-		c.JSON(http.StatusBadRequest, gin.H{"error": st.Message()})
+		writeAPIError(c, http.StatusBadRequest, "INVALID_ARGUMENT", "Проверьте введённые данные")
 	case codes.Unauthenticated:
-		c.JSON(http.StatusUnauthorized, gin.H{"error": st.Message()})
+		writeAPIError(c, http.StatusUnauthorized, "UNAUTHENTICATED", "Необходимо войти в систему заново")
 	case codes.PermissionDenied:
-		c.JSON(http.StatusForbidden, gin.H{"error": st.Message()})
+		writeAPIError(c, http.StatusForbidden, "PERMISSION_DENIED", "Недостаточно прав для выполнения действия")
 	case codes.NotFound:
-		c.JSON(http.StatusNotFound, gin.H{"error": st.Message()})
+		writeAPIError(c, http.StatusNotFound, "NOT_FOUND", "Запрошенные данные не найдены")
 	case codes.AlreadyExists:
-		c.JSON(http.StatusConflict, gin.H{"error": st.Message()})
+		writeAPIError(c, http.StatusConflict, "ALREADY_EXISTS", "Такая запись уже существует")
 	case codes.Aborted, codes.FailedPrecondition:
-		c.JSON(http.StatusConflict, gin.H{"error": st.Message()})
+		writeAPIError(c, http.StatusConflict, "INVALID_STATE", "Действие невозможно в текущем состоянии")
 	case codes.DeadlineExceeded:
-		c.JSON(http.StatusGatewayTimeout, gin.H{"error": "upstream service timeout"})
+		writeAPIError(c, http.StatusGatewayTimeout, "UPSTREAM_TIMEOUT", "Сервис не успел ответить. Попробуйте ещё раз")
 	case codes.Unavailable:
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "upstream service unavailable"})
+		writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "Сервис временно недоступен")
 	default:
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		writeAPIError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Внутренняя ошибка сервера")
 	}
+}
+
+func writeAPIError(c *gin.Context, statusCode int, code, message string) {
+	c.JSON(statusCode, gin.H{"code": code, "error": message})
 }
 
 type Handler struct {
@@ -102,6 +108,28 @@ func NewHandler(
 func (h *Handler) InitRouters() *gin.Engine {
 
 	router := gin.New()
+	allowedOrigins := map[string]struct{}{}
+	for _, origin := range strings.Split(envOrDefault("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"), ",") {
+		if value := strings.TrimSpace(origin); value != "" {
+			allowedOrigins[value] = struct{}{}
+		}
+	}
+	router.Use(func(c *gin.Context) {
+		origin := c.GetHeader("Origin")
+		if _, allowed := allowedOrigins[origin]; allowed {
+			c.Header("Access-Control-Allow-Origin", origin)
+			c.Header("Access-Control-Allow-Credentials", "true")
+			c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type, Idempotency-Key, X-Request-ID")
+			c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+			c.Header("Access-Control-Expose-Headers", "X-Request-ID, X-RateLimit-Limit, X-RateLimit-Remaining")
+			c.Header("Vary", "Origin")
+		}
+		if c.Request.Method == http.MethodOptions {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+		c.Next()
+	})
 
 	router.Use(middleware.RequestID())
 	router.Use(middleware.IdempotencyKey())
@@ -239,6 +267,7 @@ func (h *Handler) InitRouters() *gin.Engine {
 	privateReports.Use(h.authMiddleware.Handle())
 	{
 		privateReports.POST("/create", h.reportHandler.Create)
+		privateReports.POST("/completion/create", h.reportHandler.CreateCompletion)
 		privateReports.POST("/get", h.reportHandler.Get)
 		privateReports.POST("/list", h.reportHandler.List)
 		privateReports.POST("/cancel", h.reportHandler.Cancel)
@@ -461,4 +490,11 @@ func (h *Handler) InitRouters() *gin.Engine {
 	}
 
 	return router
+}
+
+func envOrDefault(key, fallback string) string {
+	if value := strings.TrimSpace(os.Getenv(key)); value != "" {
+		return value
+	}
+	return fallback
 }

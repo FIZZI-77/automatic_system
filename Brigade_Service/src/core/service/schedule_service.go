@@ -80,7 +80,15 @@ func (s *ScheduleServiceStruct) ListBrigadeSchedule(ctx context.Context, in *mod
 	}
 
 	if err = checkPermissionAndDepartmentForAdminAndDispatcher(log, start, in.ActorRoles, in.ActorDepartmentID, brigade.DepartmentID); err != nil {
-		return nil, err
+		// A worker may read the schedule of the brigade they actively belong to.
+		// Schedule modification remains restricted to an admin or dispatcher.
+		if in.ActorUserID == nil {
+			return nil, err
+		}
+		own, ownErr := s.repo.GetBrigadeByUserID(ctx, &models.GetBrigadeByUserIDInput{UserID: *in.ActorUserID, OnlyActive: true})
+		if ownErr != nil || own == nil || own.Brigade == nil || own.Brigade.ID != brigade.ID {
+			return nil, err
+		}
 	}
 
 	result, err := s.repo.ListBrigadeSchedule(ctx, in)

@@ -88,7 +88,10 @@ func (r *AnalyticsRepoStruct) Daily(ctx context.Context, f models.Filter) ([]mod
 
 func eventTime(event models.Event) time.Time {
 	occurred := event.Timestamp
-	if raw := stringValue(event.Payload, "occurred_at", "created_at", "updated_at"); raw != "" {
+	// Entity timestamps such as created_at and updated_at describe the ticket,
+	// not the domain event. Using them made assignment and completion appear at
+	// the ticket creation time and forced response metrics to zero.
+	if raw := stringValue(event.Payload, "occurred_at"); raw != "" {
 		if parsed, err := time.Parse(time.RFC3339Nano, raw); err == nil {
 			occurred = parsed
 		}

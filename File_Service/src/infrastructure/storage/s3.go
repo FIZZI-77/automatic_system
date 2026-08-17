@@ -84,3 +84,15 @@ func (s *S3) Delete(ctx context.Context, key string) error {
 	_, err := s.client.DeleteObject(ctx, &s3.DeleteObjectInput{Bucket: &s.bucket, Key: &key})
 	return err
 }
+
+func (s *S3) Move(ctx context.Context, source, target string) error {
+	copySource := url.PathEscape(s.bucket + "/" + source)
+	if _, err := s.client.CopyObject(ctx, &s3.CopyObjectInput{Bucket: &s.bucket, Key: &target, CopySource: &copySource}); err != nil {
+		return err
+	}
+	if err := s.Delete(ctx, source); err != nil {
+		_ = s.Delete(ctx, target)
+		return err
+	}
+	return nil
+}
