@@ -84,8 +84,11 @@ services:
       AUDIT_SERVICE_ADDR: audit-service:50062
       ANALYTICS_SERVICE_ADDR: analytics-service:50063
       REPORT_SERVICE_ADDR: report-service:50064
+      REPORT_INTERNAL_URL: http://report-service:8084
+      REPORT_INTERNAL_TOKEN: ${REPORT_INTERNAL_TOKEN:-local-report-internal-token}
       ASSET_SERVICE_ADDR: asset-service:50065
       NOTIFICATION_LIVE_PREFIX: "notifications:user:"
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
     ports:
       - "${API_GATEWAY_PORT}:8081"
     volumes:
@@ -277,7 +280,7 @@ services:
     container_name: transponder-simulator
     environment:
       VEHICLE_ID: ${TRANSPONDER_VEHICLE_ID:-55555555-5555-5555-5555-555555555555}
-      BRIGADE_ID: ${TRANSPONDER_BRIGADE_ID:-e6450e95-77dd-4824-89fa-1657f409be68}
+      BRIGADE_ID: ${TRANSPONDER_BRIGADE_ID:-30000000-0000-4000-8000-000000000001}
       DEVICE_ID: ${TRANSPONDER_DEVICE_ID:-simulator-car-001}
       TARGET_URL: http://location-service:8080/v1/positions
       TRANSPONDER_API_KEY: ${TRANSPONDER_API_KEY:-}
@@ -328,7 +331,7 @@ services:
     container_name: transponder-simulator-auto
     environment:
       VEHICLE_ID: ${TRANSPONDER_AUTO_VEHICLE_ID:-55555555-5555-5555-5555-555555555556}
-      BRIGADE_ID: ${TRANSPONDER_AUTO_BRIGADE_ID:-dd720703-bc5d-4278-8180-29f1f0909e0d}
+      BRIGADE_ID: ${TRANSPONDER_AUTO_BRIGADE_ID:-30000000-0000-4000-8000-000000000002}
       DEVICE_ID: ${TRANSPONDER_AUTO_DEVICE_ID:-simulator-car-002}
       TARGET_URL: http://location-service:8080/v1/positions
       TRANSPONDER_API_KEY: ${TRANSPONDER_API_KEY:-}
@@ -465,6 +468,10 @@ services:
     container_name: report-service
     environment:
       DATABASE_URL: postgres://report:report@postgres-report:5432/report?sslmode=disable
+      REPORT_INTERNAL_TOKEN: ${REPORT_INTERNAL_TOKEN:-local-report-internal-token}
+      INTERNAL_HTTP_PORT: "8084"
+    expose:
+      - "8084"
     ports:
       - "${REPORT_GRPC_PORT:-50064}:50064"
     depends_on:

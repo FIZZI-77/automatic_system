@@ -44,8 +44,8 @@ func (r *Repository) Quarantine(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
-func (r *Repository) Link(ctx context.Context, id uuid.UUID, in models.LinkInput) (*models.File, error) {
-	f, err := scan(r.db.QueryRow(ctx, `UPDATE files SET resource_type=$2,resource_id=$3,status='LINKED',updated_at=now() WHERE id=$1 AND status IN ('UPLOADED','LINKED') RETURNING id,owner_user_id,resource_type,resource_id,name,content_type,size,checksum,object_key,status,created_at,updated_at`, id, in.ResourceType, in.ResourceID))
+func (r *Repository) Link(ctx context.Context, id uuid.UUID, in models.LinkInput, objectKey string) (*models.File, error) {
+	f, err := scan(r.db.QueryRow(ctx, `UPDATE files SET resource_type=$2,resource_id=$3,object_key=$4,status='LINKED',updated_at=now() WHERE id=$1 AND status IN ('UPLOADED','LINKED') RETURNING id,owner_user_id,resource_type,resource_id,name,content_type,size,checksum,object_key,status,created_at,updated_at`, id, in.ResourceType, in.ResourceID, objectKey))
 	return f, err
 }
 

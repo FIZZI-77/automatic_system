@@ -33,8 +33,9 @@ func NewTicketHandler(service *service.Service, logger *zap.Logger) *TicketHandl
 }
 
 type actorContext struct {
-	UserID *uuid.UUID
-	Roles  []string
+	UserID    *uuid.UUID
+	BrigadeID *uuid.UUID
+	Roles     []string
 }
 
 func (t *TicketHandler) CreateWorkReport(ctx context.Context, req *ticketv1.CreateWorkReportRequest) (*ticketv1.CreateWorkReportResponse, error) {
@@ -58,7 +59,7 @@ func (t *TicketHandler) CreateWorkReport(ctx context.Context, req *ticketv1.Crea
 	if actor.UserID == nil || (*actor.UserID != authorID && !containsRole(actor.Roles, "admin") && !containsRole(actor.Roles, "dispatcher")) {
 		return nil, ticketStatusError("CreateWorkReport", models.ErrPermissionDenied)
 	}
-	report, err := t.service.Reports.Create(ctx, &models.CreateWorkReportInput{TicketID: ticketID, AuthorUserID: authorID, Description: req.GetDescription(), FileIDs: fileIDs, ActorRoles: actor.Roles})
+	report, err := t.service.Reports.Create(ctx, &models.CreateWorkReportInput{TicketID: ticketID, AuthorUserID: authorID, Description: req.GetDescription(), FileIDs: fileIDs, ActorBrigadeID: actor.BrigadeID, ActorRoles: actor.Roles})
 	if err != nil {
 		return nil, ticketStatusError("CreateWorkReport", err)
 	}
@@ -74,7 +75,7 @@ func (t *TicketHandler) ListWorkReports(ctx context.Context, req *ticketv1.ListW
 	if actor.UserID == nil {
 		return nil, ticketStatusError("ListWorkReports", models.ErrPermissionDenied)
 	}
-	reports, err := t.service.Reports.List(ctx, ticketID, *actor.UserID, actor.Roles)
+	reports, err := t.service.Reports.List(ctx, ticketID, *actor.UserID, actor.BrigadeID, actor.Roles)
 	if err != nil {
 		return nil, ticketStatusError("ListWorkReports", err)
 	}
@@ -229,9 +230,10 @@ func (t *TicketHandler) GetTicket(ctx context.Context, req *ticketv1.GetTicketRe
 
 	actor := actorFromContext(ctx)
 	in := &models.GetTicketInput{
-		TicketID:    ticketID,
-		ActorUserID: actor.UserID,
-		ActorRoles:  actor.Roles,
+		TicketID:       ticketID,
+		ActorUserID:    actor.UserID,
+		ActorBrigadeID: actor.BrigadeID,
+		ActorRoles:     actor.Roles,
 	}
 
 	res, err := t.service.GetTicket(ctx, in)
@@ -327,20 +329,21 @@ func (t *TicketHandler) ListTickets(ctx context.Context, req *ticketv1.ListTicke
 
 	actor := actorFromContext(ctx)
 	in := &models.ListTicketsInput{
-		DepartmentID: departmentID,
-		UserID:       userID,
-		BrigadeID:    brigadeID,
-		CategoryID:   categoryID,
-		Status:       ticketStatus,
-		Priority:     priority,
-		CreatedFrom:  FromProtoTimestamp(req.GetCreatedFrom()),
-		CreatedTo:    FromProtoTimestamp(req.GetCreatedTo()),
-		Limit:        req.GetLimit(),
-		Offset:       req.GetOffset(),
-		SortBy:       FromProtoSortBy(req.GetSortBy()),
-		SortOrder:    FromProtoSortOrder(req.GetSortOrder()),
-		ActorUserID:  actor.UserID,
-		ActorRoles:   actor.Roles,
+		DepartmentID:   departmentID,
+		UserID:         userID,
+		BrigadeID:      brigadeID,
+		CategoryID:     categoryID,
+		Status:         ticketStatus,
+		Priority:       priority,
+		CreatedFrom:    FromProtoTimestamp(req.GetCreatedFrom()),
+		CreatedTo:      FromProtoTimestamp(req.GetCreatedTo()),
+		Limit:          req.GetLimit(),
+		Offset:         req.GetOffset(),
+		SortBy:         FromProtoSortBy(req.GetSortBy()),
+		SortOrder:      FromProtoSortOrder(req.GetSortOrder()),
+		ActorUserID:    actor.UserID,
+		ActorBrigadeID: actor.BrigadeID,
+		ActorRoles:     actor.Roles,
 	}
 
 	res, err := t.service.ListTickets(ctx, in)
@@ -497,12 +500,14 @@ func (t *TicketHandler) ChangeTicketStatus(ctx context.Context, req *ticketv1.Ch
 		return nil, ticketStatusError("ChangeTicketStatus", fmt.Errorf("%w: invalid changed_by: %v", models.ErrValidation, err))
 	}
 
+	actor := actorFromContext(ctx)
 	in := &models.ChangeTicketStatusInput{
-		TicketID:   ticketID,
-		NewStatus:  FromProtoStatus(req.GetNewStatus()),
-		ChangedBy:  changedBy,
-		Comment:    optionalString(req.GetComment()),
-		ActorRoles: actorFromContext(ctx).Roles,
+		TicketID:       ticketID,
+		NewStatus:      FromProtoStatus(req.GetNewStatus()),
+		ChangedBy:      changedBy,
+		Comment:        optionalString(req.GetComment()),
+		ActorBrigadeID: actor.BrigadeID,
+		ActorRoles:     actor.Roles,
 	}
 
 	res, err := t.service.ChangeTicketStatus(ctx, in)
@@ -698,11 +703,13 @@ func (t *TicketHandler) CompleteTicket(ctx context.Context, req *ticketv1.Comple
 		return nil, ticketStatusError("CompleteTicket", fmt.Errorf("%w: invalid completed_by: %v", models.ErrValidation, err))
 	}
 
+	actor := actorFromContext(ctx)
 	in := &models.CompleteTicketInput{
-		TicketID:    ticketID,
-		CompletedBy: completedBy,
-		Comment:     optionalString(req.GetComment()),
-		ActorRoles:  actorFromContext(ctx).Roles,
+		TicketID:       ticketID,
+		CompletedBy:    completedBy,
+		Comment:        optionalString(req.GetComment()),
+		ActorBrigadeID: actor.BrigadeID,
+		ActorRoles:     actor.Roles,
 	}
 
 	res, err := t.service.CompleteTicket(ctx, in)
@@ -749,11 +756,12 @@ func (t *TicketHandler) GetTicketStatusHistory(ctx context.Context, req *ticketv
 
 	actor := actorFromContext(ctx)
 	in := &models.GetTicketStatusHistoryInput{
-		TicketID:    ticketID,
-		Limit:       req.GetLimit(),
-		Offset:      req.GetOffset(),
-		ActorUserID: actor.UserID,
-		ActorRoles:  actor.Roles,
+		TicketID:       ticketID,
+		Limit:          req.GetLimit(),
+		Offset:         req.GetOffset(),
+		ActorUserID:    actor.UserID,
+		ActorBrigadeID: actor.BrigadeID,
+		ActorRoles:     actor.Roles,
 	}
 
 	res, err := t.service.GetTicketStatusHistory(ctx, in)
@@ -1069,6 +1077,11 @@ func actorFromContext(ctx context.Context) actorContext {
 	if values := md.Get("x-actor-user-id"); len(values) > 0 && values[0] != "" {
 		if parsed, err := uuid.Parse(values[0]); err == nil {
 			actor.UserID = &parsed
+		}
+	}
+	if values := md.Get("x-actor-brigade-id"); len(values) > 0 && values[0] != "" {
+		if parsed, err := uuid.Parse(values[0]); err == nil {
+			actor.BrigadeID = &parsed
 		}
 	}
 

@@ -77,7 +77,7 @@ func main() {
 	publicKeyPath := getEnv("JWT_PUBLIC_KEY_PATH", "./keys/public.pem")
 
 	authConn, err := grpc.NewClient(
-		authServiceAddr,
+		grpcTarget(authServiceAddr),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithChainUnaryInterceptor(
 			requestid.UnaryClientInterceptor,
@@ -95,7 +95,7 @@ func main() {
 	authClient := authv1.NewAuthServiceClient(authConn)
 
 	ticketConn, err := grpc.NewClient(
-		ticketServiceAddr,
+		grpcTarget(ticketServiceAddr),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithChainUnaryInterceptor(
 			requestid.UnaryClientInterceptor,
@@ -112,7 +112,7 @@ func main() {
 	ticketClient := ticketv1.NewTicketServiceClient(ticketConn)
 
 	departmentConn, err := grpc.NewClient(
-		departmentServiceAddr,
+		grpcTarget(departmentServiceAddr),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithChainUnaryInterceptor(
 			requestid.UnaryClientInterceptor,
@@ -129,7 +129,7 @@ func main() {
 	departmentClient := departmentv1.NewDepartmentServiceClient(departmentConn)
 
 	brigadeConn, err := grpc.NewClient(
-		brigadeServiceAddr,
+		grpcTarget(brigadeServiceAddr),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithChainUnaryInterceptor(
 			requestid.UnaryClientInterceptor,
@@ -146,7 +146,7 @@ func main() {
 	brigadeClient := brigadev1.NewBrigadeServiceClient(brigadeConn)
 
 	profileConn, err := grpc.NewClient(
-		profileServiceAddr,
+		grpcTarget(profileServiceAddr),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithChainUnaryInterceptor(
 			requestid.UnaryClientInterceptor,
@@ -163,7 +163,7 @@ func main() {
 	profileClient := profilev1.NewProfileServiceClient(profileConn)
 
 	locationConn, err := grpc.NewClient(
-		locationServiceAddr,
+		grpcTarget(locationServiceAddr),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithChainUnaryInterceptor(
 			requestid.UnaryClientInterceptor,
@@ -180,7 +180,7 @@ func main() {
 	locationClient := locationv1.NewLocationServiceClient(locationConn)
 
 	routingConn, err := grpc.NewClient(
-		routingServiceAddr,
+		grpcTarget(routingServiceAddr),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithChainUnaryInterceptor(
 			requestid.UnaryClientInterceptor,
@@ -196,7 +196,7 @@ func main() {
 
 	routingClient := routingv1.NewRoutingServiceClient(routingConn)
 	dispatchConn, err := grpc.NewClient(
-		dispatchServiceAddr,
+		grpcTarget(dispatchServiceAddr),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithChainUnaryInterceptor(requestid.UnaryClientInterceptor, idempotency.UnaryClientInterceptor, retry.UnaryClientInterceptor),
 	)
@@ -206,49 +206,49 @@ func main() {
 	dependencies.Add("dispatch grpc connection", dispatchConn.Close)
 	waitForGRPCReady("dispatch", dispatchConn)
 	dispatchClient := dispatchv1.NewDispatchServiceClient(dispatchConn)
-	fileConn, err := grpc.NewClient(fileServiceAddr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(requestid.UnaryClientInterceptor, idempotency.UnaryClientInterceptor, retry.UnaryClientInterceptor))
+	fileConn, err := grpc.NewClient(grpcTarget(fileServiceAddr), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(requestid.UnaryClientInterceptor, idempotency.UnaryClientInterceptor, retry.UnaryClientInterceptor))
 	if err != nil {
 		log.Fatalf("failed to connect to file service: %v", err)
 	}
 	dependencies.Add("file grpc connection", fileConn.Close)
 	waitForGRPCReady("file", fileConn)
 	fileClient := filev1.NewFileServiceClient(fileConn)
-	slaConn, err := grpc.NewClient(slaServiceAddr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(requestid.UnaryClientInterceptor, idempotency.UnaryClientInterceptor, retry.UnaryClientInterceptor))
+	slaConn, err := grpc.NewClient(grpcTarget(slaServiceAddr), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(requestid.UnaryClientInterceptor, idempotency.UnaryClientInterceptor, retry.UnaryClientInterceptor))
 	if err != nil {
 		log.Fatalf("failed to connect to SLA service: %v", err)
 	}
 	dependencies.Add("sla grpc connection", slaConn.Close)
 	waitForGRPCReady("sla", slaConn)
 	slaClient := slav1.NewSLAServiceClient(slaConn)
-	notificationConn, err := grpc.NewClient(notificationServiceAddr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(requestid.UnaryClientInterceptor, idempotency.UnaryClientInterceptor, retry.UnaryClientInterceptor))
+	notificationConn, err := grpc.NewClient(grpcTarget(notificationServiceAddr), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(requestid.UnaryClientInterceptor, idempotency.UnaryClientInterceptor, retry.UnaryClientInterceptor))
 	if err != nil {
 		log.Fatalf("failed to connect to notification service: %v", err)
 	}
 	dependencies.Add("notification grpc connection", notificationConn.Close)
 	waitForGRPCReady("notification", notificationConn)
 	notificationClient := notificationv1.NewNotificationServiceClient(notificationConn)
-	auditConn, err := grpc.NewClient(auditServiceAddr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(requestid.UnaryClientInterceptor, idempotency.UnaryClientInterceptor, retry.UnaryClientInterceptor))
+	auditConn, err := grpc.NewClient(grpcTarget(auditServiceAddr), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(requestid.UnaryClientInterceptor, idempotency.UnaryClientInterceptor, retry.UnaryClientInterceptor))
 	if err != nil {
 		log.Fatalf("failed to connect to audit service: %v", err)
 	}
 	dependencies.Add("audit grpc connection", auditConn.Close)
 	waitForGRPCReady("audit", auditConn)
 	auditClient := auditv1.NewAuditServiceClient(auditConn)
-	analyticsConn, err := grpc.NewClient(analyticsServiceAddr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(requestid.UnaryClientInterceptor, idempotency.UnaryClientInterceptor, retry.UnaryClientInterceptor))
+	analyticsConn, err := grpc.NewClient(grpcTarget(analyticsServiceAddr), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(requestid.UnaryClientInterceptor, idempotency.UnaryClientInterceptor, retry.UnaryClientInterceptor))
 	if err != nil {
 		log.Fatalf("failed to connect to analytics service: %v", err)
 	}
 	dependencies.Add("analytics grpc connection", analyticsConn.Close)
 	waitForGRPCReady("analytics", analyticsConn)
 	analyticsClient := analyticsv1.NewAnalyticsServiceClient(analyticsConn)
-	reportConn, err := grpc.NewClient(reportServiceAddr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(requestid.UnaryClientInterceptor, idempotency.UnaryClientInterceptor, retry.UnaryClientInterceptor))
+	reportConn, err := grpc.NewClient(grpcTarget(reportServiceAddr), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(requestid.UnaryClientInterceptor, idempotency.UnaryClientInterceptor, retry.UnaryClientInterceptor))
 	if err != nil {
 		log.Fatalf("failed to connect to report service: %v", err)
 	}
 	dependencies.Add("report grpc connection", reportConn.Close)
 	waitForGRPCReady("report", reportConn)
 	reportClient := reportv1.NewReportServiceClient(reportConn)
-	assetConn, err := grpc.NewClient(assetServiceAddr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(requestid.UnaryClientInterceptor, idempotency.UnaryClientInterceptor, retry.UnaryClientInterceptor))
+	assetConn, err := grpc.NewClient(grpcTarget(assetServiceAddr), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(requestid.UnaryClientInterceptor, idempotency.UnaryClientInterceptor, retry.UnaryClientInterceptor))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -266,7 +266,7 @@ func main() {
 	}
 
 	authHandler := handlers.NewAuthHandler(authClient)
-	ticketHandler := handlers.NewTicketHandler(ticketClient)
+	ticketHandler := handlers.NewTicketHandler(ticketClient, brigadeClient)
 	departmentHandler := handlers.NewDepartmentHandler(departmentClient)
 	brigadeHandler := handlers.NewBrigadeHandler(brigadeClient)
 	profileHandler := handlers.NewProfileHandler(profileClient)
@@ -278,7 +278,7 @@ func main() {
 	notificationHandler := handlers.NewNotificationHandler(notificationClient, redisClient, getEnv("NOTIFICATION_LIVE_PREFIX", "notifications:user:"))
 	auditHandler := handlers.NewAuditHandler(auditClient)
 	analyticsHandler := handlers.NewAnalyticsHandler(analyticsClient)
-	reportHandler := handlers.NewReportHandler(reportClient)
+	reportHandler := handlers.NewReportHandler(reportClient, ticketClient, brigadeClient, profileClient, getEnv("REPORT_INTERNAL_URL", "http://report-service:8084"), getEnv("REPORT_INTERNAL_TOKEN", ""))
 	assetHandler := handlers.NewAssetHandler(assetClient)
 	handler := handlers.NewHandler(
 		authHandler,
@@ -371,6 +371,8 @@ func waitForGRPCReady(name string, conn *grpc.ClientConn) {
 		}
 	}
 }
+
+func grpcTarget(address string) string { return "passthrough:///" + address }
 
 func closeDependencies(dependencies *closer.Closer) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

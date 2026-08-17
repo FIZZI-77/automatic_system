@@ -56,6 +56,7 @@ func main() {
 	defer closeDependencies(dependencies)
 	startOutboxRelay(db, dependencies, logger)
 	startRoutingConsumer(db, dependencies, logger)
+	startTicketRetention(db, dependencies, logger)
 
 	grpcPort := os.Getenv("GRPC_PORT")
 	if strings.TrimSpace(grpcPort) == "" {

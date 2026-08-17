@@ -128,7 +128,7 @@ func (t *TicketRepoStruct) GetTicketByID(ctx context.Context, ticketID uuid.UUID
 			canceled_at,
 			asset_id
 		FROM tickets
-		WHERE id = $1
+		WHERE id = $1 AND status <> 'ARCHIVED'
 	`
 
 	row := t.readPool.QueryRow(ctx, query, ticketID)
@@ -142,7 +142,7 @@ func (t *TicketRepoStruct) GetTicketByID(ctx context.Context, ticketID uuid.UUID
 }
 
 func (t *TicketRepoStruct) ListTickets(ctx context.Context, in *models.ListTicketsInput) ([]*models.Ticket, int64, error) {
-	whereParts := make([]string, 0)
+	whereParts := []string{"status <> 'ARCHIVED'"}
 	args := make([]any, 0)
 
 	addWhere := func(condition string, value any) {
@@ -725,7 +725,7 @@ func (t *TicketRepoStruct) isCategoryActive(ctx context.Context, exec Querier, c
 	const query = `
 		SELECT is_active
 		FROM ticket_categories
-		WHERE id = $1
+		WHERE id = $1 AND status <> 'ARCHIVED'
 	`
 
 	var isActive bool
