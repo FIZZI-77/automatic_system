@@ -1,8 +1,0 @@
-ok  	analytics/models	(cached)
-?   	analytics/pkg	[no test files]
-?   	analytics/pkg/config	[no test files]
-?   	analytics/src/cmd/server	[no test files]
-?   	analytics/src/core/handler	[no test files]
-?   	analytics/src/core/repository	[no test files]
-ok  	analytics/src/core/service	(cached)
-?   	analytics/src/infrastructure/eventconsumer	[no test files]

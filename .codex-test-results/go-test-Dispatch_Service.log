@@ -1,6 +1,0 @@
-?   	dispatch/models	[no test files]
-?   	dispatch/pkg/config	[no test files]
-?   	dispatch/src/cmd/server	[no test files]
-ok  	dispatch/src/core/handler	0.799s
-?   	dispatch/src/core/repository	[no test files]
-ok  	dispatch/src/core/service	1.294s
