@@ -1,0 +1,1141 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: automatic-system
+spec:
+  selector:
+    app: auth-service
+  ports:
+  - name: grpc
+    port: 50051
+    targetPort: 50051
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: automatic-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-service
+  template:
+    metadata:
+      labels:
+        app: auth-service
+    spec:
+      containers:
+      - name: auth-service
+        image: automatic-system/auth:dev
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: GRPC_PORT
+          value: '50051'
+        - name: DB_HOST
+          value: postgres-auth
+        - name: DB_PORT
+          value: '5432'
+        - name: DB_USERNAME
+          value: auth_user
+        - name: DB_PASSWORD
+          value: change-me
+        - name: DB_NAME
+          value: auth_db
+        - name: SSLMODE
+          value: disable
+        - name: JWT_PRIVATE_KEY_PATH
+          value: /app/keys/private.pem
+        - name: JWT_KEY_ID
+          value: local-dev-key
+        - name: SMTP_HOST
+          value: mailhog
+        - name: SMTP_PORT
+          value: '1025'
+        - name: SMTP_USERNAME
+          value: ''
+        - name: SMTP_PASSWORD
+          value: ''
+        - name: SMTP_FROM_EMAIL
+          value: no-reply@automatic-system.local
+        - name: SMTP_FROM_NAME
+          value: Automatic System
+        - name: SMTP_USE_TLS
+          value: 'false'
+        - name: SMTP_USE_STARTTLS
+          value: 'false'
+        - name: FRONTEND_BASE_URL
+          value: http://localhost:3000
+        - name: KAFKA_BROKERS
+          value: kafka-1:9092,kafka-2:9092,kafka-3:9092
+        - name: OUTBOX_WORKER_COUNT
+          value: '4'
+        ports:
+        - name: grpc
+          containerPort: 50051
+        resources:
+          requests:
+            cpu: 25m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        readinessProbe:
+          tcpSocket:
+            port: 50051
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          failureThreshold: 12
+        livenessProbe:
+          tcpSocket:
+            port: 50051
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          failureThreshold: 6
+        volumeMounts:
+        - name: jwt-private
+          mountPath: /app/keys/private.pem
+          subPath: private.pem
+          readOnly: true
+      volumes:
+      - name: jwt-private
+        secret:
+          secretName: jwt-private-key
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ticket-service
+  namespace: automatic-system
+spec:
+  selector:
+    app: ticket-service
+  ports:
+  - name: grpc
+    port: 50052
+    targetPort: 50052
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ticket-service
+  namespace: automatic-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ticket-service
+  template:
+    metadata:
+      labels:
+        app: ticket-service
+    spec:
+      containers:
+      - name: ticket-service
+        image: automatic-system/ticket:dev
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: GRPC_PORT
+          value: '50052'
+        - name: DB_HOST
+          value: postgres-ticket
+        - name: DB_PORT
+          value: '5432'
+        - name: DB_USERNAME
+          value: ticket_user
+        - name: DB_PASSWORD
+          value: change-me
+        - name: DB_NAME
+          value: ticket_db
+        - name: SSLMODE
+          value: disable
+        - name: KAFKA_BROKERS
+          value: kafka-1:9092,kafka-2:9092,kafka-3:9092
+        - name: OUTBOX_WORKER_COUNT
+          value: '4'
+        - name: KAFKA_ROUTING_TOPIC
+          value: routing.events.v1
+        ports:
+        - name: grpc
+          containerPort: 50052
+        resources:
+          requests:
+            cpu: 25m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        readinessProbe:
+          tcpSocket:
+            port: 50052
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          failureThreshold: 12
+        livenessProbe:
+          tcpSocket:
+            port: 50052
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          failureThreshold: 6
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: department-service
+  namespace: automatic-system
+spec:
+  selector:
+    app: department-service
+  ports:
+  - name: grpc
+    port: 50053
+    targetPort: 50053
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: department-service
+  namespace: automatic-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: department-service
+  template:
+    metadata:
+      labels:
+        app: department-service
+    spec:
+      containers:
+      - name: department-service
+        image: automatic-system/department:dev
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: GRPC_PORT
+          value: '50053'
+        - name: DB_HOST
+          value: postgres-department
+        - name: DB_PORT
+          value: '5432'
+        - name: DB_USERNAME
+          value: department_user
+        - name: DB_PASSWORD
+          value: change-me
+        - name: DB_NAME
+          value: department_db
+        - name: SSLMODE
+          value: disable
+        - name: KAFKA_BROKERS
+          value: kafka-1:9092,kafka-2:9092,kafka-3:9092
+        - name: OUTBOX_WORKER_COUNT
+          value: '4'
+        ports:
+        - name: grpc
+          containerPort: 50053
+        resources:
+          requests:
+            cpu: 25m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        readinessProbe:
+          tcpSocket:
+            port: 50053
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          failureThreshold: 12
+        livenessProbe:
+          tcpSocket:
+            port: 50053
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          failureThreshold: 6
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: brigade-service
+  namespace: automatic-system
+spec:
+  selector:
+    app: brigade-service
+  ports:
+  - name: grpc
+    port: 50054
+    targetPort: 50054
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: brigade-service
+  namespace: automatic-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: brigade-service
+  template:
+    metadata:
+      labels:
+        app: brigade-service
+    spec:
+      containers:
+      - name: brigade-service
+        image: automatic-system/brigade:dev
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: GRPC_PORT
+          value: '50054'
+        - name: DB_HOST
+          value: postgres-brigade
+        - name: DB_PORT
+          value: '5432'
+        - name: DB_USERNAME
+          value: brigade_user
+        - name: DB_PASSWORD
+          value: change-me
+        - name: DB_NAME
+          value: brigade_db
+        - name: SSLMODE
+          value: disable
+        - name: DEPARTMENT_GRPC_ADDR
+          value: department-service:50053
+        - name: PROFILE_GRPC_ADDR
+          value: profile-service:50055
+        - name: KAFKA_BROKERS
+          value: kafka-1:9092,kafka-2:9092,kafka-3:9092
+        - name: OUTBOX_WORKER_COUNT
+          value: '4'
+        - name: PROFILE_CONSUMER_WORKER_COUNT
+          value: '4'
+        - name: PROFILE_RETRY_WORKER_COUNT
+          value: '2'
+        - name: PROFILE_KAFKA_GROUP_ID
+          value: brigade-profile-projection-v1
+        - name: KAFKA_ROUTING_TOPIC
+          value: routing.events.v1
+        - name: KAFKA_TICKET_TOPIC
+          value: tickets.events.v1
+        ports:
+        - name: grpc
+          containerPort: 50054
+        resources:
+          requests:
+            cpu: 25m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        readinessProbe:
+          tcpSocket:
+            port: 50054
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          failureThreshold: 12
+        livenessProbe:
+          tcpSocket:
+            port: 50054
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          failureThreshold: 6
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: profile-service
+  namespace: automatic-system
+spec:
+  selector:
+    app: profile-service
+  ports:
+  - name: grpc
+    port: 50055
+    targetPort: 50055
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: profile-service
+  namespace: automatic-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: profile-service
+  template:
+    metadata:
+      labels:
+        app: profile-service
+    spec:
+      containers:
+      - name: profile-service
+        image: automatic-system/profile:dev
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: GRPC_PORT
+          value: '50055'
+        - name: DB_HOST
+          value: postgres-profile
+        - name: DB_PORT
+          value: '5432'
+        - name: DB_USERNAME
+          value: profile_user
+        - name: DB_PASSWORD
+          value: change-me
+        - name: DB_NAME
+          value: profile_db
+        - name: SSLMODE
+          value: disable
+        - name: AUTH_GRPC_ADDR
+          value: auth-service:50051
+        - name: DEPARTMENT_GRPC_ADDR
+          value: department-service:50053
+        - name: KAFKA_BROKERS
+          value: kafka-1:9092,kafka-2:9092,kafka-3:9092
+        - name: OUTBOX_WORKER_COUNT
+          value: '4'
+        ports:
+        - name: grpc
+          containerPort: 50055
+        resources:
+          requests:
+            cpu: 25m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        readinessProbe:
+          tcpSocket:
+            port: 50055
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          failureThreshold: 12
+        livenessProbe:
+          tcpSocket:
+            port: 50055
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          failureThreshold: 6
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: location-service
+  namespace: automatic-system
+spec:
+  selector:
+    app: location-service
+  ports:
+  - name: grpc
+    port: 50056
+    targetPort: 50056
+  - name: http
+    port: 8080
+    targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: location-service
+  namespace: automatic-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: location-service
+  template:
+    metadata:
+      labels:
+        app: location-service
+    spec:
+      containers:
+      - name: location-service
+        image: automatic-system/location:dev
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: DATABASE_URL
+          value: postgres://location:location@postgres-location:5432/location?sslmode=disable
+        - name: REDIS_MASTER_NAME
+          value: location-master
+        - name: REDIS_SENTINEL_ADDRS
+          value: redis-location-sentinel-1:26379,redis-location-sentinel-2:26379,redis-location-sentinel-3:26379
+        - name: REDIS_SENTINEL_PASSWORD
+          value: ''
+        - name: REDIS_PASSWORD
+          value: ''
+        - name: REDIS_DB
+          value: '0'
+        - name: REDIS_POOL_SIZE
+          value: '20'
+        - name: REDIS_MIN_IDLE_CONNS
+          value: '5'
+        - name: GRPC_PORT
+          value: '50056'
+        - name: HTTP_PORT
+          value: '8080'
+        - name: LOG_LEVEL
+          value: info
+        - name: TRANSPONDER_API_KEY
+          value: ''
+        - name: HISTORY_BUFFER_CAPACITY
+          value: '10000'
+        - name: HISTORY_BATCH_SIZE
+          value: '500'
+        - name: HISTORY_FLUSH_INTERVAL
+          value: 5s
+        - name: SIGNAL_SCAN_INTERVAL
+          value: 5s
+        - name: SIGNAL_STALE_AFTER
+          value: 5m
+        - name: SIGNAL_OFFLINE_AFTER
+          value: 10m
+        - name: SIGNAL_BATCH_SIZE
+          value: '500'
+        - name: SHUTDOWN_TIMEOUT
+          value: 20s
+        - name: KAFKA_BROKERS
+          value: kafka-1:9092,kafka-2:9092,kafka-3:9092
+        - name: KAFKA_LOCATION_TOPIC
+          value: locations.events.v1
+        - name: REDIS_EVENTS_STREAM
+          value: locations:events
+        - name: REDIS_EVENTS_GROUP
+          value: location-kafka-relay
+        - name: REDIS_EVENTS_CONSUMER
+          value: location-service
+        ports:
+        - name: grpc
+          containerPort: 50056
+        - name: http
+          containerPort: 8080
+        resources:
+          requests:
+            cpu: 25m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        readinessProbe:
+          tcpSocket:
+            port: 50056
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          failureThreshold: 12
+        livenessProbe:
+          tcpSocket:
+            port: 50056
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          failureThreshold: 6
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: routing-service
+  namespace: automatic-system
+spec:
+  selector:
+    app: routing-service
+  ports:
+  - name: grpc
+    port: 50057
+    targetPort: 50057
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: routing-service
+  namespace: automatic-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: routing-service
+  template:
+    metadata:
+      labels:
+        app: routing-service
+    spec:
+      containers:
+      - name: routing-service
+        image: automatic-system/routing:dev
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: DATABASE_URL
+          value: postgres://routing:routing@postgres-routing:5432/routing?sslmode=disable
+        - name: GRPC_PORT
+          value: '50057'
+        - name: VALHALLA_URL
+          value: http://valhalla:8002
+        - name: VALHALLA_TIMEOUT
+          value: 15s
+        - name: KAFKA_BROKERS
+          value: kafka-1:9092,kafka-2:9092,kafka-3:9092
+        - name: KAFKA_ROUTING_TOPIC
+          value: routing.events.v1
+        - name: KAFKA_TICKET_TOPIC
+          value: tickets.events.v1
+        - name: OUTBOX_WORKER_COUNT
+          value: '4'
+        - name: SHUTDOWN_TIMEOUT
+          value: 20s
+        - name: LOG_LEVEL
+          value: info
+        ports:
+        - name: grpc
+          containerPort: 50057
+        resources:
+          requests:
+            cpu: 25m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        readinessProbe:
+          tcpSocket:
+            port: 50057
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          failureThreshold: 12
+        livenessProbe:
+          tcpSocket:
+            port: 50057
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          failureThreshold: 6
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dispatch-service
+  namespace: automatic-system
+spec:
+  selector:
+    app: dispatch-service
+  ports:
+  - name: grpc
+    port: 50058
+    targetPort: 50058
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dispatch-service
+  namespace: automatic-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dispatch-service
+  template:
+    metadata:
+      labels:
+        app: dispatch-service
+    spec:
+      containers:
+      - name: dispatch-service
+        image: automatic-system/dispatch:dev
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: DATABASE_URL
+          value: postgres://dispatch:dispatch@postgres-dispatch:5432/dispatch?sslmode=disable
+        - name: GRPC_PORT
+          value: '50058'
+        - name: TICKET_SERVICE_ADDR
+          value: ticket-service:50052
+        - name: BRIGADE_SERVICE_ADDR
+          value: brigade-service:50054
+        - name: RESERVATION_TTL
+          value: 2m
+        - name: CLEANUP_INTERVAL
+          value: 15s
+        ports:
+        - name: grpc
+          containerPort: 50058
+        resources:
+          requests:
+            cpu: 25m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        readinessProbe:
+          tcpSocket:
+            port: 50058
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          failureThreshold: 12
+        livenessProbe:
+          tcpSocket:
+            port: 50058
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          failureThreshold: 6
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: file-service
+  namespace: automatic-system
+spec:
+  selector:
+    app: file-service
+  ports:
+  - name: grpc
+    port: 50059
+    targetPort: 50059
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: file-service
+  namespace: automatic-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: file-service
+  template:
+    metadata:
+      labels:
+        app: file-service
+    spec:
+      containers:
+      - name: file-service
+        image: automatic-system/file:dev
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: DATABASE_URL
+          value: postgres://file:file@postgres-file:5432/file?sslmode=disable
+        - name: GRPC_PORT
+          value: '50059'
+        - name: S3_ENDPOINT
+          value: http://minio:9000
+        - name: S3_PUBLIC_ENDPOINT
+          value: http://localhost:9000
+        - name: S3_REGION
+          value: us-east-1
+        - name: S3_ACCESS_KEY
+          value: minioadmin
+        - name: S3_SECRET_KEY
+          value: minioadmin
+        - name: S3_BUCKET
+          value: city-files
+        - name: S3_PATH_STYLE
+          value: 'true'
+        - name: PRESIGN_TTL
+          value: 15m
+        ports:
+        - name: grpc
+          containerPort: 50059
+        resources:
+          requests:
+            cpu: 25m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        readinessProbe:
+          tcpSocket:
+            port: 50059
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          failureThreshold: 12
+        livenessProbe:
+          tcpSocket:
+            port: 50059
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          failureThreshold: 6
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sla-service
+  namespace: automatic-system
+spec:
+  selector:
+    app: sla-service
+  ports:
+  - name: grpc
+    port: 50060
+    targetPort: 50060
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sla-service
+  namespace: automatic-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sla-service
+  template:
+    metadata:
+      labels:
+        app: sla-service
+    spec:
+      containers:
+      - name: sla-service
+        image: automatic-system/sla:dev
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: DATABASE_URL
+          value: postgres://sla:sla@postgres-sla:5432/sla?sslmode=disable
+        - name: GRPC_PORT
+          value: '50060'
+        - name: KAFKA_BROKERS
+          value: kafka-1:9092,kafka-2:9092,kafka-3:9092
+        - name: KAFKA_TICKET_TOPIC
+          value: tickets.events.v1
+        - name: KAFKA_SLA_TOPIC
+          value: sla.events.v1
+        - name: KAFKA_CONSUMER_GROUP
+          value: sla-service
+        - name: DEADLINE_SCAN_INTERVAL
+          value: 1s
+        - name: LOG_LEVEL
+          value: info
+        ports:
+        - name: grpc
+          containerPort: 50060
+        resources:
+          requests:
+            cpu: 25m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        readinessProbe:
+          tcpSocket:
+            port: 50060
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          failureThreshold: 12
+        livenessProbe:
+          tcpSocket:
+            port: 50060
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          failureThreshold: 6
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+  namespace: automatic-system
+spec:
+  selector:
+    app: notification-service
+  ports:
+  - name: grpc
+    port: 50061
+    targetPort: 50061
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  namespace: automatic-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification-service
+  template:
+    metadata:
+      labels:
+        app: notification-service
+    spec:
+      containers:
+      - name: notification-service
+        image: automatic-system/notification:dev
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: DATABASE_URL
+          value: postgres://notification:notification@postgres-notification:5432/notification?sslmode=disable
+        - name: REDIS_ADDR
+          value: redis-notification:6379
+        - name: GRPC_PORT
+          value: '50061'
+        - name: KAFKA_BROKERS
+          value: kafka-1:9092,kafka-2:9092,kafka-3:9092
+        - name: KAFKA_GROUP
+          value: notification-service
+        - name: KAFKA_TOPICS
+          value: tickets.events.v1,sla.events.v1,dispatch.events.v1,departments.events.v1,brigades.events.v1,locations.events.v1,routing.events.v1,files.events.v1,reports.events.v1
+        - name: SMTP_ADDR
+          value: mailhog:1025
+        - name: SMTP_FROM
+          value: no-reply@automatic-system.local
+        - name: LIVE_CHANNEL_PREFIX
+          value: 'notifications:user:'
+        - name: FCM_SERVICE_ACCOUNT_FILE
+          value: ''
+        ports:
+        - name: grpc
+          containerPort: 50061
+        resources:
+          requests:
+            cpu: 25m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        readinessProbe:
+          tcpSocket:
+            port: 50061
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          failureThreshold: 12
+        livenessProbe:
+          tcpSocket:
+            port: 50061
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          failureThreshold: 6
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: audit-service
+  namespace: automatic-system
+spec:
+  selector:
+    app: audit-service
+  ports:
+  - name: grpc
+    port: 50062
+    targetPort: 50062
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: audit-service
+  namespace: automatic-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: audit-service
+  template:
+    metadata:
+      labels:
+        app: audit-service
+    spec:
+      containers:
+      - name: audit-service
+        image: automatic-system/audit:dev
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: DATABASE_URL
+          value: postgres://audit:audit@postgres-audit:5432/audit?sslmode=disable
+        ports:
+        - name: grpc
+          containerPort: 50062
+        resources:
+          requests:
+            cpu: 25m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        readinessProbe:
+          tcpSocket:
+            port: 50062
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          failureThreshold: 12
+        livenessProbe:
+          tcpSocket:
+            port: 50062
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          failureThreshold: 6
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: analytics-service
+  namespace: automatic-system
+spec:
+  selector:
+    app: analytics-service
+  ports:
+  - name: grpc
+    port: 50063
+    targetPort: 50063
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analytics-service
+  namespace: automatic-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: analytics-service
+  template:
+    metadata:
+      labels:
+        app: analytics-service
+    spec:
+      containers:
+      - name: analytics-service
+        image: automatic-system/analytics:dev
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: CLICKHOUSE_PASSWORD
+          value: change-me
+        ports:
+        - name: grpc
+          containerPort: 50063
+        resources:
+          requests:
+            cpu: 25m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        readinessProbe:
+          tcpSocket:
+            port: 50063
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          failureThreshold: 12
+        livenessProbe:
+          tcpSocket:
+            port: 50063
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          failureThreshold: 6
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: report-service
+  namespace: automatic-system
+spec:
+  selector:
+    app: report-service
+  ports:
+  - name: grpc
+    port: 50064
+    targetPort: 50064
+  - name: internal
+    port: 8084
+    targetPort: 8084
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: report-service
+  namespace: automatic-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: report-service
+  template:
+    metadata:
+      labels:
+        app: report-service
+    spec:
+      containers:
+      - name: report-service
+        image: automatic-system/report:dev
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: DATABASE_URL
+          value: postgres://report:report@postgres-report:5432/report?sslmode=disable
+        - name: REPORT_INTERNAL_TOKEN
+          value: change-this-report-internal-token
+        - name: INTERNAL_HTTP_PORT
+          value: '8084'
+        ports:
+        - name: grpc
+          containerPort: 50064
+        - name: internal
+          containerPort: 8084
+        resources:
+          requests:
+            cpu: 25m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        readinessProbe:
+          tcpSocket:
+            port: 50064
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          failureThreshold: 12
+        livenessProbe:
+          tcpSocket:
+            port: 50064
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          failureThreshold: 6
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: asset-service
+  namespace: automatic-system
+spec:
+  selector:
+    app: asset-service
+  ports:
+  - name: grpc
+    port: 50065
+    targetPort: 50065
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: asset-service
+  namespace: automatic-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: asset-service
+  template:
+    metadata:
+      labels:
+        app: asset-service
+    spec:
+      containers:
+      - name: asset-service
+        image: automatic-system/asset:dev
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: DATABASE_URL
+          value: postgres://asset:asset@postgres-asset:5432/asset?sslmode=disable
+        ports:
+        - name: grpc
+          containerPort: 50065
+        resources:
+          requests:
+            cpu: 25m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        readinessProbe:
+          tcpSocket:
+            port: 50065
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          failureThreshold: 12
+        livenessProbe:
+          tcpSocket:
+            port: 50065
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          failureThreshold: 6

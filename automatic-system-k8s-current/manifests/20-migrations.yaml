@@ -1,0 +1,480 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kafka-init
+  namespace: automatic-system
+spec:
+  backoffLimit: 20
+  template:
+    metadata:
+      labels:
+        app: kafka-init
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: init
+        image: apache/kafka:3.9.1
+        command:
+        - sh
+        - -c
+        args:
+        - 'set -e
+
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092 --create
+          --if-not-exists --topic auth.events.v1 --partitions 3 --replication-factor
+          3
+
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092 --create
+          --if-not-exists --topic profiles.events.v1 --partitions 3 --replication-factor
+          3
+
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092 --create
+          --if-not-exists --topic departments.events.v1 --partitions 3 --replication-factor
+          3
+
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092 --create
+          --if-not-exists --topic brigades.events.v1 --partitions 3 --replication-factor
+          3
+
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092 --create
+          --if-not-exists --topic tickets.events.v1 --partitions 3 --replication-factor
+          3
+
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092 --create
+          --if-not-exists --topic routing.events.v1 --partitions 3 --replication-factor
+          3
+
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092 --create
+          --if-not-exists --topic locations.events.v1 --partitions 3 --replication-factor
+          3
+
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092 --create
+          --if-not-exists --topic dispatch.events.v1 --partitions 3 --replication-factor
+          3
+
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092 --create
+          --if-not-exists --topic files.events.v1 --partitions 3 --replication-factor
+          3
+
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092 --create
+          --if-not-exists --topic sla.events.v1 --partitions 3 --replication-factor
+          3
+
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092 --create
+          --if-not-exists --topic notifications.events.v1 --partitions 3 --replication-factor
+          3
+
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092 --create
+          --if-not-exists --topic reports.events.v1 --partitions 3 --replication-factor
+          3
+
+          '
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrator-auth
+  namespace: automatic-system
+spec:
+  backoffLimit: 8
+  template:
+    metadata:
+      labels:
+        app: migrator-auth
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: migrator
+        image: automatic-system/auth-migrator:dev
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: GOOSE_DRIVER
+          value: postgres
+        - name: GOOSE_DBSTRING
+          value: postgres://auth_user:change-me@postgres-auth:5432/auth_db?sslmode=disable
+        args:
+        - -dir
+        - /migrations
+        - up
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrator-ticket
+  namespace: automatic-system
+spec:
+  backoffLimit: 8
+  template:
+    metadata:
+      labels:
+        app: migrator-ticket
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: migrator
+        image: automatic-system/ticket-migrator:dev
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: GOOSE_DRIVER
+          value: postgres
+        - name: GOOSE_DBSTRING
+          value: postgres://ticket_user:change-me@postgres-ticket:5432/ticket_db?sslmode=disable
+        args:
+        - -dir
+        - /migrations
+        - up
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrator-department
+  namespace: automatic-system
+spec:
+  backoffLimit: 8
+  template:
+    metadata:
+      labels:
+        app: migrator-department
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: migrator
+        image: automatic-system/department-migrator:dev
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: GOOSE_DRIVER
+          value: postgres
+        - name: GOOSE_DBSTRING
+          value: postgres://department_user:change-me@postgres-department:5432/department_db?sslmode=disable
+        args:
+        - -dir
+        - /migrations
+        - up
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrator-brigade
+  namespace: automatic-system
+spec:
+  backoffLimit: 8
+  template:
+    metadata:
+      labels:
+        app: migrator-brigade
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: migrator
+        image: automatic-system/brigade-migrator:dev
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: GOOSE_DRIVER
+          value: postgres
+        - name: GOOSE_DBSTRING
+          value: postgres://brigade_user:change-me@postgres-brigade:5432/brigade_db?sslmode=disable
+        args:
+        - -dir
+        - /migrations
+        - up
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrator-profile
+  namespace: automatic-system
+spec:
+  backoffLimit: 8
+  template:
+    metadata:
+      labels:
+        app: migrator-profile
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: migrator
+        image: automatic-system/profile-migrator:dev
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: GOOSE_DRIVER
+          value: postgres
+        - name: GOOSE_DBSTRING
+          value: postgres://profile_user:change-me@postgres-profile:5432/profile_db?sslmode=disable
+        args:
+        - -dir
+        - /migrations
+        - up
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrator-location
+  namespace: automatic-system
+spec:
+  backoffLimit: 8
+  template:
+    metadata:
+      labels:
+        app: migrator-location
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: migrator
+        image: automatic-system/location-migrator:dev
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: GOOSE_DRIVER
+          value: postgres
+        - name: GOOSE_DBSTRING
+          value: postgres://location:location@postgres-location:5432/location?sslmode=disable
+        args:
+        - -dir
+        - /migrations
+        - up
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrator-routing
+  namespace: automatic-system
+spec:
+  backoffLimit: 8
+  template:
+    metadata:
+      labels:
+        app: migrator-routing
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: migrator
+        image: automatic-system/routing-migrator:dev
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: GOOSE_DRIVER
+          value: postgres
+        - name: GOOSE_DBSTRING
+          value: postgres://routing:routing@postgres-routing:5432/routing?sslmode=disable
+        args:
+        - -dir
+        - /migrations
+        - up
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrator-dispatch
+  namespace: automatic-system
+spec:
+  backoffLimit: 8
+  template:
+    metadata:
+      labels:
+        app: migrator-dispatch
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: migrator
+        image: automatic-system/dispatch-migrator:dev
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: GOOSE_DRIVER
+          value: postgres
+        - name: GOOSE_DBSTRING
+          value: postgres://dispatch:dispatch@postgres-dispatch:5432/dispatch?sslmode=disable
+        args:
+        - -dir
+        - /migrations
+        - up
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrator-file
+  namespace: automatic-system
+spec:
+  backoffLimit: 8
+  template:
+    metadata:
+      labels:
+        app: migrator-file
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: migrator
+        image: automatic-system/file-migrator:dev
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: GOOSE_DRIVER
+          value: postgres
+        - name: GOOSE_DBSTRING
+          value: postgres://file:file@postgres-file:5432/file?sslmode=disable
+        args:
+        - -dir
+        - /migrations
+        - up
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrator-sla
+  namespace: automatic-system
+spec:
+  backoffLimit: 8
+  template:
+    metadata:
+      labels:
+        app: migrator-sla
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: migrator
+        image: automatic-system/sla-migrator:dev
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: GOOSE_DRIVER
+          value: postgres
+        - name: GOOSE_DBSTRING
+          value: postgres://sla:sla@postgres-sla:5432/sla?sslmode=disable
+        args:
+        - -dir
+        - /migrations
+        - up
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrator-notification
+  namespace: automatic-system
+spec:
+  backoffLimit: 8
+  template:
+    metadata:
+      labels:
+        app: migrator-notification
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: migrator
+        image: automatic-system/notification-migrator:dev
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: GOOSE_DRIVER
+          value: postgres
+        - name: GOOSE_DBSTRING
+          value: postgres://notification:notification@postgres-notification:5432/notification?sslmode=disable
+        args:
+        - -dir
+        - /migrations
+        - up
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrator-audit
+  namespace: automatic-system
+spec:
+  backoffLimit: 8
+  template:
+    metadata:
+      labels:
+        app: migrator-audit
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: migrator
+        image: automatic-system/audit-migrator:dev
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: GOOSE_DRIVER
+          value: postgres
+        - name: GOOSE_DBSTRING
+          value: postgres://audit:audit@postgres-audit:5432/audit?sslmode=disable
+        args:
+        - -dir
+        - /migrations
+        - up
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrator-report
+  namespace: automatic-system
+spec:
+  backoffLimit: 8
+  template:
+    metadata:
+      labels:
+        app: migrator-report
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: migrator
+        image: automatic-system/report-migrator:dev
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: GOOSE_DRIVER
+          value: postgres
+        - name: GOOSE_DBSTRING
+          value: postgres://report:report@postgres-report:5432/report?sslmode=disable
+        args:
+        - -dir
+        - /migrations
+        - up
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrator-asset
+  namespace: automatic-system
+spec:
+  backoffLimit: 8
+  template:
+    metadata:
+      labels:
+        app: migrator-asset
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: migrator
+        image: automatic-system/asset-migrator:dev
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: GOOSE_DRIVER
+          value: postgres
+        - name: GOOSE_DBSTRING
+          value: postgres://asset:asset@postgres-asset:5432/asset?sslmode=disable
+        args:
+        - -dir
+        - /migrations
+        - up
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: clickhouse-init
+  namespace: automatic-system
+spec:
+  backoffLimit: 8
+  template:
+    metadata:
+      labels:
+        app: clickhouse-init
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: init
+        image: automatic-system/analytics-clickhouse-init:dev
+        imagePullPolicy: IfNotPresent
+        command:
+        - clickhouse-client
+        args:
+        - --host
+        - clickhouse
+        - --user
+        - analytics
+        - --password
+        - change-me
+        - --multiquery
+        - --queries-file
+        - /schema/001_events.sql
