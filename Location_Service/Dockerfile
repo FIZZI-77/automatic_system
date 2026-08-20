@@ -1,6 +1,6 @@
 FROM golang:1.25-alpine AS build
-WORKDIR /workspace
-COPY --from=service . /service
+WORKDIR /service
+COPY . .
 WORKDIR /service
 RUN CGO_ENABLED=0 go build -o /location ./src/cmd/server
 

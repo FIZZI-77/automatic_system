@@ -1,0 +1,2 @@
+FROM clickhouse/clickhouse-server:25.8
+COPY Analytics_Service/scheme /schema
