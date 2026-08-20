@@ -1,0 +1,29 @@
+services:
+  frontend:
+    container_name: automatic-city-frontend
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8081}
+        NEXT_PUBLIC_NOTIFICATIONS_WS_URL: ${NEXT_PUBLIC_NOTIFICATIONS_WS_URL:-ws://localhost:8081/notifications/ws}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+        NEXT_PUBLIC_YANDEX_MAPS_API_URL: ${NEXT_PUBLIC_YANDEX_MAPS_API_URL:-https://api-maps.yandex.ru/v3/}
+        NEXT_PUBLIC_YANDEX_MAPS_API_KEY: ${NEXT_PUBLIC_YANDEX_MAPS_API_KEY:-}
+        NEXT_PUBLIC_YANDEX_MAPS_LANG: ${NEXT_PUBLIC_YANDEX_MAPS_LANG:-ru_RU}
+        NEXT_PUBLIC_YANDEX_MAPS_EMBED_URL: ${NEXT_PUBLIC_YANDEX_MAPS_EMBED_URL:-https://yandex.ru/map-widget/v1/?ll=37.618423%2C55.751244&z=12}
+        NEXT_PUBLIC_OPEN_MAP_TILE_URL: ${NEXT_PUBLIC_OPEN_MAP_TILE_URL:-https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png}
+        NEXT_PUBLIC_OPEN_MAP_ATTRIBUTION: ${NEXT_PUBLIC_OPEN_MAP_ATTRIBUTION:-OpenStreetMap contributors}
+        NEXT_PUBLIC_HOT_MAP_TILE_URL: ${NEXT_PUBLIC_HOT_MAP_TILE_URL:-https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png}
+        NEXT_PUBLIC_TOPO_MAP_TILE_URL: ${NEXT_PUBLIC_TOPO_MAP_TILE_URL:-https://a.tile.opentopomap.org/{z}/{x}/{y}.png}
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    environment:
+      VALHALLA_URL: ${VALHALLA_URL:-http://host.docker.internal:8002}
+      OVERPASS_API_URL: ${OVERPASS_API_URL:-https://overpass-api.de/api/interpreter}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:3000/"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
