@@ -1,0 +1,56 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: automatic-system
+resources:
+  - ../../../base/migrations
+labels:
+  - pairs:
+      app.kubernetes.io/environment: prod
+    includeSelectors: false
+
+images:
+  - name: automatic-system/auth-migrator
+    newName: ghcr.io/fizzi-77/automatic-system-auth-migrator
+    newTag: sha-457fcddd7b6e
+  - name: automatic-system/ticket-migrator
+    newName: ghcr.io/fizzi-77/automatic-system-ticket-migrator
+    newTag: sha-457fcddd7b6e
+  - name: automatic-system/department-migrator
+    newName: ghcr.io/fizzi-77/automatic-system-department-migrator
+    newTag: sha-457fcddd7b6e
+  - name: automatic-system/brigade-migrator
+    newName: ghcr.io/fizzi-77/automatic-system-brigade-migrator
+    newTag: sha-457fcddd7b6e
+  - name: automatic-system/profile-migrator
+    newName: ghcr.io/fizzi-77/automatic-system-profile-migrator
+    newTag: sha-457fcddd7b6e
+  - name: automatic-system/location-migrator
+    newName: ghcr.io/fizzi-77/automatic-system-location-migrator
+    newTag: sha-457fcddd7b6e
+  - name: automatic-system/routing-migrator
+    newName: ghcr.io/fizzi-77/automatic-system-routing-migrator
+    newTag: sha-457fcddd7b6e
+  - name: automatic-system/dispatch-migrator
+    newName: ghcr.io/fizzi-77/automatic-system-dispatch-migrator
+    newTag: sha-457fcddd7b6e
+  - name: automatic-system/file-migrator
+    newName: ghcr.io/fizzi-77/automatic-system-file-migrator
+    newTag: sha-457fcddd7b6e
+  - name: automatic-system/sla-migrator
+    newName: ghcr.io/fizzi-77/automatic-system-sla-migrator
+    newTag: sha-457fcddd7b6e
+  - name: automatic-system/notification-migrator
+    newName: ghcr.io/fizzi-77/automatic-system-notification-migrator
+    newTag: sha-457fcddd7b6e
+  - name: automatic-system/audit-migrator
+    newName: ghcr.io/fizzi-77/automatic-system-audit-migrator
+    newTag: sha-457fcddd7b6e
+  - name: automatic-system/report-migrator
+    newName: ghcr.io/fizzi-77/automatic-system-report-migrator
+    newTag: sha-457fcddd7b6e
+  - name: automatic-system/asset-migrator
+    newName: ghcr.io/fizzi-77/automatic-system-asset-migrator
+    newTag: sha-457fcddd7b6e
+  - name: automatic-system/analytics-clickhouse-init
+    newName: ghcr.io/fizzi-77/automatic-system-analytics-clickhouse-init
+    newTag: sha-457fcddd7b6e
