@@ -1,0 +1,93 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: valhalla
+  namespace: automatic-system
+  labels:
+    app.kubernetes.io/name: valhalla
+    app.kubernetes.io/component: routing-engine
+    app.kubernetes.io/part-of: automatic-system
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  serviceName: valhalla
+  replicas: 1
+  selector:
+    matchLabels:
+      app: valhalla
+  template:
+    metadata:
+      labels:
+        app: valhalla
+        app.kubernetes.io/name: valhalla
+        app.kubernetes.io/component: routing-engine
+        app.kubernetes.io/part-of: automatic-system
+        app.kubernetes.io/managed-by: kustomize
+    spec:
+      containers:
+      - name: valhalla
+        image: ghcr.io/nilsnolde/docker-valhalla/valhalla:latest
+        env:
+        - name: tile_urls
+          value: https://download.geofabrik.de/russia/central-fed-district-latest.osm.pbf
+        - name: serve_tiles
+          value: 'True'
+        - name: build_elevation
+          value: 'False'
+        - name: build_admins
+          value: 'True'
+        - name: build_time_zones
+          value: 'True'
+        - name: server_threads
+          value: '2'
+        ports:
+        - name: main
+          containerPort: 8002
+        resources:
+          requests:
+            cpu: 25m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 768Mi
+        volumeMounts:
+        - name: data
+          mountPath: /custom_files
+        startupProbe:
+          tcpSocket:
+            port: 8002
+          periodSeconds: 5
+          timeoutSeconds: 2
+          failureThreshold: 180
+        readinessProbe:
+          tcpSocket:
+            port: 8002
+          periodSeconds: 10
+          timeoutSeconds: 2
+          failureThreshold: 3
+        livenessProbe:
+          tcpSocket:
+            port: 8002
+          periodSeconds: 20
+          timeoutSeconds: 2
+          failureThreshold: 5
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 8Gi
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
+  updateStrategy:
+    type: RollingUpdate

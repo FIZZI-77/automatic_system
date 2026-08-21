@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: location-service-config
+  labels:
+    app.kubernetes.io/name: location-service
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/part-of: automatic-system
+    app.kubernetes.io/managed-by: kustomize
+  namespace: automatic-system
+
+data:
+  REDIS_MASTER_NAME: location-master
+
+  REDIS_SENTINEL_ADDRS: redis-location-sentinel-0.redis-location-sentinel:26379,redis-location-sentinel-1.redis-location-sentinel:26379,redis-location-sentinel-2.redis-location-sentinel:26379
+
+  REDIS_DB: '0'
+  REDIS_POOL_SIZE: '20'
+  REDIS_MIN_IDLE_CONNS: '5'
+
+  GRPC_PORT: '50056'
+  HTTP_PORT: '8080'
+
+  LOG_LEVEL: info
+
+  HISTORY_BUFFER_CAPACITY: '10000'
+  HISTORY_BATCH_SIZE: '500'
+  HISTORY_FLUSH_INTERVAL: 5s
+
+  SIGNAL_SCAN_INTERVAL: 5s
+  SIGNAL_STALE_AFTER: 5m
+  SIGNAL_OFFLINE_AFTER: 10m
+  SIGNAL_BATCH_SIZE: '500'
+
+  SHUTDOWN_TIMEOUT: 20s
+
+  KAFKA_BROKERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
+  KAFKA_LOCATION_TOPIC: locations.events.v1
+
+  REDIS_EVENTS_STREAM: locations:events
+  REDIS_EVENTS_GROUP: location-kafka-relay
+  REDIS_EVENTS_CONSUMER: location-service

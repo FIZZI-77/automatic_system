@@ -1,0 +1,21 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: report-service
+  namespace: automatic-system
+  labels:
+    app.kubernetes.io/name: report-service
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/part-of: automatic-system
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  selector:
+    app: report-service
+  ports:
+  - name: grpc
+    port: 50064
+    targetPort: 50064
+  - name: internal
+    port: 8084
+    targetPort: 8084

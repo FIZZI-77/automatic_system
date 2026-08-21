@@ -1,0 +1,19 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-location
+  namespace: automatic-system
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: automatic-system
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/instance: location
+spec:
+  selector:
+    app: postgres-location
+  ports:
+  - name: postgres
+    port: 5432
+    targetPort: 5432

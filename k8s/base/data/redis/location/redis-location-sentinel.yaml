@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis-location-sentinel
+  namespace: automatic-system
+spec:
+  serviceName: redis-location-sentinel
+  replicas: 3
+
+  selector:
+    matchLabels:
+      app: redis-location-sentinel
+
+  template:
+    metadata:
+      labels:
+        app: redis-location-sentinel
+
+    spec:
+      terminationGracePeriodSeconds: 30
+
+      containers:
+        - name: sentinel
+          image: redis:7.4-alpine
+
+          command:
+            - sh
+            - -c
+
+          args:
+            - |
+              cp /sentinel/sentinel.conf /data/sentinel.conf
+              exec redis-server /data/sentinel.conf --sentinel
+
+          ports:
+            - name: sentinel
+              containerPort: 26379
+
+          volumeMounts:
+            - name: config
+              mountPath: /sentinel
+
+            - name: data
+              mountPath: /data
+
+
+      volumes:
+
+        - name: config
+          configMap:
+            name: redis-location-sentinel-config
+
+        - name: data
+          emptyDir: {}

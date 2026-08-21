@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - analytics
+  - api-gateway
+  - asset
+  - audit
+  - auth
+  - brigade
+  - department
+  - dispatch
+  - file
+  - location
+  - notification
+  - profile
+  - report
+  - routing
+  - sla
+  - ticket
