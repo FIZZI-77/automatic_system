@@ -1,20 +1,19 @@
 name: Automatic City Services CI/CD
 
 on:
-  push:
-    branches:
-      - main
-      - develop
-    tags:
-      - "v*"
   pull_request:
     branches:
       - main
-      - develop
+      - master
+  push:
+    branches:
+      - "feature/**"
+      - main
+      - master
   workflow_dispatch:
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: automatic-system-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -24,31 +23,34 @@ permissions:
 env:
   GO_VERSION: "1.25.9"
   REGISTRY: ghcr.io
+  DOCKER_METADATA_SHORT_SHA_LENGTH: 12
 
 jobs:
   go-quality:
-    name: Go CI / ${{ matrix.name }}
+    name: Go / ${{ matrix.name }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
-          - name: contracts
-            path: .
-          - name: api-gateway
-            path: API_Gateway
-          - name: auth-service
-            path: Auth_Service
-          - name: ticket-service
-            path: Ticket_Service
-          - name: department-service
-            path: Department_Service
-          - name: brigade-service
-            path: Brigade_Service
-          - name: profile-service
-            path: Profile_service
-          - name: transponder-simulator
-            path: Transponder_Simulator
+          - { name: root, path: "." }
+          - { name: api-gateway, path: API_Gateway }
+          - { name: auth, path: Auth_Service }
+          - { name: ticket, path: Ticket_Service }
+          - { name: department, path: Department_Service }
+          - { name: brigade, path: Brigade_Service }
+          - { name: profile, path: Profile_service }
+          - { name: location, path: Location_Service }
+          - { name: routing, path: Routing_Service }
+          - { name: dispatch, path: Dispatch_Service }
+          - { name: file, path: File_Service }
+          - { name: sla, path: SLA_Service }
+          - { name: notification, path: Notification_Service }
+          - { name: audit, path: Audit_Service }
+          - { name: analytics, path: Analytics_Service }
+          - { name: report, path: Report_Service }
+          - { name: asset, path: Asset_Service }
+          - { name: transponder-simulator, path: Transponder_Simulator }
 
     defaults:
       run:
@@ -58,7 +60,7 @@ jobs:
       GOWORK: "off"
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup Go
@@ -66,19 +68,19 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-          cache-dependency-path: ${{ matrix.path }}/go.mod
+          cache-dependency-path: ${{ matrix.path }}/go.sum
 
       - name: Download and verify dependencies
         run: |
           go mod download
           go mod verify
 
-      - name: Check formatting
+      - name: Check gofmt
         shell: bash
         run: |
           unformatted="$(gofmt -l .)"
           if [ -n "$unformatted" ]; then
-            echo "The following files are not gofmt-formatted:"
+            echo "Files not formatted with gofmt:"
             echo "$unformatted"
             exit 1
           fi
@@ -94,79 +96,107 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Prepare CI environment files
+      - name: Prepare CI env files
         shell: bash
         run: |
-          cp .env.example .env
-          cp API_Gateway/.env.example API_Gateway/.env
-          cp Auth_Service/.env.example Auth_Service/.env
-          cp Ticket_Service/.env.example Ticket_Service/.env
-          cp Department_Service/.env.example Department_Service/.env
-          cp Brigade_Service/.env.example Brigade_Service/.env
-          cp Profile_service/.env.example Profile_service/.env
+          [ -f .env.example ] && cp .env.example .env || true
 
-      - name: Validate resolved Compose configuration
+          for dir in \
+            API_Gateway \
+            Auth_Service \
+            Ticket_Service \
+            Department_Service \
+            Brigade_Service \
+            Profile_service
+          do
+            if [ -f "$dir/.env.example" ]; then
+              cp "$dir/.env.example" "$dir/.env"
+            fi
+          done
+
+      - name: Validate Compose
         run: docker compose config --quiet
 
-  docker-images:
-    name: Docker / ${{ matrix.image }}
+  kubernetes-validation:
+    name: Validate Kubernetes overlays
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Render local overlay
+        run: kubectl kustomize ./k8s/overlays/local > /tmp/local.yaml
+
+      - name: Render dev overlay
+        run: kubectl kustomize ./k8s/overlays/dev > /tmp/dev.yaml
+
+      - name: Render prod overlay
+        run: kubectl kustomize ./k8s/overlays/prod > /tmp/prod.yaml
+
+      - name: Client-side validation
+        run: |
+          kubectl apply --dry-run=client -f /tmp/local.yaml >/dev/null
+          kubectl apply --dry-run=client -f /tmp/dev.yaml >/dev/null
+          kubectl apply --dry-run=client -f /tmp/prod.yaml >/dev/null
+
+      - name: Reject mutable production application images
+        shell: bash
+        run: |
+          if grep -E 'image: .*automatic-system-.*:(latest|dev)$' /tmp/prod.yaml; then
+            echo "Mutable application image tag found in prod overlay"
+            exit 1
+          fi
+
+  application-images:
+    name: App image / ${{ matrix.service }}
     runs-on: ubuntu-latest
     needs:
       - go-quality
       - compose-validation
+      - kubernetes-validation
+
     strategy:
       fail-fast: false
       matrix:
         include:
-          - image: api-gateway
-            context: .
-            dockerfile: API_Gateway/Dockerfile
-          - image: auth-service
-            context: Auth_Service
-            dockerfile: Auth_Service/Dockerfile
-          - image: ticket-service
-            context: Ticket_Service
-            dockerfile: Ticket_Service/Dockerfile
-          - image: department-service
-            context: Department_Service
-            dockerfile: Department_Service/Dockerfile
-          - image: brigade-service
-            context: Brigade_Service
-            dockerfile: Brigade_Service/Dockerfile
-          - image: profile-service
-            context: Profile_service
-            dockerfile: Profile_service/Dockerfile
-          - image: transponder-simulator
-            context: Transponder_Simulator
-            dockerfile: Transponder_Simulator/Dockerfile
-          - image: auth-migrator
-            context: Auth_Service/migrator
-            dockerfile: Auth_Service/migrator/Dockerfile
-          - image: ticket-migrator
-            context: Ticket_Service/migrator
-            dockerfile: Ticket_Service/migrator/Dockerfile
-          - image: department-migrator
-            context: Department_Service/migrator
-            dockerfile: Department_Service/migrator/Dockerfile
-          - image: brigade-migrator
-            context: Brigade_Service/migrator
-            dockerfile: Brigade_Service/migrator/Dockerfile
-          - image: profile-migrator
-            context: Profile_service/migrator
-            dockerfile: Profile_service/migrator/Dockerfile
+          - { service: api-gateway, package: automatic-system-api-gateway, context: ".", dockerfile: API_Gateway/Dockerfile }
+          - { service: auth, package: automatic-system-auth, context: Auth_Service, dockerfile: Auth_Service/Dockerfile }
+          - { service: ticket, package: automatic-system-ticket, context: Ticket_Service, dockerfile: Ticket_Service/Dockerfile }
+          - { service: department, package: automatic-system-department, context: Department_Service, dockerfile: Department_Service/Dockerfile }
+          - { service: brigade, package: automatic-system-brigade, context: Brigade_Service, dockerfile: Brigade_Service/Dockerfile }
+          - { service: profile, package: automatic-system-profile, context: Profile_service, dockerfile: Profile_service/Dockerfile }
+          - { service: location, package: automatic-system-location, context: Location_Service, dockerfile: Location_Service/Dockerfile }
+          - { service: routing, package: automatic-system-routing, context: Routing_Service, dockerfile: Routing_Service/Dockerfile }
+          - { service: dispatch, package: automatic-system-dispatch, context: ".", dockerfile: Dispatch_Service/Dockerfile }
+          - { service: file, package: automatic-system-file, context: File_Service, dockerfile: File_Service/Dockerfile }
+          - { service: sla, package: automatic-system-sla, context: ".", dockerfile: SLA_Service/Dockerfile }
+          - { service: notification, package: automatic-system-notification, context: ".", dockerfile: Notification_Service/Dockerfile }
+          - { service: audit, package: automatic-system-audit, context: ".", dockerfile: Audit_Service/Dockerfile }
+          - { service: analytics, package: automatic-system-analytics, context: ".", dockerfile: Analytics_Service/Dockerfile }
+          - { service: report, package: automatic-system-report, context: ".", dockerfile: Report_Service/Dockerfile }
+          - { service: asset, package: automatic-system-asset, context: ".", dockerfile: Asset_Service/Dockerfile }
+          - { service: transponder-simulator, package: automatic-system-transponder-simulator, context: Transponder_Simulator, dockerfile: Transponder_Simulator/Dockerfile }
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Docker Buildx
+      - name: Normalize registry owner
+        shell: bash
+        run: echo "REGISTRY_OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+
+      - name: Setup Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to GitHub Container Registry
-        if: github.event_name != 'pull_request'
+      - name: Login to GHCR
+        if: github.event_name == 'push'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -177,20 +207,389 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.image }}
+          images: ${{ env.REGISTRY }}/${{ env.REGISTRY_OWNER }}/${{ matrix.package }}
           tags: |
+            type=sha,prefix=sha-,format=short
             type=ref,event=branch
-            type=ref,event=tag
-            type=sha,prefix=sha-
-            type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and optionally publish image
+      - name: Build and publish
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
-          push: ${{ github.event_name != 'pull_request' }}
+          push: ${{ github.event_name == 'push' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=${{ matrix.image }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+          cache-from: type=gha,scope=app-${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=app-${{ matrix.service }}
+          provenance: true
+          sbom: true
+
+  migrator-images:
+    name: Migrator image / ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    needs:
+      - go-quality
+      - kubernetes-validation
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { service: auth, package: automatic-system-auth-migrator, context: Auth_Service }
+          - { service: ticket, package: automatic-system-ticket-migrator, context: Ticket_Service }
+          - { service: department, package: automatic-system-department-migrator, context: Department_Service }
+          - { service: brigade, package: automatic-system-brigade-migrator, context: Brigade_Service }
+          - { service: profile, package: automatic-system-profile-migrator, context: Profile_service }
+          - { service: location, package: automatic-system-location-migrator, context: Location_Service }
+          - { service: routing, package: automatic-system-routing-migrator, context: Routing_Service }
+          - { service: dispatch, package: automatic-system-dispatch-migrator, context: Dispatch_Service }
+          - { service: file, package: automatic-system-file-migrator, context: File_Service }
+          - { service: sla, package: automatic-system-sla-migrator, context: SLA_Service }
+          - { service: notification, package: automatic-system-notification-migrator, context: Notification_Service }
+          - { service: audit, package: automatic-system-audit-migrator, context: Audit_Service }
+          - { service: report, package: automatic-system-report-migrator, context: Report_Service }
+          - { service: asset, package: automatic-system-asset-migrator, context: Asset_Service }
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Normalize registry owner
+        shell: bash
+        run: echo "REGISTRY_OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+
+      - name: Setup Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.REGISTRY_OWNER }}/${{ matrix.package }}
+          tags: |
+            type=sha,prefix=sha-,format=short
+            type=ref,event=branch
+
+      - name: Build and publish
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: k8s/build/Dockerfile.migrator
+          build-args: |
+            MIGRATIONS_DIR=scheme
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=migrator-${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=migrator-${{ matrix.service }}
+          provenance: true
+          sbom: true
+
+  clickhouse-init-image:
+    name: ClickHouse init image
+    runs-on: ubuntu-latest
+    needs:
+      - kubernetes-validation
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Normalize registry owner
+        shell: bash
+        run: echo "REGISTRY_OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+
+      - name: Setup Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.REGISTRY_OWNER }}/automatic-system-analytics-clickhouse-init
+          tags: |
+            type=sha,prefix=sha-,format=short
+            type=ref,event=branch
+
+      - name: Build and publish
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: k8s/build/Dockerfile.clickhouse-init
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=clickhouse-init
+          cache-to: type=gha,mode=max,scope=clickhouse-init
+          provenance: true
+          sbom: true
+
+  deploy-dev:
+    name: Deploy feature branch to dev
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/feature/')
+    runs-on: ubuntu-latest
+    needs:
+      - application-images
+      - migrator-images
+      - clickhouse-init-image
+
+    environment:
+      name: development
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Configure kubeconfig
+        shell: bash
+        env:
+          KUBECONFIG_B64: ${{ secrets.KUBECONFIG_B64 }}
+        run: |
+          test -n "$KUBECONFIG_B64" || { echo "KUBECONFIG_B64 is missing"; exit 1; }
+          mkdir -p "$HOME/.kube"
+          printf '%s' "$KUBECONFIG_B64" | base64 --decode > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+          kubectl cluster-info
+
+      - name: Set immutable image tag
+        shell: bash
+        run: |
+          SHORT_SHA="${GITHUB_SHA::12}"
+          sed -Ei "s/newTag: sha-[0-9a-fA-F]+/newTag: sha-${SHORT_SHA}/g" \
+            k8s/overlays/dev/apps/kustomization.yaml \
+            k8s/overlays/dev/migrations/kustomization.yaml
+
+      - name: Create namespace
+        run: kubectl apply -f k8s/overlays/dev/namespace.yaml
+
+      - name: Apply runtime secrets
+        shell: bash
+        env:
+          RUNTIME_ENV_B64: ${{ secrets.RUNTIME_ENV_B64 }}
+          JWT_PRIVATE_KEY_B64: ${{ secrets.JWT_PRIVATE_KEY_B64 }}
+          JWT_PUBLIC_KEY_B64: ${{ secrets.JWT_PUBLIC_KEY_B64 }}
+        run: |
+          test -n "$RUNTIME_ENV_B64" || { echo "RUNTIME_ENV_B64 is missing"; exit 1; }
+          test -n "$JWT_PRIVATE_KEY_B64" || { echo "JWT_PRIVATE_KEY_B64 is missing"; exit 1; }
+          test -n "$JWT_PUBLIC_KEY_B64" || { echo "JWT_PUBLIC_KEY_B64 is missing"; exit 1; }
+
+          printf '%s' "$RUNTIME_ENV_B64" | base64 --decode > /tmp/runtime.env
+          printf '%s' "$JWT_PRIVATE_KEY_B64" | base64 --decode > /tmp/private.pem
+          printf '%s' "$JWT_PUBLIC_KEY_B64" | base64 --decode > /tmp/public.pem
+
+          kubectl create secret generic runtime-secrets \
+            -n automatic-system-dev \
+            --from-env-file=/tmp/runtime.env \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          kubectl create secret generic jwt-private-key \
+            -n automatic-system-dev \
+            --from-file=private.pem=/tmp/private.pem \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          kubectl create secret generic jwt-public-key \
+            -n automatic-system-dev \
+            --from-file=public.pem=/tmp/public.pem \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          rm -f /tmp/runtime.env /tmp/private.pem /tmp/public.pem
+
+      - name: Configure optional private GHCR pull secret
+        if: ${{ secrets.GHCR_PULL_TOKEN != '' }}
+        shell: bash
+        env:
+          GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
+          GHCR_PULL_USERNAME: ${{ secrets.GHCR_PULL_USERNAME }}
+        run: |
+          kubectl create secret docker-registry ghcr-pull \
+            -n automatic-system-dev \
+            --docker-server=ghcr.io \
+            --docker-username="${GHCR_PULL_USERNAME:-${GITHUB_ACTOR}}" \
+            --docker-password="$GHCR_PULL_TOKEN" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          kubectl patch serviceaccount default \
+            -n automatic-system-dev \
+            --type=merge \
+            -p '{"imagePullSecrets":[{"name":"ghcr-pull"}]}'
+
+      - name: Deploy infrastructure
+        run: |
+          kubectl apply -k k8s/overlays/dev/infra
+          kubectl wait --for=condition=Ready pod --all \
+            -n automatic-system-dev \
+            --timeout=15m
+
+      - name: Run migrations
+        shell: bash
+        run: |
+          kubectl delete -k k8s/overlays/dev/migrations --ignore-not-found=true
+          kubectl apply -k k8s/overlays/dev/migrations
+          kubectl wait --for=condition=complete job --all \
+            -n automatic-system-dev \
+            --timeout=15m
+
+      - name: Deploy applications
+        run: |
+          kubectl apply -k k8s/overlays/dev/apps
+          kubectl rollout status deployment --all \
+            -n automatic-system-dev \
+            --timeout=15m
+
+      - name: Deployment summary
+        if: always()
+        run: |
+          kubectl get pods -n automatic-system-dev -o wide || true
+          kubectl get svc -n automatic-system-dev || true
+          kubectl get jobs -n automatic-system-dev || true
+
+  deploy-prod:
+    name: Deploy main/master to production
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    runs-on: ubuntu-latest
+    needs:
+      - application-images
+      - migrator-images
+      - clickhouse-init-image
+
+    concurrency:
+      group: automatic-system-production
+      cancel-in-progress: false
+
+    environment:
+      name: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Configure kubeconfig
+        shell: bash
+        env:
+          KUBECONFIG_B64: ${{ secrets.KUBECONFIG_B64 }}
+        run: |
+          test -n "$KUBECONFIG_B64" || { echo "KUBECONFIG_B64 is missing"; exit 1; }
+          mkdir -p "$HOME/.kube"
+          printf '%s' "$KUBECONFIG_B64" | base64 --decode > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+          kubectl cluster-info
+
+      - name: Set immutable image tag
+        shell: bash
+        run: |
+          SHORT_SHA="${GITHUB_SHA::12}"
+          sed -Ei "s/newTag: sha-[0-9a-fA-F]+/newTag: sha-${SHORT_SHA}/g" \
+            k8s/overlays/prod/apps/kustomization.yaml \
+            k8s/overlays/prod/migrations/kustomization.yaml
+
+      - name: Create namespace
+        run: kubectl apply -k k8s/base/namespace
+
+      - name: Apply runtime secrets
+        shell: bash
+        env:
+          RUNTIME_ENV_B64: ${{ secrets.RUNTIME_ENV_B64 }}
+          JWT_PRIVATE_KEY_B64: ${{ secrets.JWT_PRIVATE_KEY_B64 }}
+          JWT_PUBLIC_KEY_B64: ${{ secrets.JWT_PUBLIC_KEY_B64 }}
+        run: |
+          test -n "$RUNTIME_ENV_B64" || { echo "RUNTIME_ENV_B64 is missing"; exit 1; }
+          test -n "$JWT_PRIVATE_KEY_B64" || { echo "JWT_PRIVATE_KEY_B64 is missing"; exit 1; }
+          test -n "$JWT_PUBLIC_KEY_B64" || { echo "JWT_PUBLIC_KEY_B64 is missing"; exit 1; }
+
+          printf '%s' "$RUNTIME_ENV_B64" | base64 --decode > /tmp/runtime.env
+          printf '%s' "$JWT_PRIVATE_KEY_B64" | base64 --decode > /tmp/private.pem
+          printf '%s' "$JWT_PUBLIC_KEY_B64" | base64 --decode > /tmp/public.pem
+
+          kubectl create secret generic runtime-secrets \
+            -n automatic-system \
+            --from-env-file=/tmp/runtime.env \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          kubectl create secret generic jwt-private-key \
+            -n automatic-system \
+            --from-file=private.pem=/tmp/private.pem \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          kubectl create secret generic jwt-public-key \
+            -n automatic-system \
+            --from-file=public.pem=/tmp/public.pem \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          rm -f /tmp/runtime.env /tmp/private.pem /tmp/public.pem
+
+      - name: Configure optional private GHCR pull secret
+        if: ${{ secrets.GHCR_PULL_TOKEN != '' }}
+        shell: bash
+        env:
+          GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
+          GHCR_PULL_USERNAME: ${{ secrets.GHCR_PULL_USERNAME }}
+        run: |
+          kubectl create secret docker-registry ghcr-pull \
+            -n automatic-system \
+            --docker-server=ghcr.io \
+            --docker-username="${GHCR_PULL_USERNAME:-${GITHUB_ACTOR}}" \
+            --docker-password="$GHCR_PULL_TOKEN" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          kubectl patch serviceaccount default \
+            -n automatic-system \
+            --type=merge \
+            -p '{"imagePullSecrets":[{"name":"ghcr-pull"}]}'
+
+      - name: Deploy infrastructure
+        run: |
+          kubectl apply -k k8s/overlays/prod/infra
+          kubectl wait --for=condition=Ready pod --all \
+            -n automatic-system \
+            --timeout=15m
+
+      - name: Run migrations
+        shell: bash
+        run: |
+          kubectl delete -k k8s/overlays/prod/migrations --ignore-not-found=true
+          kubectl apply -k k8s/overlays/prod/migrations
+          kubectl wait --for=condition=complete job --all \
+            -n automatic-system \
+            --timeout=15m
+
+      - name: Deploy applications
+        run: |
+          kubectl apply -k k8s/overlays/prod/apps
+          kubectl rollout status deployment --all \
+            -n automatic-system \
+            --timeout=15m
+
+      - name: Apply production network policies
+        run: kubectl apply -k k8s/overlays/prod/network
+
+      - name: Deployment summary
+        if: always()
+        run: |
+          kubectl get pods -n automatic-system -o wide || true
+          kubectl get svc -n automatic-system || true
+          kubectl get hpa -n automatic-system || true
+          kubectl get pdb -n automatic-system || true
+          kubectl get jobs -n automatic-system || true
