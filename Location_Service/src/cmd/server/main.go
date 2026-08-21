@@ -29,6 +29,8 @@ import (
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	health "google.golang.org/grpc/health"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 func main() {
@@ -38,12 +40,14 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	log, err := pkg.NewLogger()
+
 	if err != nil {
 		panic(err)
 	}
 	defer log.Sync()
 	dependencies := closer.New()
 	db, err := pgxpool.New(ctx, requiredEnv("DATABASE_URL", log))
+
 	if err != nil {
 		fatalWithCleanup(log, dependencies, "connect postgres", err)
 	}
@@ -134,6 +138,17 @@ func main() {
 			pkg.AccessLogUnaryServerInterceptor(log),
 		),
 	)
+	healthServer := health.NewServer()
+
+	healthpb.RegisterHealthServer(
+		grpcServer,
+		healthServer,
+	)
+
+	healthServer.SetServingStatus(
+		"",
+		healthpb.HealthCheckResponse_SERVING,
+	)
 	locationv1.RegisterLocationServiceServer(grpcServer, handler.New(locationService))
 	go func() {
 		log.Info("grpc started", zap.String("address", grpcListener.Addr().String()))
@@ -159,6 +174,10 @@ func main() {
 		}
 	}()
 	<-ctx.Done()
+	healthServer.SetServingStatus(
+		"",
+		healthpb.HealthCheckResponse_NOT_SERVING,
+	)
 	log.Info("graceful shutdown started")
 	shutdownCtx, cancelShutdown := context.WithTimeout(
 		context.Background(),
