@@ -1,0 +1,97 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: clickhouse
+  namespace: automatic-system
+  labels:
+    app.kubernetes.io/name: clickhouse
+    app.kubernetes.io/component: analytics-store
+    app.kubernetes.io/part-of: automatic-system
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  serviceName: clickhouse
+  replicas: 1
+  selector:
+    matchLabels:
+      app: clickhouse
+  template:
+    metadata:
+      labels:
+        app: clickhouse
+        app.kubernetes.io/name: clickhouse
+        app.kubernetes.io/component: analytics-store
+        app.kubernetes.io/part-of: automatic-system
+        app.kubernetes.io/managed-by: kustomize
+    spec:
+      containers:
+      - name: clickhouse
+        image: clickhouse/clickhouse-server:25.8
+        env:
+        - name: CLICKHOUSE_DB
+          value: analytics
+        - name: CLICKHOUSE_USER
+          value: analytics
+        - name: CLICKHOUSE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: runtime-secrets
+              key: CLICKHOUSE_PASSWORD
+        - name: CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT
+          value: '1'
+        ports:
+        - name: main
+          containerPort: 8123
+        - name: native
+          containerPort: 9000
+        resources:
+          requests:
+            cpu: 25m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 768Mi
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/clickhouse
+        startupProbe:
+          httpGet:
+            path: /ping
+            port: 8123
+          periodSeconds: 3
+          timeoutSeconds: 2
+          failureThreshold: 60
+        readinessProbe:
+          httpGet:
+            path: /ping
+            port: 8123
+          periodSeconds: 5
+          timeoutSeconds: 2
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /ping
+            port: 8123
+          periodSeconds: 10
+          timeoutSeconds: 2
+          failureThreshold: 5
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 2Gi
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
+  updateStrategy:
+    type: RollingUpdate

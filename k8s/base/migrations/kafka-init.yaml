@@ -1,0 +1,82 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kafka-init
+  namespace: automatic-system
+  labels:
+    app.kubernetes.io/name: kafka-init
+    app.kubernetes.io/component: job
+    app.kubernetes.io/part-of: automatic-system
+    app.kubernetes.io/managed-by: kustomize
+    automatic-system.io/job-type: init
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: kafka-init
+        app.kubernetes.io/name: kafka-init
+        app.kubernetes.io/component: job
+        app.kubernetes.io/part-of: automatic-system
+        app.kubernetes.io/managed-by: kustomize
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: init
+        image: apache/kafka:3.9.1
+        command:
+        - sh
+        - -c
+        args:
+        - 'set -e
+
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092 --create --if-not-exists --topic auth.events.v1 --partitions
+          3 --replication-factor 3
+
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092 --create --if-not-exists --topic profiles.events.v1
+          --partitions 3 --replication-factor 3
+
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092 --create --if-not-exists --topic departments.events.v1
+          --partitions 3 --replication-factor 3
+
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092 --create --if-not-exists --topic brigades.events.v1
+          --partitions 3 --replication-factor 3
+
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092 --create --if-not-exists --topic tickets.events.v1
+          --partitions 3 --replication-factor 3
+
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092 --create --if-not-exists --topic routing.events.v1
+          --partitions 3 --replication-factor 3
+
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092 --create --if-not-exists --topic locations.events.v1
+          --partitions 3 --replication-factor 3
+
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092 --create --if-not-exists --topic dispatch.events.v1
+          --partitions 3 --replication-factor 3
+
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092 --create --if-not-exists --topic files.events.v1
+          --partitions 3 --replication-factor 3
+
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092 --create --if-not-exists --topic sla.events.v1 --partitions
+          3 --replication-factor 3
+
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092 --create --if-not-exists --topic notifications.events.v1
+          --partitions 3 --replication-factor 3
+
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092 --create --if-not-exists --topic reports.events.v1
+          --partitions 3 --replication-factor 3
+
+          '
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            cpu: 250m
+            memory: 256Mi
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+  activeDeadlineSeconds: 600
+  ttlSecondsAfterFinished: 86400

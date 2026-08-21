@@ -1,0 +1,97 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis-location-replica-2
+  namespace: automatic-system
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/component: cache
+    app.kubernetes.io/part-of: automatic-system
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/instance: location
+spec:
+  serviceName: redis-location-replica-2
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-location-replica-2
+  template:
+    metadata:
+      labels:
+        app: redis-location-replica-2
+        app.kubernetes.io/name: redis
+        app.kubernetes.io/component: cache
+        app.kubernetes.io/part-of: automatic-system
+        app.kubernetes.io/managed-by: kustomize
+        app.kubernetes.io/instance: location
+    spec:
+      containers:
+      - name: redis-location-replica-2
+        image: redis:7.4-alpine
+        env: []
+        ports:
+        - name: main
+          containerPort: 6379
+        resources:
+          requests:
+            cpu: 25m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 768Mi
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        command:
+        - redis-server
+        args:
+        - --appendonly
+        - 'yes'
+        - --replicaof
+        - redis-location-master
+        - '6379'
+        startupProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          periodSeconds: 2
+          timeoutSeconds: 2
+          failureThreshold: 30
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          periodSeconds: 5
+          timeoutSeconds: 2
+          failureThreshold: 3
+        livenessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          periodSeconds: 10
+          timeoutSeconds: 2
+          failureThreshold: 5
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 512Mi
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
+  updateStrategy:
+    type: RollingUpdate

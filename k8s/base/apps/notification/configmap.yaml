@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: notification-service-config
+  labels:
+    app.kubernetes.io/name: notification-service
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/part-of: automatic-system
+    app.kubernetes.io/managed-by: kustomize
+  namespace: automatic-system
+data:
+  REDIS_ADDR: redis-notification:6379
+  GRPC_PORT: '50061'
+  KAFKA_BROKERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
+  KAFKA_GROUP: notification-service
+  KAFKA_TOPICS: tickets.events.v1,sla.events.v1,dispatch.events.v1,departments.events.v1,brigades.events.v1,locations.events.v1,routing.events.v1,files.events.v1,reports.events.v1
+  SMTP_ADDR: mailhog:1025
+  SMTP_FROM: no-reply@automatic-system.local
+  LIVE_CHANNEL_PREFIX: 'notifications:user:'
+  FCM_SERVICE_ACCOUNT_FILE: ''

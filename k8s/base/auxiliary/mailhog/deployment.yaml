@@ -1,0 +1,72 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mailhog
+  namespace: automatic-system
+  labels:
+    app.kubernetes.io/name: mailhog
+    app.kubernetes.io/component: auxiliary
+    app.kubernetes.io/part-of: automatic-system
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mailhog
+  template:
+    metadata:
+      labels:
+        app: mailhog
+        app.kubernetes.io/name: mailhog
+        app.kubernetes.io/component: auxiliary
+        app.kubernetes.io/part-of: automatic-system
+        app.kubernetes.io/managed-by: kustomize
+    spec:
+      containers:
+      - name: mailhog
+        image: mailhog/mailhog:v1.0.1
+        imagePullPolicy: IfNotPresent
+        env: []
+        ports:
+        - name: smtp
+          containerPort: 1025
+        - name: ui
+          containerPort: 8025
+        resources:
+          requests:
+            cpu: 25m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        readinessProbe:
+          tcpSocket:
+            port: 1025
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          failureThreshold: 12
+        livenessProbe:
+          tcpSocket:
+            port: 1025
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          failureThreshold: 6
+        startupProbe:
+          tcpSocket:
+            port: 1025
+          periodSeconds: 2
+          timeoutSeconds: 1
+          failureThreshold: 45
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1

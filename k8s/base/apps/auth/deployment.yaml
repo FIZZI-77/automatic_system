@@ -1,0 +1,101 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: automatic-system
+  labels:
+    app.kubernetes.io/name: auth-service
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/part-of: automatic-system
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-service
+  template:
+    metadata:
+      labels:
+        app: auth-service
+        app.kubernetes.io/name: auth-service
+        app.kubernetes.io/component: backend
+        app.kubernetes.io/part-of: automatic-system
+        app.kubernetes.io/managed-by: kustomize
+    spec:
+      containers:
+      - name: auth-service
+        image: automatic-system/auth:dev
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: grpc
+          containerPort: 50051
+        resources:
+          requests:
+            cpu: 25m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        readinessProbe:
+          tcpSocket:
+            port: 50051
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          failureThreshold: 3
+          timeoutSeconds: 2
+        livenessProbe:
+          tcpSocket:
+            port: 50051
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          failureThreshold: 3
+          timeoutSeconds: 2
+        volumeMounts:
+        - name: jwt-private
+          mountPath: /app/keys/private.pem
+          subPath: private.pem
+          readOnly: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        startupProbe:
+          tcpSocket:
+            port: 50051
+          periodSeconds: 2
+          timeoutSeconds: 1
+          failureThreshold: 45
+        envFrom:
+        - configMapRef:
+            name: auth-service-config
+        env:
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: runtime-secrets
+              key: AUTH_DB_PASSWORD
+        - name: SMTP_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: runtime-secrets
+              key: SMTP_PASSWORD
+      volumes:
+      - name: jwt-private
+        secret:
+          secretName: jwt-private-key
+          defaultMode: 292
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+  revisionHistoryLimit: 3
+  minReadySeconds: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
