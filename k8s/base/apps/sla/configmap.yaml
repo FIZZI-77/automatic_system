@@ -10,9 +10,9 @@ metadata:
   namespace: automatic-system
 data:
   GRPC_PORT: '50060'
-  KAFKA_BROKERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
-  KAFKA_TICKET_TOPIC: tickets.events.v1
-  KAFKA_SLA_TOPIC: sla.events.v1
-  KAFKA_CONSUMER_GROUP: sla-service
-  DEADLINE_SCAN_INTERVAL: 1s
-  LOG_LEVEL: info
+  KAFKA_BROKERS: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
+  KAFKA_TICKET_TOPIC: "tickets.events.v1"
+  KAFKA_SLA_TOPIC: "sla.events.v1"
+  KAFKA_CONSUMER_GROUP: "sla-service"
+  DEADLINE_SCAN_INTERVAL: "1s"
+  LOG_LEVEL: "info"

@@ -10,11 +10,11 @@ metadata:
   namespace: automatic-system
 data:
   GRPC_PORT: '50057'
-  VALHALLA_URL: http://valhalla:8002
-  VALHALLA_TIMEOUT: 15s
-  KAFKA_BROKERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
-  KAFKA_ROUTING_TOPIC: routing.events.v1
-  KAFKA_TICKET_TOPIC: tickets.events.v1
+  VALHALLA_URL: "http://valhalla:8002"
+  VALHALLA_TIMEOUT: "15s"
+  KAFKA_BROKERS: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
+  KAFKA_ROUTING_TOPIC: "routing.events.v1"
+  KAFKA_TICKET_TOPIC: "tickets.events.v1"
   OUTBOX_WORKER_COUNT: '4'
-  SHUTDOWN_TIMEOUT: 20s
-  LOG_LEVEL: info
+  SHUTDOWN_TIMEOUT: "20s"
+  LOG_LEVEL: "info"

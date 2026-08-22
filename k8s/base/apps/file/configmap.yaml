@@ -10,9 +10,9 @@ metadata:
   namespace: automatic-system
 data:
   GRPC_PORT: '50059'
-  S3_ENDPOINT: http://minio:9000
-  S3_PUBLIC_ENDPOINT: http://localhost:9000
-  S3_REGION: us-east-1
-  S3_BUCKET: city-files
+  S3_ENDPOINT: "http://minio:9000"
+  S3_PUBLIC_ENDPOINT: "http://localhost:9000"
+  S3_REGION: "us-east-1"
+  S3_BUCKET: "city-files"
   S3_PATH_STYLE: 'true'
-  PRESIGN_TTL: 15m
+  PRESIGN_TTL: "15m"

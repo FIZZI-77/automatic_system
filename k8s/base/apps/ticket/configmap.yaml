@@ -10,11 +10,11 @@ metadata:
   namespace: automatic-system
 data:
   GRPC_PORT: '50052'
-  DB_HOST: postgres-ticket
+  DB_HOST: "postgres-ticket"
   DB_PORT: '5432'
-  DB_USERNAME: ticket_user
-  DB_NAME: ticket_db
-  SSLMODE: disable
-  KAFKA_BROKERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
+  DB_USERNAME: "ticket_user"
+  DB_NAME: "ticket_db"
+  SSLMODE: "disable"
+  KAFKA_BROKERS: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
   OUTBOX_WORKER_COUNT: '4'
-  KAFKA_ROUTING_TOPIC: routing.events.v1
+  KAFKA_ROUTING_TOPIC: "routing.events.v1"

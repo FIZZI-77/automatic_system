@@ -9,25 +9,25 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   namespace: automatic-system
 data:
-  GATEWAY_ADDR: :8081
-  AUTH_SERVICE_ADDR: auth-service:50051
-  TICKET_SERVICE_ADDR: ticket-service:50052
-  DEPARTMENT_SERVICE_ADDR: department-service:50053
-  BRIGADE_SERVICE_ADDR: brigade-service:50054
-  PROFILE_SERVICE_ADDR: profile-service:50055
-  JWT_PUBLIC_KEY_PATH: /app/keys/public.pem
-  JWT_ISSUER: auth-jwt
-  JWT_AUDIENCE: api-gateway
-  REDIS_ADDR: redis-gateway:6379
+  GATEWAY_ADDR: ":8081"
+  AUTH_SERVICE_ADDR: "auth-service:50051"
+  TICKET_SERVICE_ADDR: "ticket-service:50052"
+  DEPARTMENT_SERVICE_ADDR: "department-service:50053"
+  BRIGADE_SERVICE_ADDR: "brigade-service:50054"
+  PROFILE_SERVICE_ADDR: "profile-service:50055"
+  JWT_PUBLIC_KEY_PATH: "/app/keys/public.pem"
+  JWT_ISSUER: "auth-jwt"
+  JWT_AUDIENCE: "api-gateway"
+  REDIS_ADDR: "redis-gateway:6379"
   REDIS_DB: '0'
-  RATE_LIMIT_PREFIX: gateway:ratelimit
-  FILE_SERVICE_ADDR: file-service:50059
-  SLA_SERVICE_ADDR: sla-service:50060
-  NOTIFICATION_SERVICE_ADDR: notification-service:50061
-  AUDIT_SERVICE_ADDR: audit-service:50062
-  ANALYTICS_SERVICE_ADDR: analytics-service:50063
-  REPORT_SERVICE_ADDR: report-service:50064
-  REPORT_INTERNAL_URL: http://report-service:8084
-  ASSET_SERVICE_ADDR: asset-service:50065
+  RATE_LIMIT_PREFIX: "gateway:ratelimit"
+  FILE_SERVICE_ADDR: "file-service:50059"
+  SLA_SERVICE_ADDR: "sla-service:50060"
+  NOTIFICATION_SERVICE_ADDR: "notification-service:50061"
+  AUDIT_SERVICE_ADDR: "audit-service:50062"
+  ANALYTICS_SERVICE_ADDR: "analytics-service:50063"
+  REPORT_SERVICE_ADDR: "report-service:50064"
+  REPORT_INTERNAL_URL: "http://report-service:8084"
+  ASSET_SERVICE_ADDR: "asset-service:50065"
   NOTIFICATION_LIVE_PREFIX: 'notifications:user:'
-  CORS_ALLOWED_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+  CORS_ALLOWED_ORIGINS: "http://localhost:3000,http://127.0.0.1:3000"

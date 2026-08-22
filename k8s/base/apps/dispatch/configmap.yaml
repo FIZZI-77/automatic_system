@@ -10,7 +10,7 @@ metadata:
   namespace: automatic-system
 data:
   GRPC_PORT: '50058'
-  TICKET_SERVICE_ADDR: ticket-service:50052
-  BRIGADE_SERVICE_ADDR: brigade-service:50054
-  RESERVATION_TTL: 2m
-  CLEANUP_INTERVAL: 15s
+  TICKET_SERVICE_ADDR: "ticket-service:50052"
+  BRIGADE_SERVICE_ADDR: "brigade-service:50054"
+  RESERVATION_TTL: "2m"
+  CLEANUP_INTERVAL: "15s"

@@ -10,10 +10,10 @@ metadata:
   namespace: automatic-system
 data:
   GRPC_PORT: '50053'
-  DB_HOST: postgres-department
+  DB_HOST: "postgres-department"
   DB_PORT: '5432'
-  DB_USERNAME: department_user
-  DB_NAME: department_db
-  SSLMODE: disable
-  KAFKA_BROKERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
+  DB_USERNAME: "department_user"
+  DB_NAME: "department_db"
+  SSLMODE: "disable"
+  KAFKA_BROKERS: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
   OUTBOX_WORKER_COUNT: '4'

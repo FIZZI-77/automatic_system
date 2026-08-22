@@ -10,17 +10,17 @@ metadata:
   namespace: automatic-system
 data:
   GRPC_PORT: '50054'
-  DB_HOST: postgres-brigade
+  DB_HOST: "postgres-brigade"
   DB_PORT: '5432'
-  DB_USERNAME: brigade_user
-  DB_NAME: brigade_db
-  SSLMODE: disable
-  DEPARTMENT_GRPC_ADDR: department-service:50053
-  PROFILE_GRPC_ADDR: profile-service:50055
-  KAFKA_BROKERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
+  DB_USERNAME: "brigade_user"
+  DB_NAME: "brigade_db"
+  SSLMODE: "disable"
+  DEPARTMENT_GRPC_ADDR: "department-service:50053"
+  PROFILE_GRPC_ADDR: "profile-service:50055"
+  KAFKA_BROKERS: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
   OUTBOX_WORKER_COUNT: '4'
   PROFILE_CONSUMER_WORKER_COUNT: '4'
   PROFILE_RETRY_WORKER_COUNT: '2'
-  PROFILE_KAFKA_GROUP_ID: brigade-profile-projection-v1
-  KAFKA_ROUTING_TOPIC: routing.events.v1
-  KAFKA_TICKET_TOPIC: tickets.events.v1
+  PROFILE_KAFKA_GROUP_ID: "brigade-profile-projection-v1"
+  KAFKA_ROUTING_TOPIC: "routing.events.v1"
+  KAFKA_TICKET_TOPIC: "tickets.events.v1"
