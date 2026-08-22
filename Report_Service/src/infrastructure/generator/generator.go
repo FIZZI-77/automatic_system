@@ -90,28 +90,24 @@ func pdfFile(name string, rows [][]string) (models.Artifact, error) {
 // flow and embeds supported photos on following pages.
 func (g *Generator) GenerateCompletion(v models.CompletionReport, images []models.EmbeddedImage) (models.Artifact, error) {
 	p := gofpdf.New("P", "mm", "A4", "")
-	regular := fontPath(
-		"REPORT_FONT_REGULAR",
-		"assets/fonts/DejaVuSans.ttf",
-		"/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-		"/usr/share/fonts/TTF/DejaVuSans.ttf",
-		"C:/Windows/Fonts/arial.ttf",
-	)
-
-	bold := fontPath(
-		"REPORT_FONT_BOLD",
-		"assets/fonts/DejaVuSans-Bold.ttf",
-		"/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-		"/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
-		"C:/Windows/Fonts/arialbd.ttf",
-	)
-	if regular == "" || bold == "" {
-		return models.Artifact{}, fmt.Errorf("completion report fonts are unavailable")
+	regularData, err := os.ReadFile("assets/fonts/DejaVuSans.ttf")
+	if err != nil {
+		return models.Artifact{}, fmt.Errorf("read regular report font: %w", err)
 	}
-	p.AddUTF8Font("Report", "", regular)
-	p.AddUTF8Font("Report", "B", bold)
+
+	boldData, err := os.ReadFile("assets/fonts/DejaVuSans-Bold.ttf")
+	if err != nil {
+		return models.Artifact{}, fmt.Errorf("read bold report font: %w", err)
+	}
+
+	p.AddUTF8FontFromBytes("Report", "", regularData)
+	p.AddUTF8FontFromBytes("Report", "B", boldData)
+
 	if p.Error() != nil {
-		return models.Artifact{}, fmt.Errorf("register completion report fonts: %w", p.Error())
+		return models.Artifact{}, fmt.Errorf(
+			"register completion report fonts: %w",
+			p.Error(),
+		)
 	}
 	p.SetMargins(20, 18, 20)
 	p.SetAutoPageBreak(true, 18)
