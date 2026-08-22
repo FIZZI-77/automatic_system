@@ -110,6 +110,9 @@ func (g *Generator) GenerateCompletion(v models.CompletionReport, images []model
 	}
 	p.AddUTF8Font("Report", "", regular)
 	p.AddUTF8Font("Report", "B", bold)
+	if p.Error() != nil {
+		return models.Artifact{}, fmt.Errorf("register completion report fonts: %w", p.Error())
+	}
 	p.SetMargins(20, 18, 20)
 	p.SetAutoPageBreak(true, 18)
 	p.AddPage()
