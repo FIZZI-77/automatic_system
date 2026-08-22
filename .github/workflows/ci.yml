@@ -111,14 +111,6 @@ jobs:
           cache: true
           cache-dependency-path: ${{ matrix.path }}/go.sum
 
-      - name: Install report fonts
-        if: matrix.name == 'report'
-        shell: bash
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y fonts-dejavu-core
-          fc-cache -f -v
-
       - name: Download dependencies
         run: go mod download
 
