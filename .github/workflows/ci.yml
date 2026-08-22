@@ -1,90 +1,104 @@
-name: CI/CD
+name: Automatic City Services CI/CD
 
 on:
   pull_request:
 
   push:
     branches:
+      - "feature/**"
       - main
       - master
-      - "feature/**"
 
-permissions:
-  contents: read
-  packages: write
+  workflow_dispatch:
 
 concurrency:
   group: automatic-system-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  packages: write
+
 env:
+  GO_VERSION: "1.25.9"
   REGISTRY: ghcr.io
-  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}/automatic-system
+  DOCKER_METADATA_SHORT_SHA_LENGTH: 12
 
 jobs:
-
   # ===========================================================================
-  # Go quality
+  # GO QUALITY
   # ===========================================================================
 
   go-quality:
-    name: Go quality - ${{ matrix.service }}
+    name: Go / ${{ matrix.name }}
     runs-on: ubuntu-latest
 
     strategy:
       fail-fast: false
       matrix:
         include:
-          - service: root
-            directory: .
+          - name: root
+            path: "."
 
-          - service: api-gateway
-            directory: API_Gateway
+          - name: api-gateway
+            path: API_Gateway
 
-          - service: auth
-            directory: Auth_Service
+          - name: auth
+            path: Auth_Service
 
-          - service: profile
-            directory: Profile_Service
+          - name: ticket
+            path: Ticket_Service
 
-          - service: ticket
-            directory: Ticket_Service
+          - name: department
+            path: Department_Service
 
-          - service: department
-            directory: Department_Service
+          - name: brigade
+            path: Brigade_Service
 
-          - service: brigade
-            directory: Brigade_Service
+          - name: profile
+            path: Profile_Service
 
-          - service: location
-            directory: Location_Service
+          - name: location
+            path: Location_Service
 
-          - service: routing
-            directory: Routing_Service
+          - name: routing
+            path: Routing_Service
 
-          - service: dispatch
-            directory: Dispatch_Service
+          - name: dispatch
+            path: Dispatch_Service
 
-          - service: file
-            directory: File_Service
+          - name: file
+            path: File_Service
 
-          - service: sla
-            directory: SLA_Service
+          - name: sla
+            path: SLA_Service
 
-          - service: notification
-            directory: Notification_Service
+          - name: notification
+            path: Notification_Service
 
-          - service: audit
-            directory: Audit_Service
+          - name: audit
+            path: Audit_Service
 
-          - service: analytics
-            directory: Analytics_Service
+          - name: analytics
+            path: Analytics_Service
 
-          - service: report
-            directory: Report_Service
+          - name: report
+            path: Report_Service
 
-          - service: asset
-            directory: Asset_Service
+          - name: asset
+            path: Asset_Service
+
+          - name: transponder-simulator
+            path: Transponder_Simulator
+
+    defaults:
+      run:
+        working-directory: ${{ matrix.path }}
+
+    # Каждый модуль проверяется независимо.
+    # Ошибка одного пути в go.work не должна валить CI всех остальных сервисов.
+    env:
+      GOWORK: "off"
 
     steps:
       - name: Checkout
@@ -93,40 +107,91 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: ${{ matrix.directory }}/go.mod
+          go-version: ${{ env.GO_VERSION }}
           cache: true
-          cache-dependency-path: ${{ matrix.directory }}/go.sum
+          cache-dependency-path: ${{ matrix.path }}/go.sum
 
       - name: Download dependencies
-        working-directory: ${{ matrix.directory }}
         run: go mod download
 
       - name: Verify dependencies
-        working-directory: ${{ matrix.directory }}
         run: go mod verify
 
-      - name: Check formatting
-        working-directory: ${{ matrix.directory }}
+      - name: Check gofmt
         shell: bash
         run: |
+          set -euo pipefail
+
           unformatted="$(gofmt -l .)"
 
           if [ -n "$unformatted" ]; then
-            echo "The following files are not formatted:"
+            echo "The following Go files are not formatted:"
             echo "$unformatted"
             exit 1
           fi
 
-      - name: Go vet
-        working-directory: ${{ matrix.directory }}
+      - name: Run go vet
         run: go vet ./...
 
       - name: Run tests with race detector
-        working-directory: ${{ matrix.directory }}
-        run: go test -race ./...
+        run: go test -race -count=1 ./...
 
   # ===========================================================================
-  # Docker Compose validation
+  # GO WORKSPACE VALIDATION
+  # ===========================================================================
+  #
+  # Отдельная проверка go.work.
+  # Она нужна, но её ошибка не должна маскироваться как ошибка всех 18 сервисов.
+
+  go-workspace-validation:
+    name: Validate Go workspace
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+
+      - name: Validate workspace module paths
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          go work edit -json >/tmp/go-work.json
+
+          missing=0
+
+          while IFS= read -r module; do
+            if [ ! -f "$module/go.mod" ]; then
+              echo "::error::go.work module does not exist: $module/go.mod"
+              missing=1
+            fi
+          done < <(
+            go work edit -json |
+              python3 -c '
+          import json
+          import sys
+
+          data = json.load(sys.stdin)
+
+          for item in data.get("Use", []):
+              print(item["DiskPath"])
+          '
+          )
+
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
+          echo "All go.work module paths are valid."
+
+  # ===========================================================================
+  # DOCKER COMPOSE VALIDATION
   # ===========================================================================
 
   compose-validation:
@@ -137,15 +202,48 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Validate compose
-        run: docker compose config --quiet
+      # Настоящие .env в Git не нужны.
+      # Для docker compose config достаточно example-файлов.
+      - name: Prepare CI env files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          while IFS= read -r example; do
+            target="${example%.example}"
+
+            if [ ! -f "$target" ]; then
+              echo "Creating temporary CI env: $target"
+              cp "$example" "$target"
+            fi
+          done < <(
+            find . \
+              -type f \
+              -name '.env.example' \
+              -not -path './.git/*' \
+              -print
+          )
+
+      - name: Validate Compose
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker compose config --quiet
 
   # ===========================================================================
-  # Kubernetes validation
+  # KUBERNETES VALIDATION
   # ===========================================================================
+  #
+  # ВАЖНО:
+  # здесь специально НЕТ kubectl apply --dry-run=client.
+  #
+  # kubectl apply даже с client dry-run может выполнять API discovery и пытаться
+  # подключиться к localhost:8080, если kubeconfig отсутствует.
+  #
+  # CI должен уметь проверять manifests даже при полностью выключенном сервере.
 
   kubernetes-validation:
-    name: Validate Kubernetes - ${{ matrix.overlay }}
+    name: Kubernetes / ${{ matrix.overlay }}
     runs-on: ubuntu-latest
 
     strategy:
@@ -163,36 +261,63 @@ jobs:
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4
 
+      # local overlay использует:
+      #
+      # secretGenerator:
+      #   envs:
+      #     - runtime.env
+      #
+      # Настоящие secrets CI для рендера не нужны.
+      - name: Prepare dummy local secrets
+        if: matrix.overlay == 'local'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p k8s/overlays/local/secrets
+
+          cat > k8s/overlays/local/secrets/runtime.env <<'EOF'
+          CI_DUMMY_SECRET=ci-validation-only
+          EOF
+
       - name: Render Kustomize
+        shell: bash
         run: |
-          kubectl kustomize "k8s/overlays/${{ matrix.overlay }}" > rendered.yaml
+          set -euo pipefail
 
-      - name: Client-side validation
-        run: |
-          kubectl apply \
-            --dry-run=client \
-            --validate=false \
-            -f rendered.yaml
+          kubectl kustomize \
+            "k8s/overlays/${{ matrix.overlay }}" \
+            > rendered.yaml
 
-      - name: Check production image tags
+          if [ ! -s rendered.yaml ]; then
+            echo "::error::Kustomize rendered an empty manifest"
+            exit 1
+          fi
+
+          echo "Rendered $(wc -l < rendered.yaml) lines."
+
+      - name: Reject mutable production application images
         if: matrix.overlay == 'prod'
         shell: bash
         run: |
-          if grep -E 'image: .*:(latest|dev)$' rendered.yaml; then
-            echo "Mutable image tag found in production manifests"
+          set -euo pipefail
+
+          if grep -E 'image: .*automatic-system-.*:(latest|dev)$' rendered.yaml; then
+            echo "::error::Mutable application image tag found in production overlay"
             exit 1
           fi
 
   # ===========================================================================
-  # Application Docker images
+  # APPLICATION IMAGES
   # ===========================================================================
 
   application-images:
-    name: Build application image - ${{ matrix.name }}
+    name: App image / ${{ matrix.service }}
     runs-on: ubuntu-latest
 
     needs:
       - go-quality
+      - go-workspace-validation
       - compose-validation
       - kubernetes-validation
 
@@ -200,73 +325,99 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: api-gateway
-            context: .
+          - service: api-gateway
+            package: automatic-system-api-gateway
+            context: "."
             dockerfile: API_Gateway/Dockerfile
 
-          - name: auth
-            context: .
+          - service: auth
+            package: automatic-system-auth
+            context: Auth_Service
             dockerfile: Auth_Service/Dockerfile
 
-          - name: profile
-            context: .
-            dockerfile: Profile_Service/Dockerfile
-
-          - name: ticket
-            context: .
+          - service: ticket
+            package: automatic-system-ticket
+            context: Ticket_Service
             dockerfile: Ticket_Service/Dockerfile
 
-          - name: department
-            context: .
+          - service: department
+            package: automatic-system-department
+            context: Department_Service
             dockerfile: Department_Service/Dockerfile
 
-          - name: brigade
-            context: .
+          - service: brigade
+            package: automatic-system-brigade
+            context: Brigade_Service
             dockerfile: Brigade_Service/Dockerfile
 
-          - name: location
-            context: .
+          - service: profile
+            package: automatic-system-profile
+            context: Profile_Service
+            dockerfile: Profile_Service/Dockerfile
+
+          - service: location
+            package: automatic-system-location
+            context: Location_Service
             dockerfile: Location_Service/Dockerfile
 
-          - name: routing
-            context: .
+          - service: routing
+            package: automatic-system-routing
+            context: Routing_Service
             dockerfile: Routing_Service/Dockerfile
 
-          - name: dispatch
-            context: .
+          - service: dispatch
+            package: automatic-system-dispatch
+            context: "."
             dockerfile: Dispatch_Service/Dockerfile
 
-          - name: file
-            context: .
+          - service: file
+            package: automatic-system-file
+            context: File_Service
             dockerfile: File_Service/Dockerfile
 
-          - name: sla
-            context: .
+          - service: sla
+            package: automatic-system-sla
+            context: "."
             dockerfile: SLA_Service/Dockerfile
 
-          - name: notification
-            context: .
+          - service: notification
+            package: automatic-system-notification
+            context: "."
             dockerfile: Notification_Service/Dockerfile
 
-          - name: audit
-            context: .
+          - service: audit
+            package: automatic-system-audit
+            context: "."
             dockerfile: Audit_Service/Dockerfile
 
-          - name: analytics
-            context: .
+          - service: analytics
+            package: automatic-system-analytics
+            context: "."
             dockerfile: Analytics_Service/Dockerfile
 
-          - name: report
-            context: .
+          - service: report
+            package: automatic-system-report
+            context: "."
             dockerfile: Report_Service/Dockerfile
 
-          - name: asset
-            context: .
+          - service: asset
+            package: automatic-system-asset
+            context: "."
             dockerfile: Asset_Service/Dockerfile
+
+          - service: transponder-simulator
+            package: automatic-system-transponder-simulator
+            context: Transponder_Simulator
+            dockerfile: Transponder_Simulator/Dockerfile
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Normalize registry owner
+        shell: bash
+        run: |
+          echo "REGISTRY_OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -275,7 +426,7 @@ jobs:
         if: github.event_name == 'push'
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
+          registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
@@ -283,12 +434,12 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.IMAGE_PREFIX }}-${{ matrix.name }}
+          images: ${{ env.REGISTRY }}/${{ env.REGISTRY_OWNER }}/${{ matrix.package }}
           tags: |
             type=sha,prefix=sha-,format=short
             type=ref,event=branch
 
-      - name: Build and optionally push image
+      - name: Build and publish
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
@@ -296,87 +447,92 @@ jobs:
           push: ${{ github.event_name == 'push' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=app-${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=app-${{ matrix.service }}
           provenance: true
           sbom: true
 
   # ===========================================================================
-  # Migrator Docker images
+  # MIGRATOR IMAGES
   # ===========================================================================
 
   migrator-images:
-    name: Build migrator image - ${{ matrix.name }}
+    name: Migrator image / ${{ matrix.service }}
     runs-on: ubuntu-latest
 
     needs:
       - go-quality
-      - compose-validation
+      - go-workspace-validation
       - kubernetes-validation
 
     strategy:
       fail-fast: false
       matrix:
         include:
-          - name: auth-migrator
-            context: .
-            dockerfile: Auth_Service/Dockerfile.migrator
+          - service: auth
+            package: automatic-system-auth-migrator
+            context: Auth_Service
 
-          - name: profile-migrator
-            context: .
-            dockerfile: Profile_Service/Dockerfile.migrator
+          - service: ticket
+            package: automatic-system-ticket-migrator
+            context: Ticket_Service
 
-          - name: ticket-migrator
-            context: .
-            dockerfile: Ticket_Service/Dockerfile.migrator
+          - service: department
+            package: automatic-system-department-migrator
+            context: Department_Service
 
-          - name: department-migrator
-            context: .
-            dockerfile: Department_Service/Dockerfile.migrator
+          - service: brigade
+            package: automatic-system-brigade-migrator
+            context: Brigade_Service
 
-          - name: brigade-migrator
-            context: .
-            dockerfile: Brigade_Service/Dockerfile.migrator
+          - service: profile
+            package: automatic-system-profile-migrator
+            context: Profile_Service
 
-          - name: location-migrator
-            context: .
-            dockerfile: Location_Service/Dockerfile.migrator
+          - service: location
+            package: automatic-system-location-migrator
+            context: Location_Service
 
-          - name: routing-migrator
-            context: .
-            dockerfile: Routing_Service/Dockerfile.migrator
+          - service: routing
+            package: automatic-system-routing-migrator
+            context: Routing_Service
 
-          - name: dispatch-migrator
-            context: .
-            dockerfile: Dispatch_Service/Dockerfile.migrator
+          - service: dispatch
+            package: automatic-system-dispatch-migrator
+            context: Dispatch_Service
 
-          - name: file-migrator
-            context: .
-            dockerfile: File_Service/Dockerfile.migrator
+          - service: file
+            package: automatic-system-file-migrator
+            context: File_Service
 
-          - name: sla-migrator
-            context: .
-            dockerfile: SLA_Service/Dockerfile.migrator
+          - service: sla
+            package: automatic-system-sla-migrator
+            context: SLA_Service
 
-          - name: notification-migrator
-            context: .
-            dockerfile: Notification_Service/Dockerfile.migrator
+          - service: notification
+            package: automatic-system-notification-migrator
+            context: Notification_Service
 
-          - name: audit-migrator
-            context: .
-            dockerfile: Audit_Service/Dockerfile.migrator
+          - service: audit
+            package: automatic-system-audit-migrator
+            context: Audit_Service
 
-          - name: report-migrator
-            context: .
-            dockerfile: Report_Service/Dockerfile.migrator
+          - service: report
+            package: automatic-system-report-migrator
+            context: Report_Service
 
-          - name: asset-migrator
-            context: .
-            dockerfile: Asset_Service/Dockerfile.migrator
+          - service: asset
+            package: automatic-system-asset-migrator
+            context: Asset_Service
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Normalize registry owner
+        shell: bash
+        run: |
+          echo "REGISTRY_OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -385,7 +541,7 @@ jobs:
         if: github.event_name == 'push'
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
+          registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
@@ -393,40 +549,46 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.IMAGE_PREFIX }}-${{ matrix.name }}
+          images: ${{ env.REGISTRY }}/${{ env.REGISTRY_OWNER }}/${{ matrix.package }}
           tags: |
             type=sha,prefix=sha-,format=short
             type=ref,event=branch
 
-      - name: Build and optionally push migrator
+      - name: Build and publish
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
-          file: ${{ matrix.dockerfile }}
+          file: k8s/build/Dockerfile.migrator
+          build-args: |
+            MIGRATIONS_DIR=scheme
           push: ${{ github.event_name == 'push' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=migrator-${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=migrator-${{ matrix.service }}
           provenance: true
           sbom: true
 
   # ===========================================================================
-  # ClickHouse init image
+  # CLICKHOUSE INIT IMAGE
   # ===========================================================================
 
   clickhouse-init-image:
-    name: Build ClickHouse init image
+    name: ClickHouse init image
     runs-on: ubuntu-latest
 
     needs:
-      - compose-validation
       - kubernetes-validation
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Normalize registry owner
+        shell: bash
+        run: |
+          echo "REGISTRY_OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -434,7 +596,7 @@ jobs:
         if: github.event_name == 'push'
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
+          registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
@@ -442,39 +604,114 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.IMAGE_PREFIX }}-clickhouse-init
+          images: ${{ env.REGISTRY }}/${{ env.REGISTRY_OWNER }}/automatic-system-analytics-clickhouse-init
           tags: |
             type=sha,prefix=sha-,format=short
             type=ref,event=branch
 
-      - name: Build and optionally push ClickHouse init
+      - name: Build and publish
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: Analytics_Service/Dockerfile.clickhouse-init
+          file: k8s/build/Dockerfile.clickhouse-init
           push: ${{ github.event_name == 'push' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=clickhouse-init
+          cache-to: type=gha,mode=max,scope=clickhouse-init
           provenance: true
           sbom: true
 
   # ===========================================================================
-  # DEV deployment
+  # CHECK DEV CLUSTER
+  # ===========================================================================
+  #
+  # Если домашний/dev Kubernetes выключен:
+  #   - job остаётся SUCCESS;
+  #   - available=false;
+  #   - deploy-dev становится SKIPPED.
+  #
+  # CI, Docker build и push в GHCR продолжают работать.
+
+  check-dev-cluster:
+    name: Check dev Kubernetes availability
+
+    if: >
+      github.event_name == 'push' &&
+      startsWith(github.ref, 'refs/heads/feature/')
+
+    runs-on: ubuntu-latest
+
+    environment:
+      name: development
+
+    outputs:
+      available: ${{ steps.cluster.outputs.available }}
+
+    steps:
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Check cluster
+        id: cluster
+        shell: bash
+        env:
+          KUBECONFIG_B64: ${{ secrets.KUBECONFIG_B64 }}
+        run: |
+          set +e
+
+          echo "available=false" >> "$GITHUB_OUTPUT"
+
+          if [ -z "${KUBECONFIG_B64:-}" ]; then
+            echo "KUBECONFIG_B64 is not configured."
+            echo "Dev deployment will be skipped."
+            exit 0
+          fi
+
+          mkdir -p "$HOME/.kube"
+
+          if ! printf '%s' "$KUBECONFIG_B64" |
+            base64 --decode > "$HOME/.kube/config"
+          then
+            echo "KUBECONFIG_B64 cannot be decoded."
+            echo "Dev deployment will be skipped."
+            exit 0
+          fi
+
+          chmod 600 "$HOME/.kube/config"
+
+          if timeout 15s kubectl \
+            --request-timeout=10s \
+            cluster-info >/dev/null 2>&1
+          then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+            echo "Dev Kubernetes is available."
+          else
+            echo "Dev Kubernetes is offline or unreachable."
+            echo "Dev deployment will be skipped."
+          fi
+
+          exit 0
+
+  # ===========================================================================
+  # DEV DEPLOY
   # ===========================================================================
 
   deploy-dev:
     name: Deploy feature branch to dev
 
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/feature/')
-
-    runs-on: ubuntu-latest
-
     needs:
       - application-images
       - migrator-images
       - clickhouse-init-image
+      - check-dev-cluster
+
+    if: >
+      github.event_name == 'push' &&
+      startsWith(github.ref, 'refs/heads/feature/') &&
+      needs.check-dev-cluster.outputs.available == 'true'
+
+    runs-on: ubuntu-latest
 
     environment:
       name: development
@@ -483,10 +720,6 @@ jobs:
       group: automatic-system-development
       cancel-in-progress: true
 
-    # IMPORTANT:
-    # GitHub Actions does not allow secrets.* directly in step "if".
-    # Therefore optional GHCR credentials are first exposed as job env values
-    # and the step condition checks env.GHCR_PULL_TOKEN.
     env:
       GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
       GHCR_PULL_USERNAME: ${{ secrets.GHCR_PULL_USERNAME }}
@@ -505,19 +738,31 @@ jobs:
         run: |
           set -euo pipefail
 
-          test -n "$KUBECONFIG_B64"
-
           mkdir -p "$HOME/.kube"
 
-          printf '%s' "$KUBECONFIG_B64" \
-            | base64 --decode \
-            > "$HOME/.kube/config"
+          printf '%s' "$KUBECONFIG_B64" |
+            base64 --decode > "$HOME/.kube/config"
 
           chmod 600 "$HOME/.kube/config"
 
-          kubectl cluster-info
+          kubectl --request-timeout=10s cluster-info
 
-      - name: Validate required deployment secrets
+      - name: Set immutable image tag
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SHORT_SHA="${GITHUB_SHA::12}"
+
+          sed -Ei \
+            "s/newTag: sha-[0-9a-fA-F]+/newTag: sha-${SHORT_SHA}/g" \
+            k8s/overlays/dev/apps/kustomization.yaml \
+            k8s/overlays/dev/migrations/kustomization.yaml
+
+      - name: Create namespace
+        run: kubectl apply -f k8s/overlays/dev/namespace.yaml
+
+      - name: Apply runtime secrets
         shell: bash
         env:
           RUNTIME_ENV_B64: ${{ secrets.RUNTIME_ENV_B64 }}
@@ -526,71 +771,64 @@ jobs:
         run: |
           set -euo pipefail
 
-          test -n "$RUNTIME_ENV_B64"
-          test -n "$JWT_PRIVATE_KEY_B64"
-          test -n "$JWT_PUBLIC_KEY_B64"
+          test -n "$RUNTIME_ENV_B64" || {
+            echo "::error::RUNTIME_ENV_B64 is missing"
+            exit 1
+          }
 
-          printf '%s' "$RUNTIME_ENV_B64" | base64 --decode > /tmp/runtime.env
-          printf '%s' "$JWT_PRIVATE_KEY_B64" | base64 --decode > /tmp/private.pem
-          printf '%s' "$JWT_PUBLIC_KEY_B64" | base64 --decode > /tmp/public.pem
+          test -n "$JWT_PRIVATE_KEY_B64" || {
+            echo "::error::JWT_PRIVATE_KEY_B64 is missing"
+            exit 1
+          }
 
-          test -s /tmp/runtime.env
-          test -s /tmp/private.pem
-          test -s /tmp/public.pem
-
-          rm -f /tmp/runtime.env /tmp/private.pem /tmp/public.pem
-
-      - name: Apply dev namespace
-        run: |
-          kubectl apply -f k8s/base/namespace/namespace.yaml
-
-      - name: Create runtime secrets
-        shell: bash
-        env:
-          RUNTIME_ENV_B64: ${{ secrets.RUNTIME_ENV_B64 }}
-          JWT_PRIVATE_KEY_B64: ${{ secrets.JWT_PRIVATE_KEY_B64 }}
-          JWT_PUBLIC_KEY_B64: ${{ secrets.JWT_PUBLIC_KEY_B64 }}
-        run: |
-          set -euo pipefail
+          test -n "$JWT_PUBLIC_KEY_B64" || {
+            echo "::error::JWT_PUBLIC_KEY_B64 is missing"
+            exit 1
+          }
 
           RUNTIME_FILE="$(mktemp)"
-          PRIVATE_KEY_FILE="$(mktemp)"
-          PUBLIC_KEY_FILE="$(mktemp)"
+          PRIVATE_FILE="$(mktemp)"
+          PUBLIC_FILE="$(mktemp)"
 
-          trap 'rm -f "$RUNTIME_FILE" "$PRIVATE_KEY_FILE" "$PUBLIC_KEY_FILE"' EXIT
+          cleanup() {
+            rm -f "$RUNTIME_FILE" "$PRIVATE_FILE" "$PUBLIC_FILE"
+          }
 
-          printf '%s' "$RUNTIME_ENV_B64" \
-            | base64 --decode \
-            > "$RUNTIME_FILE"
+          trap cleanup EXIT
 
-          printf '%s' "$JWT_PRIVATE_KEY_B64" \
-            | base64 --decode \
-            > "$PRIVATE_KEY_FILE"
+          printf '%s' "$RUNTIME_ENV_B64" |
+            base64 --decode > "$RUNTIME_FILE"
 
-          printf '%s' "$JWT_PUBLIC_KEY_B64" \
-            | base64 --decode \
-            > "$PUBLIC_KEY_FILE"
+          printf '%s' "$JWT_PRIVATE_KEY_B64" |
+            base64 --decode > "$PRIVATE_FILE"
+
+          printf '%s' "$JWT_PUBLIC_KEY_B64" |
+            base64 --decode > "$PUBLIC_FILE"
+
+          test -s "$RUNTIME_FILE"
+          test -s "$PRIVATE_FILE"
+          test -s "$PUBLIC_FILE"
 
           kubectl create secret generic runtime-secrets \
-            --namespace automatic-system-dev \
+            -n automatic-system-dev \
             --from-env-file="$RUNTIME_FILE" \
             --dry-run=client \
-            -o yaml \
-            | kubectl apply -f -
+            -o yaml |
+            kubectl apply -f -
 
           kubectl create secret generic jwt-private-key \
-            --namespace automatic-system-dev \
-            --from-file=private.pem="$PRIVATE_KEY_FILE" \
+            -n automatic-system-dev \
+            --from-file=private.pem="$PRIVATE_FILE" \
             --dry-run=client \
-            -o yaml \
-            | kubectl apply -f -
+            -o yaml |
+            kubectl apply -f -
 
           kubectl create secret generic jwt-public-key \
-            --namespace automatic-system-dev \
-            --from-file=public.pem="$PUBLIC_KEY_FILE" \
+            -n automatic-system-dev \
+            --from-file=public.pem="$PUBLIC_FILE" \
             --dry-run=client \
-            -o yaml \
-            | kubectl apply -f -
+            -o yaml |
+            kubectl apply -f -
 
       - name: Configure optional private GHCR pull secret
         if: ${{ env.GHCR_PULL_TOKEN != '' }}
@@ -599,138 +837,173 @@ jobs:
           set -euo pipefail
 
           kubectl create secret docker-registry ghcr-pull \
-            --namespace automatic-system-dev \
+            -n automatic-system-dev \
             --docker-server=ghcr.io \
             --docker-username="${GHCR_PULL_USERNAME:-${GITHUB_ACTOR}}" \
             --docker-password="$GHCR_PULL_TOKEN" \
             --dry-run=client \
-            -o yaml \
-            | kubectl apply -f -
+            -o yaml |
+            kubectl apply -f -
 
           kubectl patch serviceaccount default \
-            --namespace automatic-system-dev \
+            -n automatic-system-dev \
             --type=merge \
             -p '{"imagePullSecrets":[{"name":"ghcr-pull"}]}'
 
-      - name: Set immutable image tag
-        id: image-tag
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          SHORT_SHA="${GITHUB_SHA::7}"
-          echo "tag=sha-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
-
-      - name: Apply dev infrastructure
+      - name: Deploy infrastructure
         shell: bash
         run: |
           set -euo pipefail
 
           kubectl apply -k k8s/overlays/dev/infra
 
-      - name: Wait for dev infrastructure
-        shell: bash
-        run: |
-          set -euo pipefail
-
           kubectl wait \
             --for=condition=Ready \
             pod \
             --all \
-            --namespace automatic-system-dev \
-            --timeout=300s
+            -n automatic-system-dev \
+            --timeout=15m
 
-      - name: Apply dev migrations
-        shell: bash
-        env:
-          IMAGE_TAG: ${{ steps.image-tag.outputs.tag }}
-        run: |
-          set -euo pipefail
-
-          kubectl delete -k k8s/overlays/dev/migrations \
-            --ignore-not-found=true || true
-
-          kubectl apply -k k8s/overlays/dev/migrations
-
-      - name: Wait for dev migrations
+      - name: Run migrations
         shell: bash
         run: |
           set -euo pipefail
 
-          jobs="$(kubectl get jobs \
-            --namespace automatic-system-dev \
-            -o name)"
+          kubectl delete \
+            -k k8s/overlays/dev/migrations \
+            --ignore-not-found=true
 
-          if [ -z "$jobs" ]; then
-            echo "No migration jobs found"
-            exit 1
-          fi
+          kubectl apply \
+            -k k8s/overlays/dev/migrations
 
-          while IFS= read -r job; do
-            [ -z "$job" ] && continue
+          kubectl wait \
+            --for=condition=complete \
+            job \
+            --all \
+            -n automatic-system-dev \
+            --timeout=15m
 
-            kubectl wait \
-              --for=condition=complete \
-              "$job" \
-              --namespace automatic-system-dev \
-              --timeout=300s
-          done <<< "$jobs"
-
-      - name: Apply dev applications
+      - name: Deploy applications
         shell: bash
         run: |
           set -euo pipefail
 
-          kubectl apply -k k8s/overlays/dev/apps
+          kubectl apply \
+            -k k8s/overlays/dev/apps
 
-      - name: Wait for dev application rollouts
+          kubectl rollout status \
+            deployment \
+            --all \
+            -n automatic-system-dev \
+            --timeout=15m
+
+      - name: Deployment summary
+        if: always()
         shell: bash
         run: |
-          set -euo pipefail
+          kubectl get pods \
+            -n automatic-system-dev \
+            -o wide || true
 
-          deployments="$(kubectl get deployments \
-            --namespace automatic-system-dev \
-            -o name)"
+          kubectl get svc \
+            -n automatic-system-dev || true
 
-          if [ -z "$deployments" ]; then
-            echo "No deployments found"
-            exit 1
-          fi
-
-          while IFS= read -r deployment; do
-            [ -z "$deployment" ] && continue
-
-            kubectl rollout status \
-              "$deployment" \
-              --namespace automatic-system-dev \
-              --timeout=300s
-          done <<< "$deployments"
+          kubectl get jobs \
+            -n automatic-system-dev || true
 
   # ===========================================================================
-  # PRODUCTION deployment
+  # CHECK PRODUCTION CLUSTER
+  # ===========================================================================
+
+  check-prod-cluster:
+    name: Check production Kubernetes availability
+
+    if: >
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/main' ||
+       github.ref == 'refs/heads/master')
+
+    runs-on: ubuntu-latest
+
+    environment:
+      name: production
+
+    outputs:
+      available: ${{ steps.cluster.outputs.available }}
+
+    steps:
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Check cluster
+        id: cluster
+        shell: bash
+        env:
+          KUBECONFIG_B64: ${{ secrets.KUBECONFIG_B64 }}
+        run: |
+          set +e
+
+          echo "available=false" >> "$GITHUB_OUTPUT"
+
+          if [ -z "${KUBECONFIG_B64:-}" ]; then
+            echo "KUBECONFIG_B64 is not configured."
+            echo "Production deployment will be skipped."
+            exit 0
+          fi
+
+          mkdir -p "$HOME/.kube"
+
+          if ! printf '%s' "$KUBECONFIG_B64" |
+            base64 --decode > "$HOME/.kube/config"
+          then
+            echo "KUBECONFIG_B64 cannot be decoded."
+            echo "Production deployment will be skipped."
+            exit 0
+          fi
+
+          chmod 600 "$HOME/.kube/config"
+
+          if timeout 15s kubectl \
+            --request-timeout=10s \
+            cluster-info >/dev/null 2>&1
+          then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+            echo "Production Kubernetes is available."
+          else
+            echo "Production Kubernetes is offline or unreachable."
+            echo "Production deployment will be skipped."
+          fi
+
+          exit 0
+
+  # ===========================================================================
+  # PRODUCTION DEPLOY
   # ===========================================================================
 
   deploy-prod:
     name: Deploy main/master to production
 
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-
-    runs-on: ubuntu-latest
-
     needs:
       - application-images
       - migrator-images
       - clickhouse-init-image
+      - check-prod-cluster
 
-    environment:
-      name: production
+    if: >
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/main' ||
+       github.ref == 'refs/heads/master') &&
+      needs.check-prod-cluster.outputs.available == 'true'
+
+    runs-on: ubuntu-latest
 
     concurrency:
       group: automatic-system-production
       cancel-in-progress: false
 
-    # Same workaround as deploy-dev:
-    # secrets are mapped to env before being used by an "if" expression.
+    environment:
+      name: production
+
     env:
       GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
       GHCR_PULL_USERNAME: ${{ secrets.GHCR_PULL_USERNAME }}
@@ -749,19 +1022,31 @@ jobs:
         run: |
           set -euo pipefail
 
-          test -n "$KUBECONFIG_B64"
-
           mkdir -p "$HOME/.kube"
 
-          printf '%s' "$KUBECONFIG_B64" \
-            | base64 --decode \
-            > "$HOME/.kube/config"
+          printf '%s' "$KUBECONFIG_B64" |
+            base64 --decode > "$HOME/.kube/config"
 
           chmod 600 "$HOME/.kube/config"
 
-          kubectl cluster-info
+          kubectl --request-timeout=10s cluster-info
 
-      - name: Validate required deployment secrets
+      - name: Set immutable image tag
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SHORT_SHA="${GITHUB_SHA::12}"
+
+          sed -Ei \
+            "s/newTag: sha-[0-9a-fA-F]+/newTag: sha-${SHORT_SHA}/g" \
+            k8s/overlays/prod/apps/kustomization.yaml \
+            k8s/overlays/prod/migrations/kustomization.yaml
+
+      - name: Create namespace
+        run: kubectl apply -k k8s/base/namespace
+
+      - name: Apply runtime secrets
         shell: bash
         env:
           RUNTIME_ENV_B64: ${{ secrets.RUNTIME_ENV_B64 }}
@@ -770,71 +1055,64 @@ jobs:
         run: |
           set -euo pipefail
 
-          test -n "$RUNTIME_ENV_B64"
-          test -n "$JWT_PRIVATE_KEY_B64"
-          test -n "$JWT_PUBLIC_KEY_B64"
+          test -n "$RUNTIME_ENV_B64" || {
+            echo "::error::RUNTIME_ENV_B64 is missing"
+            exit 1
+          }
 
-          printf '%s' "$RUNTIME_ENV_B64" | base64 --decode > /tmp/runtime.env
-          printf '%s' "$JWT_PRIVATE_KEY_B64" | base64 --decode > /tmp/private.pem
-          printf '%s' "$JWT_PUBLIC_KEY_B64" | base64 --decode > /tmp/public.pem
+          test -n "$JWT_PRIVATE_KEY_B64" || {
+            echo "::error::JWT_PRIVATE_KEY_B64 is missing"
+            exit 1
+          }
 
-          test -s /tmp/runtime.env
-          test -s /tmp/private.pem
-          test -s /tmp/public.pem
-
-          rm -f /tmp/runtime.env /tmp/private.pem /tmp/public.pem
-
-      - name: Apply production namespace
-        run: |
-          kubectl apply -f k8s/base/namespace/namespace.yaml
-
-      - name: Create production runtime secrets
-        shell: bash
-        env:
-          RUNTIME_ENV_B64: ${{ secrets.RUNTIME_ENV_B64 }}
-          JWT_PRIVATE_KEY_B64: ${{ secrets.JWT_PRIVATE_KEY_B64 }}
-          JWT_PUBLIC_KEY_B64: ${{ secrets.JWT_PUBLIC_KEY_B64 }}
-        run: |
-          set -euo pipefail
+          test -n "$JWT_PUBLIC_KEY_B64" || {
+            echo "::error::JWT_PUBLIC_KEY_B64 is missing"
+            exit 1
+          }
 
           RUNTIME_FILE="$(mktemp)"
-          PRIVATE_KEY_FILE="$(mktemp)"
-          PUBLIC_KEY_FILE="$(mktemp)"
+          PRIVATE_FILE="$(mktemp)"
+          PUBLIC_FILE="$(mktemp)"
 
-          trap 'rm -f "$RUNTIME_FILE" "$PRIVATE_KEY_FILE" "$PUBLIC_KEY_FILE"' EXIT
+          cleanup() {
+            rm -f "$RUNTIME_FILE" "$PRIVATE_FILE" "$PUBLIC_FILE"
+          }
 
-          printf '%s' "$RUNTIME_ENV_B64" \
-            | base64 --decode \
-            > "$RUNTIME_FILE"
+          trap cleanup EXIT
 
-          printf '%s' "$JWT_PRIVATE_KEY_B64" \
-            | base64 --decode \
-            > "$PRIVATE_KEY_FILE"
+          printf '%s' "$RUNTIME_ENV_B64" |
+            base64 --decode > "$RUNTIME_FILE"
 
-          printf '%s' "$JWT_PUBLIC_KEY_B64" \
-            | base64 --decode \
-            > "$PUBLIC_KEY_FILE"
+          printf '%s' "$JWT_PRIVATE_KEY_B64" |
+            base64 --decode > "$PRIVATE_FILE"
+
+          printf '%s' "$JWT_PUBLIC_KEY_B64" |
+            base64 --decode > "$PUBLIC_FILE"
+
+          test -s "$RUNTIME_FILE"
+          test -s "$PRIVATE_FILE"
+          test -s "$PUBLIC_FILE"
 
           kubectl create secret generic runtime-secrets \
-            --namespace automatic-system \
+            -n automatic-system \
             --from-env-file="$RUNTIME_FILE" \
             --dry-run=client \
-            -o yaml \
-            | kubectl apply -f -
+            -o yaml |
+            kubectl apply -f -
 
           kubectl create secret generic jwt-private-key \
-            --namespace automatic-system \
-            --from-file=private.pem="$PRIVATE_KEY_FILE" \
+            -n automatic-system \
+            --from-file=private.pem="$PRIVATE_FILE" \
             --dry-run=client \
-            -o yaml \
-            | kubectl apply -f -
+            -o yaml |
+            kubectl apply -f -
 
           kubectl create secret generic jwt-public-key \
-            --namespace automatic-system \
-            --from-file=public.pem="$PUBLIC_KEY_FILE" \
+            -n automatic-system \
+            --from-file=public.pem="$PUBLIC_FILE" \
             --dry-run=client \
-            -o yaml \
-            | kubectl apply -f -
+            -o yaml |
+            kubectl apply -f -
 
       - name: Configure optional private GHCR pull secret
         if: ${{ env.GHCR_PULL_TOKEN != '' }}
@@ -843,145 +1121,100 @@ jobs:
           set -euo pipefail
 
           kubectl create secret docker-registry ghcr-pull \
-            --namespace automatic-system \
+            -n automatic-system \
             --docker-server=ghcr.io \
             --docker-username="${GHCR_PULL_USERNAME:-${GITHUB_ACTOR}}" \
             --docker-password="$GHCR_PULL_TOKEN" \
             --dry-run=client \
-            -o yaml \
-            | kubectl apply -f -
+            -o yaml |
+            kubectl apply -f -
 
           kubectl patch serviceaccount default \
-            --namespace automatic-system \
+            -n automatic-system \
             --type=merge \
             -p '{"imagePullSecrets":[{"name":"ghcr-pull"}]}'
 
-      - name: Set immutable production image tag
-        id: image-tag
+      - name: Deploy infrastructure
         shell: bash
         run: |
           set -euo pipefail
 
-          SHORT_SHA="${GITHUB_SHA::7}"
-          echo "tag=sha-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
-
-      - name: Apply production infrastructure
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          kubectl apply -k k8s/overlays/prod/infra
-
-      - name: Wait for production infrastructure
-        shell: bash
-        run: |
-          set -euo pipefail
+          kubectl apply \
+            -k k8s/overlays/prod/infra
 
           kubectl wait \
             --for=condition=Ready \
             pod \
             --all \
-            --namespace automatic-system \
-            --timeout=600s
+            -n automatic-system \
+            --timeout=15m
 
-      - name: Apply production migrations
+      - name: Run migrations
         shell: bash
         run: |
           set -euo pipefail
 
-          kubectl delete -k k8s/overlays/prod/migrations \
-            --ignore-not-found=true || true
+          kubectl delete \
+            -k k8s/overlays/prod/migrations \
+            --ignore-not-found=true
 
-          kubectl apply -k k8s/overlays/prod/migrations
+          kubectl apply \
+            -k k8s/overlays/prod/migrations
 
-      - name: Wait for production migrations
+          kubectl wait \
+            --for=condition=complete \
+            job \
+            --all \
+            -n automatic-system \
+            --timeout=15m
+
+      - name: Deploy applications
         shell: bash
         run: |
           set -euo pipefail
 
-          jobs="$(kubectl get jobs \
-            --namespace automatic-system \
-            -o name)"
+          kubectl apply \
+            -k k8s/overlays/prod/apps
 
-          if [ -z "$jobs" ]; then
-            echo "No migration jobs found"
-            exit 1
-          fi
+          kubectl rollout status \
+            deployment \
+            --all \
+            -n automatic-system \
+            --timeout=15m
 
-          while IFS= read -r job; do
-            [ -z "$job" ] && continue
-
-            kubectl wait \
-              --for=condition=complete \
-              "$job" \
-              --namespace automatic-system \
-              --timeout=600s
-          done <<< "$jobs"
-
-      - name: Apply production applications
+      - name: Apply production NetworkPolicies
         shell: bash
         run: |
           set -euo pipefail
 
-          kubectl apply -k k8s/overlays/prod/apps
+          kubectl apply \
+            -k k8s/overlays/prod/network
 
-      - name: Apply production network policies
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if [ -d "k8s/overlays/prod/network" ]; then
-            kubectl apply -k k8s/overlays/prod/network
-          fi
-
-      - name: Wait for production application rollouts
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          deployments="$(kubectl get deployments \
-            --namespace automatic-system \
-            -o name)"
-
-          if [ -z "$deployments" ]; then
-            echo "No deployments found"
-            exit 1
-          fi
-
-          while IFS= read -r deployment; do
-            [ -z "$deployment" ] && continue
-
-            kubectl rollout status \
-              "$deployment" \
-              --namespace automatic-system \
-              --timeout=600s
-          done <<< "$deployments"
-
-      - name: Show production status
+      - name: Deployment summary
         if: always()
         shell: bash
         run: |
           echo "=== Pods ==="
           kubectl get pods \
-            --namespace automatic-system \
+            -n automatic-system \
             -o wide || true
 
           echo
-          echo "=== Deployments ==="
-          kubectl get deployments \
-            --namespace automatic-system || true
+          echo "=== Services ==="
+          kubectl get svc \
+            -n automatic-system || true
 
           echo
-          echo "=== StatefulSets ==="
-          kubectl get statefulsets \
-            --namespace automatic-system || true
+          echo "=== HPA ==="
+          kubectl get hpa \
+            -n automatic-system || true
+
+          echo
+          echo "=== PDB ==="
+          kubectl get pdb \
+            -n automatic-system || true
 
           echo
           echo "=== Jobs ==="
           kubectl get jobs \
-            --namespace automatic-system || true
-
-          echo
-          echo "=== Services ==="
-          kubectl get services \
-            --namespace automatic-system || true
+            -n automatic-system || true
