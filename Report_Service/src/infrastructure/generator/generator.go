@@ -90,8 +90,21 @@ func pdfFile(name string, rows [][]string) (models.Artifact, error) {
 // flow and embeds supported photos on following pages.
 func (g *Generator) GenerateCompletion(v models.CompletionReport, images []models.EmbeddedImage) (models.Artifact, error) {
 	p := gofpdf.New("P", "mm", "A4", "")
-	regular := fontPath("REPORT_FONT_REGULAR", "/usr/share/fonts/dejavu/DejaVuSans.ttf", "/usr/share/fonts/TTF/DejaVuSans.ttf", "C:/Windows/Fonts/arial.ttf")
-	bold := fontPath("REPORT_FONT_BOLD", "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf", "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf", "C:/Windows/Fonts/arialbd.ttf")
+	regular := fontPath(
+		"REPORT_FONT_REGULAR",
+		"assets/fonts/DejaVuSans.ttf",
+		"/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+		"/usr/share/fonts/TTF/DejaVuSans.ttf",
+		"C:/Windows/Fonts/arial.ttf",
+	)
+
+	bold := fontPath(
+		"REPORT_FONT_BOLD",
+		"assets/fonts/DejaVuSans-Bold.ttf",
+		"/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+		"/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
+		"C:/Windows/Fonts/arialbd.ttf",
+	)
 	if regular == "" || bold == "" {
 		return models.Artifact{}, fmt.Errorf("completion report fonts are unavailable")
 	}
