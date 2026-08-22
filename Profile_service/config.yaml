@@ -1,0 +1,10 @@
+db_host: "postgres-profile"
+db_port: 5432
+db_username: "postgres"
+db_name: "profiledb"
+sslmode: "disable"
+grpc_port: 50055
+auth_service_addr: "auth-service:50051"
+department_service_addr: "department-service:50053"
+kafka_brokers: ["kafka-1:9092", "kafka-2:9092", "kafka-3:9092"]
+outbox_worker_count: 4

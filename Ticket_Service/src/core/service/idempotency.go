@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"ticket/models"
 	"ticket/pkg"
+	"ticket/src/core/repository"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,10 +16,10 @@ import (
 
 const idempotencyTTL = 24 * time.Hour
 
-func (s *TicketServiceStruct) withIdempotency(ctx context.Context, operation string, actorKey string, request any, fn func() (any, uuid.UUID, error)) (any, error) {
+func withIdempotency(repo *repository.Repository, ctx context.Context, operation string, actorKey string, request any, fn func(context.Context) (any, uuid.UUID, error)) (any, error) {
 	key, ok := pkg.IdempotencyKeyFromContext(ctx)
 	if !ok {
-		result, _, err := fn()
+		result, _, err := fn(ctx)
 		return result, err
 	}
 
@@ -27,7 +28,10 @@ func (s *TicketServiceStruct) withIdempotency(ctx context.Context, operation str
 		return nil, err
 	}
 
-	record, acquired, err := s.repo.BeginIdempotency(ctx, actorKey, operation, key, requestHash, idempotencyTTL)
+	result, record, acquired, err := repo.RunIdempotentTx(ctx, actorKey, operation, key, requestHash, idempotencyTTL, func(txCtx context.Context) (any, any, error) {
+		value, resourceID, runErr := fn(txCtx)
+		return value, resourceID, runErr
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -53,23 +57,15 @@ func (s *TicketServiceStruct) withIdempotency(ctx context.Context, operation str
 		}
 	}
 
-	result, resourceID, err := fn()
-	if err != nil {
-		_ = s.repo.FailIdempotency(ctx, actorKey, operation, key, err)
-		return nil, err
-	}
-
-	response, err := json.Marshal(result)
-	if err != nil {
-		_ = s.repo.FailIdempotency(ctx, actorKey, operation, key, err)
-		return nil, fmt.Errorf("service: idempotency: encode response: %w", err)
-	}
-
-	if err = s.repo.CompleteIdempotency(ctx, actorKey, operation, key, response, operation, resourceID); err != nil {
-		return nil, err
-	}
-
 	return result, nil
+}
+
+func (s *TicketServiceStruct) withIdempotency(ctx context.Context, operation string, actorKey string, request any, fn func(context.Context) (any, uuid.UUID, error)) (any, error) {
+	return withIdempotency(s.repo, ctx, operation, actorKey, request, fn)
+}
+
+func (s *CategoryServiceStruct) withIdempotency(ctx context.Context, operation string, actorKey string, request any, fn func(context.Context) (any, uuid.UUID, error)) (any, error) {
+	return withIdempotency(s.repo, ctx, operation, actorKey, request, fn)
 }
 
 func cachedResult[T any](result any) (*T, error) {

@@ -160,13 +160,7 @@ func (s *SMTPMailService) buildURL(ctx context.Context, path string, params map[
 	return base.String(), nil
 }
 
-func (s *SMTPMailService) send(
-	ctx context.Context,
-	to []string,
-	subject string,
-	textBody string,
-	htmlBody string,
-) error {
+func (s *SMTPMailService) send(ctx context.Context, to []string, subject string, textBody string, htmlBody string) error {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 
 	logger.Info("send email")
@@ -185,12 +179,7 @@ func (s *SMTPMailService) send(
 	return nil
 }
 
-func (s *SMTPMailService) buildMessage(
-	to []string,
-	subject string,
-	textBody string,
-	htmlBody string,
-) ([]byte, error) {
+func (s *SMTPMailService) buildMessage(to []string, subject string, textBody string, htmlBody string) ([]byte, error) {
 
 	boundary := fmt.Sprintf("mixed_%d", time.Now().UnixNano())
 

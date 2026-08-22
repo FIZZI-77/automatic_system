@@ -34,6 +34,7 @@ type CategoryService interface {
 type Service struct {
 	TicketService
 	CategoryService
+	Reports *ReportService
 }
 
 func NewService(repo *repository.Repository, logger *zap.Logger) *Service {
@@ -44,5 +45,6 @@ func NewService(repo *repository.Repository, logger *zap.Logger) *Service {
 	return &Service{
 		TicketService:   NewTicketServiceStruct(repo, logger),
 		CategoryService: NewCategoryServiceStruct(repo, logger),
+		Reports:         NewReportService(repo),
 	}
 }

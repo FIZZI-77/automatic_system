@@ -20,12 +20,16 @@ import (
 
 	"brigade/pkg"
 	"brigade/pkg/closer"
+	appconfig "brigade/pkg/config"
 	"brigade/src/core/handler"
 	"brigade/src/core/repository"
 	"brigade/src/core/service"
 )
 
 func main() {
+	if err := appconfig.Load(); err != nil {
+		log.Fatalf("configuration error: %v", err)
+	}
 	dependencies := closer.New()
 
 	logger, err := pkg.NewLogger()
@@ -56,6 +60,8 @@ func main() {
 	defer closeDependencies(dependencies)
 	startOutboxRelay(db, dependencies, logger)
 	startProfileConsumer(db, dependencies, logger)
+	startRoutingConsumer(db, dependencies, logger)
+	startTicketConsumer(db, dependencies, logger)
 
 	departmentConn, err := grpc.NewClient(
 		envOrDefault("DEPARTMENT_GRPC_ADDR", "localhost:50053"),

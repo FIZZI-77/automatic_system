@@ -33,8 +33,77 @@ func NewTicketHandler(service *service.Service, logger *zap.Logger) *TicketHandl
 }
 
 type actorContext struct {
-	UserID *uuid.UUID
-	Roles  []string
+	UserID    *uuid.UUID
+	BrigadeID *uuid.UUID
+	Roles     []string
+}
+
+func (t *TicketHandler) CreateWorkReport(ctx context.Context, req *ticketv1.CreateWorkReportRequest) (*ticketv1.CreateWorkReportResponse, error) {
+	ticketID, err := uuid.Parse(req.GetTicketId())
+	if err != nil {
+		return nil, ticketStatusError("CreateWorkReport", fmt.Errorf("%w: invalid ticket_id", models.ErrValidation))
+	}
+	authorID, err := uuid.Parse(req.GetAuthorUserId())
+	if err != nil {
+		return nil, ticketStatusError("CreateWorkReport", fmt.Errorf("%w: invalid author_user_id", models.ErrValidation))
+	}
+	fileIDs := make([]uuid.UUID, 0, len(req.GetFileIds()))
+	for _, raw := range req.GetFileIds() {
+		id, parseErr := uuid.Parse(raw)
+		if parseErr != nil {
+			return nil, ticketStatusError("CreateWorkReport", fmt.Errorf("%w: invalid file_id", models.ErrValidation))
+		}
+		fileIDs = append(fileIDs, id)
+	}
+	actor := actorFromContext(ctx)
+	if actor.UserID == nil || (*actor.UserID != authorID && !containsRole(actor.Roles, "admin") && !containsRole(actor.Roles, "dispatcher")) {
+		return nil, ticketStatusError("CreateWorkReport", models.ErrPermissionDenied)
+	}
+	report, err := t.service.Reports.Create(ctx, &models.CreateWorkReportInput{TicketID: ticketID, AuthorUserID: authorID, Description: req.GetDescription(), FileIDs: fileIDs, ActorBrigadeID: actor.BrigadeID, ActorRoles: actor.Roles})
+	if err != nil {
+		return nil, ticketStatusError("CreateWorkReport", err)
+	}
+	return &ticketv1.CreateWorkReportResponse{Report: toProtoWorkReport(report)}, nil
+}
+
+func (t *TicketHandler) ListWorkReports(ctx context.Context, req *ticketv1.ListWorkReportsRequest) (*ticketv1.ListWorkReportsResponse, error) {
+	ticketID, err := uuid.Parse(req.GetTicketId())
+	if err != nil {
+		return nil, ticketStatusError("ListWorkReports", fmt.Errorf("%w: invalid ticket_id", models.ErrValidation))
+	}
+	actor := actorFromContext(ctx)
+	if actor.UserID == nil {
+		return nil, ticketStatusError("ListWorkReports", models.ErrPermissionDenied)
+	}
+	reports, err := t.service.Reports.List(ctx, ticketID, *actor.UserID, actor.BrigadeID, actor.Roles)
+	if err != nil {
+		return nil, ticketStatusError("ListWorkReports", err)
+	}
+	result := make([]*ticketv1.WorkReport, 0, len(reports))
+	for _, report := range reports {
+		result = append(result, toProtoWorkReport(report))
+	}
+	return &ticketv1.ListWorkReportsResponse{Reports: result}, nil
+}
+
+func containsRole(roles []string, wanted string) bool {
+	for _, role := range roles {
+		if role == wanted {
+			return true
+		}
+	}
+	return false
+}
+
+func toProtoWorkReport(report *models.WorkReport) *ticketv1.WorkReport {
+	if report == nil {
+		return nil
+	}
+	files := make([]string, 0, len(report.FileIDs))
+	for _, id := range report.FileIDs {
+		files = append(files, id.String())
+	}
+	return &ticketv1.WorkReport{Id: report.ID.String(), TicketId: report.TicketID.String(), AuthorUserId: report.AuthorUserID.String(), Description: report.Description, FileIds: files, CreatedAt: ToProtoTimestamp(report.CreatedAt), UpdatedAt: ToProtoTimestamp(report.UpdatedAt)}
 }
 
 func (t *TicketHandler) CreateTicket(ctx context.Context, req *ticketv1.CreateTicketRequest) (*ticketv1.CreateTicketResponse, error) {
@@ -113,6 +182,7 @@ func (t *TicketHandler) CreateTicket(ctx context.Context, req *ticketv1.CreateTi
 		Longitude:    req.GetLongitude(),
 		ActorUserID:  actor.UserID,
 		ActorRoles:   actor.Roles,
+		AssetID:      optionalParsedUUID(req.AssetId),
 	}
 
 	res, err := t.service.CreateTicket(ctx, in)
@@ -160,9 +230,10 @@ func (t *TicketHandler) GetTicket(ctx context.Context, req *ticketv1.GetTicketRe
 
 	actor := actorFromContext(ctx)
 	in := &models.GetTicketInput{
-		TicketID:    ticketID,
-		ActorUserID: actor.UserID,
-		ActorRoles:  actor.Roles,
+		TicketID:       ticketID,
+		ActorUserID:    actor.UserID,
+		ActorBrigadeID: actor.BrigadeID,
+		ActorRoles:     actor.Roles,
 	}
 
 	res, err := t.service.GetTicket(ctx, in)
@@ -258,20 +329,21 @@ func (t *TicketHandler) ListTickets(ctx context.Context, req *ticketv1.ListTicke
 
 	actor := actorFromContext(ctx)
 	in := &models.ListTicketsInput{
-		DepartmentID: departmentID,
-		UserID:       userID,
-		BrigadeID:    brigadeID,
-		CategoryID:   categoryID,
-		Status:       ticketStatus,
-		Priority:     priority,
-		CreatedFrom:  FromProtoTimestamp(req.GetCreatedFrom()),
-		CreatedTo:    FromProtoTimestamp(req.GetCreatedTo()),
-		Limit:        req.GetLimit(),
-		Offset:       req.GetOffset(),
-		SortBy:       FromProtoSortBy(req.GetSortBy()),
-		SortOrder:    FromProtoSortOrder(req.GetSortOrder()),
-		ActorUserID:  actor.UserID,
-		ActorRoles:   actor.Roles,
+		DepartmentID:   departmentID,
+		UserID:         userID,
+		BrigadeID:      brigadeID,
+		CategoryID:     categoryID,
+		Status:         ticketStatus,
+		Priority:       priority,
+		CreatedFrom:    FromProtoTimestamp(req.GetCreatedFrom()),
+		CreatedTo:      FromProtoTimestamp(req.GetCreatedTo()),
+		Limit:          req.GetLimit(),
+		Offset:         req.GetOffset(),
+		SortBy:         FromProtoSortBy(req.GetSortBy()),
+		SortOrder:      FromProtoSortOrder(req.GetSortOrder()),
+		ActorUserID:    actor.UserID,
+		ActorBrigadeID: actor.BrigadeID,
+		ActorRoles:     actor.Roles,
 	}
 
 	res, err := t.service.ListTickets(ctx, in)
@@ -428,12 +500,14 @@ func (t *TicketHandler) ChangeTicketStatus(ctx context.Context, req *ticketv1.Ch
 		return nil, ticketStatusError("ChangeTicketStatus", fmt.Errorf("%w: invalid changed_by: %v", models.ErrValidation, err))
 	}
 
+	actor := actorFromContext(ctx)
 	in := &models.ChangeTicketStatusInput{
-		TicketID:   ticketID,
-		NewStatus:  FromProtoStatus(req.GetNewStatus()),
-		ChangedBy:  changedBy,
-		Comment:    optionalString(req.GetComment()),
-		ActorRoles: actorFromContext(ctx).Roles,
+		TicketID:       ticketID,
+		NewStatus:      FromProtoStatus(req.GetNewStatus()),
+		ChangedBy:      changedBy,
+		Comment:        optionalString(req.GetComment()),
+		ActorBrigadeID: actor.BrigadeID,
+		ActorRoles:     actor.Roles,
 	}
 
 	res, err := t.service.ChangeTicketStatus(ctx, in)
@@ -629,11 +703,13 @@ func (t *TicketHandler) CompleteTicket(ctx context.Context, req *ticketv1.Comple
 		return nil, ticketStatusError("CompleteTicket", fmt.Errorf("%w: invalid completed_by: %v", models.ErrValidation, err))
 	}
 
+	actor := actorFromContext(ctx)
 	in := &models.CompleteTicketInput{
-		TicketID:    ticketID,
-		CompletedBy: completedBy,
-		Comment:     optionalString(req.GetComment()),
-		ActorRoles:  actorFromContext(ctx).Roles,
+		TicketID:       ticketID,
+		CompletedBy:    completedBy,
+		Comment:        optionalString(req.GetComment()),
+		ActorBrigadeID: actor.BrigadeID,
+		ActorRoles:     actor.Roles,
 	}
 
 	res, err := t.service.CompleteTicket(ctx, in)
@@ -680,11 +756,12 @@ func (t *TicketHandler) GetTicketStatusHistory(ctx context.Context, req *ticketv
 
 	actor := actorFromContext(ctx)
 	in := &models.GetTicketStatusHistoryInput{
-		TicketID:    ticketID,
-		Limit:       req.GetLimit(),
-		Offset:      req.GetOffset(),
-		ActorUserID: actor.UserID,
-		ActorRoles:  actor.Roles,
+		TicketID:       ticketID,
+		Limit:          req.GetLimit(),
+		Offset:         req.GetOffset(),
+		ActorUserID:    actor.UserID,
+		ActorBrigadeID: actor.BrigadeID,
+		ActorRoles:     actor.Roles,
 	}
 
 	res, err := t.service.GetTicketStatusHistory(ctx, in)
@@ -979,6 +1056,16 @@ func optionalString(value string) *string {
 
 	return &value
 }
+func optionalParsedUUID(value *string) *uuid.UUID {
+	if value == nil {
+		return nil
+	}
+	v, e := uuid.Parse(*value)
+	if e != nil {
+		return nil
+	}
+	return &v
+}
 
 func actorFromContext(ctx context.Context) actorContext {
 	md, ok := metadata.FromIncomingContext(ctx)
@@ -990,6 +1077,11 @@ func actorFromContext(ctx context.Context) actorContext {
 	if values := md.Get("x-actor-user-id"); len(values) > 0 && values[0] != "" {
 		if parsed, err := uuid.Parse(values[0]); err == nil {
 			actor.UserID = &parsed
+		}
+	}
+	if values := md.Get("x-actor-brigade-id"); len(values) > 0 && values[0] != "" {
+		if parsed, err := uuid.Parse(values[0]); err == nil {
+			actor.BrigadeID = &parsed
 		}
 	}
 

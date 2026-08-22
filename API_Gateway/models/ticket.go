@@ -1,5 +1,7 @@
 package models
 
+import "time"
+
 type TicketStatus string
 
 const (
@@ -131,6 +133,7 @@ type CreateTicketRequest struct {
 	Address      string   `json:"address" binding:"required"`
 	Latitude     *float64 `json:"latitude" binding:"required,latitude"`
 	Longitude    *float64 `json:"longitude" binding:"required,longitude"`
+	AssetID      *string  `json:"asset_id,omitempty" binding:"omitempty,uuid"`
 }
 
 type CreateTicketResponse struct {
@@ -175,6 +178,7 @@ type UpdateTicketRequest struct {
 	Latitude    *float64 `json:"latitude,omitempty" binding:"omitempty,latitude"`
 	Longitude   *float64 `json:"longitude,omitempty" binding:"omitempty,longitude"`
 	UpdatedBy   *string  `json:"updated_by,omitempty" binding:"omitempty,uuid"`
+	AssetID     *string  `json:"asset_id,omitempty" binding:"omitempty,uuid"`
 }
 
 type UpdateTicketResponse struct {
@@ -232,6 +236,24 @@ type GetTicketStatusHistoryRequest struct {
 type GetTicketStatusHistoryResponse struct {
 	History []*TicketStatusHistory `json:"history"`
 	Total   int64                  `json:"total"`
+}
+
+type WorkReport struct {
+	ID           string    `json:"id"`
+	TicketID     string    `json:"ticket_id"`
+	AuthorUserID string    `json:"author_user_id"`
+	Description  string    `json:"description"`
+	FileIDs      []string  `json:"file_ids"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+type CreateWorkReportRequest struct {
+	TicketID    string   `json:"ticket_id" binding:"required,uuid"`
+	Description string   `json:"description" binding:"required,max=4000"`
+	FileIDs     []string `json:"file_ids" binding:"max=20,dive,uuid"`
+}
+type ListWorkReportsRequest struct {
+	TicketID string `json:"ticket_id" binding:"required,uuid"`
 }
 
 type CreateCategoryRequest struct {

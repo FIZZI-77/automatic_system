@@ -1,0 +1,16 @@
+db_host: "postgres-auth"
+db_port: 5432
+db_username: "auth_user"
+db_name: "auth_db"
+sslmode: "disable"
+grpc_port: 50051
+jwt_key_id: "local-dev-key"
+smtp_host: "mailhog"
+smtp_port: 1025
+smtp_from_email: "no-reply@automatic-system.local"
+smtp_from_name: "Automatic System"
+smtp_use_tls: false
+smtp_use_starttls: false
+frontend_base_url: "http://localhost:3000"
+kafka_brokers: ["kafka-1:9092", "kafka-2:9092", "kafka-3:9092"]
+outbox_worker_count: 4

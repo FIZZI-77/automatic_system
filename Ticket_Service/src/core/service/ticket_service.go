@@ -19,10 +19,7 @@ type TicketServiceStruct struct {
 }
 
 func NewTicketServiceStruct(repo *repository.Repository, logger *zap.Logger) *TicketServiceStruct {
-	return &TicketServiceStruct{
-		repo:   repo,
-		logger: logger,
-	}
+	return &TicketServiceStruct{repo: repo, logger: logger}
 }
 
 func (s *TicketServiceStruct) CreateTicket(ctx context.Context, in *models.CreateTicketInput) (*models.CreateTicketResult, error) {
@@ -51,7 +48,7 @@ func (s *TicketServiceStruct) CreateTicket(ctx context.Context, in *models.Creat
 		}
 	}
 
-	result, err := s.withIdempotency(ctx, "CreateTicket", idempotencyActor(in.ActorUserID, in.UserID), in, func() (any, uuid.UUID, error) {
+	result, err := s.withIdempotency(ctx, "CreateTicket", idempotencyActor(in.ActorUserID, in.UserID), in, func(ctx context.Context) (any, uuid.UUID, error) {
 		ticket, err := s.repo.CreateTicket(ctx, in)
 		if err != nil {
 			return nil, uuid.Nil, err
@@ -109,7 +106,7 @@ func (s *TicketServiceStruct) GetTicket(ctx context.Context, in *models.GetTicke
 		return nil, fmt.Errorf("service: GetTicket(): %w", err)
 	}
 
-	if !canReadTicket(ticket, in.ActorUserID, in.ActorRoles) {
+	if !canReadTicket(ticket, in.ActorUserID, in.ActorBrigadeID, in.ActorRoles) {
 		return nil, fmt.Errorf("service: GetTicket(): %w", models.ErrPermissionDenied)
 	}
 
@@ -146,7 +143,13 @@ func (s *TicketServiceStruct) ListTickets(ctx context.Context, in *models.ListTi
 		logger.Debug("ListTickets priority", zap.String("priority", string(*in.Priority)))
 	}
 
-	if !hasPrivilegedRole(in.ActorRoles) {
+	if hasRole(in.ActorRoles, "worker") {
+		if in.ActorUserID == nil || in.ActorBrigadeID == nil {
+			return nil, fmt.Errorf("service: ListTickets(): %w", models.ErrPermissionDenied)
+		}
+		in.UserID = nil
+		in.BrigadeID = in.ActorBrigadeID
+	} else if !hasPrivilegedRole(in.ActorRoles) {
 		if in.ActorUserID == nil {
 			return nil, fmt.Errorf("service: ListTickets(): %w", models.ErrPermissionDenied)
 		}
@@ -184,6 +187,15 @@ func (s *TicketServiceStruct) ListTickets(ctx context.Context, in *models.ListTi
 	}, nil
 }
 
+func hasRole(roles []string, expected string) bool {
+	for _, role := range roles {
+		if role == expected {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *TicketServiceStruct) UpdateTicket(ctx context.Context, in *models.UpdateTicketInput) (*models.UpdateTicketResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -208,7 +220,7 @@ func (s *TicketServiceStruct) UpdateTicket(ctx context.Context, in *models.Updat
 		return nil, fmt.Errorf("service: UpdateTicket(): %w: %v", models.ErrValidation, err)
 	}
 
-	result, err := s.withIdempotency(ctx, "UpdateTicket", idempotencyActor(in.UpdatedBy, uuid.Nil), in, func() (any, uuid.UUID, error) {
+	result, err := s.withIdempotency(ctx, "UpdateTicket", idempotencyActor(in.UpdatedBy, uuid.Nil), in, func(ctx context.Context) (any, uuid.UUID, error) {
 		ticket, err := s.repo.UpdateTicket(ctx, in)
 		if err != nil {
 			return nil, uuid.Nil, err
@@ -258,10 +270,19 @@ func (s *TicketServiceStruct) ChangeTicketStatus(ctx context.Context, in *models
 	}
 
 	if !hasPrivilegedRole(in.ActorRoles) {
-		return nil, fmt.Errorf("service: ChangeTicketStatus(): %w", models.ErrPermissionDenied)
+		if !hasRole(in.ActorRoles, "worker") || in.NewStatus != models.TicketStatusInProgress || in.ActorBrigadeID == nil {
+			return nil, fmt.Errorf("service: ChangeTicketStatus(): %w", models.ErrPermissionDenied)
+		}
+		currentTicket, err := s.repo.GetTicketByID(ctx, in.TicketID)
+		if err != nil {
+			return nil, fmt.Errorf("service: ChangeTicketStatus(): get ticket: %w", err)
+		}
+		if currentTicket.BrigadeID == nil || *currentTicket.BrigadeID != *in.ActorBrigadeID {
+			return nil, fmt.Errorf("service: ChangeTicketStatus(): %w", models.ErrPermissionDenied)
+		}
 	}
 
-	result, err := s.withIdempotency(ctx, "ChangeTicketStatus", in.ChangedBy.String(), in, func() (any, uuid.UUID, error) {
+	result, err := s.withIdempotency(ctx, "ChangeTicketStatus", in.ChangedBy.String(), in, func(ctx context.Context) (any, uuid.UUID, error) {
 		ticket, err := s.repo.ChangeTicketStatus(ctx, in)
 		if err != nil {
 			return nil, uuid.Nil, err
@@ -314,8 +335,7 @@ func (s *TicketServiceStruct) AssignBrigade(ctx context.Context, in *models.Assi
 	if !hasPrivilegedRole(in.ActorRoles) {
 		return nil, fmt.Errorf("service: AssignBrigade(): %w", models.ErrPermissionDenied)
 	}
-
-	result, err := s.withIdempotency(ctx, "AssignBrigade", in.AssignedBy.String(), in, func() (any, uuid.UUID, error) {
+	result, err := s.withIdempotency(ctx, "AssignBrigade", in.AssignedBy.String(), in, func(ctx context.Context) (any, uuid.UUID, error) {
 		ticket, err := s.repo.AssignBrigade(ctx, in)
 		if err != nil {
 			return nil, uuid.Nil, err
@@ -374,7 +394,7 @@ func (s *TicketServiceStruct) CancelTicket(ctx context.Context, in *models.Cance
 		return nil, fmt.Errorf("service: CancelTicket(): %w", models.ErrPermissionDenied)
 	}
 
-	result, err := s.withIdempotency(ctx, "CancelTicket", in.CanceledBy.String(), in, func() (any, uuid.UUID, error) {
+	result, err := s.withIdempotency(ctx, "CancelTicket", in.CanceledBy.String(), in, func(ctx context.Context) (any, uuid.UUID, error) {
 		ticket, err := s.repo.CancelTicket(ctx, in)
 		if err != nil {
 			return nil, uuid.Nil, err
@@ -423,10 +443,19 @@ func (s *TicketServiceStruct) CompleteTicket(ctx context.Context, in *models.Com
 	}
 
 	if !hasPrivilegedRole(in.ActorRoles) {
-		return nil, fmt.Errorf("service: CompleteTicket(): %w", models.ErrPermissionDenied)
+		if !hasRole(in.ActorRoles, "worker") || in.ActorBrigadeID == nil {
+			return nil, fmt.Errorf("service: CompleteTicket(): %w", models.ErrPermissionDenied)
+		}
+		currentTicket, err := s.repo.GetTicketByID(ctx, in.TicketID)
+		if err != nil {
+			return nil, fmt.Errorf("service: CompleteTicket(): get ticket: %w", err)
+		}
+		if currentTicket.BrigadeID == nil || *currentTicket.BrigadeID != *in.ActorBrigadeID {
+			return nil, fmt.Errorf("service: CompleteTicket(): %w", models.ErrPermissionDenied)
+		}
 	}
 
-	result, err := s.withIdempotency(ctx, "CompleteTicket", in.CompletedBy.String(), in, func() (any, uuid.UUID, error) {
+	result, err := s.withIdempotency(ctx, "CompleteTicket", in.CompletedBy.String(), in, func(ctx context.Context) (any, uuid.UUID, error) {
 		ticket, err := s.repo.CompleteTicket(ctx, in)
 		if err != nil {
 			return nil, uuid.Nil, err
@@ -480,7 +509,7 @@ func (s *TicketServiceStruct) GetTicketStatusHistory(ctx context.Context, in *mo
 		return nil, fmt.Errorf("service: GetTicketStatusHistory(): get ticket: %w", err)
 	}
 
-	if !canReadTicket(ticket, in.ActorUserID, in.ActorRoles) {
+	if !canReadTicket(ticket, in.ActorUserID, in.ActorBrigadeID, in.ActorRoles) {
 		return nil, fmt.Errorf("service: GetTicketStatusHistory(): %w", models.ErrPermissionDenied)
 	}
 
@@ -507,7 +536,7 @@ func (s *TicketServiceStruct) GetTicketStatusHistory(ctx context.Context, in *mo
 	}, nil
 }
 
-func canReadTicket(ticket *models.Ticket, actorUserID *uuid.UUID, actorRoles []string) bool {
+func canReadTicket(ticket *models.Ticket, actorUserID, actorBrigadeID *uuid.UUID, actorRoles []string) bool {
 	if ticket == nil {
 		return false
 	}
@@ -516,7 +545,11 @@ func canReadTicket(ticket *models.Ticket, actorUserID *uuid.UUID, actorRoles []s
 		return true
 	}
 
-	return actorUserID != nil && ticket.UserID == *actorUserID
+	if actorUserID != nil && ticket.UserID == *actorUserID {
+		return true
+	}
+
+	return hasRole(actorRoles, "worker") && actorBrigadeID != nil && ticket.BrigadeID != nil && *ticket.BrigadeID == *actorBrigadeID
 }
 
 func hasPrivilegedRole(roles []string) bool {

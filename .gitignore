@@ -1,5 +1,48 @@
+# Environment
 **/.env
-/keys/private.pem
-.gocache
-.idea
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
 desktop.ini
+.DS_Store
+Thumbs.db
+
+# Go
+.gocache/
+**/.gocache*/
+*.test
+coverage.out
+coverage.html
+
+# Temporary files
+**/.tmp/
+**/tmp/
+*.tmp
+*.log
+*.pid
+
+# Executables / binaries
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Local generated/test artifacts
+.codex-protoc/
+.codex-test-results/
+.contract-staging/
+
+# Generated output
+output/
+
+# Secrets
+/keys/private.pem
+
+repomix-output-FIZZI-77-automatic_system.git.md

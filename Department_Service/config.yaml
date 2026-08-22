@@ -1,0 +1,8 @@
+db_host: "postgres-department"
+db_port: 5432
+db_username: "department_user"
+db_name: "department_db"
+sslmode: "disable"
+grpc_port: 50053
+kafka_brokers: ["kafka-1:9092", "kafka-2:9092", "kafka-3:9092"]
+outbox_worker_count: 4

@@ -28,7 +28,7 @@ func NewCertificationRepository(writePool *pgxpool.Pool, readPool *pgxpool.Pool)
 }
 
 func (r *CertificationRepoStruct) CreateCertificationType(ctx context.Context, in *models.CreateCertificationTypeInput) (*models.CreateCertificationTypeResult, error) {
-	tx, err := r.writePool.Begin(ctx)
+	tx, err := beginCommandTx(ctx, r.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: CreateCertificationType(): begin tx: %w", err)
 	}
@@ -59,7 +59,7 @@ func (r *CertificationRepoStruct) CreateCertificationType(ctx context.Context, i
 }
 
 func (r *CertificationRepoStruct) UpdateCertificationType(ctx context.Context, in *models.UpdateCertificationTypeInput) (*models.UpdateCertificationTypeResult, error) {
-	tx, err := r.writePool.Begin(ctx)
+	tx, err := beginCommandTx(ctx, r.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: UpdateCertificationType(): begin tx: %w", err)
 	}
@@ -162,7 +162,7 @@ func (r *CertificationRepoStruct) ListCertificationTypes(ctx context.Context, in
 }
 
 func (r *CertificationRepoStruct) AddCertificationTypeSkill(ctx context.Context, in *models.AddCertificationTypeSkillInput) (*models.AddCertificationTypeSkillResult, error) {
-	tx, err := r.writePool.Begin(ctx)
+	tx, err := beginCommandTx(ctx, r.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: AddCertificationTypeSkill(): begin tx: %w", err)
 	}
@@ -199,7 +199,7 @@ func (r *CertificationRepoStruct) AddCertificationTypeSkill(ctx context.Context,
 }
 
 func (r *CertificationRepoStruct) RemoveCertificationTypeSkill(ctx context.Context, in *models.RemoveCertificationTypeSkillInput) error {
-	tx, err := r.writePool.Begin(ctx)
+	tx, err := beginCommandTx(ctx, r.writePool)
 	if err != nil {
 		return fmt.Errorf("repository: RemoveCertificationTypeSkill(): begin tx: %w", err)
 	}
@@ -255,7 +255,7 @@ func (r *CertificationRepoStruct) ListCertificationTypeSkills(ctx context.Contex
 }
 
 func (r *CertificationRepoStruct) UploadWorkProfileCertification(ctx context.Context, in *models.UploadWorkProfileCertificationInput) (*models.UploadWorkProfileCertificationResult, error) {
-	tx, err := r.writePool.Begin(ctx)
+	tx, err := beginCommandTx(ctx, r.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: UploadWorkProfileCertification(): begin tx: %w", err)
 	}
@@ -295,7 +295,7 @@ func (r *CertificationRepoStruct) UploadWorkProfileCertification(ctx context.Con
 func (r *CertificationRepoStruct) VerifyWorkProfileCertification(ctx context.Context, in *models.VerifyWorkProfileCertificationInput) (*models.VerifyWorkProfileCertificationResult, error) {
 	const operation = "VerifyWorkProfileCertification()"
 
-	tx, err := r.writePool.Begin(ctx)
+	tx, err := beginCommandTx(ctx, r.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: %s: begin tx: %w", operation, err)
 	}
@@ -346,7 +346,7 @@ func (r *CertificationRepoStruct) VerifyWorkProfileCertification(ctx context.Con
 }
 
 func (r *CertificationRepoStruct) RejectWorkProfileCertification(ctx context.Context, in *models.RejectWorkProfileCertificationInput) (*models.RejectWorkProfileCertificationResult, error) {
-	tx, err := r.writePool.Begin(ctx)
+	tx, err := beginCommandTx(ctx, r.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: RejectWorkProfileCertification(): begin tx: %w", err)
 	}
@@ -389,7 +389,7 @@ func (r *CertificationRepoStruct) RejectWorkProfileCertification(ctx context.Con
 func (r *CertificationRepoStruct) RevokeWorkProfileCertification(ctx context.Context, in *models.RevokeWorkProfileCertificationInput) (*models.RevokeWorkProfileCertificationResult, error) {
 	const operation = "RevokeWorkProfileCertification()"
 
-	tx, err := r.writePool.Begin(ctx)
+	tx, err := beginCommandTx(ctx, r.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: %s: begin tx: %w", operation, err)
 	}
@@ -415,7 +415,7 @@ func (r *CertificationRepoStruct) RevokeWorkProfileCertification(ctx context.Con
 func (r *CertificationRepoStruct) ExpireWorkProfileCertifications(ctx context.Context, in *models.ExpireWorkProfileCertificationsInput) (*models.ExpireWorkProfileCertificationsResult, error) {
 	const operation = "ExpireWorkProfileCertifications()"
 
-	tx, err := r.writePool.Begin(ctx)
+	tx, err := beginCommandTx(ctx, r.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: %s: begin tx: %w", operation, err)
 	}
@@ -489,7 +489,7 @@ func (r *CertificationRepoStruct) ListWorkProfileCertifications(ctx context.Cont
 }
 
 func (r *CertificationRepoStruct) GrantManualWorkProfileSkill(ctx context.Context, in *models.GrantManualWorkProfileSkillInput) (*models.GrantManualWorkProfileSkillResult, error) {
-	tx, err := r.writePool.Begin(ctx)
+	tx, err := beginCommandTx(ctx, r.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: GrantManualWorkProfileSkill(): begin tx: %w", err)
 	}
@@ -513,7 +513,7 @@ func (r *CertificationRepoStruct) GrantManualWorkProfileSkill(ctx context.Contex
 }
 
 func (r *CertificationRepoStruct) RevokeWorkProfileSkillGrant(ctx context.Context, in *models.RevokeWorkProfileSkillGrantInput) (*models.RevokeWorkProfileSkillGrantResult, error) {
-	tx, err := r.writePool.Begin(ctx)
+	tx, err := beginCommandTx(ctx, r.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: RevokeWorkProfileSkillGrant(): begin tx: %w", err)
 	}

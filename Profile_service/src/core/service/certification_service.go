@@ -37,7 +37,7 @@ func (s *CertificationServiceStruct) CreateCertificationType(ctx context.Context
 		return nil, err
 	}
 
-	result, err := runCommand(ctx, s.repo, method, in.ActorUserID, in, func() (*models.CreateCertificationTypeResult, uuid.UUID, error) {
+	result, err := runCommand(ctx, s.repo, method, in.ActorUserID, in, func(ctx context.Context) (*models.CreateCertificationTypeResult, uuid.UUID, error) {
 		result, err := s.repo.CreateCertificationType(ctx, in)
 		if err != nil {
 			return nil, uuid.Nil, err
@@ -66,7 +66,7 @@ func (s *CertificationServiceStruct) UpdateCertificationType(ctx context.Context
 		return nil, err
 	}
 
-	result, err := runCommand(ctx, s.repo, method, in.ActorUserID, in, func() (*models.UpdateCertificationTypeResult, uuid.UUID, error) {
+	result, err := runCommand(ctx, s.repo, method, in.ActorUserID, in, func(ctx context.Context) (*models.UpdateCertificationTypeResult, uuid.UUID, error) {
 		result, err := s.repo.UpdateCertificationType(ctx, in)
 		if err != nil {
 			return nil, uuid.Nil, err
@@ -121,7 +121,7 @@ func (s *CertificationServiceStruct) AddCertificationTypeSkill(ctx context.Conte
 		return nil, err
 	}
 
-	result, err := runCommand(ctx, s.repo, method, in.ActorUserID, in, func() (*models.AddCertificationTypeSkillResult, uuid.UUID, error) {
+	result, err := runCommand(ctx, s.repo, method, in.ActorUserID, in, func(ctx context.Context) (*models.AddCertificationTypeSkillResult, uuid.UUID, error) {
 		result, err := s.repo.AddCertificationTypeSkill(ctx, in)
 		if err != nil {
 			return nil, uuid.Nil, err
@@ -153,7 +153,7 @@ func (s *CertificationServiceStruct) RemoveCertificationTypeSkill(ctx context.Co
 		return err
 	}
 
-	_, err := runCommand(ctx, s.repo, method, in.ActorUserID, in, func() (*struct{}, uuid.UUID, error) {
+	_, err := runCommand(ctx, s.repo, method, in.ActorUserID, in, func(ctx context.Context) (*struct{}, uuid.UUID, error) {
 		if err := s.repo.RemoveCertificationTypeSkill(ctx, in); err != nil {
 			return nil, uuid.Nil, err
 		}
@@ -207,7 +207,7 @@ func (s *CertificationServiceStruct) UploadWorkProfileCertification(ctx context.
 		return nil, err
 	}
 
-	result, err := runCommand(ctx, s.repo, method, in.ActorUserID, in, func() (*models.UploadWorkProfileCertificationResult, uuid.UUID, error) {
+	result, err := runCommand(ctx, s.repo, method, in.ActorUserID, in, func(ctx context.Context) (*models.UploadWorkProfileCertificationResult, uuid.UUID, error) {
 		result, err := s.repo.UploadWorkProfileCertification(ctx, in)
 		if err != nil {
 			return nil, uuid.Nil, err
@@ -236,7 +236,7 @@ func (s *CertificationServiceStruct) VerifyWorkProfileCertification(ctx context.
 		return nil, err
 	}
 
-	result, err := runCommand(ctx, s.repo, method, in.ActorUserID, in, func() (*models.VerifyWorkProfileCertificationResult, uuid.UUID, error) {
+	result, err := runCommand(ctx, s.repo, method, in.ActorUserID, in, func(ctx context.Context) (*models.VerifyWorkProfileCertificationResult, uuid.UUID, error) {
 		result, err := s.repo.VerifyWorkProfileCertification(ctx, in)
 		if err != nil {
 			return nil, uuid.Nil, err
@@ -265,7 +265,7 @@ func (s *CertificationServiceStruct) RejectWorkProfileCertification(ctx context.
 		return nil, err
 	}
 
-	result, err := runCommand(ctx, s.repo, method, in.ActorUserID, in, func() (*models.RejectWorkProfileCertificationResult, uuid.UUID, error) {
+	result, err := runCommand(ctx, s.repo, method, in.ActorUserID, in, func(ctx context.Context) (*models.RejectWorkProfileCertificationResult, uuid.UUID, error) {
 		result, err := s.repo.RejectWorkProfileCertification(ctx, in)
 		if err != nil {
 			return nil, uuid.Nil, err
@@ -294,7 +294,7 @@ func (s *CertificationServiceStruct) RevokeWorkProfileCertification(ctx context.
 		return nil, err
 	}
 
-	result, err := runCommand(ctx, s.repo, method, in.ActorUserID, in, func() (*models.RevokeWorkProfileCertificationResult, uuid.UUID, error) {
+	result, err := runCommand(ctx, s.repo, method, in.ActorUserID, in, func(ctx context.Context) (*models.RevokeWorkProfileCertificationResult, uuid.UUID, error) {
 		result, err := s.repo.RevokeWorkProfileCertification(ctx, in)
 		if err != nil {
 			return nil, uuid.Nil, err
@@ -375,7 +375,7 @@ func (s *CertificationServiceStruct) GrantManualWorkProfileSkill(ctx context.Con
 		return nil, err
 	}
 
-	result, err := runCommand(ctx, s.repo, method, in.ActorUserID, in, func() (*models.GrantManualWorkProfileSkillResult, uuid.UUID, error) {
+	result, err := runCommand(ctx, s.repo, method, in.ActorUserID, in, func(ctx context.Context) (*models.GrantManualWorkProfileSkillResult, uuid.UUID, error) {
 		result, err := s.repo.GrantManualWorkProfileSkill(ctx, in)
 		if err != nil {
 			return nil, uuid.Nil, err
@@ -404,7 +404,7 @@ func (s *CertificationServiceStruct) RevokeWorkProfileSkillGrant(ctx context.Con
 		return nil, err
 	}
 
-	result, err := runCommand(ctx, s.repo, method, in.ActorUserID, in, func() (*models.RevokeWorkProfileSkillGrantResult, uuid.UUID, error) {
+	result, err := runCommand(ctx, s.repo, method, in.ActorUserID, in, func(ctx context.Context) (*models.RevokeWorkProfileSkillGrantResult, uuid.UUID, error) {
 		result, err := s.repo.RevokeWorkProfileSkillGrant(ctx, in)
 		if err != nil {
 			return nil, uuid.Nil, err

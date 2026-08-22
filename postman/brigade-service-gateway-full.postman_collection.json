@@ -24,6 +24,14 @@
                                                   "pm.request.headers.upsert({ key: \u0027Content-Type\u0027, value: \u0027application/json\u0027 });",
                                                   "pm.request.headers.upsert({ key: \u0027X-Request-ID\u0027, value: pm.variables.replaceIn(\u0027{{$guid}}\u0027) });",
                                                   "pm.request.headers.upsert({ key: \u0027Idempotency-Key\u0027, value: pm.variables.replaceIn(\u0027{{$guid}}\u0027) });",
+                                                  "if (!pm.collectionVariables.get(\u0027run_suffix\u0027)) {",
+                                                  "  const suffix = pm.variables.replaceIn(\u0027{{$guid}}\u0027).slice(0, 8);",
+                                                  "  pm.collectionVariables.set(\u0027run_suffix\u0027, suffix);",
+                                                  "  pm.collectionVariables.set(\u0027department_name\u0027, \u0027Postman Operations \u0027 + suffix);",
+                                                  "  pm.collectionVariables.set(\u0027brigade_name\u0027, \u0027Postman Brigade \u0027 + suffix);",
+                                                  "  pm.collectionVariables.set(\u0027skill_code\u0027, \u0027water_repair_\u0027 + suffix);",
+                                                  "  pm.collectionVariables.set(\u0027category_code\u0027, \u0027postman_water_\u0027 + suffix);",
+                                                  "}",
                                                   "const actorDepartmentId = pm.collectionVariables.get(\u0027actor_department_id\u0027) || pm.collectionVariables.get(\u0027department_id\u0027);",
                                                   "if (actorDepartmentId) {",
                                                   "  pm.request.headers.upsert({ key: \u0027X-Actor-Department-ID\u0027, value: actorDepartmentId });",
@@ -683,20 +691,6 @@
                                                                    "raw":  "{\n  \"ticket_id\": \"{{ticket_id}}\",\n  \"new_status\": \"in_progress\",\n  \"comment\": \"Postman status change\"\n}"
                                                                },
                                                       "url":  "{{base_url}}/tickets/change-status"
-                                                  }
-                                  },
-                                  {
-                                      "name":  "POST /tickets/assign-brigade",
-                                      "request":  {
-                                                      "method":  "POST",
-                                                      "header":  [
-
-                                                                 ],
-                                                      "body":  {
-                                                                   "mode":  "raw",
-                                                                   "raw":  "{\n  \"ticket_id\": \"{{ticket_id}}\",\n  \"brigade_id\": \"{{brigade_id}}\",\n  \"comment\": \"Postman assign brigade\"\n}"
-                                                               },
-                                                      "url":  "{{base_url}}/tickets/assign-brigade"
                                                   }
                                   },
                                   {

@@ -18,5 +18,6 @@ WORKDIR /app
 RUN apk add --no-cache ca-certificates
 
 COPY --from=build /app/server .
+COPY --from=build /app/config.yaml .
 CMD ["./server"]
 

@@ -94,6 +94,7 @@ type Ticket struct {
 
 	UserID    uuid.UUID  `json:"user_id"`
 	BrigadeID *uuid.UUID `json:"brigade_id,omitempty"`
+	AssetID   *uuid.UUID `json:"asset_id,omitempty"`
 
 	Title       string         `json:"title"`
 	Description string         `json:"description"`
@@ -146,6 +147,7 @@ type CreateTicketInput struct {
 	Address   string
 	Latitude  float64
 	Longitude float64
+	AssetID   *uuid.UUID
 
 	ActorUserID *uuid.UUID
 	ActorRoles  []string
@@ -156,9 +158,10 @@ type CreateTicketResult struct {
 }
 
 type GetTicketInput struct {
-	TicketID    uuid.UUID
-	ActorUserID *uuid.UUID
-	ActorRoles  []string
+	TicketID       uuid.UUID
+	ActorUserID    *uuid.UUID
+	ActorBrigadeID *uuid.UUID
+	ActorRoles     []string
 }
 
 type GetTicketResult struct {
@@ -183,8 +186,9 @@ type ListTicketsInput struct {
 	Limit  int32
 	Offset int32
 
-	ActorUserID *uuid.UUID
-	ActorRoles  []string
+	ActorUserID    *uuid.UUID
+	ActorBrigadeID *uuid.UUID
+	ActorRoles     []string
 }
 
 type ListTicketsResult struct {
@@ -213,11 +217,12 @@ type UpdateTicketResult struct {
 }
 
 type ChangeTicketStatusInput struct {
-	TicketID   uuid.UUID
-	NewStatus  TicketStatus
-	ChangedBy  uuid.UUID
-	Comment    *string
-	ActorRoles []string
+	TicketID       uuid.UUID
+	NewStatus      TicketStatus
+	ChangedBy      uuid.UUID
+	Comment        *string
+	ActorBrigadeID *uuid.UUID
+	ActorRoles     []string
 }
 
 type ChangeTicketStatusResult struct {
@@ -248,10 +253,11 @@ type CancelTicketResult struct {
 }
 
 type CompleteTicketInput struct {
-	TicketID    uuid.UUID
-	CompletedBy uuid.UUID
-	Comment     *string
-	ActorRoles  []string
+	TicketID       uuid.UUID
+	CompletedBy    uuid.UUID
+	Comment        *string
+	ActorBrigadeID *uuid.UUID
+	ActorRoles     []string
 }
 
 type CompleteTicketResult struct {
@@ -259,11 +265,12 @@ type CompleteTicketResult struct {
 }
 
 type GetTicketStatusHistoryInput struct {
-	TicketID    uuid.UUID
-	Limit       int32
-	Offset      int32
-	ActorUserID *uuid.UUID
-	ActorRoles  []string
+	TicketID       uuid.UUID
+	Limit          int32
+	Offset         int32
+	ActorUserID    *uuid.UUID
+	ActorBrigadeID *uuid.UUID
+	ActorRoles     []string
 }
 
 type GetTicketStatusHistoryResult struct {

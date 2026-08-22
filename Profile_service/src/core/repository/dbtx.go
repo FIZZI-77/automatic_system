@@ -20,6 +20,24 @@ type DBPools struct {
 	Read  *pgxpool.Pool
 }
 
+type commandTxContextKey struct{}
+
+type borrowedTx struct{ pgx.Tx }
+
+func (tx borrowedTx) Commit(context.Context) error   { return nil }
+func (tx borrowedTx) Rollback(context.Context) error { return nil }
+
+func contextWithCommandTx(ctx context.Context, tx pgx.Tx) context.Context {
+	return context.WithValue(ctx, commandTxContextKey{}, tx)
+}
+
+func beginCommandTx(ctx context.Context, pool *pgxpool.Pool) (pgx.Tx, error) {
+	if tx, ok := ctx.Value(commandTxContextKey{}).(pgx.Tx); ok && tx != nil {
+		return borrowedTx{Tx: tx}, nil
+	}
+	return pool.Begin(ctx)
+}
+
 func rollbackTx(ctx context.Context, tx pgx.Tx) {
 	rollbackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()

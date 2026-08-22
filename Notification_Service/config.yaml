@@ -1,0 +1,8 @@
+grpc_port: 50061
+redis_addr: "redis-notification:6379"
+live_channel_prefix: "notifications:user:"
+kafka_brokers: ["kafka-1:9092", "kafka-2:9092", "kafka-3:9092"]
+kafka_group: "notification-service"
+kafka_topics: ["tickets.events.v1", "sla.events.v1", "dispatch.events.v1", "departments.events.v1", "brigades.events.v1", "locations.events.v1", "routing.events.v1", "files.events.v1", "reports.events.v1", "assets.events.v1"]
+smtp_addr: "mailhog:1025"
+smtp_from: "no-reply@automatic-system.local"

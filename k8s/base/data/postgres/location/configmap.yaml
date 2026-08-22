@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-location-config
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: automatic-system
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/instance: location
+  namespace: automatic-system
+data:
+  POSTGRES_USER: location
+  POSTGRES_DB: location

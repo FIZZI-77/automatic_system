@@ -6,10 +6,14 @@ import (
 	"os/signal"
 	"syscall"
 
+	appconfig "transponder-simulator/internal/appconfig"
 	"transponder-simulator/internal/simulator"
 )
 
 func main() {
+	if err := appconfig.Load(); err != nil {
+		log.Fatalf("configuration error: %v", err)
+	}
 	cfg, err := simulator.LoadConfig()
 	if err != nil {
 		log.Fatalf("configuration error: %v", err)

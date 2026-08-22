@@ -1,22 +1,20 @@
 FROM golang:1.25-alpine AS builder
 
-WORKDIR /app
+WORKDIR /workspace
 
-WORKDIR /app/API_Gateway
+COPY API_Gateway /gateway
 
-COPY API_Gateway/go.mod API_Gateway/go.sum ./
+WORKDIR /gateway
+
 RUN go mod download && go mod verify
-
-COPY API_Gateway ./
-
-RUN go mod tidy
-RUN go build -o /api-gateway ./src/cmd/server
+RUN CGO_ENABLED=0 go build -o /api-gateway ./src/cmd/server
 
 FROM alpine:3.20
 
 WORKDIR /app
 
 COPY --from=builder /api-gateway /app/api-gateway
+COPY --from=builder /gateway/config.yaml /app/config.yaml
 
 EXPOSE 8081
 

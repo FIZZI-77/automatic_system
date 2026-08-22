@@ -197,6 +197,38 @@ func TestTicketService_ListTickets_DefaultsPagination(t *testing.T) {
 	}
 }
 
+func TestTicketService_ListTickets_WorkerUsesVerifiedBrigade(t *testing.T) {
+	actorUserID := uuid.New()
+	verifiedBrigadeID := uuid.New()
+	requestedBrigadeID := uuid.New()
+
+	ticketRepo := &mockTicketRepo{
+		listTicketsFunc: func(ctx context.Context, in *models.ListTicketsInput) ([]*models.Ticket, int64, error) {
+			if in.UserID != nil {
+				t.Fatal("worker list must not be filtered by ticket creator")
+			}
+			if in.BrigadeID == nil || *in.BrigadeID != verifiedBrigadeID {
+				t.Fatalf("expected verified brigade %s, got %v", verifiedBrigadeID, in.BrigadeID)
+			}
+			return []*models.Ticket{{ID: uuid.New(), BrigadeID: &verifiedBrigadeID, Status: models.TicketStatusAssigned}}, 1, nil
+		},
+	}
+
+	svc := newTestTicketService(&repository.Repository{TicketRepository: ticketRepo})
+	result, err := svc.ListTickets(context.Background(), &models.ListTicketsInput{
+		BrigadeID:      &requestedBrigadeID,
+		ActorUserID:    &actorUserID,
+		ActorBrigadeID: &verifiedBrigadeID,
+		ActorRoles:     []string{"user", "worker"},
+	})
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if result.Total != 1 || len(result.Tickets) != 1 {
+		t.Fatalf("expected one brigade ticket, got total=%d count=%d", result.Total, len(result.Tickets))
+	}
+}
+
 func TestTicketService_UpdateTicket_Success(t *testing.T) {
 	ticketID := uuid.New()
 	updatedBy := uuid.New()
@@ -537,6 +569,58 @@ func TestTicketService_AccessRules(t *testing.T) {
 			t.Fatalf("expected permission denied, got %v", err)
 		}
 	})
+}
+
+func TestTicketService_WorkerCanStartOwnBrigadeTicket(t *testing.T) {
+	ticketID, brigadeID, workerID := uuid.New(), uuid.New(), uuid.New()
+	repo := &mockTicketRepo{
+		getTicketByIDFunc: func(context.Context, uuid.UUID) (*models.Ticket, error) {
+			return &models.Ticket{ID: ticketID, BrigadeID: &brigadeID, Status: models.TicketStatusAssigned}, nil
+		},
+		changeTicketStatusFunc: func(_ context.Context, in *models.ChangeTicketStatusInput) (*models.Ticket, error) {
+			return &models.Ticket{ID: ticketID, BrigadeID: &brigadeID, Status: in.NewStatus}, nil
+		},
+	}
+	svc := newTestTicketService(&repository.Repository{TicketRepository: repo})
+	result, err := svc.ChangeTicketStatus(context.Background(), &models.ChangeTicketStatusInput{TicketID: ticketID, NewStatus: models.TicketStatusInProgress, ChangedBy: workerID, ActorBrigadeID: &brigadeID, ActorRoles: []string{"worker"}})
+	if err != nil || result.Ticket.Status != models.TicketStatusInProgress {
+		t.Fatalf("expected worker to start own brigade ticket, result=%v err=%v", result, err)
+	}
+}
+
+func TestTicketService_WorkerCannotStartAnotherBrigadeTicket(t *testing.T) {
+	ticketID, assignedBrigadeID, actorBrigadeID := uuid.New(), uuid.New(), uuid.New()
+	repo := &mockTicketRepo{
+		getTicketByIDFunc: func(context.Context, uuid.UUID) (*models.Ticket, error) {
+			return &models.Ticket{ID: ticketID, BrigadeID: &assignedBrigadeID, Status: models.TicketStatusAssigned}, nil
+		},
+		changeTicketStatusFunc: func(context.Context, *models.ChangeTicketStatusInput) (*models.Ticket, error) {
+			t.Fatal("expected repository update not to be called")
+			return nil, nil
+		},
+	}
+	svc := newTestTicketService(&repository.Repository{TicketRepository: repo})
+	result, err := svc.ChangeTicketStatus(context.Background(), &models.ChangeTicketStatusInput{TicketID: ticketID, NewStatus: models.TicketStatusInProgress, ChangedBy: uuid.New(), ActorBrigadeID: &actorBrigadeID, ActorRoles: []string{"worker"}})
+	if result != nil || !errors.Is(err, models.ErrPermissionDenied) {
+		t.Fatalf("expected permission denied for another brigade, result=%v err=%v", result, err)
+	}
+}
+
+func TestTicketService_WorkerCanCompleteOwnBrigadeTicket(t *testing.T) {
+	ticketID, brigadeID, workerID := uuid.New(), uuid.New(), uuid.New()
+	repo := &mockTicketRepo{
+		getTicketByIDFunc: func(context.Context, uuid.UUID) (*models.Ticket, error) {
+			return &models.Ticket{ID: ticketID, BrigadeID: &brigadeID, Status: models.TicketStatusInProgress}, nil
+		},
+		completeTicketFunc: func(_ context.Context, in *models.CompleteTicketInput) (*models.Ticket, error) {
+			return &models.Ticket{ID: ticketID, BrigadeID: &brigadeID, Status: models.TicketStatusDone}, nil
+		},
+	}
+	svc := newTestTicketService(&repository.Repository{TicketRepository: repo})
+	result, err := svc.CompleteTicket(context.Background(), &models.CompleteTicketInput{TicketID: ticketID, CompletedBy: workerID, ActorBrigadeID: &brigadeID, ActorRoles: []string{"worker"}})
+	if err != nil || result.Ticket.Status != models.TicketStatusDone {
+		t.Fatalf("expected worker to complete own brigade ticket, result=%v err=%v", result, err)
+	}
 }
 
 func validCreateTicketServiceInput() *models.CreateTicketInput {

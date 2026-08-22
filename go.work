@@ -1,12 +1,24 @@
 go 1.25.9
 
 use (
+	.
 	./API_Gateway
+	./Analytics_Service
+	./Asset_Service
+	./Audit_Service
 	./Auth_Service
 	./Department_Service
-	./Profile_service
+	./Dispatch_Service
+	./File_Service
+	./Location_Service
+	./Notification_Service
+	./Profile_Service
+	./Report_Service
+	./Routing_Service
+	./SLA_Service
 	./Transponder_Simulator
-	.
-	Ticket_Service
 	Brigade_Service
+	Ticket_Service
 )
+
+replace google.golang.org/genproto => google.golang.org/genproto v0.0.0-20260810153831-ec0a7760b754

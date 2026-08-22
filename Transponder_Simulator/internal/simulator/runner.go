@@ -20,7 +20,10 @@ func NewRunner(cfg Config, route Route, sender Sender, logger *log.Logger) *Runn
 
 func (r *Runner) Run(ctx context.Context) error {
 	r.logger.Printf("transponder simulator started: %s route=%q points=%d", r.cfg.String(), r.route.Name, len(r.route.Points))
-	var sequence uint64
+	// Location Service orders the current position at brigade level, so several
+	// vehicles in one brigade need a shared, wall-clock-comparable sequence.
+	// Nanoseconds keep independent simulator instances globally ordered.
+	sequence := uint64(now().UnixNano())
 	for {
 		for index, point := range r.route.Points {
 			select {
@@ -29,8 +32,14 @@ func (r *Runner) Run(ctx context.Context) error {
 			default:
 			}
 			next := r.route.Points[(index+1)%len(r.route.Points)]
-			sequence++
-			event := NewEvent(r.cfg, point, next, sequence, now())
+			eventTime := now()
+			wallSequence := uint64(eventTime.UnixNano())
+			if wallSequence > sequence {
+				sequence = wallSequence
+			} else {
+				sequence++
+			}
+			event := NewEvent(r.cfg, point, next, sequence, eventTime)
 			if err := r.sender.Send(ctx, event); err != nil {
 				return fmt.Errorf("point %d sequence %d: %w", index, sequence, err)
 			}

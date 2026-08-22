@@ -64,7 +64,8 @@
                   "const json = pm.response.json();",
                   "pm.collectionVariables.set('access_token', json.access_token);",
                   "pm.collectionVariables.set('refresh_token', json.refresh_token);",
-                  "pm.collectionVariables.set('session_id', json.session_id);"
+                  "pm.collectionVariables.set('session_id', json.session_id);",
+                  "pm.collectionVariables.set('department_idempotency_key', 'postman-department-' + pm.variables.replaceIn('{{$guid}}'));"
                 ]
               }
             }
@@ -99,7 +100,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Utilities Department\",\n  \"description\": \"Department for city utility operations\"\n}"
+              "raw": "{\n  \"name\": \"Utilities Department {{$guid}}\",\n  \"description\": \"Department for city utility operations\"\n}"
             },
             "url": "{{base_url}}/departments/create"
           },
@@ -250,7 +251,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"id\": \"{{department_id}}\",\n  \"name\": \"Utilities Department Updated\",\n  \"description\": \"Updated department description\",\n  \"status\": \"active\"\n}"
+              "raw": "{\n  \"id\": \"{{department_id}}\",\n  \"name\": \"Utilities Department Updated {{$guid}}\",\n  \"description\": \"Updated department description\",\n  \"status\": \"active\"\n}"
             },
             "url": "{{base_url}}/departments/update"
           },

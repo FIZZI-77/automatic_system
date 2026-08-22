@@ -16,9 +16,6 @@ RUN go mod download && \
 # Копирование всего кода
 COPY . .
 
-# Дополнительная загрузка недостающих зависимостей
-RUN go mod tidy
-
 # Сборка приложения
 RUN go build -o server ./src/cmd/server
 
@@ -31,6 +28,7 @@ RUN echo "http://nl.alpinelinux.org/alpine/v3.21/main" > /etc/apk/repositories &
     apk add --no-cache ca-certificates
 
 COPY --from=build /app/server .
+COPY --from=build /app/config.yaml .
 ENV PATH="/root/go/bin:/usr/local/go/bin:${PATH}"
 
 

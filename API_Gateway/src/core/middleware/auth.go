@@ -97,6 +97,17 @@ func (m *AuthMiddleware) Handle() gin.HandlerFunc {
 	}
 }
 
+func (m *AuthMiddleware) HandleWebSocket() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if c.GetHeader("Authorization") == "" {
+			if token := strings.TrimSpace(c.Query("access_token")); token != "" {
+				c.Request.Header.Set("Authorization", "Bearer "+token)
+			}
+		}
+		m.Handle()(c)
+	}
+}
+
 func extractBearerToken(header string) (string, error) {
 	if header == "" {
 		return "", errors.New("empty authorization header")

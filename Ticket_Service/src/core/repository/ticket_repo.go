@@ -45,11 +45,12 @@ type ticketCreatedEventPayload struct {
 	Address      string    `json:"address"`
 	Latitude     float64   `json:"latitude"`
 	Longitude    float64   `json:"longitude"`
+	AssetID      *string   `json:"asset_id,omitempty"`
 	CreatedAt    time.Time `json:"created_at"`
 }
 
 func (t *TicketRepoStruct) CreateTicket(ctx context.Context, in *models.CreateTicketInput) (*models.Ticket, error) {
-	tx, err := t.writePool.Begin(ctx)
+	tx, err := beginCommandTx(ctx, t.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: CreateTicket(): begin tx: %w", err)
 	}
@@ -124,9 +125,10 @@ func (t *TicketRepoStruct) GetTicketByID(ctx context.Context, ticketID uuid.UUID
 			updated_at,
 			assigned_at,
 			completed_at,
-			canceled_at
+			canceled_at,
+			asset_id
 		FROM tickets
-		WHERE id = $1
+		WHERE id = $1 AND status <> 'ARCHIVED'
 	`
 
 	row := t.readPool.QueryRow(ctx, query, ticketID)
@@ -140,7 +142,7 @@ func (t *TicketRepoStruct) GetTicketByID(ctx context.Context, ticketID uuid.UUID
 }
 
 func (t *TicketRepoStruct) ListTickets(ctx context.Context, in *models.ListTicketsInput) ([]*models.Ticket, int64, error) {
-	whereParts := make([]string, 0)
+	whereParts := []string{"status <> 'ARCHIVED'"}
 	args := make([]any, 0)
 
 	addWhere := func(condition string, value any) {
@@ -221,7 +223,8 @@ func (t *TicketRepoStruct) ListTickets(ctx context.Context, in *models.ListTicke
 			updated_at,
 			assigned_at,
 			completed_at,
-			canceled_at
+			canceled_at,
+			asset_id
 		FROM tickets
 		%s
 		ORDER BY %s %s
@@ -253,7 +256,7 @@ func (t *TicketRepoStruct) ListTickets(ctx context.Context, in *models.ListTicke
 }
 
 func (t *TicketRepoStruct) UpdateTicket(ctx context.Context, in *models.UpdateTicketInput) (*models.Ticket, error) {
-	tx, err := t.writePool.Begin(ctx)
+	tx, err := beginCommandTx(ctx, t.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: UpdateTicket(): begin tx: %w", err)
 	}
@@ -353,7 +356,8 @@ func (t *TicketRepoStruct) updateTicket(ctx context.Context, q Querier, in *mode
 			updated_at,
 			assigned_at,
 			completed_at,
-			canceled_at
+			canceled_at,
+			asset_id
 	`, strings.Join(setParts, ", "), ticketIDArg)
 
 	row := q.QueryRow(ctx, query, args...)
@@ -371,7 +375,7 @@ func (t *TicketRepoStruct) updateTicket(ctx context.Context, q Querier, in *mode
 }
 
 func (t *TicketRepoStruct) ChangeTicketStatus(ctx context.Context, in *models.ChangeTicketStatusInput) (*models.Ticket, error) {
-	tx, err := t.writePool.Begin(ctx)
+	tx, err := beginCommandTx(ctx, t.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: ChangeTicketStatus(): begin tx: %w", err)
 	}
@@ -421,7 +425,8 @@ func (t *TicketRepoStruct) changeTicketStatus(ctx context.Context, q Querier, in
 			updated_at,
 			assigned_at,
 			completed_at,
-			canceled_at
+			canceled_at,
+			asset_id
 	`
 
 	row := q.QueryRow(ctx, query, string(in.NewStatus), in.TicketID)
@@ -443,7 +448,7 @@ func (t *TicketRepoStruct) changeTicketStatus(ctx context.Context, q Querier, in
 }
 
 func (t *TicketRepoStruct) AssignBrigade(ctx context.Context, in *models.AssignBrigadeInput) (*models.Ticket, error) {
-	tx, err := t.writePool.Begin(ctx)
+	tx, err := beginCommandTx(ctx, t.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: AssignBrigade(): begin tx: %w", err)
 	}
@@ -495,7 +500,8 @@ func (t *TicketRepoStruct) assignBrigade(ctx context.Context, q Querier, in *mod
 			updated_at,
 			assigned_at,
 			completed_at,
-			canceled_at
+			canceled_at,
+			asset_id
 	`
 
 	row := q.QueryRow(ctx, query, in.BrigadeID, string(models.TicketStatusAssigned), in.TicketID)
@@ -517,7 +523,7 @@ func (t *TicketRepoStruct) assignBrigade(ctx context.Context, q Querier, in *mod
 }
 
 func (t *TicketRepoStruct) CancelTicket(ctx context.Context, in *models.CancelTicketInput) (*models.Ticket, error) {
-	tx, err := t.writePool.Begin(ctx)
+	tx, err := beginCommandTx(ctx, t.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: CancelTicket(): begin tx: %w", err)
 	}
@@ -569,6 +575,7 @@ func (t *TicketRepoStruct) cancelTicket(ctx context.Context, q Querier, in *mode
 			assigned_at,
 			completed_at,
 			canceled_at
+			,asset_id
 	`
 
 	row := q.QueryRow(ctx, query, string(models.TicketStatusCanceled), in.TicketID)
@@ -590,7 +597,7 @@ func (t *TicketRepoStruct) cancelTicket(ctx context.Context, q Querier, in *mode
 }
 
 func (t *TicketRepoStruct) CompleteTicket(ctx context.Context, in *models.CompleteTicketInput) (*models.Ticket, error) {
-	tx, err := t.writePool.Begin(ctx)
+	tx, err := beginCommandTx(ctx, t.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: CompleteTicket(): begin tx: %w", err)
 	}
@@ -642,6 +649,7 @@ func (t *TicketRepoStruct) completeTicket(ctx context.Context, q Querier, in *mo
 			assigned_at,
 			completed_at,
 			canceled_at
+			,asset_id
 	`
 
 	row := q.QueryRow(ctx, query, string(models.TicketStatusDone), in.TicketID)
@@ -717,7 +725,7 @@ func (t *TicketRepoStruct) isCategoryActive(ctx context.Context, exec Querier, c
 	const query = `
 		SELECT is_active
 		FROM ticket_categories
-		WHERE id = $1
+		WHERE id = $1 AND status <> 'ARCHIVED'
 	`
 
 	var isActive bool
@@ -759,14 +767,15 @@ func (t *TicketRepoStruct) insertTicket(
 			updated_at,
 			assigned_at,
 			completed_at,
-			canceled_at
+			canceled_at,
+			asset_id
 		)
 		VALUES (
 			$1, $2, $3, $4, NULL,
 			$5, $6, $7, $8,
 			$9, $10, $11,
 			$12, $13,
-			NULL, NULL, NULL
+			NULL, NULL, NULL, $14
 		)
 		RETURNING
 			id,
@@ -785,7 +794,8 @@ func (t *TicketRepoStruct) insertTicket(
 			updated_at,
 			assigned_at,
 			completed_at,
-			canceled_at
+			canceled_at,
+			asset_id
 	`
 
 	row := exec.QueryRow(
@@ -804,6 +814,7 @@ func (t *TicketRepoStruct) insertTicket(
 		in.Longitude,
 		now,
 		now,
+		in.AssetID,
 	)
 
 	return scanTicket(row)
@@ -875,6 +886,7 @@ func (t *TicketRepoStruct) insertTicketCreatedOutboxEvent(ctx context.Context, e
 		Address:      ticket.Address,
 		Latitude:     ticket.Latitude,
 		Longitude:    ticket.Longitude,
+		AssetID:      optionalUUIDString(ticket.AssetID),
 		CreatedAt:    ticket.CreatedAt,
 	}
 
@@ -931,6 +943,7 @@ func (t *TicketRepoStruct) getTicketByIDForUpdate(ctx context.Context, exec Quer
 			assigned_at,
 			completed_at,
 			canceled_at
+			,asset_id
 		FROM tickets
 		WHERE id = $1
 		FOR UPDATE
@@ -992,6 +1005,14 @@ type scanner interface {
 	Scan(dest ...any) error
 }
 
+func optionalUUIDString(v *uuid.UUID) *string {
+	if v == nil {
+		return nil
+	}
+	s := v.String()
+	return &s
+}
+
 func scanTicket(s scanner) (*models.Ticket, error) {
 	var ticket models.Ticket
 
@@ -999,6 +1020,7 @@ func scanTicket(s scanner) (*models.Ticket, error) {
 	var assignedAt sql.NullTime
 	var completedAt sql.NullTime
 	var canceledAt sql.NullTime
+	var assetID sql.NullString
 
 	err := s.Scan(
 		&ticket.ID,
@@ -1018,6 +1040,7 @@ func scanTicket(s scanner) (*models.Ticket, error) {
 		&assignedAt,
 		&completedAt,
 		&canceledAt,
+		&assetID,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -1034,6 +1057,13 @@ func scanTicket(s scanner) (*models.Ticket, error) {
 		}
 
 		ticket.BrigadeID = &parsedBrigadeID
+	}
+	if assetID.Valid {
+		parsed, e := uuid.Parse(assetID.String)
+		if e != nil {
+			return nil, e
+		}
+		ticket.AssetID = &parsed
 	}
 
 	if assignedAt.Valid {

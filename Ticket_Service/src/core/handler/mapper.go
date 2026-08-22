@@ -2,6 +2,7 @@ package handler
 
 import (
 	ticketv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/ticket/v1"
+	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"ticket/models"
 	"time"
@@ -155,5 +156,13 @@ func ToProtoTicket(ticket *models.Ticket) *ticketv1.Ticket {
 		AssignedAt:  ToProtoTimestampPtr(ticket.AssignedAt),
 		CompletedAt: ToProtoTimestampPtr(ticket.CompletedAt),
 		CanceledAt:  ToProtoTimestampPtr(ticket.CanceledAt),
+		AssetId:     uuidStringPtr(ticket.AssetID),
 	}
+}
+func uuidStringPtr(v *uuid.UUID) *string {
+	if v == nil {
+		return nil
+	}
+	s := v.String()
+	return &s
 }

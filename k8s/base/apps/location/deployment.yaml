@@ -1,0 +1,123 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: location-service
+  namespace: automatic-system
+  labels:
+    app.kubernetes.io/name: location-service
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/part-of: automatic-system
+    app.kubernetes.io/managed-by: kustomize
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: location-service
+
+  template:
+    metadata:
+      labels:
+        app: location-service
+        app.kubernetes.io/name: location-service
+        app.kubernetes.io/component: backend
+        app.kubernetes.io/part-of: automatic-system
+        app.kubernetes.io/managed-by: kustomize
+
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 45
+
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+
+      containers:
+        - name: location-service
+          image: automatic-system/location:dev
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - name: grpc
+              containerPort: 50056
+
+            - name: http
+              containerPort: 8080
+
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+
+            limits:
+              cpu: 500m
+              memory: 512Mi
+
+          startupProbe:
+            grpc:
+              port: 50056
+            periodSeconds: 2
+            timeoutSeconds: 2
+            failureThreshold: 45
+
+          readinessProbe:
+            grpc:
+              port: 50056
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+
+          livenessProbe:
+            grpc:
+              port: 50056
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+
+          envFrom:
+            - configMapRef:
+                name: location-service-config
+
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: runtime-secrets
+                  key: LOCATION_DATABASE_URL
+
+            - name: REDIS_SENTINEL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: runtime-secrets
+                  key: REDIS_SENTINEL_PASSWORD
+
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: runtime-secrets
+                  key: REDIS_PASSWORD
+                  optional: true
+
+            - name: TRANSPONDER_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: runtime-secrets
+                  key: TRANSPONDER_API_KEY
+
+  revisionHistoryLimit: 3
+  minReadySeconds: 3
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
