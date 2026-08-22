@@ -26,7 +26,7 @@ func TestEventTimeUsesExplicitOccurredAt(t *testing.T) {
 	want := time.Date(2026, 8, 17, 9, 15, 0, 0, time.UTC)
 	got := eventTime(models.Event{
 		Timestamp: envelope,
-		Payload: map[string]any{"occurred_at": want.Format(time.RFC3339Nano)},
+		Payload:   map[string]any{"occurred_at": want.Format(time.RFC3339Nano)},
 	})
 	if !got.Equal(want) {
 		t.Fatalf("eventTime() = %v, want explicit occurrence time %v", got, want)

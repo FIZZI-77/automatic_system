@@ -10,6 +10,7 @@ const (
 	TicketStatusInProgress TicketStatus = "IN_PROGRESS"
 	TicketStatusDone       TicketStatus = "DONE"
 	TicketStatusCanceled   TicketStatus = "CANCELED"
+	TicketStatusArchived   TicketStatus = "ARCHIVED"
 )
 
 func (s TicketStatus) IsValid() bool {

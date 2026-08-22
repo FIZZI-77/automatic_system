@@ -2,6 +2,7 @@ package generator
 
 import (
 	"bytes"
+	_ "embed"
 	"encoding/csv"
 	"fmt"
 	"github.com/jung-kurt/gofpdf"
@@ -10,12 +11,17 @@ import (
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
-	"os"
 	"report/models"
 	"strings"
 )
 
 type Generator struct{}
+
+//go:embed fonts/DejaVuSans.ttf
+var regularFont []byte
+
+//go:embed fonts/DejaVuSans-Bold.ttf
+var boldFont []byte
 
 func New() *Generator { return &Generator{} }
 func (g *Generator) Generate(format models.Format, name string, rows [][]string) (models.Artifact, error) {
@@ -90,13 +96,16 @@ func pdfFile(name string, rows [][]string) (models.Artifact, error) {
 // flow and embeds supported photos on following pages.
 func (g *Generator) GenerateCompletion(v models.CompletionReport, images []models.EmbeddedImage) (models.Artifact, error) {
 	p := gofpdf.New("P", "mm", "A4", "")
-	regular := fontPath("REPORT_FONT_REGULAR", "/usr/share/fonts/dejavu/DejaVuSans.ttf", "/usr/share/fonts/TTF/DejaVuSans.ttf", "C:/Windows/Fonts/arial.ttf")
-	bold := fontPath("REPORT_FONT_BOLD", "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf", "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf", "C:/Windows/Fonts/arialbd.ttf")
-	if regular == "" || bold == "" {
-		return models.Artifact{}, fmt.Errorf("completion report fonts are unavailable")
+
+	p.AddUTF8FontFromBytes("Report", "", regularFont)
+	p.AddUTF8FontFromBytes("Report", "B", boldFont)
+
+	if p.Error() != nil {
+		return models.Artifact{}, fmt.Errorf(
+			"register completion report fonts: %w",
+			p.Error(),
+		)
 	}
-	p.AddUTF8Font("Report", "", regular)
-	p.AddUTF8Font("Report", "B", bold)
 	p.SetMargins(20, 18, 20)
 	p.SetAutoPageBreak(true, 18)
 	p.AddPage()
@@ -167,20 +176,6 @@ func (g *Generator) GenerateCompletion(v models.CompletionReport, images []model
 		return models.Artifact{}, err
 	}
 	return models.Artifact{Name: "ticket-" + safe(v.Ticket.ID) + "-completion.pdf", ContentType: "application/pdf", Data: out.Bytes()}, nil
-}
-
-func fontPath(envName string, candidates ...string) string {
-	if value := strings.TrimSpace(os.Getenv(envName)); value != "" {
-		if _, err := os.Stat(value); err == nil {
-			return value
-		}
-	}
-	for _, value := range candidates {
-		if _, err := os.Stat(value); err == nil {
-			return value
-		}
-	}
-	return ""
 }
 
 func fallback(values ...string) string {

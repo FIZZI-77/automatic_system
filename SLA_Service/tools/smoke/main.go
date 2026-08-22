@@ -31,5 +31,14 @@ func main() {
 	fmt.Printf("rule=%s name=%q total=%d\n", got.GetRule().GetId(), got.GetRule().GetName(), listed.GetTotal())
 }
 
-func address() string { if v := os.Getenv("SLA_ADDR"); v != "" { return v }; return "localhost:50060" }
-func check(err error) { if err != nil { panic(err) } }
+func address() string {
+	if v := os.Getenv("SLA_ADDR"); v != "" {
+		return v
+	}
+	return "localhost:50060"
+}
+func check(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
