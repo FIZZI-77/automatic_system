@@ -32,10 +32,13 @@ func main() {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+
 	logger, e := pkg.NewLogger()
+
 	if e != nil {
 		log.Fatal(e)
 	}
+
 	defer logger.Sync()
 	db, e := pgxpool.New(ctx, must("DATABASE_URL"))
 	if e != nil {
