@@ -725,7 +725,7 @@ func (t *TicketRepoStruct) isCategoryActive(ctx context.Context, exec Querier, c
 	const query = `
 		SELECT is_active
 		FROM ticket_categories
-		WHERE id = $1 AND status <> 'ARCHIVED'
+		WHERE id = $1
 	`
 
 	var isActive bool

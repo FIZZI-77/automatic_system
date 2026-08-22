@@ -26,9 +26,10 @@ CREATE TABLE tickets (
                          assigned_at TIMESTAMP NULL,
                          completed_at TIMESTAMP NULL,
                          canceled_at TIMESTAMP NULL,
+                         archived_at TIMESTAMP NULL,
 
                          CONSTRAINT chk_ticket_status CHECK (
-                                status IN ('NEW', 'ASSIGNED', 'IN_PROGRESS', 'DONE', 'CANCELED')
+                                status IN ('NEW', 'ASSIGNED', 'IN_PROGRESS', 'DONE', 'CANCELED', 'ARCHIVED')
                          ),
 
                          CONSTRAINT chk_ticket_priority CHECK (
