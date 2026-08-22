@@ -182,11 +182,11 @@ services:
 
   profile-service:
     build:
-      context: ./Profile_service
+      context: ./Profile_Service
       dockerfile: Dockerfile
     container_name: profile-service
     env_file:
-      - ./Profile_service/.env
+      - ./Profile_Service/.env
     ports:
       - "${PROFILE_GRPC_PORT}:50055"
     depends_on:
@@ -819,7 +819,7 @@ services:
     image: postgres:16
     container_name: profile-postgres
     env_file:
-      - ./Profile_service/.env
+      - ./Profile_Service/.env
     ports:
       - "${PROFILE_DB_PUBLISHED_PORT}:5432"
     volumes:
@@ -1037,16 +1037,16 @@ services:
 
   migrator-profile:
     build:
-      context: ./Profile_service/migrator
+      context: ./Profile_Service/migrator
       dockerfile: Dockerfile
     container_name: profile-migrator
     env_file:
-      - ./Profile_service/.env
+      - ./Profile_Service/.env
     depends_on:
       postgres-profile:
         condition: service_healthy
     volumes:
-      - ./Profile_service/scheme:/migrations:ro
+      - ./Profile_Service/scheme:/migrations:ro
     environment:
       GOOSE_DRIVER: postgres
     command: >
