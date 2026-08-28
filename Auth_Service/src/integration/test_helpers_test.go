@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/pressly/goose/v3"
 	"github.com/testcontainers/testcontainers-go"
@@ -39,6 +40,12 @@ type fakeMailService struct {
 
 	lastPasswordResetEmail string
 	lastPasswordResetToken string
+}
+
+type fakeProfileProvisioner struct{}
+
+func (fakeProfileProvisioner) CreateUserProfile(context.Context, uuid.UUID, string) error {
+	return nil
 }
 
 func (m *fakeMailService) SendVerificationEmail(_ context.Context, toEmail string, token string) error {
@@ -133,6 +140,7 @@ func newTestApp(t *testing.T) *testApp {
 		privateKey,
 		"integration-test-key",
 		mail,
+		fakeProfileProvisioner{},
 		zap.NewNop(),
 	)
 

@@ -7,9 +7,9 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
-ARG NEXT_PUBLIC_API_BASE_URL=http://localhost:8081
-ARG NEXT_PUBLIC_NOTIFICATIONS_WS_URL=ws://localhost:8081/notifications/ws
-ARG NEXT_PUBLIC_SITE_URL=http://localhost:3000
+ARG NEXT_PUBLIC_API_BASE_URL=https://api.city.localhost
+ARG NEXT_PUBLIC_NOTIFICATIONS_WS_URL=wss://api.city.localhost/notifications/ws
+ARG NEXT_PUBLIC_SITE_URL=https://city.localhost
 ARG NEXT_PUBLIC_YANDEX_MAPS_API_URL=https://api-maps.yandex.ru/v3/
 ARG NEXT_PUBLIC_YANDEX_MAPS_API_KEY
 ARG NEXT_PUBLIC_YANDEX_MAPS_LANG=ru_RU
@@ -40,4 +40,5 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.openai ./.openai
 EXPOSE 3000
+USER node
 CMD ["npm", "run", "start", "--", "--host", "0.0.0.0"]

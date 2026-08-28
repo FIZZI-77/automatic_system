@@ -22,6 +22,10 @@ type Service struct {
 
 func New(r *repository.Repository, p Publisher) *Service { return &Service{repo: r, live: p} }
 func (s *Service) Consume(c context.Context, e models.Event) error {
+	if !isUserFacingEvent(e.Type) {
+		return nil
+	}
+
 	users, err := s.repo.ResolveRecipients(c, e)
 	if err != nil {
 		return err
@@ -36,6 +40,21 @@ func (s *Service) Consume(c context.Context, e models.Event) error {
 		}
 	}
 	return nil
+}
+
+func isUserFacingEvent(eventType string) bool {
+	switch strings.ToLower(strings.TrimSpace(eventType)) {
+	case "ticket.created",
+		"ticket.assigned",
+		"ticket.status_changed",
+		"ticket.completed",
+		"ticket.canceled",
+		"ticket.completion_report.generated.v1",
+		"ticket.completion_report.failed.v1":
+		return true
+	default:
+		return false
+	}
 }
 func (s *Service) List(c context.Context, u uuid.UUID, x *bool, l, o int32) ([]*models.Notification, int64, int64, error) {
 	return s.repo.List(c, u, x, l, o)

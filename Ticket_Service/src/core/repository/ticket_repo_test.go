@@ -303,6 +303,70 @@ func TestTicketRepo_AssignComplete_CommonFlow(t *testing.T) {
 	}
 }
 
+func TestTicketRepo_AssignBrigade_BusyBrigadeReturnsDomainError(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	repo := NewRepository(DBPools{Write: db, Read: db})
+	category := createTestCategory(t, repo)
+	departmentID := uuid.New()
+	brigadeID := uuid.New()
+
+	createTicket := func(title string) *models.Ticket {
+		t.Helper()
+
+		ticket, err := repo.CreateTicket(ctx, &models.CreateTicketInput{
+			DepartmentID: departmentID,
+			CategoryID:   category.ID,
+			UserID:       uuid.New(),
+			Title:        title,
+			Description:  "Test incident",
+			Priority:     models.TicketPriorityMedium,
+			Address:      "Main street 1",
+			Latitude:     55.751244,
+			Longitude:    37.618423,
+		})
+		if err != nil {
+			t.Fatalf("create ticket: %v", err)
+		}
+
+		return ticket
+	}
+
+	firstTicket := createTicket("First incident")
+	secondTicket := createTicket("Second incident")
+	assignedBy := uuid.New()
+
+	if _, err := repo.AssignBrigade(ctx, &models.AssignBrigadeInput{
+		TicketID:   firstTicket.ID,
+		BrigadeID:  brigadeID,
+		AssignedBy: assignedBy,
+	}); err != nil {
+		t.Fatalf("assign first ticket: %v", err)
+	}
+
+	assigned, err := repo.AssignBrigade(ctx, &models.AssignBrigadeInput{
+		TicketID:   secondTicket.ID,
+		BrigadeID:  brigadeID,
+		AssignedBy: assignedBy,
+	})
+	if assigned != nil {
+		t.Fatal("expected no second assignment")
+	}
+	if !errors.Is(err, models.ErrBrigadeBusy) {
+		t.Fatalf("expected brigade busy error, got %v", err)
+	}
+
+	stored, err := repo.GetTicketByID(ctx, secondTicket.ID)
+	if err != nil {
+		t.Fatalf("get second ticket: %v", err)
+	}
+	if stored.Status != models.TicketStatusNew || stored.BrigadeID != nil {
+		t.Fatalf("expected second ticket to remain unassigned, got status=%s brigade_id=%v", stored.Status, stored.BrigadeID)
+	}
+}
+
 func TestTicketRepo_ChangeTicketStatus_TerminalTicketCannotBeChanged(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()

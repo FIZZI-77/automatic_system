@@ -262,6 +262,46 @@ func TestAuthHandler_Login_ServiceError(t *testing.T) {
 	assertGRPCCode(t, err, codes.Internal)
 }
 
+func TestAuthHandler_Login_HidesUserExistence(t *testing.T) {
+	tests := []struct {
+		name       string
+		serviceErr error
+	}{
+		{
+			name:       "user not found",
+			serviceErr: models.ErrUserNotFound,
+		},
+		{
+			name:       "invalid password",
+			serviceErr: models.ErrInvalidPassword,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			mock := &mockAuthService{
+				loginFunc: func(context.Context, models.LoginInput) (*models.LoginResult, error) {
+					return nil, test.serviceErr
+				},
+			}
+
+			handler := newTestHandler(mock)
+			response, err := handler.Login(context.Background(), &v1.LoginRequest{
+				Email:    "user@example.com",
+				Password: "wrong-password",
+			})
+
+			if response != nil {
+				t.Errorf("Login() response = %v, want nil", response)
+			}
+			assertGRPCCode(t, err, codes.Unauthenticated)
+			if got, want := status.Convert(err).Message(), "invalid email or password"; got != want {
+				t.Errorf("Login() error message = %q, want %q", got, want)
+			}
+		})
+	}
+}
+
 func TestAuthHandler_Refresh_Success(t *testing.T) {
 	sessionID := uuid.New()
 

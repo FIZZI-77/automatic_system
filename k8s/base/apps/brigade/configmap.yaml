@@ -11,6 +11,7 @@ metadata:
 data:
   GRPC_PORT: '50054'
   DB_HOST: "postgres-brigade"
+  DB_READ_HOST: "postgres-brigade"
   DB_PORT: '5432'
   DB_USERNAME: "brigade_user"
   DB_NAME: "brigade_db"

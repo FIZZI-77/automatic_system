@@ -92,7 +92,7 @@ func fromProtoWorkReport(r *ticketv1.WorkReport) *models.WorkReport {
 	if r == nil {
 		return nil
 	}
-	return &models.WorkReport{ID: r.GetId(), TicketID: r.GetTicketId(), AuthorUserID: r.GetAuthorUserId(), Description: r.GetDescription(), FileIDs: r.GetFileIds(), CreatedAt: r.GetCreatedAt().AsTime(), UpdatedAt: r.GetUpdatedAt().AsTime()}
+	return &models.WorkReport{ID: r.GetId(), TicketID: r.GetTicketId(), AuthorUserID: r.GetAuthorUserId(), Description: r.GetDescription(), FileIDs: r.GetFileIds(), CreatedAt: r.GetCreatedAt().AsTime(), UpdatedAt: r.GetUpdatedAt().AsTime(), CompletionStatus: r.GetCompletionStatus(), CompletionFileID: r.GetCompletionFileId(), CompletionError: r.GetCompletionError()}
 }
 
 func (th *TicketHandler) CreateTicket(c *gin.Context) {

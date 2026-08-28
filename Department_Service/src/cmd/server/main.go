@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"department/pkg/telemetry"
 	"log"
 	"net"
 	"os"
@@ -20,9 +21,21 @@ import (
 	departmentv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/department/v1"
 	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	healthv1 "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 func main() {
+	telemetryProviders, err := telemetry.Init(context.Background(), "department-service")
+	if err != nil {
+		log.Fatalf("initialize OpenTelemetry: %v", err)
+	}
+	defer func() {
+		if shutdownErr := telemetryProviders.Close(); shutdownErr != nil {
+			log.Printf("shutdown OpenTelemetry: %v", shutdownErr)
+		}
+	}()
+
 	if err := appconfig.Load(); err != nil {
 		log.Fatalf("configuration error: %v", err)
 	}
@@ -38,23 +51,37 @@ func main() {
 		log.Fatal("error loading .env file")
 	}
 
-	db, err := pkg.NewPostgresDB(pkg.Config{
+	dbConfig := pkg.Config{
 		Host:     os.Getenv("DB_HOST"),
 		Port:     os.Getenv("DB_PORT"),
 		Username: os.Getenv("DB_USERNAME"),
 		Password: os.Getenv("DB_PASSWORD"),
 		DbName:   os.Getenv("DB_NAME"),
 		SSLMode:  os.Getenv("SSLMODE"),
-	})
+	}
+	writeDB, err := pkg.NewPostgresDB(dbConfig)
 	if err != nil {
 		log.Fatalf("failed to connect db: %v", err)
 	}
 	dependencies.Add("postgres", func() error {
-		db.Close()
+		writeDB.Close()
+		return nil
+	})
+	readHost := strings.TrimSpace(os.Getenv("DB_READ_HOST"))
+	if readHost == "" {
+		readHost = dbConfig.Host
+	}
+	dbConfig.Host = readHost
+	readDB, err := pkg.NewPostgresDB(dbConfig)
+	if err != nil {
+		log.Fatalf("failed to connect read db: %v", err)
+	}
+	dependencies.Add("postgres read", func() error {
+		readDB.Close()
 		return nil
 	})
 	defer closeDependencies(dependencies)
-	startOutboxRelay(db, dependencies, logger)
+	startOutboxRelay(writeDB, dependencies, logger)
 
 	grpcPort := os.Getenv("GRPC_PORT")
 	if strings.TrimSpace(grpcPort) == "" {
@@ -67,16 +94,18 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer(
+		telemetry.GRPCServerOption(),
 		grpc.ChainUnaryInterceptor(
 			pkg.RequestIDUnaryServerInterceptor,
 			pkg.IdempotencyKeyUnaryServerInterceptor,
 			pkg.AccessLogUnaryServerInterceptor(logger),
 		),
 	)
-	repo := repository.NewRepository(repository.DBPools{Write: db, Read: db})
+	repo := repository.NewRepository(repository.DBPools{Write: writeDB, Read: readDB})
 	departmentService := service.NewService(repo, logger)
 	departmentHandler := handler.NewDepartmentHandler(departmentService, logger)
 	departmentv1.RegisterDepartmentServiceServer(grpcServer, departmentHandler)
+	healthv1.RegisterHealthServer(grpcServer, health.NewServer())
 
 	serverErrCh := make(chan error, 1)
 	go func() {

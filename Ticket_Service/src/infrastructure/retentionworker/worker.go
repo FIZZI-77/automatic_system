@@ -20,6 +20,7 @@ const (
 	defaultArchiveInterval = 5 * time.Minute
 	defaultPurgeInterval   = time.Hour
 	defaultBatchSize       = 100
+	retentionLockNamespace = 0x5245544e
 )
 
 type Config struct {
@@ -123,7 +124,7 @@ func (w *Worker) ArchiveOnce(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("begin archive transaction: %w", err)
 	}
-	defer func() { _ = tx.Rollback(context.Background()) }()
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
 
 	rows, err := tx.Query(ctx, `
 		SELECT id, status
@@ -131,8 +132,7 @@ func (w *Worker) ArchiveOnce(ctx context.Context) (int, error) {
 		WHERE status IN ('DONE', 'CANCELED')
 		  AND COALESCE(completed_at, canceled_at, updated_at) <= $1
 		ORDER BY COALESCE(completed_at, canceled_at, updated_at)
-		LIMIT $2
-		FOR UPDATE SKIP LOCKED`, time.Now().UTC().Add(-w.cfg.ArchiveAfter), w.cfg.BatchSize)
+		LIMIT $2`, time.Now().UTC().Add(-w.cfg.ArchiveAfter), w.cfg.BatchSize)
 	if err != nil {
 		return 0, fmt.Errorf("select archive candidates: %w", err)
 	}
@@ -152,21 +152,39 @@ func (w *Worker) ArchiveOnce(ctx context.Context) (int, error) {
 	rows.Close()
 
 	now := time.Now().UTC()
+	archived := 0
 	for _, candidate := range candidates {
-		if _, err = tx.Exec(ctx, `UPDATE tickets SET status='ARCHIVED', archived_at=NOW(), updated_at=NOW() WHERE id=$1`, candidate.id); err != nil {
-			return 0, fmt.Errorf("archive ticket %s: %w", candidate.id, err)
+		if err = lockTicket(ctx, tx, candidate.id); err != nil {
+			return 0, fmt.Errorf("lock archive candidate %s: %w", candidate.id, err)
 		}
-		if _, err = tx.Exec(ctx, `INSERT INTO ticket_status_history(id,ticket_id,old_status,new_status,comment,created_at) VALUES($1,$2,$3,'ARCHIVED',$4,$5)`, uuid.New(), candidate.id, candidate.status, "Archived automatically after 24 hours in terminal status", now); err != nil {
+		result, updateErr := tx.Exec(ctx, `
+			UPDATE tickets
+			SET status='ARCHIVED', archived_at=$3, updated_at=$3
+			WHERE id=$1 AND status=$2
+			  AND COALESCE(completed_at, canceled_at, updated_at) <= $4`,
+			candidate.id,
+			candidate.status,
+			now,
+			now.Add(-w.cfg.ArchiveAfter),
+		)
+		if updateErr != nil {
+			return 0, fmt.Errorf("archive ticket %s: %w", candidate.id, updateErr)
+		}
+		if result.RowsAffected() == 0 {
+			continue
+		}
+		if _, err = tx.Exec(ctx, `INSERT INTO ticket_status_history(id,department_id,ticket_id,old_status,new_status,comment,created_at) SELECT $1,department_id,id,$3,'ARCHIVED',$4,$5 FROM tickets WHERE id=$2`, uuid.New(), candidate.id, candidate.status, "Archived automatically after 24 hours in terminal status", now); err != nil {
 			return 0, fmt.Errorf("record archive history %s: %w", candidate.id, err)
 		}
 		if err = insertRetentionEvent(ctx, tx, candidate.id, "ticket.archived", now); err != nil {
 			return 0, err
 		}
+		archived++
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return 0, fmt.Errorf("commit archive transaction: %w", err)
 	}
-	return len(candidates), nil
+	return archived, nil
 }
 
 func (w *Worker) PurgeOnce(ctx context.Context) (int, error) {
@@ -174,15 +192,14 @@ func (w *Worker) PurgeOnce(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("begin purge transaction: %w", err)
 	}
-	defer func() { _ = tx.Rollback(context.Background()) }()
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
 
 	rows, err := tx.Query(ctx, `
 		SELECT id
 		FROM tickets
 		WHERE status='ARCHIVED' AND archived_at <= $1
 		ORDER BY archived_at
-		LIMIT $2
-		FOR UPDATE SKIP LOCKED`, time.Now().UTC().Add(-w.cfg.PurgeAfter), w.cfg.BatchSize)
+		LIMIT $2`, time.Now().UTC().Add(-w.cfg.PurgeAfter), w.cfg.BatchSize)
 	if err != nil {
 		return 0, fmt.Errorf("select purge candidates: %w", err)
 	}
@@ -202,18 +219,32 @@ func (w *Worker) PurgeOnce(ctx context.Context) (int, error) {
 	rows.Close()
 
 	now := time.Now().UTC()
+	purged := 0
 	for _, id := range ids {
+		if err = lockTicket(ctx, tx, id); err != nil {
+			return 0, fmt.Errorf("lock purge candidate %s: %w", id, err)
+		}
+		result, deleteErr := tx.Exec(ctx, `DELETE FROM tickets WHERE id=$1 AND status='ARCHIVED' AND archived_at <= $2`, id, now.Add(-w.cfg.PurgeAfter))
+		if deleteErr != nil {
+			return 0, fmt.Errorf("purge ticket %s: %w", id, deleteErr)
+		}
+		if result.RowsAffected() == 0 {
+			continue
+		}
 		if err = insertRetentionEvent(ctx, tx, id, "ticket.purged", now); err != nil {
 			return 0, err
 		}
-		if _, err = tx.Exec(ctx, `DELETE FROM tickets WHERE id=$1 AND status='ARCHIVED'`, id); err != nil {
-			return 0, fmt.Errorf("purge ticket %s: %w", id, err)
-		}
+		purged++
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return 0, fmt.Errorf("commit purge transaction: %w", err)
 	}
-	return len(ids), nil
+	return purged, nil
+}
+
+func lockTicket(ctx context.Context, tx pgx.Tx, ticketID uuid.UUID) error {
+	_, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1::text, $2))`, ticketID, retentionLockNamespace)
+	return err
 }
 
 func insertRetentionEvent(ctx context.Context, tx pgx.Tx, ticketID uuid.UUID, eventType string, occurredAt time.Time) error {

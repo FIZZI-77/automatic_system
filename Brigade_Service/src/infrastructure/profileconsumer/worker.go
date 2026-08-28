@@ -1,6 +1,7 @@
 package profileconsumer
 
 import (
+	"brigade/pkg/telemetry"
 	"context"
 	"encoding/json"
 	"errors"
@@ -154,7 +155,7 @@ func (w *Worker) consume(ctx context.Context, reader *kafka.Reader) error {
 			case <-timer.C:
 			}
 		}
-		if err = w.apply(ctx, message); err != nil {
+		if err = telemetry.TraceKafkaConsumer(ctx, message, "", w.apply); err != nil {
 			w.logger.Error("profile event processing failed", zap.Error(err), zap.Int64("offset", message.Offset))
 			if retryErr := w.retryOrDLQ(ctx, message, err); retryErr != nil {
 				return errors.Join(err, retryErr)
@@ -288,7 +289,7 @@ func (w *Worker) retryOrDLQ(ctx context.Context, message kafka.Message, processE
 	}
 	headers := upsertHeader(message.Headers, retryHeader, strconv.Itoa(attempt))
 	headers = upsertHeader(headers, "x-error", truncate(processErr.Error(), 1000))
-	return w.writer.WriteMessages(ctx, kafka.Message{
+	return telemetry.WriteKafka(ctx, w.writer, kafka.Message{
 		Topic: target, Key: message.Key, Value: message.Value, Headers: headers, Time: time.Now().UTC(),
 	})
 }

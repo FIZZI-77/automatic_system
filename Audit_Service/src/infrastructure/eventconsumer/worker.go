@@ -1,6 +1,7 @@
 package eventconsumer
 
 import (
+	"audit/pkg/telemetry"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -16,6 +17,7 @@ type Worker struct {
 	service EventConsumer
 	logger  *zap.Logger
 	topic   string
+	group   string
 }
 
 type EventConsumer interface {
@@ -24,7 +26,13 @@ type EventConsumer interface {
 
 func New(brokers []string, topic, group string, service EventConsumer, logger *zap.Logger) *Worker {
 	reader := kafka.NewReader(kafka.ReaderConfig{Brokers: brokers, Topic: topic, GroupID: group, CommitInterval: 0, MinBytes: 1, MaxBytes: 10e6})
-	return &Worker{reader: reader, service: service, logger: logger, topic: topic}
+	return &Worker{
+		reader:  reader,
+		service: service,
+		logger:  logger,
+		topic:   topic,
+		group:   group,
+	}
 }
 
 func (w *Worker) Run(ctx context.Context) error {
@@ -33,8 +41,10 @@ func (w *Worker) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+		messageCtx, span := telemetry.StartKafkaConsumer(ctx, message, w.group)
 		payload := map[string]any{}
 		if err = json.Unmarshal(message.Value, &payload); err != nil {
+			telemetry.End(span, err)
 			w.logger.Error("invalid event", zap.String("topic", w.topic), zap.Error(err))
 			_ = w.reader.CommitMessages(ctx, message)
 			continue
@@ -51,18 +61,23 @@ func (w *Worker) Run(ctx context.Context) error {
 		if action == "" {
 			action = "unknown." + strconv.FormatInt(message.Offset, 10)
 		}
-		err = w.service.Consume(ctx, models.Event{ID: id, Type: action, Topic: w.topic, Payload: payload, Headers: headers, Timestamp: message.Time})
+		err = w.service.Consume(messageCtx, models.Event{ID: id, Type: action, Topic: w.topic, Payload: payload, Headers: headers, Timestamp: message.Time})
 		if err != nil {
+			telemetry.End(span, err)
 			w.logger.Error("event processing failed", zap.String("topic", w.topic), zap.Error(err))
 			continue
 		}
 		if err = w.reader.CommitMessages(ctx, message); err != nil {
+			telemetry.End(span, err)
 			return err
 		}
+		telemetry.End(span, nil)
 	}
 }
 
-func (w *Worker) Close() error { return w.reader.Close() }
+func (w *Worker) Close() error {
+	return w.reader.Close()
+}
 func first(values ...string) string {
 	for _, item := range values {
 		if item != "" {

@@ -11,6 +11,7 @@ metadata:
 data:
   GRPC_PORT: '50052'
   DB_HOST: "postgres-ticket"
+  DB_READ_HOST: "postgres-ticket"
   DB_PORT: '5432'
   DB_USERNAME: "ticket_user"
   DB_NAME: "ticket_db"
@@ -18,3 +19,9 @@ data:
   KAFKA_BROKERS: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
   OUTBOX_WORKER_COUNT: '4'
   KAFKA_ROUTING_TOPIC: "routing.events.v1"
+  KAFKA_REPORT_TOPIC: "reports.events.v1"
+  REPORT_RESULT_CONSUMER_GROUP_ID: "ticket-report-result-v1"
+  COMPLETION_SAGA_ATTEMPT_TIMEOUT: "10m"
+  COMPLETION_SAGA_POLL_INTERVAL: "30s"
+  COMPLETION_SAGA_MAX_ATTEMPTS: '3'
+  COMPLETION_SAGA_BATCH_SIZE: '50'

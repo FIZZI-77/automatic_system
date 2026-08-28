@@ -5,6 +5,7 @@ namespace: automatic-system-dev
 
 resources:
   - namespace.yaml
+  - ../../base/observability
   - infra
   - migrations
   - apps

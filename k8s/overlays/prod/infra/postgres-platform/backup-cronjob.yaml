@@ -1,0 +1,62 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-platform-backup
+  namespace: automatic-system
+spec:
+  schedule: "17 1 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 14400
+      template:
+        spec:
+          serviceAccountName: postgres-platform
+          restartPolicy: Never
+          automountServiceAccountToken: true
+          containers:
+            - name: backup
+              image: bitnami/kubectl:1.33
+              command:
+                - /bin/sh
+                - -ec
+                - |
+                  find_primary() {
+                    selector="$1"
+                    for attempt in 1 2 3 4 5; do
+                      pod="$(kubectl get pods -n automatic-system -l "$selector" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+                      if [ -n "$pod" ]; then
+                        printf '%s' "$pod"
+                        return 0
+                      fi
+                      sleep 15
+                    done
+                    return 1
+                  }
+
+                  run_pgbackrest() {
+                    pod="$1"
+                    shift
+                    for attempt in 1 2 3 4 5; do
+                      if kubectl exec -n automatic-system "$pod" -- pgbackrest "$@"; then
+                        return 0
+                      fi
+                      sleep 15
+                    done
+                    return 1
+                  }
+
+                  pod="$(find_primary 'cluster-name=postgres-platform,role=primary')"
+                  run_pgbackrest "$pod" --stanza=platform stanza-create
+                  run_pgbackrest "$pod" --stanza=platform check
+                  run_pgbackrest "$pod" --stanza=platform --type=diff backup
+              resources:
+                requests:
+                  cpu: 25m
+                  memory: 64Mi
+                limits:
+                  cpu: 250m
+                  memory: 256Mi

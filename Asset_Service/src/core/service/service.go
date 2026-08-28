@@ -27,5 +27,10 @@ type AssetService interface {
 type Service struct{ AssetService }
 
 func NewService(r repository.AssetRepository, l *zap.Logger) *Service {
-	return &Service{&AssetServiceStruct{r, l}}
+	return &Service{
+		AssetService: &AssetServiceStruct{
+			repo: r,
+			log:  l,
+		},
+	}
 }

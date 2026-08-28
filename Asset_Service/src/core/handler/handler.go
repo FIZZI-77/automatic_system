@@ -20,13 +20,39 @@ type Handler struct {
 	s service.AssetService
 }
 
-func New(s service.AssetService) *Handler { return &Handler{s: s} }
+func New(s service.AssetService) *Handler {
+	return &Handler{s: s}
+}
+
 func (h *Handler) CreateAsset(c context.Context, q *assetv1.CreateAssetRequest) (*assetv1.AssetResponse, error) {
 	d, a, e := ids(q.DepartmentId, q.ActorUserId)
 	if e != nil {
 		return nil, bad(e)
 	}
-	v := models.CreateInput{Asset: models.Asset{DepartmentID: d, ExternalID: q.ExternalId, Type: q.Type, Name: q.Name, Address: q.Address, District: q.District, Municipality: q.Municipality, Geometry: q.GeometryGeoJson, Model: q.Model, SerialNumber: q.SerialNumber, InstallationYear: q.InstallationYear, ServiceLifeYears: q.ServiceLifeYears, Owner: q.Owner, ServiceOrganization: q.ServiceOrganization, Contractor: q.Contractor, InspectionIntervalDays: q.InspectionIntervalDays, ResponseNormMinutes: q.ResponseNormMinutes, RepairNormMinutes: q.RepairNormMinutes, Criticality: q.Criticality}, ActorID: a}
+	v := models.CreateInput{
+		Asset: models.Asset{
+			DepartmentID:           d,
+			ExternalID:             q.ExternalId,
+			Type:                   q.Type,
+			Name:                   q.Name,
+			Address:                q.Address,
+			District:               q.District,
+			Municipality:           q.Municipality,
+			Geometry:               q.GeometryGeoJson,
+			Model:                  q.Model,
+			SerialNumber:           q.SerialNumber,
+			InstallationYear:       q.InstallationYear,
+			ServiceLifeYears:       q.ServiceLifeYears,
+			Owner:                  q.Owner,
+			ServiceOrganization:    q.ServiceOrganization,
+			Contractor:             q.Contractor,
+			InspectionIntervalDays: q.InspectionIntervalDays,
+			ResponseNormMinutes:    q.ResponseNormMinutes,
+			RepairNormMinutes:      q.RepairNormMinutes,
+			Criticality:            q.Criticality,
+		},
+		ActorID: a,
+	}
 	if q.WarrantyUntil != nil {
 		x := q.WarrantyUntil.AsTime()
 		v.WarrantyUntil = &x
@@ -47,7 +73,15 @@ func (h *Handler) UpdateAsset(c context.Context, q *assetv1.UpdateAssetRequest) 
 	if e != nil {
 		return nil, bad(e)
 	}
-	x, e := h.s.Update(c, models.UpdateInput{ID: id, Name: q.Name, Address: q.Address, Geometry: q.GeometryGeoJson, Contractor: q.Contractor, Criticality: q.Criticality}, priv(q.ActorRoles))
+	input := models.UpdateInput{
+		ID:          id,
+		Name:        q.Name,
+		Address:     q.Address,
+		Geometry:    q.GeometryGeoJson,
+		Contractor:  q.Contractor,
+		Criticality: q.Criticality,
+	}
+	x, e := h.s.Update(c, input, priv(q.ActorRoles))
 	return &assetv1.AssetResponse{Asset: pa(x)}, mapErr(e)
 }
 func (h *Handler) ListAssets(c context.Context, q *assetv1.ListAssetsRequest) (*assetv1.ListAssetsResponse, error) {
@@ -95,7 +129,15 @@ func (h *Handler) RecordIncident(c context.Context, q *assetv1.RecordIncidentReq
 	if e != nil {
 		return nil, bad(e)
 	}
-	v := models.Incident{AssetID: id, TicketID: optID(q.TicketId), FailureType: q.FailureType, Description: q.Description, Source: q.Source, Priority: q.Priority, OccurredAt: pt(q.OccurredAt)}
+	v := models.Incident{
+		AssetID:     id,
+		TicketID:    optID(q.TicketId),
+		FailureType: q.FailureType,
+		Description: q.Description,
+		Source:      q.Source,
+		Priority:    q.Priority,
+		OccurredAt:  pt(q.OccurredAt),
+	}
 	x, p, e := h.s.Incident(c, v, priv(q.ActorRoles))
 	return &assetv1.IncidentResponse{Incident: pi(x), Prediction: pp(p)}, mapErr(e)
 }
@@ -104,7 +146,16 @@ func (h *Handler) CompleteRepair(c context.Context, q *assetv1.CompleteRepairReq
 	if e != nil {
 		return nil, bad(e)
 	}
-	v := models.Repair{AssetID: id, IncidentID: optID(q.IncidentId), TicketID: optID(q.TicketId), BrigadeID: optID(q.BrigadeId), Description: q.Description, ReplacedComponents: q.ReplacedComponents, DurationMinutes: q.DurationMinutes, CompletedAt: pt(q.CompletedAt)}
+	v := models.Repair{
+		AssetID:            id,
+		IncidentID:         optID(q.IncidentId),
+		TicketID:           optID(q.TicketId),
+		BrigadeID:          optID(q.BrigadeId),
+		Description:        q.Description,
+		ReplacedComponents: q.ReplacedComponents,
+		DurationMinutes:    q.DurationMinutes,
+		CompletedAt:        pt(q.CompletedAt),
+	}
 	x, p, e := h.s.Repair(c, v, priv(q.ActorRoles))
 	return &assetv1.RepairResponse{Repair: pr(x), Prediction: pp(p)}, mapErr(e)
 }
@@ -113,7 +164,17 @@ func (h *Handler) RecordInspection(c context.Context, q *assetv1.RecordInspectio
 	if e != nil {
 		return nil, bad(e)
 	}
-	x, p, e := h.s.Inspection(c, models.Inspection{AssetID: id, InspectorID: a, Kind: q.Kind, Result: q.Result, DefectFound: q.DefectFound, ConditionScore: q.ConditionScore, Recommendation: q.Recommendation, InspectedAt: pt(q.InspectedAt)}, priv(q.ActorRoles))
+	inspection := models.Inspection{
+		AssetID:        id,
+		InspectorID:    a,
+		Kind:           q.Kind,
+		Result:         q.Result,
+		DefectFound:    q.DefectFound,
+		ConditionScore: q.ConditionScore,
+		Recommendation: q.Recommendation,
+		InspectedAt:    pt(q.InspectedAt),
+	}
+	x, p, e := h.s.Inspection(c, inspection, priv(q.ActorRoles))
 	return &assetv1.InspectionResponse{Inspection: pin(x), Prediction: pp(p)}, mapErr(e)
 }
 func (h *Handler) CreateMaintenancePlan(c context.Context, q *assetv1.CreateMaintenancePlanRequest) (*assetv1.MaintenancePlanResponse, error) {
@@ -121,7 +182,13 @@ func (h *Handler) CreateMaintenancePlan(c context.Context, q *assetv1.CreateMain
 	if e != nil {
 		return nil, bad(e)
 	}
-	x, e := h.s.CreatePlan(c, models.Plan{AssetID: id, Kind: q.Kind, IntervalDays: q.IntervalDays, NextDueAt: pt(q.NextDueAt)}, priv(q.ActorRoles))
+	plan := models.Plan{
+		AssetID:      id,
+		Kind:         q.Kind,
+		IntervalDays: q.IntervalDays,
+		NextDueAt:    pt(q.NextDueAt),
+	}
+	x, e := h.s.CreatePlan(c, plan, priv(q.ActorRoles))
 	return &assetv1.MaintenancePlanResponse{Plan: pplan(x)}, mapErr(e)
 }
 func (h *Handler) ListDueMaintenance(c context.Context, q *assetv1.ListDueMaintenanceRequest) (*assetv1.ListMaintenancePlansResponse, error) {
@@ -192,7 +259,10 @@ func pt(v *timestamppb.Timestamp) time.Time {
 	}
 	return v.AsTime()
 }
-func bad(e error) error { return status.Error(codes.InvalidArgument, e.Error()) }
+func bad(e error) error {
+	return status.Error(codes.InvalidArgument, e.Error())
+}
+
 func mapErr(e error) error {
 	if e == nil {
 		return nil
@@ -215,7 +285,33 @@ func pa(x *models.Asset) *assetv1.Asset {
 	if x == nil {
 		return nil
 	}
-	p := &assetv1.Asset{Id: x.ID.String(), ExternalId: x.ExternalID, DepartmentId: x.DepartmentID.String(), Type: x.Type, Name: x.Name, Address: x.Address, District: x.District, Municipality: x.Municipality, GeometryGeoJson: x.Geometry, Status: assetv1.AssetStatus(assetv1.AssetStatus_value["ASSET_STATUS_"+string(x.Status)]), Model: x.Model, SerialNumber: x.SerialNumber, InstallationYear: x.InstallationYear, ServiceLifeYears: x.ServiceLifeYears, Owner: x.Owner, ServiceOrganization: x.ServiceOrganization, Contractor: x.Contractor, InspectionIntervalDays: x.InspectionIntervalDays, ResponseNormMinutes: x.ResponseNormMinutes, RepairNormMinutes: x.RepairNormMinutes, Criticality: x.Criticality, RiskScore: x.RiskScore, RiskLevel: assetv1.RiskLevel(assetv1.RiskLevel_value["RISK_LEVEL_"+string(x.RiskLevel)]), CreatedAt: timestamppb.New(x.CreatedAt), UpdatedAt: timestamppb.New(x.UpdatedAt)}
+	p := &assetv1.Asset{
+		Id:                     x.ID.String(),
+		ExternalId:             x.ExternalID,
+		DepartmentId:           x.DepartmentID.String(),
+		Type:                   x.Type,
+		Name:                   x.Name,
+		Address:                x.Address,
+		District:               x.District,
+		Municipality:           x.Municipality,
+		GeometryGeoJson:        x.Geometry,
+		Status:                 assetv1.AssetStatus(assetv1.AssetStatus_value["ASSET_STATUS_"+string(x.Status)]),
+		Model:                  x.Model,
+		SerialNumber:           x.SerialNumber,
+		InstallationYear:       x.InstallationYear,
+		ServiceLifeYears:       x.ServiceLifeYears,
+		Owner:                  x.Owner,
+		ServiceOrganization:    x.ServiceOrganization,
+		Contractor:             x.Contractor,
+		InspectionIntervalDays: x.InspectionIntervalDays,
+		ResponseNormMinutes:    x.ResponseNormMinutes,
+		RepairNormMinutes:      x.RepairNormMinutes,
+		Criticality:            x.Criticality,
+		RiskScore:              x.RiskScore,
+		RiskLevel:              assetv1.RiskLevel(assetv1.RiskLevel_value["RISK_LEVEL_"+string(x.RiskLevel)]),
+		CreatedAt:              timestamppb.New(x.CreatedAt),
+		UpdatedAt:              timestamppb.New(x.UpdatedAt),
+	}
 	if x.WarrantyUntil != nil {
 		p.WarrantyUntil = timestamppb.New(*x.WarrantyUntil)
 	}
@@ -231,29 +327,70 @@ func pp(x *models.Prediction) *assetv1.FailurePrediction {
 	if x == nil {
 		return nil
 	}
-	return &assetv1.FailurePrediction{AssetId: x.AssetID.String(), RiskScore: x.Score, RiskLevel: assetv1.RiskLevel(assetv1.RiskLevel_value["RISK_LEVEL_"+string(x.Level)]), FailureProbability_90D: x.Probability, Factors: x.Factors, RecommendedAction: x.Action, CalculatedAt: timestamppb.New(x.CalculatedAt)}
+	return &assetv1.FailurePrediction{
+		AssetId:                x.AssetID.String(),
+		RiskScore:              x.Score,
+		RiskLevel:              assetv1.RiskLevel(assetv1.RiskLevel_value["RISK_LEVEL_"+string(x.Level)]),
+		FailureProbability_90D: x.Probability,
+		Factors:                x.Factors,
+		RecommendedAction:      x.Action,
+		CalculatedAt:           timestamppb.New(x.CalculatedAt),
+	}
 }
 func pi(x *models.Incident) *assetv1.Incident {
 	if x == nil {
 		return nil
 	}
-	return &assetv1.Incident{Id: x.ID.String(), AssetId: x.AssetID.String(), FailureType: x.FailureType, Description: x.Description, Source: x.Source, Priority: x.Priority, Repeated: x.Repeated, OccurredAt: timestamppb.New(x.OccurredAt)}
+	return &assetv1.Incident{
+		Id:          x.ID.String(),
+		AssetId:     x.AssetID.String(),
+		FailureType: x.FailureType,
+		Description: x.Description,
+		Source:      x.Source,
+		Priority:    x.Priority,
+		Repeated:    x.Repeated,
+		OccurredAt:  timestamppb.New(x.OccurredAt),
+	}
 }
 func pr(x *models.Repair) *assetv1.Repair {
 	if x == nil {
 		return nil
 	}
-	return &assetv1.Repair{Id: x.ID.String(), AssetId: x.AssetID.String(), Description: x.Description, ReplacedComponents: x.ReplacedComponents, DurationMinutes: x.DurationMinutes, CompletedAt: timestamppb.New(x.CompletedAt)}
+	return &assetv1.Repair{
+		Id:                 x.ID.String(),
+		AssetId:            x.AssetID.String(),
+		Description:        x.Description,
+		ReplacedComponents: x.ReplacedComponents,
+		DurationMinutes:    x.DurationMinutes,
+		CompletedAt:        timestamppb.New(x.CompletedAt),
+	}
 }
 func pin(x *models.Inspection) *assetv1.Inspection {
 	if x == nil {
 		return nil
 	}
-	return &assetv1.Inspection{Id: x.ID.String(), AssetId: x.AssetID.String(), InspectorUserId: x.InspectorID.String(), Kind: x.Kind, Result: x.Result, DefectFound: x.DefectFound, ConditionScore: x.ConditionScore, Recommendation: x.Recommendation, InspectedAt: timestamppb.New(x.InspectedAt)}
+	return &assetv1.Inspection{
+		Id:              x.ID.String(),
+		AssetId:         x.AssetID.String(),
+		InspectorUserId: x.InspectorID.String(),
+		Kind:            x.Kind,
+		Result:          x.Result,
+		DefectFound:     x.DefectFound,
+		ConditionScore:  x.ConditionScore,
+		Recommendation:  x.Recommendation,
+		InspectedAt:     timestamppb.New(x.InspectedAt),
+	}
 }
 func pplan(x *models.Plan) *assetv1.MaintenancePlan {
 	if x == nil {
 		return nil
 	}
-	return &assetv1.MaintenancePlan{Id: x.ID.String(), AssetId: x.AssetID.String(), Kind: x.Kind, IntervalDays: x.IntervalDays, NextDueAt: timestamppb.New(x.NextDueAt), Active: x.Active}
+	return &assetv1.MaintenancePlan{
+		Id:           x.ID.String(),
+		AssetId:      x.AssetID.String(),
+		Kind:         x.Kind,
+		IntervalDays: x.IntervalDays,
+		NextDueAt:    timestamppb.New(x.NextDueAt),
+		Active:       x.Active,
+	}
 }

@@ -108,6 +108,13 @@ type CompletionReportResult struct {
 	FileID string `json:"file_id"`
 	Name   string `json:"name"`
 }
+
+type CompletionCompensation struct {
+	WorkReportID string   `json:"work_report_id"`
+	FileID       string   `json:"file_id"`
+	RequestedBy  string   `json:"requested_by"`
+	ActorRoles   []string `json:"actor_roles"`
+}
 type Download struct {
 	Report    *Report
 	URL       string

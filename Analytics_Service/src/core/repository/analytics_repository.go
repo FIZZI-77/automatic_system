@@ -13,7 +13,9 @@ import (
 
 type AnalyticsRepoStruct struct{ db driver.Conn }
 
-func NewAnalyticsRepoStruct(db driver.Conn) *AnalyticsRepoStruct { return &AnalyticsRepoStruct{db: db} }
+func NewAnalyticsRepoStruct(db driver.Conn) *AnalyticsRepoStruct {
+	return &AnalyticsRepoStruct{db: db}
+}
 func (r *AnalyticsRepoStruct) Store(ctx context.Context, event models.Event) error {
 	payload, err := json.Marshal(event.Payload)
 	if err != nil {

@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-ticket-citus-nodes
+  namespace: automatic-system
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    cluster-name: postgres-ticket-citus
+  ports:
+    - name: postgres
+      port: 5432
+    - name: patroni
+      port: 8008
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-ticket-primary
+  namespace: automatic-system
+spec:
+  selector:
+    cluster-name: postgres-ticket-citus
+    citus-group: "0"
+    role: primary
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-ticket-replicas
+  namespace: automatic-system
+spec:
+  selector:
+    cluster-name: postgres-ticket-citus
+    citus-group: "0"
+    role: replica
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres

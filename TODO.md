@@ -79,8 +79,8 @@
 - Добавить gRPC panic recovery interceptors.
 - Добавить Prometheus/OpenTelemetry metrics.
 - Добавить OpenTelemetry tracing для цепочки Gateway -> gRPC -> DB/Kafka.
-- Добавить Jaeger и централизованное хранение логов.
-- После внедрения Istio добавить Kiali для визуализации service mesh и диагностики межсервисного трафика.
+- Защитить production-доступ к Jaeger, Kibana и Kiali через SSO/RBAC и TLS.
+- Настроить retention, snapshot lifecycle и alerting для Elasticsearch и Jaeger.
 - Перенести Gateway rate limit из памяти в Redis.
 - Добавить общий лимит размера HTTP body.
 - Добавить CI для unit, integration, fuzz, race, lint, migration checks и Docker images.
@@ -101,6 +101,8 @@ MinIO/File Service и ClickHouse/Analytics Service уже входят в тек
 
 ### Kiali
 
+- Базовый mesh настроен: strict mTLS для приложений, исключение публичных портов Gateway/Frontend, Prometheus/Kiali/Jaeger links, connection-pool circuit breaking и audit-policy для неаутентифицированного backend-трафика.
+- Canary 90/10 и безопасные retry для health endpoints подготовлены как opt-in сценарий; перед проверкой нужны отдельные stable/canary Gateway deployments.
 - Разворачивать Kiali только вместе с Istio: без service mesh он не является заменой Prometheus, Grafana, Jaeger или OpenTelemetry.
 - Подключить Prometheus как обязательный источник метрик, Grafana и Jaeger — как внешние ссылки для перехода от графа сервисов к метрикам и трассировкам.
 - Использовать Kiali для отображения связей Gateway -> gRPC-сервисы, RPS, latency, error rate, retry и состояния mTLS.

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"dispatch/pkg/telemetry"
 	"log"
 	"net"
 	"os"
@@ -19,13 +20,24 @@ import (
 	locationv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/location/v1"
 	routingv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/routing/v1"
 	ticketv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/ticket/v1"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/health"
+	healthv1 "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 func main() {
+	telemetryProviders, err := telemetry.Init(context.Background(), "dispatch-service")
+	if err != nil {
+		log.Fatalf("initialize OpenTelemetry: %v", err)
+	}
+	defer func() {
+		if shutdownErr := telemetryProviders.Close(); shutdownErr != nil {
+			log.Printf("shutdown OpenTelemetry: %v", shutdownErr)
+		}
+	}()
+
 	if err := appconfig.Load(); err != nil {
 		log.Fatalf("configuration error: %v", err)
 	}
@@ -33,16 +45,28 @@ func main() {
 	defer stop()
 	logger, _ := zap.NewProduction()
 	defer logger.Sync()
-	db, err := pgxpool.New(ctx, required("DATABASE_URL"))
+	writeDB, err := telemetry.NewPostgresPool(ctx, required("DATABASE_URL"))
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer db.Close()
-	if err = db.Ping(ctx); err != nil {
+	defer writeDB.Close()
+	if err = writeDB.Ping(ctx); err != nil {
+		log.Fatal(err)
+	}
+	readDB, err := telemetry.NewPostgresPool(ctx, env("READ_DATABASE_URL", required("DATABASE_URL")))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer readDB.Close()
+	if err = readDB.Ping(ctx); err != nil {
 		log.Fatal(err)
 	}
 	dial := func(address string) *grpc.ClientConn {
-		connection, dialErr := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		connection, dialErr := grpc.NewClient(
+			address,
+			telemetry.GRPCClientOption(),
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+		)
 		if dialErr != nil {
 			log.Fatal(dialErr)
 		}
@@ -56,7 +80,18 @@ func main() {
 	defer locationConn.Close()
 	routingConn := dial(env("ROUTING_SERVICE_ADDR", "routing-service:50057"))
 	defer routingConn.Close()
-	value, err := service.New(repository.New(db), service.Dependencies{Tickets: ticketv1.NewTicketServiceClient(ticketConn), Brigades: brigadev1.NewBrigadeServiceClient(brigadeConn), Location: locationv1.NewLocationServiceClient(locationConn), Routing: routingv1.NewRoutingServiceClient(routingConn)}, duration("RESERVATION_TTL", 2*time.Minute), logger)
+	dependencies := service.Dependencies{
+		Tickets:  ticketv1.NewTicketServiceClient(ticketConn),
+		Brigades: brigadev1.NewBrigadeServiceClient(brigadeConn),
+		Location: locationv1.NewLocationServiceClient(locationConn),
+		Routing:  routingv1.NewRoutingServiceClient(routingConn),
+	}
+	value, err := service.New(
+		repository.New(writeDB, readDB),
+		dependencies,
+		duration("RESERVATION_TTL", 2*time.Minute),
+		logger,
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -67,8 +102,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	server := grpc.NewServer()
+	server := grpc.NewServer(telemetry.GRPCServerOption())
 	dispatchv1.RegisterDispatchServiceServer(server, handler.New(value))
+	healthv1.RegisterHealthServer(server, health.NewServer())
 	go func() {
 		logger.Info("dispatch gRPC started", zap.String("address", listener.Addr().String()))
 		if serveErr := server.Serve(listener); serveErr != nil {

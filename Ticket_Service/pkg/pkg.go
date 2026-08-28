@@ -3,6 +3,7 @@ package pkg
 import (
 	"context"
 	"fmt"
+	"ticket/pkg/telemetry"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -20,7 +21,7 @@ func NewPostgresDB(cfg Config) (*pgxpool.Pool, error) {
 	connString := fmt.Sprintf("host=%s port=%s user=%s dbname=%s password=%s sslmode=%s",
 		cfg.Host, cfg.Port, cfg.Username, cfg.DbName, cfg.Password, cfg.SSLMode)
 
-	db, err := pgxpool.New(context.Background(), connString)
+	db, err := telemetry.NewPostgresPool(context.Background(), connString)
 	if err != nil {
 		return nil, err
 	}

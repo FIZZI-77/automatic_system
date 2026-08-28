@@ -16,6 +16,11 @@ function positionTime(value: number) {
   return Number.isNaN(date.getTime()) ? "Время не указано" : `Позиция: ${date.toLocaleString("ru-RU")}`;
 }
 
+function positionStatus(value: number) {
+  const recordedAt = value > 1e12 ? value : value * 1000;
+  return recordedAt >= Date.now() - 120_000 ? "Координаты актуальны" : "Последняя известная позиция";
+}
+
 export function BrigadesPage({ tickets, vehicles, zones, onOpenMap, onOpenZones }: {
   tickets: Ticket[];
   vehicles: Position[];
@@ -76,7 +81,7 @@ export function BrigadesPage({ tickets, vehicles, zones, onOpenMap, onOpenZones 
         <h3>Машины бригады</h3>
         {currentVehicles.length ? <div className="brigade-vehicles">{currentVehicles.map((vehicle) => <button key={vehicle.vehicle_id} onClick={() => onOpenMap(vehicle.vehicle_id)}>
           <i>▲</i>
-          <span><b>{vehicleDisplayName(vehicle.vehicle_id)}</b><small>ID машины: {vehicle.vehicle_id}</small><small>{Math.round(vehicle.speed_kmh)} км/ч · курс {Math.round(vehicle.heading)}°</small><small>{positionTime(Number(vehicle.recorded_at))}</small></span>
+          <span><b>{vehicleDisplayName(vehicle.vehicle_id)}</b><small>ID машины: {vehicle.vehicle_id}</small><small>{Math.round(vehicle.speed_kmh)} км/ч · курс {Math.round(vehicle.heading)}°</small><small>{positionStatus(Number(vehicle.recorded_at))}</small><small>{positionTime(Number(vehicle.recorded_at))}</small></span>
           <em>На карте →</em>
         </button>)}</div> : <p className="no-jobs">От машин бригады ещё не поступали координаты.</p>}
         <h3>Текущие задания</h3>

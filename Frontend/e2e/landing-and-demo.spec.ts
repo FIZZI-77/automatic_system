@@ -48,10 +48,11 @@ test.describe("Лендинг и демонстрационный режим", (
   test("глобальный поиск находит заявку и раздел", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("button", { name: "Открыть демо" }).click();
+    await expect(page.getByText("Повреждён дорожный знак", { exact: true }).first()).toBeVisible();
     await page.getByRole("button", { name: "Открыть поиск" }).click();
     const dialog = page.getByRole("dialog", { name: "Поиск по системе" });
-    await dialog.getByRole("searchbox").fill("водопровода");
-    await expect(dialog.getByText("Повреждение водопровода")).toBeVisible();
+    await dialog.getByRole("searchbox").fill("дорожный знак");
+    await expect(dialog.getByText("Повреждён дорожный знак")).toBeVisible();
     await dialog.getByRole("searchbox").fill("отчёты");
     await expect(dialog.getByText("Отчёты", { exact: true })).toBeVisible();
     await dialog.getByRole("button", { name: "Закрыть поиск" }).click();

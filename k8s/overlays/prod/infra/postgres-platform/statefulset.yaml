@@ -1,0 +1,191 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-platform
+  namespace: automatic-system
+  labels:
+    app.kubernetes.io/name: patroni
+    app.kubernetes.io/instance: platform
+    app.kubernetes.io/component: database
+spec:
+  serviceName: postgres-platform-nodes
+  replicas: 3
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      cluster-name: postgres-platform
+  template:
+    metadata:
+      labels:
+        cluster-name: postgres-platform
+        app.kubernetes.io/name: patroni
+        app.kubernetes.io/instance: platform
+        app.kubernetes.io/component: database
+    spec:
+      serviceAccountName: postgres-platform
+      automountServiceAccountToken: true
+      terminationGracePeriodSeconds: 120
+      securityContext:
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  cluster-name: postgres-platform
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - name: postgres
+          image: automatic-system-postgres-ha:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: postgres
+              containerPort: 5432
+            - name: patroni
+              containerPort: 8008
+          envFrom:
+            - secretRef:
+                name: runtime-secrets
+          env:
+            - name: PATRONI_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: PATRONI_KUBERNETES_POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: PGBACKREST_STANZA
+              value: platform
+            - name: PGBACKREST_PG1_PATH
+              value: /var/lib/postgresql/data/pgdata
+            - name: PGBACKREST_REPO1_TYPE
+              value: s3
+            - name: PGBACKREST_REPO1_S3_ENDPOINT
+              value: http://minio:9000
+            - name: PGBACKREST_REPO1_S3_BUCKET
+              value: postgres-backups
+            - name: PGBACKREST_REPO1_S3_REGION
+              value: us-east-1
+            - name: PGBACKREST_REPO1_S3_URI_STYLE
+              value: path
+            - name: PGBACKREST_REPO1_S3_VERIFY_TLS
+              value: "n"
+            - name: PGBACKREST_REPO1_S3_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: runtime-secrets
+                  key: S3_ACCESS_KEY
+            - name: PGBACKREST_REPO1_S3_KEY_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: runtime-secrets
+                  key: S3_SECRET_KEY
+            - name: PGBACKREST_REPO1_RETENTION_FULL
+              value: "4"
+            - name: PGBACKREST_REPO1_BUNDLE
+              value: "y"
+            - name: PGBACKREST_REPO1_BLOCK
+              value: "y"
+            - name: PGBACKREST_COMPRESS_TYPE
+              value: zst
+            - name: PGBACKREST_ARCHIVE_ASYNC
+              value: "y"
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: patroni-config
+              mountPath: /etc/patroni
+            - name: patroni-config
+              mountPath: /opt/automatic-system/bootstrap-platform.sh
+              subPath: bootstrap-platform.sh
+          readinessProbe:
+            httpGet:
+              path: /readiness
+              port: patroni
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /liveness
+              port: patroni
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 500m
+              memory: 2Gi
+            limits:
+              cpu: "4"
+              memory: 8Gi
+          securityContext:
+            runAsUser: 999
+            runAsGroup: 999
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+        - name: postgres-exporter
+          image: quay.io/prometheuscommunity/postgres-exporter:v0.19.1
+          args: [--web.listen-address=:9187]
+          ports:
+            - name: pg-metrics
+              containerPort: 9187
+          env:
+            - name: DATA_SOURCE_URI
+              value: 127.0.0.1:5432/postgres?sslmode=disable
+            - name: DATA_SOURCE_USER
+              value: postgres
+            - name: DATA_SOURCE_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: runtime-secrets
+                  key: PLATFORM_POSTGRES_SUPERUSER_PASSWORD
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: pg-metrics
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: pg-metrics
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+      volumes:
+        - name: patroni-config
+          configMap:
+            name: postgres-platform-patroni
+            defaultMode: 0755
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: standard-rwo
+        volumeMode: Filesystem
+        resources:
+          requests:
+            storage: 200Gi
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain

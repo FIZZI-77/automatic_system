@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"routing/pkg/telemetry"
 	"strconv"
 	"strings"
 	"sync"
@@ -110,7 +111,7 @@ func (w *Worker) consume(ctx context.Context, reader *kafka.Reader) error {
 			case <-timer.C:
 			}
 		}
-		if err = w.apply(ctx, message); err != nil {
+		if err = telemetry.TraceKafkaConsumer(ctx, message, "", w.apply); err != nil {
 			w.logger.Error("ticket event processing failed", zap.Error(err), zap.Int64("offset", message.Offset))
 			if retryErr := w.retryOrDLQ(ctx, message, err); retryErr != nil {
 				return errors.Join(err, retryErr)
@@ -196,7 +197,7 @@ func (w *Worker) retryOrDLQ(ctx context.Context, message kafka.Message, processE
 	if attempt > 5 {
 		topic = w.topic + ".dlq"
 	}
-	return w.writer.WriteMessages(ctx, kafka.Message{Topic: topic, Key: message.Key, Value: message.Value, Headers: withHeaders(message.Headers, attempt, processErr), Time: time.Now().UTC()})
+	return telemetry.WriteKafka(ctx, w.writer, kafka.Message{Topic: topic, Key: message.Key, Value: message.Value, Headers: withHeaders(message.Headers, attempt, processErr), Time: time.Now().UTC()})
 }
 
 func header(headers []kafka.Header, key string) string {

@@ -85,6 +85,8 @@ spec:
 
           envFrom:
             - configMapRef:
+                name: telemetry-config
+            - configMapRef:
                 name: location-service-config
 
           env:

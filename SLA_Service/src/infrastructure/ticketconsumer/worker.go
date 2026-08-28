@@ -3,10 +3,12 @@ package ticketconsumer
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"github.com/google/uuid"
 	"github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
 	"sla/models"
+	"sla/pkg/telemetry"
 	"sla/src/core/service"
 	"strings"
 	"time"
@@ -16,10 +18,11 @@ type Worker struct {
 	reader *kafka.Reader
 	s      *service.Service
 	log    *zap.Logger
+	group  string
 }
 
 func New(brokers []string, topic, group string, s *service.Service, l *zap.Logger) *Worker {
-	return &Worker{reader: kafka.NewReader(kafka.ReaderConfig{Brokers: brokers, Topic: topic, GroupID: group, MinBytes: 1, MaxBytes: 10e6, CommitInterval: 0}), s: s, log: l}
+	return &Worker{reader: kafka.NewReader(kafka.ReaderConfig{Brokers: brokers, Topic: topic, GroupID: group, MinBytes: 1, MaxBytes: 10e6, CommitInterval: 0}), s: s, log: l, group: group}
 }
 func (w *Worker) Close() error { return w.reader.Close() }
 
@@ -42,8 +45,10 @@ func (w *Worker) Run(ctx context.Context) error {
 		if e != nil {
 			return e
 		}
+		messageCtx, span := telemetry.StartKafkaConsumer(ctx, m, w.group)
 		var p payload
 		if e = json.Unmarshal(m.Value, &p); e != nil {
+			telemetry.End(span, e)
 			w.log.Error("invalid ticket event", zap.Error(e))
 			_ = w.reader.CommitMessages(ctx, m)
 			continue
@@ -61,18 +66,22 @@ func (w *Worker) Run(ctx context.Context) error {
 		did, e2 := uuid.Parse(p.DepartmentID)
 		cid, e3 := uuid.Parse(p.CategoryID)
 		if e1 != nil || e2 != nil || e3 != nil {
+			telemetry.End(span, errors.Join(e1, e2, e3))
 			w.log.Error("invalid ticket event identifiers")
 			_ = w.reader.CommitMessages(ctx, m)
 			continue
 		}
-		e = w.s.Consume(ctx, models.TicketEvent{EventID: p.EventID, EventType: p.EventType, TicketID: tid, DepartmentID: did, CategoryID: cid, Priority: models.Priority(strings.ToUpper(p.Priority)), Status: p.Status, CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt})
+		e = w.s.Consume(messageCtx, models.TicketEvent{EventID: p.EventID, EventType: p.EventType, TicketID: tid, DepartmentID: did, CategoryID: cid, Priority: models.Priority(strings.ToUpper(p.Priority)), Status: p.Status, CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt})
 		if e != nil {
+			telemetry.End(span, e)
 			w.log.Error("ticket event processing failed", zap.Error(e))
 			continue
 		}
 		if e = w.reader.CommitMessages(ctx, m); e != nil {
+			telemetry.End(span, e)
 			return e
 		}
+		telemetry.End(span, nil)
 	}
 }
 func header(m kafka.Message, key string) string {

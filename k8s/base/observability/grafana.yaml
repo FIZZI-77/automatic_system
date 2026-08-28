@@ -1,0 +1,156 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: automatic-system
+  labels:
+    app: grafana
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/part-of: automatic-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        sidecar.istio.io/inject: "true"
+        app: grafana
+        app.kubernetes.io/name: grafana
+        app.kubernetes.io/component: observability
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: grafana
+          image: grafana/grafana:13.1.0
+          env:
+            - name: GF_AUTH_ANONYMOUS_ENABLED
+              value: "true"
+            - name: GF_AUTH_ANONYMOUS_ORG_ROLE
+              value: Viewer
+            - name: GF_USERS_DEFAULT_THEME
+              value: dark
+            # Bundled data source plugins live on the read-only image layer.
+            # Updating them at startup unregisters the running plugin before
+            # the replacement fails with EACCES.
+            - name: GF_PLUGINS_PREINSTALL_AUTO_UPDATE
+              value: "false"
+            - name: GF_PLUGINS_CHECK_FOR_UPDATES
+              value: "false"
+          ports:
+            - name: http
+              containerPort: 3000
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: datasources
+              mountPath: /etc/grafana/provisioning/datasources/datasources.yaml
+              subPath: datasources.yaml
+              readOnly: true
+            - name: dashboard-provider
+              mountPath: /etc/grafana/provisioning/dashboards/dashboards.yaml
+              subPath: dashboards.yaml
+              readOnly: true
+            - name: dashboards
+              mountPath: /var/lib/grafana/dashboards
+              readOnly: true
+            - name: data
+              mountPath: /var/lib/grafana
+      volumes:
+        - name: datasources
+          configMap:
+            name: grafana-datasources
+        - name: dashboard-provider
+          configMap:
+            name: grafana-dashboard-provider
+        - name: dashboards
+          projected:
+            sources:
+              - configMap:
+                  name: grafana-dashboards-services-a
+              - configMap:
+                  name: grafana-dashboards-services-b
+              - configMap:
+                  name: grafana-dashboards-services-c
+              - configMap:
+                  name: grafana-dashboards-services-d
+              - configMap:
+                  name: grafana-dashboards-database-clusters
+              - configMap:
+                  name: grafana-dashboards-database-platform-nodes
+              - configMap:
+                  name: grafana-dashboards-database-citus-nodes-a
+              - configMap:
+                  name: grafana-dashboards-database-citus-nodes-b
+              - configMap:
+                  name: grafana-dashboards-database-pgbouncer
+              - configMap:
+                  name: grafana-dashboards-postgres-databases-a
+              - configMap:
+                  name: grafana-dashboards-postgres-databases-b
+              - configMap:
+                  name: grafana-dashboards-postgres-databases-c
+              - configMap:
+                  name: grafana-dashboards-messaging
+              - configMap:
+                  name: grafana-dashboards-platform
+              - configMap:
+                  name: grafana-dashboard-community-postgresql
+              - configMap:
+                  name: grafana-dashboard-community-redis
+              - configMap:
+                  name: grafana-dashboard-community-kafka
+              - configMap:
+                  name: grafana-dashboard-community-kubernetes
+              - configMap:
+                  name: grafana-dashboard-community-node-exporter
+              - configMap:
+                  name: grafana-dashboard-community-etcd
+              - configMap:
+                  name: grafana-dashboard-community-prometheus
+              - configMap:
+                  name: grafana-dashboard-community-clickhouse
+              - configMap:
+                  name: grafana-dashboard-community-minio
+        - name: data
+          emptyDir: {}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 472
+        runAsGroup: 472
+        fsGroup: 472
+        seccompProfile:
+          type: RuntimeDefault
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: automatic-system
+spec:
+  selector:
+    app: grafana
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http

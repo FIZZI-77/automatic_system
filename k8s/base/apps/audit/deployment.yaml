@@ -27,6 +27,9 @@ spec:
       - name: audit-service
         image: automatic-system/audit:dev
         imagePullPolicy: IfNotPresent
+        envFrom:
+        - configMapRef:
+            name: telemetry-config
         ports:
         - name: grpc
           containerPort: 50062
@@ -38,14 +41,14 @@ spec:
             cpu: 500m
             memory: 512Mi
         readinessProbe:
-          tcpSocket:
+          grpc:
             port: 50062
           initialDelaySeconds: 3
           periodSeconds: 5
           failureThreshold: 3
           timeoutSeconds: 2
         livenessProbe:
-          tcpSocket:
+          grpc:
             port: 50062
           initialDelaySeconds: 15
           periodSeconds: 10
@@ -57,7 +60,7 @@ spec:
             drop:
             - ALL
         startupProbe:
-          tcpSocket:
+          grpc:
             port: 50062
           periodSeconds: 2
           timeoutSeconds: 1

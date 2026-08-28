@@ -1,6 +1,7 @@
 package main
 
 import (
+	"brigade/pkg/telemetry"
 	"bufio"
 	"context"
 	"fmt"
@@ -17,6 +18,8 @@ import (
 	profilev1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/profile/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/health"
+	healthv1 "google.golang.org/grpc/health/grpc_health_v1"
 
 	"brigade/pkg"
 	"brigade/pkg/closer"
@@ -27,6 +30,16 @@ import (
 )
 
 func main() {
+	telemetryProviders, err := telemetry.Init(context.Background(), "brigade-service")
+	if err != nil {
+		log.Fatalf("initialize OpenTelemetry: %v", err)
+	}
+	defer func() {
+		if shutdownErr := telemetryProviders.Close(); shutdownErr != nil {
+			log.Printf("shutdown OpenTelemetry: %v", shutdownErr)
+		}
+	}()
+
 	if err := appconfig.Load(); err != nil {
 		log.Fatalf("configuration error: %v", err)
 	}
@@ -42,28 +55,42 @@ func main() {
 		log.Fatal("error loading .env file")
 	}
 
-	db, err := pkg.NewPostgresDB(pkg.Config{
+	dbConfig := pkg.Config{
 		Host:     os.Getenv("DB_HOST"),
 		Port:     os.Getenv("DB_PORT"),
 		Username: os.Getenv("DB_USERNAME"),
 		Password: os.Getenv("DB_PASSWORD"),
 		DbName:   os.Getenv("DB_NAME"),
 		SSLMode:  os.Getenv("SSLMODE"),
-	})
+	}
+	writeDB, err := pkg.NewPostgresDB(dbConfig)
 	if err != nil {
 		log.Fatalf("failed to connect db: %v", err)
 	}
 	dependencies.Add("postgres", func() error {
-		db.Close()
+		writeDB.Close()
+		return nil
+	})
+	readHost := strings.TrimSpace(os.Getenv("DB_READ_HOST"))
+	if readHost == "" {
+		readHost = dbConfig.Host
+	}
+	dbConfig.Host = readHost
+	readDB, err := pkg.NewPostgresDB(dbConfig)
+	if err != nil {
+		log.Fatalf("failed to connect read db: %v", err)
+	}
+	dependencies.Add("postgres read", func() error {
+		readDB.Close()
 		return nil
 	})
 	defer closeDependencies(dependencies)
-	startOutboxRelay(db, dependencies, logger)
-	startProfileConsumer(db, dependencies, logger)
-	startRoutingConsumer(db, dependencies, logger)
-	startTicketConsumer(db, dependencies, logger)
+	startOutboxRelay(writeDB, dependencies, logger)
+	startProfileConsumer(writeDB, dependencies, logger)
+	startRoutingConsumer(writeDB, dependencies, logger)
+	startTicketConsumer(writeDB, dependencies, logger)
 
-	departmentConn, err := grpc.NewClient(
+	departmentConn, err := newGRPCClient(
 		envOrDefault("DEPARTMENT_GRPC_ADDR", "localhost:50053"),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithChainUnaryInterceptor(
@@ -75,7 +102,7 @@ func main() {
 	}
 	dependencies.Add("department grpc", departmentConn.Close)
 
-	profileConn, err := grpc.NewClient(
+	profileConn, err := newGRPCClient(
 		envOrDefault("PROFILE_GRPC_ADDR", "localhost:50055"),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithChainUnaryInterceptor(pkg.RequestIDUnaryClientInterceptor),
@@ -92,6 +119,7 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer(
+		telemetry.GRPCServerOption(),
 		grpc.ChainUnaryInterceptor(
 			pkg.RequestIDUnaryServerInterceptor,
 			profileDepartmentInterceptor(profilev1.NewProfileServiceClient(profileConn)),
@@ -100,13 +128,14 @@ func main() {
 		),
 	)
 
-	repo := repository.NewRepository(repository.DBPools{Write: db, Read: db})
+	repo := repository.NewRepository(repository.DBPools{Write: writeDB, Read: readDB})
 	departmentClient := departmentv1.NewDepartmentServiceClient(departmentConn)
 	profileClient := profilev1.NewProfileServiceClient(profileConn)
 	brigadeService := service.NewServiceWithProfile(repo, departmentClient, profileClient, logger)
 	brigadeHandler := handler.NewBrigadeHandler(brigadeService, logger)
 
 	brigadev1.RegisterBrigadeServiceServer(grpcServer, brigadeHandler)
+	healthv1.RegisterHealthServer(grpcServer, health.NewServer())
 
 	serverErrCh := make(chan error, 1)
 	go func() {
@@ -198,4 +227,9 @@ func closeDependencies(dependencies *closer.Closer) {
 	if err := dependencies.Close(ctx); err != nil {
 		log.Printf("failed to close dependencies: %v", err)
 	}
+}
+
+func newGRPCClient(target string, options ...grpc.DialOption) (*grpc.ClientConn, error) {
+	options = append([]grpc.DialOption{telemetry.GRPCClientOption()}, options...)
+	return grpc.NewClient(target, options...)
 }

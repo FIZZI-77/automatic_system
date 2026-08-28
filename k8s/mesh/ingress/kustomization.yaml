@@ -1,0 +1,9 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: automatic-system
+resources:
+  - gateway.yaml
+  - routes.yaml
+  - destination-rules.yaml
+  - network-policy.yaml
+  - public-port-authentication.yaml

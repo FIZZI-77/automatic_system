@@ -215,7 +215,7 @@ func (r *Repository) ClaimDelivery(ctx context.Context) (*models.Delivery, *mode
 	}
 	defer tx.Rollback(ctx)
 	d := new(models.Delivery)
-	e = tx.QueryRow(ctx, `SELECT id,notification_id,channel,recipient,status,provider_id,attempts,next_attempt_at,last_error,created_at,updated_at FROM deliveries WHERE status IN('PENDING','FAILED') AND next_attempt_at<=now() AND attempts<8 ORDER BY next_attempt_at FOR UPDATE SKIP LOCKED LIMIT 1`).Scan(&d.ID, &d.NotificationID, &d.Channel, &d.Recipient, &d.Status, &d.ProviderID, &d.Attempts, &d.NextAttemptAt, &d.LastError, &d.CreatedAt, &d.UpdatedAt)
+	e = tx.QueryRow(ctx, `SELECT id,notification_id,channel,recipient,status,provider_id,attempts,next_attempt_at,last_error,created_at,updated_at FROM deliveries WHERE (status IN('PENDING','FAILED') AND next_attempt_at<=now() OR status='PROCESSING' AND locked_at < now()-interval '5 minutes') AND attempts<8 ORDER BY next_attempt_at FOR UPDATE SKIP LOCKED LIMIT 1`).Scan(&d.ID, &d.NotificationID, &d.Channel, &d.Recipient, &d.Status, &d.ProviderID, &d.Attempts, &d.NextAttemptAt, &d.LastError, &d.CreatedAt, &d.UpdatedAt)
 	if e != nil {
 		return nil, nil, e
 	}

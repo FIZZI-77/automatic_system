@@ -1,0 +1,40 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: postgres-ticket-citus-bootstrap-local
+  namespace: automatic-system
+spec:
+  activeDeadlineSeconds: 600
+  backoffLimit: 12
+  template:
+    spec:
+      serviceAccountName: postgres-ticket-citus
+      restartPolicy: OnFailure
+      containers:
+        - name: bootstrap
+          image: automatic-system-kubectl:dev-shell
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              for group in 0 1 2; do
+                until pod="$(kubectl get pods \
+                  --namespace=automatic-system \
+                  --selector="cluster-name=postgres-ticket-citus,citus-group=$group,role=primary" \
+                  --output=jsonpath='{.items[0].metadata.name}' 2>/dev/null)" \
+                  && test -n "$pod"; do
+                  sleep 2
+                done
+
+                until kubectl exec --namespace=automatic-system "$pod" -- \
+                  /opt/automatic-system/bootstrap-ticket.sh; do
+                  sleep 2
+                done
+              done
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi

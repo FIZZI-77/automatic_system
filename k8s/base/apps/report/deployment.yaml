@@ -40,14 +40,14 @@ spec:
             cpu: 500m
             memory: 512Mi
         readinessProbe:
-          tcpSocket:
+          grpc:
             port: 50064
           initialDelaySeconds: 3
           periodSeconds: 5
           failureThreshold: 3
           timeoutSeconds: 2
         livenessProbe:
-          tcpSocket:
+          grpc:
             port: 50064
           initialDelaySeconds: 15
           periodSeconds: 10
@@ -59,12 +59,14 @@ spec:
             drop:
             - ALL
         startupProbe:
-          tcpSocket:
+          grpc:
             port: 50064
           periodSeconds: 2
           timeoutSeconds: 1
           failureThreshold: 45
         envFrom:
+        - configMapRef:
+            name: telemetry-config
         - configMapRef:
             name: report-service-config
         env:

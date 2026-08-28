@@ -15,7 +15,7 @@ test.describe("Роли и серверная авторизация", () => {
     await page.locator("aside nav").getByText("Задания").click();
     await expect(page.getByRole("heading", { name: "Работа с заявками" })).toBeVisible();
     await page.getByRole("button", { name: "Открыть профиль" }).click();
-    await expect(page.getByRole("heading", { name: "Профиль" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Профиль", level: 2 })).toBeVisible();
     await expect(page.getByText("Департамент", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Изменить пароль" })).toBeVisible();
   });

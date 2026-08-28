@@ -39,11 +39,11 @@ test.describe("Административные модули", () => {
     await expect(person).toBeVisible();
     await person.click();
     await expect(page.getByText("Действующие навыки")).toBeVisible();
-    await expect(page.getByText("Удостоверения", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Удостоверения", exact: true })).toBeVisible();
 
     await page.locator("aside nav").getByText("Удостоверения", { exact: true }).click();
-    await expect(page.getByRole("heading", { name: /Удостоверения и допуски/ })).toBeVisible();
-    await expect(page.locator(".certification-list, .certifications-list").first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Удостоверения и допуски/, level: 2 })).toBeVisible();
+    await expect(page.locator(".people-qualification-list")).toBeVisible();
   });
 
   test("SLA и аудит показывают человекочитаемые карточки", async ({ page }) => {
@@ -59,7 +59,7 @@ test.describe("Административные модули", () => {
     }
 
     await page.locator("aside nav").getByText("Аудит", { exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Журнал аудита" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Журнал аудита", level: 2 })).toBeVisible();
     const auditRow = page.locator(".audit-row").first();
     if (await auditRow.count()) {
       await auditRow.click();
@@ -71,7 +71,7 @@ test.describe("Административные модули", () => {
 
   test("аналитика выводит расширенный набор показателей", async ({ page }) => {
     await page.locator("aside nav").getByText("Аналитика", { exact: true }).click();
-    for (const text of ["Обращения и SLA по дням", "Состояние SLA", "Предупреждения реакции", "Нарушения выполнения", "Городская инфраструктура"]) {
+    for (const text of ["Обращения и SLA по дням", "Состояние SLA", "Предупреждения реакции", "Нарушения выполнения", "Аналитика инфраструктуры"]) {
       await expect(page.getByText(text, { exact: true }).first()).toBeVisible();
     }
     await expect(page.getByRole("button", { name: "30 дней" })).toBeVisible();
@@ -80,10 +80,9 @@ test.describe("Административные модули", () => {
   test("конструктор отчётов поддерживает общий отчёт и отчёт по заявке", async ({ page }) => {
     await page.locator("aside nav").getByText("Отчёты", { exact: true }).click();
     await expect(page.getByText("Полный аналитический отчёт")).toBeVisible();
+    await page.getByRole("button", { name: "По заявке" }).click();
     await expect(page.getByText("Отчёт о выполнении")).toBeVisible();
-    await expect(page.getByLabel("Название")).toBeVisible();
     await expect(page.getByLabel("Заявка")).toBeVisible();
-    await expect(page.getByRole("button", { name: /Сформировать полный отчёт/ })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Сформировать отчёт по заявке/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Сформировать по заявке" })).toBeVisible();
   });
 });

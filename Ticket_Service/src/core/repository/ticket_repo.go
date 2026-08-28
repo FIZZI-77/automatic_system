@@ -475,6 +475,29 @@ func (t *TicketRepoStruct) assignBrigade(ctx context.Context, q Querier, in *mod
 		return nil, fmt.Errorf("repository: AssignBrigade(): %w", err)
 	}
 
+	// Serialise assignments for the same brigade. Locking only the ticket row is
+	// insufficient because concurrent requests can assign two different tickets.
+	if _, err = q.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1::text))`, in.BrigadeID); err != nil {
+		return nil, fmt.Errorf("repository: AssignBrigade(): lock brigade: %w", err)
+	}
+
+	var brigadeBusy bool
+	const brigadeBusyQuery = `
+		SELECT EXISTS (
+			SELECT 1
+			FROM tickets
+			WHERE brigade_id = $1
+			  AND id <> $2
+			  AND status IN ('ASSIGNED', 'IN_PROGRESS')
+		)
+	`
+	if err = q.QueryRow(ctx, brigadeBusyQuery, in.BrigadeID, in.TicketID).Scan(&brigadeBusy); err != nil {
+		return nil, fmt.Errorf("repository: AssignBrigade(): check active ticket: %w", err)
+	}
+	if brigadeBusy {
+		return nil, fmt.Errorf("repository: AssignBrigade(): %w", models.ErrBrigadeBusy)
+	}
+
 	const query = `
 		UPDATE tickets
 		SET brigade_id = $1,
@@ -832,6 +855,7 @@ func (t *TicketRepoStruct) insertTicketStatusHistory(
 	const query = `
 		INSERT INTO ticket_status_history (
 			id,
+			department_id,
 			ticket_id,
 			old_status,
 			new_status,
@@ -839,7 +863,9 @@ func (t *TicketRepoStruct) insertTicketStatusHistory(
 			comment,
 			created_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, now())
+		SELECT $1, department_id, id, $3, $4, $5, $6, now()
+		FROM tickets
+		WHERE id = $2
 	`
 
 	var oldStatusValue any
@@ -924,6 +950,17 @@ func (t *TicketRepoStruct) insertTicketCreatedOutboxEvent(ctx context.Context, e
 }
 
 func (t *TicketRepoStruct) getTicketByIDForUpdate(ctx context.Context, exec Querier, ticketID uuid.UUID) (*models.Ticket, error) {
+	const departmentQuery = `
+		SELECT department_id
+		FROM tickets
+		WHERE id = $1
+	`
+
+	var departmentID uuid.UUID
+	if err := exec.QueryRow(ctx, departmentQuery, ticketID).Scan(&departmentID); err != nil {
+		return nil, err
+	}
+
 	const query = `
 		SELECT
 			id,
@@ -945,11 +982,11 @@ func (t *TicketRepoStruct) getTicketByIDForUpdate(ctx context.Context, exec Quer
 			canceled_at
 			,asset_id
 		FROM tickets
-		WHERE id = $1
+		WHERE department_id = $1 AND id = $2
 		FOR UPDATE
 	`
 
-	row := exec.QueryRow(ctx, query, ticketID)
+	row := exec.QueryRow(ctx, query, departmentID, ticketID)
 
 	ticket, err := scanTicket(row)
 	if err != nil {

@@ -1,0 +1,39 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: postgres-ticket-citus-backup-init
+  namespace: automatic-system
+spec:
+  backoffLimit: 12
+  activeDeadlineSeconds: 1800
+  template:
+    spec:
+      serviceAccountName: postgres-ticket-citus
+      restartPolicy: OnFailure
+      automountServiceAccountToken: true
+      containers:
+        - name: initialize
+          image: bitnami/kubectl:1.33
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              for group in 0 1 2; do
+                until pod="$(kubectl get pods -n automatic-system -l cluster-name=postgres-ticket-citus,citus-group=$group,role=primary -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)" \
+                  && test -n "$pod" \
+                  && kubectl exec -n automatic-system "$pod" -- /bin/sh -ec "
+                  pgbackrest --stanza=ticket-$group --force stop || true
+                  pgbackrest --stanza=ticket-$group start
+                  pgbackrest --stanza=ticket-$group stanza-create
+                "; do
+                  sleep 10
+                done
+                kubectl exec -n automatic-system "$pod" -- pgbackrest --stanza="ticket-$group" check
+              done
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi

@@ -6,7 +6,6 @@ import (
 	analyticsv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/analytics/v1"
 	filev1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/file/v1"
 	reportv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/report/v1"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -19,10 +18,12 @@ import (
 	"os/signal"
 	"report/pkg"
 	appconfig "report/pkg/config"
+	"report/pkg/telemetry"
 	"report/src/core/handler"
 	"report/src/core/repository"
 	"report/src/core/service"
 	"report/src/infrastructure/analyticsclient"
+	"report/src/infrastructure/completionconsumer"
 	"report/src/infrastructure/completionhttp"
 	"report/src/infrastructure/fileclient"
 	"report/src/infrastructure/generator"
@@ -34,6 +35,16 @@ import (
 )
 
 func main() {
+	telemetryProviders, err := telemetry.Init(context.Background(), "report-service")
+	if err != nil {
+		log.Fatalf("initialize OpenTelemetry: %v", err)
+	}
+	defer func() {
+		if shutdownErr := telemetryProviders.Close(); shutdownErr != nil {
+			log.Printf("shutdown OpenTelemetry: %v", shutdownErr)
+		}
+	}()
+
 	if e := appconfig.Load(); e != nil {
 		log.Fatal(e)
 	}
@@ -44,7 +55,7 @@ func main() {
 		log.Fatal(e)
 	}
 	defer logger.Sync()
-	db, e := pgxpool.New(ctx, must("DATABASE_URL"))
+	db, e := telemetry.NewPostgresPool(ctx, must("DATABASE_URL"))
 	if e != nil {
 		logger.Fatal("database connection failed", zap.Error(e))
 	}
@@ -72,7 +83,7 @@ func main() {
 	if e != nil {
 		logger.Fatal("listen failed", zap.Error(e))
 	}
-	server := grpc.NewServer()
+	server := grpc.NewServer(telemetry.GRPCServerOption())
 	reportv1.RegisterReportServiceServer(server, handler.New(svc))
 	hs := health.NewServer()
 	healthv1.RegisterHealthServer(server, hs)
@@ -84,7 +95,26 @@ func main() {
 			stop()
 		}
 	}()
-	internalServer := completionhttp.HTTPServer(":"+env("INTERNAL_HTTP_PORT", "8084"), completionhttp.New(files, reportGenerator, must("REPORT_INTERNAL_TOKEN"), logger).Handler())
+	completionProcessor := completionhttp.New(files, reportGenerator, must("REPORT_INTERNAL_TOKEN"), logger)
+	if len(brokers) > 0 {
+		consumer, consumerErr := completionconsumer.New(
+			brokers,
+			env("KAFKA_TICKET_TOPIC", "tickets.events.v1"),
+			env("KAFKA_REPORT_TOPIC", "reports.events.v1"),
+			env("COMPLETION_CONSUMER_GROUP_ID", "report-completion-v1"),
+			completionProcessor,
+			logger,
+		)
+		if consumerErr != nil {
+			logger.Fatal("completion consumer initialization failed", zap.Error(consumerErr))
+		}
+		defer consumer.Close()
+		go run(ctx, "completion consumer", consumer.Run, logger)
+	}
+	internalServer := completionhttp.HTTPServer(
+		":"+env("INTERNAL_HTTP_PORT", "8084"),
+		telemetry.HTTPHandler(completionProcessor.Handler(), "report.internal.http"),
+	)
 	go func() {
 		logger.Info("report internal HTTP started", zap.String("address", internalServer.Addr))
 		if err := internalServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) && ctx.Err() == nil {
@@ -100,7 +130,11 @@ func main() {
 	server.GracefulStop()
 }
 func dial(addr string, l *zap.Logger) *grpc.ClientConn {
-	c, e := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	c, e := grpc.NewClient(
+		addr,
+		telemetry.GRPCClientOption(),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
 	if e != nil {
 		l.Fatal("gRPC connection failed", zap.String("address", addr), zap.Error(e))
 	}

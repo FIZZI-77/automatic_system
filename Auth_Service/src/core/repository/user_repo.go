@@ -46,6 +46,29 @@ func (u *UserRepoStruct) CreateUser(ctx context.Context, user *models.User) (uui
 	return id, nil
 }
 
+func (u *UserRepoStruct) DeleteUserRegistration(ctx context.Context, userID uuid.UUID) error {
+	return withTransaction(ctx, u.writeDB, "DeleteUserRegistration()", func(txExec DBTX) error {
+		if _, err := txExec.Exec(ctx, `
+			DELETE FROM outbox_events
+			WHERE aggregate_type = 'user'
+			  AND aggregate_id = $1
+			  AND event_type = 'auth.user.registered'
+			  AND status <> 'SENT'`, userID); err != nil {
+			return fmt.Errorf("user_repo: DeleteUserRegistration(): delete pending outbox event: %w", err)
+		}
+
+		result, err := txExec.Exec(ctx, `DELETE FROM users WHERE id = $1`, userID)
+		if err != nil {
+			return fmt.Errorf("user_repo: DeleteUserRegistration(): delete user: %w", err)
+		}
+		if result.RowsAffected() != 1 {
+			return fmt.Errorf("user_repo: DeleteUserRegistration(): user %s not found", userID)
+		}
+
+		return nil
+	})
+}
+
 func (u *UserRepoStruct) createUser(ctx context.Context, user *models.User) (uuid.UUID, error) {
 	var id uuid.UUID
 	const query = `INSERT INTO users (

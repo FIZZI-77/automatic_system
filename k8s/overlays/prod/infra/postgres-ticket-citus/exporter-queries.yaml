@@ -1,0 +1,159 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-ticket-citus-exporter-queries
+  namespace: automatic-system
+data:
+  queries.yaml: |
+    citus_cluster:
+      query: |
+        SELECT
+          count(*) FILTER (WHERE isactive)::float AS active_nodes,
+          count(*) FILTER (WHERE NOT isactive)::float AS inactive_nodes,
+          count(*) FILTER (WHERE noderole = 'primary')::float AS primary_nodes,
+          count(*) FILTER (WHERE noderole = 'secondary')::float AS secondary_nodes,
+          count(*) FILTER (WHERE shouldhaveshards)::float AS shard_bearing_nodes
+        FROM pg_dist_node
+        WHERE citus_is_coordinator()
+      master: true
+      cache_seconds: 15
+      metrics:
+        - active_nodes:
+            usage: GAUGE
+            description: Number of active Citus nodes.
+        - inactive_nodes:
+            usage: GAUGE
+            description: Number of inactive Citus nodes.
+        - primary_nodes:
+            usage: GAUGE
+            description: Number of primary Citus nodes.
+        - secondary_nodes:
+            usage: GAUGE
+            description: Number of secondary Citus nodes.
+        - shard_bearing_nodes:
+            usage: GAUGE
+            description: Number of nodes expected to contain shards.
+
+    citus_nodes:
+      query: |
+        SELECT
+          nodeid::text AS node_id,
+          groupid::text AS group_id,
+          nodename AS node_name,
+          nodeport::text AS node_port,
+          noderole::text AS node_role,
+          isactive::int::float AS active,
+          hasmetadata::int::float AS has_metadata,
+          metadatasynced::int::float AS metadata_synced,
+          shouldhaveshards::int::float AS should_have_shards
+        FROM pg_dist_node
+        WHERE citus_is_coordinator()
+      master: true
+      cache_seconds: 15
+      metrics:
+        - node_id:
+            usage: LABEL
+            description: Stable Citus node identifier.
+        - group_id:
+            usage: LABEL
+            description: Stable Citus group identifier.
+        - node_name:
+            usage: LABEL
+            description: Citus node DNS name.
+        - node_port:
+            usage: LABEL
+            description: Citus node PostgreSQL port.
+        - node_role:
+            usage: LABEL
+            description: Citus node role.
+        - active:
+            usage: GAUGE
+            description: Whether the Citus node is active.
+        - has_metadata:
+            usage: GAUGE
+            description: Whether the node contains Citus metadata.
+        - metadata_synced:
+            usage: GAUGE
+            description: Whether Citus metadata is synchronized.
+        - should_have_shards:
+            usage: GAUGE
+            description: Whether the node should contain shards.
+
+    citus_tables:
+      query: |
+        SELECT
+          partition.logicalrelid::regclass::text AS table_name,
+          partition.colocationid::text AS colocation_id,
+          partition.partmethod::text AS distribution_method,
+          count(DISTINCT shard.shardid)::float AS shards,
+          count(placement.placementid)::float AS placements,
+          count(placement.placementid) FILTER (WHERE placement.shardstate = 1)::float AS active_placements,
+          count(placement.placementid) FILTER (WHERE placement.shardstate <> 1)::float AS inactive_placements
+        FROM pg_dist_partition AS partition
+        LEFT JOIN pg_dist_shard AS shard
+          ON shard.logicalrelid = partition.logicalrelid
+        LEFT JOIN pg_dist_placement AS placement
+          ON placement.shardid = shard.shardid
+        WHERE citus_is_coordinator()
+        GROUP BY
+          partition.logicalrelid,
+          partition.colocationid,
+          partition.partmethod
+      master: true
+      cache_seconds: 30
+      metrics:
+        - table_name:
+            usage: LABEL
+            description: Distributed or reference table name.
+        - colocation_id:
+            usage: LABEL
+            description: Stable Citus colocation group identifier.
+        - distribution_method:
+            usage: LABEL
+            description: Citus table distribution method.
+        - shards:
+            usage: GAUGE
+            description: Number of shards for the table.
+        - placements:
+            usage: GAUGE
+            description: Number of shard placements for the table.
+        - active_placements:
+            usage: GAUGE
+            description: Number of active shard placements for the table.
+        - inactive_placements:
+            usage: GAUGE
+            description: Number of inactive shard placements for the table.
+
+    citus_activity:
+      query: |
+        SELECT
+          COALESCE(state, 'unknown') AS state,
+          COALESCE(wait_event_type, 'none') AS wait_event_type,
+          count(*)::float AS queries
+        FROM citus_dist_stat_activity
+        WHERE citus_is_coordinator()
+        GROUP BY state, wait_event_type
+      master: true
+      cache_seconds: 5
+      metrics:
+        - state:
+            usage: LABEL
+            description: Distributed query state.
+        - wait_event_type:
+            usage: LABEL
+            description: Bounded PostgreSQL wait event category.
+        - queries:
+            usage: GAUGE
+            description: Number of distributed queries by state and wait category.
+
+    citus_locks:
+      query: |
+        SELECT count(*)::float AS waits
+        FROM citus_lock_waits
+        WHERE citus_is_coordinator()
+      master: true
+      cache_seconds: 5
+      metrics:
+        - waits:
+            usage: GAUGE
+            description: Number of distributed lock waits.

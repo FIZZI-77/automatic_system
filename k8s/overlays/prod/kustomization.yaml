@@ -3,7 +3,18 @@ kind: Kustomization
 namespace: automatic-system
 resources:
   - ../../base/namespace
+  - ../../base/observability
+  - ../../mesh/policies
   - network
   - infra
   - migrations
   - apps
+patches:
+  - target:
+      version: v1
+      kind: Namespace
+      name: automatic-system
+    patch: |-
+      - op: add
+        path: /metadata/labels/istio-injection
+        value: enabled

@@ -3,9 +3,111 @@ kind: Kustomization
 namespace: automatic-system
 resources:
   - ../../../base/data
+  - postgres-platform
+  - postgres-ticket-citus
+  - pgbouncer
   - pdb-kafka.yaml
   - pdb-redis-sentinel.yaml
 labels:
   - pairs:
       app.kubernetes.io/environment: prod
     includeSelectors: false
+images:
+  - name: automatic-system-postgres-ha
+    newName: ghcr.io/fizzi-77/automatic-system-postgres-ha
+    newTag: sha-0000000
+  - name: automatic-system-postgres-citus-ha
+    newName: ghcr.io/fizzi-77/automatic-system-postgres-citus-ha
+    newTag: sha-0000000
+  - name: automatic-system-pgbouncer
+    newName: ghcr.io/fizzi-77/automatic-system-pgbouncer
+    newTag: sha-0000000
+patches:
+  # Stateful infrastructure speaks native database/broker protocols and is
+  # deliberately kept outside the service mesh. Keep this explicit because
+  # the namespace enables automatic sidecar injection for applications.
+  - target:
+      group: apps
+      version: v1
+      kind: StatefulSet
+    patch: |-
+      - op: add
+        path: /spec/template/metadata/labels/sidecar.istio.io~1inject
+        value: "false"
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+    patch: |-
+      - op: add
+        path: /spec/template/metadata/labels/sidecar.istio.io~1inject
+        value: "false"
+  - target:
+      group: apps
+      version: v1
+      kind: StatefulSet
+      labelSelector: app.kubernetes.io/name=postgres
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 0
+  - target:
+      group: apps
+      version: v1
+      kind: StatefulSet
+      labelSelector: app.kubernetes.io/name=postgres
+    patch: |-
+      - op: add
+        path: /spec/volumeClaimTemplates/0/spec/storageClassName
+        value: standard-rwo
+      - op: add
+        path: /spec/volumeClaimTemplates/0/spec/volumeMode
+        value: Filesystem
+      - op: replace
+        path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage
+        value: 20Gi
+  - target:
+      group: apps
+      version: v1
+      kind: StatefulSet
+      labelSelector: app.kubernetes.io/name=kafka
+    patch: |-
+      - op: add
+        path: /spec/volumeClaimTemplates/0/spec/storageClassName
+        value: standard-rwo
+      - op: add
+        path: /spec/volumeClaimTemplates/0/spec/volumeMode
+        value: Filesystem
+      - op: replace
+        path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage
+        value: 50Gi
+  - target:
+      group: apps
+      version: v1
+      kind: StatefulSet
+      name: clickhouse
+    patch: |-
+      - op: add
+        path: /spec/volumeClaimTemplates/0/spec/storageClassName
+        value: standard-rwo
+      - op: add
+        path: /spec/volumeClaimTemplates/0/spec/volumeMode
+        value: Filesystem
+      - op: replace
+        path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage
+        value: 100Gi
+  - target:
+      group: apps
+      version: v1
+      kind: StatefulSet
+      name: minio
+    patch: |-
+      - op: add
+        path: /spec/volumeClaimTemplates/0/spec/storageClassName
+        value: standard-rwo
+      - op: add
+        path: /spec/volumeClaimTemplates/0/spec/volumeMode
+        value: Filesystem
+      - op: replace
+        path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage
+        value: 100Gi

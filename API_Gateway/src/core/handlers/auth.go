@@ -96,7 +96,7 @@ func (ah *AuthHandler) LogoutAll(c *gin.Context) {
 }
 
 func (ah *AuthHandler) Register(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 15*time.Second)
 	defer cancel()
 
 	var req models.RegisterRequest

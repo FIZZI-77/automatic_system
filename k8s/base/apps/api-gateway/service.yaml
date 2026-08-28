@@ -13,6 +13,7 @@ spec:
     app: api-gateway
   ports:
   - name: http
+    appProtocol: http
     port: 8081
     targetPort: 8081
   type: ClusterIP

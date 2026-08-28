@@ -29,7 +29,12 @@ type Service struct {
 }
 
 func New(repo *repository.Repository, store *storage.S3, ttl time.Duration, logger *zap.Logger) *Service {
-	return &Service{repo: repo, store: store, ttl: ttl, logger: logger}
+	return &Service{
+		repo:   repo,
+		store:  store,
+		ttl:    ttl,
+		logger: logger,
+	}
 }
 
 func (s *Service) Create(ctx context.Context, in models.CreateInput) (*models.PresignedFile, error) {
@@ -52,7 +57,11 @@ func (s *Service) Create(ctx context.Context, in models.CreateInput) (*models.Pr
 		return nil, err
 	}
 	logger.Info("upload prepared", zap.String("file_id", f.ID.String()), zap.String("content_type", f.ContentType), zap.Int64("size", f.Size))
-	return &models.PresignedFile{File: f, URL: u, ExpiresAt: time.Now().Add(s.ttl)}, nil
+	return &models.PresignedFile{
+		File:      f,
+		URL:       u,
+		ExpiresAt: time.Now().Add(s.ttl),
+	}, nil
 }
 
 func (s *Service) Confirm(ctx context.Context, id, actor uuid.UUID, privileged bool) (*models.File, error) {
@@ -124,7 +133,11 @@ func (s *Service) Download(ctx context.Context, id, actor uuid.UUID, privileged 
 	if err != nil {
 		return nil, err
 	}
-	return &models.PresignedFile{File: f, URL: u, ExpiresAt: time.Now().Add(s.ttl)}, nil
+	return &models.PresignedFile{
+		File:      f,
+		URL:       u,
+		ExpiresAt: time.Now().Add(s.ttl),
+	}, nil
 }
 func (s *Service) Delete(ctx context.Context, id, actor uuid.UUID, privileged bool) error {
 	f, err := s.repo.Get(ctx, id)
@@ -155,4 +168,6 @@ func (s *Service) List(ctx context.Context, typ string, id, actor uuid.UUID, pri
 	return files, nil
 }
 
-func IsNotFound(err error) bool { return errors.Is(err, pgx.ErrNoRows) }
+func IsNotFound(err error) bool {
+	return errors.Is(err, pgx.ErrNoRows)
+}

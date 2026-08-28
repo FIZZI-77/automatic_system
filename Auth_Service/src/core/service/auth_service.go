@@ -31,11 +31,12 @@ type AuthServiceStruct struct {
 	privateKey  *rsa.PrivateKey
 	keyID       string
 	mailService MailService
+	profiles    ProfileProvisioner
 	logger      *zap.Logger
 }
 
-func NewAuthServiceStruct(repo *repository.Repo, privateKey *rsa.PrivateKey, keyID string, mailService MailService, logger *zap.Logger) *AuthServiceStruct {
-	return &AuthServiceStruct{repo: repo, privateKey: privateKey, keyID: keyID, mailService: mailService, logger: logger}
+func NewAuthServiceStruct(repo *repository.Repo, privateKey *rsa.PrivateKey, keyID string, mailService MailService, profiles ProfileProvisioner, logger *zap.Logger) *AuthServiceStruct {
+	return &AuthServiceStruct{repo: repo, privateKey: privateKey, keyID: keyID, mailService: mailService, profiles: profiles, logger: logger}
 
 }
 
@@ -55,7 +56,7 @@ func (a *AuthServiceStruct) Register(ctx context.Context, in models.RegisterInpu
 		return nil, err
 	}
 
-	idempotentResult, err := a.withIdempotency(ctx, "Register", in.Email, in, func(ctx context.Context) (any, uuid.UUID, error) {
+	idempotentResult, err := a.withExternalSideEffectIdempotency(ctx, "Register", in.Email, in, func(ctx context.Context) (any, uuid.UUID, error) {
 		existingUser, err := a.repo.GetUserByEmail(ctx, in.Email)
 
 		if err == nil && existingUser != nil {
@@ -94,6 +95,32 @@ func (a *AuthServiceStruct) Register(ctx context.Context, in models.RegisterInpu
 				zap.Error(err),
 			)
 			return nil, uuid.Nil, err
+		}
+
+		if a.profiles == nil {
+			err = errors.New("profile provisioner is not configured")
+		} else {
+			err = a.profiles.CreateUserProfile(ctx, id, in.Username)
+		}
+		if err != nil {
+			compensationCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+			defer cancel()
+			if compensationErr := a.repo.DeleteUserRegistration(compensationCtx, id); compensationErr != nil {
+				logger.Error("failed to compensate user registration",
+					zap.String("user_id", id.String()),
+					zap.Error(compensationErr),
+				)
+				return nil, uuid.Nil, errors.Join(
+					fmt.Errorf("create user profile: %w", err),
+					fmt.Errorf("compensate user registration: %w", compensationErr),
+				)
+			}
+
+			logger.Warn("user registration compensated after profile creation failed",
+				zap.String("user_id", id.String()),
+				zap.Error(err),
+			)
+			return nil, uuid.Nil, fmt.Errorf("create user profile: %w", err)
 		}
 
 		result := &models.RegisterResult{

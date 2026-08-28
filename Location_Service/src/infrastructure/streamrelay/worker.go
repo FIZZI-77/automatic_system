@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"location/pkg/telemetry"
 	"strings"
 	"time"
 
@@ -161,8 +162,9 @@ func (w *Worker) publish(ctx context.Context, message redis.XMessage) error {
 	if err != nil {
 		return fmt.Errorf("marshal stream event %s: %w", message.ID, err)
 	}
-	err = w.writer.WriteMessages(
+	err = telemetry.WriteKafka(
 		ctx,
+		w.writer,
 		kafka.Message{
 			Key:   []byte(brigadeID),
 			Value: payload,

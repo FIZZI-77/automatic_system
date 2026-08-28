@@ -1,0 +1,89 @@
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: pgbouncer-platform-primary-plaintext
+spec:
+  host: pgbouncer-platform-primary.automatic-system.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: pgbouncer-platform-replicas-plaintext
+spec:
+  host: pgbouncer-platform-replicas.automatic-system.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: pgbouncer-ticket-primary-plaintext
+spec:
+  host: pgbouncer-ticket-primary.automatic-system.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: pgbouncer-ticket-replicas-plaintext
+spec:
+  host: pgbouncer-ticket-replicas.automatic-system.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: minio-plaintext
+spec:
+  host: minio.automatic-system.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: redis-gateway-plaintext
+spec:
+  host: redis-gateway.automatic-system.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: redis-location-plaintext
+spec:
+  host: redis-location.automatic-system.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: redis-location-sentinel-plaintext
+spec:
+  host: redis-location-sentinel.automatic-system.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: redis-notification-plaintext
+spec:
+  host: redis-notification.automatic-system.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: DISABLE

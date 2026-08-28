@@ -1,0 +1,56 @@
+[
+  {
+    "scenario": "valid_user",
+    "status": 201,
+    "ticket_id": "0b27d4b5-4c3a-40c9-8279-08c1390acc72",
+    "request_id": "e2e-ticket-create-user-c4172f4dd24e413883a6a43de075ebf1"
+  },
+  {
+    "scenario": "valid_worker",
+    "status": 201,
+    "ticket_id": "aa665181-0289-4828-963e-2baff3da5931",
+    "request_id": "e2e-ticket-create-worker-2873903ae0aa4eaf9f259bb9203a6b31"
+  },
+  {
+    "scenario": "valid_dispatcher",
+    "status": 201,
+    "ticket_id": "8f95728e-f49c-4121-9df0-2020cd9b3353",
+    "request_id": "e2e-ticket-create-dispatcher-f0415f215aff4aaa85b3a9b6afc51a27"
+  },
+  {
+    "scenario": "valid_admin",
+    "status": 201,
+    "ticket_id": "832b78a3-4031-4178-9adc-6df904f6b434",
+    "request_id": "e2e-ticket-create-admin-0c813268f7cf4bf28e0b0c793c8cfb7f"
+  },
+  {
+    "scenario": "no_token",
+    "status": 401,
+    "body": "{\"error\":\"missing or invalid authorization header\"}"
+  },
+  {
+    "scenario": "bad_token",
+    "status": 401,
+    "body": "{\"error\":\"invalid or expired token\"}"
+  },
+  {
+    "scenario": "empty",
+    "status": 400,
+    "body": "{\"error\":\"Key: 'CreateTicketRequest.DepartmentID' Error:Field validation for 'DepartmentID' failed on the 'required' tag\\nKey: 'CreateTicketRequest.CategoryID' Error:Field validation for 'CategoryID' failed on the 'required' tag\\nKey: 'CreateTicketRequest.Title' Error:Field validation for 'Title' failed on the 'required' tag\\nKey: 'CreateTicketRequest.Description' Error:Field validation for 'Description' failed on the 'required' tag\\nKey: 'CreateTicketRequest.Priority' Error:Field validation for 'Priority' failed on the 'required' tag\\nKey: 'CreateTicketRequest.Address' Error:Field validation for 'Address' failed on the 'required' tag\\nKey: 'CreateTicketRequest.Latitude' Error:Field validation for 'Latitude' failed on the 'required' tag\\nKey: 'CreateTicketRequest.Longitude' Error:Field validation for 'Longitude' failed on the 'required' tag\"}"
+  },
+  {
+    "scenario": "bad_coordinates",
+    "status": 400,
+    "body": "{\"error\":\"Key: 'CreateTicketRequest.Latitude' Error:Field validation for 'Latitude' failed on the 'latitude' tag\\nKey: 'CreateTicketRequest.Longitude' Error:Field validation for 'Longitude' failed on the 'longitude' tag\"}"
+  },
+  {
+    "scenario": "bad_priority",
+    "status": 400,
+    "body": "{\"error\":\"Key: 'CreateTicketRequest.Priority' Error:Field validation for 'Priority' failed on the 'oneof' tag\"}"
+  },
+  {
+    "scenario": "unknown_category",
+    "status": 404,
+    "body": "{\"code\":\"NOT_FOUND\",\"error\":\"Запрошенные данные не найдены\"}"
+  }
+]

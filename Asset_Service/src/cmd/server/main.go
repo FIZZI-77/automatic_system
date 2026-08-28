@@ -3,13 +3,13 @@ package main
 import (
 	"asset/pkg"
 	appconfig "asset/pkg/config"
+	"asset/pkg/telemetry"
 	"asset/src/core/handler"
 	"asset/src/core/repository"
 	"asset/src/core/service"
 	"asset/src/infrastructure/outboxrelay"
 	"context"
 	assetv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/asset/v1"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
@@ -23,6 +23,16 @@ import (
 )
 
 func main() {
+	telemetryProviders, err := telemetry.Init(context.Background(), "asset-service")
+	if err != nil {
+		log.Fatalf("initialize OpenTelemetry: %v", err)
+	}
+	defer func() {
+		if shutdownErr := telemetryProviders.Close(); shutdownErr != nil {
+			log.Printf("shutdown OpenTelemetry: %v", shutdownErr)
+		}
+	}()
+
 	if e := appconfig.Load(); e != nil {
 		log.Fatal(e)
 	}
@@ -33,7 +43,7 @@ func main() {
 		log.Fatal(e)
 	}
 	defer l.Sync()
-	db, e := pgxpool.New(ctx, must("DATABASE_URL"))
+	db, e := telemetry.NewPostgresPool(ctx, must("DATABASE_URL"))
 	if e != nil {
 		l.Fatal("database failed", zap.Error(e))
 	}
@@ -52,7 +62,7 @@ func main() {
 	if e != nil {
 		l.Fatal("listen failed", zap.Error(e))
 	}
-	g := grpc.NewServer()
+	g := grpc.NewServer(telemetry.GRPCServerOption())
 	assetv1.RegisterAssetServiceServer(g, handler.New(s))
 	hs := health.NewServer()
 	healthv1.RegisterHealthServer(g, hs)

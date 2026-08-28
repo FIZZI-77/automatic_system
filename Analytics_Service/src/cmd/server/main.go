@@ -3,6 +3,7 @@ package main
 import (
 	"analytics/pkg"
 	appconfig "analytics/pkg/config"
+	"analytics/pkg/telemetry"
 	"analytics/src/core/handler"
 	"analytics/src/core/repository"
 	"analytics/src/core/service"
@@ -23,6 +24,16 @@ import (
 )
 
 func main() {
+	telemetryProviders, err := telemetry.Init(context.Background(), "analytics-service")
+	if err != nil {
+		log.Fatalf("initialize OpenTelemetry: %v", err)
+	}
+	defer func() {
+		if shutdownErr := telemetryProviders.Close(); shutdownErr != nil {
+			log.Printf("shutdown OpenTelemetry: %v", shutdownErr)
+		}
+	}()
+
 	if e := appconfig.Load(); e != nil {
 		log.Fatalf("configuration error: %v", e)
 	}
@@ -58,7 +69,7 @@ func main() {
 	if e != nil {
 		logger.Fatal("listen failed", zap.Error(e))
 	}
-	server := grpc.NewServer()
+	server := grpc.NewServer(telemetry.GRPCServerOption())
 	analyticsv1.RegisterAnalyticsServiceServer(server, handler.New(svc))
 	hs := health.NewServer()
 	healthv1.RegisterHealthServer(server, hs)

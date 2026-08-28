@@ -103,7 +103,9 @@ func (s *ReportServiceStruct) ProcessNext(c context.Context) (bool, error) {
 		}
 	}
 	if e != nil {
-		_ = s.repo.Fail(c, x.ID, e.Error())
+		if failErr := s.repo.Fail(c, x.ID, e.Error()); failErr != nil {
+			s.log().Error("report failure state update failed", zap.String("report_id", x.ID.String()), zap.Error(failErr))
+		}
 		s.log().Error("report generation failed", zap.String("report_id", x.ID.String()), zap.Error(e))
 		return true, e
 	}

@@ -1,0 +1,219 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ticket-citus
+  namespace: automatic-system
+  labels:
+    app.kubernetes.io/name: patroni-citus
+    app.kubernetes.io/component: database
+spec:
+  serviceName: postgres-ticket-citus-nodes
+  replicas: 3
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      cluster-name: postgres-ticket-citus
+      citus-group: "0"
+  template:
+    metadata:
+      labels:
+        cluster-name: postgres-ticket-citus
+        citus-group: "0"
+        app.kubernetes.io/name: patroni-citus
+        app.kubernetes.io/component: database
+    spec:
+      serviceAccountName: postgres-ticket-citus
+      automountServiceAccountToken: true
+      terminationGracePeriodSeconds: 120
+      securityContext:
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: cluster-name
+                      operator: In
+                      values: ["postgres-ticket-citus"]
+                    - key: citus-group
+                      operator: In
+                      values: ["0"]
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: postgres
+          image: automatic-system-postgres-citus-ha:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: postgres
+              containerPort: 5432
+            - name: patroni
+              containerPort: 8008
+          envFrom:
+            - secretRef:
+                name: runtime-secrets
+          env:
+            - name: PATRONI_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: CITUS_GROUP
+              value: "0"
+            - name: PGBACKREST_STANZA
+              value: ticket-0
+            - name: PGBACKREST_PG1_PATH
+              value: /var/lib/postgresql/data/pgdata
+            - name: PGBACKREST_REPO1_TYPE
+              value: s3
+            - name: PGBACKREST_REPO1_S3_ENDPOINT
+              value: http://minio:9000
+            - name: PGBACKREST_REPO1_S3_BUCKET
+              value: postgres-backups
+            - name: PGBACKREST_REPO1_S3_REGION
+              value: us-east-1
+            - name: PGBACKREST_REPO1_S3_URI_STYLE
+              value: path
+            - name: PGBACKREST_REPO1_S3_VERIFY_TLS
+              value: "n"
+            - name: PGBACKREST_REPO1_S3_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: runtime-secrets
+                  key: S3_ACCESS_KEY
+            - name: PGBACKREST_REPO1_S3_KEY_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: runtime-secrets
+                  key: S3_SECRET_KEY
+            - name: PGBACKREST_REPO1_RETENTION_FULL
+              value: "4"
+            - name: PGBACKREST_REPO1_BUNDLE
+              value: "y"
+            - name: PGBACKREST_REPO1_BLOCK
+              value: "y"
+            - name: PGBACKREST_COMPRESS_TYPE
+              value: zst
+            - name: PGBACKREST_ARCHIVE_ASYNC
+              value: "y"
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: patroni-config
+              mountPath: /etc/patroni
+            - name: patroni-config
+              mountPath: /opt/automatic-system/bootstrap-ticket.sh
+              subPath: bootstrap-ticket.sh
+          readinessProbe:
+            httpGet:
+              path: /readiness
+              port: patroni
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /liveness
+              port: patroni
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 500m
+              memory: 2Gi
+            limits:
+              cpu: "4"
+              memory: 8Gi
+          securityContext:
+            runAsUser: 999
+            runAsGroup: 999
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+        - name: postgres-exporter
+          image: quay.io/prometheuscommunity/postgres-exporter:v0.19.1
+          args:
+            - --web.listen-address=:9187
+            - --extend.query-path=/etc/postgres-exporter/queries.yaml
+          ports:
+            - name: pg-metrics
+              containerPort: 9187
+          env:
+            - name: DATA_SOURCE_URI
+              value: 127.0.0.1:5432/ticket_db?sslmode=disable
+            - name: DATA_SOURCE_USER
+              value: postgres
+            - name: DATA_SOURCE_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: runtime-secrets
+                  key: TICKET_POSTGRES_SUPERUSER_PASSWORD
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: pg-metrics
+            periodSeconds: 15
+            timeoutSeconds: 10
+            failureThreshold: 6
+          volumeMounts:
+            - name: exporter-queries
+              mountPath: /etc/postgres-exporter/queries.yaml
+              subPath: queries.yaml
+              readOnly: true
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: pg-metrics
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 6
+          startupProbe:
+            httpGet:
+              path: /metrics
+              port: pg-metrics
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 30
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+      volumes:
+        - name: patroni-config
+          configMap:
+            name: postgres-ticket-citus-patroni
+            defaultMode: 0755
+        - name: exporter-queries
+          configMap:
+            name: postgres-ticket-citus-exporter-queries
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: standard-rwo
+        volumeMode: Filesystem
+        resources:
+          requests:
+            storage: 100Gi
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain

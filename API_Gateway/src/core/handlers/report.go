@@ -1,10 +1,7 @@
 package handlers
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"fmt"
 	"gateway/models"
 	analyticsv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/analytics/v1"
 	brigadev1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/brigade/v1"
@@ -12,7 +9,6 @@ import (
 	reportv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/report/v1"
 	ticketv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/ticket/v1"
 	"github.com/gin-gonic/gin"
-	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -97,45 +93,19 @@ func (h *ReportHandler) CreateCompletion(c *gin.Context) {
 	// Perform all permission-sensitive reads before persisting the work report.
 	// This prevents a rejected completion request from leaving a duplicate,
 	// file-less report in the ticket history.
-	workReportResult, err := h.tickets.CreateWorkReport(actorCtx, &ticketv1.CreateWorkReportRequest{TicketId: input.TicketID, AuthorUserId: c.GetString("user_id"), Description: input.Description, FileIds: input.FileIDs})
+	completion := &ticketv1.CompletionReportRequest{RequestedBy: payload.RequestedBy, ActorRoles: payload.ActorRoles, OpenedBy: payload.OpenedBy, Brigade: &ticketv1.CompletionBrigade{Id: payload.Brigade.ID, Name: payload.Brigade.Name}}
+	for _, member := range payload.Brigade.Members {
+		completion.Brigade.Members = append(completion.Brigade.Members, &ticketv1.CompletionBrigadeMember{UserId: member.UserID, FullName: member.FullName, Role: member.Role})
+	}
+	workReportResult, err := h.tickets.CreateWorkReport(actorCtx, &ticketv1.CreateWorkReportRequest{TicketId: input.TicketID, AuthorUserId: c.GetString("user_id"), Description: input.Description, FileIds: input.FileIDs, IdempotencyKey: c.GetHeader("Idempotency-Key"), Completion: completion})
 	if err != nil {
 		handleGRPCError(c, err)
 		return
 	}
 	workReport := workReportResult.GetReport()
 	payload.WorkReportID = workReport.GetId()
-	encoded, err := json.Marshal(payload)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to prepare completion report"})
-		return
-	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, h.internalURL+"/internal/completion-reports", bytes.NewReader(encoded))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to prepare completion report"})
-		return
-	}
-	request.Header.Set("Content-Type", "application/json")
-	request.Header.Set("X-Report-Internal-Token", h.internalToken)
-	response, err := h.httpClient.Do(request)
-	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "report service unavailable"})
-		return
-	}
-	defer response.Body.Close()
-	data, _ := io.ReadAll(io.LimitReader(response.Body, 1<<20))
-	if response.StatusCode/100 != 2 {
-		c.JSON(http.StatusBadGateway, gin.H{"error": fmt.Sprintf("report service returned %s", response.Status)})
-		return
-	}
-	var generated struct {
-		FileID string `json:"file_id"`
-		Name   string `json:"name"`
-	}
-	if err := json.Unmarshal(data, &generated); err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "invalid report service response"})
-		return
-	}
-	c.JSON(http.StatusCreated, gin.H{"work_report": fromProtoWorkReport(workReport), "pdf_file_id": generated.FileID, "pdf_name": generated.Name})
+	c.Header("Location", "/api/reports/"+workReport.GetId())
+	c.JSON(http.StatusAccepted, gin.H{"work_report": fromProtoWorkReport(workReport), "status": "REPORT_PENDING"})
 }
 
 func (h *ReportHandler) contextWithWorkerBrigade(ctx context.Context, c *gin.Context) (context.Context, bool) {

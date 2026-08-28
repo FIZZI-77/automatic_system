@@ -176,7 +176,7 @@ export function QualificationsPage({session,onNotice}:{session:Session;onNotice:
   const [certifications,setCertifications]=useState<Dict[]>([]);
   const [modal,setModal]=useState(false);
   const [editing,setEditing]=useState<Skill|CertType>();
-  const [brigades]=useState<BrigadeRecord[]>(loadBrigades);
+  const [brigades,setBrigades]=useState<BrigadeRecord[]>(()=>demo?loadBrigades():[]);
   const [selectedBrigade,setSelectedBrigade]=useState<BrigadeRecord>();
   const [brigadeSkills,setBrigadeSkills]=useState<Dict[]>([]);
 
@@ -198,14 +198,16 @@ export function QualificationsPage({session,onNotice}:{session:Session;onNotice:
       return;
     }
     try{
-      const [skillResult,certResult,profileResult]=await Promise.all([
+      const [skillResult,certResult,profileResult,brigadeResult]=await Promise.all([
         api<{skills:Skill[]}>(config.endpoints.skillsList,{limit:100,offset:0},"POST",session.accessToken),
         api<{certification_types:CertType[]}>(config.endpoints.certificationTypesList,{limit:100,offset:0},"POST",session.accessToken),
         api<{work_profiles:WorkProfile[]}>(config.endpoints.workProfilesList,{limit:100,offset:0},"POST",session.accessToken),
+        api<{brigades:BrigadeRecord[]}>(config.endpoints.brigadesList,{limit:100,offset:0},"POST",session.accessToken),
       ]);
       setSkills(skillResult.skills||[]);
       setCerts(certResult.certification_types||[]);
       setPeople(profileResult.work_profiles||[]);
+      setBrigades(brigadeResult.brigades||[]);
     }catch(error){onNotice(error instanceof Error?error.message:"Не удалось загрузить квалификации")}
   },[demo,onNotice,session.accessToken]);
   useEffect(()=>{void load()},[load]);
@@ -233,8 +235,14 @@ export function QualificationsPage({session,onNotice}:{session:Session;onNotice:
       setBrigadeSkills([{id:`brigade-skill-${brigade.id}`,skill_id:road?"skill-demo-1":"skill-demo-3",skill:{id:road?"skill-demo-1":"skill-demo-3",name:road?"Ремонт дорожного покрытия":"Аварийный ремонт водопровода"}}]);
       return;
     }
-    const result=await api<{skills:Dict[]}>(config.endpoints.brigadeSkillsList,{brigade_id:brigade.id,active:true},"POST",session.accessToken);
-    setBrigadeSkills(result.skills||[]);
+    try{
+      const result=await api<{skills:Dict[]}>(config.endpoints.brigadeSkillsList,{brigade_id:brigade.id,active:true},"POST",session.accessToken);
+      setBrigadeSkills(result.skills||[]);
+    }catch(error){
+      setSelectedBrigade(undefined);
+      setBrigadeSkills([]);
+      onNotice(error instanceof Error?error.message:"Не удалось загрузить навыки бригады");
+    }
   }
 
   async function save(event:FormEvent<HTMLFormElement>){
@@ -306,7 +314,7 @@ export function QualificationsPage({session,onNotice}:{session:Session;onNotice:
       <button className={tab==="people"?"active":""} onClick={()=>changeTab("people")}>Сотрудники <b>{people.length}</b></button>
     </div>
     {(tab==="skills"||tab==="certs")&&<div className="catalog-list">{(tab==="skills"?skills:certs).map(item=><button key={item.id} onClick={()=>{setEditing(item);setModal(true)}}><span className={`ops-state ${qualificationStateClass(item.active?"ACTIVE":"INACTIVE")}`}>● {qualificationLabel(item.active?"ACTIVE":"INACTIVE")}</span><h3>{item.name}</h3><p>{item.code}</p><small>{item.description||"Без описания"}</small></button>)}</div>}
-    {tab==="brigades"&&<div className={`ops-layout ${selectedBrigade?"selected":""}`}><div className="people-qualification-list">{brigades.map(brigade=><button key={brigade.id} className={selectedBrigade?.id===brigade.id?"selected":""} onClick={()=>void loadBrigadeSkills(brigade)}><b>{brigade.name}</b><span>{brigade.specialization}</span><em className={`ops-state ${qualificationStateClass(brigade.status)}`}>{qualificationLabel(brigade.status)}</em></button>)}</div>{selectedBrigade&&<aside className="ops-detail qualification-person-detail"><button className="detail-close" onClick={()=>setSelectedBrigade(undefined)}>×</button><span className="eyebrow">Навыки бригады</span><h2>{selectedBrigade.name}</h2><div className="qualification-subhead"><h3>Назначенные навыки</h3><button className="ghost small" onClick={openCreate}>+ Добавить</button></div>{brigadeSkills.length?brigadeSkills.map((item,index)=><div className="data-row action-row" key={text(item.id,index)}><span><b>{text((item.skill as Dict)?.name,skills.find(skill=>skill.id===item.skill_id)?.name,item.skill_id)}</b></span><button className="danger-action" onClick={()=>void removeBrigadeSkill(item)}>Удалить</button></div>):<Empty>Навыки не назначены</Empty>}</aside>}</div>}
+    {tab==="brigades"&&<div className={`ops-layout ${selectedBrigade?"selected":""}`}><div className="people-qualification-list">{brigades.map(brigade=><button key={brigade.id} className={selectedBrigade?.id===brigade.id?"selected":""} onClick={()=>void loadBrigadeSkills(brigade)}><b>{brigade.name}</b><span>{brigade.specialization}</span><em className={`ops-state ${qualificationStateClass(brigade.status)}`}>{qualificationLabel(brigade.status)}</em></button>)}</div>{selectedBrigade&&<aside className="ops-detail qualification-person-detail"><button className="detail-close" onClick={()=>setSelectedBrigade(undefined)}>×</button><span className="eyebrow">Навыки бригады</span><h2>{selectedBrigade.name}</h2><div className="qualification-subhead"><h3>Назначенные навыки</h3><button className="ghost small" onClick={openCreate}>+ Добавить</button></div>{brigadeSkills.length?brigadeSkills.map((item,index)=><div className="data-row action-row" key={text(item.id,index)}><span><b>{text((item.skill as Dict)?.name ?? skills.find(skill=>skill.id===item.skill_id)?.name,item.skill_id)}</b></span><button className="danger-action" onClick={()=>void removeBrigadeSkill(item)}>Удалить</button></div>):<Empty>Навыки не назначены</Empty>}</aside>}</div>}
     {tab==="people"&&<div className={`ops-layout ${selectedProfile?"selected":""}`}><div className="people-qualification-list">{people.map(person=><button key={person.work_profile.id} className={selectedProfile?.work_profile.id===person.work_profile.id?"selected":""} onClick={()=>void loadPerson(person)}><b>{person.user_profile.full_name}</b><span>{person.work_profile.position}</span><em className={`ops-state ${qualificationStateClass(person.work_profile.status)}`}>{qualificationLabel(person.work_profile.status)}</em></button>)}</div>{selectedProfile&&<aside className="ops-detail qualification-person-detail"><button className="detail-close" onClick={()=>setSelectedProfile(undefined)}>×</button><span className="eyebrow">Квалификация сотрудника</span><h2>{selectedProfile.user_profile.full_name}</h2><div className="qualification-subhead"><h3>Действующие навыки</h3><button className="ghost small" onClick={openCreate}>+ Добавить</button></div>{grants.filter(item=>item.active!==false).length?grants.filter(item=>item.active!==false).map((grant,index)=><div className="data-row action-row" key={text(grant.id,index)}><span><b>{skills.find(skill=>skill.id===grant.skill_id)?.name||text(grant.skill_id)}</b><small>{text(grant.proficiency_level,"Уровень не задан")} · {qualificationLabel(grant.source_type)}</small></span><button className="danger-action" onClick={()=>void removePersonGrant(grant)}>Удалить</button></div>):<Empty>Навыки не назначены</Empty>}<div className="qualification-subhead"><h3>Удостоверения</h3></div>{certifications.length?certifications.map((cert,index)=><div className="data-row action-row" key={text(cert.id,index)}><span><b>{certs.find(item=>item.id===cert.certification_type_id)?.name||text(cert.certification_type_id)}</b><small className={`ops-state ${qualificationStateClass(cert.status)}`}>{qualificationLabel(cert.status)}</small></span>{["PENDING","VERIFIED"].includes(String(cert.status))&&<button className="danger-action" onClick={()=>void removePersonCertification(cert)}>Удалить</button>}</div>):<Empty>Удостоверений нет</Empty>}</aside>}</div>}
     {modal&&<Modal title={tab==="skills"?(editing?"Изменить навык":"Новый навык"):tab==="certs"?(editing?"Изменить тип удостоверения":"Новый тип удостоверения"):tab==="brigades"?"Назначить навык бригаде":"Выдать навык сотруднику"} onClose={()=>{setModal(false);setEditing(undefined)}}><form className="ops-form" onSubmit={save}>{(tab==="people"||tab==="brigades")?<><label>Навык<select name="skill_id" required>{skills.filter(item=>item.active).map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>{tab==="people"&&<><label>Уровень<input name="level" placeholder="Например: эксперт" required/></label><label>Основание<textarea name="description" rows={3} required/></label></>}</>:<><label>Код<input name="code" defaultValue={editing?.code} required/></label><label>Название<input name="name" defaultValue={editing?.name} required/></label><label>Описание<textarea name="description" defaultValue={editing?.description}/></label>{tab==="certs"&&<><label>Срок действия, дней<input name="days" type="number" min="1" defaultValue={(editing as CertType)?.default_validity_days||365}/></label><label className="check"><input name="file" type="checkbox" defaultChecked={(editing as CertType)?.requires_file}/> Требуется файл удостоверения</label></>}</>}<div className="modal-buttons">{editing&&tab==="skills"&&<button type="button" className="danger-action" onClick={()=>void deactivate()}>Деактивировать</button>}<button className="primary">Сохранить</button></div></form></Modal>}
   </section>;

@@ -4,11 +4,12 @@
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 CREATE TABLE tickets (
-                         id UUID PRIMARY KEY,
+                         id UUID NOT NULL,
 
                          department_id UUID NOT NULL,
                          user_id UUID NOT NULL,
                          brigade_id UUID NULL,
+                         asset_id UUID NULL,
 
                          title VARCHAR(255) NOT NULL,
                          description TEXT NOT NULL,
@@ -26,6 +27,9 @@ CREATE TABLE tickets (
                          assigned_at TIMESTAMP NULL,
                          completed_at TIMESTAMP NULL,
                          canceled_at TIMESTAMP NULL,
+                         archived_at TIMESTAMPTZ NULL,
+
+                         CONSTRAINT tickets_pkey PRIMARY KEY (department_id, id),
 
                          CONSTRAINT chk_ticket_status CHECK (
                                 status IN ('NEW', 'ASSIGNED', 'IN_PROGRESS', 'DONE', 'CANCELED', 'ARCHIVED')

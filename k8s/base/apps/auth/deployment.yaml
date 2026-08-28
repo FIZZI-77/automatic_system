@@ -38,14 +38,14 @@ spec:
             cpu: 500m
             memory: 512Mi
         readinessProbe:
-          tcpSocket:
+          grpc:
             port: 50051
           initialDelaySeconds: 3
           periodSeconds: 5
           failureThreshold: 3
           timeoutSeconds: 2
         livenessProbe:
-          tcpSocket:
+          grpc:
             port: 50051
           initialDelaySeconds: 15
           periodSeconds: 10
@@ -62,12 +62,14 @@ spec:
             drop:
             - ALL
         startupProbe:
-          tcpSocket:
+          grpc:
             port: 50051
           periodSeconds: 2
           timeoutSeconds: 1
           failureThreshold: 45
         envFrom:
+        - configMapRef:
+            name: telemetry-config
         - configMapRef:
             name: auth-service-config
         env:

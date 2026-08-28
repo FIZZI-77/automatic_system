@@ -9,6 +9,7 @@ import (
 type PositionBuffer interface {
 	PositionHistorySink
 	TakeBatch(maxSize int) []*models.Position
+	Prepend(batch []*models.Position)
 	Len() int
 }
 
@@ -51,6 +52,18 @@ func (b *MemoryPositionBuffer) TakeBatch(maxSize int) []*models.Position {
 	clear(b.items[:maxSize])
 	b.items = append(b.items[:0], b.items[maxSize:]...)
 	return batch
+}
+
+func (b *MemoryPositionBuffer) Prepend(batch []*models.Position) {
+	if len(batch) == 0 {
+		return
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	items := make([]*models.Position, 0, len(batch)+len(b.items))
+	items = append(items, batch...)
+	items = append(items, b.items...)
+	b.items = items
 }
 
 func (b *MemoryPositionBuffer) Len() int {

@@ -17,6 +17,7 @@ spec:
   template:
     metadata:
       labels:
+        sidecar.istio.io/inject: "false"
         app: mailhog
         app.kubernetes.io/name: mailhog
         app.kubernetes.io/component: auxiliary

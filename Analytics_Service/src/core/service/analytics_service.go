@@ -22,7 +22,15 @@ func NewAnalyticsServiceStruct(repo *repository.Repository, logger *zap.Logger) 
 	if logger == nil {
 		logger = zap.NewNop()
 	}
-	return &AnalyticsServiceStruct{events: repo.EventRepository, overview: repo.OverviewRepository, sla: repo.SLARepository, breakdown: repo.BreakdownRepository, daily: repo.DailyRepository, assets: repo.AssetRepository, logger: logger}
+	return &AnalyticsServiceStruct{
+		events:    repo.EventRepository,
+		overview:  repo.OverviewRepository,
+		sla:       repo.SLARepository,
+		breakdown: repo.BreakdownRepository,
+		daily:     repo.DailyRepository,
+		assets:    repo.AssetRepository,
+		logger:    logger,
+	}
 }
 func (s *AnalyticsServiceStruct) AssetSummary(c context.Context, f models.Filter, t, d *string) (models.AssetSummary, error) {
 	start := time.Now()

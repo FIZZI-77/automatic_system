@@ -2,8 +2,9 @@ package main
 
 import (
 	"context"
+	"errors"
 	notificationv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/notification/v1"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/extra/redisotel/v9"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -13,6 +14,7 @@ import (
 	"net"
 	"notification/pkg"
 	appconfig "notification/pkg/config"
+	"notification/pkg/telemetry"
 	"notification/src/core/handler"
 	"notification/src/core/repository"
 	"notification/src/core/service"
@@ -27,6 +29,16 @@ import (
 )
 
 func main() {
+	telemetryProviders, err := telemetry.Init(context.Background(), "notification-service")
+	if err != nil {
+		log.Fatalf("initialize OpenTelemetry: %v", err)
+	}
+	defer func() {
+		if shutdownErr := telemetryProviders.Close(); shutdownErr != nil {
+			log.Printf("shutdown OpenTelemetry: %v", shutdownErr)
+		}
+	}()
+
 	if err := appconfig.Load(); err != nil {
 		log.Fatalf("configuration error: %v", err)
 	}
@@ -40,7 +52,7 @@ func main() {
 	}
 
 	defer logger.Sync()
-	db, e := pgxpool.New(ctx, must("DATABASE_URL"))
+	db, e := telemetry.NewPostgresPool(ctx, must("DATABASE_URL"))
 	if e != nil {
 		logger.Fatal("database failed", zap.Error(e))
 	}
@@ -49,6 +61,12 @@ func main() {
 		logger.Fatal("database unavailable", zap.Error(e))
 	}
 	redisClient := redis.NewClient(&redis.Options{Addr: env("REDIS_ADDR", "redis-notification:6379"), Password: os.Getenv("REDIS_PASSWORD")})
+	if e = errors.Join(
+		redisotel.InstrumentTracing(redisClient),
+		redisotel.InstrumentMetrics(redisClient),
+	); e != nil {
+		logger.Fatal("redis instrumentation failed", zap.Error(e))
+	}
 	defer redisClient.Close()
 	if e = redisClient.Ping(ctx).Err(); e != nil {
 		logger.Fatal("redis unavailable", zap.Error(e))
@@ -84,7 +102,7 @@ func main() {
 	if e != nil {
 		logger.Fatal("listen failed", zap.Error(e))
 	}
-	server := grpc.NewServer()
+	server := grpc.NewServer(telemetry.GRPCServerOption())
 	notificationv1.RegisterNotificationServiceServer(server, handler.New(svc))
 	hs := health.NewServer()
 	healthv1.RegisterHealthServer(server, hs)

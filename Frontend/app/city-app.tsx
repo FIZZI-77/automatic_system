@@ -152,7 +152,7 @@ function DashboardV2({ session, role, setDemoRole, onExit }: {session:Session;ro
           if(brigadeResult?.brigade){
             const brigadeId=brigadeResult.brigade.id,historyTo=new Date(),historyFrom=new Date(historyTo.getTime()-7*24*60*60*1000);
             const [currentResult,historyResult]=await Promise.all([
-              api<{locations:Record<string,{position?:Position}>}>(config.endpoints.locationsBatch,{brigade_ids:[brigadeId],allow_stale:true},"POST",session.accessToken).catch(()=>({locations:{}})),
+              api<{locations:Record<string,{position?:Position}>}>(config.endpoints.locationsBatch,{brigade_ids:[brigadeId],allow_stale:true},"POST",session.accessToken).catch((): {locations: Record<string, {position?: Position}>} => ({locations:{}})),
               api<{positions:Position[]}>(config.endpoints.locationsHistory,{brigade_id:brigadeId,from:historyFrom.toISOString(),to:historyTo.toISOString(),limit:1000,offset:0,order:"desc"},"POST",session.accessToken).catch(()=>({positions:[]})),
             ]);
             const latestByVehicle=new Map<string,Position>();
@@ -238,7 +238,7 @@ function DashboardV2({ session, role, setDemoRole, onExit }: {session:Session;ro
       {section === "admin" || section === "management" ? <ManagementPage session={scopedSession} role={role} onNotice={setNotice}/> : section === "zones" ? <BrigadeZones vehicles={vehicles} session={scopedSession} role={role} zones={zones} onSaved={zone => setZones(current => [...current.filter(item => item.id !== zone.id), zone])} onDeleted={id=>setZones(current=>current.filter(item=>item.id!==id))} onNotice={setNotice}/> : section === "overview" || section === "map" ? <>
         {section === "overview" && <section className="kpis"><article><span>Активные заявки</span><b>{activeTickets.length}</b><small>По данным Ticket Service</small></article><article><span>Бригады на линии</span><b>{activeBrigades.length}</b><small>{onlineVehicles.length} {pluralRu(onlineVehicles.length,"машина","машины","машин")} {onlineVehicles.length===1?"передаёт":"передают"} координаты</small></article><article><span>Среднее время реакции</span><b>{Math.round((Number(overviewMetrics.avg_response_seconds)||0)/60)} <em>мин</em></b><small>{role==="worker"?"От создания до назначения заявок бригады":"По событиям Analytics Service"}</small></article><article><span>В рамках SLA</span><b>{Math.max(0,Math.round(100-(Number(slaMetrics.breach_rate)||0)))}<em>%</em></b><small>{(Number(slaMetrics.response_warnings)||0)+(Number(slaMetrics.resolution_warnings)||0)} требуют внимания</small></article></section>}
         <section className="dashboard-grid"><div className="map-card"><div className="card-head"><div><h2>Инфраструктурная карта Москвы</h2><p>Открытые городские данные, заявки, маршруты и машины</p></div></div><CityMap tickets={activeTickets} vehicles={onlineVehicles} selected={selected} session={scopedSession} onSelect={setSelected} onNotice={setNotice}/></div><div className="feed-card"><div className="card-head"><div><h2>Оперативная лента</h2><p>{activeTickets.length} {pluralRu(activeTickets.length,"инцидент","инцидента","инцидентов")} · {onlineVehicles.length} {pluralRu(onlineVehicles.length,"машина","машины","машин")}</p></div></div><TicketCards tickets={activeTickets} selected={selected} onSelect={setSelected}/><VehicleGroups vehicles={onlineVehicles} tickets={activeTickets} selected={selected} onSelect={setSelected}/></div></section>
-      </> : <SectionPage section={section} tickets={tickets} vehicles={onlineVehicles} zones={zones} session={scopedSession} role={role} onTicketUpdate={ticket=>setTickets(current=>current.map(item=>item.id===ticket.id?ticket:item))} onTicketCreated={ticket=>setTickets(current=>[ticket,...current])} onNotice={setNotice} onOpenMap={id => { setSelected(id); setSection("map"); }} onOpenZones={() => setSection("zones")}/>}
+      </> : <SectionPage section={section} tickets={tickets} vehicles={vehicles} zones={zones} session={scopedSession} role={role} onTicketUpdate={ticket=>setTickets(current=>current.map(item=>item.id===ticket.id?ticket:item))} onTicketCreated={ticket=>setTickets(current=>[ticket,...current])} onNotice={setNotice} onOpenMap={id => { setSelected(id); setSection("map"); }} onOpenZones={() => setSection("zones")}/>} 
     </main></div>;
 }
 
@@ -268,7 +268,7 @@ function SectionPage({ section, tickets, vehicles, zones, session, role, onTicke
   if (section === "tickets") return <TicketWorkspace tickets={tickets} session={session} role={role} onUpdate={onTicketUpdate} onMap={onOpenMap} onNotice={onNotice}/>;
   if (section === "create") return <CreateTicketPage session={session} onCreated={onTicketCreated} onNotice={onNotice}/>;
   if (section === "notifications") return <NotificationsPage session={session} onNotice={onNotice}/>;
-  if (section === "profile") return <ProfilePage session={session} onNotice={onNotice}/>;
+  if (section === "profile") return <ProfilePage session={session} role={role} onNotice={onNotice}/>;
   if (section === "reports") return <ReportsPage session={session} tickets={tickets} role={role} onNotice={onNotice}/>;
   if (section === "audit") return <AuditPage session={session} onNotice={onNotice}/>;
   if (section === "assets") return <AssetsPage session={session} onNotice={onNotice}/>;

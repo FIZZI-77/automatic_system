@@ -1,6 +1,7 @@
 package pkg
 
 import (
+	"brigade/pkg/telemetry"
 	"context"
 	"fmt"
 
@@ -20,7 +21,7 @@ func NewPostgresDB(cfg Config) (*pgxpool.Pool, error) {
 	connString := fmt.Sprintf("host=%s port=%s user=%s dbname=%s password=%s sslmode=%s",
 		cfg.Host, cfg.Port, cfg.Username, cfg.DbName, cfg.Password, cfg.SSLMode)
 
-	db, err := pgxpool.New(context.Background(), connString)
+	db, err := telemetry.NewPostgresPool(context.Background(), connString)
 	if err != nil {
 		return nil, err
 	}

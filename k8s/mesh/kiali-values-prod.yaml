@@ -1,0 +1,36 @@
+auth:
+  strategy: openid
+  openid:
+    client_id: replaced-by-install-script
+    issuer_uri: https://replaced-by-install-script.invalid
+    scopes: [openid, profile, email, groups]
+    username_claim: email
+
+deployment:
+  accessible_namespaces: [automatic-system, istio-system]
+  logger:
+    log_level: info
+  resources:
+    requests:
+      cpu: 200m
+      memory: 384Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+external_services:
+  prometheus:
+    url: http://prometheus.automatic-system.svc.cluster.local:9090
+  grafana:
+    enabled: true
+    in_cluster_url: http://grafana.automatic-system.svc.cluster.local:3000
+  tracing:
+    enabled: true
+    in_cluster_url: http://jaeger.automatic-system.svc.cluster.local:16686
+    use_grpc: false
+
+server:
+  web_root: /
+  web_fqdn: replaced-by-install-script.invalid
+  web_port: 443
+  web_schema: https

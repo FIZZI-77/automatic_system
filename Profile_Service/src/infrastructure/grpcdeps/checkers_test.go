@@ -10,6 +10,10 @@ import (
 	departmentv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/department/v1"
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	"profile/models"
 )
 
 type authClientStub struct {
@@ -70,18 +74,21 @@ func TestUserChecker(t *testing.T) {
 func TestDepartmentChecker(t *testing.T) {
 	departmentID := uuid.New()
 	upstreamErr := errors.New("unavailable")
+	notFoundErr := status.Error(codes.NotFound, "department not found")
 	tests := []struct {
-		name     string
-		response *departmentv1.GetDepartmentByIDResponse
-		err      error
-		wantErr  string
+		name         string
+		response     *departmentv1.GetDepartmentByIDResponse
+		err          error
+		wantErr      string
+		wantNotFound bool
 	}{
-		{"active department", &departmentv1.GetDepartmentByIDResponse{Department: &departmentv1.Department{Id: departmentID.String(), Status: departmentv1.DepartmentStatus_DEPARTMENT_STATUS_ACTIVE}}, nil, ""},
-		{"inactive department", &departmentv1.GetDepartmentByIDResponse{Department: &departmentv1.Department{Id: departmentID.String()}}, nil, "inactive"},
-		{"different department", &departmentv1.GetDepartmentByIDResponse{Department: &departmentv1.Department{Id: uuid.NewString(), Status: departmentv1.DepartmentStatus_DEPARTMENT_STATUS_ACTIVE}}, nil, "does not exist"},
-		{"missing department", &departmentv1.GetDepartmentByIDResponse{}, nil, "does not exist"},
-		{"nil response", nil, nil, "does not exist"},
-		{"upstream error", nil, upstreamErr, "department GetDepartmentByID"},
+		{"active department", &departmentv1.GetDepartmentByIDResponse{Department: &departmentv1.Department{Id: departmentID.String(), Status: departmentv1.DepartmentStatus_DEPARTMENT_STATUS_ACTIVE}}, nil, "", false},
+		{"inactive department", &departmentv1.GetDepartmentByIDResponse{Department: &departmentv1.Department{Id: departmentID.String()}}, nil, "inactive", true},
+		{"different department", &departmentv1.GetDepartmentByIDResponse{Department: &departmentv1.Department{Id: uuid.NewString(), Status: departmentv1.DepartmentStatus_DEPARTMENT_STATUS_ACTIVE}}, nil, "does not exist", true},
+		{"missing department", &departmentv1.GetDepartmentByIDResponse{}, nil, "does not exist", true},
+		{"nil response", nil, nil, "does not exist", true},
+		{"upstream not found", nil, notFoundErr, "department GetDepartmentByID", true},
+		{"upstream error", nil, upstreamErr, "department GetDepartmentByID", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -100,6 +107,9 @@ func TestDepartmentChecker(t *testing.T) {
 			}
 			if tt.err != nil && !errors.Is(err, tt.err) {
 				t.Fatalf("error does not wrap upstream error: %v", err)
+			}
+			if got := errors.Is(err, models.ErrNotFound); got != tt.wantNotFound {
+				t.Errorf("EnsureDepartmentActive(%s) not-found mapping = %t, want %t", departmentID, got, tt.wantNotFound)
 			}
 		})
 	}

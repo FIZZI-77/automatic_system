@@ -22,6 +22,12 @@ type Repository struct {
 }
 
 func NewRepository(db *pgxpool.Pool) *Repository {
-	return &Repository{EntryWriterRepository: NewEntryWriterRepoStruct(db), EntryReaderRepository: NewEntryReaderRepoStruct(db)}
+	return &Repository{
+		EntryWriterRepository: NewEntryWriterRepoStruct(db),
+		EntryReaderRepository: NewEntryReaderRepoStruct(db),
+	}
 }
-func IsNotFound(err error) bool { return errors.Is(err, pgx.ErrNoRows) }
+
+func IsNotFound(err error) bool {
+	return errors.Is(err, pgx.ErrNoRows)
+}

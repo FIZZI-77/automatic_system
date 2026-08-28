@@ -1,6 +1,7 @@
 package completionhttp
 
 import (
+	"context"
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
@@ -48,34 +49,49 @@ func (s *Server) create(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request"})
 		return
 	}
-	workReportID, ownerID, fileIDs, err := validate(input)
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
-		return
-	}
-	ctx := r.Context()
-	for _, fileID := range fileIDs {
-		if err := s.files.LinkExisting(ctx, fileID, workReportID, ownerID, input.ActorRoles); err != nil {
-			s.fail(w, "link source file", err)
-			return
-		}
-	}
-	images, err := s.files.DownloadImages(ctx, fileIDs, ownerID, input.ActorRoles)
-	if err != nil {
-		s.fail(w, "download report images", err)
-		return
-	}
-	artifact, err := s.generator.GenerateCompletion(input, images)
+	result, err := s.Process(r.Context(), input)
 	if err != nil {
 		s.fail(w, "generate completion report", err)
 		return
 	}
+	writeJSON(w, http.StatusCreated, result)
+}
+
+func (s *Server) Process(ctx context.Context, input models.CompletionReport) (models.CompletionReportResult, error) {
+	workReportID, ownerID, fileIDs, err := validate(input)
+	if err != nil {
+		return models.CompletionReportResult{}, err
+	}
+	for _, fileID := range fileIDs {
+		if err := s.files.LinkExisting(ctx, fileID, workReportID, ownerID, input.ActorRoles); err != nil {
+			return models.CompletionReportResult{}, err
+		}
+	}
+	images, err := s.files.DownloadImages(ctx, fileIDs, ownerID, input.ActorRoles)
+	if err != nil {
+		return models.CompletionReportResult{}, err
+	}
+	artifact, err := s.generator.GenerateCompletion(input, images)
+	if err != nil {
+		return models.CompletionReportResult{}, err
+	}
 	fileID, err := s.files.UploadForResource(ctx, "work_report", workReportID, ownerID, input.ActorRoles, artifact)
 	if err != nil {
-		s.fail(w, "upload completion report", err)
-		return
+		return models.CompletionReportResult{}, err
 	}
-	writeJSON(w, http.StatusCreated, models.CompletionReportResult{FileID: fileID.String(), Name: artifact.Name})
+	return models.CompletionReportResult{FileID: fileID.String(), Name: artifact.Name}, nil
+}
+
+func (s *Server) Compensate(ctx context.Context, input models.CompletionCompensation) error {
+	fileID, err := uuid.Parse(input.FileID)
+	if err != nil {
+		return errors.New("invalid compensation file_id")
+	}
+	ownerID, err := uuid.Parse(input.RequestedBy)
+	if err != nil {
+		return errors.New("invalid compensation requested_by")
+	}
+	return s.files.Delete(ctx, fileID, ownerID, input.ActorRoles)
 }
 
 func validate(input models.CompletionReport) (uuid.UUID, uuid.UUID, []uuid.UUID, error) {

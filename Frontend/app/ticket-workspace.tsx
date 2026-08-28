@@ -86,6 +86,7 @@ export function TicketWorkspace({tickets,session,role,onUpdate,onMap,onNotice}:{
         updated=result.ticket;
       }
       setSelected(updated);onUpdate(updated);onNotice(`Статус заявки изменён: ${statusNames[updated.status]||updated.status}`);
+      if(updated.status==="IN_PROGRESS")onMap(updated.id);
     }catch(error){onNotice(error instanceof Error?error.message:"Не удалось изменить статус")}finally{setBusy(false)}
   }
 
@@ -98,7 +99,7 @@ export function TicketWorkspace({tickets,session,role,onUpdate,onMap,onNotice}:{
         const reserved=await api<{operation:{id:string;version:number}}>(config.endpoints.dispatchReserve,{ticket_id:selected.id,brigade_id:brigadeId,requested_by:session.user?.user_id,reservation_ttl_seconds:120},"POST",session.accessToken);
         await api(config.endpoints.dispatchConfirm,{id:reserved.operation.id,confirmed_by:session.user?.user_id,expected_version:reserved.operation.version},"POST",session.accessToken);
       }
-      setSelected(updated);onUpdate(updated);onNotice("Бригада назначена");
+      setSelected(updated);onUpdate(updated);onNotice("Бригада назначена");onMap(updated.id);
     }catch(error){onNotice(error instanceof Error?error.message:"Не удалось назначить бригаду")}finally{setBusy(false)}
   }
 
@@ -108,7 +109,7 @@ export function TicketWorkspace({tickets,session,role,onUpdate,onMap,onNotice}:{
     try{
       const result=await api<{operation:{brigade_id:string}}>(config.endpoints.dispatchAuto,{ticket_id:selected.id,requested_by:session.user?.user_id,candidate_limit:100},"POST",session.accessToken);
       const updated:Ticket={...selected,brigade_id:result.operation.brigade_id,status:"ASSIGNED"};
-      setSelected(updated);onUpdate(updated);onNotice("Dispatch Service автоматически назначил бригаду");
+      setSelected(updated);onUpdate(updated);onNotice("Dispatch Service автоматически назначил бригаду");onMap(updated.id);
     }catch(error){onNotice(error instanceof Error?error.message:"Не удалось выполнить автоназначение")}finally{setBusy(false)}
   }
 

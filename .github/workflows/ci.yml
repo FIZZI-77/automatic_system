@@ -289,6 +289,12 @@ jobs:
             "k8s/overlays/${{ matrix.overlay }}" \
             > rendered.yaml
 
+          if [ "${{ matrix.overlay }}" = "prod" ]; then
+            kubectl kustomize \
+              k8s/overlays/prod/checks \
+              >> rendered.yaml
+          fi
+
           if [ ! -s rendered.yaml ]; then
             echo "::error::Kustomize rendered an empty manifest"
             exit 1
@@ -409,6 +415,21 @@ jobs:
             package: automatic-system-transponder-simulator
             context: Transponder_Simulator
             dockerfile: Transponder_Simulator/Dockerfile
+
+          - service: postgres-ha
+            package: automatic-system-postgres-ha
+            context: .
+            dockerfile: k8s/build/postgres-ha/Dockerfile
+
+          - service: postgres-citus-ha
+            package: automatic-system-postgres-citus-ha
+            context: .
+            dockerfile: k8s/build/postgres-citus-ha/Dockerfile
+
+          - service: pgbouncer
+            package: automatic-system-pgbouncer
+            context: .
+            dockerfile: k8s/build/pgbouncer/Dockerfile
 
     steps:
       - name: Checkout
@@ -1041,7 +1062,9 @@ jobs:
           sed -Ei \
             "s/newTag: sha-[0-9a-fA-F]+/newTag: sha-${SHORT_SHA}/g" \
             k8s/overlays/prod/apps/kustomization.yaml \
-            k8s/overlays/prod/migrations/kustomization.yaml
+            k8s/overlays/prod/migrations/kustomization.yaml \
+            k8s/overlays/prod/infra/kustomization.yaml \
+            k8s/overlays/prod/checks/kustomization.yaml
 
       - name: Create namespace
         run: kubectl apply -k k8s/base/namespace
@@ -1139,12 +1162,25 @@ jobs:
         run: |
           set -euo pipefail
 
+          kubectl delete job \
+            postgres-backup-bucket-init \
+            postgres-platform-backup-init \
+            postgres-ticket-citus-backup-init \
+            postgres-ticket-citus-distribute \
+            -n automatic-system \
+            --ignore-not-found=true
+
           kubectl apply \
             -k k8s/overlays/prod/infra
 
-          kubectl wait \
-            --for=condition=Ready \
-            pod \
+          kubectl rollout status \
+            statefulset \
+            --all \
+            -n automatic-system \
+            --timeout=15m
+
+          kubectl rollout status \
+            deployment \
             --all \
             -n automatic-system \
             --timeout=15m
@@ -1167,6 +1203,28 @@ jobs:
             --all \
             -n automatic-system \
             --timeout=15m
+
+      - name: Verify PgBouncer connectivity
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          kubectl delete \
+            -k k8s/overlays/prod/checks \
+            --ignore-not-found=true
+
+          kubectl apply \
+            -k k8s/overlays/prod/checks
+
+          kubectl wait \
+            --for=condition=complete \
+            job/pgbouncer-connectivity-check \
+            -n automatic-system \
+            --timeout=5m
+
+          kubectl logs \
+            job/pgbouncer-connectivity-check \
+            -n automatic-system
 
       - name: Deploy applications
         shell: bash

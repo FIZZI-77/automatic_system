@@ -48,8 +48,7 @@
                                                         "script":  {
                                                                        "type":  "text/javascript",
                                                                        "exec":  [
-                                                                                    "pm.test(\u0027status is successful\u0027, () =\u003e pm.expect(pm.response.code).to.be.within(200, 299));",
-                                                                                    "['dd720703-bc5d-4278-8180-29f1f0909e0d', pm.collectionVariables.get('cancel_brigade_id')].forEach((brigadeId, i) => pm.sendRequest({url: pm.collectionVariables.get('base_url') + '/locations/record', method: 'POST', header: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + pm.collectionVariables.get('access_token')}, body: {mode: 'raw', raw: JSON.stringify({event_id: pm.variables.replaceIn('{{$guid}}'), event_version: 1, occurred_at: new Date().toISOString(), device_id: 'postman-dispatch-' + i, vehicle_id: pm.variables.replaceIn('{{$guid}}'), brigade_id: brigadeId, sequence: Date.now() + i + 1, latitude: Number(pm.collectionVariables.get('latitude')), longitude: Number(pm.collectionVariables.get('longitude')), speed_kmh: 0, heading: 0, accuracy_meters: 5, simulated: true})}}, (err, res) => pm.test('secondary brigade location recorded', () => { pm.expect(err).to.equal(null); pm.expect(res.code).to.be.within(200, 299); })));"
+                                                                                    "pm.test(\u0027status is successful\u0027, () =\u003e pm.expect(pm.response.code).to.be.within(200, 299));"
                                                                                 ]
                                                                    }
                                                     }
@@ -128,7 +127,8 @@
                                                         "script":  {
                                                                        "type":  "text/javascript",
                                                                        "exec":  [
-                                                                                    "pm.test(\u0027status is successful\u0027, () =\u003e pm.expect(pm.response.code).to.be.within(200, 299));"
+                                                                                    "pm.test(\u0027status is successful\u0027, () =\u003e pm.expect(pm.response.code).to.be.within(200, 299));",
+                                                                                    "pm.sendRequest({url: pm.collectionVariables.get('base_url') + '/locations/record', method: 'POST', header: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + pm.collectionVariables.get('access_token')}, body: {mode: 'raw', raw: JSON.stringify({event_id: pm.variables.replaceIn('{{$guid}}'), event_version: 1, occurred_at: new Date().toISOString(), device_id: 'postman-dispatch-auto', vehicle_id: pm.variables.replaceIn('{{$guid}}'), brigade_id: '30000000-0000-4000-8000-000000000004', sequence: Date.now() + 1, latitude: Number(pm.collectionVariables.get('latitude')), longitude: Number(pm.collectionVariables.get('longitude')), speed_kmh: 0, heading: 0, accuracy_meters: 5, simulated: true})}}, (err, res) => pm.test('auto brigade location recorded', () => { pm.expect(err).to.equal(null); pm.expect(res.code).to.be.within(200, 299); }));"
                                                                                 ]
                                                                    }
                                                     }
@@ -689,7 +689,7 @@
                                       "request":  {
                                                       "method":  "POST",
                                                       "header":  {"key": "Content-Type", "value": "application/json"},
-                                                      "body":  {"mode":"raw","raw":"{\"user_id\":\"{{actor_user_id}}\",\"department_id\":\"{{department_id}}\",\"category_id\":\"{{dispatch_category_id}}\",\"title\":\"Dispatch primary {{$guid}}\",\"description\":\"Dispatch preview and reserve scenario\",\"priority\":\"high\",\"address\":\"Moscow center\",\"latitude\":{{latitude}},\"longitude\":{{longitude}}}"},
+                                                      "body":  {"mode":"raw","raw":"{\"user_id\":\"{{actor_user_id}}\",\"department_id\":\"{{department_id}}\",\"category_id\":\"{{dispatch_category_id}}\",\"title\":\"Dispatch primary {{$guid}}\",\"description\":\"Dispatch preview and reserve scenario\",\"priority\":\"HIGH\",\"address\":\"Moscow center\",\"latitude\":{{latitude}},\"longitude\":{{longitude}}}"},
                                                       "url":  "{{base_url}}/tickets/create"
                                                   },
                                       "event":  [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('primary NEW ticket created', () => pm.response.to.have.status(201));","const json=pm.response.json(); pm.collectionVariables.set('ticket_id', json.ticket.id);"]}}]
@@ -699,7 +699,7 @@
                                       "request":  {
                                                       "method":  "POST",
                                                       "header":  {"key": "Content-Type", "value": "application/json"},
-                                                      "body":  {"mode":"raw","raw":"{\"user_id\":\"{{actor_user_id}}\",\"department_id\":\"{{department_id}}\",\"category_id\":\"{{dispatch_category_id}}\",\"title\":\"Dispatch auto {{$guid}}\",\"description\":\"Automatic dispatch scenario\",\"priority\":\"medium\",\"address\":\"Moscow center\",\"latitude\":{{latitude}},\"longitude\":{{longitude}}}"},
+                                                      "body":  {"mode":"raw","raw":"{\"user_id\":\"{{actor_user_id}}\",\"department_id\":\"{{department_id}}\",\"category_id\":\"{{dispatch_category_id}}\",\"title\":\"Dispatch auto {{$guid}}\",\"description\":\"Automatic dispatch scenario\",\"priority\":\"MEDIUM\",\"address\":\"Moscow center\",\"latitude\":{{latitude}},\"longitude\":{{longitude}}}"},
                                                       "url":  "{{base_url}}/tickets/create"
                                                   },
                                       "event":  [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('auto NEW ticket created', () => pm.response.to.have.status(201));","const json=pm.response.json(); pm.collectionVariables.set('auto_ticket_id', json.ticket.id);"]}}]
@@ -709,7 +709,7 @@
                                       "request":  {
                                                       "method":  "POST",
                                                       "header":  {"key": "Content-Type", "value": "application/json"},
-                                                      "body":  {"mode":"raw","raw":"{\"user_id\":\"{{actor_user_id}}\",\"department_id\":\"{{department_id}}\",\"category_id\":\"{{dispatch_category_id}}\",\"title\":\"Dispatch cancel {{$guid}}\",\"description\":\"Cancellation dispatch scenario\",\"priority\":\"medium\",\"address\":\"Moscow center\",\"latitude\":{{latitude}},\"longitude\":{{longitude}}}"},
+                                                      "body":  {"mode":"raw","raw":"{\"user_id\":\"{{actor_user_id}}\",\"department_id\":\"{{department_id}}\",\"category_id\":\"{{dispatch_category_id}}\",\"title\":\"Dispatch cancel {{$guid}}\",\"description\":\"Cancellation dispatch scenario\",\"priority\":\"MEDIUM\",\"address\":\"Moscow center\",\"latitude\":{{latitude}},\"longitude\":{{longitude}}}"},
                                                       "url":  "{{base_url}}/tickets/create"
                                                   },
                                       "event":  [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('cancellation NEW ticket created', () => pm.response.to.have.status(201));","const json=pm.response.json(); pm.collectionVariables.set('cancel_ticket_id', json.ticket.id);"]}}]
@@ -1003,12 +1003,12 @@
                      },
                      {
                          "key":  "brigade_id",
-                         "value":  "e6450e95-77dd-4824-89fa-1657f409be68",
+                         "value":  "30000000-0000-4000-8000-000000000003",
                          "type":  "string"
                      },
                      {
                          "key":  "cancel_brigade_id",
-                         "value":  "bf9221f9-dbca-4981-abd6-81a977a44054",
+                         "value":  "30000000-0000-4000-8000-000000000005",
                          "type":  "string"
                      },
                      {

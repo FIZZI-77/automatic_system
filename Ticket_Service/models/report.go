@@ -9,13 +9,16 @@ import (
 )
 
 type WorkReport struct {
-	ID           uuid.UUID   `json:"id"`
-	TicketID     uuid.UUID   `json:"ticket_id"`
-	AuthorUserID uuid.UUID   `json:"author_user_id"`
-	Description  string      `json:"description"`
-	FileIDs      []uuid.UUID `json:"file_ids"`
-	CreatedAt    time.Time   `json:"created_at"`
-	UpdatedAt    time.Time   `json:"updated_at"`
+	ID               uuid.UUID   `json:"id"`
+	TicketID         uuid.UUID   `json:"ticket_id"`
+	AuthorUserID     uuid.UUID   `json:"author_user_id"`
+	Description      string      `json:"description"`
+	FileIDs          []uuid.UUID `json:"file_ids"`
+	CreatedAt        time.Time   `json:"created_at"`
+	UpdatedAt        time.Time   `json:"updated_at"`
+	CompletionStatus string      `json:"completion_status"`
+	CompletionFileID *uuid.UUID  `json:"completion_file_id,omitempty"`
+	CompletionError  string      `json:"completion_error,omitempty"`
 }
 
 type CreateWorkReportInput struct {
@@ -25,6 +28,27 @@ type CreateWorkReportInput struct {
 	FileIDs        []uuid.UUID
 	ActorBrigadeID *uuid.UUID
 	ActorRoles     []string
+	IdempotencyKey string
+	Completion     *CompletionReportInput
+}
+
+type CompletionReportInput struct {
+	RequestedBy string
+	ActorRoles  []string
+	OpenedBy    string
+	Brigade     CompletionBrigadeInput
+}
+
+type CompletionBrigadeInput struct {
+	ID      string
+	Name    string
+	Members []CompletionBrigadeMemberInput
+}
+
+type CompletionBrigadeMemberInput struct {
+	UserID   string
+	FullName string
+	Role     string
 }
 
 func (in *CreateWorkReportInput) Validate() error {

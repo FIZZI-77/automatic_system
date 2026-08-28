@@ -1,0 +1,168 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: automatic-system
+
+resources:
+  - application-metrics-peerauth.yaml
+  - service-account.yaml
+  - otel-collector.yaml
+  - jaeger.yaml
+  - prometheus.yaml
+  - grafana.yaml
+  - kube-state-metrics.yaml
+  - node-exporter.yaml
+  - etcd-metrics-agent.yaml
+  - infrastructure-exporters.yaml
+
+configMapGenerator:
+  - name: telemetry-config
+    literals:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - OTEL_EXPORTER_OTLP_INSECURE=true
+      - OTEL_TRACES_SAMPLER=parentbased_traceidratio
+      - OTEL_TRACES_SAMPLER_ARG=1.0
+      - OTEL_DEPLOYMENT_ENVIRONMENT=kubernetes
+  - name: otel-collector-config
+    files:
+      - config.yaml=otel-collector-config.yaml
+  - name: jaeger-config
+    files:
+      - config.yaml=jaeger-config.yaml
+  - name: prometheus-config
+    files:
+      - prometheus.yml=prometheus-config.yaml
+  - name: grafana-datasources
+    files:
+      - datasources.yaml=grafana-datasources.yaml
+  - name: grafana-dashboard-provider
+    files:
+      - dashboards.yaml=grafana-dashboard-provider.yaml
+
+  - name: grafana-dashboards-services-a
+    files:
+      - dashboards/automatic-system-service-analytics-service.json
+      - dashboards/automatic-system-service-api-gateway.json
+      - dashboards/automatic-system-service-asset-service.json
+      - dashboards/automatic-system-service-audit-service.json
+      - dashboards/automatic-system-service-auth-service.json
+  - name: grafana-dashboards-services-b
+    files:
+      - dashboards/automatic-system-service-brigade-service.json
+      - dashboards/automatic-system-service-department-service.json
+      - dashboards/automatic-system-service-dispatch-service.json
+      - dashboards/automatic-system-service-file-service.json
+  - name: grafana-dashboards-services-c
+    files:
+      - dashboards/automatic-system-infra-frontend.json
+      - dashboards/automatic-system-service-location-service.json
+      - dashboards/automatic-system-service-notification-service.json
+      - dashboards/automatic-system-service-profile-service.json
+  - name: grafana-dashboards-services-d
+    files:
+      - dashboards/automatic-system-service-report-service.json
+      - dashboards/automatic-system-service-routing-service.json
+      - dashboards/automatic-system-service-sla-service.json
+      - dashboards/automatic-system-service-ticket-service.json
+  - name: grafana-dashboards-database-clusters
+    files:
+      - dashboards/automatic-system-infra-citus.json
+      - dashboards/automatic-system-infra-patroni-citus.json
+      - dashboards/automatic-system-infra-patroni-platform.json
+      - dashboards/automatic-system-infra-postgres-platform.json
+  - name: grafana-dashboards-database-platform-nodes
+    files:
+      - dashboards/automatic-system-infra-postgres-platform-0.json
+      - dashboards/automatic-system-infra-postgres-platform-1.json
+      - dashboards/automatic-system-infra-postgres-platform-2.json
+  - name: grafana-dashboards-database-citus-nodes-a
+    files:
+      - dashboards/automatic-system-infra-citus-coordinator-ticket-citus-0.json
+      - dashboards/automatic-system-infra-citus-coordinator-ticket-citus-1.json
+      - dashboards/automatic-system-infra-citus-coordinator-ticket-citus-2.json
+      - dashboards/automatic-system-infra-citus-worker-1-ticket-citus-0.json
+  - name: grafana-dashboards-database-citus-nodes-b
+    files:
+      - dashboards/automatic-system-infra-citus-worker-1-ticket-citus-1.json
+      - dashboards/automatic-system-infra-citus-worker-2-ticket-citus-0.json
+      - dashboards/automatic-system-infra-citus-worker-2-ticket-citus-1.json
+  - name: grafana-dashboards-database-pgbouncer
+    files:
+      - dashboards/automatic-system-infra-pgbouncer-platform-primary.json
+      - dashboards/automatic-system-infra-pgbouncer-platform-replicas.json
+      - dashboards/automatic-system-infra-pgbouncer-ticket-primary.json
+      - dashboards/automatic-system-infra-pgbouncer-ticket-replicas.json
+  - name: grafana-dashboards-postgres-databases-a
+    files:
+      - dashboards/automatic-system-infra-postgres-database-auth_db.json
+      - dashboards/automatic-system-infra-postgres-database-department_db.json
+      - dashboards/automatic-system-infra-postgres-database-brigade_db.json
+      - dashboards/automatic-system-infra-postgres-database-profile_db.json
+      - dashboards/automatic-system-infra-postgres-database-location.json
+  - name: grafana-dashboards-postgres-databases-b
+    files:
+      - dashboards/automatic-system-infra-postgres-database-routing.json
+      - dashboards/automatic-system-infra-postgres-database-dispatch.json
+      - dashboards/automatic-system-infra-postgres-database-file.json
+      - dashboards/automatic-system-infra-postgres-database-sla.json
+      - dashboards/automatic-system-infra-postgres-database-notification.json
+  - name: grafana-dashboards-postgres-databases-c
+    files:
+      - dashboards/automatic-system-infra-postgres-database-audit.json
+      - dashboards/automatic-system-infra-postgres-database-report.json
+      - dashboards/automatic-system-infra-postgres-database-asset.json
+      - dashboards/automatic-system-infra-postgres-database-ticket-db.json
+  - name: grafana-dashboards-messaging
+    files:
+      - dashboards/automatic-system-infra-kafka-1.json
+      - dashboards/automatic-system-infra-kafka-2.json
+      - dashboards/automatic-system-infra-kafka-3.json
+      - dashboards/automatic-system-infra-redis-gateway.json
+      - dashboards/automatic-system-infra-redis-location-master.json
+      - dashboards/automatic-system-infra-redis-location-replica-1.json
+      - dashboards/automatic-system-infra-redis-location-replica-2.json
+      - dashboards/automatic-system-infra-redis-notification.json
+  - name: grafana-dashboards-platform
+    files:
+      - dashboards/automatic-system-infra-clickhouse.json
+      - dashboards/automatic-system-infra-elasticsearch.json
+      - dashboards/automatic-system-infra-etcd.json
+      - dashboards/automatic-system-infra-filebeat.json
+      - dashboards/automatic-system-infra-grafana.json
+      - dashboards/automatic-system-infra-istio.json
+      - dashboards/automatic-system-infra-jaeger.json
+      - dashboards/automatic-system-infra-kiali.json
+      - dashboards/automatic-system-infra-kibana.json
+      - dashboards/automatic-system-infra-minio.json
+      - dashboards/automatic-system-infra-otel-collector.json
+      - dashboards/automatic-system-infra-prometheus.json
+      - dashboards/automatic-system-infra-valhalla.json
+  - name: grafana-dashboard-community-postgresql
+    files:
+      - dashboards/community/postgresql-database.json
+  - name: grafana-dashboard-community-redis
+    files:
+      - dashboards/community/redis-exporter.json
+  - name: grafana-dashboard-community-kafka
+    files:
+      - dashboards/community/kafka-exporter.json
+  - name: grafana-dashboard-community-kubernetes
+    files:
+      - dashboards/community/kubernetes-overview.json
+  - name: grafana-dashboard-community-node-exporter
+    files:
+      - dashboards/community/node-exporter-full.json
+  - name: grafana-dashboard-community-etcd
+    files:
+      - dashboards/community/etcd-prometheus.json
+  - name: grafana-dashboard-community-prometheus
+    files:
+      - dashboards/community/prometheus-overview.json
+  - name: grafana-dashboard-community-clickhouse
+    files:
+      - dashboards/community/clickhouse-official.json
+  - name: grafana-dashboard-community-minio
+    files:
+      - dashboards/community/minio-official.json
+generatorOptions:
+  disableNameSuffixHash: true

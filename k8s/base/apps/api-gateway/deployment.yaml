@@ -38,15 +38,17 @@ spec:
             cpu: 500m
             memory: 512Mi
         readinessProbe:
-          tcpSocket:
-            port: 8081
+          httpGet:
+            path: /readyz
+            port: http
           initialDelaySeconds: 3
           periodSeconds: 5
           failureThreshold: 3
           timeoutSeconds: 2
         livenessProbe:
-          tcpSocket:
-            port: 8081
+          httpGet:
+            path: /livez
+            port: http
           initialDelaySeconds: 15
           periodSeconds: 10
           failureThreshold: 3
@@ -58,16 +60,20 @@ spec:
           readOnly: true
         securityContext:
           allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
           capabilities:
             drop:
             - ALL
         startupProbe:
-          tcpSocket:
-            port: 8081
+          httpGet:
+            path: /livez
+            port: http
           periodSeconds: 2
           timeoutSeconds: 1
           failureThreshold: 45
         envFrom:
+        - configMapRef:
+            name: telemetry-config
         - configMapRef:
             name: api-gateway-config
         env:
@@ -91,6 +97,9 @@ spec:
       enableServiceLinks: false
       terminationGracePeriodSeconds: 30
       securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
         seccompProfile:
           type: RuntimeDefault
   revisionHistoryLimit: 3

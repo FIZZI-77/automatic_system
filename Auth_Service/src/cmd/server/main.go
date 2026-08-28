@@ -4,13 +4,19 @@ import (
 	"auth/pkg"
 	"auth/pkg/closer"
 	appconfig "auth/pkg/config"
+	"auth/pkg/telemetry"
 	"auth/src/core/handler"
 	"auth/src/core/repository"
 	"auth/src/core/service"
+	"auth/src/infrastructure/profileclient"
 	"context"
 	v1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/auth/v1"
+	profilev1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/profile/v1"
 	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/health"
+	healthv1 "google.golang.org/grpc/health/grpc_health_v1"
 	"log"
 	"net"
 	"os"
@@ -22,6 +28,16 @@ import (
 )
 
 func main() {
+	telemetryProviders, err := telemetry.Init(context.Background(), "auth-service")
+	if err != nil {
+		log.Fatalf("initialize OpenTelemetry: %v", err)
+	}
+	defer func() {
+		if shutdownErr := telemetryProviders.Close(); shutdownErr != nil {
+			log.Printf("shutdown OpenTelemetry: %v", shutdownErr)
+		}
+	}()
+
 	if err := appconfig.Load(); err != nil {
 		log.Fatalf("configuration error: %v", err)
 	}
@@ -38,7 +54,7 @@ func main() {
 		log.Fatal("error loading .env file")
 	}
 
-	db, err := pkg.NewPostgresDB(pkg.Config{
+	writeDB, err := pkg.NewPostgresDB(pkg.Config{
 		Host:     os.Getenv("DB_HOST"),
 		Port:     os.Getenv("DB_PORT"),
 		Username: os.Getenv("DB_USERNAME"),
@@ -47,14 +63,34 @@ func main() {
 		SSLMode:  os.Getenv("SSLMODE"),
 	})
 	if err != nil {
-		log.Fatalf("failed to connect db: %v", err)
+		log.Fatalf("failed to connect primary db: %v", err)
 	}
-	dependencies.Add("postgres", func() error {
-		db.Close()
+	readHost := strings.TrimSpace(os.Getenv("DB_READ_HOST"))
+	if readHost == "" {
+		readHost = os.Getenv("DB_HOST")
+	}
+	readDB, err := pkg.NewPostgresDB(pkg.Config{
+		Host:     readHost,
+		Port:     os.Getenv("DB_PORT"),
+		Username: os.Getenv("DB_USERNAME"),
+		Password: os.Getenv("DB_PASSWORD"),
+		DbName:   os.Getenv("DB_NAME"),
+		SSLMode:  os.Getenv("SSLMODE"),
+	})
+	if err != nil {
+		writeDB.Close()
+		log.Fatalf("failed to connect read replica: %v", err)
+	}
+	dependencies.Add("postgres primary", func() error {
+		writeDB.Close()
+		return nil
+	})
+	dependencies.Add("postgres replica", func() error {
+		readDB.Close()
 		return nil
 	})
 	defer closeDependencies(dependencies)
-	startOutboxRelay(db, dependencies, logger)
+	startOutboxRelay(writeDB, dependencies, logger)
 
 	privateKey, err := pkg.LoadRSAPrivateKey(os.Getenv("JWT_PRIVATE_KEY_PATH"))
 	if err != nil {
@@ -66,12 +102,23 @@ func main() {
 		log.Fatal("JWT_KEY_ID is empty")
 	}
 
+	profileConn, err := grpc.NewClient(
+		envOrDefault("PROFILE_GRPC_ADDR", "localhost:50055"),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		telemetry.GRPCClientOption(),
+	)
+	if err != nil {
+		log.Fatalf("failed to create profile grpc client: %v", err)
+	}
+	dependencies.Add("profile grpc", profileConn.Close)
+
 	lis, err := net.Listen("tcp", ":50051")
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
 	grpcServer := grpc.NewServer(
+		telemetry.GRPCServerOption(),
 		grpc.ChainUnaryInterceptor(
 			pkg.RequestIDUnaryServerInterceptor,
 			pkg.IdempotencyKeyUnaryServerInterceptor,
@@ -79,7 +126,7 @@ func main() {
 		),
 	)
 
-	repo := repository.NewRepository(repository.DBPools{Write: db, Read: db})
+	repo := repository.NewRepository(repository.DBPools{Write: writeDB, Read: readDB})
 	mailService, err := service.NewSMTPMailService(service.SMTPMailConfig{
 		Host:            os.Getenv("SMTP_HOST"),
 		Port:            mustInt(os.Getenv("SMTP_PORT")),
@@ -96,10 +143,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to init mail jwt: %v", err)
 	}
-	authService := service.NewService(repo, privateKey, keyID, mailService, logger)
+	profiles := profileclient.New(profilev1.NewProfileServiceClient(profileConn))
+	authService := service.NewService(repo, privateKey, keyID, mailService, profiles, logger)
 	authHandler := handler.NewAuthHandler(authService, logger)
 
 	v1.RegisterAuthServiceServer(grpcServer, authHandler)
+	healthv1.RegisterHealthServer(grpcServer, health.NewServer())
 
 	serverErrCh := make(chan error, 1)
 
@@ -167,4 +216,11 @@ func mustBool(value string) bool {
 		log.Fatalf("invalid bool value %q: %v", value, err)
 	}
 	return b
+}
+
+func envOrDefault(key string, fallback string) string {
+	if value := strings.TrimSpace(os.Getenv(key)); value != "" {
+		return value
+	}
+	return fallback
 }

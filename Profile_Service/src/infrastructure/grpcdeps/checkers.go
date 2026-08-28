@@ -2,11 +2,16 @@ package grpcdeps
 
 import (
 	"context"
+	"errors"
 	"fmt"
+
+	"profile/models"
 
 	authv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/auth/v1"
 	departmentv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/department/v1"
 	"github.com/google/uuid"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type UserChecker struct {
@@ -39,12 +44,18 @@ func NewDepartmentChecker(client departmentv1.DepartmentServiceClient) *Departme
 func (c *DepartmentChecker) EnsureDepartmentActive(ctx context.Context, departmentID uuid.UUID) error {
 	response, err := c.client.GetDepartmentByID(ctx, &departmentv1.GetDepartmentByIDRequest{Id: departmentID.String()})
 	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return fmt.Errorf(
+				"department GetDepartmentByID: %w",
+				errors.Join(models.ErrNotFound, err),
+			)
+		}
 		return fmt.Errorf("department GetDepartmentByID: %w", err)
 	}
 	if response.GetDepartment() == nil ||
 		response.GetDepartment().GetId() != departmentID.String() ||
 		response.GetDepartment().GetStatus() != departmentv1.DepartmentStatus_DEPARTMENT_STATUS_ACTIVE {
-		return fmt.Errorf("department %s does not exist or is inactive", departmentID)
+		return fmt.Errorf("department %s does not exist or is inactive: %w", departmentID, models.ErrNotFound)
 	}
 	return nil
 }

@@ -1,0 +1,9 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: automatic-system
+
+resources:
+  - strict-mtls.yaml
+  - authorization-audit.yaml
+  - destination-rules.yaml
+  - infrastructure-plaintext.yaml

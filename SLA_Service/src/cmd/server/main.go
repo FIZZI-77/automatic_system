@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	slav1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/sla/v1"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
@@ -14,6 +13,7 @@ import (
 	"os/signal"
 	"sla/pkg"
 	appconfig "sla/pkg/config"
+	"sla/pkg/telemetry"
 	"sla/src/core/handler"
 	"sla/src/core/repository"
 	"sla/src/core/service"
@@ -25,6 +25,16 @@ import (
 )
 
 func main() {
+	telemetryProviders, err := telemetry.Init(context.Background(), "sla-service")
+	if err != nil {
+		log.Fatalf("initialize OpenTelemetry: %v", err)
+	}
+	defer func() {
+		if shutdownErr := telemetryProviders.Close(); shutdownErr != nil {
+			log.Printf("shutdown OpenTelemetry: %v", shutdownErr)
+		}
+	}()
+
 	if err := appconfig.Load(); err != nil {
 		log.Fatalf("configuration error: %v", err)
 	}
@@ -35,7 +45,7 @@ func main() {
 		log.Fatal(e)
 	}
 	defer logger.Sync()
-	db, e := pgxpool.New(ctx, must("DATABASE_URL"))
+	db, e := telemetry.NewPostgresPool(ctx, must("DATABASE_URL"))
 	if e != nil {
 		logger.Fatal("database connection failed", zap.Error(e))
 	}
@@ -58,7 +68,7 @@ func main() {
 	if e != nil {
 		logger.Fatal("listen failed", zap.Error(e))
 	}
-	server := grpc.NewServer()
+	server := grpc.NewServer(telemetry.GRPCServerOption())
 	slav1.RegisterSLAServiceServer(server, handler.New(s))
 	hs := health.NewServer()
 	healthv1.RegisterHealthServer(server, hs)

@@ -3,6 +3,7 @@ kind: Kustomization
 namespace: automatic-system
 resources:
   - ../../base/namespace
+  - ../../base/observability
   - secrets
   - infra
   - migrations

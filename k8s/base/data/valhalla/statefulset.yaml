@@ -26,7 +26,7 @@ spec:
     spec:
       containers:
       - name: valhalla
-        image: ghcr.io/nilsnolde/docker-valhalla/valhalla:latest
+        image: ghcr.io/valhalla/valhalla-scripted@sha256:84a16139deb6c94db9bf9cc66b8a79d4ced6fd31417f54c0c3ed2fdb6a699e2a
         env:
         - name: tile_urls
           value: https://download.geofabrik.de/russia/central-fed-district-latest.osm.pbf
@@ -35,9 +35,9 @@ spec:
         - name: build_elevation
           value: 'False'
         - name: build_admins
-          value: 'True'
+          value: 'False'
         - name: build_time_zones
-          value: 'True'
+          value: 'False'
         - name: server_threads
           value: '2'
         ports:

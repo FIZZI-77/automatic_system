@@ -1,0 +1,257 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster_name: automatic-system
+    environment: local-ha
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: [localhost:9090]
+
+  # Only trace-derived metrics pass through the OTel Collector.
+  - job_name: otel-trace-metrics
+    static_configs:
+      - targets: [otel-collector:8889]
+
+  - job_name: application-services
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names: [automatic-system]
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: "true"
+      - source_labels: [__meta_kubernetes_pod_phase]
+        action: keep
+        regex: Running
+      - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_component]
+        action: keep
+        regex: gateway|backend
+      - source_labels: [__meta_kubernetes_pod_ip]
+        target_label: __address__
+        replacement: $1:9464
+      - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+        target_label: service
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+      - target_label: namespace
+        replacement: automatic-system
+
+  - job_name: istio-mesh
+    metrics_path: /stats/prometheus
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names: [automatic-system]
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_phase]
+        action: keep
+        regex: Running
+      - source_labels: [__meta_kubernetes_pod_annotation_sidecar_istio_io_status]
+        action: keep
+        regex: .+
+      - source_labels: [__meta_kubernetes_pod_ip]
+        target_label: __address__
+        replacement: $1:15020
+      - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+        target_label: app
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+      - target_label: namespace
+        replacement: automatic-system
+
+  - job_name: istio-control-plane
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names: [istio-system]
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_phase]
+        action: keep
+        regex: Running
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: "true"
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+        action: replace
+        regex: (.+)
+        target_label: __metrics_path__
+      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        target_label: app
+      - target_label: namespace
+        replacement: istio-system
+
+  - job_name: postgres-exporter
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names: [automatic-system]
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+        action: keep
+        regex: patroni|patroni-citus
+      - source_labels: [__meta_kubernetes_pod_phase]
+        action: keep
+        regex: Running
+      - source_labels: [__meta_kubernetes_pod_ip]
+        target_label: __address__
+        replacement: $1:9187
+      - source_labels: [__meta_kubernetes_pod_label_cluster_name]
+        target_label: db_cluster
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+
+  - job_name: patroni
+    metrics_path: /metrics
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names: [automatic-system]
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+        action: keep
+        regex: patroni|patroni-citus
+      - source_labels: [__meta_kubernetes_pod_phase]
+        action: keep
+        regex: Running
+      - source_labels: [__meta_kubernetes_pod_ip]
+        target_label: __address__
+        replacement: $1:8008
+      - source_labels: [__meta_kubernetes_pod_label_cluster_name]
+        target_label: db_cluster
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+
+  - job_name: pgbouncer-exporter
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names: [automatic-system]
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+        action: keep
+        regex: pgbouncer
+      - source_labels: [__meta_kubernetes_pod_phase]
+        action: keep
+        regex: Running
+      - source_labels: [__meta_kubernetes_pod_ip]
+        target_label: __address__
+        replacement: $1:9127
+      - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_instance]
+        target_label: db_cluster
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+
+  - job_name: redis-exporter
+    metrics_path: /scrape
+    static_configs:
+      - targets:
+          - redis://redis-gateway:6379
+          - redis://redis-location-master:6379
+          - redis://redis-location-replica-1:6379
+          - redis://redis-location-replica-2:6379
+          - redis://redis-notification:6379
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+        regex: redis://([^:]+):.*
+        replacement: $1
+      - target_label: __address__
+        replacement: redis-exporter:9121
+
+  - job_name: kafka-exporter
+    static_configs:
+      - targets: [kafka-exporter:9308]
+        labels:
+          namespace: automatic-system
+
+  - job_name: minio
+    metrics_path: /minio/v2/metrics/cluster
+    static_configs:
+      - targets: [minio:9000]
+        labels:
+          namespace: automatic-system
+
+  - job_name: clickhouse
+    static_configs:
+      - targets: [clickhouse:9363]
+        labels:
+          namespace: automatic-system
+
+  - job_name: kube-state-metrics
+    static_configs:
+      - targets: [kube-state-metrics:8080]
+
+  - job_name: node-exporter
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names: [automatic-system]
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        action: keep
+        regex: node-exporter
+      - source_labels: [__meta_kubernetes_pod_phase]
+        action: keep
+        regex: Running
+      - source_labels: [__meta_kubernetes_pod_ip]
+        target_label: __address__
+        replacement: $1:9100
+      - source_labels: [__meta_kubernetes_pod_node_name]
+        target_label: node
+
+  - job_name: kubernetes-kubelet
+    scheme: https
+    authorization:
+      credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+    tls_config:
+      insecure_skip_verify: true
+    kubernetes_sd_configs:
+      - role: node
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_node_address_InternalIP]
+        target_label: __address__
+        replacement: $1:10250
+      - source_labels: [__meta_kubernetes_node_name]
+        target_label: node
+
+  - job_name: kubernetes-cadvisor
+    scheme: https
+    metrics_path: /metrics/cadvisor
+    authorization:
+      credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+    tls_config:
+      insecure_skip_verify: true
+    kubernetes_sd_configs:
+      - role: node
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_node_address_InternalIP]
+        target_label: __address__
+        replacement: $1:10250
+      - source_labels: [__meta_kubernetes_node_name]
+        target_label: node
+
+  - job_name: etcd
+    kubernetes_sd_configs:
+      - role: node
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_node_labelpresent_node_role_kubernetes_io_control_plane]
+        action: keep
+        regex: "true"
+      - source_labels: [__meta_kubernetes_node_address_InternalIP]
+        target_label: __address__
+        replacement: $1:9465
+      - source_labels: [__meta_kubernetes_node_name]
+        target_label: instance

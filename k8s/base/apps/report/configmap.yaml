@@ -10,3 +10,9 @@ metadata:
   namespace: automatic-system
 data:
   INTERNAL_HTTP_PORT: '8084'
+  ANALYTICS_SERVICE_ADDR: "analytics-service:50063"
+  FILE_SERVICE_ADDR: "file-service:50059"
+  KAFKA_BROKERS: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
+  KAFKA_TICKET_TOPIC: "tickets.events.v1"
+  KAFKA_REPORT_TOPIC: "reports.events.v1"
+  COMPLETION_CONSUMER_GROUP_ID: "report-completion-v1"

@@ -44,43 +44,53 @@ spec:
           containerPort: 8123
         - name: native
           containerPort: 9000
+        - name: metrics
+          containerPort: 9363
         resources:
           requests:
-            cpu: 25m
-            memory: 64Mi
+            cpu: 100m
+            memory: 512Mi
           limits:
-            cpu: 500m
-            memory: 768Mi
+            cpu: "1"
+            memory: 2Gi
         volumeMounts:
         - name: data
           mountPath: /var/lib/clickhouse
+        - name: prometheus-config
+          mountPath: /etc/clickhouse-server/config.d/prometheus.xml
+          subPath: prometheus.xml
+          readOnly: true
         startupProbe:
           httpGet:
             path: /ping
             port: 8123
           periodSeconds: 3
-          timeoutSeconds: 2
+          timeoutSeconds: 5
           failureThreshold: 60
         readinessProbe:
           httpGet:
             path: /ping
             port: 8123
           periodSeconds: 5
-          timeoutSeconds: 2
+          timeoutSeconds: 5
           failureThreshold: 3
         livenessProbe:
           httpGet:
             path: /ping
             port: 8123
           periodSeconds: 10
-          timeoutSeconds: 2
-          failureThreshold: 5
+          timeoutSeconds: 5
+          failureThreshold: 6
       automountServiceAccountToken: false
       enableServiceLinks: false
       terminationGracePeriodSeconds: 60
       securityContext:
         seccompProfile:
           type: RuntimeDefault
+      volumes:
+      - name: prometheus-config
+        configMap:
+          name: clickhouse-prometheus-config
   volumeClaimTemplates:
   - metadata:
       name: data

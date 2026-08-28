@@ -1,0 +1,13 @@
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: audit-unauthenticated-backend-traffic
+spec:
+  action: AUDIT
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: backend
+  rules:
+    - from:
+        - source:
+            notPrincipals: ["*"]

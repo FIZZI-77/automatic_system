@@ -20,7 +20,9 @@ type Handler struct {
 	service service.AuditService
 }
 
-func New(service service.AuditService) *Handler { return &Handler{service: service} }
+func New(service service.AuditService) *Handler {
+	return &Handler{service: service}
+}
 
 func (h *Handler) GetAuditEntry(ctx context.Context, req *auditv1.GetAuditEntryRequest) (*auditv1.GetAuditEntryResponse, error) {
 	if err := authorize(ctx); err != nil {
@@ -41,7 +43,16 @@ func (h *Handler) ListAuditEntries(ctx context.Context, req *auditv1.ListAuditEn
 	if err := authorize(ctx); err != nil {
 		return nil, err
 	}
-	filter := models.Filter{Action: req.Action, EntityType: req.EntityType, EntityID: req.EntityId, RequestID: req.RequestId, TraceID: req.TraceId, Topic: req.Topic, Limit: req.GetLimit(), Offset: req.GetOffset()}
+	filter := models.Filter{
+		Action:     req.Action,
+		EntityType: req.EntityType,
+		EntityID:   req.EntityId,
+		RequestID:  req.RequestId,
+		TraceID:    req.TraceId,
+		Topic:      req.Topic,
+		Limit:      req.GetLimit(),
+		Offset:     req.GetOffset(),
+	}
 	if req.ActorId != nil {
 		id, err := uuid.Parse(req.GetActorId())
 		if err != nil {
@@ -85,7 +96,19 @@ func toProto(entry *models.Entry) *auditv1.AuditEntry {
 		return nil
 	}
 	data, _ := structpb.NewStruct(entry.Data)
-	result := &auditv1.AuditEntry{Id: entry.ID.String(), EventId: entry.EventID, Topic: entry.Topic, Action: entry.Action, EntityType: entry.EntityType, EntityId: entry.EntityID, RequestId: entry.RequestID, TraceId: entry.TraceID, Data: data, OccurredAt: timestamppb.New(entry.OccurredAt), RecordedAt: timestamppb.New(entry.RecordedAt)}
+	result := &auditv1.AuditEntry{
+		Id:         entry.ID.String(),
+		EventId:    entry.EventID,
+		Topic:      entry.Topic,
+		Action:     entry.Action,
+		EntityType: entry.EntityType,
+		EntityId:   entry.EntityID,
+		RequestId:  entry.RequestID,
+		TraceId:    entry.TraceID,
+		Data:       data,
+		OccurredAt: timestamppb.New(entry.OccurredAt),
+		RecordedAt: timestamppb.New(entry.RecordedAt),
+	}
 	if entry.ActorID != nil {
 		value := entry.ActorID.String()
 		result.ActorId = &value

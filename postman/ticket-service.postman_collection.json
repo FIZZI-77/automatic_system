@@ -291,7 +291,7 @@
                                                                  ],
                                                       "body":  {
                                                                    "mode":  "raw",
-                                                                   "raw":  "{\n  \"department_id\": \"{{department_id}}\",\n  \"category_id\": \"{{category_id}}\",\n  \"title\": \"Postman test ticket\",\n  \"description\": \"Water leak near entrance, created from Postman\",\n  \"priority\": \"high\",\n  \"address\": \"Test street 1\",\n  \"latitude\": 55.7558,\n  \"longitude\": 37.6173\n}"
+                                                                   "raw":  "{\n  \"department_id\": \"{{department_id}}\",\n  \"category_id\": \"{{category_id}}\",\n  \"title\": \"Postman test ticket\",\n  \"description\": \"Water leak near entrance, created from Postman\",\n  \"priority\": \"HIGH\",\n  \"address\": \"Test street 1\",\n  \"latitude\": 55.7558,\n  \"longitude\": 37.6173\n}"
                                                                },
                                                       "url":  "{{base_url}}/tickets/create"
                                                   },
@@ -357,7 +357,7 @@
                                                                  ],
                                                       "body":  {
                                                                    "mode":  "raw",
-                                                                   "raw":  "{\n  \"department_id\": \"{{department_id}}\",\n  \"category_id\": \"{{category_id}}\",\n  \"status\": \"new\",\n  \"priority\": \"high\",\n  \"limit\": 20,\n  \"offset\": 0,\n  \"sort_by\": \"created_at\",\n  \"sort_order\": \"desc\"\n}"
+                                                                   "raw":  "{\n  \"department_id\": \"{{department_id}}\",\n  \"category_id\": \"{{category_id}}\",\n  \"status\": \"NEW\",\n  \"priority\": \"HIGH\",\n  \"limit\": 20,\n  \"offset\": 0,\n  \"sort_by\": \"created_at\",\n  \"sort_order\": \"desc\"\n}"
                                                                },
                                                       "url":  "{{base_url}}/tickets/list"
                                                   },
@@ -392,7 +392,7 @@
                                                                  ],
                                                       "body":  {
                                                                    "mode":  "raw",
-                                                                   "raw":  "{\n  \"ticket_id\": \"{{ticket_id}}\",\n  \"title\": \"Postman test ticket updated\",\n  \"description\": \"Updated description\",\n  \"priority\": \"emergency\",\n  \"address\": \"Updated test street 2\",\n  \"latitude\": 55.7512,\n  \"longitude\": 37.6184\n}"
+                                                                   "raw":  "{\n  \"ticket_id\": \"{{ticket_id}}\",\n  \"title\": \"Postman test ticket updated\",\n  \"description\": \"Updated description\",\n  \"priority\": \"EMERGENCY\",\n  \"address\": \"Updated test street 2\",\n  \"latitude\": 55.7512,\n  \"longitude\": 37.6184\n}"
                                                                },
                                                       "url":  "{{base_url}}/tickets/update"
                                                   },
@@ -560,7 +560,7 @@
                                                                  ],
                                                       "body":  {
                                                                    "mode":  "raw",
-                                                                   "raw":  "{\n  \"department_id\": \"{{department_id}}\",\n  \"category_id\": \"{{category_id}}\",\n  \"title\": \"Postman cancel ticket\",\n  \"description\": \"This ticket will be canceled\",\n  \"priority\": \"medium\",\n  \"address\": \"Cancel test street 3\",\n  \"latitude\": 55.75,\n  \"longitude\": 37.61\n}"
+                                                                   "raw":  "{\n  \"department_id\": \"{{department_id}}\",\n  \"category_id\": \"{{category_id}}\",\n  \"title\": \"Postman cancel ticket\",\n  \"description\": \"This ticket will be canceled\",\n  \"priority\": \"MEDIUM\",\n  \"address\": \"Cancel test street 3\",\n  \"latitude\": 55.75,\n  \"longitude\": 37.61\n}"
                                                                },
                                                       "url":  "{{base_url}}/tickets/create"
                                                   },

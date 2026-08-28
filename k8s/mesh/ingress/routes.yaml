@@ -1,0 +1,32 @@
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: frontend
+spec:
+  hosts:
+    - city.localhost
+  gateways:
+    - automatic-system
+  http:
+    - route:
+        - destination:
+            host: frontend.automatic-system.svc.cluster.local
+            port:
+              number: 3000
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: api-gateway
+spec:
+  hosts:
+    - api.city.localhost
+  gateways:
+    - automatic-system
+  http:
+    - timeout: 30s
+      route:
+        - destination:
+            host: api-gateway.automatic-system.svc.cluster.local
+            port:
+              number: 8081

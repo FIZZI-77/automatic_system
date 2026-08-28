@@ -249,6 +249,17 @@ export function saveSession(session: Session | null) {
 
 type ApiErrorPayload = { error?: string; code?: string };
 
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly code?: string,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
 const errorMessagesByCode: Record<string, string> = {
   INVALID_ARGUMENT: "Проверьте введённые данные",
   UNAUTHENTICATED: "Необходимо войти в систему заново",
@@ -304,7 +315,13 @@ export async function api<T>(path: string, body?: unknown, method = "POST", toke
     }
   }
   const payload = await response.json().catch(() => ({})) as ApiErrorPayload;
-  if (!response.ok) throw new Error(userErrorMessage(response.status, payload, path));
+  if (!response.ok) {
+    throw new ApiError(
+      userErrorMessage(response.status, payload, path),
+      response.status,
+      payload.code,
+    );
+  }
   return payload as T;
 }
 

@@ -14,7 +14,9 @@ import (
 
 type AssetRepoStruct struct{ db *pgxpool.Pool }
 
-func NewAssetRepoStruct(db *pgxpool.Pool) *AssetRepoStruct { return &AssetRepoStruct{db} }
+func NewAssetRepoStruct(db *pgxpool.Pool) *AssetRepoStruct {
+	return &AssetRepoStruct{db: db}
+}
 
 const cols = `id,external_id,department_id,type,name,address,district,municipality,ST_AsGeoJSON(geometry),status,model,serial_number,installation_year,service_life_years,warranty_until,owner,service_organization,contractor,inspection_interval_days,response_norm_minutes,repair_norm_minutes,criticality,risk_score,risk_level,last_repair_at,next_inspection_at,created_at,updated_at`
 

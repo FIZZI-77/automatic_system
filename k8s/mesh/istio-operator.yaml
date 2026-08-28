@@ -1,0 +1,44 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  profile: minimal
+  components:
+    ingressGateways:
+      - name: istio-ingressgateway
+        enabled: true
+        k8s:
+          service:
+            type: LoadBalancer
+          overlays:
+            - kind: Deployment
+              name: istio-ingressgateway
+              patches:
+                - path: spec.template.metadata.labels.app.kubernetes.io~1name
+                  value: istio-ingressgateway
+                - path: spec.template.metadata.labels.app.kubernetes.io~1component
+                  value: ingress
+  meshConfig:
+    accessLogFile: /dev/stdout
+    enableTracing: true
+    defaultConfig:
+      tracing:
+        sampling: 100
+    defaultProviders:
+      metrics: [prometheus]
+      tracing: [otel-collector]
+      accessLogging: [envoy]
+    extensionProviders:
+      - name: otel-collector
+        opentelemetry:
+          service: otel-collector.automatic-system.svc.cluster.local
+          port: 4317
+  values:
+    global:
+      proxy:
+        resources:
+          requests:
+            cpu: 25m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi

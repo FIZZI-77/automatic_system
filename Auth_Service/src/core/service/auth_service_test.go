@@ -19,6 +19,7 @@ import (
 
 type mockUserRepo struct {
 	createUserFunc     func(ctx context.Context, user *models.User) (uuid.UUID, error)
+	deleteUserFunc     func(ctx context.Context, userID uuid.UUID) error
 	getUserByIDFunc    func(ctx context.Context, id uuid.UUID) (*models.User, error)
 	getUserByEmailFunc func(ctx context.Context, email string) (*models.User, error)
 	updateUserFunc     func(ctx context.Context, user *models.User) error
@@ -26,6 +27,13 @@ type mockUserRepo struct {
 
 func (m *mockUserRepo) CreateUser(ctx context.Context, user *models.User) (uuid.UUID, error) {
 	return m.createUserFunc(ctx, user)
+}
+
+func (m *mockUserRepo) DeleteUserRegistration(ctx context.Context, userID uuid.UUID) error {
+	if m.deleteUserFunc == nil {
+		return nil
+	}
+	return m.deleteUserFunc(ctx, userID)
 }
 
 func (m *mockUserRepo) GetUserByID(ctx context.Context, id uuid.UUID) (*models.User, error) {
@@ -180,6 +188,17 @@ type mockMailService struct {
 	sendPasswordResetEmailFunc func(ctx context.Context, toEmail string, token string) error
 }
 
+type mockProfileProvisioner struct {
+	createFunc func(ctx context.Context, userID uuid.UUID, fullName string) error
+}
+
+func (m mockProfileProvisioner) CreateUserProfile(ctx context.Context, userID uuid.UUID, fullName string) error {
+	if m.createFunc == nil {
+		return nil
+	}
+	return m.createFunc(ctx, userID, fullName)
+}
+
 func (m *mockMailService) SendVerificationEmail(ctx context.Context, toEmail string, token string) error {
 	return m.sendVerificationEmailFunc(ctx, toEmail, token)
 }
@@ -207,6 +226,7 @@ func newTestService(repo *repository.Repo, mail MailService, t *testing.T) *Auth
 		newTestPrivateKey(t),
 		"test-key-id",
 		mail,
+		mockProfileProvisioner{},
 		zap.NewNop(),
 	)
 }
@@ -218,6 +238,7 @@ func hashToken(raw string) string {
 
 func TestAuthService_Register_Success(t *testing.T) {
 	userID := uuid.New()
+	profileCreated := false
 
 	userRepo := &mockUserRepo{
 		getUserByEmailFunc: func(ctx context.Context, email string) (*models.User, error) {
@@ -257,6 +278,16 @@ func TestAuthService_Register_Success(t *testing.T) {
 	}
 
 	svc := newTestService(repo, &mockMailService{}, t)
+	svc.profiles = mockProfileProvisioner{createFunc: func(_ context.Context, gotUserID uuid.UUID, fullName string) error {
+		if gotUserID != userID {
+			t.Fatalf("expected profile user id %s, got %s", userID, gotUserID)
+		}
+		if fullName != "testuser" {
+			t.Fatalf("expected profile full name testuser, got %s", fullName)
+		}
+		profileCreated = true
+		return nil
+	}}
 
 	result, err := svc.Register(context.Background(), models.RegisterInput{
 		Email:    "test@example.com",
@@ -278,6 +309,52 @@ func TestAuthService_Register_Success(t *testing.T) {
 
 	if result.EmailVerified {
 		t.Fatal("expected email verified false")
+	}
+	if !profileCreated {
+		t.Fatal("expected profile to be created before registration succeeds")
+	}
+}
+
+func TestAuthService_Register_ProfileFailureCompensatesUser(t *testing.T) {
+	userID := uuid.New()
+	profileErr := errors.New("profile unavailable")
+	compensated := false
+
+	userRepo := &mockUserRepo{
+		getUserByEmailFunc: func(context.Context, string) (*models.User, error) {
+			return nil, sql.ErrNoRows
+		},
+		createUserFunc: func(context.Context, *models.User) (uuid.UUID, error) {
+			return userID, nil
+		},
+		deleteUserFunc: func(_ context.Context, gotUserID uuid.UUID) error {
+			if gotUserID != userID {
+				t.Fatalf("expected compensated user id %s, got %s", userID, gotUserID)
+			}
+			compensated = true
+			return nil
+		},
+	}
+
+	svc := newTestService(&repository.Repo{UserRepository: userRepo}, &mockMailService{}, t)
+	svc.profiles = mockProfileProvisioner{createFunc: func(context.Context, uuid.UUID, string) error {
+		return profileErr
+	}}
+
+	result, err := svc.Register(context.Background(), models.RegisterInput{
+		Email:    "profile-failure@example.com",
+		Password: "password123",
+		Username: "profilefailure",
+	})
+
+	if result != nil {
+		t.Fatal("expected nil result")
+	}
+	if !errors.Is(err, profileErr) {
+		t.Fatalf("expected profile error, got %v", err)
+	}
+	if !compensated {
+		t.Fatal("expected auth user registration to be compensated")
 	}
 }
 

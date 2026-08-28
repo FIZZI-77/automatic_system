@@ -17,7 +17,10 @@ type Handler struct {
 	s service.AnalyticsService
 }
 
-func New(s service.AnalyticsService) *Handler { return &Handler{s: s} }
+func New(s service.AnalyticsService) *Handler {
+	return &Handler{s: s}
+}
+
 func (h *Handler) GetTicketOverview(c context.Context, q *analyticsv1.GetTicketOverviewRequest) (*analyticsv1.GetTicketOverviewResponse, error) {
 	if e := auth(c); e != nil {
 		return nil, e
@@ -26,7 +29,15 @@ func (h *Handler) GetTicketOverview(c context.Context, q *analyticsv1.GetTicketO
 	if e != nil {
 		return nil, internal(e)
 	}
-	return &analyticsv1.GetTicketOverviewResponse{Created: v.Created, Completed: v.Completed, Canceled: v.Canceled, Active: v.Active, CompletionRate: v.CompletionRate, AvgResponseSeconds: v.AvgResponseSeconds, AvgResolutionSeconds: v.AvgResolutionSeconds}, nil
+	return &analyticsv1.GetTicketOverviewResponse{
+		Created:              v.Created,
+		Completed:            v.Completed,
+		Canceled:             v.Canceled,
+		Active:               v.Active,
+		CompletionRate:       v.CompletionRate,
+		AvgResponseSeconds:   v.AvgResponseSeconds,
+		AvgResolutionSeconds: v.AvgResolutionSeconds,
+	}, nil
 }
 func (h *Handler) GetSLASummary(c context.Context, q *analyticsv1.GetSLASummaryRequest) (*analyticsv1.GetSLASummaryResponse, error) {
 	if e := auth(c); e != nil {
@@ -36,7 +47,14 @@ func (h *Handler) GetSLASummary(c context.Context, q *analyticsv1.GetSLASummaryR
 	if e != nil {
 		return nil, internal(e)
 	}
-	return &analyticsv1.GetSLASummaryResponse{ResponseWarnings: v.ResponseWarnings, ResponseBreaches: v.ResponseBreaches, ResolutionWarnings: v.ResolutionWarnings, ResolutionBreaches: v.ResolutionBreaches, Completed: v.Completed, BreachRate: v.BreachRate}, nil
+	return &analyticsv1.GetSLASummaryResponse{
+		ResponseWarnings:   v.ResponseWarnings,
+		ResponseBreaches:   v.ResponseBreaches,
+		ResolutionWarnings: v.ResolutionWarnings,
+		ResolutionBreaches: v.ResolutionBreaches,
+		Completed:          v.Completed,
+		BreachRate:         v.BreachRate,
+	}, nil
 }
 func (h *Handler) ListTicketBreakdown(c context.Context, q *analyticsv1.ListTicketBreakdownRequest) (*analyticsv1.ListTicketBreakdownResponse, error) {
 	if e := auth(c); e != nil {
@@ -49,7 +67,11 @@ func (h *Handler) ListTicketBreakdown(c context.Context, q *analyticsv1.ListTick
 	}
 	out := make([]*analyticsv1.TicketBreakdown, 0, len(items))
 	for _, v := range items {
-		out = append(out, &analyticsv1.TicketBreakdown{Key: v.Key, Count: v.Count, Percent: v.Percent})
+		out = append(out, &analyticsv1.TicketBreakdown{
+			Key:     v.Key,
+			Count:   v.Count,
+			Percent: v.Percent,
+		})
 	}
 	return &analyticsv1.ListTicketBreakdownResponse{Items: out, Total: total}, nil
 }
@@ -63,7 +85,13 @@ func (h *Handler) ListDailyTicketMetrics(c context.Context, q *analyticsv1.ListD
 	}
 	out := make([]*analyticsv1.DailyTicketMetric, 0, len(items))
 	for _, v := range items {
-		out = append(out, &analyticsv1.DailyTicketMetric{Day: timestamppb.New(v.Day), Created: v.Created, Completed: v.Completed, Canceled: v.Canceled, SlaBreaches: v.SLABreaches})
+		out = append(out, &analyticsv1.DailyTicketMetric{
+			Day:         timestamppb.New(v.Day),
+			Created:     v.Created,
+			Completed:   v.Completed,
+			Canceled:    v.Canceled,
+			SlaBreaches: v.SLABreaches,
+		})
 	}
 	return &analyticsv1.ListDailyTicketMetricsResponse{Items: out}, nil
 }
@@ -71,7 +99,11 @@ func filter(v *analyticsv1.AnalyticsFilter) models.Filter {
 	if v == nil {
 		return models.Filter{}
 	}
-	f := models.Filter{DepartmentID: v.DepartmentId, CategoryID: v.CategoryId, Priority: v.Priority}
+	f := models.Filter{
+		DepartmentID: v.DepartmentId,
+		CategoryID:   v.CategoryId,
+		Priority:     v.Priority,
+	}
 	if v.From != nil {
 		x := v.From.AsTime()
 		f.From = &x
@@ -91,7 +123,10 @@ func auth(c context.Context) error {
 	}
 	return status.Error(codes.PermissionDenied, "admin or dispatcher role required")
 }
-func internal(error) error { return status.Error(codes.Internal, "analytics query failed") }
+func internal(error) error {
+	return status.Error(codes.Internal, "analytics query failed")
+}
+
 func (h *Handler) GetAssetSummary(c context.Context, q *analyticsv1.GetAssetSummaryRequest) (*analyticsv1.GetAssetSummaryResponse, error) {
 	if e := auth(c); e != nil {
 		return nil, e
@@ -100,12 +135,29 @@ func (h *Handler) GetAssetSummary(c context.Context, q *analyticsv1.GetAssetSumm
 	if e != nil {
 		return nil, internal(e)
 	}
-	out := &analyticsv1.GetAssetSummaryResponse{AssetsCreated: v.Created, Incidents: v.Incidents, RepeatedIncidents: v.Repeated, Repairs: v.Repairs, Inspections: v.Inspections, CriticalRiskUpdates: v.Critical}
+	out := &analyticsv1.GetAssetSummaryResponse{
+		AssetsCreated:       v.Created,
+		Incidents:           v.Incidents,
+		RepeatedIncidents:   v.Repeated,
+		Repairs:             v.Repairs,
+		Inspections:         v.Inspections,
+		CriticalRiskUpdates: v.Critical,
+	}
 	for _, x := range v.ByType {
-		out.ByType = append(out.ByType, &analyticsv1.AssetBreakdown{Key: x.Key, Incidents: x.Incidents, RepeatedIncidents: x.Repeated, Repairs: x.Repairs, CriticalRiskUpdates: x.Critical})
+		out.ByType = append(out.ByType, assetBreakdown(x))
 	}
 	for _, x := range v.ByDistrict {
-		out.ByDistrict = append(out.ByDistrict, &analyticsv1.AssetBreakdown{Key: x.Key, Incidents: x.Incidents, RepeatedIncidents: x.Repeated, Repairs: x.Repairs, CriticalRiskUpdates: x.Critical})
+		out.ByDistrict = append(out.ByDistrict, assetBreakdown(x))
 	}
 	return out, nil
+}
+
+func assetBreakdown(value models.AssetBreakdown) *analyticsv1.AssetBreakdown {
+	return &analyticsv1.AssetBreakdown{
+		Key:                 value.Key,
+		Incidents:           value.Incidents,
+		RepeatedIncidents:   value.Repeated,
+		Repairs:             value.Repairs,
+		CriticalRiskUpdates: value.Critical,
+	}
 }

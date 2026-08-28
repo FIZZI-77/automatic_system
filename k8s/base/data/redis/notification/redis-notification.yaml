@@ -18,6 +18,8 @@ spec:
       app: redis-notification
   template:
     metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
       labels:
         app: redis-notification
         app.kubernetes.io/name: redis

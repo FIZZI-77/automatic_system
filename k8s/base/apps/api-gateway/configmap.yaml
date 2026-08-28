@@ -30,4 +30,4 @@ data:
   REPORT_INTERNAL_URL: "http://report-service:8084"
   ASSET_SERVICE_ADDR: "asset-service:50065"
   NOTIFICATION_LIVE_PREFIX: 'notifications:user:'
-  CORS_ALLOWED_ORIGINS: "http://localhost:3000,http://127.0.0.1:3000"
+  CORS_ALLOWED_ORIGINS: "https://city.localhost,http://localhost:3000,http://127.0.0.1:3000"

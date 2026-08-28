@@ -1,0 +1,114 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: automatic-system
+resources:
+  - ../../base/namespace
+  - ../../base/data/minio
+  - ../../base/observability
+  - ../../base/logging
+  - ../../mesh/policies
+  - ../prod/infra/postgres-platform
+  - ../prod/infra/postgres-ticket-citus
+  - ../prod/infra/pgbouncer
+  - ticket-citus-bootstrap-job.yaml
+labels:
+  - pairs:
+      app.kubernetes.io/environment: local-ha
+    includeSelectors: false
+images:
+  - name: automatic-system-postgres-ha
+    newName: automatic-system-postgres-ha
+    newTag: dev-psy
+  - name: automatic-system-postgres-citus-ha
+    newName: automatic-system-postgres-citus-ha
+    newTag: dev-psy
+  - name: automatic-system-pgbouncer
+    newName: automatic-system-pgbouncer
+    newTag: dev
+  - name: bitnami/kubectl
+    newName: automatic-system-kubectl
+    newTag: dev-shell
+patches:
+  - target:
+      version: v1
+      kind: Namespace
+      name: automatic-system
+    patch: |-
+      - op: add
+        path: /metadata/labels/istio-injection
+        value: enabled
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+    patch: |-
+      - op: add
+        path: /spec/template/metadata/labels/sidecar.istio.io~1inject
+        value: "false"
+  - target:
+      group: apps
+      version: v1
+      kind: StatefulSet
+    patch: |-
+      - op: add
+        path: /spec/template/metadata/labels/sidecar.istio.io~1inject
+        value: "false"
+  - target:
+      group: batch
+      version: v1
+      kind: Job
+    patch: |-
+      - op: add
+        path: /spec/template/metadata
+        value:
+          labels:
+            sidecar.istio.io/inject: "false"
+  - target:
+      group: batch
+      version: v1
+      kind: CronJob
+    patch: |-
+      - op: add
+        path: /spec/jobTemplate/spec/template/metadata
+        value:
+          labels:
+            sidecar.istio.io/inject: "false"
+  - target:
+      group: apps
+      version: v1
+      kind: StatefulSet
+      labelSelector: app.kubernetes.io/name in (patroni,patroni-citus)
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: 100m
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: 256Mi
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: "1"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: 1Gi
+      - op: replace
+        path: /spec/volumeClaimTemplates/0/spec/storageClassName
+        value: standard
+      - op: replace
+        path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage
+        value: 2Gi
+      - op: add
+        path: /spec/template/spec/tolerations
+        value:
+          - key: node-role.kubernetes.io/control-plane
+            operator: Exists
+            effect: NoSchedule
+  - target:
+      group: apps
+      version: v1
+      kind: StatefulSet
+      name: minio
+    patch: |-
+      - op: add
+        path: /spec/volumeClaimTemplates/0/spec/storageClassName
+        value: standard

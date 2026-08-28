@@ -130,7 +130,7 @@ type CreateTicketRequest struct {
 	UserID       string   `json:"user_id,omitempty" binding:"omitempty,uuid"`
 	Title        string   `json:"title" binding:"required"`
 	Description  string   `json:"description" binding:"required"`
-	Priority     string   `json:"priority" binding:"required,oneof=low medium high emergency"`
+	Priority     string   `json:"priority" binding:"required,oneof=LOW MEDIUM HIGH EMERGENCY"`
 	Address      string   `json:"address" binding:"required"`
 	Latitude     *float64 `json:"latitude" binding:"required,latitude"`
 	Longitude    *float64 `json:"longitude" binding:"required,longitude"`
@@ -152,10 +152,10 @@ type GetTicketResponse struct {
 type ListTicketRequest struct {
 	DepartmentID *string `json:"department_id,omitempty" binding:"omitempty,uuid"`
 	CategoryID   *string `json:"category_id,omitempty" binding:"omitempty,uuid"`
-	Status       *string `json:"status,omitempty" binding:"omitempty,oneof=new assigned in_progress done canceled"`
+	Status       *string `json:"status,omitempty" binding:"omitempty,oneof=NEW ASSIGNED IN_PROGRESS DONE CANCELED"`
 	UserID       *string `json:"user_id,omitempty" binding:"omitempty,uuid"`
 	BrigadeID    *string `json:"brigade_id,omitempty" binding:"omitempty,uuid"`
-	Priority     *string `json:"priority,omitempty" binding:"omitempty,oneof=low medium high emergency"`
+	Priority     *string `json:"priority,omitempty" binding:"omitempty,oneof=LOW MEDIUM HIGH EMERGENCY"`
 	Limit        *int32  `json:"limit,omitempty" binding:"omitempty,min=1,max=100"`
 	Offset       *int32  `json:"offset,omitempty" binding:"omitempty,min=0"`
 	SortBy       *string `json:"sort_by,omitempty" binding:"omitempty,oneof=created_at updated_at priority status"`
@@ -174,7 +174,7 @@ type UpdateTicketRequest struct {
 	Title       *string  `json:"title" binding:"omitempty"`
 	Description *string  `json:"description" binding:"omitempty"`
 	CategoryID  *string  `json:"category_id,omitempty" binding:"omitempty,uuid"`
-	Priority    *string  `json:"priority,omitempty" binding:"omitempty,oneof=low medium high emergency"`
+	Priority    *string  `json:"priority,omitempty" binding:"omitempty,oneof=LOW MEDIUM HIGH EMERGENCY"`
 	Address     *string  `json:"address,omitempty" binding:"omitempty"`
 	Latitude    *float64 `json:"latitude,omitempty" binding:"omitempty,latitude"`
 	Longitude   *float64 `json:"longitude,omitempty" binding:"omitempty,longitude"`
@@ -240,13 +240,16 @@ type GetTicketStatusHistoryResponse struct {
 }
 
 type WorkReport struct {
-	ID           string    `json:"id"`
-	TicketID     string    `json:"ticket_id"`
-	AuthorUserID string    `json:"author_user_id"`
-	Description  string    `json:"description"`
-	FileIDs      []string  `json:"file_ids"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID               string    `json:"id"`
+	TicketID         string    `json:"ticket_id"`
+	AuthorUserID     string    `json:"author_user_id"`
+	Description      string    `json:"description"`
+	FileIDs          []string  `json:"file_ids"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+	CompletionStatus string    `json:"completion_status"`
+	CompletionFileID string    `json:"completion_file_id,omitempty"`
+	CompletionError  string    `json:"completion_error,omitempty"`
 }
 type CreateWorkReportRequest struct {
 	TicketID    string   `json:"ticket_id" binding:"required,uuid"`

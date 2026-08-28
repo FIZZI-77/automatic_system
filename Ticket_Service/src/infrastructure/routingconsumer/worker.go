@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"ticket/pkg/telemetry"
 	"time"
 
 	"github.com/google/uuid"
@@ -110,7 +111,7 @@ func (w *Worker) consume(ctx context.Context, reader *kafka.Reader) error {
 			case <-timer.C:
 			}
 		}
-		if err = w.apply(ctx, message); err != nil {
+		if err = telemetry.TraceKafkaConsumer(ctx, message, "", w.apply); err != nil {
 			w.logger.Error("routing event processing failed", zap.Error(err), zap.Int64("offset", message.Offset))
 			if retryErr := w.retryOrDLQ(ctx, message, err); retryErr != nil {
 				return errors.Join(err, retryErr)
@@ -166,8 +167,8 @@ func (w *Worker) apply(ctx context.Context, message kafka.Message) error {
 			return execErr
 		}
 		if command.RowsAffected() > 0 {
-			if _, err = tx.Exec(ctx, `INSERT INTO ticket_status_history(id,ticket_id,old_status,new_status,changed_by,comment)
-				VALUES($1,$2,'ASSIGNED','IN_PROGRESS',NULL,'route activated')`, uuid.New(), ticketID); err != nil {
+			if _, err = tx.Exec(ctx, `INSERT INTO ticket_status_history(id,department_id,ticket_id,old_status,new_status,changed_by,comment)
+				SELECT $1,department_id,id,'ASSIGNED','IN_PROGRESS',NULL,'route activated' FROM tickets WHERE id=$2`, uuid.New(), ticketID); err != nil {
 				return err
 			}
 			_, err = tx.Exec(ctx, `INSERT INTO outbox_events(id,aggregate_type,aggregate_id,event_type,payload)
@@ -186,7 +187,7 @@ func (w *Worker) retryOrDLQ(ctx context.Context, message kafka.Message, processE
 	if attempt > 5 {
 		topic = w.topic + ".dlq"
 	}
-	return w.writer.WriteMessages(ctx, kafka.Message{Topic: topic, Key: message.Key, Value: message.Value, Headers: withHeaders(message.Headers, attempt, processErr), Time: time.Now().UTC()})
+	return telemetry.WriteKafka(ctx, w.writer, kafka.Message{Topic: topic, Key: message.Key, Value: message.Value, Headers: withHeaders(message.Headers, attempt, processErr), Time: time.Now().UTC()})
 }
 
 func header(headers []kafka.Header, key string) string {

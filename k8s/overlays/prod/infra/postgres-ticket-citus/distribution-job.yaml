@@ -1,0 +1,65 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: postgres-ticket-citus-distribute
+  namespace: automatic-system
+spec:
+  backoffLimit: 12
+  activeDeadlineSeconds: 1800
+  template:
+    spec:
+      restartPolicy: OnFailure
+      automountServiceAccountToken: false
+      containers:
+        - name: distribute
+          image: automatic-system-postgres-citus-ha:dev
+          command:
+            - /bin/bash
+            - -ec
+            - |
+              until PGPASSWORD="$TICKET_DB_PASSWORD" psql \
+                --host=postgres-ticket-primary \
+                --username=ticket_user \
+                --dbname=ticket_db \
+                --tuples-only \
+                --command="SELECT to_regclass('ticket_report_files') IS NOT NULL AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='ticket_reports' AND column_name='department_id')" \
+                | grep -q t; do
+                sleep 15
+              done
+              PGPASSWORD="$POSTGRES_SUPERUSER_PASSWORD" psql \
+                --host=postgres-ticket-primary \
+                --username=postgres \
+                --dbname=ticket_db \
+                --set=ticket_password="$TICKET_DB_PASSWORD" \
+                --file=/config/configure-auth.sql
+              PGPASSWORD="$TICKET_DB_PASSWORD" psql \
+                --host=postgres-ticket-primary \
+                --username=ticket_user \
+                --dbname=ticket_db \
+                --file=/config/distribute.sql
+          env:
+            - name: POSTGRES_SUPERUSER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: runtime-secrets
+                  key: TICKET_POSTGRES_SUPERUSER_PASSWORD
+            - name: TICKET_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: runtime-secrets
+                  key: TICKET_DB_PASSWORD
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: config
+          configMap:
+            name: postgres-ticket-citus-distribution

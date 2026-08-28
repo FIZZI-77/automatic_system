@@ -107,7 +107,7 @@ func (r *ReportRepoStruct) Claim(c context.Context) (*models.Report, error) {
 		return nil, e
 	}
 	defer tx.Rollback(c)
-	x, e := scan(tx.QueryRow(c, `WITH next AS (SELECT id FROM reports WHERE status='PENDING' ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1) UPDATE reports SET status='PROCESSING',attempts=reports.attempts+1,updated_at=now() FROM next WHERE reports.id=next.id RETURNING `+qualifiedColumns))
+	x, e := scan(tx.QueryRow(c, `WITH next AS (SELECT id FROM reports WHERE status='PENDING' OR status='PROCESSING' AND updated_at < now()-interval '5 minutes' ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1) UPDATE reports SET status='PROCESSING',attempts=reports.attempts+1,updated_at=now() FROM next WHERE reports.id=next.id RETURNING `+qualifiedColumns))
 	if e == nil {
 		e = tx.Commit(c)
 	}

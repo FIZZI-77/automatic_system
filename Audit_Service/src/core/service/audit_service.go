@@ -13,7 +13,10 @@ type AuditServiceStruct struct {
 }
 
 func NewAuditServiceStruct(repo *repository.Repository) *AuditServiceStruct {
-	return &AuditServiceStruct{writer: repo.EntryWriterRepository, reader: repo.EntryReaderRepository}
+	return &AuditServiceStruct{
+		writer: repo.EntryWriterRepository,
+		reader: repo.EntryReaderRepository,
+	}
 }
 func (s *AuditServiceStruct) Consume(c context.Context, e models.Event) error {
 	return s.writer.Store(c, e)

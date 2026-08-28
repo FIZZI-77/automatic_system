@@ -139,7 +139,7 @@ func (h *Handler) InitRouters() *gin.Engine {
 		Burst:  100,
 		Window: time.Minute,
 		SkipFunc: func(c *gin.Context) bool {
-			return c.Request.URL.Path == "/health"
+			return c.Request.URL.Path == "/health" || c.Request.URL.Path == "/livez" || c.Request.URL.Path == "/readyz"
 		},
 	}))
 	router.Use(middleware.RequestLogger())
@@ -149,6 +149,12 @@ func (h *Handler) InitRouters() *gin.Engine {
 		c.JSON(http.StatusOK, gin.H{
 			"status": "ok",
 		})
+	})
+	router.GET("/livez", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "alive"})
+	})
+	router.GET("/readyz", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ready"})
 	})
 
 	publicAuth := router.Group("/auth")

@@ -31,23 +31,27 @@ type MailService interface {
 	SendVerificationEmail(ctx context.Context, toEmail string, token string) error
 	SendPasswordResetEmail(ctx context.Context, toEmail string, token string) error
 }
+
+type ProfileProvisioner interface {
+	CreateUserProfile(ctx context.Context, userID uuid.UUID, fullName string) error
+}
 type Service struct {
 	AuthService
 	MailService
 }
 
-func NewService(repo *repository.Repository, privateKey *rsa.PrivateKey, keyID string, mailService MailService, logger *zap.Logger) *Service {
+func NewService(repo *repository.Repository, privateKey *rsa.PrivateKey, keyID string, mailService MailService, profileProvisioner ProfileProvisioner, logger *zap.Logger) *Service {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
 
 	return &Service{
-		AuthService: NewAuthServiceStruct(repo, privateKey, keyID, mailService, logger),
+		AuthService: NewAuthServiceStruct(repo, privateKey, keyID, mailService, profileProvisioner, logger),
 		MailService: mailService,
 	}
 }
 
 // NewAuthService is kept as a compatibility alias for existing callers.
-func NewAuthService(repo *repository.Repo, privateKey *rsa.PrivateKey, keyID string, mailService MailService, logger *zap.Logger) *Service {
-	return NewService(repo, privateKey, keyID, mailService, logger)
+func NewAuthService(repo *repository.Repo, privateKey *rsa.PrivateKey, keyID string, mailService MailService, profileProvisioner ProfileProvisioner, logger *zap.Logger) *Service {
+	return NewService(repo, privateKey, keyID, mailService, profileProvisioner, logger)
 }

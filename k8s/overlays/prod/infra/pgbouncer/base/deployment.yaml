@@ -1,0 +1,137 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgbouncer
+  namespace: automatic-system
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pgbouncer
+      app.kubernetes.io/instance: pool
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: pgbouncer
+        app.kubernetes.io/instance: pool
+        app.kubernetes.io/component: database-pooler
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: pgbouncer
+                    app.kubernetes.io/instance: pool
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: pgbouncer
+          image: automatic-system-pgbouncer:dev
+          ports:
+            - name: postgres
+              containerPort: 6432
+          envFrom:
+            - secretRef:
+                name: runtime-secrets
+          env:
+            - name: PGBOUNCER_CLUSTER
+              value: platform
+            - name: UPSTREAM_HOST
+              value: postgres-platform-primary
+            - name: HEALTHCHECK_DATABASE
+              value: auth_db
+            - name: HEALTHCHECK_USER
+              value: auth_user
+            - name: HEALTHCHECK_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: runtime-secrets
+                  key: AUTH_DB_PASSWORD
+          volumeMounts:
+            - name: config
+              mountPath: /etc/pgbouncer
+              readOnly: true
+            - name: runtime
+              mountPath: /tmp
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -ec
+                - PGPASSWORD="$HEALTHCHECK_PASSWORD" psql --host=127.0.0.1 --port=6432 --username="$HEALTHCHECK_USER" --dbname="$HEALTHCHECK_DATABASE" --command='SELECT 1' >/dev/null
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket:
+              port: postgres
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+        - name: pgbouncer-exporter
+          image: quay.io/prometheuscommunity/pgbouncer-exporter:v0.12.1
+          args:
+            - --pgBouncer.connectionString=postgresql://$(HEALTHCHECK_USER):$(HEALTHCHECK_PASSWORD)@127.0.0.1:6432/pgbouncer?sslmode=disable
+            - --web.listen-address=:9127
+          ports:
+            - name: pooler-metrics
+              containerPort: 9127
+          env:
+            - name: HEALTHCHECK_USER
+              value: auth_user
+            - name: HEALTHCHECK_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: runtime-secrets
+                  key: AUTH_DB_PASSWORD
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: pooler-metrics
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: pooler-metrics
+          resources:
+            requests:
+              cpu: 10m
+              memory: 24Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+      volumes:
+        - name: config
+          configMap:
+            name: pgbouncer-config
+        - name: runtime
+          emptyDir:
+            medium: Memory
+            sizeLimit: 32Mi

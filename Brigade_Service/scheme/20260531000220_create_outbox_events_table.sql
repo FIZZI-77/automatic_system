@@ -12,12 +12,17 @@ CREATE TABLE outbox_events (
     status VARCHAR(50) NOT NULL DEFAULT 'PENDING',
     attempts INT NOT NULL DEFAULT 0,
     last_error TEXT NULL,
+    next_attempt_at TIMESTAMP NOT NULL DEFAULT now(),
+    locked_at TIMESTAMP NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now(),
     sent_at TIMESTAMP NULL,
     CONSTRAINT outbox_events_status_check CHECK (
         status IN ('PENDING', 'PROCESSING', 'SENT', 'FAILED')
     )
 );
+
+CREATE INDEX outbox_events_retry_idx
+    ON outbox_events(status, next_attempt_at, created_at);
 
 -- +goose StatementEnd
 

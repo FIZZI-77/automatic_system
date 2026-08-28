@@ -8,11 +8,14 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"ticket/pkg/telemetry"
 	"time"
 
 	ticketv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/ticket/v1"
 	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	healthv1 "google.golang.org/grpc/health/grpc_health_v1"
 	"ticket/pkg"
 	"ticket/pkg/closer"
 	appconfig "ticket/pkg/config"
@@ -22,6 +25,16 @@ import (
 )
 
 func main() {
+	telemetryProviders, err := telemetry.Init(context.Background(), "ticket-service")
+	if err != nil {
+		log.Fatalf("initialize OpenTelemetry: %v", err)
+	}
+	defer func() {
+		if shutdownErr := telemetryProviders.Close(); shutdownErr != nil {
+			log.Printf("shutdown OpenTelemetry: %v", shutdownErr)
+		}
+	}()
+
 	if err := appconfig.Load(); err != nil {
 		log.Fatalf("configuration error: %v", err)
 	}
@@ -38,7 +51,7 @@ func main() {
 		log.Fatal("error loading .env file")
 	}
 
-	db, err := pkg.NewPostgresDB(pkg.Config{
+	writeDB, err := pkg.NewPostgresDB(pkg.Config{
 		Host:     os.Getenv("DB_HOST"),
 		Port:     os.Getenv("DB_PORT"),
 		Username: os.Getenv("DB_USERNAME"),
@@ -47,16 +60,38 @@ func main() {
 		SSLMode:  os.Getenv("SSLMODE"),
 	})
 	if err != nil {
-		log.Fatalf("failed to connect db: %v", err)
+		log.Fatalf("failed to connect primary db: %v", err)
 	}
-	dependencies.Add("postgres", func() error {
-		db.Close()
+	readHost := strings.TrimSpace(os.Getenv("DB_READ_HOST"))
+	if readHost == "" {
+		readHost = os.Getenv("DB_HOST")
+	}
+	readDB, err := pkg.NewPostgresDB(pkg.Config{
+		Host:     readHost,
+		Port:     os.Getenv("DB_PORT"),
+		Username: os.Getenv("DB_USERNAME"),
+		Password: os.Getenv("DB_PASSWORD"),
+		DbName:   os.Getenv("DB_NAME"),
+		SSLMode:  os.Getenv("SSLMODE"),
+	})
+	if err != nil {
+		writeDB.Close()
+		log.Fatalf("failed to connect read replica: %v", err)
+	}
+	dependencies.Add("postgres primary", func() error {
+		writeDB.Close()
+		return nil
+	})
+	dependencies.Add("postgres replica", func() error {
+		readDB.Close()
 		return nil
 	})
 	defer closeDependencies(dependencies)
-	startOutboxRelay(db, dependencies, logger)
-	startRoutingConsumer(db, dependencies, logger)
-	startTicketRetention(db, dependencies, logger)
+	startOutboxRelay(writeDB, dependencies, logger)
+	startRoutingConsumer(writeDB, dependencies, logger)
+	startReportConsumer(writeDB, dependencies, logger)
+	startCompletionSaga(writeDB, dependencies, logger)
+	startTicketRetention(writeDB, dependencies, logger)
 
 	grpcPort := os.Getenv("GRPC_PORT")
 	if strings.TrimSpace(grpcPort) == "" {
@@ -69,6 +104,7 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer(
+		telemetry.GRPCServerOption(),
 		grpc.ChainUnaryInterceptor(
 			pkg.RequestIDUnaryServerInterceptor,
 			pkg.IdempotencyKeyUnaryServerInterceptor,
@@ -76,11 +112,12 @@ func main() {
 		),
 	)
 
-	repo := repository.NewRepository(repository.DBPools{Write: db, Read: db})
+	repo := repository.NewRepository(repository.DBPools{Write: writeDB, Read: readDB})
 	ticketService := service.NewService(repo, logger)
 	ticketHandler := handler.NewTicketHandler(ticketService, logger)
 
 	ticketv1.RegisterTicketServiceServer(grpcServer, ticketHandler)
+	healthv1.RegisterHealthServer(grpcServer, health.NewServer())
 
 	serverErrCh := make(chan error, 1)
 

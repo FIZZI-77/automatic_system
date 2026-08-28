@@ -190,7 +190,15 @@ func (s *AssetServiceStruct) calculate(c context.Context, id uuid.UUID, now time
 		level = models.RiskMedium
 		action = "shorten inspection interval"
 	}
-	p := models.Prediction{AssetID: id, Score: score, Probability: math.Round((1-math.Exp(-score/55))*1000) / 10, Level: level, Factors: factors, Action: action, CalculatedAt: now}
+	p := models.Prediction{
+		AssetID:      id,
+		Score:        score,
+		Probability:  math.Round((1-math.Exp(-score/55))*1000) / 10,
+		Level:        level,
+		Factors:      factors,
+		Action:       action,
+		CalculatedAt: now,
+	}
 	e = s.repo.SavePrediction(c, p)
 	if e == nil {
 		s.logger().Info("asset risk calculated", zap.String("asset_id", id.String()), zap.Float64("score", score), zap.String("level", string(level)))

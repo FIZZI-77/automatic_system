@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"log"
 	"net"
 	"os"
 	"os/signal"
+	"routing/pkg/telemetry"
 	"strconv"
 	"strings"
 	"sync"
@@ -20,12 +22,23 @@ import (
 	"routing/src/infrastructure/valhalla"
 
 	routingv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/routing/v1"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	healthv1 "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 func main() {
+	telemetryProviders, err := telemetry.Init(context.Background(), "routing-service")
+	if err != nil {
+		log.Fatalf("initialize OpenTelemetry: %v", err)
+	}
+	defer func() {
+		if shutdownErr := telemetryProviders.Close(); shutdownErr != nil {
+			log.Printf("shutdown OpenTelemetry: %v", shutdownErr)
+		}
+	}()
+
 	if err := appconfig.Load(); err != nil {
 		panic("configuration error: " + err.Error())
 	}
@@ -43,16 +56,31 @@ func main() {
 	defer logger.Sync()
 
 	dependencies := closer.New()
-	db, err := pgxpool.New(ctx, requiredEnv("DATABASE_URL", logger))
+	writeDB, err := telemetry.NewPostgresPool(ctx, requiredEnv("DATABASE_URL", logger))
 	if err != nil {
-		fatalWithCleanup(logger, dependencies, "connect postgres", err)
+		fatalWithCleanup(logger, dependencies, "connect postgres primary", err)
 	}
-	dependencies.Add("postgres", func() error {
-		db.Close()
+	dependencies.Add("postgres primary", func() error {
+		writeDB.Close()
 		return nil
 	})
-	if err = db.Ping(ctx); err != nil {
-		fatalWithCleanup(logger, dependencies, "ping postgres", err)
+	if err = writeDB.Ping(ctx); err != nil {
+		fatalWithCleanup(logger, dependencies, "ping postgres primary", err)
+	}
+	readDatabaseURL := strings.TrimSpace(os.Getenv("READ_DATABASE_URL"))
+	if readDatabaseURL == "" {
+		readDatabaseURL = requiredEnv("DATABASE_URL", logger)
+	}
+	readDB, err := telemetry.NewPostgresPool(ctx, readDatabaseURL)
+	if err != nil {
+		fatalWithCleanup(logger, dependencies, "connect postgres replica", err)
+	}
+	dependencies.Add("postgres replica", func() error {
+		readDB.Close()
+		return nil
+	})
+	if err = readDB.Ping(ctx); err != nil {
+		fatalWithCleanup(logger, dependencies, "ping postgres replica", err)
 	}
 
 	engine, err := valhalla.New(valhalla.Config{
@@ -63,7 +91,7 @@ func main() {
 		fatalWithCleanup(logger, dependencies, "create Valhalla client", err)
 	}
 
-	routeRepo := repository.NewRouteRepo(db, db)
+	routeRepo := repository.NewRouteRepo(writeDB, readDB)
 	routingService := service.New(routeRepo, engine, logger)
 	routingHandler := handler.New(routingService)
 
@@ -72,11 +100,11 @@ func main() {
 	startOutboxRelay(
 		workerCtx,
 		&workerWG,
-		db,
+		writeDB,
 		dependencies,
 		logger,
 	)
-	startTicketConsumer(db, dependencies, logger)
+	startTicketConsumer(writeDB, dependencies, logger)
 
 	listener, err := net.Listen(
 		"tcp",
@@ -87,12 +115,14 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer(
+		telemetry.GRPCServerOption(),
 		grpc.ChainUnaryInterceptor(
 			pkg.RequestIDUnaryServerInterceptor,
 			pkg.AccessLogUnaryServerInterceptor(logger),
 		),
 	)
 	routingv1.RegisterRoutingServiceServer(grpcServer, routingHandler)
+	healthv1.RegisterHealthServer(grpcServer, health.NewServer())
 
 	serverErr := make(chan error, 1)
 	go func() {

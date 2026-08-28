@@ -15,14 +15,19 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type Repository struct{ db *pgxpool.Pool }
+type Repository struct {
+	writeDB *pgxpool.Pool
+	readDB  *pgxpool.Pool
+}
 type scanner interface{ Scan(...any) error }
 
-func New(db *pgxpool.Pool) *Repository { return &Repository{db: db} }
+func New(writeDB, readDB *pgxpool.Pool) *Repository {
+	return &Repository{writeDB: writeDB, readDB: readDB}
+}
 
 func (r *Repository) Create(ctx context.Context, ticketID, requestedBy uuid.UUID, mode models.Mode, ttl time.Duration) (*models.Operation, error) {
 	op := &models.Operation{ID: uuid.New(), TicketID: ticketID, Mode: mode, Status: models.StatusPending, Version: 1, RequestedBy: requestedBy, ExpiresAt: time.Now().UTC().Add(ttl)}
-	err := r.db.QueryRow(ctx, `INSERT INTO dispatch_operations(id,ticket_id,mode,status,version,requested_by,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING created_at,updated_at`, op.ID, op.TicketID, op.Mode, op.Status, op.Version, op.RequestedBy, op.ExpiresAt).Scan(&op.CreatedAt, &op.UpdatedAt)
+	err := r.writeDB.QueryRow(ctx, `INSERT INTO dispatch_operations(id,ticket_id,mode,status,version,requested_by,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING created_at,updated_at`, op.ID, op.TicketID, op.Mode, op.Status, op.Version, op.RequestedBy, op.ExpiresAt).Scan(&op.CreatedAt, &op.UpdatedAt)
 	if err != nil {
 		var dbErr *pgconn.PgError
 		if errors.As(err, &dbErr) && dbErr.Code == "23505" {
@@ -33,7 +38,7 @@ func (r *Repository) Create(ctx context.Context, ticketID, requestedBy uuid.UUID
 	return op, nil
 }
 func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*models.Operation, error) {
-	op, err := scan(r.db.QueryRow(ctx, baseSelect+` WHERE id=$1`, id))
+	op, err := scan(r.readDB.QueryRow(ctx, baseSelect+` WHERE id=$1`, id))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, models.ErrNotFound
 	}
@@ -51,7 +56,7 @@ func (r *Repository) SetTerminal(ctx context.Context, id uuid.UUID, status model
 func (r *Repository) transition(ctx context.Context, id uuid.UUID, expected int32, guard, set string, args ...any) (*models.Operation, error) {
 	values := []any{id, expected}
 	values = append(values, args...)
-	op, err := scan(r.db.QueryRow(ctx, baseSelectUpdate+set+` WHERE id=$1 AND version=$2 AND `+guard+returning, values...))
+	op, err := scan(r.writeDB.QueryRow(ctx, baseSelectUpdate+set+` WHERE id=$1 AND version=$2 AND `+guard+returning, values...))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, models.ErrConflict
 	}
@@ -75,11 +80,11 @@ func (r *Repository) List(ctx context.Context, in *models.ListInput) ([]*models.
 	}
 	clause := strings.Join(where, " AND ")
 	var total int64
-	if err := r.db.QueryRow(ctx, "SELECT count(*) FROM dispatch_operations WHERE "+clause, args...).Scan(&total); err != nil {
+	if err := r.readDB.QueryRow(ctx, "SELECT count(*) FROM dispatch_operations WHERE "+clause, args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 	args = append(args, in.Limit, in.Offset)
-	rows, err := r.db.Query(ctx, baseSelect+" WHERE "+clause+fmt.Sprintf(" ORDER BY created_at DESC LIMIT $%d OFFSET $%d", len(args)-1, len(args)), args...)
+	rows, err := r.readDB.Query(ctx, baseSelect+" WHERE "+clause+fmt.Sprintf(" ORDER BY created_at DESC LIMIT $%d OFFSET $%d", len(args)-1, len(args)), args...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -95,7 +100,7 @@ func (r *Repository) List(ctx context.Context, in *models.ListInput) ([]*models.
 	return result, total, rows.Err()
 }
 func (r *Repository) Expire(ctx context.Context) ([]*models.Operation, error) {
-	rows, err := r.db.Query(ctx, baseSelectUpdate+`status='EXPIRED',failure_reason='dispatch operation expired',version=version+1,updated_at=now() WHERE status IN ('PENDING','RESERVED','CONFIRMING') AND expires_at<=now()`+returning)
+	rows, err := r.writeDB.Query(ctx, baseSelectUpdate+`status='EXPIRED',failure_reason='dispatch operation expired',version=version+1,updated_at=now() WHERE status IN ('PENDING','RESERVED','CONFIRMING') AND expires_at<=now()`+returning)
 	if err != nil {
 		return nil, err
 	}

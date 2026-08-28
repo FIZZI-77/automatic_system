@@ -17,4 +17,6 @@ type Service struct{ AuditService }
 func NewService(repo *repository.Repository) *Service {
 	return &Service{AuditService: NewAuditServiceStruct(repo)}
 }
-func IsNotFound(err error) bool { return repository.IsNotFound(err) }
+func IsNotFound(err error) bool {
+	return repository.IsNotFound(err)
+}

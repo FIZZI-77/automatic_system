@@ -123,14 +123,23 @@ func (w *Worker) flush(ctx context.Context, maxSize int) {
 	}
 	written, err := w.repo.AppendPositionsBatch(ctx, batch)
 	if err != nil {
+		w.buffer.Prepend(batch)
 		w.log.Error(
-			"position history batch dropped",
+			"position history batch write failed; batch returned to buffer",
 			zap.Int("batch_size", len(batch)),
 			zap.Error(err),
 		)
 		return
 	}
 	if written != int64(len(batch)) {
+		remaining := int(written)
+		if remaining < 0 {
+			remaining = 0
+		}
+		if remaining > len(batch) {
+			remaining = len(batch)
+		}
+		w.buffer.Prepend(batch[remaining:])
 		w.log.Warn(
 			"position history batch partially written",
 			zap.Int("batch_size", len(batch)),

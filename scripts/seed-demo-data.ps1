@@ -1,6 +1,9 @@
 param(
     [string]$BaseUrl = "http://localhost:8081",
-    [string]$Password = "CityDemo123!"
+    [string]$Password = "CityDemo123!",
+    [ValidateSet("Compose", "Kubernetes")]
+    [string]$Target = "Compose",
+    [string]$Namespace = "automatic-system"
 )
 
 $ErrorActionPreference = "Stop"
@@ -10,13 +13,47 @@ function Invoke-SeedSql {
     # Windows PowerShell otherwise sends native-process stdin in the active OEM
     # code page and Cyrillic values reach PostgreSQL as question marks.
     $previousOutputEncoding = $OutputEncoding
+    $previousClientEncoding = $env:PGCLIENTENCODING
     $script:OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+    $env:PGCLIENTENCODING = "UTF8"
     try {
-        $Sql | docker compose exec -T $Service psql -v ON_ERROR_STOP=1 -U $User -d $Database
+        if ($Target -eq "Kubernetes") {
+            $databaseMap = @{
+                "postgres-auth" = "auth_db"
+                "postgres-ticket" = "ticket_db"
+                "postgres-department" = "department_db"
+                "postgres-brigade" = "brigade_db"
+                "postgres-profile" = "profile_db"
+                "postgres-location" = "location"
+                "postgres-routing" = "routing"
+                "postgres-dispatch" = "dispatch"
+                "postgres-file" = "file"
+                "postgres-sla" = "sla"
+                "postgres-notification" = "notification"
+                "postgres-audit" = "audit"
+                "postgres-report" = "report"
+                "postgres-asset" = "asset"
+            }
+            $podSelector = if ($Service -eq "postgres-ticket") {
+                "cluster-name=postgres-ticket-citus,citus-group=0,role=primary"
+            } else {
+                "cluster-name=postgres-platform,role=primary"
+            }
+            $pod = kubectl get pods -n $Namespace -l $podSelector -o jsonpath='{.items[0].metadata.name}'
+            if ($LASTEXITCODE -ne 0 -or -not $pod) {
+                throw "Primary pod not found for $Service"
+            }
+            $targetDatabase = $databaseMap[$Service]
+            $Sql | kubectl exec -i -n $Namespace $pod -- psql -v ON_ERROR_STOP=1 -U postgres -d $targetDatabase
+        }
+        else {
+            $Sql | docker compose exec -T $Service psql -v ON_ERROR_STOP=1 -U $User -d $Database
+        }
         if ($LASTEXITCODE -ne 0) { throw "Seed failed for $Service" }
     }
     finally {
         $script:OutputEncoding = $previousOutputEncoding
+        $env:PGCLIENTENCODING = $previousClientEncoding
     }
 }
 
@@ -25,6 +62,9 @@ $accounts = @(
     @{ Email = "demo.dispatcher@city.local"; Username = "demo_dispatcher"; Role = "dispatcher" },
     @{ Email = "demo.worker1@city.local"; Username = "demo_worker1"; Role = "worker" },
     @{ Email = "demo.worker2@city.local"; Username = "demo_worker2"; Role = "worker" },
+    @{ Email = "demo.dispatch-worker1@city.local"; Username = "demo_dispatch_worker1"; Role = "worker" },
+    @{ Email = "demo.dispatch-worker2@city.local"; Username = "demo_dispatch_worker2"; Role = "worker" },
+    @{ Email = "demo.dispatch-worker3@city.local"; Username = "demo_dispatch_worker3"; Role = "worker" },
     @{ Email = "demo.user@city.local"; Username = "demo_user"; Role = "user" }
 )
 
@@ -56,7 +96,13 @@ ON CONFLICT (user_id, role_id) DO NOTHING;
 "@
 
 function Get-DemoUserId([string]$Email) {
-    $value = docker compose exec -T postgres-auth psql -U auth_user -d auth_db -At -c "SELECT id FROM users WHERE email='$Email'"
+    if ($Target -eq "Kubernetes") {
+        $pod = kubectl get pods -n $Namespace -l cluster-name=postgres-platform,role=primary -o jsonpath='{.items[0].metadata.name}'
+        $value = kubectl exec -n $Namespace $pod -- psql -U postgres -d auth_db -At -c "SELECT id FROM users WHERE email='$Email'"
+    }
+    else {
+        $value = docker compose exec -T postgres-auth psql -U auth_user -d auth_db -At -c "SELECT id FROM users WHERE email='$Email'"
+    }
     if ($LASTEXITCODE -ne 0 -or -not $value) { throw "User not found: $Email" }
     return $value.Trim()
 }
@@ -65,6 +111,9 @@ $adminId = Get-DemoUserId "demo.admin@city.local"
 $dispatcherId = Get-DemoUserId "demo.dispatcher@city.local"
 $worker1Id = Get-DemoUserId "demo.worker1@city.local"
 $worker2Id = Get-DemoUserId "demo.worker2@city.local"
+$dispatchWorker1Id = Get-DemoUserId "demo.dispatch-worker1@city.local"
+$dispatchWorker2Id = Get-DemoUserId "demo.dispatch-worker2@city.local"
+$dispatchWorker3Id = Get-DemoUserId "demo.dispatch-worker3@city.local"
 $residentId = Get-DemoUserId "demo.user@city.local"
 
 $depRoads = "10000000-0000-4000-8000-000000000001"
@@ -74,15 +123,27 @@ $catLight = "20000000-0000-4000-8000-000000000002"
 $catWater = "20000000-0000-4000-8000-000000000003"
 $brigadeRoad = "30000000-0000-4000-8000-000000000001"
 $brigadeUtility = "30000000-0000-4000-8000-000000000002"
+$brigadeDispatchPrimary = "30000000-0000-4000-8000-000000000003"
+$brigadeDispatchSecondary = "30000000-0000-4000-8000-000000000004"
+$brigadeDispatchCancel = "30000000-0000-4000-8000-000000000005"
 $skillRoad = "40000000-0000-4000-8000-000000000001"
 $skillElectric = "40000000-0000-4000-8000-000000000002"
 $skillWater = "40000000-0000-4000-8000-000000000003"
 $userProfileWorker1 = "50000000-0000-4000-8000-000000000001"
 $userProfileWorker2 = "50000000-0000-4000-8000-000000000002"
 $userProfileDispatcher = "50000000-0000-4000-8000-000000000003"
+$userProfileAdmin = "50000000-0000-4000-8000-000000000004"
+$userProfileResident = "50000000-0000-4000-8000-000000000005"
+$userProfileDispatchWorker1 = "50000000-0000-4000-8000-000000000006"
+$userProfileDispatchWorker2 = "50000000-0000-4000-8000-000000000007"
+$userProfileDispatchWorker3 = "50000000-0000-4000-8000-000000000008"
 $workProfileWorker1 = "51000000-0000-4000-8000-000000000001"
 $workProfileWorker2 = "51000000-0000-4000-8000-000000000002"
 $workProfileDispatcher = "51000000-0000-4000-8000-000000000003"
+$workProfileAdmin = "51000000-0000-4000-8000-000000000004"
+$workProfileDispatchWorker1 = "51000000-0000-4000-8000-000000000005"
+$workProfileDispatchWorker2 = "51000000-0000-4000-8000-000000000006"
+$workProfileDispatchWorker3 = "51000000-0000-4000-8000-000000000007"
 $ticketNew = "60000000-0000-4000-8000-000000000001"
 $ticketAssigned = "60000000-0000-4000-8000-000000000002"
 $ticketProgress = "60000000-0000-4000-8000-000000000003"
@@ -100,11 +161,11 @@ ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name,description=EXCLUDED.descripti
 "@
 
 Invoke-SeedSql "postgres-ticket" "postgres" "ticketdb" @"
-INSERT INTO ticket_categories(id,code,name,description,is_active) VALUES
-('$catRoad','DEMO_ROAD','Дорожное покрытие','Ямы, выбоины и повреждения полотна',TRUE),
-('$catLight','DEMO_LIGHT','Уличное освещение','Фонари, опоры и электропитание',TRUE),
-('$catWater','DEMO_WATER','Водоснабжение','Протечки и повреждения водопровода',TRUE)
-ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name,description=EXCLUDED.description,is_active=TRUE,updated_at=now();
+INSERT INTO ticket_categories(id,code,name,description,is_active,updated_at) VALUES
+('$catRoad','DEMO_ROAD','Дорожное покрытие','Ямы, выбоины и повреждения полотна',TRUE,now()),
+('$catLight','DEMO_LIGHT','Уличное освещение','Фонари, опоры и электропитание',TRUE,now()),
+('$catWater','DEMO_WATER','Водоснабжение','Протечки и повреждения водопровода',TRUE,now())
+ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name,description=EXCLUDED.description,is_active=TRUE,updated_at=EXCLUDED.updated_at;
 INSERT INTO tickets(id,department_id,user_id,brigade_id,title,description,category_id,priority,status,address,latitude,longitude,created_at,updated_at,assigned_at,completed_at,canceled_at) VALUES
 ('$ticketNew','$depRoads','$residentId',NULL,'Повреждён дорожный знак','Знак наклонён после сильного ветра, требуется восстановление.','$catRoad','MEDIUM','NEW','Тверская улица, 12',55.7622,37.6070,now()-interval '35 minutes',now()-interval '35 minutes',NULL,NULL,NULL),
 ('$ticketAssigned','$depRoads','$residentId','$brigadeRoad','Не работает освещение','Не горят три фонаря вдоль пешеходной зоны.','$catLight','HIGH','ASSIGNED','Страстной бульвар, 6',55.7650,37.6076,now()-interval '2 hours',now()-interval '25 minutes',now()-interval '25 minutes',NULL,NULL),
@@ -112,15 +173,15 @@ INSERT INTO tickets(id,department_id,user_id,brigade_id,title,description,catego
 ('$ticketDone','$depRoads','$residentId','$brigadeRoad','Яма на дороге устранена','Восстановлено асфальтовое покрытие во дворе.','$catRoad','HIGH','DONE','Петровка, 22',55.7665,37.6178,now()-interval '14 hours',now()-interval '2 hours',now()-interval '12 hours',now()-interval '2 hours',NULL),
 ('$ticketEmergency','$depUtilities','$residentId',NULL,'Открытый люк','Крышка люка отсутствует рядом с остановкой.','$catWater','EMERGENCY','NEW','Пречистенка, 31',55.7417,37.5905,now()-interval '12 minutes',now()-interval '12 minutes',NULL,NULL,NULL),
 ('$ticketCanceled','$depRoads','$residentId',NULL,'Ветка на проезжей части','Объект уже убран другой службой.','$catRoad','LOW','CANCELED','Чистопрудный бульвар, 9',55.7631,37.6385,now()-interval '10 hours',now()-interval '3 hours',NULL,NULL,now()-interval '3 hours')
-ON CONFLICT (id) DO UPDATE SET brigade_id=EXCLUDED.brigade_id,title=EXCLUDED.title,description=EXCLUDED.description,priority=EXCLUDED.priority,status=EXCLUDED.status,address=EXCLUDED.address,latitude=EXCLUDED.latitude,longitude=EXCLUDED.longitude,updated_at=EXCLUDED.updated_at,assigned_at=EXCLUDED.assigned_at,completed_at=EXCLUDED.completed_at,canceled_at=EXCLUDED.canceled_at;
-INSERT INTO ticket_status_history(id,ticket_id,old_status,new_status,changed_by,comment,created_at) VALUES
-('61000000-0000-4000-8000-000000000001','$ticketProgress','NEW','ASSIGNED','$dispatcherId','Назначена аварийная бригада',now()-interval '45 minutes'),
-('61000000-0000-4000-8000-000000000002','$ticketProgress','ASSIGNED','IN_PROGRESS','$worker2Id','Бригада прибыла на место',now()-interval '18 minutes'),
-('61000000-0000-4000-8000-000000000003','$ticketDone','IN_PROGRESS','DONE','$worker1Id','Покрытие восстановлено и проверено',now()-interval '1 day')
-ON CONFLICT (id) DO NOTHING;
-INSERT INTO ticket_reports(id,ticket_id,author_user_id,description,created_at,updated_at) VALUES
-('62000000-0000-4000-8000-000000000001','$ticketDone','$worker1Id','Повреждённый участок очищен, основание уплотнено, уложен новый асфальт. Состав: Алексей Смирнов, Ирина Волкова.',now()-interval '1 day',now()-interval '1 day')
-ON CONFLICT (id) DO UPDATE SET description=EXCLUDED.description,updated_at=EXCLUDED.updated_at;
+ON CONFLICT (department_id,id) DO UPDATE SET brigade_id=EXCLUDED.brigade_id,title=EXCLUDED.title,description=EXCLUDED.description,priority=EXCLUDED.priority,status=EXCLUDED.status,address=EXCLUDED.address,latitude=EXCLUDED.latitude,longitude=EXCLUDED.longitude,updated_at=EXCLUDED.updated_at,assigned_at=EXCLUDED.assigned_at,completed_at=EXCLUDED.completed_at,canceled_at=EXCLUDED.canceled_at;
+INSERT INTO ticket_status_history(id,department_id,ticket_id,old_status,new_status,changed_by,comment,created_at) VALUES
+('61000000-0000-4000-8000-000000000001','$depUtilities','$ticketProgress','NEW','ASSIGNED','$dispatcherId','Назначена аварийная бригада',now()-interval '45 minutes'),
+('61000000-0000-4000-8000-000000000002','$depUtilities','$ticketProgress','ASSIGNED','IN_PROGRESS','$worker2Id','Бригада прибыла на место',now()-interval '18 minutes'),
+('61000000-0000-4000-8000-000000000003','$depRoads','$ticketDone','IN_PROGRESS','DONE','$worker1Id','Покрытие восстановлено и проверено',now()-interval '1 day')
+ON CONFLICT (department_id,id) DO NOTHING;
+INSERT INTO ticket_reports(id,department_id,ticket_id,author_user_id,description,created_at,updated_at) VALUES
+('62000000-0000-4000-8000-000000000001','$depRoads','$ticketDone','$worker1Id','Повреждённый участок очищен, основание уплотнено, уложен новый асфальт. Состав: Алексей Смирнов, Ирина Волкова.',now()-interval '1 day',now()-interval '1 day')
+ON CONFLICT (department_id,id) DO UPDATE SET description=EXCLUDED.description,updated_at=EXCLUDED.updated_at;
 "@
 
 Invoke-SeedSql "postgres-brigade" "postgres" "brigadedb" @"
@@ -131,23 +192,35 @@ INSERT INTO skills(id,code,name,description,active) VALUES
 ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name,description=EXCLUDED.description,active=TRUE,updated_at=now();
 INSERT INTO brigades(id,department_id,name,description,status,specialization) VALUES
 ('$brigadeRoad','$depRoads','Бригада №14 — дорожная','Асфальт, знаки и элементы дорожной инфраструктуры','BUSY','Дорожные работы'),
-('$brigadeUtility','$depUtilities','Бригада №7 — аварийная','Водоснабжение и срочные городские коммуникации','ON_ROUTE','Аварийные коммуникации')
+('$brigadeUtility','$depUtilities','Бригада №7 — аварийная','Водоснабжение и срочные городские коммуникации','ON_ROUTE','Аварийные коммуникации'),
+('$brigadeDispatchPrimary','$depRoads','Тестовая бригада диспетчеризации №1','Выделена для позитивных dispatch-сценариев','AVAILABLE','Диспетчеризация'),
+('$brigadeDispatchSecondary','$depRoads','Тестовая бригада диспетчеризации №2','Выделена для auto dispatch-сценария','AVAILABLE','Диспетчеризация'),
+('$brigadeDispatchCancel','$depRoads','Тестовая бригада диспетчеризации №3','Выделена для cancel dispatch-сценария','AVAILABLE','Диспетчеризация')
 ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name,description=EXCLUDED.description,status=EXCLUDED.status,specialization=EXCLUDED.specialization,updated_at=now();
 INSERT INTO brigade_members(id,brigade_id,user_id,profile_id,role,active,availability_status) VALUES
 ('31000000-0000-4000-8000-000000000001','$brigadeRoad','$worker1Id','$workProfileWorker1','LEAD',TRUE,'UNAVAILABLE'),
-('31000000-0000-4000-8000-000000000002','$brigadeUtility','$worker2Id','$workProfileWorker2','LEAD',TRUE,'UNAVAILABLE')
+('31000000-0000-4000-8000-000000000002','$brigadeUtility','$worker2Id','$workProfileWorker2','LEAD',TRUE,'UNAVAILABLE'),
+('31000000-0000-4000-8000-000000000003','$brigadeDispatchPrimary','$dispatchWorker1Id','$workProfileDispatchWorker1','LEAD',TRUE,'AVAILABLE'),
+('31000000-0000-4000-8000-000000000004','$brigadeDispatchSecondary','$dispatchWorker2Id','$workProfileDispatchWorker2','LEAD',TRUE,'AVAILABLE'),
+('31000000-0000-4000-8000-000000000005','$brigadeDispatchCancel','$dispatchWorker3Id','$workProfileDispatchWorker3','LEAD',TRUE,'AVAILABLE')
 ON CONFLICT (id) DO UPDATE SET brigade_id=EXCLUDED.brigade_id,role=EXCLUDED.role,active=TRUE,availability_status=EXCLUDED.availability_status,updated_at=now();
 INSERT INTO brigade_skills(id,brigade_id,skill_id,active) VALUES
 ('32000000-0000-4000-8000-000000000001','$brigadeRoad','$skillRoad',TRUE),
 ('32000000-0000-4000-8000-000000000002','$brigadeRoad','$skillElectric',TRUE),
 ('32000000-0000-4000-8000-000000000003','$brigadeUtility','$skillWater',TRUE)
 ON CONFLICT (id) DO UPDATE SET active=TRUE,updated_at=now();
-DELETE FROM brigade_schedule WHERE brigade_id IN ('$brigadeRoad','$brigadeUtility');
+DELETE FROM brigade_schedule WHERE brigade_id IN ('$brigadeRoad','$brigadeUtility','$brigadeDispatchPrimary','$brigadeDispatchSecondary','$brigadeDispatchCancel');
 INSERT INTO brigade_schedule(id,brigade_id,day_of_week,starts_at,ends_at,timezone,active) SELECT gen_random_uuid(),'$brigadeRoad',day,'08:00','20:00','Europe/Moscow',TRUE FROM generate_series(1,5) day;
 INSERT INTO brigade_schedule(id,brigade_id,day_of_week,starts_at,ends_at,timezone,active) SELECT gen_random_uuid(),'$brigadeUtility',day,'00:00','23:59','Europe/Moscow',TRUE FROM generate_series(1,7) day;
+INSERT INTO brigade_schedule(id,brigade_id,day_of_week,starts_at,ends_at,timezone,active) SELECT gen_random_uuid(),'$brigadeDispatchPrimary',day,'00:00','23:59','Europe/Moscow',TRUE FROM generate_series(1,7) day;
+INSERT INTO brigade_schedule(id,brigade_id,day_of_week,starts_at,ends_at,timezone,active) SELECT gen_random_uuid(),'$brigadeDispatchSecondary',day,'00:00','23:59','Europe/Moscow',TRUE FROM generate_series(1,7) day;
+INSERT INTO brigade_schedule(id,brigade_id,day_of_week,starts_at,ends_at,timezone,active) SELECT gen_random_uuid(),'$brigadeDispatchCancel',day,'00:00','23:59','Europe/Moscow',TRUE FROM generate_series(1,7) day;
 INSERT INTO brigade_zones(id,brigade_id,department_id,name,zone,priority,active) VALUES
 ('33000000-0000-4000-8000-000000000001','$brigadeRoad','$depRoads','Центральный дорожный сектор',ST_GeomFromText('POLYGON((37.56 55.72,37.66 55.72,37.66 55.79,37.56 55.79,37.56 55.72))',4326),10,TRUE),
-('33000000-0000-4000-8000-000000000002','$brigadeUtility','$depUtilities','Центральный аварийный сектор',ST_GeomFromText('POLYGON((37.58 55.73,37.69 55.73,37.69 55.81,37.58 55.81,37.58 55.73))',4326),20,TRUE)
+('33000000-0000-4000-8000-000000000002','$brigadeUtility','$depUtilities','Центральный аварийный сектор',ST_GeomFromText('POLYGON((37.58 55.73,37.69 55.73,37.69 55.81,37.58 55.81,37.58 55.73))',4326),20,TRUE),
+('33000000-0000-4000-8000-000000000003','$brigadeDispatchPrimary','$depRoads','Тестовый сектор диспетчеризации №1',ST_GeomFromText('POLYGON((37.56 55.72,37.66 55.72,37.66 55.79,37.56 55.79,37.56 55.72))',4326),30,TRUE),
+('33000000-0000-4000-8000-000000000004','$brigadeDispatchSecondary','$depRoads','Тестовый сектор диспетчеризации №2',ST_GeomFromText('POLYGON((37.56 55.72,37.66 55.72,37.66 55.79,37.56 55.79,37.56 55.72))',4326),40,TRUE),
+('33000000-0000-4000-8000-000000000005','$brigadeDispatchCancel','$depRoads','Тестовый сектор диспетчеризации №3',ST_GeomFromText('POLYGON((37.56 55.72,37.66 55.72,37.66 55.79,37.56 55.79,37.56 55.72))',4326),50,TRUE)
 ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name,zone=EXCLUDED.zone,priority=EXCLUDED.priority,active=TRUE,updated_at=now();
 "@
 
@@ -155,13 +228,31 @@ Invoke-SeedSql "postgres-profile" "profile_user" "profile_db" @"
 INSERT INTO user_profiles(id,user_id,full_name,phone,preferred_contact_method) VALUES
 ('$userProfileWorker1','$worker1Id','Алексей Смирнов','+79001001001','PHONE'),
 ('$userProfileWorker2','$worker2Id','Ирина Волкова','+79001001002','PHONE'),
-('$userProfileDispatcher','$dispatcherId','Мария Орлова','+79001001003','EMAIL')
-ON CONFLICT (id) DO UPDATE SET full_name=EXCLUDED.full_name,phone=EXCLUDED.phone,updated_at=now();
+('$userProfileDispatcher','$dispatcherId','Мария Орлова','+79001001003','EMAIL'),
+('$userProfileAdmin','$adminId','Администратор системы',NULL,'EMAIL'),
+('$userProfileResident','$residentId','Демо-житель',NULL,'EMAIL'),
+('$userProfileDispatchWorker1','$dispatchWorker1Id','Тестовый диспетчерский работник 1',NULL,'EMAIL'),
+('$userProfileDispatchWorker2','$dispatchWorker2Id','Тестовый диспетчерский работник 2',NULL,'EMAIL'),
+('$userProfileDispatchWorker3','$dispatchWorker3Id','Тестовый диспетчерский работник 3',NULL,'EMAIL')
+ON CONFLICT (id) DO UPDATE SET
+full_name=EXCLUDED.full_name,
+phone=EXCLUDED.phone,
+preferred_contact_method=EXCLUDED.preferred_contact_method,
+updated_at=now();
 INSERT INTO work_profiles(id,user_profile_id,department_id,employee_number,position,status) VALUES
 ('$workProfileWorker1','$userProfileWorker1','$depRoads','DEMO-001','Мастер дорожных работ','ACTIVE'),
 ('$workProfileWorker2','$userProfileWorker2','$depUtilities','DEMO-002','Аварийный техник','ACTIVE'),
-('$workProfileDispatcher','$userProfileDispatcher','$depRoads','DEMO-003','Диспетчер','ACTIVE')
-ON CONFLICT (id) DO UPDATE SET department_id=EXCLUDED.department_id,position=EXCLUDED.position,status='ACTIVE',updated_at=now();
+('$workProfileDispatcher','$userProfileDispatcher','$depRoads','DEMO-003','Диспетчер','ACTIVE'),
+('$workProfileAdmin','$userProfileAdmin','$depRoads','DEMO-004','Администратор системы','ACTIVE'),
+('$workProfileDispatchWorker1','$userProfileDispatchWorker1','$depRoads','DEMO-005','Тестовый выездной специалист 1','ACTIVE'),
+('$workProfileDispatchWorker2','$userProfileDispatchWorker2','$depRoads','DEMO-006','Тестовый выездной специалист 2','ACTIVE'),
+('$workProfileDispatchWorker3','$userProfileDispatchWorker3','$depRoads','DEMO-007','Тестовый выездной специалист 3','ACTIVE')
+ON CONFLICT (id) DO UPDATE SET
+department_id=EXCLUDED.department_id,
+position=EXCLUDED.position,
+status='ACTIVE',
+deactivated_at=NULL,
+updated_at=now();
 INSERT INTO certification_types(id,code,name,description,default_validity_days,requires_file,active) VALUES
 ('52000000-0000-4000-8000-000000000001','DEMO_ELECTRIC_CERT','Допуск к электроустановкам','Группа электробезопасности для городского освещения',365,TRUE,TRUE),
 ('52000000-0000-4000-8000-000000000002','DEMO_ROAD_CERT','Безопасность дорожных работ','Организация работ в зоне движения',730,TRUE,TRUE)
@@ -287,10 +378,20 @@ INSERT INTO analytics.domain_events(topic,event_id,event_type,entity_id,ticket_i
 ('tickets.events.v1','demo-analytics-created-3','ticket.created','$ticketNew','$ticketNew','$depRoads','$catRoad','','$residentId','MEDIUM','NEW',55.7622,37.6070,'{}',now64(3)-INTERVAL 35 MINUTE,1),
 ('tickets.events.v1','demo-analytics-done-1','ticket.completed','$ticketDone','$ticketDone','$depRoads','$catRoad','$brigadeRoad','$residentId','HIGH','DONE',55.7665,37.6178,'{}',now64(3)-INTERVAL 1 DAY,2);
 "@
-$analyticsSeedCount = docker compose exec -T clickhouse clickhouse-client --query "SELECT count() FROM analytics.domain_events WHERE event_id LIKE 'demo-analytics-%'"
+if ($Target -eq "Kubernetes") {
+    $analyticsSeedCount = kubectl exec -n $Namespace clickhouse-0 -- clickhouse-client --query "SELECT count() FROM analytics.domain_events WHERE event_id LIKE 'demo-analytics-%'"
+}
+else {
+    $analyticsSeedCount = docker compose exec -T clickhouse clickhouse-client --query "SELECT count() FROM analytics.domain_events WHERE event_id LIKE 'demo-analytics-%'"
+}
 if ($LASTEXITCODE -ne 0) { throw "Could not inspect ClickHouse seed" }
 if ([int]$analyticsSeedCount -eq 0) {
-    $clickhouseSql | docker compose exec -T clickhouse clickhouse-client --multiquery
+    if ($Target -eq "Kubernetes") {
+        $clickhouseSql | kubectl exec -i -n $Namespace clickhouse-0 -- clickhouse-client --multiquery
+    }
+    else {
+        $clickhouseSql | docker compose exec -T clickhouse clickhouse-client --multiquery
+    }
     if ($LASTEXITCODE -ne 0) { throw "Seed failed for ClickHouse" }
 }
 

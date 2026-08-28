@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"errors"
+	"location/pkg/telemetry"
+	stdlog "log"
 	"net"
 	"net/http"
 	"os"
@@ -20,12 +22,13 @@ import (
 	"location/src/core/httptransport"
 	"location/src/core/repository"
 	"location/src/core/service"
+	"location/src/infrastructure/partitionmanager"
 	"location/src/infrastructure/positionhistory"
 	"location/src/infrastructure/signalmonitor"
 	"location/src/infrastructure/streamrelay"
 
 	locationv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/location/v1"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/extra/redisotel/v9"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -34,6 +37,16 @@ import (
 )
 
 func main() {
+	telemetryProviders, err := telemetry.Init(context.Background(), "location-service")
+	if err != nil {
+		stdlog.Fatalf("initialize OpenTelemetry: %v", err)
+	}
+	defer func() {
+		if shutdownErr := telemetryProviders.Close(); shutdownErr != nil {
+			stdlog.Printf("shutdown OpenTelemetry: %v", shutdownErr)
+		}
+	}()
+
 	if err := appconfig.Load(); err != nil {
 		panic("configuration error: " + err.Error())
 	}
@@ -46,16 +59,34 @@ func main() {
 	}
 	defer log.Sync()
 	dependencies := closer.New()
-	db, err := pgxpool.New(ctx, requiredEnv("DATABASE_URL", log))
+	writeDB, err := telemetry.NewPostgresPool(ctx, requiredEnv("DATABASE_URL", log))
 
 	if err != nil {
-		fatalWithCleanup(log, dependencies, "connect postgres", err)
+		fatalWithCleanup(log, dependencies, "connect postgres primary", err)
 	}
-	dependencies.Add("postgres", func() error { db.Close(); return nil })
-	if err = db.Ping(ctx); err != nil {
-		fatalWithCleanup(log, dependencies, "ping postgres", err)
+	dependencies.Add("postgres primary", func() error { writeDB.Close(); return nil })
+	if err = writeDB.Ping(ctx); err != nil {
+		fatalWithCleanup(log, dependencies, "ping postgres primary", err)
+	}
+	readDatabaseURL := strings.TrimSpace(os.Getenv("READ_DATABASE_URL"))
+	if readDatabaseURL == "" {
+		readDatabaseURL = requiredEnv("DATABASE_URL", log)
+	}
+	readDB, err := telemetry.NewPostgresPool(ctx, readDatabaseURL)
+	if err != nil {
+		fatalWithCleanup(log, dependencies, "connect postgres replica", err)
+	}
+	dependencies.Add("postgres replica", func() error { readDB.Close(); return nil })
+	if err = readDB.Ping(ctx); err != nil {
+		fatalWithCleanup(log, dependencies, "ping postgres replica", err)
 	}
 	rdb := newRedisClient()
+	if err = errors.Join(
+		redisotel.InstrumentTracing(rdb),
+		redisotel.InstrumentMetrics(rdb),
+	); err != nil {
+		fatalWithCleanup(log, dependencies, "instrument redis", err)
+	}
 	dependencies.Add("redis", rdb.Close)
 	if err = rdb.Ping(ctx).Err(); err != nil {
 		fatalWithCleanup(log, dependencies, "ping redis", err)
@@ -63,7 +94,7 @@ func main() {
 	signalStaleAfter := envDuration("SIGNAL_STALE_AFTER", 15*time.Second)
 	signalOfflineAfter := envDuration("SIGNAL_OFFLINE_AFTER", 60*time.Second)
 	repo := repository.NewRepositoryFromClientsWithConfig(
-		repository.DBPools{Write: db, Read: db},
+		repository.DBPools{Write: writeDB, Read: readDB},
 		rdb,
 		repository.CurrentLocationRepoConfig{
 			StaleAfter:   signalStaleAfter,
@@ -102,6 +133,22 @@ func main() {
 			stop()
 		}
 	})
+	partitionWorker, err := partitionmanager.New(
+		writeDB,
+		partitionmanager.Config{
+			Interval:    envDuration("HISTORY_PARTITION_INTERVAL", 24*time.Hour),
+			MonthsAhead: envInt("HISTORY_PARTITIONS_AHEAD", 3),
+		},
+		log,
+	)
+	if err != nil {
+		fatalWithCleanup(log, dependencies, "create partition manager", err)
+	}
+	startWorker("position history partitions", func() {
+		if runErr := partitionWorker.Run(workerCtx); runErr != nil {
+			log.Error("position history partition manager stopped", zap.Error(runErr))
+		}
+	})
 	signalWorker := signalmonitor.New(
 		locationService,
 		signalmonitor.Config{
@@ -133,6 +180,7 @@ func main() {
 		fatalWithCleanup(log, dependencies, "listen grpc", err)
 	}
 	grpcServer := grpc.NewServer(
+		telemetry.GRPCServerOption(),
 		grpc.ChainUnaryInterceptor(
 			pkg.RequestIDUnaryServerInterceptor,
 			pkg.AccessLogUnaryServerInterceptor(log),
@@ -159,9 +207,12 @@ func main() {
 	}()
 	httpServer := &http.Server{
 		Addr: ":" + env("HTTP_PORT", "8080"),
-		Handler: pkg.HTTPMiddleware(
-			log,
-			httptransport.New(locationService, os.Getenv("TRANSPONDER_API_KEY")).Routes(),
+		Handler: telemetry.HTTPHandler(
+			pkg.HTTPMiddleware(
+				log,
+				httptransport.New(locationService, os.Getenv("TRANSPONDER_API_KEY")).Routes(),
+			),
+			"location.http",
 		),
 		ReadHeaderTimeout: 5 * time.Second,
 	}

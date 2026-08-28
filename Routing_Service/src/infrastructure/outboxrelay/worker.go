@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"routing/pkg/telemetry"
 	"strings"
 	"sync"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/segmentio/kafka-go"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
 
@@ -125,7 +127,13 @@ func (w *Worker) runWorker(ctx context.Context, workerID int) {
 	}
 }
 
-func (w *Worker) processBatch(ctx context.Context) error {
+func (w *Worker) processBatch(ctx context.Context) (err error) {
+	var span trace.Span
+	defer func() {
+		if span != nil {
+			telemetry.End(span, err)
+		}
+	}()
 	for range w.cfg.BatchSize {
 		item, err := w.claim(ctx)
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -134,7 +142,10 @@ func (w *Worker) processBatch(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		err = w.writer.WriteMessages(ctx, kafka.Message{
+		if span == nil {
+			ctx, span = telemetry.Tracer("routing/outbox").Start(ctx, "Outbox.PublishBatch")
+		}
+		err = telemetry.WriteKafka(ctx, w.writer, kafka.Message{
 			Key:   []byte(item.AggregateID.String()),
 			Value: item.Payload,
 			Headers: []kafka.Header{

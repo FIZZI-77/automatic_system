@@ -59,7 +59,22 @@ func (t *TicketHandler) CreateWorkReport(ctx context.Context, req *ticketv1.Crea
 	if actor.UserID == nil || (*actor.UserID != authorID && !containsRole(actor.Roles, "admin") && !containsRole(actor.Roles, "dispatcher")) {
 		return nil, ticketStatusError("CreateWorkReport", models.ErrPermissionDenied)
 	}
-	report, err := t.service.Reports.Create(ctx, &models.CreateWorkReportInput{TicketID: ticketID, AuthorUserID: authorID, Description: req.GetDescription(), FileIDs: fileIDs, ActorBrigadeID: actor.BrigadeID, ActorRoles: actor.Roles})
+	var completion *models.CompletionReportInput
+	if req.GetCompletion() != nil {
+		completion = &models.CompletionReportInput{
+			RequestedBy: req.GetCompletion().GetRequestedBy(),
+			ActorRoles:  req.GetCompletion().GetActorRoles(),
+			OpenedBy:    req.GetCompletion().GetOpenedBy(),
+			Brigade: models.CompletionBrigadeInput{
+				ID:   req.GetCompletion().GetBrigade().GetId(),
+				Name: req.GetCompletion().GetBrigade().GetName(),
+			},
+		}
+		for _, member := range req.GetCompletion().GetBrigade().GetMembers() {
+			completion.Brigade.Members = append(completion.Brigade.Members, models.CompletionBrigadeMemberInput{UserID: member.GetUserId(), FullName: member.GetFullName(), Role: member.GetRole()})
+		}
+	}
+	report, err := t.service.Reports.Create(ctx, &models.CreateWorkReportInput{TicketID: ticketID, AuthorUserID: authorID, Description: req.GetDescription(), FileIDs: fileIDs, ActorBrigadeID: actor.BrigadeID, ActorRoles: actor.Roles, IdempotencyKey: req.GetIdempotencyKey(), Completion: completion})
 	if err != nil {
 		return nil, ticketStatusError("CreateWorkReport", err)
 	}
@@ -103,7 +118,11 @@ func toProtoWorkReport(report *models.WorkReport) *ticketv1.WorkReport {
 	for _, id := range report.FileIDs {
 		files = append(files, id.String())
 	}
-	return &ticketv1.WorkReport{Id: report.ID.String(), TicketId: report.TicketID.String(), AuthorUserId: report.AuthorUserID.String(), Description: report.Description, FileIds: files, CreatedAt: ToProtoTimestamp(report.CreatedAt), UpdatedAt: ToProtoTimestamp(report.UpdatedAt)}
+	fileID := ""
+	if report.CompletionFileID != nil {
+		fileID = report.CompletionFileID.String()
+	}
+	return &ticketv1.WorkReport{Id: report.ID.String(), TicketId: report.TicketID.String(), AuthorUserId: report.AuthorUserID.String(), Description: report.Description, FileIds: files, CreatedAt: ToProtoTimestamp(report.CreatedAt), UpdatedAt: ToProtoTimestamp(report.UpdatedAt), CompletionStatus: report.CompletionStatus, CompletionFileId: fileID, CompletionError: report.CompletionError}
 }
 
 func (t *TicketHandler) CreateTicket(ctx context.Context, req *ticketv1.CreateTicketRequest) (*ticketv1.CreateTicketResponse, error) {
@@ -1134,7 +1153,8 @@ func ticketErrorCode(err error) codes.Code {
 		return codes.PermissionDenied
 	case errors.Is(err, models.ErrCategoryInactive),
 		errors.Is(err, models.ErrInvalidStatusTransition),
-		errors.Is(err, models.ErrTicketTerminalState):
+		errors.Is(err, models.ErrTicketTerminalState),
+		errors.Is(err, models.ErrBrigadeBusy):
 		return codes.FailedPrecondition
 	default:
 		return codes.Internal

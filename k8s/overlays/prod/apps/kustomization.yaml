@@ -14,8 +14,21 @@ labels:
 
 patches:
   - path: api-gateway-prod.patch.yaml
+  - path: postgres-ha.patch.yaml
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      labelSelector: app.kubernetes.io/part-of=automatic-system
+    patch: |-
+      - op: add
+        path: /spec/template/metadata/labels/sidecar.istio.io~1inject
+        value: "true"
 
 images:
+  - name: automatic-system/frontend
+    newName: ghcr.io/fizzi-77/automatic-system-frontend
+    newTag: sha-457fcddd7b6e
   - name: automatic-system/api-gateway
     newName: ghcr.io/fizzi-77/automatic-system-api-gateway
     newTag: sha-457fcddd7b6e

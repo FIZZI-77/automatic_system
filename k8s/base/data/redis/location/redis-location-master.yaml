@@ -18,6 +18,8 @@ spec:
       app: redis-location-master
   template:
     metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
       labels:
         app: redis-location-master
         app.kubernetes.io/name: redis

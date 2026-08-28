@@ -11,7 +11,6 @@ RUN go mod download && \
 
 COPY . .
 
-RUN go mod tidy
 RUN go build -o server ./src/cmd/server
 
 FROM alpine:3.21

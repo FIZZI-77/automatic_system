@@ -11,8 +11,6 @@ RUN go mod download && go mod verify
 
 COPY . .
 
-RUN go mod tidy
-
 RUN go build -o server ./src/cmd/server
 
 

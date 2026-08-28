@@ -1,0 +1,18 @@
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: application-services
+spec:
+  host: "*.automatic-system.svc.cluster.local"
+  workloadSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: automatic-system
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        connectTimeout: 3s
+        maxConnections: 100
+      http:
+        http2MaxRequests: 1000
+        maxRequestsPerConnection: 100
+        maxRetries: 3

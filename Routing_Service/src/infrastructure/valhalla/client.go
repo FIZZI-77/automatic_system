@@ -8,10 +8,15 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
 	"routing/models"
+	"routing/pkg/telemetry"
+
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 )
 
 type Config struct {
@@ -34,7 +39,10 @@ func New(config Config) (*Client, error) {
 	}
 	return &Client{
 		baseURL: baseURL,
-		http:    &http.Client{Timeout: config.Timeout},
+		http: &http.Client{
+			Timeout:   config.Timeout,
+			Transport: http.DefaultTransport,
+		},
 	}, nil
 }
 
@@ -96,6 +104,13 @@ func (c *Client) BuildRoute(
 	ctx context.Context,
 	in *models.BuildRouteInput,
 ) (*models.CalculatedRoute, error) {
+	ctx, span := telemetry.Tracer("routing/valhalla").Start(ctx, "Valhalla.BuildRoute")
+	defer span.End()
+	span.SetAttributes(
+		attribute.Int("route.waypoint_count", len(in.Waypoints)),
+		attribute.String("route.travel_mode", string(in.Options.TravelMode)),
+	)
+
 	points := make([]models.Point, 0, len(in.Waypoints)+2)
 	points = append(points, in.Origin)
 	points = append(points, in.Waypoints...)
@@ -115,6 +130,8 @@ func (c *Client) BuildRoute(
 
 	var response routeResponse
 	if err := c.post(ctx, "/route", request, &response); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "Valhalla route request failed")
 		return nil, err
 	}
 
@@ -233,6 +250,14 @@ func (c *Client) BuildMatrix(
 	ctx context.Context,
 	in *models.BuildMatrixInput,
 ) ([]models.MatrixCell, error) {
+	ctx, span := telemetry.Tracer("routing/valhalla").Start(ctx, "Valhalla.BuildMatrix")
+	defer span.End()
+	span.SetAttributes(
+		attribute.Int("route.source_count", len(in.Sources)),
+		attribute.Int("route.target_count", len(in.Targets)),
+		attribute.String("route.travel_mode", string(in.Options.TravelMode)),
+	)
+
 	request := matrixRequest{
 		Sources:        toLocations(in.Sources),
 		Targets:        toLocations(in.Targets),
@@ -244,6 +269,8 @@ func (c *Client) BuildMatrix(
 
 	var response matrixResponse
 	if err := c.post(ctx, "/sources_to_targets", request, &response); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "Valhalla matrix request failed")
 		return nil, err
 	}
 
@@ -270,36 +297,71 @@ func (c *Client) post(ctx context.Context, path string, input, output any) error
 	if err != nil {
 		return fmt.Errorf("valhalla: encode request: %w", err)
 	}
+	response, err := c.sendJSON(ctx, http.MethodPost, c.baseURL+path, body)
+	if err != nil {
+		return err
+	}
+
+	data, statusCode, err := readResponse(response)
+	if err != nil {
+		return err
+	}
+	if statusCode == http.StatusBadRequest && strings.Contains(string(data), "Malformed HTTP request") {
+		query := url.Values{"json": []string{string(body)}}
+		response, err = c.sendJSON(ctx, http.MethodGet, c.baseURL+path+"?"+query.Encode(), nil)
+		if err != nil {
+			return err
+		}
+		data, statusCode, err = readResponse(response)
+		if err != nil {
+			return err
+		}
+	}
+	if statusCode < 200 || statusCode >= 300 {
+		return fmt.Errorf(
+			"%w: valhalla status %d: %s",
+			models.ErrDependencyUnavailable,
+			statusCode,
+			strings.TrimSpace(string(data)),
+		)
+	}
+	if err := json.Unmarshal(data, output); err != nil {
+		return fmt.Errorf("%w: valhalla response: %v", models.ErrDependencyUnavailable, err)
+	}
+	return nil
+}
+
+func (c *Client) sendJSON(ctx context.Context, method, requestURL string, body []byte) (*http.Response, error) {
 	request, err := http.NewRequestWithContext(
 		ctx,
-		http.MethodPost,
-		c.baseURL+path,
+		method,
+		requestURL,
 		bytes.NewReader(body),
 	)
 	if err != nil {
-		return fmt.Errorf("valhalla: create request: %w", err)
+		return nil, fmt.Errorf("valhalla: create request: %w", err)
 	}
 	request.Header.Set("Content-Type", "application/json")
 
 	response, err := c.http.Do(request)
 	if err != nil {
-		return fmt.Errorf("%w: valhalla request: %v", models.ErrDependencyUnavailable, err)
+		return nil, fmt.Errorf("%w: valhalla request: %v", models.ErrDependencyUnavailable, err)
 	}
+	return response, nil
+}
+
+func readResponse(response *http.Response) ([]byte, int, error) {
 	defer response.Body.Close()
 
-	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		data, _ := io.ReadAll(io.LimitReader(response.Body, 64<<10))
-		return fmt.Errorf(
-			"%w: valhalla status %d: %s",
+	data, err := io.ReadAll(io.LimitReader(response.Body, 64<<10))
+	if err != nil {
+		return nil, response.StatusCode, fmt.Errorf(
+			"%w: valhalla response: %v",
 			models.ErrDependencyUnavailable,
-			response.StatusCode,
-			strings.TrimSpace(string(data)),
+			err,
 		)
 	}
-	if err = json.NewDecoder(response.Body).Decode(output); err != nil {
-		return fmt.Errorf("%w: valhalla response: %v", models.ErrDependencyUnavailable, err)
-	}
-	return nil
+	return data, response.StatusCode, nil
 }
 
 func toLocations(points []models.Point) []location {

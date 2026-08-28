@@ -4077,12 +4077,12 @@
                      },
                      {
                          "key":  "brigade_test_email",
-                         "value":  "admin@example.com",
+                         "value":  "demo.admin@city.local",
                          "type":  "string"
                      },
                      {
                          "key":  "brigade_test_password",
-                         "value":  "password123",
+                         "value":  "CityDemo123!",
                          "type":  "string"
                      },
                      {
@@ -4202,12 +4202,12 @@
                      },
                      {
                          "key":  "department_test_email",
-                         "value":  "admin@example.local",
+                         "value":  "demo.admin@city.local",
                          "type":  "string"
                      },
                      {
                          "key":  "department_test_password",
-                         "value":  "Password123!",
+                         "value":  "CityDemo123!",
                          "type":  "string"
                      },
                      {
@@ -4242,12 +4242,12 @@
                      },
                      {
                          "key":  "new_services_email",
-                         "value":  "dispatcher@example.com",
+                         "value":  "demo.dispatcher@city.local",
                          "type":  "string"
                      },
                      {
                          "key":  "new_services_password",
-                         "value":  "ChangeMe123!",
+                         "value":  "CityDemo123!",
                          "type":  "string"
                      },
                      {
@@ -4347,12 +4347,12 @@
                      },
                      {
                          "key":  "profile_test_email",
-                         "value":  "admin@example.com",
+                         "value":  "demo.admin@city.local",
                          "type":  "string"
                      },
                      {
                          "key":  "profile_test_password",
-                         "value":  "password123",
+                         "value":  "CityDemo123!",
                          "type":  "string"
                      },
                      {
@@ -4447,7 +4447,7 @@
                      },
                      {
                          "key":  "ticket_test_password",
-                         "value":  "Password123!",
+                         "value":  "CityDemo123!",
                          "type":  "string"
                      },
                      {

@@ -14,6 +14,9 @@ import (
 	"report/models"
 	"strings"
 	"time"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type Client struct {
@@ -69,6 +72,18 @@ func (c *Client) UploadForResource(ctx context.Context, resourceType string, res
 
 func (c *Client) LinkExisting(ctx context.Context, fileID, resourceID, actor uuid.UUID, roles []string) error {
 	_, err := c.api.LinkFile(ctx, &filev1.LinkFileRequest{FileId: fileID.String(), ResourceType: "work_report", ResourceId: resourceID.String(), ActorUserId: actor.String(), ActorRoles: roles})
+	return err
+}
+
+func (c *Client) Delete(ctx context.Context, fileID, actor uuid.UUID, roles []string) error {
+	_, err := c.api.DeleteFile(ctx, &filev1.DeleteFileRequest{
+		FileId:      fileID.String(),
+		ActorUserId: actor.String(),
+		ActorRoles:  roles,
+	})
+	if status.Code(err) == codes.NotFound {
+		return nil
+	}
 	return err
 }
 

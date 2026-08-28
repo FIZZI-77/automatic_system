@@ -7,4 +7,6 @@ resources:
   - auxiliary
   - migrations
   - apps
+  - observability
+  - logging
   - network

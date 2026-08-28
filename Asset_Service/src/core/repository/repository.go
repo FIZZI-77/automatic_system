@@ -35,5 +35,10 @@ type AssetRepository interface {
 }
 type Repository struct{ AssetRepository }
 
-func NewRepository(db *pgxpool.Pool) *Repository { return &Repository{NewAssetRepoStruct(db)} }
-func IsNotFound(e error) bool                    { return errors.Is(e, pgx.ErrNoRows) }
+func NewRepository(db *pgxpool.Pool) *Repository {
+	return &Repository{AssetRepository: NewAssetRepoStruct(db)}
+}
+
+func IsNotFound(e error) bool {
+	return errors.Is(e, pgx.ErrNoRows)
+}

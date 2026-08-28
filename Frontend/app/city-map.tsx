@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import "leaflet/dist/leaflet.css";
-import { api, config, type Position, type Session, type Ticket } from "./api";
+import { ApiError, api, config, type Position, type Session, type Ticket } from "./api";
 import { brigadeDisplayName, vehicleDisplayName } from "./brigade-store";
 
 type RoutePoint = [number, number];
@@ -80,12 +80,19 @@ export function CityMap({ tickets, vehicles, selected, session, onSelect, onNoti
 
   useEffect(()=>{
     let active=true;
-    setPassport(undefined);setPassportError("");
     if(!selectedInfrastructure||selectedInfrastructure.latitude==null||selectedInfrastructure.longitude==null||!session||session.accessToken==="demo")return()=>{active=false};
-    setPassportBusy(true);
     api<{assets:AssetPassport[]}>(config.endpoints.assetsNearby,{latitude:selectedInfrastructure.latitude,longitude:selectedInfrastructure.longitude,radius_meters:8,type:assetTypes[selectedInfrastructure.category],limit:20},"POST",session.accessToken)
       .then(result=>{if(active)setPassport((result.assets||[]).find(asset=>asset.external_id===selectedInfrastructure.id))})
-      .catch(reason=>{if(active)setPassportError(reason instanceof Error?reason.message:"Не удалось проверить паспорт объекта")})
+      .catch(reason => {
+        if (!active || (reason instanceof ApiError && reason.status === 404)) {
+          return;
+        }
+        setPassportError(
+          reason instanceof Error
+            ? reason.message
+            : "Не удалось проверить паспорт объекта",
+        );
+      })
       .finally(()=>{if(active)setPassportBusy(false)});
     return()=>{active=false};
   },[selectedInfrastructure,session]);
@@ -111,7 +118,9 @@ export function CityMap({ tickets, vehicles, selected, session, onSelect, onNoti
     if (!routePair.origin || !routePair.destination) { queueMicrotask(() => setRoute([])); return; }
     const controller = new AbortController();
     const request=session&&session.accessToken!=="demo"
-      ?api<{route:{encoded_polyline:string}}>(config.endpoints.routesBuild,{origin:{latitude:routePair.origin.latitude,longitude:routePair.origin.longitude},destination:{latitude:routePair.destination.latitude,longitude:routePair.destination.longitude},options:{travel_mode:"auto"}},"POST",session.accessToken).then(payload=>[payload.route.encoded_polyline])
+      ?api<{routes:Array<{encoded_polyline:string}>}>(config.endpoints.routesList,{ticket_id:routePair.destination.id,limit:10,offset:0},"POST",session.accessToken)
+        .then(payload=>payload.routes?.find(item=>item.encoded_polyline)?.encoded_polyline)
+        .then(async storedShape=>storedShape?[storedShape]:api<{route:{encoded_polyline:string}}>(config.endpoints.routesBuild,{origin:{latitude:routePair.origin!.latitude,longitude:routePair.origin!.longitude},destination:{latitude:routePair.destination!.latitude,longitude:routePair.destination!.longitude},options:{travel_mode:"auto"}},"POST",session.accessToken).then(payload=>[payload.route.encoded_polyline]))
       :fetch("/api/valhalla-route", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ origin: routePair.origin, destination: routePair.destination }), signal: controller.signal }).then(async response => { const payload = await response.json(); if (!response.ok) throw new Error(payload.error || "Не удалось построить маршрут"); return payload.encoded_polylines as string[]; });
     request
       .then(shapes => shapes.flatMap((shape, index) => { const leg = decodePolyline6(shape); return index ? leg.slice(1) : leg; }))
@@ -129,6 +138,12 @@ export function CityMap({ tickets, vehicles, selected, session, onSelect, onNoti
       root.current.innerHTML = "";
       const map = L.map(root.current, { zoomControl: true }).setView(target ? [target.latitude, target.longitude] : [55.751244, 37.618423], target ? 16 : 12);
       mapInstance = map;
+      map.on("click", () => {
+        setSelectedInfrastructure(undefined);
+        setPassport(undefined);
+        setPassportError("");
+        setPassportBusy(false);
+      });
       const baseLayer = bases[base];
       L.tileLayer(baseLayer.url, { attribution: baseLayer.attribution, maxZoom: baseLayer.maxZoom }).addTo(map);
       infrastructure.filter(item => layers.includes(item.category)).forEach(item => {
@@ -137,7 +152,12 @@ export function CityMap({ tickets, vehicles, selected, session, onSelect, onNoti
           L.polyline(item.coordinates, { color: meta.color, weight: item.category === "roads" ? 3 : 2, opacity: item.category === "districts" ? .75 : .65, dashArray: item.category === "districts" ? "8 7" : undefined }).bindTooltip(item.name).addTo(map);
         } else if (item.latitude != null && item.longitude != null) {
           const icon = L.divIcon({ className: "leaflet-div-icon-clean", html: `<span class="infra-marker small" style="--infra:${meta.color}">${meta.icon}</span>`, iconSize: [20, 20], iconAnchor: [10, 10] });
-          L.marker([item.latitude, item.longitude], { icon, title: item.name, zIndexOffset: 150 }).bindTooltip(`<b>${item.name}</b><br>${meta.label}`).on("click",()=>setSelectedInfrastructure(item)).addTo(map);
+          L.marker([item.latitude, item.longitude], { icon, title: item.name, zIndexOffset: 150 }).bindTooltip(`<b>${item.name}</b><br>${meta.label}`).on("click", () => {
+            setPassport(undefined);
+            setPassportError("");
+            setPassportBusy(Boolean(session && session.accessToken !== "demo"));
+            setSelectedInfrastructure(item);
+          }).addTo(map);
         }
       });
       if (route.length > 1) L.polyline(route, { color: "#547b68", weight: 5, opacity: .95 }).addTo(map);
@@ -146,7 +166,7 @@ export function CityMap({ tickets, vehicles, selected, session, onSelect, onNoti
       window.setTimeout(() => map.invalidateSize(), 50);
     });
     return () => { disposed = true; mapInstance?.remove(); };
-  }, [tickets, vehicles, selected, onSelect, route, infrastructure, layers, base]);
+  }, [tickets, vehicles, selected, session, onSelect, route, infrastructure, layers, base]);
 
   const toggleLayer = (layer: LayerId) => setLayers(current => current.includes(layer) ? current.filter(item => item !== layer) : [...current, layer]);
   const canCreatePassport=Boolean(session&&session.user?.roles.some(role=>["admin","dispatcher","worker"].includes(role.toLowerCase())));

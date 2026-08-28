@@ -1,0 +1,75 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-ticket-citus-distribution
+  namespace: automatic-system
+data:
+  configure-auth.sql: |
+    \set ON_ERROR_STOP on
+    INSERT INTO pg_dist_authinfo(nodeid, rolename, authinfo)
+    SELECT nodeid, 'ticket_user', format('password=%s', :'ticket_password')
+    FROM pg_dist_node
+    WHERE isactive
+    ON CONFLICT (rolename, nodeid)
+    DO UPDATE SET authinfo = EXCLUDED.authinfo;
+
+  distribute.sql: |
+    \set ON_ERROR_STOP on
+    CREATE EXTENSION IF NOT EXISTS citus;
+
+    -- Citus cannot convert a local FK graph incrementally. Detach the four
+    -- relationships, distribute the tables, then restore the constraints once
+    -- every side has the compatible reference/colocation type.
+    ALTER TABLE tickets DROP CONSTRAINT IF EXISTS tickets_category_id_fkey;
+    ALTER TABLE ticket_status_history DROP CONSTRAINT IF EXISTS ticket_status_history_ticket_fkey;
+    ALTER TABLE ticket_reports DROP CONSTRAINT IF EXISTS ticket_reports_ticket_fkey;
+    ALTER TABLE ticket_report_files DROP CONSTRAINT IF EXISTS ticket_report_files_report_fkey;
+
+    SELECT 'SELECT create_reference_table(''ticket_categories'');'
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM citus_tables
+      WHERE table_name = 'ticket_categories'::regclass
+        AND citus_table_type = 'reference'
+    ) \gexec
+
+    SELECT 'SELECT create_distributed_table(''tickets'', ''department_id'');'
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM citus_tables
+      WHERE table_name = 'tickets'::regclass
+        AND citus_table_type = 'distributed'
+    ) \gexec
+
+    SELECT 'SELECT create_distributed_table(''ticket_status_history'', ''department_id'', colocate_with => ''tickets'');'
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM citus_tables
+      WHERE table_name = 'ticket_status_history'::regclass
+        AND citus_table_type = 'distributed'
+    ) \gexec
+
+    SELECT 'SELECT create_distributed_table(''ticket_reports'', ''department_id'', colocate_with => ''tickets'');'
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM citus_tables
+      WHERE table_name = 'ticket_reports'::regclass
+        AND citus_table_type = 'distributed'
+    ) \gexec
+
+    SELECT 'SELECT create_distributed_table(''ticket_report_files'', ''department_id'', colocate_with => ''tickets'');'
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM citus_tables
+      WHERE table_name = 'ticket_report_files'::regclass
+        AND citus_table_type = 'distributed'
+    ) \gexec
+
+    ALTER TABLE tickets ADD CONSTRAINT tickets_category_id_fkey
+      FOREIGN KEY (category_id) REFERENCES ticket_categories(id);
+    ALTER TABLE ticket_status_history ADD CONSTRAINT ticket_status_history_ticket_fkey
+      FOREIGN KEY (department_id, ticket_id) REFERENCES tickets(department_id, id) ON DELETE CASCADE;
+    ALTER TABLE ticket_reports ADD CONSTRAINT ticket_reports_ticket_fkey
+      FOREIGN KEY (department_id, ticket_id) REFERENCES tickets(department_id, id) ON DELETE CASCADE;
+    ALTER TABLE ticket_report_files ADD CONSTRAINT ticket_report_files_report_fkey
+      FOREIGN KEY (department_id, report_id) REFERENCES ticket_reports(department_id, id) ON DELETE CASCADE;

@@ -1,0 +1,116 @@
+filebeat.inputs:
+  - type: filestream
+    id: kubernetes-container-logs
+    compression: auto
+    paths:
+      - /var/log/pods/*/*/*.log*
+    parsers:
+      - container: ~
+      - multiline:
+          type: pattern
+          pattern: '^[[:space:]]'
+          negate: false
+          match: after
+    prospector.scanner.fingerprint.enabled: true
+    file_identity.fingerprint: ~
+
+processors:
+  - decode_json_fields:
+      when.regexp.message: '^\s*\{'
+      fields: [message]
+      target: ""
+      overwrite_keys: true
+      expand_keys: true
+      add_error_key: false
+  - script:
+      lang: javascript
+      id: normalize_log_level
+      source: >-
+        function process(event) {
+          var level = event.Get("log.level") || event.Get("level") || event.Get("severity") || event.Get("severity_text");
+          var message = event.Get("message") || event.Get("msg") || "";
+
+          if (event.Get("msg")) {
+            event.Put("message", event.Get("msg"));
+          }
+
+          var service = event.Get("service");
+          if (typeof service === "string") {
+            event.Delete("service");
+            event.Put("service.name", service);
+          }
+
+          var userAgent = event.Get("user_agent");
+          if (typeof userAgent === "string") {
+            event.Delete("user_agent");
+            event.Put("user_agent.original", userAgent);
+          }
+
+          if (!level && message) {
+            var match = String(message).match(/^\s*(?:\[[^\]]+\]\s*)?(debug|info|warn|warning|error|fatal|panic|dpanic)\b/i);
+            if (match) {
+              level = match[1];
+            }
+          }
+
+          level = String(level || "info").toLowerCase();
+          if (level === "warning") {
+            level = "warn";
+          }
+          if (level === "fatal" || level === "panic" || level === "dpanic" || level === "critical") {
+            level = "error";
+          }
+          event.Put("log.level", level);
+        }
+  - add_kubernetes_metadata:
+      host: ${NODE_NAME}
+      default_indexers.enabled: false
+      default_matchers.enabled: false
+      indexers:
+        - pod_uid:
+      matchers:
+        - logs_path:
+            logs_path: /var/log/pods/
+            resource_type: pod
+  - add_fields:
+      target: service
+      fields:
+        environment: local-ha
+  - drop_event:
+      when:
+        and:
+          - equals:
+              log.level: info
+          - or:
+              - regexp:
+                  message: '(?i)"(?:GET|HEAD) /metrics(?:\?|\s)'
+              - regexp:
+                  message: '(?i)"POST /opentelemetry\.proto\.collector\.(?:trace|metrics|logs)\.v1\.[^/]+/Export HTTP/2" 2\d\d '
+              - and:
+                  - equals:
+                      message: http request completed
+                  - regexp:
+                      path: '^/(?:livez|readyz|metrics)$'
+                  - range:
+                      status.lt: 400
+              - and:
+                  - regexp:
+                      kubernetes.pod.name: '^filebeat-'
+                  - regexp:
+                      message: '(?i)non-zero metrics in the last'
+  - drop_fields:
+      ignore_missing: true
+      fields: [agent.ephemeral_id, agent.id, ecs.version, host.mac, level, severity, severity_text, msg]
+
+setup.template.name: logs-automatic-system
+setup.template.pattern: logs-automatic-system-*
+setup.ilm.enabled: false
+
+output.elasticsearch:
+  hosts: [http://elasticsearch:9200]
+  index: logs-automatic-system-%{+yyyy.MM.dd}
+  compression_level: 3
+  worker: 2
+
+logging.json: true
+logging.level: info

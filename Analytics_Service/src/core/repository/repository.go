@@ -35,5 +35,12 @@ type Repository struct {
 
 func NewRepository(db driver.Conn) *Repository {
 	analytics := NewAnalyticsRepoStruct(db)
-	return &Repository{EventRepository: analytics, OverviewRepository: analytics, SLARepository: analytics, BreakdownRepository: analytics, DailyRepository: analytics, AssetRepository: analytics}
+	return &Repository{
+		EventRepository:     analytics,
+		OverviewRepository:  analytics,
+		SLARepository:       analytics,
+		BreakdownRepository: analytics,
+		DailyRepository:     analytics,
+		AssetRepository:     analytics,
+	}
 }

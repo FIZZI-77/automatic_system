@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	"routing/models"
@@ -57,6 +58,47 @@ func TestClientBuildRouteUsesTruckConstraints(t *testing.T) {
 	if route.Summary.DistanceMeters != 1500 ||
 		route.Summary.DurationSeconds != 120 {
 		t.Fatalf("route = %#v", route)
+	}
+}
+
+func TestClientBuildRouteFallsBackToValhallaJSONQuery(t *testing.T) {
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		requests.Add(1)
+		if request.Method == http.MethodPost {
+			writer.WriteHeader(http.StatusBadRequest)
+			_, _ = writer.Write([]byte("Malformed HTTP request"))
+			return
+		}
+
+		if request.Method != http.MethodGet {
+			t.Errorf("fallback method = %s, want GET", request.Method)
+		}
+		if request.URL.Query().Get("json") == "" {
+			t.Error("fallback json query is empty")
+		}
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = writer.Write([]byte(
+			`{"trip":{"summary":{"length":1.5,"time":120},` +
+				`"shape":"shape","legs":[],"locations":[]}}`,
+		))
+	}))
+	defer server.Close()
+
+	client, err := New(Config{BaseURL: server.URL})
+	if err != nil {
+		t.Fatalf("New() error = %v, want nil", err)
+	}
+	_, err = client.BuildRoute(context.Background(), &models.BuildRouteInput{
+		Origin:      models.Point{Latitude: 55.75, Longitude: 37.61},
+		Destination: models.Point{Latitude: 55.76, Longitude: 37.62},
+		Options:     models.RouteOptions{TravelMode: models.TravelModeAuto},
+	})
+	if err != nil {
+		t.Fatalf("BuildRoute() error = %v, want nil", err)
+	}
+	if got := requests.Load(); got != 2 {
+		t.Errorf("BuildRoute() request count = %d, want 2", got)
 	}
 }
 

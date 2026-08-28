@@ -11,13 +11,18 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type Repository struct{ db *pgxpool.Pool }
+type Repository struct {
+	writeDB *pgxpool.Pool
+	readDB  *pgxpool.Pool
+}
 
-func New(db *pgxpool.Pool) *Repository { return &Repository{db: db} }
+func New(writeDB, readDB *pgxpool.Pool) *Repository {
+	return &Repository{writeDB: writeDB, readDB: readDB}
+}
 
 func (r *Repository) Create(ctx context.Context, in models.CreateInput, key string) (*models.File, error) {
 	id := uuid.New()
-	row := r.db.QueryRow(ctx, `INSERT INTO files(id,owner_user_id,name,content_type,size,checksum,object_key)
+	row := r.writeDB.QueryRow(ctx, `INSERT INTO files(id,owner_user_id,name,content_type,size,checksum,object_key)
 		VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id,owner_user_id,resource_type,resource_id,name,content_type,size,checksum,object_key,status,created_at,updated_at`,
 		id, in.OwnerUserID, in.Name, in.ContentType, in.Size, in.Checksum, key)
 	f, err := scan(row)
@@ -28,16 +33,16 @@ func (r *Repository) Create(ctx context.Context, in models.CreateInput, key stri
 }
 
 func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*models.File, error) {
-	return scan(r.db.QueryRow(ctx, `SELECT id,owner_user_id,resource_type,resource_id,name,content_type,size,checksum,object_key,status,created_at,updated_at FROM files WHERE id=$1 AND status<>'DELETED'`, id))
+	return scan(r.readDB.QueryRow(ctx, `SELECT id,owner_user_id,resource_type,resource_id,name,content_type,size,checksum,object_key,status,created_at,updated_at FROM files WHERE id=$1 AND status<>'DELETED'`, id))
 }
 
 func (r *Repository) Confirm(ctx context.Context, id uuid.UUID) (*models.File, error) {
-	f, err := scan(r.db.QueryRow(ctx, `UPDATE files SET status='UPLOADED',updated_at=now() WHERE id=$1 AND status='PENDING_UPLOAD' RETURNING id,owner_user_id,resource_type,resource_id,name,content_type,size,checksum,object_key,status,created_at,updated_at`, id))
+	f, err := scan(r.writeDB.QueryRow(ctx, `UPDATE files SET status='UPLOADED',updated_at=now() WHERE id=$1 AND status='PENDING_UPLOAD' RETURNING id,owner_user_id,resource_type,resource_id,name,content_type,size,checksum,object_key,status,created_at,updated_at`, id))
 	return f, err
 }
 
 func (r *Repository) Quarantine(ctx context.Context, id uuid.UUID) error {
-	_, err := r.db.Exec(ctx, `
+	_, err := r.writeDB.Exec(ctx, `
 		UPDATE files
 		SET status = 'QUARANTINED', updated_at = now()
 		WHERE id = $1 AND status = 'PENDING_UPLOAD'`, id)
@@ -45,12 +50,12 @@ func (r *Repository) Quarantine(ctx context.Context, id uuid.UUID) error {
 }
 
 func (r *Repository) Link(ctx context.Context, id uuid.UUID, in models.LinkInput, objectKey string) (*models.File, error) {
-	f, err := scan(r.db.QueryRow(ctx, `UPDATE files SET resource_type=$2,resource_id=$3,object_key=$4,status='LINKED',updated_at=now() WHERE id=$1 AND status IN ('UPLOADED','LINKED') RETURNING id,owner_user_id,resource_type,resource_id,name,content_type,size,checksum,object_key,status,created_at,updated_at`, id, in.ResourceType, in.ResourceID, objectKey))
+	f, err := scan(r.writeDB.QueryRow(ctx, `UPDATE files SET resource_type=$2,resource_id=$3,object_key=$4,status='LINKED',updated_at=now() WHERE id=$1 AND status IN ('UPLOADED','LINKED') RETURNING id,owner_user_id,resource_type,resource_id,name,content_type,size,checksum,object_key,status,created_at,updated_at`, id, in.ResourceType, in.ResourceID, objectKey))
 	return f, err
 }
 
 func (r *Repository) List(ctx context.Context, typ string, id uuid.UUID) ([]*models.File, error) {
-	rows, err := r.db.Query(ctx, `SELECT id,owner_user_id,resource_type,resource_id,name,content_type,size,checksum,object_key,status,created_at,updated_at FROM files WHERE resource_type=$1 AND resource_id=$2 AND status='LINKED' ORDER BY created_at`, typ, id)
+	rows, err := r.readDB.Query(ctx, `SELECT id,owner_user_id,resource_type,resource_id,name,content_type,size,checksum,object_key,status,created_at,updated_at FROM files WHERE resource_type=$1 AND resource_id=$2 AND status='LINKED' ORDER BY created_at`, typ, id)
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +72,7 @@ func (r *Repository) List(ctx context.Context, typ string, id uuid.UUID) ([]*mod
 }
 
 func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
-	tag, err := r.db.Exec(ctx, `UPDATE files SET status='DELETED',deleted_at=now(),updated_at=now() WHERE id=$1 AND status<>'DELETED'`, id)
+	tag, err := r.writeDB.Exec(ctx, `UPDATE files SET status='DELETED',deleted_at=now(),updated_at=now() WHERE id=$1 AND status<>'DELETED'`, id)
 	if err != nil {
 		return err
 	}

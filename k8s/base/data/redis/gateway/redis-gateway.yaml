@@ -18,6 +18,8 @@ spec:
       app: redis-gateway
   template:
     metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
       labels:
         app: redis-gateway
         app.kubernetes.io/name: redis

@@ -2,5 +2,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - default-deny-ingress.yaml
-  - allow-internal-ingress.yaml
+  - default-deny-egress.yaml
+  - segmented-internal.yaml
   - allow-api-gateway-ingress.yaml
+  - metrics-scraping.yaml

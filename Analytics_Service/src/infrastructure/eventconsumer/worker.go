@@ -1,10 +1,12 @@
 package eventconsumer
 
 import (
-	"analytics/models"
+	"analytics/pkg/telemetry"
 	"context"
 	"encoding/json"
 	"fmt"
+
+	"analytics/models"
 	"github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
 )
@@ -14,23 +16,42 @@ type Worker struct {
 	s      EventConsumer
 	log    *zap.Logger
 	topic  string
+	group  string
 }
 
 type EventConsumer interface {
 	Consume(context.Context, models.Event) error
 }
 
-func New(b []string, t, g string, s EventConsumer, l *zap.Logger) *Worker {
-	return &Worker{reader: kafka.NewReader(kafka.ReaderConfig{Brokers: b, Topic: t, GroupID: g, CommitInterval: 0, MinBytes: 1, MaxBytes: 10e6}), s: s, log: l, topic: t}
+func New(brokers []string, topic, groupID string, service EventConsumer, logger *zap.Logger) *Worker {
+	reader := kafka.NewReader(kafka.ReaderConfig{
+		Brokers:        brokers,
+		Topic:          topic,
+		GroupID:        groupID,
+		CommitInterval: 0,
+		MinBytes:       1,
+		MaxBytes:       10e6,
+	})
+
+	return &Worker{
+		reader: reader,
+		s:      service,
+		log:    logger,
+		topic:  topic,
+		group:  groupID,
+	}
 }
+
 func (w *Worker) Run(c context.Context) error {
 	for {
 		m, e := w.reader.FetchMessage(c)
 		if e != nil {
 			return e
 		}
+		messageCtx, span := telemetry.StartKafkaConsumer(c, m, w.group)
 		p := map[string]any{}
 		if e = json.Unmarshal(m.Value, &p); e != nil {
+			telemetry.End(span, e)
 			w.log.Error("invalid event", zap.Error(e))
 			_ = w.reader.CommitMessages(c, m)
 			continue
@@ -47,16 +68,23 @@ func (w *Worker) Run(c context.Context) error {
 		if kind == "" {
 			kind = "unknown"
 		}
-		if e = w.s.Consume(c, models.Event{ID: id, Type: kind, Topic: w.topic, Payload: p, Timestamp: m.Time}); e != nil {
+		if e = w.s.Consume(messageCtx, models.Event{ID: id, Type: kind, Topic: w.topic, Payload: p, Timestamp: m.Time}); e != nil {
+			telemetry.End(span, e)
 			w.log.Error("event processing failed", zap.String("topic", w.topic), zap.Error(e))
 			continue
 		}
 		if e = w.reader.CommitMessages(c, m); e != nil {
+			telemetry.End(span, e)
 			return e
 		}
+		telemetry.End(span, nil)
 	}
 }
-func (w *Worker) Close() error { return w.reader.Close() }
+
+func (w *Worker) Close() error {
+	return w.reader.Close()
+}
+
 func first(v ...string) string {
 	for _, x := range v {
 		if x != "" {
@@ -65,4 +93,8 @@ func first(v ...string) string {
 	}
 	return ""
 }
-func str(p map[string]any, k string) string { x, _ := p[k].(string); return x }
+
+func str(payload map[string]any, key string) string {
+	value, _ := payload[key].(string)
+	return value
+}

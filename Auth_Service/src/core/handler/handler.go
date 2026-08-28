@@ -101,7 +101,7 @@ func (h *AuthHandler) Login(ctx context.Context, request *v1.LoginRequest) (*v1.
 			zap.Int64("duration", time.Since(start).Milliseconds()),
 			zap.String("error", err.Error()),
 		)
-		return nil, authStatusError("Login", err)
+		return nil, loginStatusError(err)
 	}
 
 	loginResponse := &v1.LoginResponse{
@@ -598,6 +598,14 @@ func (h *AuthHandler) ResetPassword(ctx context.Context, request *v1.ResetPasswo
 
 func authStatusError(method string, err error) error {
 	return status.Errorf(authErrorCode(err), "failed %s: %v", method, err)
+}
+
+func loginStatusError(err error) error {
+	if errors.Is(err, models.ErrUserNotFound) || errors.Is(err, models.ErrInvalidPassword) {
+		return status.Error(codes.Unauthenticated, "invalid email or password")
+	}
+
+	return authStatusError("Login", err)
 }
 
 func authErrorCode(err error) codes.Code {
