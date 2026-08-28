@@ -1,72 +1,31 @@
 {
-  "editable": false,
   "panels": [
     {
-      "fieldConfig": {
-        "defaults": {
-          "thresholds": {
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 1
-              }
-            ],
-            "mode": "absolute"
-          },
-          "noValue": "0",
-          "unit": "cores",
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
       "gridPos": {
-        "h": 8,
-        "w": 12,
         "x": 0,
-        "y": 0
+        "y": 0,
+        "h": 8,
+        "w": 12
       },
-      "id": 1,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
-        "legend": {
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ],
-          "displayMode": "table"
-        }
-      },
-      "title": "CPU usage",
       "targets": [
         {
-          "expr": "(sum(rate(container_cpu_usage_seconds_total{namespace=\"automatic-system\",pod=\"kafka-2-0\",container!=\"\",container!=\"POD\"}[5m]))) or vector(0)",
+          "legendFormat": "{{pod}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "A",
-          "legendFormat": "{{pod}}"
+          "range": true,
+          "expr": "(sum(rate(container_cpu_usage_seconds_total{namespace=\"automatic-system\",pod=\"kafka-2-0\",container!=\"\",container!=\"POD\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "CPU usage",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -82,56 +41,56 @@
             ],
             "mode": "absolute"
           },
+          "unit": "cores",
           "noValue": "0",
-          "unit": "bytes",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 0
-      },
-      "id": 2,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 1,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "h": 8,
+        "w": 12
       },
-      "title": "Memory working set",
       "targets": [
         {
-          "expr": "(sum(container_memory_working_set_bytes{namespace=\"automatic-system\",pod=\"kafka-2-0\",container!=\"\",container!=\"POD\"})) or vector(0)",
+          "legendFormat": "{{pod}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "B",
-          "legendFormat": "{{pod}}"
+          "range": true,
+          "expr": "(sum(container_memory_working_set_bytes{namespace=\"automatic-system\",pod=\"kafka-2-0\",container!=\"\",container!=\"POD\"})) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Memory working set",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -147,56 +106,56 @@
             ],
             "mode": "absolute"
           },
+          "unit": "bytes",
           "noValue": "0",
-          "unit": "short",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 8
-      },
-      "id": 3,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 2,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "h": 8,
+        "w": 12
       },
-      "title": "Container restarts",
       "targets": [
         {
-          "expr": "(sum(kube_pod_container_status_restarts_total{namespace=\"automatic-system\",pod=\"kafka-2-0\"})) or vector(0)",
+          "legendFormat": "{{pod}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "C",
-          "legendFormat": "{{pod}}"
+          "range": true,
+          "expr": "(sum(kube_pod_container_status_restarts_total{namespace=\"automatic-system\",pod=\"kafka-2-0\"})) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Container restarts",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -212,56 +171,56 @@
             ],
             "mode": "absolute"
           },
+          "unit": "short",
           "noValue": "0",
-          "unit": "Bps",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 8
-      },
-      "id": 4,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 3,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "h": 8,
+        "w": 12
       },
-      "title": "Network receive",
       "targets": [
         {
-          "expr": "(sum(rate(container_network_receive_bytes_total{namespace=\"automatic-system\",pod=\"kafka-2-0\"}[5m]))) or vector(0)",
+          "legendFormat": "{{pod}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "D",
-          "legendFormat": "{{pod}}"
+          "range": true,
+          "expr": "(sum(rate(container_network_receive_bytes_total{namespace=\"automatic-system\",pod=\"kafka-2-0\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Network receive",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -277,126 +236,167 @@
             ],
             "mode": "absolute"
           },
-          "noValue": "0",
           "unit": "Bps",
+          "noValue": "0",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 16
-      },
-      "id": 5,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 4,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "h": 8,
+        "w": 12
       },
-      "title": "Network transmit",
       "targets": [
         {
-          "expr": "(sum(rate(container_network_transmit_bytes_total{namespace=\"automatic-system\",pod=\"kafka-2-0\"}[5m]))) or vector(0)",
+          "legendFormat": "{{pod}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "E",
-          "legendFormat": "{{pod}}"
+          "range": true,
+          "expr": "(sum(rate(container_network_transmit_bytes_total{namespace=\"automatic-system\",pod=\"kafka-2-0\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries"
+      "type": "timeseries",
+      "title": "Network transmit",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ],
+            "mode": "absolute"
+          },
+          "unit": "Bps",
+          "noValue": "0",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "id": 5,
+      "options": {
+        "tooltip": {
+          "sort": "desc",
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "table",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "placement": "bottom"
+        }
+      }
     },
     {
-      "title": "Recent logs",
+      "id": 6,
       "gridPos": {
-        "h": 10,
-        "w": 24,
         "x": 0,
-        "y": 24
+        "y": 24,
+        "h": 10,
+        "w": 24
       },
+      "title": "Recent logs",
       "datasource": {
         "type": "elasticsearch",
         "uid": "elasticsearch"
       },
       "type": "logs",
+      "options": {
+        "sortOrder": "Descending",
+        "wrapLogMessage": true,
+        "showTime": true,
+        "dedupStrategy": "none",
+        "showLabels": false,
+        "showCommonLabels": false,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true
+      },
       "targets": [
         {
+          "metrics": [
+            {
+              "type": "logs",
+              "id": "1"
+            }
+          ],
+          "refId": "Logs",
+          "query": "kubernetes.pod.name: kafka-2-0",
+          "bucketAggs": [],
           "datasource": {
             "type": "elasticsearch",
             "uid": "elasticsearch"
           },
-          "timeField": "@timestamp",
           "queryType": "logs",
-          "query": "kubernetes.pod.name: kafka-2-0",
-          "refId": "Logs",
-          "metrics": [
-            {
-              "id": "1",
-              "type": "logs"
-            }
-          ],
-          "bucketAggs": []
+          "timeField": "@timestamp"
         }
-      ],
-      "id": 6,
-      "options": {
-        "showTime": true,
-        "dedupStrategy": "none",
-        "showCommonLabels": false,
-        "prettifyLogMessage": false,
-        "sortOrder": "Descending",
-        "enableLogDetails": true,
-        "wrapLogMessage": true,
-        "showLabels": false
-      }
+      ]
     }
   ],
-  "uid": "automatic-system-infra-kafka-2",
-  "weekStart": "",
-  "title": "Infrastructure / Kafka / kafka-2",
-  "time": {
-    "from": "now-6h",
-    "to": "now"
-  },
-  "graphTooltip": 1,
-  "id": null,
   "annotations": {
     "list": []
   },
-  "version": 1,
-  "links": [],
-  "fiscalYearStartMonth": 0,
-  "schemaVersion": 41,
+  "liveNow": false,
+  "graphTooltip": 1,
   "tags": [
     "automatic-system",
     "infrastructure",
     "kafka-2"
   ],
+  "title": "Infrastructure / Kafka / kafka-2",
+  "version": 1,
   "refresh": "30s",
-  "liveNow": false,
+  "fiscalYearStartMonth": 0,
+  "links": [],
+  "time": {
+    "to": "now",
+    "from": "now-6h"
+  },
+  "editable": false,
+  "timezone": "browser",
   "templating": {
     "list": []
   },
-  "timepicker": {},
-  "timezone": "browser"
+  "schemaVersion": 41,
+  "uid": "automatic-system-infra-kafka-2",
+  "id": null,
+  "weekStart": "",
+  "timepicker": {}
 }

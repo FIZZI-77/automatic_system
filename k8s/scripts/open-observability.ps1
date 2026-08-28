@@ -34,6 +34,32 @@ Start-PortForward -Service "jaeger" -LocalPort $JaegerPort -RemotePort 16686
 Start-PortForward -Service "prometheus" -LocalPort $PrometheusPort -RemotePort 9090
 Start-PortForward -Service "kibana" -LocalPort $KibanaPort -RemotePort 5601
 
+$kibanaReady = $false
+foreach ($attempt in 1..30) {
+    try {
+        Invoke-WebRequest `
+            -UseBasicParsing `
+            -Uri "http://localhost:$KibanaPort/api/status" `
+            -TimeoutSec 3 | Out-Null
+        $kibanaReady = $true
+        break
+    } catch {
+        Start-Sleep -Seconds 2
+    }
+}
+if (-not $kibanaReady) {
+    throw "Kibana did not become ready on port $KibanaPort"
+}
+
+& powershell.exe `
+    -NoProfile `
+    -ExecutionPolicy Bypass `
+    -File (Join-Path $PSScriptRoot "setup-kibana-dashboards.ps1") `
+    -KibanaURL "http://localhost:$KibanaPort"
+if ($LASTEXITCODE -ne 0) {
+    throw "Kibana dashboard provisioning failed"
+}
+
 $kialiArguments = @(
     "--namespace", "istio-system",
     "port-forward",

@@ -1,72 +1,31 @@
 {
-  "editable": false,
   "panels": [
     {
-      "fieldConfig": {
-        "defaults": {
-          "thresholds": {
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 1
-              }
-            ],
-            "mode": "absolute"
-          },
-          "noValue": "0",
-          "unit": "cores",
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
       "gridPos": {
-        "h": 8,
-        "w": 12,
         "x": 0,
-        "y": 0
+        "y": 0,
+        "h": 8,
+        "w": 12
       },
-      "id": 1,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
-        "legend": {
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ],
-          "displayMode": "table"
-        }
-      },
-      "title": "CPU usage",
       "targets": [
         {
-          "expr": "(sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"istio-system\",pod=~\"kiali-.+\",container!=\"\",container!=\"POD\"}[5m]))) or vector(0)",
+          "legendFormat": "{{pod}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "A",
-          "legendFormat": "{{pod}}"
+          "range": true,
+          "expr": "(sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"istio-system\",pod=~\"kiali-.+\",container!=\"\",container!=\"POD\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "CPU usage",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -82,56 +41,56 @@
             ],
             "mode": "absolute"
           },
+          "unit": "cores",
           "noValue": "0",
-          "unit": "bytes",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 0
-      },
-      "id": 2,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 1,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "h": 8,
+        "w": 12
       },
-      "title": "Memory working set",
       "targets": [
         {
-          "expr": "(sum by (pod) (container_memory_working_set_bytes{namespace=\"istio-system\",pod=~\"kiali-.+\",container!=\"\",container!=\"POD\"})) or vector(0)",
+          "legendFormat": "{{pod}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "B",
-          "legendFormat": "{{pod}}"
+          "range": true,
+          "expr": "(sum by (pod) (container_memory_working_set_bytes{namespace=\"istio-system\",pod=~\"kiali-.+\",container!=\"\",container!=\"POD\"})) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Memory working set",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -147,126 +106,167 @@
             ],
             "mode": "absolute"
           },
+          "unit": "bytes",
           "noValue": "0",
-          "unit": "short",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 8
-      },
-      "id": 3,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 2,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "h": 8,
+        "w": 12
       },
-      "title": "Container restarts",
       "targets": [
         {
-          "expr": "(sum by (pod) (kube_pod_container_status_restarts_total{namespace=\"istio-system\",pod=~\"kiali-.+\"})) or vector(0)",
+          "legendFormat": "{{pod}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "C",
-          "legendFormat": "{{pod}}"
+          "range": true,
+          "expr": "(sum by (pod) (kube_pod_container_status_restarts_total{namespace=\"istio-system\",pod=~\"kiali-.+\"})) or vector(0)"
         }
       ],
-      "type": "timeseries"
+      "type": "timeseries",
+      "title": "Container restarts",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ],
+            "mode": "absolute"
+          },
+          "unit": "short",
+          "noValue": "0",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "id": 3,
+      "options": {
+        "tooltip": {
+          "sort": "desc",
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "table",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "placement": "bottom"
+        }
+      }
     },
     {
-      "title": "Recent logs",
+      "id": 4,
       "gridPos": {
-        "h": 10,
-        "w": 24,
         "x": 0,
-        "y": 16
+        "y": 16,
+        "h": 10,
+        "w": 24
       },
+      "title": "Recent logs",
       "datasource": {
         "type": "elasticsearch",
         "uid": "elasticsearch"
       },
       "type": "logs",
+      "options": {
+        "sortOrder": "Descending",
+        "wrapLogMessage": true,
+        "showTime": true,
+        "dedupStrategy": "none",
+        "showLabels": false,
+        "showCommonLabels": false,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true
+      },
       "targets": [
         {
+          "metrics": [
+            {
+              "type": "logs",
+              "id": "1"
+            }
+          ],
+          "refId": "Logs",
+          "query": "kubernetes.pod.name: kiali-*",
+          "bucketAggs": [],
           "datasource": {
             "type": "elasticsearch",
             "uid": "elasticsearch"
           },
-          "timeField": "@timestamp",
           "queryType": "logs",
-          "query": "kubernetes.pod.name: kiali-*",
-          "refId": "Logs",
-          "metrics": [
-            {
-              "id": "1",
-              "type": "logs"
-            }
-          ],
-          "bucketAggs": []
+          "timeField": "@timestamp"
         }
-      ],
-      "id": 4,
-      "options": {
-        "showTime": true,
-        "dedupStrategy": "none",
-        "showCommonLabels": false,
-        "prettifyLogMessage": false,
-        "sortOrder": "Descending",
-        "enableLogDetails": true,
-        "wrapLogMessage": true,
-        "showLabels": false
-      }
+      ]
     }
   ],
-  "uid": "automatic-system-infra-kiali",
-  "weekStart": "",
-  "title": "Infrastructure / Kiali",
-  "time": {
-    "from": "now-6h",
-    "to": "now"
-  },
-  "graphTooltip": 1,
-  "id": null,
   "annotations": {
     "list": []
   },
-  "version": 1,
-  "links": [],
-  "fiscalYearStartMonth": 0,
-  "schemaVersion": 41,
+  "liveNow": false,
+  "graphTooltip": 1,
   "tags": [
     "automatic-system",
     "infrastructure",
     "kiali"
   ],
+  "title": "Infrastructure / Kiali",
+  "version": 1,
   "refresh": "30s",
-  "liveNow": false,
+  "fiscalYearStartMonth": 0,
+  "links": [],
+  "time": {
+    "to": "now",
+    "from": "now-6h"
+  },
+  "editable": false,
+  "timezone": "browser",
   "templating": {
     "list": []
   },
-  "timepicker": {},
-  "timezone": "browser"
+  "schemaVersion": 41,
+  "uid": "automatic-system-infra-kiali",
+  "id": null,
+  "weekStart": "",
+  "timepicker": {}
 }

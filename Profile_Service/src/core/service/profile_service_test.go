@@ -241,11 +241,49 @@ func TestUserProfileService_CreateUserProfile_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
-	if !userChecked || !repoCalled {
-		t.Fatalf("expected checker and repo to be called, checker=%v repo=%v", userChecked, repoCalled)
+	if userChecked {
+		t.Fatal("self profile creation should not call auth user checker")
+	}
+	if !repoCalled {
+		t.Fatal("expected profile repository to be called")
 	}
 	if result.UserProfile.ID != profileID {
 		t.Fatalf("expected profile id %s, got %s", profileID, result.UserProfile.ID)
+	}
+}
+
+func TestUserProfileService_CreateUserProfile_AdminChecksTargetUser(t *testing.T) {
+	userID := uuid.New()
+	adminID := uuid.New()
+	profileID := uuid.New()
+	userChecked := false
+
+	svc := NewUserProfileServiceStruct(newTestServiceRepo(&mockProfileRepo{
+		createUserProfileFunc: func(context.Context, *models.CreateUserProfileInput) (*models.CreateUserProfileResult, error) {
+			return &models.CreateUserProfileResult{UserProfile: testUserProfile(profileID, userID)}, nil
+		},
+	}), &mockUserChecker{ensureFunc: func(_ context.Context, id uuid.UUID) error {
+		userChecked = true
+		if id != userID {
+			t.Fatalf("EnsureUserExists(%s) checked user ID = %s, want %s", userID, id, userID)
+		}
+		return nil
+	}}, zap.NewNop())
+
+	result, err := svc.CreateUserProfile(context.Background(), &models.CreateUserProfileInput{
+		UserID:      userID,
+		FullName:    "Ivan Ivanov",
+		ActorUserID: &adminID,
+		ActorRoles:  []string{"admin"},
+	})
+	if err != nil {
+		t.Fatalf("CreateUserProfile(admin, %s) error = %v, want nil", userID, err)
+	}
+	if result == nil || result.UserProfile.ID != profileID {
+		t.Fatalf("CreateUserProfile(admin, %s) result = %#v, want profile %s", userID, result, profileID)
+	}
+	if !userChecked {
+		t.Fatal("admin profile creation should check that target auth user exists")
 	}
 }
 

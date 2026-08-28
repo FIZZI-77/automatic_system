@@ -234,7 +234,8 @@ INSERT INTO user_profiles(id,user_id,full_name,phone,preferred_contact_method) V
 ('$userProfileDispatchWorker1','$dispatchWorker1Id','Тестовый диспетчерский работник 1',NULL,'EMAIL'),
 ('$userProfileDispatchWorker2','$dispatchWorker2Id','Тестовый диспетчерский работник 2',NULL,'EMAIL'),
 ('$userProfileDispatchWorker3','$dispatchWorker3Id','Тестовый диспетчерский работник 3',NULL,'EMAIL')
-ON CONFLICT (id) DO UPDATE SET
+ON CONFLICT (user_id) DO UPDATE SET
+id=EXCLUDED.id,
 full_name=EXCLUDED.full_name,
 phone=EXCLUDED.phone,
 preferred_contact_method=EXCLUDED.preferred_contact_method,
@@ -364,11 +365,16 @@ ON CONFLICT (id) DO UPDATE SET risk_score=EXCLUDED.risk_score,risk_level=EXCLUDE
 "@
 
 Invoke-SeedSql "postgres-location" "location" "location" @"
+DELETE FROM position_history
+WHERE id IN (
+'e0000000-0000-4000-8000-000000000001',
+'e0000000-0000-4000-8000-000000000002',
+'e0000000-0000-4000-8000-000000000003'
+);
 INSERT INTO position_history(id,event_id,device_id,vehicle_id,brigade_id,sequence,latitude,longitude,speed_kmh,heading,accuracy_meters,simulated,recorded_at) VALUES
 ('e0000000-0000-4000-8000-000000000001','e1000000-0000-4000-8000-000000000001','demo-road-1','e2000000-0000-4000-8000-000000000001','$brigadeRoad',1,55.7548,37.6045,26,35,4,TRUE,now()-interval '1 minute'),
 ('e0000000-0000-4000-8000-000000000002','e1000000-0000-4000-8000-000000000002','demo-road-2','e2000000-0000-4000-8000-000000000002','$brigadeRoad',1,55.7550,37.6048,25,35,4,TRUE,now()-interval '1 minute'),
-('e0000000-0000-4000-8000-000000000003','e1000000-0000-4000-8000-000000000003','demo-utility-1','e2000000-0000-4000-8000-000000000003','$brigadeUtility',1,55.7587,37.6200,18,290,5,TRUE,now()-interval '30 seconds')
-ON CONFLICT (event_id) DO UPDATE SET latitude=EXCLUDED.latitude,longitude=EXCLUDED.longitude,speed_kmh=EXCLUDED.speed_kmh,heading=EXCLUDED.heading,recorded_at=EXCLUDED.recorded_at,received_at=now();
+('e0000000-0000-4000-8000-000000000003','e1000000-0000-4000-8000-000000000003','demo-utility-1','e2000000-0000-4000-8000-000000000003','$brigadeUtility',1,55.7587,37.6200,18,290,5,TRUE,now()-interval '30 seconds');
 "@
 
 $clickhouseSql = @"

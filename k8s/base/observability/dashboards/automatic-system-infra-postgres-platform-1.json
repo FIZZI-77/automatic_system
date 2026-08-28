@@ -1,72 +1,31 @@
 {
-  "editable": false,
   "panels": [
     {
-      "fieldConfig": {
-        "defaults": {
-          "thresholds": {
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 1
-              }
-            ],
-            "mode": "absolute"
-          },
-          "noValue": "0",
-          "unit": "short",
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
       "gridPos": {
-        "h": 8,
-        "w": 12,
         "x": 0,
-        "y": 0
+        "y": 0,
+        "h": 8,
+        "w": 12
       },
-      "id": 1,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
-        "legend": {
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ],
-          "displayMode": "table"
-        }
-      },
-      "title": "PostgreSQL availability",
       "targets": [
         {
-          "expr": "(pg_up{pod=\"postgres-platform-1\"}) or vector(0)",
+          "legendFormat": "{{pod}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "A",
-          "legendFormat": "{{pod}}"
+          "range": true,
+          "expr": "(pg_up{pod=\"postgres-platform-1\"}) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "PostgreSQL availability",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -82,56 +41,56 @@
             ],
             "mode": "absolute"
           },
-          "noValue": "0",
           "unit": "short",
+          "noValue": "0",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 0
-      },
-      "id": 2,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 1,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "h": 8,
+        "w": 12
       },
-      "title": "Patroni role",
       "targets": [
         {
-          "expr": "(patroni_primary{pod=\"postgres-platform-1\"}) or vector(0)",
+          "legendFormat": "{{name}} primary",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "B",
-          "legendFormat": "{{name}} primary"
+          "range": true,
+          "expr": "(patroni_primary{pod=\"postgres-platform-1\"}) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Patroni role",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -147,56 +106,56 @@
             ],
             "mode": "absolute"
           },
+          "unit": "short",
           "noValue": "0",
-          "unit": "s",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 8
-      },
-      "id": 3,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 2,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "h": 8,
+        "w": 12
       },
-      "title": "Replication lag",
       "targets": [
         {
-          "expr": "(pg_replication_lag_seconds{pod=\"postgres-platform-1\"}) or vector(0)",
+          "legendFormat": "{{pod}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "C",
-          "legendFormat": "{{pod}}"
+          "range": true,
+          "expr": "(pg_replication_lag_seconds{pod=\"postgres-platform-1\"}) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Replication lag",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -212,56 +171,56 @@
             ],
             "mode": "absolute"
           },
+          "unit": "s",
           "noValue": "0",
-          "unit": "short",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 8
-      },
-      "id": 4,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 3,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "h": 8,
+        "w": 12
       },
-      "title": "Database connections",
       "targets": [
         {
-          "expr": "(sum by (pod, datname) (pg_stat_database_numbackends{pod=\"postgres-platform-1\"})) or vector(0)",
+          "legendFormat": "{{pod}} / {{datname}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "D",
-          "legendFormat": "{{pod}} / {{datname}}"
+          "range": true,
+          "expr": "(sum by (pod, datname) (pg_stat_database_numbackends{pod=\"postgres-platform-1\"})) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Database connections",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -277,56 +236,56 @@
             ],
             "mode": "absolute"
           },
+          "unit": "short",
           "noValue": "0",
-          "unit": "percent",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 16
-      },
-      "id": 5,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 4,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "h": 8,
+        "w": 12
       },
-      "title": "Connection utilization",
       "targets": [
         {
-          "expr": "(100 * sum by (pod) (pg_stat_database_numbackends{pod=\"postgres-platform-1\"}) / clamp_min(max by (pod) (pg_settings_max_connections{pod=\"postgres-platform-1\"}), 1)) or vector(0)",
+          "legendFormat": "{{pod}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "E",
-          "legendFormat": "{{pod}}"
+          "range": true,
+          "expr": "(100 * sum by (pod) (pg_stat_database_numbackends{pod=\"postgres-platform-1\"}) / clamp_min(max by (pod) (pg_settings_max_connections{pod=\"postgres-platform-1\"}), 1)) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Connection utilization",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -342,56 +301,56 @@
             ],
             "mode": "absolute"
           },
+          "unit": "percent",
           "noValue": "0",
-          "unit": "s",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 16
-      },
-      "id": 6,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 5,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "h": 8,
+        "w": 12
       },
-      "title": "Maximum transaction duration",
       "targets": [
         {
-          "expr": "(max by (pod) (pg_stat_activity_max_tx_duration{pod=\"postgres-platform-1\"})) or vector(0)",
+          "legendFormat": "{{pod}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "F",
-          "legendFormat": "{{pod}}"
+          "range": true,
+          "expr": "(max by (pod) (pg_stat_activity_max_tx_duration{pod=\"postgres-platform-1\"})) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Maximum transaction duration",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -407,56 +366,56 @@
             ],
             "mode": "absolute"
           },
+          "unit": "s",
           "noValue": "0",
-          "unit": "ops",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 24
-      },
-      "id": 7,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 6,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "h": 8,
+        "w": 12
       },
-      "title": "Commits",
       "targets": [
         {
-          "expr": "(sum by (pod, datname) (rate(pg_stat_database_xact_commit{pod=\"postgres-platform-1\"}[5m]))) or vector(0)",
+          "legendFormat": "{{pod}} / {{datname}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "G",
-          "legendFormat": "{{pod}} / {{datname}}"
+          "range": true,
+          "expr": "(sum by (pod, datname) (rate(pg_stat_database_xact_commit{pod=\"postgres-platform-1\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Commits",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -472,56 +431,56 @@
             ],
             "mode": "absolute"
           },
-          "noValue": "0",
           "unit": "ops",
+          "noValue": "0",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 24
-      },
-      "id": 8,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 7,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "h": 8,
+        "w": 12
       },
-      "title": "Rollbacks",
       "targets": [
         {
-          "expr": "(sum by (pod, datname) (rate(pg_stat_database_xact_rollback{pod=\"postgres-platform-1\"}[5m]))) or vector(0)",
+          "legendFormat": "{{pod}} / {{datname}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "H",
-          "legendFormat": "{{pod}} / {{datname}}"
+          "range": true,
+          "expr": "(sum by (pod, datname) (rate(pg_stat_database_xact_rollback{pod=\"postgres-platform-1\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Rollbacks",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -537,56 +496,56 @@
             ],
             "mode": "absolute"
           },
+          "unit": "ops",
           "noValue": "0",
-          "unit": "percent",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 32
-      },
-      "id": 9,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 8,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "h": 8,
+        "w": 12
       },
-      "title": "Cache hit ratio",
       "targets": [
         {
-          "expr": "(100 * sum by (pod, datname) (rate(pg_stat_database_blks_hit{pod=\"postgres-platform-1\"}[5m])) / clamp_min(sum by (pod, datname) (rate(pg_stat_database_blks_hit{pod=\"postgres-platform-1\"}[5m]) + rate(pg_stat_database_blks_read{pod=\"postgres-platform-1\"}[5m])), 0.001)) or vector(0)",
+          "legendFormat": "{{pod}} / {{datname}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "I",
-          "legendFormat": "{{pod}} / {{datname}}"
+          "range": true,
+          "expr": "(100 * sum by (pod, datname) (rate(pg_stat_database_blks_hit{pod=\"postgres-platform-1\"}[5m])) / clamp_min(sum by (pod, datname) (rate(pg_stat_database_blks_hit{pod=\"postgres-platform-1\"}[5m]) + rate(pg_stat_database_blks_read{pod=\"postgres-platform-1\"}[5m])), 0.001)) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Cache hit ratio",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -602,56 +561,56 @@
             ],
             "mode": "absolute"
           },
+          "unit": "percent",
           "noValue": "0",
-          "unit": "ops",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 32
-      },
-      "id": 10,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 9,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 12,
+        "y": 32,
+        "h": 8,
+        "w": 12
       },
-      "title": "Rows returned and fetched",
       "targets": [
         {
-          "expr": "(sum by (pod, datname) (rate(pg_stat_database_tup_returned{pod=\"postgres-platform-1\"}[5m]))) or vector(0)",
+          "legendFormat": "{{pod}} / {{datname}} returned",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "J",
-          "legendFormat": "{{pod}} / {{datname}} returned"
+          "range": true,
+          "expr": "(sum by (pod, datname) (rate(pg_stat_database_tup_returned{pod=\"postgres-platform-1\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Rows returned and fetched",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -667,56 +626,56 @@
             ],
             "mode": "absolute"
           },
-          "noValue": "0",
           "unit": "ops",
+          "noValue": "0",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 40
-      },
-      "id": 11,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 10,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "h": 8,
+        "w": 12
       },
-      "title": "Rows fetched",
       "targets": [
         {
-          "expr": "(sum by (pod, datname) (rate(pg_stat_database_tup_fetched{pod=\"postgres-platform-1\"}[5m]))) or vector(0)",
+          "legendFormat": "{{pod}} / {{datname}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "K",
-          "legendFormat": "{{pod}} / {{datname}}"
+          "range": true,
+          "expr": "(sum by (pod, datname) (rate(pg_stat_database_tup_fetched{pod=\"postgres-platform-1\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Rows fetched",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -732,56 +691,56 @@
             ],
             "mode": "absolute"
           },
-          "noValue": "0",
           "unit": "ops",
+          "noValue": "0",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 40
-      },
-      "id": 12,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 11,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 12,
+        "y": 40,
+        "h": 8,
+        "w": 12
       },
-      "title": "Rows inserted",
       "targets": [
         {
-          "expr": "(sum by (pod, datname) (rate(pg_stat_database_tup_inserted{pod=\"postgres-platform-1\"}[5m]))) or vector(0)",
+          "legendFormat": "{{pod}} / {{datname}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "L",
-          "legendFormat": "{{pod}} / {{datname}}"
+          "range": true,
+          "expr": "(sum by (pod, datname) (rate(pg_stat_database_tup_inserted{pod=\"postgres-platform-1\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Rows inserted",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -797,56 +756,56 @@
             ],
             "mode": "absolute"
           },
-          "noValue": "0",
           "unit": "ops",
+          "noValue": "0",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 48
-      },
-      "id": 13,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 12,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 0,
+        "y": 48,
+        "h": 8,
+        "w": 12
       },
-      "title": "Rows updated",
       "targets": [
         {
-          "expr": "(sum by (pod, datname) (rate(pg_stat_database_tup_updated{pod=\"postgres-platform-1\"}[5m]))) or vector(0)",
+          "legendFormat": "{{pod}} / {{datname}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "M",
-          "legendFormat": "{{pod}} / {{datname}}"
+          "range": true,
+          "expr": "(sum by (pod, datname) (rate(pg_stat_database_tup_updated{pod=\"postgres-platform-1\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Rows updated",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -862,56 +821,56 @@
             ],
             "mode": "absolute"
           },
-          "noValue": "0",
           "unit": "ops",
+          "noValue": "0",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 48
-      },
-      "id": 14,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 13,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 12,
+        "y": 48,
+        "h": 8,
+        "w": 12
       },
-      "title": "Rows deleted",
       "targets": [
         {
-          "expr": "(sum by (pod, datname) (rate(pg_stat_database_tup_deleted{pod=\"postgres-platform-1\"}[5m]))) or vector(0)",
+          "legendFormat": "{{pod}} / {{datname}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "N",
-          "legendFormat": "{{pod}} / {{datname}}"
+          "range": true,
+          "expr": "(sum by (pod, datname) (rate(pg_stat_database_tup_deleted{pod=\"postgres-platform-1\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Rows deleted",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -927,56 +886,56 @@
             ],
             "mode": "absolute"
           },
-          "noValue": "0",
           "unit": "ops",
+          "noValue": "0",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 56
-      },
-      "id": 15,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 14,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 0,
+        "y": 56,
+        "h": 8,
+        "w": 12
       },
-      "title": "Deadlocks",
       "targets": [
         {
-          "expr": "(sum by (pod, datname) (rate(pg_stat_database_deadlocks{pod=\"postgres-platform-1\"}[5m]))) or vector(0)",
+          "legendFormat": "{{pod}} / {{datname}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "O",
-          "legendFormat": "{{pod}} / {{datname}}"
+          "range": true,
+          "expr": "(sum by (pod, datname) (rate(pg_stat_database_deadlocks{pod=\"postgres-platform-1\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Deadlocks",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -992,56 +951,56 @@
             ],
             "mode": "absolute"
           },
-          "noValue": "0",
           "unit": "ops",
+          "noValue": "0",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 56
-      },
-      "id": 16,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 15,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 12,
+        "y": 56,
+        "h": 8,
+        "w": 12
       },
-      "title": "Conflicts",
       "targets": [
         {
-          "expr": "(sum by (pod, datname) (rate(pg_stat_database_conflicts{pod=\"postgres-platform-1\"}[5m]))) or vector(0)",
+          "legendFormat": "{{pod}} / {{datname}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "P",
-          "legendFormat": "{{pod}} / {{datname}}"
+          "range": true,
+          "expr": "(sum by (pod, datname) (rate(pg_stat_database_conflicts{pod=\"postgres-platform-1\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Conflicts",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -1057,56 +1016,56 @@
             ],
             "mode": "absolute"
           },
+          "unit": "ops",
           "noValue": "0",
-          "unit": "short",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 64
-      },
-      "id": 17,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 16,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 0,
+        "y": 64,
+        "h": 8,
+        "w": 12
       },
-      "title": "Locks by mode",
       "targets": [
         {
-          "expr": "(sum by (pod, datname, mode) (pg_locks_count{pod=\"postgres-platform-1\"})) or vector(0)",
+          "legendFormat": "{{pod}} / {{datname}} / {{mode}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "Q",
-          "legendFormat": "{{pod}} / {{datname}} / {{mode}}"
+          "range": true,
+          "expr": "(sum by (pod, datname, mode) (pg_locks_count{pod=\"postgres-platform-1\"})) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Locks by mode",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -1122,56 +1081,56 @@
             ],
             "mode": "absolute"
           },
+          "unit": "short",
           "noValue": "0",
-          "unit": "ops",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 64
-      },
-      "id": 18,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 17,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 12,
+        "y": 64,
+        "h": 8,
+        "w": 12
       },
-      "title": "Temporary files",
       "targets": [
         {
-          "expr": "(sum by (pod, datname) (rate(pg_stat_database_temp_files{pod=\"postgres-platform-1\"}[5m]))) or vector(0)",
+          "legendFormat": "{{pod}} / {{datname}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "R",
-          "legendFormat": "{{pod}} / {{datname}}"
+          "range": true,
+          "expr": "(sum by (pod, datname) (rate(pg_stat_database_temp_files{pod=\"postgres-platform-1\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Temporary files",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -1187,56 +1146,56 @@
             ],
             "mode": "absolute"
           },
+          "unit": "ops",
           "noValue": "0",
-          "unit": "Bps",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 72
-      },
-      "id": 19,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 18,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 0,
+        "y": 72,
+        "h": 8,
+        "w": 12
       },
-      "title": "Temporary bytes",
       "targets": [
         {
-          "expr": "(sum by (pod, datname) (rate(pg_stat_database_temp_bytes{pod=\"postgres-platform-1\"}[5m]))) or vector(0)",
+          "legendFormat": "{{pod}} / {{datname}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "S",
-          "legendFormat": "{{pod}} / {{datname}}"
+          "range": true,
+          "expr": "(sum by (pod, datname) (rate(pg_stat_database_temp_bytes{pod=\"postgres-platform-1\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Temporary bytes",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -1252,56 +1211,56 @@
             ],
             "mode": "absolute"
           },
+          "unit": "Bps",
           "noValue": "0",
-          "unit": "ms",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 72
-      },
-      "id": 20,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 19,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 12,
+        "y": 72,
+        "h": 8,
+        "w": 12
       },
-      "title": "Block read time",
       "targets": [
         {
-          "expr": "(sum by (pod, datname) (rate(pg_stat_database_blk_read_time{pod=\"postgres-platform-1\"}[5m]))) or vector(0)",
+          "legendFormat": "{{pod}} / {{datname}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "T",
-          "legendFormat": "{{pod}} / {{datname}}"
+          "range": true,
+          "expr": "(sum by (pod, datname) (rate(pg_stat_database_blk_read_time{pod=\"postgres-platform-1\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Block read time",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -1317,56 +1276,56 @@
             ],
             "mode": "absolute"
           },
-          "noValue": "0",
           "unit": "ms",
+          "noValue": "0",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 80
-      },
-      "id": 21,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 20,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 0,
+        "y": 80,
+        "h": 8,
+        "w": 12
       },
-      "title": "Block write time",
       "targets": [
         {
-          "expr": "(sum by (pod, datname) (rate(pg_stat_database_blk_write_time{pod=\"postgres-platform-1\"}[5m]))) or vector(0)",
+          "legendFormat": "{{pod}} / {{datname}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "U",
-          "legendFormat": "{{pod}} / {{datname}}"
+          "range": true,
+          "expr": "(sum by (pod, datname) (rate(pg_stat_database_blk_write_time{pod=\"postgres-platform-1\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Block write time",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -1382,56 +1341,56 @@
             ],
             "mode": "absolute"
           },
+          "unit": "ms",
           "noValue": "0",
-          "unit": "bytes",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 80
-      },
-      "id": 22,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 21,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 12,
+        "y": 80,
+        "h": 8,
+        "w": 12
       },
-      "title": "Database size",
       "targets": [
         {
-          "expr": "(sum by (pod, datname) (pg_database_size_bytes{pod=\"postgres-platform-1\"})) or vector(0)",
+          "legendFormat": "{{pod}} / {{datname}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "V",
-          "legendFormat": "{{pod}} / {{datname}}"
+          "range": true,
+          "expr": "(sum by (pod, datname) (pg_database_size_bytes{pod=\"postgres-platform-1\"})) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Database size",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -1447,56 +1406,56 @@
             ],
             "mode": "absolute"
           },
-          "noValue": "0",
           "unit": "bytes",
+          "noValue": "0",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 88
-      },
-      "id": 23,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 22,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 0,
+        "y": 88,
+        "h": 8,
+        "w": 12
       },
-      "title": "WAL size",
       "targets": [
         {
-          "expr": "(max by (pod) (pg_wal_size_bytes{pod=\"postgres-platform-1\"})) or vector(0)",
+          "legendFormat": "{{pod}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "W",
-          "legendFormat": "{{pod}}"
+          "range": true,
+          "expr": "(max by (pod) (pg_wal_size_bytes{pod=\"postgres-platform-1\"})) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "WAL size",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -1512,56 +1471,56 @@
             ],
             "mode": "absolute"
           },
+          "unit": "bytes",
           "noValue": "0",
-          "unit": "short",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 88
-      },
-      "id": 24,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 23,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 12,
+        "y": 88,
+        "h": 8,
+        "w": 12
       },
-      "title": "WAL segments",
       "targets": [
         {
-          "expr": "(max by (pod) (pg_wal_segments{pod=\"postgres-platform-1\"})) or vector(0)",
+          "legendFormat": "{{pod}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "X",
-          "legendFormat": "{{pod}}"
+          "range": true,
+          "expr": "(max by (pod) (pg_wal_segments{pod=\"postgres-platform-1\"})) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "WAL segments",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -1577,56 +1536,56 @@
             ],
             "mode": "absolute"
           },
+          "unit": "short",
           "noValue": "0",
-          "unit": "ops",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 96
-      },
-      "id": 25,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 24,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 0,
+        "y": 96,
+        "h": 8,
+        "w": 12
       },
-      "title": "Timed checkpoints",
       "targets": [
         {
-          "expr": "(sum by (pod) (rate(pg_stat_bgwriter_checkpoints_timed_total{pod=\"postgres-platform-1\"}[5m]))) or vector(0)",
+          "legendFormat": "{{pod}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "Y",
-          "legendFormat": "{{pod}}"
+          "range": true,
+          "expr": "(sum by (pod) (rate(pg_stat_bgwriter_checkpoints_timed_total{pod=\"postgres-platform-1\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Timed checkpoints",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -1642,56 +1601,56 @@
             ],
             "mode": "absolute"
           },
-          "noValue": "0",
           "unit": "ops",
+          "noValue": "0",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 96
-      },
-      "id": 26,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 25,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 12,
+        "y": 96,
+        "h": 8,
+        "w": 12
       },
-      "title": "Requested checkpoints",
       "targets": [
         {
-          "expr": "(sum by (pod) (rate(pg_stat_bgwriter_checkpoints_req_total{pod=\"postgres-platform-1\"}[5m]))) or vector(0)",
+          "legendFormat": "{{pod}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "Z",
-          "legendFormat": "{{pod}}"
+          "range": true,
+          "expr": "(sum by (pod) (rate(pg_stat_bgwriter_checkpoints_req_total{pod=\"postgres-platform-1\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Requested checkpoints",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -1707,56 +1666,56 @@
             ],
             "mode": "absolute"
           },
+          "unit": "ops",
           "noValue": "0",
-          "unit": "ms",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 104
-      },
-      "id": 27,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 26,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 0,
+        "y": 104,
+        "h": 8,
+        "w": 12
       },
-      "title": "Checkpoint write time",
       "targets": [
         {
-          "expr": "(sum by (pod) (rate(pg_stat_bgwriter_checkpoint_write_time_total{pod=\"postgres-platform-1\"}[5m]))) or vector(0)",
+          "legendFormat": "{{pod}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "[",
-          "legendFormat": "{{pod}}"
+          "range": true,
+          "expr": "(sum by (pod) (rate(pg_stat_bgwriter_checkpoint_write_time_total{pod=\"postgres-platform-1\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Checkpoint write time",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -1772,126 +1731,167 @@
             ],
             "mode": "absolute"
           },
+          "unit": "ms",
           "noValue": "0",
-          "unit": "short",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 104
-      },
-      "id": 28,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 27,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 12,
+        "y": 104,
+        "h": 8,
+        "w": 12
       },
-      "title": "Exporter scrape errors",
       "targets": [
         {
-          "expr": "(max by (pod) (pg_exporter_last_scrape_error{pod=\"postgres-platform-1\"})) or vector(0)",
+          "legendFormat": "{{pod}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "\\",
-          "legendFormat": "{{pod}}"
+          "range": true,
+          "expr": "(max by (pod) (pg_exporter_last_scrape_error{pod=\"postgres-platform-1\"})) or vector(0)"
         }
       ],
-      "type": "timeseries"
+      "type": "timeseries",
+      "title": "Exporter scrape errors",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ],
+            "mode": "absolute"
+          },
+          "unit": "short",
+          "noValue": "0",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "id": 28,
+      "options": {
+        "tooltip": {
+          "sort": "desc",
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "table",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "placement": "bottom"
+        }
+      }
     },
     {
-      "title": "Recent logs",
+      "id": 29,
       "gridPos": {
-        "h": 10,
-        "w": 24,
         "x": 0,
-        "y": 112
+        "y": 112,
+        "h": 10,
+        "w": 24
       },
+      "title": "Recent logs",
       "datasource": {
         "type": "elasticsearch",
         "uid": "elasticsearch"
       },
       "type": "logs",
+      "options": {
+        "sortOrder": "Descending",
+        "wrapLogMessage": true,
+        "showTime": true,
+        "dedupStrategy": "none",
+        "showLabels": false,
+        "showCommonLabels": false,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true
+      },
       "targets": [
         {
+          "metrics": [
+            {
+              "type": "logs",
+              "id": "1"
+            }
+          ],
+          "refId": "Logs",
+          "query": "kubernetes.pod.name: postgres-platform-1",
+          "bucketAggs": [],
           "datasource": {
             "type": "elasticsearch",
             "uid": "elasticsearch"
           },
-          "timeField": "@timestamp",
           "queryType": "logs",
-          "query": "kubernetes.pod.name: postgres-platform-1",
-          "refId": "Logs",
-          "metrics": [
-            {
-              "id": "1",
-              "type": "logs"
-            }
-          ],
-          "bucketAggs": []
+          "timeField": "@timestamp"
         }
-      ],
-      "id": 29,
-      "options": {
-        "showTime": true,
-        "dedupStrategy": "none",
-        "showCommonLabels": false,
-        "prettifyLogMessage": false,
-        "sortOrder": "Descending",
-        "enableLogDetails": true,
-        "wrapLogMessage": true,
-        "showLabels": false
-      }
+      ]
     }
   ],
-  "uid": "automatic-system-infra-postgres-1a2d26e0",
-  "weekStart": "",
-  "title": "Infrastructure / PostgreSQL Platform / Node 1",
-  "time": {
-    "from": "now-6h",
-    "to": "now"
-  },
-  "graphTooltip": 1,
-  "id": null,
   "annotations": {
     "list": []
   },
-  "version": 1,
-  "links": [],
-  "fiscalYearStartMonth": 0,
-  "schemaVersion": 41,
+  "liveNow": false,
+  "graphTooltip": 1,
   "tags": [
     "automatic-system",
     "infrastructure",
     "postgres-platform-1"
   ],
+  "title": "Infrastructure / PostgreSQL Platform / Node 1",
+  "version": 1,
   "refresh": "30s",
-  "liveNow": false,
+  "fiscalYearStartMonth": 0,
+  "links": [],
+  "time": {
+    "to": "now",
+    "from": "now-6h"
+  },
+  "editable": false,
+  "timezone": "browser",
   "templating": {
     "list": []
   },
-  "timepicker": {},
-  "timezone": "browser"
+  "schemaVersion": 41,
+  "uid": "automatic-system-infra-postgres-1a2d26e0",
+  "id": null,
+  "weekStart": "",
+  "timepicker": {}
 }

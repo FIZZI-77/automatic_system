@@ -1,6 +1,26 @@
 import { expect, test } from "@playwright/test";
 import { loginThroughUi } from "./support/auth";
 
+async function selectTestAddress(page: import("@playwright/test").Page) {
+  await page.route("**/api/geocode**", async route => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        suggestions: [{
+          id: "e2e-address",
+          address: "Москва, Тверская улица, 1",
+          latitude: 55.757393,
+          longitude: 37.613218,
+        }],
+      }),
+    });
+  });
+
+  await page.getByLabel("Адрес").fill("Москва, Тверская улица, 1");
+  await page.getByRole("button", { name: "Москва, Тверская улица, 1" }).click();
+}
+
 test.describe("Заявки и пользовательские функции", () => {
   test("житель создаёт заявку и находит её фильтром", async ({ page }) => {
     await loginThroughUi(page, "user");
@@ -9,7 +29,7 @@ test.describe("Заявки и пользовательские функции",
     const title = `E2E: повреждение покрытия ${Date.now()}`;
     await page.getByLabel("Заголовок").fill(title);
     await page.getByLabel("Описание").fill("Проверка полного сценария создания обращения через браузер.");
-    await page.getByLabel("Адрес").fill("Москва, Тверская улица, 1");
+    await selectTestAddress(page);
     await page.getByLabel("Приоритет").selectOption("HIGH");
     const createResponse = page.waitForResponse(response =>
       response.url().endsWith("/tickets/create") && response.request().method() === "POST",
@@ -39,7 +59,7 @@ test.describe("Заявки и пользовательские функции",
     const title = `E2E: недоступный Ticket Service ${Date.now()}`;
     await page.getByLabel("Заголовок").fill(title);
     await page.getByLabel("Описание").fill("Проверка отображения отказа без потери формы.");
-    await page.getByLabel("Адрес").fill("Москва, Тверская улица, 1");
+    await selectTestAddress(page);
     await page.getByRole("button", { name: "Создать заявку" }).click();
 
     await expect(page.getByRole("status")).toContainText("Сервис временно недоступен");
@@ -70,6 +90,21 @@ test.describe("Заявки и пользовательские функции",
     await expect(dialog.getByLabel("Повторите новый пароль")).toBeVisible();
     await dialog.getByRole("button", { name: "Отмена" }).click();
     await expect(dialog).toBeHidden();
+  });
+
+  test("профиль жителя не запрашивает отсутствующий рабочий профиль", async ({ page }) => {
+    const workProfileRequests: string[] = [];
+    page.on("request", request => {
+      if (request.url().includes("/work-profiles/get-by-user")) {
+        workProfileRequests.push(request.url());
+      }
+    });
+
+    await loginThroughUi(page, "user");
+    await page.getByRole("button", { name: "Открыть профиль" }).click();
+    await expect(page.getByRole("heading", { name: "Профиль", exact: true, level: 2 })).toBeVisible();
+    await expect(page.getByLabel("ФИО")).toBeVisible();
+    expect(workProfileRequests).toEqual([]);
   });
 
   test("карточка инфраструктуры закрывается по карте, а отсутствие паспорта не считается ошибкой", async ({ page }) => {

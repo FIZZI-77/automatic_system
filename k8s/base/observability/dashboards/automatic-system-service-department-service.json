@@ -1,70 +1,31 @@
 {
-  "editable": false,
   "panels": [
     {
-      "fieldConfig": {
-        "defaults": {
-          "thresholds": {
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 1
-              }
-            ],
-            "mode": "absolute"
-          },
-          "noValue": "0",
-          "unit": "short",
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
       "gridPos": {
-        "h": 5,
-        "w": 4,
         "x": 0,
-        "y": 0
+        "y": 0,
+        "h": 5,
+        "w": 4
       },
-      "id": 1,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "options": {
-        "justifyMode": "auto",
-        "colorMode": "value",
-        "graphMode": "area",
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        }
-      },
-      "title": "Scrape availability",
       "targets": [
         {
-          "expr": "max(up{job=\"application-services\",service=\"department-service\"}) or vector(0)",
+          "legendFormat": "up",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "A",
-          "legendFormat": "up"
+          "range": true,
+          "expr": "max(up{job=\"application-services\",service=\"department-service\"}) or vector(0)"
         }
       ],
-      "type": "stat"
-    },
-    {
+      "type": "stat",
+      "title": "Scrape availability",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -80,54 +41,54 @@
             ],
             "mode": "absolute"
           },
+          "unit": "short",
           "noValue": "0",
-          "unit": "reqps",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 5,
-        "w": 5,
-        "x": 4,
-        "y": 0
-      },
-      "id": 2,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 1,
       "options": {
-        "justifyMode": "auto",
-        "colorMode": "value",
         "graphMode": "area",
+        "colorMode": "value",
         "reduceOptions": {
           "values": false,
+          "fields": "",
           "calcs": [
             "lastNotNull"
-          ],
-          "fields": ""
-        }
+          ]
+        },
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "gridPos": {
+        "x": 4,
+        "y": 0,
+        "h": 5,
+        "w": 5
       },
-      "title": "Span rate",
       "targets": [
         {
-          "expr": "sum(rate(traces_span_metrics_calls_total{exported_job=\"department-service\"}[5m])) or vector(0)",
+          "legendFormat": "spans/s",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "B",
-          "legendFormat": "spans/s"
+          "range": true,
+          "expr": "sum(rate(traces_span_metrics_calls_total{exported_job=\"department-service\"}[5m])) or vector(0)"
         }
       ],
-      "type": "stat"
-    },
-    {
+      "type": "stat",
+      "title": "Span rate",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -143,54 +104,54 @@
             ],
             "mode": "absolute"
           },
+          "unit": "reqps",
           "noValue": "0",
-          "unit": "percent",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 5,
-        "w": 5,
-        "x": 9,
-        "y": 0
-      },
-      "id": 3,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 2,
       "options": {
-        "justifyMode": "auto",
-        "colorMode": "value",
         "graphMode": "area",
+        "colorMode": "value",
         "reduceOptions": {
           "values": false,
+          "fields": "",
           "calcs": [
             "lastNotNull"
-          ],
-          "fields": ""
-        }
+          ]
+        },
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "gridPos": {
+        "x": 9,
+        "y": 0,
+        "h": 5,
+        "w": 5
       },
-      "title": "Span error rate",
       "targets": [
         {
-          "expr": "100 * sum(rate(traces_span_metrics_calls_total{exported_job=\"department-service\",status_code=\"STATUS_CODE_ERROR\"}[5m])) / clamp_min(sum(rate(traces_span_metrics_calls_total{exported_job=\"department-service\"}[5m])), 0.001) or vector(0)",
+          "legendFormat": "errors",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "C",
-          "legendFormat": "errors"
+          "range": true,
+          "expr": "100 * sum(rate(traces_span_metrics_calls_total{exported_job=\"department-service\",status_code=\"STATUS_CODE_ERROR\"}[5m])) / clamp_min(sum(rate(traces_span_metrics_calls_total{exported_job=\"department-service\"}[5m])), 0.001) or vector(0)"
         }
       ],
-      "type": "stat"
-    },
-    {
+      "type": "stat",
+      "title": "Span error rate",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -206,54 +167,54 @@
             ],
             "mode": "absolute"
           },
+          "unit": "percent",
           "noValue": "0",
-          "unit": "ms",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 5,
-        "w": 5,
-        "x": 14,
-        "y": 0
-      },
-      "id": 4,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 3,
       "options": {
-        "justifyMode": "auto",
-        "colorMode": "value",
         "graphMode": "area",
+        "colorMode": "value",
         "reduceOptions": {
           "values": false,
+          "fields": "",
           "calcs": [
             "lastNotNull"
-          ],
-          "fields": ""
-        }
+          ]
+        },
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "gridPos": {
+        "x": 14,
+        "y": 0,
+        "h": 5,
+        "w": 5
       },
-      "title": "Span p95 latency",
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(traces_span_metrics_duration_milliseconds_bucket{exported_job=\"department-service\"}[5m]))) or vector(0)",
+          "legendFormat": "p95",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "D",
-          "legendFormat": "p95"
+          "range": true,
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(traces_span_metrics_duration_milliseconds_bucket{exported_job=\"department-service\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "stat"
-    },
-    {
+      "type": "stat",
+      "title": "Span p95 latency",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -269,54 +230,54 @@
             ],
             "mode": "absolute"
           },
+          "unit": "ms",
           "noValue": "0",
-          "unit": "bytes",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 5,
-        "w": 5,
-        "x": 19,
-        "y": 0
-      },
-      "id": 5,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 4,
       "options": {
-        "justifyMode": "auto",
-        "colorMode": "value",
         "graphMode": "area",
+        "colorMode": "value",
         "reduceOptions": {
           "values": false,
+          "fields": "",
           "calcs": [
             "lastNotNull"
-          ],
-          "fields": ""
-        }
+          ]
+        },
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "gridPos": {
+        "x": 19,
+        "y": 0,
+        "h": 5,
+        "w": 5
       },
-      "title": "Go managed memory",
       "targets": [
         {
-          "expr": "sum(go_memory_used_bytes{job=\"application-services\",service=\"department-service\"}) or vector(0)",
+          "legendFormat": "memory",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "E",
-          "legendFormat": "memory"
+          "range": true,
+          "expr": "sum(go_memory_used_bytes{job=\"application-services\",service=\"department-service\"}) or vector(0)"
         }
       ],
-      "type": "stat"
-    },
-    {
+      "type": "stat",
+      "title": "Go managed memory",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -332,56 +293,54 @@
             ],
             "mode": "absolute"
           },
+          "unit": "bytes",
           "noValue": "0",
-          "unit": "ops",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 5
-      },
-      "id": 6,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 5,
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
-        "legend": {
-          "placement": "bottom",
+        "graphMode": "area",
+        "colorMode": "value",
+        "reduceOptions": {
+          "values": false,
+          "fields": "",
           "calcs": [
-            "lastNotNull",
-            "max"
-          ],
-          "displayMode": "table"
-        }
+            "lastNotNull"
+          ]
+        },
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "h": 8,
+        "w": 12
       },
-      "title": "Operations by span name",
       "targets": [
         {
-          "expr": "sum by (span_name, span_kind) (rate(traces_span_metrics_calls_total{exported_job=\"department-service\"}[5m])) or vector(0)",
+          "legendFormat": "{{span_kind}} / {{span_name}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "F",
-          "legendFormat": "{{span_kind}} / {{span_name}}"
+          "range": true,
+          "expr": "sum by (span_name, span_kind) (rate(traces_span_metrics_calls_total{exported_job=\"department-service\"}[5m])) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Operations by span name",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -397,56 +356,56 @@
             ],
             "mode": "absolute"
           },
+          "unit": "ops",
           "noValue": "0",
-          "unit": "ms",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 5
-      },
-      "id": 7,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 6,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 12,
+        "y": 5,
+        "h": 8,
+        "w": 12
       },
-      "title": "Operation p95 latency",
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum by (le, span_name) (rate(traces_span_metrics_duration_milliseconds_bucket{exported_job=\"department-service\"}[5m]))) or vector(0)",
+          "legendFormat": "{{span_name}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "G",
-          "legendFormat": "{{span_name}}"
+          "range": true,
+          "expr": "histogram_quantile(0.95, sum by (le, span_name) (rate(traces_span_metrics_duration_milliseconds_bucket{exported_job=\"department-service\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Operation p95 latency",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -462,56 +421,56 @@
             ],
             "mode": "absolute"
           },
+          "unit": "ms",
           "noValue": "0",
-          "unit": "ops",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 13
-      },
-      "id": 8,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 7,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "h": 8,
+        "w": 12
       },
-      "title": "Failed operations",
       "targets": [
         {
-          "expr": "sum by (span_name, span_kind) (rate(traces_span_metrics_calls_total{exported_job=\"department-service\",status_code=\"STATUS_CODE_ERROR\"}[5m])) or vector(0)",
+          "legendFormat": "{{span_kind}} / {{span_name}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "H",
-          "legendFormat": "{{span_kind}} / {{span_name}}"
+          "range": true,
+          "expr": "sum by (span_name, span_kind) (rate(traces_span_metrics_calls_total{exported_job=\"department-service\",status_code=\"STATUS_CODE_ERROR\"}[5m])) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Failed operations",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -527,56 +486,56 @@
             ],
             "mode": "absolute"
           },
+          "unit": "ops",
           "noValue": "0",
-          "unit": "reqps",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 13
-      },
-      "id": 9,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 8,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 12,
+        "y": 13,
+        "h": 8,
+        "w": 12
       },
-      "title": "Incoming service graph",
       "targets": [
         {
-          "expr": "sum by (client, failed) (rate(traces_service_graph_request_total{server=\"department-service\"}[5m])) or vector(0)",
+          "legendFormat": "{{client}} / failed={{failed}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "I",
-          "legendFormat": "{{client}} / failed={{failed}}"
+          "range": true,
+          "expr": "sum by (client, failed) (rate(traces_service_graph_request_total{server=\"department-service\"}[5m])) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Incoming service graph",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -592,56 +551,56 @@
             ],
             "mode": "absolute"
           },
-          "noValue": "0",
           "unit": "reqps",
+          "noValue": "0",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 21
-      },
-      "id": 10,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 9,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 0,
+        "y": 21,
+        "h": 8,
+        "w": 12
       },
-      "title": "Outgoing service graph",
       "targets": [
         {
-          "expr": "sum by (server, failed) (rate(traces_service_graph_request_total{client=\"department-service\"}[5m])) or vector(0)",
+          "legendFormat": "{{server}} / failed={{failed}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "J",
-          "legendFormat": "{{server}} / failed={{failed}}"
+          "range": true,
+          "expr": "sum by (server, failed) (rate(traces_service_graph_request_total{client=\"department-service\"}[5m])) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Outgoing service graph",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -657,56 +616,56 @@
             ],
             "mode": "absolute"
           },
+          "unit": "reqps",
           "noValue": "0",
-          "unit": "s",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 21
-      },
-      "id": 11,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 10,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 12,
+        "y": 21,
+        "h": 8,
+        "w": 12
       },
-      "title": "Outgoing dependency p95",
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum by (le, server) (rate(traces_service_graph_request_server_seconds_bucket{client=\"department-service\"}[5m]))) or vector(0)",
+          "legendFormat": "{{server}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "K",
-          "legendFormat": "{{server}}"
+          "range": true,
+          "expr": "histogram_quantile(0.95, sum by (le, server) (rate(traces_service_graph_request_server_seconds_bucket{client=\"department-service\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Outgoing dependency p95",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -722,56 +681,56 @@
             ],
             "mode": "absolute"
           },
+          "unit": "s",
           "noValue": "0",
-          "unit": "ops",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 29
-      },
-      "id": 12,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 11,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 0,
+        "y": 29,
+        "h": 8,
+        "w": 12
       },
-      "title": "Requests by operation and status",
       "targets": [
         {
-          "expr": "sum by (rpc_method, rpc_response_status_code) (rate(rpc_server_call_duration_seconds_count{job=\"application-services\",service=\"department-service\",rpc_method!~\"grpc.health.*\"}[5m])) or vector(0)",
+          "legendFormat": "{{rpc_method}} / {{rpc_response_status_code}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "L",
-          "legendFormat": "{{rpc_method}} / {{rpc_response_status_code}}"
+          "range": true,
+          "expr": "sum by (rpc_method, rpc_response_status_code) (rate(rpc_server_call_duration_seconds_count{job=\"application-services\",service=\"department-service\",rpc_method!~\"grpc.health.*\"}[5m])) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Requests by operation and status",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -787,78 +746,78 @@
             ],
             "mode": "absolute"
           },
+          "unit": "ops",
           "noValue": "0",
-          "unit": "s",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 29
-      },
-      "id": 13,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 12,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 12,
+        "y": 29,
+        "h": 8,
+        "w": 12
       },
-      "title": "Request latency percentiles",
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum by (le) (rate(rpc_server_call_duration_seconds_bucket{job=\"application-services\",service=\"department-service\",rpc_method!~\"grpc.health.*\"}[5m]))) or vector(0)",
+          "legendFormat": "p50",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "M",
-          "legendFormat": "p50"
+          "range": true,
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(rpc_server_call_duration_seconds_bucket{job=\"application-services\",service=\"department-service\",rpc_method!~\"grpc.health.*\"}[5m]))) or vector(0)"
         },
         {
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(rpc_server_call_duration_seconds_bucket{job=\"application-services\",service=\"department-service\",rpc_method!~\"grpc.health.*\"}[5m]))) or vector(0)",
+          "legendFormat": "p95",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "N",
-          "legendFormat": "p95"
+          "range": true,
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(rpc_server_call_duration_seconds_bucket{job=\"application-services\",service=\"department-service\",rpc_method!~\"grpc.health.*\"}[5m]))) or vector(0)"
         },
         {
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(rpc_server_call_duration_seconds_bucket{job=\"application-services\",service=\"department-service\",rpc_method!~\"grpc.health.*\"}[5m]))) or vector(0)",
+          "legendFormat": "p99",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "O",
-          "legendFormat": "p99"
+          "range": true,
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(rpc_server_call_duration_seconds_bucket{job=\"application-services\",service=\"department-service\",rpc_method!~\"grpc.health.*\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Request latency percentiles",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -874,67 +833,67 @@
             ],
             "mode": "absolute"
           },
+          "unit": "s",
           "noValue": "0",
-          "unit": "ops",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 37
-      },
-      "id": 14,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 13,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 0,
+        "y": 37,
+        "h": 8,
+        "w": 12
       },
-      "title": "Database operations",
       "targets": [
         {
-          "expr": "sum by (pgx_operation_type) (rate(db_client_operation_duration_seconds_count{job=\"application-services\",service=\"department-service\"}[5m])) or vector(0)",
+          "legendFormat": "{{pgx_operation_type}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "P",
-          "legendFormat": "{{pgx_operation_type}}"
+          "range": true,
+          "expr": "sum by (pgx_operation_type) (rate(db_client_operation_duration_seconds_count{job=\"application-services\",service=\"department-service\"}[5m])) or vector(0)"
         },
         {
-          "expr": "sum by (pgx_operation_type) (rate(db_client_operation_errors_total{job=\"application-services\",service=\"department-service\"}[5m])) or vector(0)",
+          "legendFormat": "{{pgx_operation_type}} errors",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "Q",
-          "legendFormat": "{{pgx_operation_type}} errors"
+          "range": true,
+          "expr": "sum by (pgx_operation_type) (rate(db_client_operation_errors_total{job=\"application-services\",service=\"department-service\"}[5m])) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Database operations",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -950,56 +909,56 @@
             ],
             "mode": "absolute"
           },
+          "unit": "ops",
           "noValue": "0",
-          "unit": "s",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 37
-      },
-      "id": 15,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 14,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 12,
+        "y": 37,
+        "h": 8,
+        "w": 12
       },
-      "title": "Database p95 latency",
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum by (le, pgx_operation_type) (rate(db_client_operation_duration_seconds_bucket{job=\"application-services\",service=\"department-service\"}[5m]))) or vector(0)",
+          "legendFormat": "{{pgx_operation_type}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "R",
-          "legendFormat": "{{pgx_operation_type}}"
+          "range": true,
+          "expr": "histogram_quantile(0.95, sum by (le, pgx_operation_type) (rate(db_client_operation_duration_seconds_bucket{job=\"application-services\",service=\"department-service\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Database p95 latency",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -1015,78 +974,78 @@
             ],
             "mode": "absolute"
           },
+          "unit": "s",
           "noValue": "0",
-          "unit": "short",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 45
-      },
-      "id": 16,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 15,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 0,
+        "y": 45,
+        "h": 8,
+        "w": 12
       },
-      "title": "Connection pool",
       "targets": [
         {
-          "expr": "sum(pgxpool_acquired_connections{job=\"application-services\",service=\"department-service\"}) or vector(0)",
+          "legendFormat": "acquired",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "S",
-          "legendFormat": "acquired"
+          "range": true,
+          "expr": "sum(pgxpool_acquired_connections{job=\"application-services\",service=\"department-service\"}) or vector(0)"
         },
         {
-          "expr": "sum(pgxpool_idle_connections{job=\"application-services\",service=\"department-service\"}) or vector(0)",
+          "legendFormat": "idle",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "T",
-          "legendFormat": "idle"
+          "range": true,
+          "expr": "sum(pgxpool_idle_connections{job=\"application-services\",service=\"department-service\"}) or vector(0)"
         },
         {
-          "expr": "sum(pgxpool_max_connections{job=\"application-services\",service=\"department-service\"}) or vector(0)",
+          "legendFormat": "max",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "U",
-          "legendFormat": "max"
+          "range": true,
+          "expr": "sum(pgxpool_max_connections{job=\"application-services\",service=\"department-service\"}) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Connection pool",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -1102,67 +1061,67 @@
             ],
             "mode": "absolute"
           },
-          "noValue": "0",
           "unit": "short",
+          "noValue": "0",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 45
-      },
-      "id": 17,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 16,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 12,
+        "y": 45,
+        "h": 8,
+        "w": 12
       },
-      "title": "Go runtime",
       "targets": [
         {
-          "expr": "sum(go_goroutine_count{job=\"application-services\",service=\"department-service\"}) or vector(0)",
+          "legendFormat": "goroutines",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "V",
-          "legendFormat": "goroutines"
+          "range": true,
+          "expr": "sum(go_goroutine_count{job=\"application-services\",service=\"department-service\"}) or vector(0)"
         },
         {
-          "expr": "sum(rate(process_cpu_seconds_total{job=\"application-services\",service=\"department-service\"}[5m])) or vector(0)",
+          "legendFormat": "CPU cores",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "W",
-          "legendFormat": "CPU cores"
+          "range": true,
+          "expr": "sum(rate(process_cpu_seconds_total{job=\"application-services\",service=\"department-service\"}[5m])) or vector(0)"
         }
       ],
-      "type": "timeseries"
-    },
-    {
+      "type": "timeseries",
+      "title": "Go runtime",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -1178,126 +1137,167 @@
             ],
             "mode": "absolute"
           },
+          "unit": "short",
           "noValue": "0",
-          "unit": "ops",
           "color": {
             "mode": "palette-classic"
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 53
-      },
-      "id": 18,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 17,
       "options": {
         "tooltip": {
           "sort": "desc",
           "mode": "multi"
         },
         "legend": {
-          "placement": "bottom",
+          "displayMode": "table",
           "calcs": [
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table"
+          "placement": "bottom"
         }
+      }
+    },
+    {
+      "gridPos": {
+        "x": 0,
+        "y": 53,
+        "h": 8,
+        "w": 24
       },
-      "title": "Istio traffic by destination",
       "targets": [
         {
-          "expr": "sum by (destination_service_name, response_code) (rate(istio_requests_total{source_app=\"department-service\",reporter=\"source\"}[5m])) or vector(0)",
+          "legendFormat": "{{destination_service_name}} / {{response_code}}",
           "editorMode": "code",
-          "range": true,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "refId": "X",
-          "legendFormat": "{{destination_service_name}} / {{response_code}}"
+          "range": true,
+          "expr": "sum by (destination_service_name, response_code) (rate(istio_requests_total{source_app=\"department-service\",reporter=\"source\"}[5m])) or vector(0)"
         }
       ],
-      "type": "timeseries"
+      "type": "timeseries",
+      "title": "Istio traffic by destination",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ],
+            "mode": "absolute"
+          },
+          "unit": "ops",
+          "noValue": "0",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "id": 18,
+      "options": {
+        "tooltip": {
+          "sort": "desc",
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "table",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "placement": "bottom"
+        }
+      }
     },
     {
-      "title": "Recent logs",
+      "id": 19,
       "gridPos": {
-        "h": 10,
-        "w": 24,
         "x": 0,
-        "y": 61
+        "y": 61,
+        "h": 10,
+        "w": 24
       },
+      "title": "Recent logs",
       "datasource": {
         "type": "elasticsearch",
         "uid": "elasticsearch"
       },
       "type": "logs",
+      "options": {
+        "sortOrder": "Descending",
+        "wrapLogMessage": true,
+        "showTime": true,
+        "dedupStrategy": "none",
+        "showLabels": false,
+        "showCommonLabels": false,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true
+      },
       "targets": [
         {
+          "metrics": [
+            {
+              "type": "logs",
+              "id": "1"
+            }
+          ],
+          "refId": "Logs",
+          "query": "kubernetes.pod.name: department-service-*",
+          "bucketAggs": [],
           "datasource": {
             "type": "elasticsearch",
             "uid": "elasticsearch"
           },
-          "timeField": "@timestamp",
           "queryType": "logs",
-          "query": "kubernetes.pod.name: department-service-*",
-          "refId": "Logs",
-          "metrics": [
-            {
-              "id": "1",
-              "type": "logs"
-            }
-          ],
-          "bucketAggs": []
+          "timeField": "@timestamp"
         }
-      ],
-      "id": 19,
-      "options": {
-        "showTime": true,
-        "dedupStrategy": "none",
-        "showCommonLabels": false,
-        "prettifyLogMessage": false,
-        "sortOrder": "Descending",
-        "enableLogDetails": true,
-        "wrapLogMessage": true,
-        "showLabels": false
-      }
+      ]
     }
   ],
-  "uid": "automatic-system-service-depart-34f07d0c",
-  "weekStart": "",
-  "title": "Service / Department Service",
-  "time": {
-    "from": "now-6h",
-    "to": "now"
-  },
-  "graphTooltip": 1,
-  "id": null,
   "annotations": {
     "list": []
   },
-  "version": 1,
-  "links": [],
-  "fiscalYearStartMonth": 0,
-  "schemaVersion": 41,
+  "liveNow": false,
+  "graphTooltip": 1,
   "tags": [
     "automatic-system",
     "service",
     "department-service"
   ],
+  "title": "Service / Department Service",
+  "version": 1,
   "refresh": "30s",
-  "liveNow": false,
+  "fiscalYearStartMonth": 0,
+  "links": [],
+  "time": {
+    "to": "now",
+    "from": "now-6h"
+  },
+  "editable": false,
+  "timezone": "browser",
   "templating": {
     "list": []
   },
-  "timepicker": {},
-  "timezone": "browser"
+  "schemaVersion": 41,
+  "uid": "automatic-system-service-depart-34f07d0c",
+  "id": null,
+  "weekStart": "",
+  "timepicker": {}
 }

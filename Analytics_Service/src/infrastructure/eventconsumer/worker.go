@@ -4,7 +4,9 @@ import (
 	"analytics/pkg/telemetry"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"time"
 
 	"analytics/models"
 	"github.com/segmentio/kafka-go"
@@ -46,7 +48,16 @@ func (w *Worker) Run(c context.Context) error {
 	for {
 		m, e := w.reader.FetchMessage(c)
 		if e != nil {
-			return e
+			if errors.Is(e, context.Canceled) || errors.Is(e, context.DeadlineExceeded) {
+				return nil
+			}
+			w.log.Warn("fetch event failed; retrying", zap.String("topic", w.topic), zap.Error(e))
+			select {
+			case <-c.Done():
+				return nil
+			case <-time.After(time.Second):
+				continue
+			}
 		}
 		messageCtx, span := telemetry.StartKafkaConsumer(c, m, w.group)
 		p := map[string]any{}

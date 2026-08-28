@@ -39,7 +39,16 @@ func (w *Worker) Run(ctx context.Context) error {
 	for {
 		m, e := w.reader.FetchMessage(ctx)
 		if e != nil {
-			return e
+			if errors.Is(e, context.Canceled) || errors.Is(e, context.DeadlineExceeded) {
+				return nil
+			}
+			w.log.Warn("fetch event failed; retrying", zap.String("topic", w.topic), zap.Error(e))
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-time.After(time.Second):
+				continue
+			}
 		}
 		messageCtx, span := telemetry.StartKafkaConsumer(ctx, m, w.group)
 		payload := map[string]any{}

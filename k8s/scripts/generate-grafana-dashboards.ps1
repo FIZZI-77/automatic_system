@@ -480,7 +480,7 @@ $kafkaMetrics = @(
     @{ Title = "Topic partitions"; Expression = 'kafka_topic_partitions{__FILTER__}'; Legend = '{{topic}}'; Unit = "short" },
     @{ Title = "Current offsets"; Expression = 'sum by (topic) (kafka_topic_partition_current_offset{__FILTER__})'; Legend = '{{topic}}'; Unit = "short" },
     @{ Title = "Oldest offsets"; Expression = 'min by (topic) (kafka_topic_partition_oldest_offset{__FILTER__})'; Legend = '{{topic}}'; Unit = "short" },
-    @{ Title = "Consumer group lag"; Expression = 'sum by (consumergroup, topic) (kafka_consumergroup_lag{__FILTER__})'; Legend = '{{consumergroup}} / {{topic}}'; Unit = "short" },
+    @{ Title = "Consumer group lag"; Expression = 'sum by (consumergroup, topic) (clamp_min(kafka_consumergroup_lag{__FILTER__}, 0)) or vector(0)'; Legend = '{{consumergroup}} / {{topic}}'; Unit = "short" },
     @{ Title = "Consumer group members"; Expression = 'kafka_consumergroup_members{__FILTER__}'; Legend = '{{consumergroup}}'; Unit = "short" }
 )
 

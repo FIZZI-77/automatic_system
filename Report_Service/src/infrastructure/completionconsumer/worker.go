@@ -83,10 +83,16 @@ func (w *Worker) Run(ctx context.Context) error {
 	for {
 		message, err := w.reader.FetchMessage(ctx)
 		if err != nil {
-			if errors.Is(err, context.Canceled) {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return nil
 			}
-			return fmt.Errorf("fetch completion request: %w", err)
+			w.logger.Warn("fetch completion request failed; retrying", zap.Error(err))
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-time.After(time.Second):
+				continue
+			}
 		}
 		if err = telemetry.TraceKafkaConsumer(
 			ctx,

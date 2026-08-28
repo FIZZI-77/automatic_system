@@ -82,6 +82,23 @@ function Add-ZeroFallbacksToAllTargets {
   }
 }
 
+function Normalize-KafkaLagTargets {
+  param([object[]]$Panels)
+
+  foreach ($panel in $Panels) {
+    foreach ($target in @($panel.targets)) {
+      if ($target.expr -and $target.expr -match 'kafka_consumergroup_lag') {
+        $target.expr = $target.expr -replace `
+          'kafka_consumergroup_lag(\{[^}]+\})', `
+          'clamp_min(kafka_consumergroup_lag$1, 0)'
+      }
+    }
+    if ($panel.PSObject.Properties['panels']) {
+      Normalize-KafkaLagTargets -Panels $panel.panels
+    }
+  }
+}
+
 function Adapt-ClickHouseTargets {
   param([object[]]$Panels)
 
@@ -108,6 +125,24 @@ function Adapt-ClickHouseTargets {
   }
 }
 
+function Get-DashboardContent {
+  param([string]$Uri)
+
+  $lastError = $null
+  foreach ($attempt in 1..4) {
+    try {
+      return (Invoke-WebRequest -Uri $Uri -UseBasicParsing -TimeoutSec 30).Content
+    } catch {
+      $lastError = $_
+      if ($attempt -lt 4) {
+        Start-Sleep -Seconds ([Math]::Pow(2, $attempt))
+      }
+    }
+  }
+
+  throw "Unable to download dashboard from $Uri after 4 attempts: $lastError"
+}
+
 New-Item -ItemType Directory -Path $dashboardDirectory -Force | Out-Null
 $obsoleteDashboard = Join-Path $dashboardDirectory "node-exporter-full.json"
 if (Test-Path -LiteralPath $obsoleteDashboard) {
@@ -122,12 +157,13 @@ foreach ($dashboard in $dashboards) {
     $uri = "https://grafana.com/api/dashboards/$($dashboard.ID)/revisions/$($dashboard.Revision)/download"
     Write-Host "Downloading Grafana dashboard $($dashboard.ID), revision $($dashboard.Revision)..."
   }
-  $raw = (Invoke-WebRequest -Uri $uri -UseBasicParsing).Content
+  $raw = Get-DashboardContent -Uri $uri
   $raw = $raw.Replace('${DS_PROMETHEUS}', 'prometheus')
   $raw = $raw.Replace('${DS_PROM}', 'prometheus')
   $raw = $raw.Replace('${DS_THEMIS}', 'prometheus')
   $raw = $raw.Replace('${VAR_PROMETHEUS}', 'prometheus')
   $raw = $raw.Replace('${DS_LOCAL_PROMETHEUS}', 'prometheus')
+  $raw = $raw.Replace('${ds_prometheus}', 'prometheus')
   if ($dashboard.ID -eq 24565) {
     $raw = $raw.Replace('pod=~\"kafka-cluster.*\"', 'pod=~\"kafka-[1-3]-0\"')
   }
@@ -156,6 +192,8 @@ foreach ($dashboard in $dashboards) {
       text = 'automatic-system'
       value = 'automatic-system'
     }
+    Normalize-KafkaLagTargets -Panels $model.panels
+    Add-ZeroFallbacksToAllTargets -Panels $model.panels
   }
   if ($dashboard.ID -in 1860, 3070, 3662) {
     Add-ZeroFallbacksToAllTargets -Panels $model.panels

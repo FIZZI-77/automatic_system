@@ -27,6 +27,8 @@ spec:
               value: http://elasticsearch:9200
             - name: SERVER_PUBLICBASEURL
               value: http://localhost:5601
+            - name: SERVER_DEFAULTROUTE
+              value: /app/dashboards
             - name: TELEMETRY_ENABLED
               value: "false"
           ports:

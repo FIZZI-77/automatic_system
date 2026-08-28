@@ -100,7 +100,13 @@ func (w *Worker) consume(ctx context.Context, reader *kafka.Reader) error {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return nil
 			}
-			return fmt.Errorf("fetch routing event: %w", err)
+			w.logger.Warn("fetch routing event failed; retrying", zap.Error(err))
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-time.After(time.Second):
+				continue
+			}
 		}
 		if strings.HasSuffix(message.Topic, ".retry") {
 			timer := time.NewTimer(time.Duration(1<<min(retries(message.Headers), 5)) * time.Second)

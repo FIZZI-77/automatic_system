@@ -70,7 +70,90 @@ export function ProfilePage({session,role,onNotice}:{session:Session;role:Role;o
   const demo=session.accessToken==="demo";const [profile,setProfile]=useState<UserProfile>(),[work,setWork]=useState<WorkProfile>();
   const [department,setDepartment]=useState<Department>(),[brigade,setBrigade]=useState<WorkerBrigade>(),[membership,setMembership]=useState<WorkerMembership>(),[schedule,setSchedule]=useState<ScheduleItem[]>([]);
   const [passwordOpen,setPasswordOpen]=useState(false),[passwordBusy,setPasswordBusy]=useState(false),[passwordError,setPasswordError]=useState("");
-  useEffect(()=>{if(demo){const positions:Record<Role,string>={user:"Житель",worker:"Специалист выездной бригады",dispatcher:"Диспетчер",admin:"Администратор системы"};setProfile({id:"demo-profile",user_id:"demo",full_name:"Демонстрационный пользователь",preferred_contact_method:"EMAIL"});setWork({id:"demo-work",department_id:"dep-roads",position:positions[role],status:"ACTIVE"});setDepartment({id:"dep-roads",name:"Дорожное хозяйство"});return}(async()=>{try{const result=await api<{user_profile:UserProfile}>(config.endpoints.profile,undefined,"GET",session.accessToken);setProfile(result.user_profile);try{const workResult=await api<{details:{work_profile:WorkProfile}|WorkProfile}>(config.endpoints.workProfileByUser,{user_id:session.user?.user_id},"POST",session.accessToken);const details=workResult.details,nextWork='work_profile' in details?details.work_profile:details;setWork(nextWork);const [departmentResult,brigadeResult]=await Promise.all([api<{department:Department}>(config.endpoints.departmentsGet,{id:nextWork.department_id},"POST",session.accessToken),api<{brigade:WorkerBrigade;member:WorkerMembership}>(config.endpoints.brigadeByUser,{user_id:session.user?.user_id,only_active:true},"POST",session.accessToken).catch(()=>undefined)]);setDepartment(departmentResult.department);if(brigadeResult?.brigade){setBrigade(brigadeResult.brigade);setMembership(brigadeResult.member);const scheduleResult=await api<{schedule:ScheduleItem[]}>(config.endpoints.brigadeSchedulesList,{brigade_id:brigadeResult.brigade.id,active:true},"POST",session.accessToken).catch(()=>({schedule:[]}));setSchedule(scheduleResult.schedule||[])}}catch{setWork(undefined)}}catch(error){onNotice(error instanceof Error?error.message:"Не удалось загрузить профиль")}})()},[demo,onNotice,role,session.accessToken,session.user?.user_id]);
+  useEffect(() => {
+    const hasWorkProfile = role === "worker" || role === "dispatcher";
+
+    if (demo) {
+      setProfile({
+        id: "demo-profile",
+        user_id: "demo",
+        full_name: "Демонстрационный пользователь",
+        preferred_contact_method: "EMAIL",
+      });
+
+      if (hasWorkProfile) {
+        const positions: Record<"worker" | "dispatcher", string> = {
+          worker: "Специалист выездной бригады",
+          dispatcher: "Диспетчер",
+        };
+        setWork({
+          id: "demo-work",
+          department_id: "dep-roads",
+          position: positions[role],
+          status: "ACTIVE",
+        });
+        setDepartment({ id: "dep-roads", name: "Дорожное хозяйство" });
+      } else {
+        setWork(undefined);
+        setDepartment(undefined);
+      }
+      return;
+    }
+
+    void (async () => {
+      try {
+        const result = await api<{ user_profile: UserProfile }>(
+          config.endpoints.profile,
+          undefined,
+          "GET",
+          session.accessToken,
+        );
+        setProfile(result.user_profile);
+
+        if (!hasWorkProfile) return;
+
+        const workResult = await api<{ details: { work_profile: WorkProfile } | WorkProfile }>(
+          config.endpoints.workProfileByUser,
+          { user_id: session.user?.user_id },
+          "POST",
+          session.accessToken,
+        );
+        const details = workResult.details;
+        const nextWork = "work_profile" in details ? details.work_profile : details;
+        setWork(nextWork);
+
+        const [departmentResult, brigadeResult] = await Promise.all([
+          api<{ department: Department }>(
+            config.endpoints.departmentsGet,
+            { id: nextWork.department_id },
+            "POST",
+            session.accessToken,
+          ),
+          api<{ brigade: WorkerBrigade; member: WorkerMembership }>(
+            config.endpoints.brigadeByUser,
+            { user_id: session.user?.user_id, only_active: true },
+            "POST",
+            session.accessToken,
+          ).catch(() => undefined),
+        ]);
+        setDepartment(departmentResult.department);
+
+        if (!brigadeResult?.brigade) return;
+
+        setBrigade(brigadeResult.brigade);
+        setMembership(brigadeResult.member);
+        const scheduleResult = await api<{ schedule: ScheduleItem[] }>(
+          config.endpoints.brigadeSchedulesList,
+          { brigade_id: brigadeResult.brigade.id, active: true },
+          "POST",
+          session.accessToken,
+        ).catch(() => ({ schedule: [] }));
+        setSchedule(scheduleResult.schedule || []);
+      } catch (error) {
+        onNotice(error instanceof Error ? error.message : "Не удалось загрузить профиль");
+      }
+    })();
+  }, [demo, onNotice, role, session.accessToken, session.user?.user_id]);
   async function save(event:FormEvent<HTMLFormElement>){event.preventDefault();if(!profile)return;const form=new FormData(event.currentTarget),next={...profile,full_name:String(form.get("full_name")),phone:String(form.get("phone"))||undefined,preferred_contact_method:String(form.get("preferred_contact_method"))};if(!demo){const result=await api<{user_profile:UserProfile}>(config.endpoints.userProfilesUpdate,{id:profile.id,full_name:next.full_name,phone:next.phone,clear_phone:!next.phone,preferred_contact_method:next.preferred_contact_method},"POST",session.accessToken);setProfile(result.user_profile)}else setProfile(next);onNotice("Профиль сохранён")}
   async function changePassword(event:FormEvent<HTMLFormElement>){event.preventDefault();const formElement=event.currentTarget,form=new FormData(formElement),newPassword=String(form.get("new_password")),confirmPassword=String(form.get("confirm_password"));setPasswordError("");if(newPassword!==confirmPassword){setPasswordError("Новые пароли не совпадают");return}setPasswordBusy(true);try{if(!demo)await api(config.endpoints.changePassword,{old_password:String(form.get("old_password")),new_password:newPassword,revoke_other_sessions:form.has("revoke")},"POST",session.accessToken);formElement.reset();setPasswordOpen(false);onNotice("Пароль изменён")}catch(error){setPasswordError(error instanceof Error?error.message:"Не удалось изменить пароль")}finally{setPasswordBusy(false)}}
   async function sendVerification(){if(!demo)await api(config.endpoints.sendVerificationEmail,{email:session.user?.email},"POST",session.accessToken);onNotice("Письмо для подтверждения отправлено")}

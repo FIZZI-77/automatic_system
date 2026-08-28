@@ -35,7 +35,7 @@ func (s *UserProfileServiceStruct) CreateUserProfile(ctx context.Context, in *mo
 		logPermissionDenied(logger, method, start, fields...)
 		return nil, permissionDenied(method)
 	}
-	if s.userChecker != nil {
+	if s.userChecker != nil && !isSelf(in.ActorUserID, in.UserID) {
 		if err := s.userChecker.EnsureUserExists(ctx, in.UserID); err != nil {
 			logOperationFailed(logger, method, start, err, fields...)
 			return nil, wrapServiceError(method, err)

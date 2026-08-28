@@ -143,7 +143,13 @@ func (w *Worker) consume(ctx context.Context, reader *kafka.Reader) error {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return nil
 			}
-			return fmt.Errorf("fetch message: %w", err)
+			w.logger.Warn("fetch profile event failed; retrying", zap.Error(err))
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-time.After(time.Second):
+				continue
+			}
 		}
 		if strings.HasSuffix(message.Topic, ".retry") {
 			delay := time.Duration(1<<min(retryCount(message.Headers), maxRetries)) * time.Second
