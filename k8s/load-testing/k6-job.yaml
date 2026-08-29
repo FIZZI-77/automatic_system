@@ -1,0 +1,111 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: k6-kubernetes-chaos
+  namespace: automatic-system
+  labels:
+    app.kubernetes.io/name: k6
+    app.kubernetes.io/component: load-testing
+    app.kubernetes.io/part-of: automatic-system
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: k6
+        app.kubernetes.io/component: load-testing
+        app.kubernetes.io/part-of: automatic-system
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      automountServiceAccountToken: false
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 12345
+        runAsGroup: 12345
+        fsGroup: 12345
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: k6
+          image: grafana/k6:0.49.0
+          args:
+            - run
+            - --summary-export=/results/summary.json
+            - /scripts/kubernetes-chaos.js
+          envFrom:
+            - configMapRef:
+                name: k6-kubernetes-chaos-config
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: "2"
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+            - name: results
+              mountPath: /results
+            - name: temporary
+              mountPath: /tmp
+      volumes:
+        - name: scripts
+          configMap:
+            name: k6-kubernetes-chaos-script
+        - name: results
+          emptyDir: {}
+        - name: temporary
+          emptyDir: {}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-k6-to-api-gateway
+  namespace: automatic-system
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: k6
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+    - to:
+        - podSelector:
+            matchLabels:
+              app: api-gateway
+      ports:
+        - {protocol: TCP, port: 8081}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-k6-ingress-to-api-gateway
+  namespace: automatic-system
+spec:
+  podSelector:
+    matchLabels:
+      app: api-gateway
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: k6
+      ports:
+        - {protocol: TCP, port: 8081}

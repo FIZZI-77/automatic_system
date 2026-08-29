@@ -34,6 +34,8 @@ func handleGRPCError(c *gin.Context, err error) {
 		writeAPIError(c, http.StatusConflict, "INVALID_STATE", "Действие невозможно в текущем состоянии")
 	case codes.DeadlineExceeded:
 		writeAPIError(c, http.StatusGatewayTimeout, "UPSTREAM_TIMEOUT", "Сервис не успел ответить. Попробуйте ещё раз")
+	case codes.Canceled:
+		writeAPIError(c, http.StatusRequestTimeout, "REQUEST_CANCELED", "Запрос был отменён. Попробуйте ещё раз")
 	case codes.Unavailable:
 		writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "Сервис временно недоступен")
 	default:

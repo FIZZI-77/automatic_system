@@ -91,6 +91,7 @@ func (t *TicketRepoStruct) createTicket(ctx context.Context, q Querier, in *mode
 		ctx,
 		q,
 		ticket.ID,
+		ticket.DepartmentID,
 		nil,
 		models.TicketStatusNew,
 		&in.UserID,
@@ -142,6 +143,12 @@ func (t *TicketRepoStruct) GetTicketByID(ctx context.Context, ticketID uuid.UUID
 }
 
 func (t *TicketRepoStruct) ListTickets(ctx context.Context, in *models.ListTicketsInput) ([]*models.Ticket, int64, error) {
+	conn, err := t.readPool.Acquire(ctx)
+	if err != nil {
+		return nil, 0, fmt.Errorf("repository: ListTickets(): acquire connection: %w", err)
+	}
+	defer conn.Release()
+
 	whereParts := []string{"status <> 'ARCHIVED'"}
 	args := make([]any, 0)
 
@@ -194,7 +201,7 @@ func (t *TicketRepoStruct) ListTickets(ctx context.Context, in *models.ListTicke
 	`, whereSQL)
 
 	var total int64
-	if err := t.readPool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+	if err := conn.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("repository: ListTickets(): count: %w", err)
 	}
 
@@ -231,7 +238,7 @@ func (t *TicketRepoStruct) ListTickets(ctx context.Context, in *models.ListTicke
 		LIMIT $%d OFFSET $%d
 	`, whereSQL, sortBy, sortOrder, limitArg, offsetArg)
 
-	rows, err := t.readPool.Query(ctx, listQuery, args...)
+	rows, err := conn.Query(ctx, listQuery, args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("repository: ListTickets(): query: %w", err)
 	}
@@ -436,7 +443,7 @@ func (t *TicketRepoStruct) changeTicketStatus(ctx context.Context, q Querier, in
 		return nil, fmt.Errorf("repository: ChangeTicketStatus(): update ticket: %w", err)
 	}
 
-	if err = t.insertTicketStatusHistory(ctx, q, ticket.ID, &oldTicket.Status, in.NewStatus, &in.ChangedBy, in.Comment); err != nil {
+	if err = t.insertTicketStatusHistory(ctx, q, ticket.ID, ticket.DepartmentID, &oldTicket.Status, in.NewStatus, &in.ChangedBy, in.Comment); err != nil {
 		return nil, fmt.Errorf("repository: ChangeTicketStatus(): insert status history: %w", err)
 	}
 
@@ -534,7 +541,7 @@ func (t *TicketRepoStruct) assignBrigade(ctx context.Context, q Querier, in *mod
 		return nil, fmt.Errorf("repository: AssignBrigade(): update ticket: %w", err)
 	}
 
-	if err = t.insertTicketStatusHistory(ctx, q, ticket.ID, &oldTicket.Status, models.TicketStatusAssigned, &in.AssignedBy, in.Comment); err != nil {
+	if err = t.insertTicketStatusHistory(ctx, q, ticket.ID, ticket.DepartmentID, &oldTicket.Status, models.TicketStatusAssigned, &in.AssignedBy, in.Comment); err != nil {
 		return nil, fmt.Errorf("repository: AssignBrigade(): insert status history: %w", err)
 	}
 
@@ -608,7 +615,7 @@ func (t *TicketRepoStruct) cancelTicket(ctx context.Context, q Querier, in *mode
 		return nil, fmt.Errorf("repository: CancelTicket(): update ticket: %w", err)
 	}
 
-	if err = t.insertTicketStatusHistory(ctx, q, ticket.ID, &oldTicket.Status, models.TicketStatusCanceled, &in.CanceledBy, &in.Reason); err != nil {
+	if err = t.insertTicketStatusHistory(ctx, q, ticket.ID, ticket.DepartmentID, &oldTicket.Status, models.TicketStatusCanceled, &in.CanceledBy, &in.Reason); err != nil {
 		return nil, fmt.Errorf("repository: CancelTicket(): insert status history: %w", err)
 	}
 
@@ -682,7 +689,7 @@ func (t *TicketRepoStruct) completeTicket(ctx context.Context, q Querier, in *mo
 		return nil, fmt.Errorf("repository: CompleteTicket(): update ticket: %w", err)
 	}
 
-	if err = t.insertTicketStatusHistory(ctx, q, ticket.ID, &oldTicket.Status, models.TicketStatusDone, &in.CompletedBy, in.Comment); err != nil {
+	if err = t.insertTicketStatusHistory(ctx, q, ticket.ID, ticket.DepartmentID, &oldTicket.Status, models.TicketStatusDone, &in.CompletedBy, in.Comment); err != nil {
 		return nil, fmt.Errorf("repository: CompleteTicket(): insert status history: %w", err)
 	}
 
@@ -847,6 +854,7 @@ func (t *TicketRepoStruct) insertTicketStatusHistory(
 	ctx context.Context,
 	exec Querier,
 	ticketID uuid.UUID,
+	departmentID uuid.UUID,
 	oldStatus *models.TicketStatus,
 	newStatus models.TicketStatus,
 	changedBy *uuid.UUID,
@@ -863,9 +871,7 @@ func (t *TicketRepoStruct) insertTicketStatusHistory(
 			comment,
 			created_at
 		)
-		SELECT $1, department_id, id, $3, $4, $5, $6, now()
-		FROM tickets
-		WHERE id = $2
+		VALUES ($1, $2, $3, $4, $5, $6, $7, now())
 	`
 
 	var oldStatusValue any
@@ -887,6 +893,7 @@ func (t *TicketRepoStruct) insertTicketStatusHistory(
 		ctx,
 		query,
 		uuid.New(),
+		departmentID,
 		ticketID,
 		oldStatusValue,
 		string(newStatus),

@@ -1,1702 +1,1702 @@
 {
   "panels": [
     {
-      "gridPos": {
-        "x": 0,
-        "y": 0,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "A",
           "range": true,
           "expr": "(pgbouncer_up{db_cluster=\"platform-primary\"}) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Exporter availability",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 1,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 1
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 0,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "B",
           "range": true,
           "expr": "(sum by (pod) (pgbouncer_client_connections{db_cluster=\"platform-primary\"})) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Client connections",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 2,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 2
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 8,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}} active",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}} active",
           "refId": "C",
           "range": true,
           "expr": "(sum by (pod) (pgbouncer_pools_client_active_connections{db_cluster=\"platform-primary\"})) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Active / waiting clients",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 3,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 3
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 8,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}} / {{database}} / {{user}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}} / {{database}} / {{user}}",
           "refId": "D",
           "range": true,
           "expr": "(sum by (pod, database, user) (pgbouncer_pools_client_waiting_connections{db_cluster=\"platform-primary\"})) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Waiting clients",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 4,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 4
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 16,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}} / {{database}} / {{user}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}} / {{database}} / {{user}}",
           "refId": "E",
           "range": true,
           "expr": "(max by (pod, database, user) (pgbouncer_pools_client_maxwait_seconds{db_cluster=\"platform-primary\"})) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Client maximum wait",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "s",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "s"
+        }
       },
-      "id": 5,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 5
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 16,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}} / {{database}} / {{user}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}} / {{database}} / {{user}}",
           "refId": "F",
           "range": true,
           "expr": "(sum by (pod, database, user) (pgbouncer_pools_server_active_connections{db_cluster=\"platform-primary\"})) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Active servers",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 6,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 6
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 24,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}} / {{database}} / {{user}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}} / {{database}} / {{user}}",
           "refId": "G",
           "range": true,
           "expr": "(sum by (pod, database, user) (pgbouncer_pools_server_idle_connections{db_cluster=\"platform-primary\"})) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Idle servers",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 7,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 7
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 24,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}} / {{database}} / {{user}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}} / {{database}} / {{user}}",
           "refId": "H",
           "range": true,
           "expr": "(sum by (pod, database, user) (pgbouncer_pools_server_used_connections{db_cluster=\"platform-primary\"})) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Used servers",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 8,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 8
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 32,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "I",
           "range": true,
           "expr": "(sum by (pod) (pgbouncer_pools_server_login_connections{db_cluster=\"platform-primary\"} + pgbouncer_pools_server_testing_connections{db_cluster=\"platform-primary\"})) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Login and testing servers",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 9,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 32
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 9
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 32,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "J",
           "range": true,
           "expr": "(sum by (pod) (pgbouncer_free_clients{db_cluster=\"platform-primary\"})) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Free clients",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 10,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 32
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 10
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 40,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "K",
           "range": true,
           "expr": "(sum by (pod) (pgbouncer_free_servers{db_cluster=\"platform-primary\"})) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Free servers",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 11,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 40
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 11
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 40,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "L",
           "range": true,
           "expr": "(sum by (pod) (rate(pgbouncer_stats_totals_queries_pooled_total{db_cluster=\"platform-primary\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Query rate",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "ops",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "ops"
+        }
       },
-      "id": 12,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 40
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 12
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 48,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "M",
           "range": true,
           "expr": "(sum by (pod) (rate(pgbouncer_stats_totals_sql_transactions_pooled_total{db_cluster=\"platform-primary\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Transaction rate",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "ops",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "ops"
+        }
       },
-      "id": 13,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 48
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 13
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 48,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "N",
           "range": true,
           "expr": "(sum by (pod) (rate(pgbouncer_stats_totals_queries_duration_seconds_total{db_cluster=\"platform-primary\"}[5m])) / clamp_min(sum by (pod) (rate(pgbouncer_stats_totals_queries_pooled_total{db_cluster=\"platform-primary\"}[5m])), 0.001)) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Average query duration",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "s",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "s"
+        }
       },
-      "id": 14,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 48
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 14
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 56,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "O",
           "range": true,
           "expr": "(sum by (pod) (rate(pgbouncer_stats_totals_client_wait_seconds_total{db_cluster=\"platform-primary\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Client wait time",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "s",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "s"
+        }
       },
-      "id": 15,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 56
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 15
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 56,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "P",
           "range": true,
           "expr": "(sum by (pod) (rate(pgbouncer_stats_totals_server_in_transaction_seconds_total{db_cluster=\"platform-primary\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Server transaction time",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "s",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "s"
+        }
       },
-      "id": 16,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 56
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 16
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 64,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "Q",
           "range": true,
           "expr": "(sum by (pod) (rate(pgbouncer_stats_totals_received_bytes_total{db_cluster=\"platform-primary\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Network received",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "Bps",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "Bps"
+        }
       },
-      "id": 17,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 64
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 17
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 64,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "R",
           "range": true,
           "expr": "(sum by (pod) (rate(pgbouncer_stats_totals_sent_bytes_total{db_cluster=\"platform-primary\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Network sent",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "Bps",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "Bps"
+        }
       },
-      "id": 18,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 64
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 18
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 72,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}} / {{database}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}} / {{database}}",
           "refId": "S",
           "range": true,
           "expr": "(sum by (pod, database) (pgbouncer_databases_current_connections{db_cluster=\"platform-primary\"})) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Database current connections",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 19,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 72
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 19
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 72,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}} / {{database}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}} / {{database}}",
           "refId": "T",
           "range": true,
           "expr": "(sum by (pod, database) (pgbouncer_databases_max_connections{db_cluster=\"platform-primary\"})) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Database connection limit",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 20,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 72
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 20
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 80,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}} / {{database}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}} / {{database}}",
           "refId": "U",
           "range": true,
           "expr": "(sum by (pod, database) (pgbouncer_databases_pool_size{db_cluster=\"platform-primary\"})) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Database pool size",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 21,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 80
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 21
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 80,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}} / {{database}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}} / {{database}}",
           "refId": "V",
           "range": true,
           "expr": "(sum by (pod, database) (pgbouncer_databases_reserve_pool{db_cluster=\"platform-primary\"})) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Database reserve pool",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 22,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 80
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 22
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 88,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "W",
           "range": true,
           "expr": "(max by (pod) (pgbouncer_config_max_client_connections{db_cluster=\"platform-primary\"})) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Configured maximum clients",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 23,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 88
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 23
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 88,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "X",
           "range": true,
           "expr": "(max by (pod) (pgbouncer_config_max_user_connections{db_cluster=\"platform-primary\"})) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Configured maximum user connections",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 24,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 88
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 24
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 96,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "Y",
           "range": true,
           "expr": "(sum by (pod) (pgbouncer_cached_dns_names{db_cluster=\"platform-primary\"} + pgbouncer_in_flight_dns_queries{db_cluster=\"platform-primary\"})) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "DNS cache and in-flight queries",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 25,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 96
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 25
     },
     {
-      "id": 26,
-      "gridPos": {
-        "x": 0,
-        "y": 104,
-        "h": 10,
-        "w": 24
-      },
-      "title": "Recent logs",
       "datasource": {
         "type": "elasticsearch",
         "uid": "elasticsearch"
-      },
-      "type": "logs",
-      "options": {
-        "sortOrder": "Descending",
-        "wrapLogMessage": true,
-        "showTime": true,
-        "dedupStrategy": "none",
-        "showLabels": false,
-        "showCommonLabels": false,
-        "prettifyLogMessage": false,
-        "enableLogDetails": true
       },
       "targets": [
         {
           "metrics": [
             {
-              "type": "logs",
-              "id": "1"
+              "id": "1",
+              "type": "logs"
             }
           ],
-          "refId": "Logs",
           "query": "kubernetes.pod.name: pgbouncer-platform-primary-*",
-          "bucketAggs": [],
           "datasource": {
             "type": "elasticsearch",
             "uid": "elasticsearch"
           },
+          "timeField": "@timestamp",
+          "bucketAggs": [],
           "queryType": "logs",
-          "timeField": "@timestamp"
+          "refId": "Logs"
         }
-      ]
+      ],
+      "type": "logs",
+      "title": "Recent logs",
+      "options": {
+        "sortOrder": "Descending",
+        "wrapLogMessage": true,
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "dedupStrategy": "none",
+        "showCommonLabels": false,
+        "showTime": true,
+        "showLabels": false
+      },
+      "id": 26,
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 104
+      }
     }
   ],
-  "annotations": {
-    "list": []
+  "editable": false,
+  "time": {
+    "to": "now",
+    "from": "now-6h"
   },
-  "liveNow": false,
-  "graphTooltip": 1,
+  "uid": "automatic-system-infra-pgbounce-bc209b08",
+  "timezone": "browser",
+  "id": null,
+  "title": "Infrastructure / PgBouncer / platform-primary",
   "tags": [
     "automatic-system",
     "infrastructure",
     "pgbouncer-platform-primary"
   ],
-  "title": "Infrastructure / PgBouncer / platform-primary",
-  "version": 1,
   "refresh": "30s",
-  "fiscalYearStartMonth": 0,
-  "links": [],
-  "time": {
-    "to": "now",
-    "from": "now-6h"
-  },
-  "editable": false,
-  "timezone": "browser",
+  "timepicker": {},
+  "version": 1,
+  "graphTooltip": 1,
+  "schemaVersion": 41,
   "templating": {
     "list": []
   },
-  "schemaVersion": 41,
-  "uid": "automatic-system-infra-pgbounce-bc209b08",
-  "id": null,
+  "annotations": {
+    "list": []
+  },
   "weekStart": "",
-  "timepicker": {}
+  "fiscalYearStartMonth": 0,
+  "links": [],
+  "liveNow": false
 }

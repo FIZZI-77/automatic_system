@@ -50,9 +50,27 @@ export type Position = {
   department_id?: string;
 };
 
+const sameOrigin = "same-origin";
+
+function apiBaseURL(): string {
+  const configuredURL = process.env.NEXT_PUBLIC_API_BASE_URL;
+  if (configuredURL === sameOrigin) return "";
+
+  return configuredURL || "http://localhost:8081";
+}
+
+function notificationsWebSocketURL(): string {
+  const configuredURL = process.env.NEXT_PUBLIC_NOTIFICATIONS_WS_URL;
+  if (configuredURL && configuredURL !== sameOrigin) return configuredURL;
+  if (typeof window === "undefined") return "ws://localhost:8081/notifications/ws";
+
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${protocol}//${window.location.host}/notifications/ws`;
+}
+
 export const config = {
-  apiBase: process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8081",
-  wsUrl: process.env.NEXT_PUBLIC_NOTIFICATIONS_WS_URL || "ws://localhost:8081/notifications/ws",
+  apiBase: apiBaseURL(),
+  wsUrl: notificationsWebSocketURL(),
   yandexMapsApiUrl: process.env.NEXT_PUBLIC_YANDEX_MAPS_API_URL || "https://api-maps.yandex.ru/v3/",
   yandexMapsApiKey: process.env.NEXT_PUBLIC_YANDEX_MAPS_API_KEY || "",
   yandexMapsLang: process.env.NEXT_PUBLIC_YANDEX_MAPS_LANG || "ru_RU",

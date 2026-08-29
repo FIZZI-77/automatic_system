@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"ticket/pkg/telemetry"
@@ -58,6 +59,8 @@ func main() {
 		Password: os.Getenv("DB_PASSWORD"),
 		DbName:   os.Getenv("DB_NAME"),
 		SSLMode:  os.Getenv("SSLMODE"),
+		MaxConns: poolSize("DB_WRITE_MAX_CONNS", 16),
+		MinConns: poolSize("DB_WRITE_MIN_CONNS", 2),
 	})
 	if err != nil {
 		log.Fatalf("failed to connect primary db: %v", err)
@@ -73,6 +76,8 @@ func main() {
 		Password: os.Getenv("DB_PASSWORD"),
 		DbName:   os.Getenv("DB_NAME"),
 		SSLMode:  os.Getenv("SSLMODE"),
+		MaxConns: poolSize("DB_READ_MAX_CONNS", 16),
+		MinConns: poolSize("DB_READ_MIN_CONNS", 2),
 	})
 	if err != nil {
 		writeDB.Close()
@@ -161,6 +166,21 @@ func main() {
 	closeDependencies(dependencies)
 
 	log.Println("ticket service stopped")
+}
+
+func poolSize(name string, fallback int32) int32 {
+	raw := strings.TrimSpace(os.Getenv(name))
+	if raw == "" {
+		return fallback
+	}
+
+	value, err := strconv.ParseInt(raw, 10, 32)
+	if err != nil || value < 0 {
+		log.Printf("invalid %s=%q; using %d", name, raw, fallback)
+		return fallback
+	}
+
+	return int32(value)
 }
 
 func closeDependencies(dependencies *closer.Closer) {

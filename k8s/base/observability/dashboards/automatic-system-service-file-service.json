@@ -1,1303 +1,1303 @@
 {
   "panels": [
     {
-      "gridPos": {
-        "x": 0,
-        "y": 0,
-        "h": 5,
-        "w": 4
-      },
       "targets": [
         {
-          "legendFormat": "up",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "up",
           "refId": "A",
           "range": true,
           "expr": "max(up{job=\"application-services\",service=\"file-service\"}) or vector(0)"
         }
       ],
-      "type": "stat",
       "title": "Scrape availability",
+      "type": "stat",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 1,
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 0,
+        "y": 0
+      },
       "options": {
-        "graphMode": "area",
         "colorMode": "value",
         "reduceOptions": {
-          "values": false,
           "fields": "",
+          "values": false,
           "calcs": [
             "lastNotNull"
           ]
         },
-        "justifyMode": "auto"
-      }
+        "justifyMode": "auto",
+        "graphMode": "area"
+      },
+      "id": 1
     },
     {
-      "gridPos": {
-        "x": 4,
-        "y": 0,
-        "h": 5,
-        "w": 5
-      },
       "targets": [
         {
-          "legendFormat": "spans/s",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "spans/s",
           "refId": "B",
           "range": true,
           "expr": "sum(rate(traces_span_metrics_calls_total{exported_job=\"file-service\"}[5m])) or vector(0)"
         }
       ],
-      "type": "stat",
       "title": "Span rate",
+      "type": "stat",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "reqps",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "reqps"
+        }
       },
-      "id": 2,
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 4,
+        "y": 0
+      },
       "options": {
-        "graphMode": "area",
         "colorMode": "value",
         "reduceOptions": {
-          "values": false,
           "fields": "",
+          "values": false,
           "calcs": [
             "lastNotNull"
           ]
         },
-        "justifyMode": "auto"
-      }
+        "justifyMode": "auto",
+        "graphMode": "area"
+      },
+      "id": 2
     },
     {
-      "gridPos": {
-        "x": 9,
-        "y": 0,
-        "h": 5,
-        "w": 5
-      },
       "targets": [
         {
-          "legendFormat": "errors",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "errors",
           "refId": "C",
           "range": true,
           "expr": "100 * sum(rate(traces_span_metrics_calls_total{exported_job=\"file-service\",status_code=\"STATUS_CODE_ERROR\"}[5m])) / clamp_min(sum(rate(traces_span_metrics_calls_total{exported_job=\"file-service\"}[5m])), 0.001) or vector(0)"
         }
       ],
-      "type": "stat",
       "title": "Span error rate",
+      "type": "stat",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "percent",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "percent"
+        }
       },
-      "id": 3,
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 9,
+        "y": 0
+      },
       "options": {
-        "graphMode": "area",
         "colorMode": "value",
         "reduceOptions": {
-          "values": false,
           "fields": "",
+          "values": false,
           "calcs": [
             "lastNotNull"
           ]
         },
-        "justifyMode": "auto"
-      }
+        "justifyMode": "auto",
+        "graphMode": "area"
+      },
+      "id": 3
     },
     {
-      "gridPos": {
-        "x": 14,
-        "y": 0,
-        "h": 5,
-        "w": 5
-      },
       "targets": [
         {
-          "legendFormat": "p95",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "p95",
           "refId": "D",
           "range": true,
           "expr": "histogram_quantile(0.95, sum by (le) (rate(traces_span_metrics_duration_milliseconds_bucket{exported_job=\"file-service\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "stat",
       "title": "Span p95 latency",
+      "type": "stat",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "ms",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "ms"
+        }
       },
-      "id": 4,
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 14,
+        "y": 0
+      },
       "options": {
-        "graphMode": "area",
         "colorMode": "value",
         "reduceOptions": {
-          "values": false,
           "fields": "",
+          "values": false,
           "calcs": [
             "lastNotNull"
           ]
         },
-        "justifyMode": "auto"
-      }
+        "justifyMode": "auto",
+        "graphMode": "area"
+      },
+      "id": 4
     },
     {
-      "gridPos": {
-        "x": 19,
-        "y": 0,
-        "h": 5,
-        "w": 5
-      },
       "targets": [
         {
-          "legendFormat": "memory",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "memory",
           "refId": "E",
           "range": true,
           "expr": "sum(go_memory_used_bytes{job=\"application-services\",service=\"file-service\"}) or vector(0)"
         }
       ],
-      "type": "stat",
       "title": "Go managed memory",
+      "type": "stat",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "bytes",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "bytes"
+        }
       },
-      "id": 5,
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 19,
+        "y": 0
+      },
       "options": {
-        "graphMode": "area",
         "colorMode": "value",
         "reduceOptions": {
-          "values": false,
           "fields": "",
+          "values": false,
           "calcs": [
             "lastNotNull"
           ]
         },
-        "justifyMode": "auto"
-      }
+        "justifyMode": "auto",
+        "graphMode": "area"
+      },
+      "id": 5
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 5,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{span_kind}} / {{span_name}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{span_kind}} / {{span_name}}",
           "refId": "F",
           "range": true,
           "expr": "sum by (span_name, span_kind) (rate(traces_span_metrics_calls_total{exported_job=\"file-service\"}[5m])) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Operations by span name",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "ops",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "ops"
+        }
       },
-      "id": 6,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 5
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 6
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 5,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{span_name}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{span_name}}",
           "refId": "G",
           "range": true,
           "expr": "histogram_quantile(0.95, sum by (le, span_name) (rate(traces_span_metrics_duration_milliseconds_bucket{exported_job=\"file-service\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Operation p95 latency",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "ms",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "ms"
+        }
       },
-      "id": 7,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 5
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 7
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 13,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{span_kind}} / {{span_name}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{span_kind}} / {{span_name}}",
           "refId": "H",
           "range": true,
           "expr": "sum by (span_name, span_kind) (rate(traces_span_metrics_calls_total{exported_job=\"file-service\",status_code=\"STATUS_CODE_ERROR\"}[5m])) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Failed operations",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "ops",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "ops"
+        }
       },
-      "id": 8,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 13
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 8
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 13,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{client}} / failed={{failed}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{client}} / failed={{failed}}",
           "refId": "I",
           "range": true,
           "expr": "sum by (client, failed) (rate(traces_service_graph_request_total{server=\"file-service\"}[5m])) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Incoming service graph",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "reqps",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "reqps"
+        }
       },
-      "id": 9,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 13
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 9
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 21,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{server}} / failed={{failed}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{server}} / failed={{failed}}",
           "refId": "J",
           "range": true,
           "expr": "sum by (server, failed) (rate(traces_service_graph_request_total{client=\"file-service\"}[5m])) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Outgoing service graph",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "reqps",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "reqps"
+        }
       },
-      "id": 10,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 21
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 10
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 21,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{server}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{server}}",
           "refId": "K",
           "range": true,
           "expr": "histogram_quantile(0.95, sum by (le, server) (rate(traces_service_graph_request_server_seconds_bucket{client=\"file-service\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Outgoing dependency p95",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "s",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "s"
+        }
       },
-      "id": 11,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 21
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 11
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 29,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{rpc_method}} / {{rpc_response_status_code}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{rpc_method}} / {{rpc_response_status_code}}",
           "refId": "L",
           "range": true,
           "expr": "sum by (rpc_method, rpc_response_status_code) (rate(rpc_server_call_duration_seconds_count{job=\"application-services\",service=\"file-service\",rpc_method!~\"grpc.health.*\"}[5m])) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Requests by operation and status",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "ops",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "ops"
+        }
       },
-      "id": 12,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 29
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 12
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 29,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "p50",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "p50",
           "refId": "M",
           "range": true,
           "expr": "histogram_quantile(0.50, sum by (le) (rate(rpc_server_call_duration_seconds_bucket{job=\"application-services\",service=\"file-service\",rpc_method!~\"grpc.health.*\"}[5m]))) or vector(0)"
         },
         {
-          "legendFormat": "p95",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "p95",
           "refId": "N",
           "range": true,
           "expr": "histogram_quantile(0.95, sum by (le) (rate(rpc_server_call_duration_seconds_bucket{job=\"application-services\",service=\"file-service\",rpc_method!~\"grpc.health.*\"}[5m]))) or vector(0)"
         },
         {
-          "legendFormat": "p99",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "p99",
           "refId": "O",
           "range": true,
           "expr": "histogram_quantile(0.99, sum by (le) (rate(rpc_server_call_duration_seconds_bucket{job=\"application-services\",service=\"file-service\",rpc_method!~\"grpc.health.*\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Request latency percentiles",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "s",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "s"
+        }
       },
-      "id": 13,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 29
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 13
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 37,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pgx_operation_type}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pgx_operation_type}}",
           "refId": "P",
           "range": true,
           "expr": "sum by (pgx_operation_type) (rate(db_client_operation_duration_seconds_count{job=\"application-services\",service=\"file-service\"}[5m])) or vector(0)"
         },
         {
-          "legendFormat": "{{pgx_operation_type}} errors",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pgx_operation_type}} errors",
           "refId": "Q",
           "range": true,
           "expr": "sum by (pgx_operation_type) (rate(db_client_operation_errors_total{job=\"application-services\",service=\"file-service\"}[5m])) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Database operations",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "ops",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "ops"
+        }
       },
-      "id": 14,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 37
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 14
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 37,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pgx_operation_type}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pgx_operation_type}}",
           "refId": "R",
           "range": true,
           "expr": "histogram_quantile(0.95, sum by (le, pgx_operation_type) (rate(db_client_operation_duration_seconds_bucket{job=\"application-services\",service=\"file-service\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Database p95 latency",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "s",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "s"
+        }
       },
-      "id": 15,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 37
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 15
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 45,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "acquired",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "acquired",
           "refId": "S",
           "range": true,
           "expr": "sum(pgxpool_acquired_connections{job=\"application-services\",service=\"file-service\"}) or vector(0)"
         },
         {
-          "legendFormat": "idle",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "idle",
           "refId": "T",
           "range": true,
           "expr": "sum(pgxpool_idle_connections{job=\"application-services\",service=\"file-service\"}) or vector(0)"
         },
         {
-          "legendFormat": "max",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "max",
           "refId": "U",
           "range": true,
           "expr": "sum(pgxpool_max_connections{job=\"application-services\",service=\"file-service\"}) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Connection pool",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 16,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 45
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 16
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 45,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "goroutines",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "goroutines",
           "refId": "V",
           "range": true,
           "expr": "sum(go_goroutine_count{job=\"application-services\",service=\"file-service\"}) or vector(0)"
         },
         {
-          "legendFormat": "CPU cores",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "CPU cores",
           "refId": "W",
           "range": true,
           "expr": "sum(rate(process_cpu_seconds_total{job=\"application-services\",service=\"file-service\"}[5m])) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Go runtime",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 17,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 45
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 17
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 53,
-        "h": 8,
-        "w": 24
-      },
       "targets": [
         {
-          "legendFormat": "{{destination_service_name}} / {{response_code}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{destination_service_name}} / {{response_code}}",
           "refId": "X",
           "range": true,
           "expr": "sum by (destination_service_name, response_code) (rate(istio_requests_total{source_app=\"file-service\",reporter=\"source\"}[5m])) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Istio traffic by destination",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "ops",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "ops"
+        }
       },
-      "id": 18,
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 53
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 18
     },
     {
-      "id": 19,
-      "gridPos": {
-        "x": 0,
-        "y": 61,
-        "h": 10,
-        "w": 24
-      },
-      "title": "Recent logs",
       "datasource": {
         "type": "elasticsearch",
         "uid": "elasticsearch"
-      },
-      "type": "logs",
-      "options": {
-        "sortOrder": "Descending",
-        "wrapLogMessage": true,
-        "showTime": true,
-        "dedupStrategy": "none",
-        "showLabels": false,
-        "showCommonLabels": false,
-        "prettifyLogMessage": false,
-        "enableLogDetails": true
       },
       "targets": [
         {
           "metrics": [
             {
-              "type": "logs",
-              "id": "1"
+              "id": "1",
+              "type": "logs"
             }
           ],
-          "refId": "Logs",
           "query": "kubernetes.pod.name: file-service-*",
-          "bucketAggs": [],
           "datasource": {
             "type": "elasticsearch",
             "uid": "elasticsearch"
           },
+          "timeField": "@timestamp",
+          "bucketAggs": [],
           "queryType": "logs",
-          "timeField": "@timestamp"
+          "refId": "Logs"
         }
-      ]
+      ],
+      "type": "logs",
+      "title": "Recent logs",
+      "options": {
+        "sortOrder": "Descending",
+        "wrapLogMessage": true,
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "dedupStrategy": "none",
+        "showCommonLabels": false,
+        "showTime": true,
+        "showLabels": false
+      },
+      "id": 19,
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 61
+      }
     }
   ],
-  "annotations": {
-    "list": []
+  "editable": false,
+  "time": {
+    "to": "now",
+    "from": "now-6h"
   },
-  "liveNow": false,
-  "graphTooltip": 1,
+  "uid": "automatic-system-service-file-service",
+  "timezone": "browser",
+  "id": null,
+  "title": "Service / File Service",
   "tags": [
     "automatic-system",
     "service",
     "file-service"
   ],
-  "title": "Service / File Service",
-  "version": 1,
   "refresh": "30s",
-  "fiscalYearStartMonth": 0,
-  "links": [],
-  "time": {
-    "to": "now",
-    "from": "now-6h"
-  },
-  "editable": false,
-  "timezone": "browser",
+  "timepicker": {},
+  "version": 1,
+  "graphTooltip": 1,
+  "schemaVersion": 41,
   "templating": {
     "list": []
   },
-  "schemaVersion": 41,
-  "uid": "automatic-system-service-file-service",
-  "id": null,
+  "annotations": {
+    "list": []
+  },
   "weekStart": "",
-  "timepicker": {}
+  "fiscalYearStartMonth": 0,
+  "links": [],
+  "liveNow": false
 }

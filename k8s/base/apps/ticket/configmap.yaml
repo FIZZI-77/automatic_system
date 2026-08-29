@@ -16,6 +16,10 @@ data:
   DB_USERNAME: "ticket_user"
   DB_NAME: "ticket_db"
   SSLMODE: "disable"
+  DB_WRITE_MAX_CONNS: '16'
+  DB_WRITE_MIN_CONNS: '2'
+  DB_READ_MAX_CONNS: '16'
+  DB_READ_MIN_CONNS: '2'
   KAFKA_BROKERS: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
   OUTBOX_WORKER_COUNT: '4'
   KAFKA_ROUTING_TOPIC: "routing.events.v1"

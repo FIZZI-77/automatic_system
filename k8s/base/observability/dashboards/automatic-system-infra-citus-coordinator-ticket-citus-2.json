@@ -1,1897 +1,1897 @@
 {
   "panels": [
     {
-      "gridPos": {
-        "x": 0,
-        "y": 0,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "A",
           "range": true,
           "expr": "(pg_up{pod=\"coordinator-ticket-citus-2\"}) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "PostgreSQL availability",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 1,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 1
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 0,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{name}} primary",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{name}} primary",
           "refId": "B",
           "range": true,
           "expr": "(patroni_primary{pod=\"coordinator-ticket-citus-2\"}) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Patroni role",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 2,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 2
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 8,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "C",
           "range": true,
           "expr": "(pg_replication_lag_seconds{pod=\"coordinator-ticket-citus-2\"}) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Replication lag",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "s",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "s"
+        }
       },
-      "id": 3,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 3
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 8,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}} / {{datname}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}} / {{datname}}",
           "refId": "D",
           "range": true,
           "expr": "(sum by (pod, datname) (pg_stat_database_numbackends{pod=\"coordinator-ticket-citus-2\"})) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Database connections",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 4,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 4
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 16,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "E",
           "range": true,
           "expr": "(100 * sum by (pod) (pg_stat_database_numbackends{pod=\"coordinator-ticket-citus-2\"}) / clamp_min(max by (pod) (pg_settings_max_connections{pod=\"coordinator-ticket-citus-2\"}), 1)) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Connection utilization",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "percent",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "percent"
+        }
       },
-      "id": 5,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 5
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 16,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "F",
           "range": true,
           "expr": "(max by (pod) (pg_stat_activity_max_tx_duration{pod=\"coordinator-ticket-citus-2\"})) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Maximum transaction duration",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "s",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "s"
+        }
       },
-      "id": 6,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 6
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 24,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}} / {{datname}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}} / {{datname}}",
           "refId": "G",
           "range": true,
           "expr": "(sum by (pod, datname) (rate(pg_stat_database_xact_commit{pod=\"coordinator-ticket-citus-2\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Commits",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "ops",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "ops"
+        }
       },
-      "id": 7,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 7
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 24,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}} / {{datname}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}} / {{datname}}",
           "refId": "H",
           "range": true,
           "expr": "(sum by (pod, datname) (rate(pg_stat_database_xact_rollback{pod=\"coordinator-ticket-citus-2\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Rollbacks",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "ops",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "ops"
+        }
       },
-      "id": 8,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 8
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 32,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}} / {{datname}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}} / {{datname}}",
           "refId": "I",
           "range": true,
           "expr": "(100 * sum by (pod, datname) (rate(pg_stat_database_blks_hit{pod=\"coordinator-ticket-citus-2\"}[5m])) / clamp_min(sum by (pod, datname) (rate(pg_stat_database_blks_hit{pod=\"coordinator-ticket-citus-2\"}[5m]) + rate(pg_stat_database_blks_read{pod=\"coordinator-ticket-citus-2\"}[5m])), 0.001)) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Cache hit ratio",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "percent",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "percent"
+        }
       },
-      "id": 9,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 32
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 9
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 32,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}} / {{datname}} returned",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}} / {{datname}} returned",
           "refId": "J",
           "range": true,
           "expr": "(sum by (pod, datname) (rate(pg_stat_database_tup_returned{pod=\"coordinator-ticket-citus-2\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Rows returned and fetched",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "ops",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "ops"
+        }
       },
-      "id": 10,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 32
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 10
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 40,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}} / {{datname}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}} / {{datname}}",
           "refId": "K",
           "range": true,
           "expr": "(sum by (pod, datname) (rate(pg_stat_database_tup_fetched{pod=\"coordinator-ticket-citus-2\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Rows fetched",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "ops",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "ops"
+        }
       },
-      "id": 11,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 40
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 11
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 40,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}} / {{datname}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}} / {{datname}}",
           "refId": "L",
           "range": true,
           "expr": "(sum by (pod, datname) (rate(pg_stat_database_tup_inserted{pod=\"coordinator-ticket-citus-2\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Rows inserted",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "ops",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "ops"
+        }
       },
-      "id": 12,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 40
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 12
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 48,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}} / {{datname}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}} / {{datname}}",
           "refId": "M",
           "range": true,
           "expr": "(sum by (pod, datname) (rate(pg_stat_database_tup_updated{pod=\"coordinator-ticket-citus-2\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Rows updated",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "ops",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "ops"
+        }
       },
-      "id": 13,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 48
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 13
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 48,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}} / {{datname}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}} / {{datname}}",
           "refId": "N",
           "range": true,
           "expr": "(sum by (pod, datname) (rate(pg_stat_database_tup_deleted{pod=\"coordinator-ticket-citus-2\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Rows deleted",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "ops",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "ops"
+        }
       },
-      "id": 14,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 48
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 14
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 56,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}} / {{datname}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}} / {{datname}}",
           "refId": "O",
           "range": true,
           "expr": "(sum by (pod, datname) (rate(pg_stat_database_deadlocks{pod=\"coordinator-ticket-citus-2\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Deadlocks",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "ops",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "ops"
+        }
       },
-      "id": 15,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 56
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 15
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 56,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}} / {{datname}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}} / {{datname}}",
           "refId": "P",
           "range": true,
           "expr": "(sum by (pod, datname) (rate(pg_stat_database_conflicts{pod=\"coordinator-ticket-citus-2\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Conflicts",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "ops",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "ops"
+        }
       },
-      "id": 16,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 56
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 16
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 64,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}} / {{datname}} / {{mode}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}} / {{datname}} / {{mode}}",
           "refId": "Q",
           "range": true,
           "expr": "(sum by (pod, datname, mode) (pg_locks_count{pod=\"coordinator-ticket-citus-2\"})) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Locks by mode",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 17,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 64
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 17
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 64,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}} / {{datname}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}} / {{datname}}",
           "refId": "R",
           "range": true,
           "expr": "(sum by (pod, datname) (rate(pg_stat_database_temp_files{pod=\"coordinator-ticket-citus-2\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Temporary files",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "ops",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "ops"
+        }
       },
-      "id": 18,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 64
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 18
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 72,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}} / {{datname}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}} / {{datname}}",
           "refId": "S",
           "range": true,
           "expr": "(sum by (pod, datname) (rate(pg_stat_database_temp_bytes{pod=\"coordinator-ticket-citus-2\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Temporary bytes",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "Bps",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "Bps"
+        }
       },
-      "id": 19,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 72
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 19
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 72,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}} / {{datname}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}} / {{datname}}",
           "refId": "T",
           "range": true,
           "expr": "(sum by (pod, datname) (rate(pg_stat_database_blk_read_time{pod=\"coordinator-ticket-citus-2\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Block read time",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "ms",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "ms"
+        }
       },
-      "id": 20,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 72
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 20
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 80,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}} / {{datname}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}} / {{datname}}",
           "refId": "U",
           "range": true,
           "expr": "(sum by (pod, datname) (rate(pg_stat_database_blk_write_time{pod=\"coordinator-ticket-citus-2\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Block write time",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "ms",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "ms"
+        }
       },
-      "id": 21,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 80
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 21
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 80,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}} / {{datname}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}} / {{datname}}",
           "refId": "V",
           "range": true,
           "expr": "(sum by (pod, datname) (pg_database_size_bytes{pod=\"coordinator-ticket-citus-2\"})) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Database size",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "bytes",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "bytes"
+        }
       },
-      "id": 22,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 80
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 22
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 88,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "W",
           "range": true,
           "expr": "(max by (pod) (pg_wal_size_bytes{pod=\"coordinator-ticket-citus-2\"})) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "WAL size",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "bytes",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "bytes"
+        }
       },
-      "id": 23,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 88
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 23
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 88,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "X",
           "range": true,
           "expr": "(max by (pod) (pg_wal_segments{pod=\"coordinator-ticket-citus-2\"})) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "WAL segments",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 24,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 88
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 24
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 96,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "Y",
           "range": true,
           "expr": "(sum by (pod) (rate(pg_stat_bgwriter_checkpoints_timed_total{pod=\"coordinator-ticket-citus-2\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Timed checkpoints",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "ops",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "ops"
+        }
       },
-      "id": 25,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 96
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 25
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 96,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "Z",
           "range": true,
           "expr": "(sum by (pod) (rate(pg_stat_bgwriter_checkpoints_req_total{pod=\"coordinator-ticket-citus-2\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Requested checkpoints",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "ops",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "ops"
+        }
       },
-      "id": 26,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 96
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 26
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 104,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "[",
           "range": true,
           "expr": "(sum by (pod) (rate(pg_stat_bgwriter_checkpoint_write_time_total{pod=\"coordinator-ticket-citus-2\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Checkpoint write time",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "ms",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "ms"
+        }
       },
-      "id": 27,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 104
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 27
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 104,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "\\",
           "range": true,
           "expr": "(max by (pod) (pg_exporter_last_scrape_error{pod=\"coordinator-ticket-citus-2\"})) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Exporter scrape errors",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 28,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 104
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 28
     },
     {
-      "id": 29,
-      "gridPos": {
-        "x": 0,
-        "y": 112,
-        "h": 10,
-        "w": 24
-      },
-      "title": "Recent logs",
       "datasource": {
         "type": "elasticsearch",
         "uid": "elasticsearch"
-      },
-      "type": "logs",
-      "options": {
-        "sortOrder": "Descending",
-        "wrapLogMessage": true,
-        "showTime": true,
-        "dedupStrategy": "none",
-        "showLabels": false,
-        "showCommonLabels": false,
-        "prettifyLogMessage": false,
-        "enableLogDetails": true
       },
       "targets": [
         {
           "metrics": [
             {
-              "type": "logs",
-              "id": "1"
+              "id": "1",
+              "type": "logs"
             }
           ],
-          "refId": "Logs",
           "query": "kubernetes.pod.name: coordinator-ticket-citus-2",
-          "bucketAggs": [],
           "datasource": {
             "type": "elasticsearch",
             "uid": "elasticsearch"
           },
+          "timeField": "@timestamp",
+          "bucketAggs": [],
           "queryType": "logs",
-          "timeField": "@timestamp"
+          "refId": "Logs"
         }
-      ]
+      ],
+      "type": "logs",
+      "title": "Recent logs",
+      "options": {
+        "sortOrder": "Descending",
+        "wrapLogMessage": true,
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "dedupStrategy": "none",
+        "showCommonLabels": false,
+        "showTime": true,
+        "showLabels": false
+      },
+      "id": 29,
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 112
+      }
     }
   ],
-  "annotations": {
-    "list": []
+  "editable": false,
+  "time": {
+    "to": "now",
+    "from": "now-6h"
   },
-  "liveNow": false,
-  "graphTooltip": 1,
+  "uid": "automatic-system-infra-citus-co-c4652c8f",
+  "timezone": "browser",
+  "id": null,
+  "title": "Infrastructure / Citus / coordinator-ticket-citus-2",
   "tags": [
     "automatic-system",
     "infrastructure",
     "citus-coordinator-ticket-citus-2"
   ],
-  "title": "Infrastructure / Citus / coordinator-ticket-citus-2",
-  "version": 1,
   "refresh": "30s",
-  "fiscalYearStartMonth": 0,
-  "links": [],
-  "time": {
-    "to": "now",
-    "from": "now-6h"
-  },
-  "editable": false,
-  "timezone": "browser",
+  "timepicker": {},
+  "version": 1,
+  "graphTooltip": 1,
+  "schemaVersion": 41,
   "templating": {
     "list": []
   },
-  "schemaVersion": 41,
-  "uid": "automatic-system-infra-citus-co-c4652c8f",
-  "id": null,
+  "annotations": {
+    "list": []
+  },
   "weekStart": "",
-  "timepicker": {}
+  "fiscalYearStartMonth": 0,
+  "links": [],
+  "liveNow": false
 }

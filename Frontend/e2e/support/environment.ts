@@ -4,6 +4,8 @@ import path from "node:path";
 
 export const frontendUrl = process.env.E2E_BASE_URL || "http://127.0.0.1:3000";
 export const gatewayUrl = process.env.E2E_API_URL || "http://127.0.0.1:8081";
+export const frontendHealthUrl = process.env.E2E_FRONTEND_HEALTH_URL || frontendUrl;
+export const gatewayHealthUrl = process.env.E2E_GATEWAY_HEALTH_URL || gatewayUrl;
 export const demoPassword = process.env.E2E_DEMO_PASSWORD || "CityDemo123!";
 
 export const accounts = {

@@ -13,6 +13,7 @@ export default defineConfig({
   globalTeardown: "./e2e/global-teardown.ts",
   use: {
     baseURL: process.env.E2E_BASE_URL || "http://127.0.0.1:3000",
+    ignoreHTTPSErrors: process.env.E2E_IGNORE_HTTPS_ERRORS === "1",
     actionTimeout: 12_000,
     navigationTimeout: 30_000,
     trace: "retain-on-failure",
@@ -22,7 +23,26 @@ export default defineConfig({
     timezoneId: "Europe/Moscow",
   },
   projects: [
-    { name: "desktop-chromium", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 1000 } } },
-    { name: "mobile-chromium", testMatch: /responsive\.spec\.ts/, use: { ...devices["Pixel 7"] } },
+    {
+      name: "desktop-chromium",
+      use: {
+        ...devices["Desktop Chrome"],
+        launchOptions: hostResolverLaunchOptions(),
+        viewport: { width: 1440, height: 1000 },
+      },
+    },
+    {
+      name: "mobile-chromium",
+      testMatch: /responsive\.spec\.ts/,
+      use: {
+        ...devices["Pixel 7"],
+        launchOptions: hostResolverLaunchOptions(),
+      },
+    },
   ],
 });
+
+function hostResolverLaunchOptions() {
+  const rules = process.env.E2E_HOST_RESOLVER_RULES;
+  return rules ? { args: [`--host-resolver-rules=${rules}`] } : undefined;
+}

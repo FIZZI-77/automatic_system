@@ -1137,6 +1137,10 @@ func ticketErrorCode(err error) codes.Code {
 	}
 
 	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		return codes.DeadlineExceeded
+	case errors.Is(err, context.Canceled):
+		return codes.Canceled
 	case errors.Is(err, models.ErrValidation):
 		return codes.InvalidArgument
 	case errors.Is(err, models.ErrNotFound):

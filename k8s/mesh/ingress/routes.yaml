@@ -8,7 +8,26 @@ spec:
   gateways:
     - automatic-system
   http:
-    - route:
+    - name: api-gateway
+      match:
+        - uri:
+            regex: '^/(auth|tickets|files|sla|notifications|audit|analytics|reports|assets|ticket-categories|departments|brigades|brigade-members|skills|brigade-skills|brigade-schedules|brigade-zones|locations|geo-zones|routing|dispatch|user-profiles|work-profiles|profile-checks|certification-types|certification-type-skills|work-profile-certifications|work-profile-skills)(/.*)?$'
+        - uri:
+            prefix: /.well-known/
+        - uri:
+            exact: /health
+        - uri:
+            exact: /livez
+        - uri:
+            exact: /readyz
+      timeout: 30s
+      route:
+        - destination:
+            host: api-gateway.automatic-system.svc.cluster.local
+            port:
+              number: 8081
+    - name: frontend
+      route:
         - destination:
             host: frontend.automatic-system.svc.cluster.local
             port:

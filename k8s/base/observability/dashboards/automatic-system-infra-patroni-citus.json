@@ -1,1572 +1,1572 @@
 {
   "panels": [
     {
-      "gridPos": {
-        "x": 0,
-        "y": 0,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "A",
           "range": true,
           "expr": "(patroni_postgres_running{db_cluster=\"postgres-ticket-citus\"}) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "PostgreSQL running",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 1,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 1
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 0,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "B",
           "range": true,
           "expr": "(patroni_primary{db_cluster=\"postgres-ticket-citus\"}) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Primary role",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 2,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 2
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 8,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "C",
           "range": true,
           "expr": "(patroni_replica{db_cluster=\"postgres-ticket-citus\"}) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Replica role",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 3,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 3
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 8,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "D",
           "range": true,
           "expr": "(patroni_standby_leader{db_cluster=\"postgres-ticket-citus\"}) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Standby leader",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 4,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 4
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 16,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "E",
           "range": true,
           "expr": "(patroni_sync_standby{db_cluster=\"postgres-ticket-citus\"}) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Synchronous standby",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 5,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 5
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 16,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "F",
           "range": true,
           "expr": "(patroni_quorum_standby{db_cluster=\"postgres-ticket-citus\"}) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Quorum standby",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 6,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 6
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 24,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "G",
           "range": true,
           "expr": "(patroni_cluster_unlocked{db_cluster=\"postgres-ticket-citus\"}) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Cluster unlocked",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 7,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 7
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 24,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "H",
           "range": true,
           "expr": "(time() - patroni_dcs_last_seen{db_cluster=\"postgres-ticket-citus\"}) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "DCS observation age",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "s",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "s"
+        }
       },
-      "id": 8,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 8
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 32,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "I",
           "range": true,
           "expr": "(patroni_is_paused{db_cluster=\"postgres-ticket-citus\"}) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Pause mode",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 9,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 32
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 9
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 32,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "J",
           "range": true,
           "expr": "(patroni_pending_restart{db_cluster=\"postgres-ticket-citus\"}) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Pending restart",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 10,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 32
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 10
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 40,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "K",
           "range": true,
           "expr": "(patroni_failsafe_mode_is_active{db_cluster=\"postgres-ticket-citus\"}) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Failsafe mode",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 11,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 40
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 11
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 40,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "L",
           "range": true,
           "expr": "(patroni_postgres_in_archive_recovery{db_cluster=\"postgres-ticket-citus\"}) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Archive recovery",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 12,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 40
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 12
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 48,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "M",
           "range": true,
           "expr": "(patroni_postgres_state{db_cluster=\"postgres-ticket-citus\"}) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "PostgreSQL state",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 13,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 48
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 13
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 48,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "N",
           "range": true,
           "expr": "(patroni_postgres_streaming{db_cluster=\"postgres-ticket-citus\"}) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Streaming state",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 14,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 48
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 14
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 56,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "O",
           "range": true,
           "expr": "(patroni_postgres_timeline{db_cluster=\"postgres-ticket-citus\"}) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Timeline",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 15,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 56
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 15
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 56,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "P",
           "range": true,
           "expr": "(time() - patroni_postmaster_start_time{db_cluster=\"postgres-ticket-citus\"}) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Postmaster uptime",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "s",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "s"
+        }
       },
-      "id": 16,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 56
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 16
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 64,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "Q",
           "range": true,
           "expr": "(patroni_xlog_location{db_cluster=\"postgres-ticket-citus\"}) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "WAL location",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "bytes",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "bytes"
+        }
       },
-      "id": 17,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 64
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 17
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 64,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "R",
           "range": true,
           "expr": "(patroni_xlog_received_location{db_cluster=\"postgres-ticket-citus\"}) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "WAL received",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "bytes",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "bytes"
+        }
       },
-      "id": 18,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 64
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 18
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 72,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "S",
           "range": true,
           "expr": "(patroni_xlog_replayed_location{db_cluster=\"postgres-ticket-citus\"}) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "WAL replayed",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "bytes",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "bytes"
+        }
       },
-      "id": 19,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 72
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 19
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 72,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "T",
           "range": true,
           "expr": "(time() - patroni_xlog_replayed_timestamp{db_cluster=\"postgres-ticket-citus\"}) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "WAL replay delay",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "s",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "s"
+        }
       },
-      "id": 20,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 72
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 20
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 80,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "U",
           "range": true,
           "expr": "(patroni_xlog_paused{db_cluster=\"postgres-ticket-citus\"}) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "WAL replay paused",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 21,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 80
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 21
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 80,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "V",
           "range": true,
           "expr": "(patroni_version{db_cluster=\"postgres-ticket-citus\"}) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Patroni version",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 22,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 80
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 22
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 88,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{pod}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
           "refId": "W",
           "range": true,
           "expr": "(patroni_postgres_server_version{db_cluster=\"postgres-ticket-citus\"}) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "PostgreSQL server version",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 23,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 88
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 23
     },
     {
-      "id": 24,
-      "gridPos": {
-        "x": 0,
-        "y": 96,
-        "h": 10,
-        "w": 24
-      },
-      "title": "Recent logs",
       "datasource": {
         "type": "elasticsearch",
         "uid": "elasticsearch"
-      },
-      "type": "logs",
-      "options": {
-        "sortOrder": "Descending",
-        "wrapLogMessage": true,
-        "showTime": true,
-        "dedupStrategy": "none",
-        "showLabels": false,
-        "showCommonLabels": false,
-        "prettifyLogMessage": false,
-        "enableLogDetails": true
       },
       "targets": [
         {
           "metrics": [
             {
-              "type": "logs",
-              "id": "1"
+              "id": "1",
+              "type": "logs"
             }
           ],
-          "refId": "Logs",
           "query": "(kubernetes.pod.name: coordinator-ticket-citus-* OR kubernetes.pod.name: worker-*-ticket-citus-*)",
-          "bucketAggs": [],
           "datasource": {
             "type": "elasticsearch",
             "uid": "elasticsearch"
           },
+          "timeField": "@timestamp",
+          "bucketAggs": [],
           "queryType": "logs",
-          "timeField": "@timestamp"
+          "refId": "Logs"
         }
-      ]
+      ],
+      "type": "logs",
+      "title": "Recent logs",
+      "options": {
+        "sortOrder": "Descending",
+        "wrapLogMessage": true,
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "dedupStrategy": "none",
+        "showCommonLabels": false,
+        "showTime": true,
+        "showLabels": false
+      },
+      "id": 24,
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 96
+      }
     }
   ],
-  "annotations": {
-    "list": []
+  "editable": false,
+  "time": {
+    "to": "now",
+    "from": "now-6h"
   },
-  "liveNow": false,
-  "graphTooltip": 1,
+  "uid": "automatic-system-infra-patroni-citus",
+  "timezone": "browser",
+  "id": null,
+  "title": "Infrastructure / Patroni / Citus Cluster",
   "tags": [
     "automatic-system",
     "infrastructure",
     "patroni-citus"
   ],
-  "title": "Infrastructure / Patroni / Citus Cluster",
-  "version": 1,
   "refresh": "30s",
-  "fiscalYearStartMonth": 0,
-  "links": [],
-  "time": {
-    "to": "now",
-    "from": "now-6h"
-  },
-  "editable": false,
-  "timezone": "browser",
+  "timepicker": {},
+  "version": 1,
+  "graphTooltip": 1,
+  "schemaVersion": 41,
   "templating": {
     "list": []
   },
-  "schemaVersion": 41,
-  "uid": "automatic-system-infra-patroni-citus",
-  "id": null,
+  "annotations": {
+    "list": []
+  },
   "weekStart": "",
-  "timepicker": {}
+  "fiscalYearStartMonth": 0,
+  "links": [],
+  "liveNow": false
 }

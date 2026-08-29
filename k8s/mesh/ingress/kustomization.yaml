@@ -4,6 +4,8 @@ namespace: automatic-system
 resources:
   - gateway.yaml
   - routes.yaml
+  - gateway-public.yaml
+  - routes-public.yaml
   - destination-rules.yaml
   - network-policy.yaml
   - public-port-authentication.yaml

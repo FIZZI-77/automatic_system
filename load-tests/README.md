@@ -128,3 +128,33 @@ docker compose -f docker-compose.yml -f load-tests/docker-compose.k6.yml --profi
 - доля HTTP-ошибок выше 1%;
 - p95 больше 1 секунды;
 - p99 больше 2 секунд.
+
+## Kubernetes: нагрузка вместе с chaos
+
+Сценарий `kubernetes-chaos.js` запускается как Kubernetes Job непосредственно
+в namespace `automatic-system`. Он разделяет метрики на фазы `warmup`,
+`baseline`, `chaos` и `recovery`, выполняет чтение основных справочников,
+просмотр заявок, создание части заявок и негативную проверку авторизации.
+
+Быстрая проверка без отказов:
+
+```powershell
+.\k8s\scripts\run-k6-chaos.ps1 -Quick -Rate 5
+```
+
+Полный запуск с отказами Kafka, Ticket Service, Redis, PgBouncer и PostgreSQL
+read replica:
+
+```powershell
+.\k8s\scripts\run-k6-chaos.ps1 -ExecuteChaos -Rate 20
+```
+
+Дополнительный failover Patroni primary включается явно:
+
+```powershell
+.\k8s\scripts\run-k6-chaos.ps1 -ExecuteChaos -IncludeDatabaseFailover -Rate 20
+```
+
+Скрипт отказывается работать вне контекста `docker-desktop`. Результаты k6,
+включая JSON summary, консольный отчёт и времена восстановления каждого chaos
+события, сохраняются в `test-results/k6-kubernetes-chaos`.

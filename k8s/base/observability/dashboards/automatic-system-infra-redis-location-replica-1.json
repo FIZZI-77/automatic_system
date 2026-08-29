@@ -1,467 +1,467 @@
 {
   "panels": [
     {
-      "gridPos": {
-        "x": 0,
-        "y": 0,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{instance}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{instance}}",
           "refId": "A",
           "range": true,
           "expr": "(redis_memory_used_bytes{instance=\"redis-location-replica-1\"}) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Memory",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "bytes",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "bytes"
+        }
       },
-      "id": 1,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 1
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 0,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{instance}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{instance}}",
           "refId": "B",
           "range": true,
           "expr": "(redis_connected_clients{instance=\"redis-location-replica-1\"}) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Connected clients",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "short",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "short"
+        }
       },
-      "id": 2,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 2
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 8,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{instance}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{instance}}",
           "refId": "C",
           "range": true,
           "expr": "(sum by (instance) (rate(redis_commands_total{instance=\"redis-location-replica-1\"}[5m]))) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Commands",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "ops",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "ops"
+        }
       },
-      "id": 3,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 3
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 8,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{instance}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{instance}}",
           "refId": "D",
           "range": true,
           "expr": "(rate(redis_keyspace_hits_total{instance=\"redis-location-replica-1\"}[5m]) / clamp_min(rate(redis_keyspace_hits_total{instance=\"redis-location-replica-1\"}[5m]) + rate(redis_keyspace_misses_total{instance=\"redis-location-replica-1\"}[5m]), 0.001)) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Hit ratio",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "percentunit",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "percentunit"
+        }
       },
-      "id": 4,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 4
     },
     {
-      "gridPos": {
-        "x": 0,
-        "y": 16,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{instance}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{instance}}",
           "refId": "E",
           "range": true,
           "expr": "(rate(redis_net_input_bytes_total{instance=\"redis-location-replica-1\"}[5m])) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Network input",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "Bps",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "Bps"
+        }
       },
-      "id": 5,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 5
     },
     {
-      "gridPos": {
-        "x": 12,
-        "y": 16,
-        "h": 8,
-        "w": 12
-      },
       "targets": [
         {
-          "legendFormat": "{{instance}}",
-          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
+          "legendFormat": "{{instance}}",
           "refId": "F",
           "range": true,
           "expr": "(rate(redis_evicted_keys_total{instance=\"redis-location-replica-1\"}[5m]) + rate(redis_expired_keys_total{instance=\"redis-location-replica-1\"}[5m])) or vector(0)"
         }
       ],
-      "type": "timeseries",
       "title": "Evicted / expired keys",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
+          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 1
+                "value": 1,
+                "color": "red"
               }
             ],
             "mode": "absolute"
           },
-          "unit": "ops",
-          "noValue": "0",
           "color": {
             "mode": "palette-classic"
-          }
-        },
-        "overrides": []
+          },
+          "unit": "ops"
+        }
       },
-      "id": 6,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
       "options": {
-        "tooltip": {
-          "sort": "desc",
-          "mode": "multi"
-        },
         "legend": {
           "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
             "lastNotNull",
             "max"
-          ],
-          "placement": "bottom"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "id": 6
     },
     {
-      "id": 7,
-      "gridPos": {
-        "x": 0,
-        "y": 24,
-        "h": 10,
-        "w": 24
-      },
-      "title": "Recent logs",
       "datasource": {
         "type": "elasticsearch",
         "uid": "elasticsearch"
-      },
-      "type": "logs",
-      "options": {
-        "sortOrder": "Descending",
-        "wrapLogMessage": true,
-        "showTime": true,
-        "dedupStrategy": "none",
-        "showLabels": false,
-        "showCommonLabels": false,
-        "prettifyLogMessage": false,
-        "enableLogDetails": true
       },
       "targets": [
         {
           "metrics": [
             {
-              "type": "logs",
-              "id": "1"
+              "id": "1",
+              "type": "logs"
             }
           ],
-          "refId": "Logs",
           "query": "kubernetes.pod.name: redis-location-replica-1-*",
-          "bucketAggs": [],
           "datasource": {
             "type": "elasticsearch",
             "uid": "elasticsearch"
           },
+          "timeField": "@timestamp",
+          "bucketAggs": [],
           "queryType": "logs",
-          "timeField": "@timestamp"
+          "refId": "Logs"
         }
-      ]
+      ],
+      "type": "logs",
+      "title": "Recent logs",
+      "options": {
+        "sortOrder": "Descending",
+        "wrapLogMessage": true,
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "dedupStrategy": "none",
+        "showCommonLabels": false,
+        "showTime": true,
+        "showLabels": false
+      },
+      "id": 7,
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      }
     }
   ],
-  "annotations": {
-    "list": []
+  "editable": false,
+  "time": {
+    "to": "now",
+    "from": "now-6h"
   },
-  "liveNow": false,
-  "graphTooltip": 1,
+  "uid": "automatic-system-infra-redis-lo-c3db922e",
+  "timezone": "browser",
+  "id": null,
+  "title": "Infrastructure / Redis / location-replica-1",
   "tags": [
     "automatic-system",
     "infrastructure",
     "redis-location-replica-1"
   ],
-  "title": "Infrastructure / Redis / location-replica-1",
-  "version": 1,
   "refresh": "30s",
-  "fiscalYearStartMonth": 0,
-  "links": [],
-  "time": {
-    "to": "now",
-    "from": "now-6h"
-  },
-  "editable": false,
-  "timezone": "browser",
+  "timepicker": {},
+  "version": 1,
+  "graphTooltip": 1,
+  "schemaVersion": 41,
   "templating": {
     "list": []
   },
-  "schemaVersion": 41,
-  "uid": "automatic-system-infra-redis-lo-c3db922e",
-  "id": null,
+  "annotations": {
+    "list": []
+  },
   "weekStart": "",
-  "timepicker": {}
+  "fiscalYearStartMonth": 0,
+  "links": [],
+  "liveNow": false
 }
