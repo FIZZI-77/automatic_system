@@ -44,6 +44,8 @@ coverage.html
 # Generated output
 output/
 
+.frontend-dev.tar
+
 # Secrets
 /keys/private.pem
 
