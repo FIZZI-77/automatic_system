@@ -63,13 +63,18 @@ func (m *MemberRepoStruct) AddBrigadeMember(ctx context.Context, in *models.AddB
 	}
 
 	payload := map[string]any{
-		"event_id":   uuid.NewString(),
-		"event_type": "BrigadeMemberAdded",
-		"brigade_id": member.BrigadeID.String(),
-		"member_id":  member.ID.String(),
-		"user_id":    member.UserID.String(),
-		"role":       member.Role,
-		"created_at": member.CreatedAt,
+		"event_id":                       uuid.NewString(),
+		"event_type":                     "BrigadeMemberAdded",
+		"brigade_id":                     member.BrigadeID.String(),
+		"member_id":                      member.ID.String(),
+		"user_id":                        member.UserID.String(),
+		"role":                           member.Role,
+		"active":                         member.Active,
+		"member_status":                  "ACTIVE",
+		"availability_status":            member.AvailabilityStatus,
+		"availability_status_changed_at": member.AvailabilityStatusChangedAt,
+		"joined_at":                      member.JoinedAt,
+		"created_at":                     member.CreatedAt,
 	}
 	if member.ProfileID != nil {
 		payload["profile_id"] = member.ProfileID.String()
@@ -164,14 +169,17 @@ func (m *MemberRepoStruct) RemoveBrigadeMember(ctx context.Context, in *models.R
 	}
 
 	payload := map[string]any{
-		"event_id":   uuid.NewString(),
-		"event_type": "BrigadeMemberRemoved",
-		"brigade_id": removed.BrigadeID.String(),
-		"member_id":  removed.ID.String(),
-		"user_id":    removed.UserID.String(),
-		"role":       removed.Role,
-		"reason":     in.Reason,
-		"left_at":    removed.LeftAt,
+		"event_id":            uuid.NewString(),
+		"event_type":          "BrigadeMemberRemoved",
+		"brigade_id":          removed.BrigadeID.String(),
+		"member_id":           removed.ID.String(),
+		"user_id":             removed.UserID.String(),
+		"role":                removed.Role,
+		"active":              removed.Active,
+		"member_status":       "REMOVED",
+		"availability_status": removed.AvailabilityStatus,
+		"reason":              in.Reason,
+		"left_at":             removed.LeftAt,
 	}
 
 	if err = insertOutboxEvent(ctx, tx, "brigade", removed.BrigadeID, "BrigadeMemberRemoved", payload, in.RequestID, in.TraceID); err != nil {
@@ -227,14 +235,18 @@ func (m *MemberRepoStruct) ChangeBrigadeMemberRole(ctx context.Context, in *mode
 	}
 
 	payload := map[string]any{
-		"event_id":   uuid.NewString(),
-		"event_type": "BrigadeMemberRoleChanged",
-		"brigade_id": updated.BrigadeID.String(),
-		"member_id":  updated.ID.String(),
-		"user_id":    updated.UserID.String(),
-		"old_role":   oldRole,
-		"new_role":   updated.Role,
-		"updated_at": updated.UpdatedAt,
+		"event_id":            uuid.NewString(),
+		"event_type":          "BrigadeMemberRoleChanged",
+		"brigade_id":          updated.BrigadeID.String(),
+		"member_id":           updated.ID.String(),
+		"user_id":             updated.UserID.String(),
+		"old_role":            oldRole,
+		"new_role":            updated.Role,
+		"role":                updated.Role,
+		"active":              updated.Active,
+		"member_status":       "ACTIVE",
+		"availability_status": updated.AvailabilityStatus,
+		"updated_at":          updated.UpdatedAt,
 	}
 
 	if err = insertOutboxEvent(ctx, tx, "brigade", updated.BrigadeID, "BrigadeMemberRoleChanged", payload, in.RequestID, in.TraceID); err != nil {
@@ -293,15 +305,19 @@ func (m *MemberRepoStruct) SetBrigadeMemberAvailability(ctx context.Context, in 
 	}
 
 	payload := map[string]any{
-		"event_id":    uuid.NewString(),
-		"event_type":  "BrigadeMemberAvailabilityChanged",
-		"brigade_id":  updated.BrigadeID.String(),
-		"member_id":   updated.ID.String(),
-		"user_id":     updated.UserID.String(),
-		"from_status": oldStatus,
-		"to_status":   updated.AvailabilityStatus,
-		"reason":      in.Reason,
-		"changed_at":  updated.AvailabilityStatusChangedAt,
+		"event_id":            uuid.NewString(),
+		"event_type":          "BrigadeMemberAvailabilityChanged",
+		"brigade_id":          updated.BrigadeID.String(),
+		"member_id":           updated.ID.String(),
+		"user_id":             updated.UserID.String(),
+		"from_status":         oldStatus,
+		"to_status":           updated.AvailabilityStatus,
+		"availability_status": updated.AvailabilityStatus,
+		"role":                updated.Role,
+		"active":              updated.Active,
+		"member_status":       "ACTIVE",
+		"reason":              in.Reason,
+		"changed_at":          updated.AvailabilityStatusChangedAt,
 	}
 
 	if err = insertOutboxEvent(ctx, tx, "brigade", updated.BrigadeID, "BrigadeMemberAvailabilityChanged", payload, in.RequestID, in.TraceID); err != nil {

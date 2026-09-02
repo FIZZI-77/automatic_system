@@ -24,6 +24,36 @@ type DailyRepository interface {
 type AssetRepository interface {
 	AssetSummary(context.Context, models.Filter, *string, *string) (models.AssetSummary, error)
 }
+type OperationalLatencyRepository interface {
+	OperationalLatency(context.Context, models.Filter, string) (models.OperationalLatency, error)
+}
+type DispatchFailureRepository interface {
+	DispatchFailures(context.Context, models.Filter) (models.DispatchFailureSummary, error)
+}
+type BrigadeWorkloadRepository interface {
+	BrigadeWorkload(context.Context, models.Filter) (models.BrigadeWorkload, error)
+}
+type ActiveWorkersRepository interface {
+	ActiveWorkers(context.Context, models.Filter) (models.ActiveWorkers, error)
+}
+type AssignmentFunnelRepository interface {
+	AssignmentFunnel(context.Context, models.Filter) (models.AssignmentFunnel, error)
+}
+type DispatchEffectivenessRepository interface {
+	DispatchEffectiveness(context.Context, models.Filter) (models.DispatchEffectiveness, error)
+}
+type OperationalInsightsRepository interface {
+	OperationalInsights(context.Context, models.Filter) (models.OperationalInsights, error)
+}
+type ProjectionHealthRepository interface {
+	ProjectionHealth(context.Context) (models.ProjectionHealth, error)
+}
+type DispatchOperationsRepository interface {
+	DispatchOperations(context.Context, models.Filter, uint32) ([]models.DispatchOperationItem, error)
+}
+type BrigadePerformanceRepository interface {
+	BrigadePerformance(context.Context, models.Filter) (models.BrigadePerformance, error)
+}
 type Repository struct {
 	EventRepository
 	OverviewRepository
@@ -31,16 +61,36 @@ type Repository struct {
 	BreakdownRepository
 	DailyRepository
 	AssetRepository
+	OperationalLatencyRepository
+	DispatchFailureRepository
+	BrigadeWorkloadRepository
+	ActiveWorkersRepository
+	AssignmentFunnelRepository
+	DispatchEffectivenessRepository
+	OperationalInsightsRepository
+	ProjectionHealthRepository
+	DispatchOperationsRepository
+	BrigadePerformanceRepository
 }
 
 func NewRepository(db driver.Conn) *Repository {
 	analytics := NewAnalyticsRepoStruct(db)
 	return &Repository{
-		EventRepository:     analytics,
-		OverviewRepository:  analytics,
-		SLARepository:       analytics,
-		BreakdownRepository: analytics,
-		DailyRepository:     analytics,
-		AssetRepository:     analytics,
+		EventRepository:                 analytics,
+		OverviewRepository:              analytics,
+		SLARepository:                   analytics,
+		BreakdownRepository:             analytics,
+		DailyRepository:                 analytics,
+		AssetRepository:                 analytics,
+		OperationalLatencyRepository:    analytics,
+		DispatchFailureRepository:       analytics,
+		BrigadeWorkloadRepository:       analytics,
+		ActiveWorkersRepository:         analytics,
+		AssignmentFunnelRepository:      analytics,
+		DispatchEffectivenessRepository: analytics,
+		OperationalInsightsRepository:   analytics,
+		ProjectionHealthRepository:      analytics,
+		DispatchOperationsRepository:    analytics,
+		BrigadePerformanceRepository:    analytics,
 	}
 }

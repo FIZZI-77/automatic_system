@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"dispatch/models"
@@ -93,7 +94,15 @@ func (s *Service) Reserve(ctx context.Context, in *models.ReserveInput) (*models
 		return nil, fmt.Errorf("%w: reservation TTL must be between 15s and 15m", models.ErrInvalidArgument)
 	}
 	ctx = forwardMetadata(ctx)
-	op, err := s.repo.Create(ctx, in.TicketID, in.RequestedBy, models.ModeManual, ttl)
+	ticket, err := s.getNewTicket(ctx, in.TicketID)
+	if err != nil {
+		return nil, err
+	}
+	createInput, err := operationInput(ticket, in.TicketID, in.RequestedBy, models.ModeManual, ttl)
+	if err != nil {
+		return nil, err
+	}
+	op, err := s.repo.Create(ctx, createInput)
 	if err != nil {
 		return nil, err
 	}
@@ -108,16 +117,77 @@ func (s *Service) AutoDispatch(ctx context.Context, in *models.AutoInput) (*mode
 		in.CandidateLimit = 10
 	}
 	ctx = forwardMetadata(ctx)
+	if in.TriggerEventID != nil {
+		existing, lookupErr := s.repo.GetByTriggerEvent(ctx, *in.TriggerEventID)
+		if lookupErr == nil {
+			return s.resumeAutomaticLocked(ctx, existing, in)
+		}
+		if !errors.Is(lookupErr, models.ErrNotFound) {
+			return nil, lookupErr
+		}
+	}
+	ticket, err := s.getNewTicket(ctx, in.TicketID)
+	if err != nil {
+		return nil, err
+	}
+	createInput, err := operationInput(ticket, in.TicketID, in.RequestedBy, models.ModeAutomatic, s.ttl)
+	if err != nil {
+		return nil, err
+	}
+	createInput.TriggerEventID = in.TriggerEventID
+	op, err := s.repo.Create(ctx, createInput)
+	if err != nil {
+		return nil, err
+	}
+	return s.resumeAutomaticLocked(ctx, op, in)
+}
+
+func (s *Service) resumeAutomaticLocked(ctx context.Context, op *models.Operation, in *models.AutoInput) (*models.Operation, error) {
+	releaseLock, acquired, err := s.repo.TryOperationLock(ctx, op.ID)
+	if err != nil {
+		return nil, err
+	}
+	if !acquired {
+		return op, nil
+	}
+	defer func() {
+		if releaseErr := releaseLock(); releaseErr != nil {
+			s.log.Error("release dispatch operation lock", zap.Error(releaseErr), zap.String("operation_id", op.ID.String()))
+		}
+	}()
+	return s.resumeAutomatic(ctx, op, in)
+}
+
+func (s *Service) resumeAutomatic(ctx context.Context, op *models.Operation, in *models.AutoInput) (*models.Operation, error) {
+	switch op.Status {
+	case models.StatusAssigned, models.StatusFailed, models.StatusCancelled, models.StatusExpired:
+		return op, nil
+	case models.StatusReserved:
+		return s.Confirm(ctx, &models.ConfirmInput{ID: op.ID, ConfirmedBy: in.RequestedBy, ExpectedVersion: op.Version})
+	case models.StatusConfirming:
+		return s.finishConfirm(ctx, op, in.RequestedBy)
+	case models.StatusPending:
+	default:
+		return nil, fmt.Errorf("%w: unsupported automatic dispatch status %s", models.ErrConflict, op.Status)
+	}
 	candidates, err := s.Preview(ctx, &models.RecommendInput{TicketID: in.TicketID, RequiredSkillIDs: in.RequiredSkillIDs, Limit: in.CandidateLimit})
 	if err != nil {
+		_, _ = s.repo.SetFailed(ctx, op.ID, "CANDIDATE_RANKING", "CANDIDATE_RANKING_FAILED", err.Error(), op.Version)
+		return nil, err
+	}
+	reachableCount := 0
+	for _, candidate := range candidates {
+		if candidate.Reachable {
+			reachableCount++
+		}
+	}
+	if err = s.repo.RecordCandidates(ctx, op, len(candidates), reachableCount); err != nil {
+		_, _ = s.repo.SetFailed(ctx, op.ID, "EVENT_PERSISTENCE", "CANDIDATE_EVENT_FAILED", err.Error(), op.Version)
 		return nil, err
 	}
 	if len(candidates) == 0 {
+		_, _ = s.repo.SetFailed(ctx, op.ID, "CANDIDATE_SELECTION", "NO_REACHABLE_BRIGADE", "no reachable brigade", op.Version)
 		return nil, fmt.Errorf("%w: no reachable brigade", models.ErrNotFound)
-	}
-	op, err := s.repo.Create(ctx, in.TicketID, in.RequestedBy, models.ModeAutomatic, s.ttl)
-	if err != nil {
-		return nil, err
 	}
 	var lastErr error = errors.New("no reachable brigade")
 	for _, candidate := range candidates {
@@ -131,7 +201,7 @@ func (s *Service) AutoDispatch(ctx context.Context, in *models.AutoInput) (*mode
 		}
 		return s.Confirm(ctx, &models.ConfirmInput{ID: reserved.ID, ConfirmedBy: in.RequestedBy, ExpectedVersion: reserved.Version})
 	}
-	_, _ = s.repo.SetFailed(ctx, op.ID, lastErr.Error(), op.Version)
+	_, _ = s.repo.SetFailed(ctx, op.ID, "RESERVATION", "RESERVATION_FAILED", lastErr.Error(), op.Version)
 	return nil, fmt.Errorf("auto dispatch: %w", lastErr)
 }
 
@@ -181,10 +251,23 @@ func (s *Service) Confirm(ctx context.Context, in *models.ConfirmInput) (*models
 		s.cancelRoute(ctx, routeID.String())
 		return nil, err
 	}
-	_, err = s.deps.Tickets.AssignBrigade(ctx, &ticketv1.AssignBrigadeRequest{TicketId: op.TicketID.String(), BrigadeId: op.BrigadeID.String(), AssignedBy: in.ConfirmedBy.String(), Comment: "assigned by dispatch"})
+	return s.finishConfirm(ctx, op, in.ConfirmedBy)
+}
+
+func (s *Service) finishConfirm(ctx context.Context, op *models.Operation, actor uuid.UUID) (*models.Operation, error) {
+	if op.BrigadeID == nil || op.RouteID == nil {
+		return nil, fmt.Errorf("%w: confirming dispatch misses brigade or route", models.ErrConflict)
+	}
+	_, err := s.deps.Tickets.AssignBrigade(ctx, &ticketv1.AssignBrigadeRequest{
+		TicketId: op.TicketID.String(), BrigadeId: op.BrigadeID.String(), AssignedBy: actor.String(), Comment: "assigned by dispatch",
+	})
 	if err != nil {
-		s.cancelRoute(ctx, routeID.String())
-		return s.failAndRelease(ctx, op, in.ConfirmedBy, fmt.Errorf("assign ticket: %w", err))
+		ticketResponse, getErr := s.deps.Tickets.GetTicket(ctx, &ticketv1.GetTicketRequest{TicketId: op.TicketID.String()})
+		alreadyAssigned := getErr == nil && ticketResponse.GetTicket().GetBrigadeId() == op.BrigadeID.String()
+		if !alreadyAssigned {
+			s.cancelRoute(ctx, op.RouteID.String())
+			return s.failAndRelease(ctx, op, actor, fmt.Errorf("assign ticket: %w", err))
+		}
 	}
 	return s.repo.FinishConfirm(ctx, op.ID, op.Version)
 }
@@ -273,7 +356,7 @@ func (s *Service) getNewTicket(ctx context.Context, id uuid.UUID) (*ticketv1.Tic
 }
 
 func (s *Service) failAndRelease(ctx context.Context, op *models.Operation, actor uuid.UUID, cause error) (*models.Operation, error) {
-	failed, transitionErr := s.repo.SetFailed(ctx, op.ID, cause.Error(), op.Version)
+	failed, transitionErr := s.repo.SetFailed(ctx, op.ID, dispatchFailureStage(op), dispatchFailureCode(cause), cause.Error(), op.Version)
 	if transitionErr != nil {
 		return nil, errors.Join(cause, transitionErr)
 	}
@@ -281,6 +364,54 @@ func (s *Service) failAndRelease(ctx context.Context, op *models.Operation, acto
 		s.release(ctx, *failed.BrigadeID, actor)
 	}
 	return nil, cause
+}
+
+func dispatchFailureCode(err error) string {
+	switch {
+	case errors.Is(err, models.ErrNotFound):
+		return "DEPENDENCY_NOT_FOUND"
+	case errors.Is(err, models.ErrConflict):
+		return "STATE_CONFLICT"
+	case status.Code(err) == codes.Unavailable:
+		return "DEPENDENCY_UNAVAILABLE"
+	default:
+		return "DISPATCH_FAILED"
+	}
+}
+
+func dispatchFailureStage(operation *models.Operation) string {
+	switch operation.Status {
+	case models.StatusReserved:
+		return "ROUTING"
+	case models.StatusConfirming:
+		return "TICKET_ASSIGNMENT"
+	default:
+		return "DISPATCH"
+	}
+}
+
+func operationInput(ticket *ticketv1.Ticket, ticketID, requestedBy uuid.UUID, mode models.Mode, ttl time.Duration) (models.CreateOperationInput, error) {
+	departmentID, err := uuid.Parse(ticket.GetDepartmentId())
+	if err != nil {
+		return models.CreateOperationInput{}, fmt.Errorf("%w: ticket department_id", models.ErrInvalidArgument)
+	}
+	categoryID, err := uuid.Parse(ticket.GetCategoryId())
+	if err != nil {
+		return models.CreateOperationInput{}, fmt.Errorf("%w: ticket category_id", models.ErrInvalidArgument)
+	}
+	priority := strings.TrimPrefix(ticket.GetPriority().String(), "TICKET_PRIORITY_")
+	if priority == "" || priority == "UNSPECIFIED" {
+		return models.CreateOperationInput{}, fmt.Errorf("%w: ticket priority", models.ErrInvalidArgument)
+	}
+	return models.CreateOperationInput{
+		TicketID:     ticketID,
+		DepartmentID: departmentID,
+		CategoryID:   categoryID,
+		Priority:     priority,
+		RequestedBy:  requestedBy,
+		Mode:         mode,
+		TTL:          ttl,
+	}, nil
 }
 
 func (s *Service) release(ctx context.Context, id, actor uuid.UUID) {

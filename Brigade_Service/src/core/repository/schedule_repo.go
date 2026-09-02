@@ -53,6 +53,7 @@ func (s *ScheduleRepoStruct) SetBrigadeSchedule(ctx context.Context, in *models.
 		"event_type": "BrigadeScheduleChanged",
 		"brigade_id": in.BrigadeID.String(),
 		"items":      len(schedule),
+		"schedule":   schedule,
 	}
 	if err = insertOutboxEvent(ctx, tx, "brigade", in.BrigadeID, "BrigadeScheduleChanged", payload, in.RequestID, in.TraceID); err != nil {
 		return nil, fmt.Errorf("repo: SetBrigadeSchedule: insert outbox event: %w", err)

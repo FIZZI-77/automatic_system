@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"location/pkg/telemetry"
+	"strconv"
 	"strings"
 	"time"
 
@@ -32,18 +33,11 @@ type Worker struct {
 }
 
 type eventPayload struct {
-	EventID      string        `json:"event_id"`
-	EventVersion int           `json:"event_version"`
-	EventType    string        `json:"event_type"`
-	OccurredAt   string        `json:"occurred_at"`
-	Payload      signalPayload `json:"payload"`
-}
-
-type signalPayload struct {
-	BrigadeID string `json:"brigade_id"`
-	From      string `json:"from"`
-	To        string `json:"to"`
-	ChangedAt string `json:"changed_at"`
+	EventID      string         `json:"event_id"`
+	EventVersion int            `json:"event_version"`
+	EventType    string         `json:"event_type"`
+	OccurredAt   string         `json:"occurred_at"`
+	Payload      map[string]any `json:"payload"`
 }
 
 func New(rdb redis.UniversalClient, cfg Config, logger *zap.Logger) *Worker {
@@ -142,21 +136,33 @@ func (w *Worker) publish(ctx context.Context, message redis.XMessage) error {
 	eventType := field(message, "event_type")
 	brigadeID := field(message, "brigade_id")
 	occurredAt := field(message, "occurred_at")
-	if eventType != "BrigadeSignalLost" || brigadeID == "" || occurredAt == "" {
+	if brigadeID == "" || occurredAt == "" {
 		return fmt.Errorf("invalid stream event %s", message.ID)
+	}
+	payloadFields := map[string]any{"brigade_id": brigadeID}
+	switch eventType {
+	case "BrigadeSignalLost":
+		payloadFields["from"] = field(message, "from_status")
+		payloadFields["to"] = field(message, "to_status")
+		payloadFields["changed_at"] = occurredAt
+	case "VehiclePositionUpdated":
+		for _, name := range []string{"vehicle_id", "sequence", "latitude", "longitude", "speed_kmh", "accuracy_meters"} {
+			payloadFields[name] = field(message, name)
+		}
+	default:
+		return fmt.Errorf("unsupported stream event %s type %q", message.ID, eventType)
+	}
+	version := 1
+	if parsed, parseErr := strconv.Atoi(field(message, "event_version")); parseErr == nil && parsed > 0 {
+		version = parsed
 	}
 	payload, err := json.Marshal(
 		eventPayload{
-			EventID:      message.ID,
-			EventVersion: 1,
+			EventID:      firstNonEmpty(field(message, "event_id"), message.ID),
+			EventVersion: version,
 			EventType:    eventType,
 			OccurredAt:   occurredAt,
-			Payload: signalPayload{
-				BrigadeID: brigadeID,
-				From:      field(message, "from_status"),
-				To:        field(message, "to_status"),
-				ChangedAt: occurredAt,
-			},
+			Payload:      payloadFields,
 		},
 	)
 	if err != nil {
@@ -180,6 +186,15 @@ func (w *Worker) publish(ctx context.Context, message redis.XMessage) error {
 		return fmt.Errorf("publish stream event %s: %w", message.ID, err)
 	}
 	return nil
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func field(message redis.XMessage, name string) string {

@@ -48,6 +48,33 @@ patches:
   - target:
       group: apps
       version: v1
+      kind: Deployment
+      name: kafka-exporter
+    patch: |-
+      - op: replace
+        path: /spec/template/metadata/labels/sidecar.istio.io~1inject
+        value: "true"
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: prometheus
+    patch: |-
+      - op: replace
+        path: /spec/template/metadata/labels/sidecar.istio.io~1inject
+        value: "true"
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: grafana
+    patch: |-
+      - op: replace
+        path: /spec/template/metadata/labels/sidecar.istio.io~1inject
+        value: "true"
+  - target:
+      group: apps
+      version: v1
       kind: StatefulSet
     patch: |-
       - op: add

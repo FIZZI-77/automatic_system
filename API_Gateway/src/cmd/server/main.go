@@ -76,7 +76,11 @@ func main() {
 	}
 	redisCancel()
 	dependencies.Add("rate limiter redis", redisClient.Close)
-	rateLimiter := middleware.NewRedisRateLimiter(redisClient, getEnv("RATE_LIMIT_PREFIX", "gateway:ratelimit"))
+	rateLimiter := middleware.NewRedisRateLimiter(
+		redisClient,
+		getEnv("RATE_LIMIT_PREFIX", "gateway:ratelimit"),
+		getEnv("RATE_LIMIT_BYPASS_LOAD_TESTS", "false") == "true",
+	)
 
 	authServiceAddr := getEnv("AUTH_SERVICE_ADDR", "localhost:50051")
 	ticketServiceAddr := getEnv("TICKET_SERVICE_ADDR", "localhost:50052")

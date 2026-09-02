@@ -1,0 +1,12 @@
+{
+    "scenario":  "gateway",
+    "k6_exit_code":  99,
+    "rates":  "25,50,100",
+    "base_url":  "http://host.docker.internal:18081",
+    "git_sha":  "c825f9abe801ea1df299e31c56cc5aec3e0911a9",
+    "warmup":  "5s",
+    "stabilization":  "5s",
+    "write_scenario":  false,
+    "run_id":  "20260901T085150Z-20260901T085227Z-gateway",
+    "measurement":  "20s"
+}

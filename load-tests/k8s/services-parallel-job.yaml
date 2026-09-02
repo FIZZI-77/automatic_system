@@ -1,0 +1,73 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: k6-services-parallel
+  namespace: automatic-system
+  labels:
+    app.kubernetes.io/name: k6-services-parallel
+    app.kubernetes.io/component: load-test
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: k6-services-parallel
+        app.kubernetes.io/component: load-test
+        sidecar.istio.io/inject: "true"
+      annotations:
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts":true,"terminationDrainDuration":"0s"}'
+        sidecar.istio.io/nativeSidecar: "true"
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      containers:
+        - name: k6
+          image: automatic-system/k6-load-tests:curve-v2
+          imagePullPolicy: IfNotPresent
+          args:
+            - run
+            - --quiet
+            - --summary-export
+            - /tmp/k6.json
+            - /scripts/services/parallel-read.js
+          env:
+            - name: BASE_URL
+              value: http://istio-ingressgateway.istio-system.svc.cluster.local
+            - name: HOST_HEADER
+              value: tunnel.automatic-system.internal
+            - name: K6_RATES
+              value: 3,5,10,15,20,25,30
+            - name: K6_WARMUP
+              value: 10s
+            - name: K6_MEASUREMENT
+              value: 30s
+            - name: K6_STABILIZATION
+              value: 10s
+            - name: K6_RUN_ID
+              value: k8s-capacity-curve
+            - name: LOAD_USER_EMAIL
+              value: demo.admin@city.local
+            - name: LOAD_USER_PASSWORD
+              value: CityDemo123!
+            - name: CLIENT_ID
+              value: k6-kubernetes
+            - name: TICKET_ID
+              value: 60000000-0000-4000-8000-000000000001
+            - name: BRIGADE_ID
+              value: 30000000-0000-4000-8000-000000000001
+            - name: VEHICLE_ID
+              value: e2000000-0000-4000-8000-000000000001
+          resources:
+            requests:
+              cpu: 500m
+              memory: 256Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault

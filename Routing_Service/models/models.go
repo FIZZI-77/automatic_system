@@ -62,18 +62,37 @@ type CalculatedRoute struct {
 }
 
 type Route struct {
-	ID          string          `json:"id"`
-	TicketID    string          `json:"ticket_id"`
-	BrigadeID   string          `json:"brigade_id"`
-	Status      RouteStatus     `json:"status"`
-	Origin      Point           `json:"origin"`
-	Destination Point           `json:"destination"`
-	Waypoints   []Point         `json:"waypoints"`
-	Options     RouteOptions    `json:"options"`
-	Calculation CalculatedRoute `json:"calculation"`
-	Revision    int32           `json:"revision"`
-	CreatedAt   time.Time       `json:"created_at"`
-	UpdatedAt   time.Time       `json:"updated_at"`
+	ID                        string          `json:"id"`
+	TicketID                  string          `json:"ticket_id"`
+	BrigadeID                 string          `json:"brigade_id"`
+	Status                    RouteStatus     `json:"status"`
+	Origin                    Point           `json:"origin"`
+	Destination               Point           `json:"destination"`
+	Waypoints                 []Point         `json:"waypoints"`
+	Options                   RouteOptions    `json:"options"`
+	Calculation               CalculatedRoute `json:"calculation"`
+	Revision                  int32           `json:"revision"`
+	CreatedAt                 time.Time       `json:"created_at"`
+	UpdatedAt                 time.Time       `json:"updated_at"`
+	CalculationStartedAt      *time.Time      `json:"calculation_started_at,omitempty"`
+	CalculationFinishedAt     *time.Time      `json:"calculation_finished_at,omitempty"`
+	CalculationDurationMillis *float64        `json:"calculation_duration_ms,omitempty"`
+	CalculationSuccess        *bool           `json:"calculation_success,omitempty"`
+}
+
+type CalculationFailure struct {
+	AggregateType         string     `json:"aggregate_type"`
+	AggregateID           string     `json:"aggregate_id"`
+	TicketID              string     `json:"ticket_id"`
+	BrigadeID             string     `json:"brigade_id"`
+	RouteID               string     `json:"route_id,omitempty"`
+	Engine                string     `json:"engine"`
+	TravelMode            TravelMode `json:"travel_mode"`
+	FailureCode           string     `json:"failure_code"`
+	FailureReason         string     `json:"failure_reason"`
+	CalculationStartedAt  time.Time  `json:"calculation_started_at"`
+	CalculationFinishedAt time.Time  `json:"calculation_finished_at"`
+	CalculationDurationMS float64    `json:"calculation_duration_ms"`
 }
 
 type BuildRouteInput struct {

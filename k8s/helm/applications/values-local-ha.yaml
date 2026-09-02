@@ -1,0 +1,36 @@
+environment: local-ha
+dispatch:
+  replicaCount: 2
+  image:
+    repository: ghcr.io/fizzi-77/automatic-system-dispatch
+    tag: scale-20260831
+    pullPolicy: Always
+  podLabels:
+    sidecar.istio.io/inject: "true"
+  podAnnotations:
+    proxy.istio.io/config: '{"holdApplicationUntilProxyStarts":true}'
+  resources:
+    requests:
+      cpu: 150m
+      memory: 192Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+  autoscaling:
+    enabled: false
+  podDisruptionBudget:
+    enabled: true
+  topologySpread:
+    enabled: true
+    whenUnsatisfiable: DoNotSchedule
+apiGateway:
+  serviceType: LoadBalancer
+  pdb:
+    enabled: true
+  topologySpread:
+    enabled: true
+    whenUnsatisfiable: DoNotSchedule
+haDatabase:
+  enabled: true
+applicationAutoscaling:
+  enabled: false

@@ -137,6 +137,102 @@ jobs:
         run: go test -race -count=1 ./...
 
   # ===========================================================================
+  # ANALYTICS CLICKHOUSE INTEGRATION
+  # ===========================================================================
+
+  analytics-integration:
+    name: Analytics / ClickHouse integration
+    runs-on: ubuntu-latest
+
+    services:
+      clickhouse:
+        image: clickhouse/clickhouse-server:25.8
+        env:
+          CLICKHOUSE_DB: analytics
+          CLICKHOUSE_USER: analytics
+          CLICKHOUSE_PASSWORD: analytics
+          CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+        ports:
+          - 8123:8123
+          - 9000:9000
+        options: >-
+          --health-cmd "clickhouse-client --user analytics --password analytics --query 'SELECT 1'"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      GOWORK: "off"
+      CLICKHOUSE_TEST_ADDR: 127.0.0.1:9000
+      CLICKHOUSE_TEST_PASSWORD: analytics
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: Analytics_Service/go.sum
+
+      - name: Initialize analytics schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          container_id="$(docker ps \
+            --filter ancestor=clickhouse/clickhouse-server:25.8 \
+            --format '{{.ID}}' | head -n 1)"
+          test -n "$container_id"
+          docker cp Analytics_Service/scheme/001_events.sql \
+            "$container_id:/tmp/analytics-schema.sql"
+          docker exec "$container_id" clickhouse-client \
+            --user analytics \
+            --password analytics \
+            --multiquery \
+            --queries-file /tmp/analytics-schema.sql
+
+      - name: Run ClickHouse integration tests
+        working-directory: Analytics_Service
+        run: go test -race -count=1 -tags=integration ./src/core/repository
+
+  # ===========================================================================
+  # FRONTEND ANALYTICS QUALITY
+  # ===========================================================================
+
+  frontend-quality:
+    name: Frontend / analytics and E2E contracts
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.19.0"
+          cache: npm
+          cache-dependency-path: Frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: Frontend
+        run: npm ci
+
+      - name: Lint analytics and E2E contracts
+        working-directory: Frontend
+        run: npx eslint app/analytics-page.tsx e2e/api-contracts.spec.ts e2e/global-teardown.ts
+
+      - name: Build frontend
+        working-directory: Frontend
+        run: npm run build
+
+      - name: Compile Playwright test inventory
+        working-directory: Frontend
+        run: npx playwright test --list
+
+  # ===========================================================================
   # GO WORKSPACE VALIDATION
   # ===========================================================================
   #
@@ -261,6 +357,11 @@ jobs:
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4
 
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.18.6
+
       # local overlay использует:
       #
       # secretGenerator:
@@ -297,10 +398,27 @@ jobs:
 
           if [ ! -s rendered.yaml ]; then
             echo "::error::Kustomize rendered an empty manifest"
-            exit 1
+           exit 1
           fi
 
           echo "Rendered $(wc -l < rendered.yaml) lines."
+
+      - name: Validate applications Helm chart
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          helm lint k8s/helm/applications
+          helm lint k8s/helm/applications -f k8s/helm/applications/values-local-ha.yaml
+          helm template applications k8s/helm/applications \
+            --namespace automatic-system \
+            -f k8s/helm/applications/values-prod.yaml \
+            --set-string globalImage.tag=sha-ci-validation \
+            --set-string migrations.tag=sha-ci-validation \
+            --set-string analyticsInit.tag=sha-ci-validation \
+            > applications-helm-rendered.yaml
+
+          test -s applications-helm-rendered.yaml
 
       - name: Reject mutable production application images
         if: matrix.overlay == 'prod'
@@ -323,6 +441,8 @@ jobs:
 
     needs:
       - go-quality
+      - analytics-integration
+      - frontend-quality
       - go-workspace-validation
       - compose-validation
       - kubernetes-validation
@@ -752,6 +872,11 @@ jobs:
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4
 
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.18.6
+
       - name: Configure kubeconfig
         shell: bash
         env:
@@ -909,8 +1034,21 @@ jobs:
         run: |
           set -euo pipefail
 
-          kubectl apply \
-            -k k8s/overlays/dev/apps
+          SHORT_SHA="${GITHUB_SHA::12}"
+          APPLICATION_OWNERSHIP_ARGS=()
+          if ! helm status applications -n automatic-system-dev >/dev/null 2>&1; then
+            APPLICATION_OWNERSHIP_ARGS+=(--take-ownership)
+          fi
+          helm upgrade --install applications k8s/helm/applications \
+            --namespace automatic-system-dev \
+            -f k8s/helm/applications/values-dev.yaml \
+            --set-string "globalImage.tag=sha-${SHORT_SHA}" \
+            --set-string "migrations.tag=sha-${SHORT_SHA}" \
+            --set-string "analyticsInit.tag=sha-${SHORT_SHA}" \
+            "${APPLICATION_OWNERSHIP_ARGS[@]}" \
+            --atomic \
+            --wait \
+            --timeout 15m
 
           kubectl rollout status \
             deployment \
@@ -1035,6 +1173,11 @@ jobs:
 
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.18.6
 
       - name: Configure kubeconfig
         shell: bash
@@ -1231,8 +1374,21 @@ jobs:
         run: |
           set -euo pipefail
 
-          kubectl apply \
-            -k k8s/overlays/prod/apps
+          SHORT_SHA="${GITHUB_SHA::12}"
+          APPLICATION_OWNERSHIP_ARGS=()
+          if ! helm status applications -n automatic-system >/dev/null 2>&1; then
+            APPLICATION_OWNERSHIP_ARGS+=(--take-ownership)
+          fi
+          helm upgrade --install applications k8s/helm/applications \
+            --namespace automatic-system \
+            -f k8s/helm/applications/values-prod.yaml \
+            --set-string "globalImage.tag=sha-${SHORT_SHA}" \
+            --set-string "migrations.tag=sha-${SHORT_SHA}" \
+            --set-string "analyticsInit.tag=sha-${SHORT_SHA}" \
+            "${APPLICATION_OWNERSHIP_ARGS[@]}" \
+            --atomic \
+            --wait \
+            --timeout 15m
 
           kubectl rollout status \
             deployment \

@@ -29,6 +29,8 @@ type Client struct {
 	http    *http.Client
 }
 
+func (*Client) Name() string { return "valhalla" }
+
 func New(config Config) (*Client, error) {
 	baseURL := strings.TrimRight(strings.TrimSpace(config.BaseURL), "/")
 	if baseURL == "" {

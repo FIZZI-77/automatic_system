@@ -1,160 +1,79 @@
-# k6 load tests
+# Automatic System load testing and capacity planning
 
-Основной нагрузочный тест запускается одним контейнером `k6`. Нагрузка создаётся VU и executors внутри k6, поэтому метрики и thresholds формируют единый итоговый отчёт.
+Framework работает с текущим кодом рабочего дерева. Числа производительности в репозитории не зашиты: до реального запуска результат — `N/A / not measured`. Измеренные и экстраполированные значения сохраняются раздельно.
 
-## Быстрый запуск
+## Требования
 
-Стек должен быть запущен:
+- Go версии из `go.work`, k6, Node.js (только детерминированный генератор fixtures), PowerShell 7 или Bash.
+- Развёрнутый test environment Automatic System и доступ к Gateway/Prometheus.
+- Для прямых gRPC-прогонов — ghz и текущий checkout `automatic-system-contracts`.
+- Для Kubernetes profile — `kubectl` с явно выбранным test namespace.
 
-```powershell
-docker compose up -d
-```
+Установка: `winget install k6.k6`, `go install github.com/bojand/ghz/cmd/ghz@latest`.
 
-Smoke:
-
-```powershell
-$env:K6_PROFILE="smoke"
-$env:K6_RUN_ID="smoke-$(Get-Date -Format yyyyMMddHHmmss)"
-docker compose -f docker-compose.yml -f load-tests/docker-compose.k6.yml --profile load run --rm k6
-```
-
-Обычная ramping-нагрузка до 20 VU:
+## Быстрый запуск в PowerShell
 
 ```powershell
-$env:K6_PROFILE="load"
-$env:K6_VUS="20"
-$env:K6_DURATION="5m"
-$env:K6_RUN_ID="load-$(Get-Date -Format yyyyMMddHHmmss)"
-docker compose -f docker-compose.yml -f load-tests/docker-compose.k6.yml --profile load run --rm k6
+$env:LOAD_USER_EMAIL='load@example.invalid'
+$env:LOAD_USER_PASSWORD='test-only-password'
+$env:ACCESS_TOKEN='...'
+$env:TICKET_ID='00000000-0000-0000-0000-000000000000'
+$env:BRIGADE_ID='00000000-0000-0000-0000-000000000000'
+$env:VEHICLE_ID='00000000-0000-0000-0000-000000000000'
+./load-tests/scripts/run.ps1 -Scenario gateway -Rates '100,250,500'
 ```
 
-Один VU получает отдельного пользователя и переиспользует его access token. `K6_RUN_ID` должен отличаться между запусками.
+Записывающие сценарии требуют `$env:LOAD_TEST_ALLOW_DESTRUCTIVE='true'`; цель с `prod/production` в имени блокируется. Флаг не даёт права очищать реальные данные. Fixtures создаются детерминированно: `./load-tests/scripts/prepare.ps1 -Seed 77 -Count 100`.
 
-## Профили
+## Методика
 
-Все профили определены через `options.scenarios` в `user-load.js`.
+Основная нагрузка задаётся `constant-arrival-rate`, не числом VU. Каждая ступень имеет отдельные теги `warmup`, `measurement`, `stabilization`; capacity рассчитывается только по measurement. Настройки: `K6_RATES`, `K6_WARMUP`, `K6_MEASUREMENT`, `K6_STABILIZATION`, `K6_SEGMENT_SECONDS`.
 
-| Профиль | Executor | Назначение |
-|---|---|---|
-| `smoke` | `shared-iterations` | Быстрая проверка сценария |
-| `load` | `ramping-vus` | Плановая нагрузка с плавным разгоном |
-| `rate` | `constant-arrival-rate` | Точный поток итераций/RPS |
-| `stress` | `ramping-vus` | Поиск деградации при росте нагрузки |
-| `spike` | `ramping-vus` | Резкий скачок нагрузки |
-| `soak` | `constant-vus` | Длительная проверка утечек и деградации |
+Ступень sustainable только при одновременном выполнении SLO latency/errors, CPU/RAM target, нерастущем Kafka lag/queue/PgBouncer wait/backlog и отсутствии OOM/restarts. Knee — объяснимое увеличение наклона `delta(p95)/delta(throughput)`; failure — первая нарушившая ограничения ступень. Это три разных результата.
 
-### Constant arrival rate
+## Сценарии
 
-20 итераций в секунду в течение 5 минут:
+Исполняются сейчас: `gateway`, `gateway-authenticated-read`, `auth-login`, `auth-refresh`, `ticket-read` (60/30/10), `location`, `dispatch-preview`, `analytics`, `full`. Маршруты и DTO соответствуют текущему Gateway. GPS запускается отдельно от web mix.
 
 ```powershell
-$env:K6_PROFILE="rate"
-$env:K6_RATE="20"
-$env:K6_DURATION="5m"
-$env:K6_PREALLOCATED_VUS="20"
-$env:K6_MAX_VUS="100"
-$env:K6_RUN_ID="rate-$(Get-Date -Format yyyyMMddHHmmss)"
-docker compose -f docker-compose.yml -f load-tests/docker-compose.k6.yml --profile load run --rm k6
+go run ./load-tests/cmd/capacity run gateway --rate 100
+go run ./load-tests/cmd/capacity analyze --input ./analysis-input.json
+go run ./load-tests/cmd/capacity report --input ./load-tests/reports/<run-id>/summary.json
+go run ./load-tests/cmd/capacity compare --baseline ./A.json --current ./B.json
+go run ./load-tests/cmd/capacity estimate --result ./A.json --measured-server ./measured.yaml --server ./target.yaml --points 3 --efficiency .87
 ```
 
-Одна итерация выполняет четыре HTTP-запроса batch, поэтому `K6_RATE=20` создаёт примерно 80 HTTP-запросов в секунду плюс первичный register/login каждого VU.
+Run wrapper сохраняет `k6.json` и `config.json` в `results/raw/<run-id>`. Анализатор создаёт `summary.json`, `summary.csv`, `report.md`; модель summary содержит measured/extrapolated раздельно, Little's Law, estimated active users, Brigade equivalents и N+1. Для одной реплики N+1 выводится как unavailable. Stateful dependencies линейно не масштабируются.
 
-### Stress
+## Конфигурация и Prometheus
+
+- `config/server.example.yaml` — железо, reserved resources, replicas/requests/limits.
+- `config/workload.example.yaml` — ступени, mixed workload, user activity, amplification.
+- `config/thresholds.example.yaml` — SLO и regression thresholds.
+- `config/environments.example.yaml` — Gateway, Prometheus, namespace, production marker.
+- `infra/prometheus/queries.yaml` — только метрики, подтверждённые текущими manifests/exporters.
+
+Prometheus client получает `query_range` с context cancellation и сохраняет snapshot, связанный с run interval. Запрос без `confirmed_by` помечается unavailable. Run metadata должен включать git SHA, server/runtime profile, параметры и timestamps. Kubernetes runtime profile получают командой `kubectl get deployments,statefulsets -n <namespace> -o json`; результат сохраняют как `server.json` и сверяют с server profile.
+
+## Интерпретация
+
+Capacity — максимум устойчивой измеренной ступени, а не последний k6 target. Для Kafka допустим только поток с `d(lag)/dt <= 0` после stabilization. Business и mixed capacity рассчитываются через подтверждённые amplification factors. Active users — оценка активных, не зарегистрированных пользователей. Экстраполяция разрешена лишь при нескольких resource scaling points (250m/500m/1000m/2000m), стабильном bottleneck и измеренной efficiency; иначе CLI возвращает «insufficient measurements».
+
+## Ограничения и TODO
+
+- Полные Ticket write/cancel/complete, Dispatch reserve/confirm/auto compensation, Routing matrix, SLA scanner, Notification provider, Report/File/MinIO и Kafka producer workloads нельзя корректно завершить одним универсальным fixture без состояния конкретного test deployment. Для них не созданы фиктивные вызовы; ghz каталог объясняет привязку к текущим contracts.
+- В текущем коде не подтверждены метрики location history buffer/dropped history, outbox backlog, notification/report queue. Они перечислены как unavailable; для автоматического bottleneck HIGH требуется добавить instrumentation.
+- Analytics 1M–500M и SLA 10k–1M требуют отдельного controlled seed в явно выделенные ClickHouse/PostgreSQL test databases. Автоматическое удаление данных отсутствует намеренно.
+- SMTP/FCM fake provider и fault injection для 0/10/30% Dispatch failures требуют конфигурируемых test doubles в сервисах; существующие producers/consumers не подменяются выдуманными.
+- Фактическая capacity, N+1, soak 2/6/12h, spike recovery и server extrapolation появляются только после прогонов; репозиторий не содержит benchmark numbers.
+
+## Проверка разработки
 
 ```powershell
-$env:K6_PROFILE="stress"
-$env:K6_VUS="25"
-$env:K6_STRESS_VUS="50"
-$env:K6_MAX_VUS="100"
-$env:K6_RUN_ID="stress-$(Get-Date -Format yyyyMMddHHmmss)"
-docker compose -f docker-compose.yml -f load-tests/docker-compose.k6.yml --profile load run --rm k6
+$env:GOCACHE="$PWD/.gocache"
+go test ./load-tests/...
+go vet ./load-tests/...
+k6 inspect ./load-tests/k6/gateway/baseline.js
 ```
 
-### Spike
-
-```powershell
-$env:K6_PROFILE="spike"
-$env:K6_VUS="10"
-$env:K6_MAX_VUS="100"
-$env:K6_RUN_ID="spike-$(Get-Date -Format yyyyMMddHHmmss)"
-docker compose -f docker-compose.yml -f load-tests/docker-compose.k6.yml --profile load run --rm k6
-```
-
-### Soak
-
-```powershell
-$env:K6_PROFILE="soak"
-$env:K6_VUS="20"
-$env:K6_DURATION="2h"
-$env:K6_RUN_ID="soak-$(Get-Date -Format yyyyMMddHHmmss)"
-docker compose -f docker-compose.yml -f load-tests/docker-compose.k6.yml --profile load run --rm k6
-```
-
-## Полный бизнес-сценарий
-
-Подготовить отдельных admin-пользователей (не меньше максимального количества VU):
-
-```powershell
-.\load-tests\seed-business-users.ps1 -Count 20
-```
-
-Запустить один контейнер с 20 VU:
-
-```powershell
-$env:K6_SCRIPT="/scripts/business-flow.js"
-$env:K6_VUS="20"
-$env:K6_DURATION="5m"
-docker compose -f docker-compose.yml -f load-tests/docker-compose.k6.yml --profile load run --rm k6
-```
-
-В одном k6-процессе `__VU` корректно распределяет записи из `users.json`. Не запускайте `business-flow.js` через Docker `--scale`: в разных процессах номера `__VU` повторяются.
-
-## Проверка rate limit по разным IP
-
-Множество контейнеров оставлено только для теста разных исходных IP:
-
-```powershell
-$env:K6_DURATION="2m"
-docker compose -f docker-compose.yml -f load-tests/docker-compose.k6.yml --profile real-ip up --abort-on-container-exit --scale k6-real-ip=10 k6-real-ip
-```
-
-Каждый `k6-real-ip` содержит ровно один VU и получает отдельный Docker IP. Этот режим не следует использовать для обычных load/stress/spike/soak тестов: его метрики разделены по контейнерам.
-
-## Thresholds
-
-Основной сценарий завершается ошибкой, если:
-
-- успешность checks ниже 99%;
-- доля HTTP-ошибок выше 1%;
-- p95 больше 1 секунды;
-- p99 больше 2 секунд.
-
-## Kubernetes: нагрузка вместе с chaos
-
-Сценарий `kubernetes-chaos.js` запускается как Kubernetes Job непосредственно
-в namespace `automatic-system`. Он разделяет метрики на фазы `warmup`,
-`baseline`, `chaos` и `recovery`, выполняет чтение основных справочников,
-просмотр заявок, создание части заявок и негативную проверку авторизации.
-
-Быстрая проверка без отказов:
-
-```powershell
-.\k8s\scripts\run-k6-chaos.ps1 -Quick -Rate 5
-```
-
-Полный запуск с отказами Kafka, Ticket Service, Redis, PgBouncer и PostgreSQL
-read replica:
-
-```powershell
-.\k8s\scripts\run-k6-chaos.ps1 -ExecuteChaos -Rate 20
-```
-
-Дополнительный failover Patroni primary включается явно:
-
-```powershell
-.\k8s\scripts\run-k6-chaos.ps1 -ExecuteChaos -IncludeDatabaseFailover -Rate 20
-```
-
-Скрипт отказывается работать вне контекста `docker-desktop`. Результаты k6,
-включая JSON summary, консольный отчёт и времена восстановления каждого chaos
-события, сохраняются в `test-results/k6-kubernetes-chaos`.
+Старые `user-load.js`, `business-flow.js`, `real-ip-user.js` и chaos-сценарий сохранены для совместимости, но не считаются автоматически доказательством capacity.

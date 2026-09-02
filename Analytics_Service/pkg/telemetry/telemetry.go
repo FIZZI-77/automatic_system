@@ -10,6 +10,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -19,10 +20,12 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	prometheusexporter "go.opentelemetry.io/otel/exporters/prometheus"
+	metricapi "go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
-	"go.opentelemetry.io/otel/sdk/metric"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
@@ -33,10 +36,67 @@ import (
 
 const defaultSampleRatio = 1.0
 
+var (
+	unknownVersionOnce    sync.Once
+	unknownVersionCounter metricapi.Int64Counter
+	consumerMetricsOnce   sync.Once
+	consumerOperations    metricapi.Int64Counter
+	consumerErrors        metricapi.Int64Counter
+	consumerDuration      metricapi.Float64Histogram
+	consumerLag           metricapi.Int64Gauge
+)
+
+func RecordUnknownEventVersion(ctx context.Context, topic string, version uint32) {
+	unknownVersionOnce.Do(func() {
+		unknownVersionCounter, _ = otel.Meter("analytics/events").Int64Counter(
+			"analytics_unknown_event_versions_total",
+			metricapi.WithDescription("Events excluded from projections because their version is unsupported"),
+		)
+	})
+	if unknownVersionCounter == nil {
+		return
+	}
+	unknownVersionCounter.Add(ctx, 1, metricapi.WithAttributes(
+		attribute.String("topic", topic),
+		attribute.Int64("event_version", int64(version)),
+	))
+}
+
+// RecordConsumerResult records bounded per-topic throughput, errors, latency,
+// and the latest kafka-go consumer-group lag observation.
+func RecordConsumerResult(ctx context.Context, topic string, duration time.Duration, lag int64, err error) {
+	consumerMetricsOnce.Do(func() {
+		meter := otel.Meter("analytics/consumer")
+		consumerOperations, _ = meter.Int64Counter("analytics_consumer_operations_total")
+		consumerErrors, _ = meter.Int64Counter("analytics_consumer_errors_total")
+		consumerDuration, _ = meter.Float64Histogram(
+			"analytics_consumer_processing_duration_seconds",
+			metricapi.WithDescription("Domain event decode, projection and commit duration"),
+		)
+		consumerLag, _ = meter.Int64Gauge(
+			"analytics_consumer_lag_messages",
+			metricapi.WithDescription("kafka-go consumer group lag sampled after message processing"),
+		)
+	})
+	attributes := metricapi.WithAttributes(attribute.String("topic", topic))
+	if consumerOperations != nil {
+		consumerOperations.Add(ctx, 1, attributes)
+	}
+	if err != nil && consumerErrors != nil {
+		consumerErrors.Add(ctx, 1, attributes)
+	}
+	if consumerDuration != nil {
+		consumerDuration.Record(ctx, duration.Seconds(), attributes)
+	}
+	if lag >= 0 && consumerLag != nil {
+		consumerLag.Record(ctx, lag, attributes)
+	}
+}
+
 // Providers owns the process-wide OpenTelemetry providers.
 type Providers struct {
 	tracerProvider *sdktrace.TracerProvider
-	meterProvider  *metric.MeterProvider
+	meterProvider  *sdkmetric.MeterProvider
 	metricsServer  *http.Server
 }
 
@@ -73,9 +133,9 @@ func Init(ctx context.Context, serviceName string) (*Providers, error) {
 		sdktrace.WithResource(res),
 		sdktrace.WithSampler(sdktrace.ParentBased(sdktrace.TraceIDRatioBased(sampleRatio()))),
 	)
-	meterProvider := metric.NewMeterProvider(
-		metric.WithResource(res),
-		metric.WithReader(metricExporter),
+	meterProvider := sdkmetric.NewMeterProvider(
+		sdkmetric.WithResource(res),
+		sdkmetric.WithReader(metricExporter),
 	)
 	metricsListener, err := net.Listen("tcp", env("METRICS_ADDR", ":9464"))
 	if err != nil {

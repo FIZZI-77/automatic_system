@@ -296,22 +296,7 @@ try {
     Invoke-Kubectl -n $namespace delete job -l automatic-system.io/job-type=init --ignore-not-found
     Invoke-Kubectl apply -k (Join-Path $overlayRoot "migrations")
     foreach ($job in @(
-        "kafka-init",
-        "migrator-auth",
-        "migrator-ticket",
-        "migrator-department",
-        "migrator-brigade",
-        "migrator-profile",
-        "migrator-location",
-        "migrator-routing",
-        "migrator-dispatch",
-        "migrator-file",
-        "migrator-sla",
-        "migrator-notification",
-        "migrator-audit",
-        "migrator-report",
-        "migrator-asset",
-        "clickhouse-init"
+        "kafka-init"
     )) {
         Wait-Job $job
     }
@@ -321,28 +306,8 @@ try {
     Wait-Job "postgres-ticket-citus-distribute"
 
     if (-not $SkipApplications) {
-        Invoke-Kubectl apply -k (Join-Path $overlayRoot "apps")
-        foreach ($deployment in @(
-            "auth-service",
-            "ticket-service",
-            "department-service",
-            "brigade-service",
-            "profile-service",
-            "location-service",
-            "routing-service",
-            "dispatch-service",
-            "file-service",
-            "sla-service",
-            "notification-service",
-            "audit-service",
-            "analytics-service",
-            "report-service",
-            "asset-service",
-            "api-gateway",
-            "frontend"
-        )) {
-            Wait-Deployment $deployment
-        }
+        & (Join-Path $PSScriptRoot "deploy-applications-helm.ps1") -Environment local-ha
+        if ($LASTEXITCODE -ne 0) { throw "Applications Helm release failed" }
     }
 
     Write-Host "Local HA deployment is ready."

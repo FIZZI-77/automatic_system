@@ -5,3 +5,10 @@ location_service_addr: "location-service:50056"
 routing_service_addr: "routing-service:50057"
 reservation_ttl: "2m"
 cleanup_interval: "15s"
+dependency_timeout: "10s"
+shutdown_timeout: "25s"
+database_max_connections: 8
+read_database_max_connections: 4
+lock_database_max_connections: 4
+outbox_worker_count: 4
+outbox_batch_size: 50

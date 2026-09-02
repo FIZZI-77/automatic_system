@@ -39,10 +39,11 @@ func main() {
 		}
 	}()
 
-	if err := appconfig.Load(); err != nil {
+	if err = appconfig.Load(); err != nil {
 		log.Fatalf("configuration error: %v", err)
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+
 	defer stop()
 
 	logger, e := pkg.NewLogger()
@@ -50,17 +51,22 @@ func main() {
 	if e != nil {
 		log.Fatal(e)
 	}
-
 	defer logger.Sync()
+
 	db, e := telemetry.NewPostgresPool(ctx, must("DATABASE_URL"))
+
 	if e != nil {
 		logger.Fatal("database failed", zap.Error(e))
 	}
+
 	defer db.Close()
+
 	if e = db.Ping(ctx); e != nil {
 		logger.Fatal("database unavailable", zap.Error(e))
 	}
+
 	redisClient := redis.NewClient(&redis.Options{Addr: env("REDIS_ADDR", "redis-notification:6379"), Password: os.Getenv("REDIS_PASSWORD")})
+
 	if e = errors.Join(
 		redisotel.InstrumentTracing(redisClient),
 		redisotel.InstrumentMetrics(redisClient),
@@ -68,12 +74,27 @@ func main() {
 		logger.Fatal("redis instrumentation failed", zap.Error(e))
 	}
 	defer redisClient.Close()
+
 	if e = redisClient.Ping(ctx).Err(); e != nil {
 		logger.Fatal("redis unavailable", zap.Error(e))
 	}
+
 	repo := repository.New(db)
 	svc := service.New(repo, live.New(redisClient, env("LIVE_CHANNEL_PREFIX", "notifications:user:")))
-	senders := map[string]sender.Sender{"IN_APP": sender.InApp{}, "EMAIL": sender.NewEmail(env("SMTP_ADDR", "mailhog:1025"), env("SMTP_FROM", "no-reply@automatic-system.local")), "SMS": sender.Disabled{Channel: "SMS"}}
+
+	senders := map[string]sender.Sender{
+		"IN_APP": sender.InApp{},
+
+		"EMAIL": sender.NewEmail(
+			env("SMTP_ADDR", "mailhog:1025"),
+			env("SMTP_FROM", "no-reply@automatic-system.local"),
+			os.Getenv("SMTP_USERNAME"),
+			os.Getenv("SMTP_PASSWORD"),
+		),
+
+		"SMS": sender.Disabled{Channel: "SMS"},
+	}
+
 	if path := strings.TrimSpace(os.Getenv("FCM_SERVICE_ACCOUNT_FILE")); path != "" {
 		fcm, err := sender.NewFCM(ctx, path)
 		if err != nil {
@@ -84,10 +105,15 @@ func main() {
 		senders["PUSH"] = sender.Disabled{Channel: "FCM"}
 		logger.Warn("FCM disabled: service account is not configured")
 	}
+
 	worker := delivery.New(repo, senders, logger)
+
 	go run(ctx, "delivery worker", worker.Run, logger)
+
 	brokers := split(os.Getenv("KAFKA_BROKERS"))
+
 	var consumers []*eventconsumer.Worker
+
 	for _, topic := range split(env("KAFKA_TOPICS", "tickets.events.v1,sla.events.v1,dispatch.events.v1,departments.events.v1,brigades.events.v1,locations.events.v1,routing.events.v1,files.events.v1")) {
 		w := eventconsumer.New(brokers, topic, env("KAFKA_GROUP", "notification-service"), svc, logger)
 		consumers = append(consumers, w)
@@ -98,15 +124,22 @@ func main() {
 			_ = w.Close()
 		}
 	}()
+
 	lis, e := net.Listen("tcp", ":"+env("GRPC_PORT", "50061"))
 	if e != nil {
 		logger.Fatal("listen failed", zap.Error(e))
 	}
+
 	server := grpc.NewServer(telemetry.GRPCServerOption())
+
 	notificationv1.RegisterNotificationServiceServer(server, handler.New(svc))
+
 	hs := health.NewServer()
+
 	healthv1.RegisterHealthServer(server, hs)
+
 	hs.SetServingStatus("", healthv1.HealthCheckResponse_SERVING)
+
 	go func() {
 		logger.Info("notification gRPC started", zap.String("address", lis.Addr().String()))
 		if e := server.Serve(lis); e != nil {
@@ -114,6 +147,7 @@ func main() {
 		}
 	}()
 	<-ctx.Done()
+
 	hs.Shutdown()
 	server.GracefulStop()
 }

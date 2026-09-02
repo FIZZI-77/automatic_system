@@ -1,0 +1,2 @@
+NAME                                 READY   STATUS    RESTARTS        AGE   IP            NODE              NOMINATED NODE   READINESS GATES
+pod/ticket-service-c78788fb8-82scs   2/2     Running   21 (4m7s ago)   33h   10.244.2.31   desktop-worker2   <none>           <none>

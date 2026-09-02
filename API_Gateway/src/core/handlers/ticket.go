@@ -205,6 +205,13 @@ func (th *TicketHandler) UpdateTicket(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 	ctx = ticketActorContext(ctx, c)
+	if roleValues, _ := c.Get("roles"); hasTicketRole(roleValues, "worker") {
+		var ok bool
+		ctx, ok = th.contextWithWorkerBrigade(ctx, c)
+		if !ok {
+			return
+		}
+	}
 
 	res, err := th.ticketClient.UpdateTicket(ctx, buildUpdateTicketRequest(&req, c.GetString("user_id")))
 	if err != nil {
@@ -215,6 +222,19 @@ func (th *TicketHandler) UpdateTicket(c *gin.Context) {
 	c.JSON(http.StatusOK, &models.UpdateTicketResponse{
 		Ticket: FromProtoTicket(res.GetTicket()),
 	})
+}
+
+func hasTicketRole(value any, wanted string) bool {
+	roles, ok := value.([]string)
+	if !ok {
+		return false
+	}
+	for _, role := range roles {
+		if role == wanted {
+			return true
+		}
+	}
+	return false
 }
 
 func (th *TicketHandler) ChangeTicketStatus(c *gin.Context) {
@@ -551,6 +571,7 @@ func buildUpdateTicketRequest(req *models.UpdateTicketRequest, updatedBy string)
 		Address:     req.Address,
 		Latitude:    req.Latitude,
 		Longitude:   req.Longitude,
+		AssetId:     req.AssetID,
 		UpdatedBy:   updatedBy,
 	}
 

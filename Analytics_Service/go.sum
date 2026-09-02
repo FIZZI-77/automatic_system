@@ -2,8 +2,8 @@ github.com/ClickHouse/ch-go v0.68.0 h1:zd2VD8l2aVYnXFRyhTyKCrxvhSz1AaY4wBUXu/f0G
 github.com/ClickHouse/ch-go v0.68.0/go.mod h1:C89Fsm7oyck9hr6rRo5gqqiVtaIY6AjdD0WFMyNRQ5s=
 github.com/ClickHouse/clickhouse-go/v2 v2.40.3 h1:46jB4kKwVDUOnECpStKMVXxvR0Cg9zeV9vdbPjtn6po=
 github.com/ClickHouse/clickhouse-go/v2 v2.40.3/go.mod h1:qO0HwvjCnTB4BPL/k6EE3l4d9f/uF+aoimAhJX70eKA=
-github.com/FIZZI-77/automatic-system-contracts v0.0.0-20260823165728-4cdb30d82de6 h1:OXDlSAhe+JOazBSbTGHR6RPI69lc2z3a3bTsITmfOTI=
-github.com/FIZZI-77/automatic-system-contracts v0.0.0-20260823165728-4cdb30d82de6/go.mod h1:ylszYXEH6aQK/fXBJ/rULlBa0MVFKgg+TtNp8FlZT4o=
+github.com/FIZZI-77/automatic-system-contracts v0.0.0-20260831131140-88cf08aabb04 h1:IQEImMqTmo5rtQQNHZrCRFwR+bkj+9zkD96v8JT0mBY=
+github.com/FIZZI-77/automatic-system-contracts v0.0.0-20260831131140-88cf08aabb04/go.mod h1:ylszYXEH6aQK/fXBJ/rULlBa0MVFKgg+TtNp8FlZT4o=
 github.com/andybalholm/brotli v1.2.0 h1:ukwgCxwYrmACq68yiUqwIWnGY0cTPox/M94sVwToPjQ=
 github.com/andybalholm/brotli v1.2.0/go.mod h1:rzTDkvFWvIrjDXZHkuS16NPggd91W3kUSvPlQ1pLaKY=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=

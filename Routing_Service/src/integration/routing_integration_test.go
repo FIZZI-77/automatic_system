@@ -3,6 +3,7 @@ package integration
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"path/filepath"
 	"testing"
 	"time"
@@ -69,6 +70,8 @@ func TestRouteRepositoryPersistsRouteAndOutbox(t *testing.T) {
 
 	repo := repository.NewRouteRepo(pool, pool)
 	now := time.Now().UTC().Truncate(time.Microsecond)
+	success := true
+	durationMS := 125.5
 	route := &models.Route{
 		ID:          uuid.NewString(),
 		TicketID:    uuid.NewString(),
@@ -84,9 +87,13 @@ func TestRouteRepositoryPersistsRouteAndOutbox(t *testing.T) {
 				DurationSeconds: 120,
 			},
 		},
-		Revision:  1,
-		CreatedAt: now,
-		UpdatedAt: now,
+		Revision:                  1,
+		CreatedAt:                 now,
+		UpdatedAt:                 now,
+		CalculationStartedAt:      &now,
+		CalculationFinishedAt:     &now,
+		CalculationDurationMillis: &durationMS,
+		CalculationSuccess:        &success,
 	}
 	created, err := repo.CreateRoute(ctx, route)
 	if err != nil {
@@ -101,15 +108,56 @@ func TestRouteRepositoryPersistsRouteAndOutbox(t *testing.T) {
 		t.Fatalf("loaded route = %#v", loaded)
 	}
 
-	var eventType string
+	var eventID, payloadEventID, eventType string
+	var payloadBytes []byte
 	if err = pool.QueryRow(
 		ctx,
-		"SELECT event_type FROM outbox_events WHERE aggregate_id = $1",
+		"SELECT id::text,event_type,payload FROM outbox_events WHERE aggregate_id = $1",
 		route.ID,
-	).Scan(&eventType); err != nil {
+	).Scan(&eventID, &eventType, &payloadBytes); err != nil {
 		t.Fatalf("read outbox event: %v", err)
 	}
 	if eventType != "routing.route.created.v1" {
 		t.Fatalf("event type = %s", eventType)
+	}
+	var payload map[string]any
+	if err = json.Unmarshal(payloadBytes, &payload); err != nil {
+		t.Fatalf("decode outbox payload: %v", err)
+	}
+	payloadEventID, _ = payload["event_id"].(string)
+	if payloadEventID != eventID || payload["engine"] != "valhalla" || payload["travel_mode"] != "auto" || payload["success"] != true {
+		t.Fatalf("routing event envelope = %#v, want event id and normalized calculation fields", payload)
+	}
+
+	failureFinishedAt := now.Add(250 * time.Millisecond)
+	if err = repo.RecordCalculationFailure(ctx, models.CalculationFailure{
+		AggregateType:         "ticket",
+		AggregateID:           route.TicketID,
+		TicketID:              route.TicketID,
+		BrigadeID:             route.BrigadeID,
+		Engine:                "valhalla",
+		TravelMode:            models.TravelModeAuto,
+		FailureCode:           "ENGINE_TIMEOUT",
+		FailureReason:         "deadline exceeded",
+		CalculationStartedAt:  now,
+		CalculationFinishedAt: failureFinishedAt,
+		CalculationDurationMS: 250,
+	}); err != nil {
+		t.Fatalf("RecordCalculationFailure() error = %v", err)
+	}
+	var failureAggregateType string
+	if err = pool.QueryRow(
+		ctx,
+		`SELECT aggregate_type,payload FROM outbox_events WHERE aggregate_id=$1 AND event_type='routing.calculation.failed.v1'`,
+		route.TicketID,
+	).Scan(&failureAggregateType, &payloadBytes); err != nil {
+		t.Fatalf("read calculation failure event: %v", err)
+	}
+	payload = nil
+	if err = json.Unmarshal(payloadBytes, &payload); err != nil {
+		t.Fatalf("decode calculation failure event: %v", err)
+	}
+	if failureAggregateType != "ticket" || payload["success"] != false || payload["failure_code"] != "ENGINE_TIMEOUT" || payload["route_id"] != nil {
+		t.Errorf("calculation failure event = aggregate %q payload %#v, want ticket aggregate without fictitious route", failureAggregateType, payload)
 	}
 }

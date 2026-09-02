@@ -1,0 +1,8 @@
+{
+    "scenario":  "gateway",
+    "rates":  "25,50,100",
+    "writes":  false,
+    "exit_code":  1,
+    "started_at":  "\/Date(1788252747588)\/",
+    "ended_at":  "\/Date(1788252837677)\/"
+}

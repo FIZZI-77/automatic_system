@@ -4,6 +4,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { api, config, type Role, type Session, type Ticket } from "./api";
 import { loadBrigades } from "./brigade-store";
+import { TicketAssetPicker } from "./ticket-asset-picker";
 
 const statusNames: Record<string, string> = { NEW: "Новая", ASSIGNED: "Назначена", IN_PROGRESS: "В работе", DONE: "Завершена", CANCELED: "Отменена" };
 
@@ -145,7 +146,7 @@ export function TicketWorkspace({tickets,session,role,onUpdate,onMap,onNotice}:{
     event.preventDefault();if(!selected)return;const reason=String(new FormData(event.currentTarget).get("reason")||"").trim();setBusy(true);
     try{let updated={...selected,status:"CANCELED"};if(!demo){const result=await api<{ticket:Ticket}>(config.endpoints.ticketsCancel,{ticket_id:selected.id,canceled_by:session.user?.user_id,reason},"POST",session.accessToken);updated=result.ticket}setSelected(updated);onUpdate(updated);setHistory(items=>[{id:`local-${Date.now()}`,old_status:selected.status,new_status:"CANCELED",changed_by:session.user?.user_id,comment:reason,created_at:Date.now()/1000},...items]);onNotice("Заявка отменена")}catch(error){onNotice(error instanceof Error?error.message:"Не удалось отменить заявку")}finally{setBusy(false)}
   }
-  async function updateTicket(event:FormEvent<HTMLFormElement>){event.preventDefault();if(!selected)return;const d=new FormData(event.currentTarget),payload={ticket_id:selected.id,title:String(d.get("title")),description:String(d.get("description")),priority:String(d.get("priority")),address:String(d.get("address")),updated_by:session.user?.user_id};setBusy(true);try{let updated:Ticket={...selected,title:payload.title,description:payload.description,priority:payload.priority,address:payload.address};if(!demo){const result=await api<{ticket:Ticket}>(config.endpoints.ticketsUpdate,payload,"POST",session.accessToken);updated=result.ticket}setSelected(updated);onUpdate(updated);setEditing(false);onNotice("Данные заявки обновлены")}catch(error){onNotice(error instanceof Error?error.message:"Не удалось обновить заявку")}finally{setBusy(false)}}
+  async function updateTicket(event:FormEvent<HTMLFormElement>){event.preventDefault();if(!selected)return;const d=new FormData(event.currentTarget),payload={ticket_id:selected.id,title:String(d.get("title")),description:String(d.get("description")),priority:String(d.get("priority")),address:String(d.get("address")),asset_id:String(d.get("asset_id")||"")||undefined,updated_by:session.user?.user_id};setBusy(true);try{let updated:Ticket={...selected,title:payload.title,description:payload.description,priority:payload.priority,address:payload.address,asset_id:payload.asset_id};if(!demo){const result=await api<{ticket:Ticket}>(config.endpoints.ticketsUpdate,payload,"POST",session.accessToken);updated=result.ticket}setSelected(updated);onUpdate(updated);setEditing(false);onNotice("Данные заявки обновлены")}catch(error){onNotice(error instanceof Error?error.message:"Не удалось обновить заявку")}finally{setBusy(false)}}
 
   async function download(file:StoredFile){
     if(demo){onNotice("В демо файл не загружается");return;}
@@ -165,6 +166,7 @@ export function TicketWorkspace({tickets,session,role,onUpdate,onMap,onNotice}:{
   }
 
   return <section className="content-page ticket-workspace">
+    {selected && role === "worker" && selected.status === "IN_PROGRESS" && <TicketAssetPicker ticket={selected} session={session} demo={demo} onUpdate={ticket=>{setSelected(ticket);onUpdate(ticket)}} onNotice={onNotice}/>} 
     <div className="page-toolbar"><div><h2>Работа с заявками</h2><p>Назначение, исполнение и подтверждённые отчёты</p></div></div>
     <div className="service-filters ticket-filters">
       <label className="filter-search">Поиск<input type="search" value={filters.query} onChange={event=>setFilters(current=>({...current,query:event.target.value}))} placeholder="Номер, название или адрес"/></label>

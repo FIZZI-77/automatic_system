@@ -8,6 +8,24 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+function Get-ReadyPrimaryPod {
+    param([string]$Selector)
+    $result = kubectl get pods -n $Namespace -l $Selector -o json | ConvertFrom-Json
+    if ($LASTEXITCODE -ne 0) {
+        throw "Unable to list primary pods for selector $Selector"
+    }
+    $pod = $result.items |
+        Where-Object {
+            $_.status.phase -eq "Running" -and
+            ($_.status.containerStatuses | Where-Object { $_.name -eq "postgres" -and $_.ready })
+        } |
+        Select-Object -First 1
+    if (-not $pod) {
+        throw "Ready primary pod not found for selector $Selector"
+    }
+    return $pod.metadata.name
+}
+
 function Invoke-SeedSql {
     param([string]$Service, [string]$User, [string]$Database, [string]$Sql)
     # Windows PowerShell otherwise sends native-process stdin in the active OEM
@@ -39,10 +57,7 @@ function Invoke-SeedSql {
             } else {
                 "cluster-name=postgres-platform,role=primary"
             }
-            $pod = kubectl get pods -n $Namespace -l $podSelector -o jsonpath='{.items[0].metadata.name}'
-            if ($LASTEXITCODE -ne 0 -or -not $pod) {
-                throw "Primary pod not found for $Service"
-            }
+            $pod = Get-ReadyPrimaryPod $podSelector
             $targetDatabase = $databaseMap[$Service]
             $Sql | kubectl exec -i -n $Namespace $pod -- psql -v ON_ERROR_STOP=1 -U postgres -d $targetDatabase
         }
@@ -97,7 +112,7 @@ ON CONFLICT (user_id, role_id) DO NOTHING;
 
 function Get-DemoUserId([string]$Email) {
     if ($Target -eq "Kubernetes") {
-        $pod = kubectl get pods -n $Namespace -l cluster-name=postgres-platform,role=primary -o jsonpath='{.items[0].metadata.name}'
+        $pod = Get-ReadyPrimaryPod "cluster-name=postgres-platform,role=primary"
         $value = kubectl exec -n $Namespace $pod -- psql -U postgres -d auth_db -At -c "SELECT id FROM users WHERE email='$Email'"
     }
     else {

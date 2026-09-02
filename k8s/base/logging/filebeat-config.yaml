@@ -47,7 +47,11 @@ processors:
           }
 
           if (!level && message) {
-            var match = String(message).match(/^\s*(?:\[[^\]]+\]\s*)?(debug|info|warn|warning|error|fatal|panic|dpanic)\b/i);
+            var text = String(message);
+            var match = text.match(/^\s*(?:\S+\s+)?(debug|info|warn|warning|error|fatal|panic|dpanic|critical)\b/i);
+            if (!match) {
+              match = text.match(/^\s*(?:\[[^\]]+\]\s*)*\[(debug|info|warn|warning|error|fatal|panic|dpanic|critical)\]/i);
+            }
             if (match) {
               level = match[1];
             }

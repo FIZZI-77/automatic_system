@@ -63,7 +63,7 @@ if ($Environment -eq "prod") {
     throw "Production Kiali requires KIALI_OIDC_ISSUER_URI, KIALI_OIDC_CLIENT_ID and KIALI_PUBLIC_HOST"
   }
   $kialiValues = Join-Path $repoRoot "k8s\mesh\kiali-values-prod.yaml"
-  $kialiArguments[9] = $kialiValues
+  $kialiArguments[8] = $kialiValues
   $kialiArguments += @(
     "--set-string", "auth.openid.issuer_uri=$KialiOIDCIssuerURI",
     "--set-string", "auth.openid.client_id=$KialiOIDCClientID",
@@ -85,15 +85,6 @@ if ($LASTEXITCODE -ne 0) {
 & (Join-Path $repoRoot "k8s\scripts\setup-ingress.ps1")
 if ($LASTEXITCODE -ne 0) {
   throw "Istio ingress configuration failed"
-}
-
-$applicationOverlay = Join-Path $repoRoot "k8s\overlays\local-ha\apps"
-if ($Environment -eq "prod") {
-  $applicationOverlay = Join-Path $repoRoot "k8s\overlays\prod\apps"
-}
-kubectl apply -k $applicationOverlay
-if ($LASTEXITCODE -ne 0) {
-  throw "Application sidecar configuration failed"
 }
 
 $observabilityDeployments = @("grafana", "jaeger", "otel-collector", "prometheus")

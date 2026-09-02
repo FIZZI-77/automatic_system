@@ -55,9 +55,30 @@ test.describe("Контракты API, используемые фронтенд
       ["/analytics/tickets/daily", { filter }],
       ["/analytics/tickets/breakdown", { filter, dimension: "status", limit: 100 }],
       ["/analytics/assets/summary", { filter }],
+      ["/analytics/dispatch/failures", { filter }],
+      ["/analytics/brigades/workload", { filter }],
+      ["/analytics/workers/active", { filter }],
+      ["/analytics/dispatch/funnel", { filter }],
+      ["/analytics/dispatch/effectiveness", { filter }],
+      ["/analytics/operations/insights", { filter }],
+      ["/analytics/projections/health", {}],
+      ["/analytics/dispatch/operations", { filter }],
+      ["/analytics/brigades/performance", { filter }],
     ] as const) {
       const { response } = await post(request, path, token, data);
       expect(response.ok(), path).toBeTruthy();
+    }
+
+    const health = await post(request, "/analytics/projections/health", token);
+    expect(health.body).toEqual(expect.objectContaining({ total_events: expect.anything() }));
+    for (const field of ["projected_events", "missing_projection_events", "projection_error_rate", "freshness_seconds"]) {
+      if (Object.hasOwn(health.body, field)) expect(typeof health.body[field]).toBe("number");
+    }
+    const workers = await post(request, "/analytics/workers/active", token, { filter });
+    if (Object.hasOwn(workers.body, "on_shift")) expect(typeof workers.body.on_shift).toBe("number");
+    const performance = await post(request, "/analytics/brigades/performance", token, { filter });
+    for (const field of ["shift_count", "shift_hours", "busy_hours", "average_parallel_tasks", "completed_per_shift", "utilization_rate"]) {
+      if (Object.hasOwn(performance.body, field)) expect(typeof performance.body[field]).toBe("number");
     }
   });
 

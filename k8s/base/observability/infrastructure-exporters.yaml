@@ -92,6 +92,8 @@ spec:
         app.kubernetes.io/component: observability
         app.kubernetes.io/part-of: automatic-system
         sidecar.istio.io/inject: "true"
+      annotations:
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts":true}'
     spec:
       automountServiceAccountToken: false
       containers:

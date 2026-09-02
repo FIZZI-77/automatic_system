@@ -1,0 +1,4 @@
+environment: local
+apiGateway:
+  serviceType: LoadBalancer
+

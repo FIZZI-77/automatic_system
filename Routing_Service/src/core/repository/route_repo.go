@@ -6,12 +6,15 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"routing/models"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type RouteRepo struct {
@@ -328,18 +331,48 @@ func appendEvent(
 	eventType string,
 	route *models.Route,
 ) error {
-	payload, err := json.Marshal(route)
+	eventID := uuid.New()
+	payload, err := json.Marshal(struct {
+		*models.Route
+		EventID         uuid.UUID `json:"event_id"`
+		EventType       string    `json:"event_type"`
+		EventVersion    int       `json:"event_version"`
+		Producer        string    `json:"producer"`
+		OccurredAt      time.Time `json:"occurred_at"`
+		TraceID         string    `json:"trace_id"`
+		Engine          string    `json:"engine"`
+		TravelMode      string    `json:"travel_mode"`
+		DistanceMeters  float64   `json:"distance_meters"`
+		DurationSeconds int64     `json:"duration_seconds"`
+		Success         bool      `json:"success"`
+		FailureCode     string    `json:"failure_code"`
+	}{
+		Route:           route,
+		EventID:         eventID,
+		EventType:       eventType,
+		EventVersion:    1,
+		Producer:        "routing-service",
+		OccurredAt:      route.UpdatedAt,
+		TraceID:         traceID(ctx),
+		Engine:          route.Calculation.Engine,
+		TravelMode:      string(route.Options.TravelMode),
+		DistanceMeters:  route.Calculation.Summary.DistanceMeters,
+		DurationSeconds: route.Calculation.Summary.DurationSeconds,
+		Success:         route.CalculationSuccess != nil && *route.CalculationSuccess,
+	})
 	if err != nil {
 		return fmt.Errorf("repository: encode route event: %w", err)
 	}
 	const query = `INSERT INTO outbox_events(
+  id,
   aggregate_id,
   event_type,
   payload
- ) VALUES($1, $2, $3)`
+ ) VALUES($1, $2, $3, $4)`
 	if _, err = tx.Exec(
 		ctx,
 		query,
+		eventID,
 		route.ID,
 		eventType,
 		payload,
@@ -347,6 +380,49 @@ func appendEvent(
 		return fmt.Errorf("repository: append route event: %w", err)
 	}
 	return nil
+}
+
+func (r *RouteRepo) RecordCalculationFailure(ctx context.Context, failure models.CalculationFailure) error {
+	eventID := uuid.New()
+	payload, err := json.Marshal(struct {
+		models.CalculationFailure
+		EventID      uuid.UUID `json:"event_id"`
+		EventType    string    `json:"event_type"`
+		EventVersion int       `json:"event_version"`
+		Producer     string    `json:"producer"`
+		OccurredAt   time.Time `json:"occurred_at"`
+		TraceID      string    `json:"trace_id"`
+		Success      bool      `json:"success"`
+	}{
+		CalculationFailure: failure,
+		EventID:            eventID,
+		EventType:          "routing.calculation.failed.v1",
+		EventVersion:       1,
+		Producer:           "routing-service",
+		OccurredAt:         failure.CalculationFinishedAt,
+		TraceID:            traceID(ctx),
+		Success:            false,
+	})
+	if err != nil {
+		return fmt.Errorf("repository: encode calculation failure: %w", err)
+	}
+	aggregateID, err := uuid.Parse(failure.AggregateID)
+	if err != nil {
+		return fmt.Errorf("repository: parse calculation failure aggregate id: %w", err)
+	}
+	_, err = r.writePool.Exec(ctx, `INSERT INTO outbox_events(id,aggregate_type,aggregate_id,event_type,payload) VALUES($1,$2,$3,$4,$5)`, eventID, failure.AggregateType, aggregateID, "routing.calculation.failed.v1", payload)
+	if err != nil {
+		return fmt.Errorf("repository: append calculation failure: %w", err)
+	}
+	return nil
+}
+
+func traceID(ctx context.Context) string {
+	spanContext := trace.SpanContextFromContext(ctx)
+	if !spanContext.IsValid() {
+		return ""
+	}
+	return spanContext.TraceID().String()
 }
 
 type rowScanner interface {

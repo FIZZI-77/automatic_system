@@ -626,10 +626,19 @@ services:
       BRIGADE_SERVICE_ADDR: brigade-service:50054
       RESERVATION_TTL: 2m
       CLEANUP_INTERVAL: 15s
+      KAFKA_BROKERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
+      KAFKA_DISPATCH_TOPIC: dispatch.events.v1
+      KAFKA_TICKET_TOPIC: tickets.events.v1
+      KAFKA_TICKET_GROUP: dispatch-emergency-v1
+      AUTO_DISPATCH_ACTOR_ID: 00000000-0000-4000-8000-000000000058
+      AUTO_DISPATCH_CANDIDATE_LIMIT: "10"
+      KAFKA_TICKET_MAX_ATTEMPTS: "5"
     ports:
       - "${DISPATCH_GRPC_PORT}:50058"
     depends_on:
       migrator-dispatch:
+        condition: service_completed_successfully
+      kafka-init:
         condition: service_completed_successfully
       ticket-service:
         condition: service_started
@@ -1289,6 +1298,7 @@ services:
           departments.events.v1
           brigades.events.v1
           tickets.events.v1
+          dispatch.events.v1
           routing.events.v1
           locations.events.v1
           sla.events.v1
@@ -1302,6 +1312,15 @@ services:
             --create --if-not-exists \
             --topic "$${topic}" \
             --partitions 6 \
+            --replication-factor 3 \
+            --config min.insync.replicas=2
+        done
+        for source in "$${topics[@]}"; do
+          /opt/kafka/bin/kafka-topics.sh \
+            --bootstrap-server kafka-1:9092,kafka-2:9092,kafka-3:9092 \
+            --create --if-not-exists \
+            --topic "$${source}.dlq" \
+            --partitions 2 \
             --replication-factor 3 \
             --config min.insync.replicas=2
         done

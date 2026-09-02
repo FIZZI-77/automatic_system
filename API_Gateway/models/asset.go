@@ -5,6 +5,9 @@ import "time"
 type AssetIDRequest struct {
 	AssetID string `json:"asset_id" binding:"required,uuid"`
 }
+type ResolveAssetRequest struct {
+	Identifier string `json:"identifier" binding:"required,min=1,max=255"`
+}
 type CreateAssetRequest struct {
 	ExternalID             *string `json:"external_id,omitempty"`
 	DepartmentID           string  `json:"department_id" binding:"required,uuid"`

@@ -2,18 +2,3 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - kafka-init.yaml
-  - migrator-auth.yaml
-  - migrator-ticket.yaml
-  - migrator-department.yaml
-  - migrator-brigade.yaml
-  - migrator-profile.yaml
-  - migrator-location.yaml
-  - migrator-routing.yaml
-  - migrator-dispatch.yaml
-  - migrator-file.yaml
-  - migrator-sla.yaml
-  - migrator-notification.yaml
-  - migrator-audit.yaml
-  - migrator-report.yaml
-  - migrator-asset.yaml
-  - clickhouse-init.yaml

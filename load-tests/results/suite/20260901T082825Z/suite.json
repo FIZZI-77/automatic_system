@@ -1,0 +1,74 @@
+[
+    {
+        "scenario":  "gateway",
+        "rates":  "25,50,100",
+        "writes":  false,
+        "exit_code":  1,
+        "started_at":  "\/Date(1788251352627)\/",
+        "ended_at":  "\/Date(1788251441835)\/"
+    },
+    {
+        "scenario":  "gateway-authenticated-read",
+        "rates":  "10,25,50",
+        "writes":  false,
+        "exit_code":  0,
+        "started_at":  "\/Date(1788251441852)\/",
+        "ended_at":  "\/Date(1788251530847)\/"
+    },
+    {
+        "scenario":  "auth-login",
+        "rates":  "2,5,10",
+        "writes":  false,
+        "exit_code":  1,
+        "started_at":  "\/Date(1788251530847)\/",
+        "ended_at":  "\/Date(1788251621354)\/"
+    },
+    {
+        "scenario":  "auth-refresh",
+        "rates":  "1",
+        "writes":  false,
+        "exit_code":  1,
+        "started_at":  "\/Date(1788251621354)\/",
+        "ended_at":  "\/Date(1788251652625)\/"
+    },
+    {
+        "scenario":  "ticket-read",
+        "rates":  "10,25,50",
+        "writes":  false,
+        "exit_code":  1,
+        "started_at":  "\/Date(1788251652625)\/",
+        "ended_at":  "\/Date(1788251742992)\/"
+    },
+    {
+        "scenario":  "location",
+        "rates":  "10,25,50",
+        "writes":  true,
+        "exit_code":  1,
+        "started_at":  "\/Date(1788251742992)\/",
+        "ended_at":  "\/Date(1788251833499)\/"
+    },
+    {
+        "scenario":  "dispatch-preview",
+        "rates":  "2,5,10",
+        "writes":  false,
+        "exit_code":  1,
+        "started_at":  "\/Date(1788251833500)\/",
+        "ended_at":  "\/Date(1788251924812)\/"
+    },
+    {
+        "scenario":  "analytics",
+        "rates":  "5,10,20",
+        "writes":  false,
+        "exit_code":  1,
+        "started_at":  "\/Date(1788251924812)\/",
+        "ended_at":  "\/Date(1788252013094)\/"
+    },
+    {
+        "scenario":  "full",
+        "rates":  "5,10,20",
+        "writes":  true,
+        "exit_code":  1,
+        "started_at":  "\/Date(1788252013094)\/",
+        "ended_at":  "\/Date(1788252101789)\/"
+    }
+]

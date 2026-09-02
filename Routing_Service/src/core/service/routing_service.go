@@ -142,6 +142,7 @@ func (s *Service) CreateRoute(
 		}
 	}
 	options := in.Options.Normalize()
+	calculationStartedAt := time.Now().UTC()
 	calculation, err := s.BuildRoute(ctx, &models.BuildRouteInput{
 		Origin:      in.Origin,
 		Destination: in.Destination,
@@ -149,22 +150,43 @@ func (s *Service) CreateRoute(
 		Options:     options,
 	})
 	if err != nil {
-		return nil, err
+		finishedAt := time.Now().UTC()
+		failure := models.CalculationFailure{
+			AggregateType:         "ticket",
+			AggregateID:           in.TicketID,
+			TicketID:              in.TicketID,
+			BrigadeID:             in.BrigadeID,
+			Engine:                routingEngineName(s.engine),
+			TravelMode:            options.TravelMode,
+			FailureCode:           routingFailureCode(err),
+			FailureReason:         err.Error(),
+			CalculationStartedAt:  calculationStartedAt,
+			CalculationFinishedAt: finishedAt,
+			CalculationDurationMS: float64(finishedAt.Sub(calculationStartedAt).Microseconds()) / 1000,
+		}
+		return nil, errors.Join(err, s.recordCalculationFailure(ctx, failure))
 	}
-	now := time.Now().UTC()
+	calculationFinishedAt := time.Now().UTC()
+	calculationDurationMS := float64(calculationFinishedAt.Sub(calculationStartedAt).Microseconds()) / 1000
+	calculationSuccess := true
+	now := calculationFinishedAt
 	route := &models.Route{
-		ID:          uuid.NewString(),
-		TicketID:    in.TicketID,
-		BrigadeID:   in.BrigadeID,
-		Status:      models.RouteStatusPlanned,
-		Origin:      in.Origin,
-		Destination: in.Destination,
-		Waypoints:   append([]models.Point(nil), in.Waypoints...),
-		Options:     options,
-		Calculation: *calculation,
-		Revision:    1,
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		ID:                        uuid.NewString(),
+		TicketID:                  in.TicketID,
+		BrigadeID:                 in.BrigadeID,
+		Status:                    models.RouteStatusPlanned,
+		Origin:                    in.Origin,
+		Destination:               in.Destination,
+		Waypoints:                 append([]models.Point(nil), in.Waypoints...),
+		Options:                   options,
+		Calculation:               *calculation,
+		Revision:                  1,
+		CreatedAt:                 now,
+		UpdatedAt:                 now,
+		CalculationStartedAt:      &calculationStartedAt,
+		CalculationFinishedAt:     &calculationFinishedAt,
+		CalculationDurationMillis: &calculationDurationMS,
+		CalculationSuccess:        &calculationSuccess,
 	}
 	return s.repo.CreateRoute(ctx, route)
 }
@@ -193,6 +215,7 @@ func (s *Service) RecalculateRoute(
 	if err != nil {
 		return nil, err
 	}
+	calculationStartedAt := time.Now().UTC()
 	calculation, err := s.BuildRoute(ctx, &models.BuildRouteInput{
 		Origin:      in.CurrentPosition,
 		Destination: route.Destination,
@@ -200,13 +223,66 @@ func (s *Service) RecalculateRoute(
 		Options:     route.Options,
 	})
 	if err != nil {
-		return nil, err
+		finishedAt := time.Now().UTC()
+		failure := models.CalculationFailure{
+			AggregateType:         "route",
+			AggregateID:           route.ID,
+			TicketID:              route.TicketID,
+			BrigadeID:             route.BrigadeID,
+			RouteID:               route.ID,
+			Engine:                routingEngineName(s.engine),
+			TravelMode:            route.Options.TravelMode,
+			FailureCode:           routingFailureCode(err),
+			FailureReason:         err.Error(),
+			CalculationStartedAt:  calculationStartedAt,
+			CalculationFinishedAt: finishedAt,
+			CalculationDurationMS: float64(finishedAt.Sub(calculationStartedAt).Microseconds()) / 1000,
+		}
+		return nil, errors.Join(err, s.recordCalculationFailure(ctx, failure))
 	}
+	calculationFinishedAt := time.Now().UTC()
+	calculationDurationMS := float64(calculationFinishedAt.Sub(calculationStartedAt).Microseconds()) / 1000
+	calculationSuccess := true
 	route.Origin = in.CurrentPosition
 	route.Calculation = *calculation
 	route.Revision++
-	route.UpdatedAt = time.Now().UTC()
+	route.UpdatedAt = calculationFinishedAt
+	route.CalculationStartedAt = &calculationStartedAt
+	route.CalculationFinishedAt = &calculationFinishedAt
+	route.CalculationDurationMillis = &calculationDurationMS
+	route.CalculationSuccess = &calculationSuccess
 	return s.repo.UpdateCalculation(ctx, route)
+}
+
+func (s *Service) recordCalculationFailure(ctx context.Context, failure models.CalculationFailure) error {
+	recorder, ok := s.repo.(interface {
+		RecordCalculationFailure(context.Context, models.CalculationFailure) error
+	})
+	if !ok {
+		return nil
+	}
+	return recorder.RecordCalculationFailure(ctx, failure)
+}
+
+func routingEngineName(engine RoutingEngine) string {
+	named, ok := engine.(interface{ Name() string })
+	if !ok || strings.TrimSpace(named.Name()) == "" {
+		return "unknown"
+	}
+	return strings.ToLower(strings.TrimSpace(named.Name()))
+}
+
+func routingFailureCode(err error) string {
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		return "ENGINE_TIMEOUT"
+	case errors.Is(err, context.Canceled):
+		return "REQUEST_CANCELED"
+	case errors.Is(err, models.ErrInvalidArgument):
+		return "INVALID_REQUEST"
+	default:
+		return "ENGINE_ERROR"
+	}
 }
 
 func (s *Service) ListRoutes(

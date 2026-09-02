@@ -21,6 +21,8 @@ spec:
         app.kubernetes.io/name: prometheus
         app.kubernetes.io/component: observability
         app.kubernetes.io/part-of: automatic-system
+      annotations:
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts":true}'
     spec:
       serviceAccountName: prometheus
       automountServiceAccountToken: true
@@ -59,12 +61,18 @@ spec:
               mountPath: /etc/prometheus/prometheus.yml
               subPath: prometheus.yml
               readOnly: true
+            - name: rules
+              mountPath: /etc/prometheus/rules
+              readOnly: true
             - name: data
               mountPath: /prometheus
       volumes:
         - name: config
           configMap:
             name: prometheus-config
+        - name: rules
+          configMap:
+            name: prometheus-slo-rules
         - name: data
           emptyDir: {}
       securityContext:

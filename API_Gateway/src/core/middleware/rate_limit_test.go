@@ -17,7 +17,7 @@ func TestRedisRateLimiterEnforcesSharedBurst(t *testing.T) {
 	client := redis.NewClient(&redis.Options{Addr: server.Addr()})
 	t.Cleanup(func() { _ = client.Close() })
 
-	limiter := NewRedisRateLimiter(client, "test")
+	limiter := NewRedisRateLimiter(client, "test", false)
 	router := gin.New()
 	router.Use(limiter.Middleware(RateLimitConfig{Name: "global", Limit: 1, Burst: 2, Window: time.Minute}))
 	router.GET("/", func(c *gin.Context) { c.Status(http.StatusOK) })
@@ -42,7 +42,7 @@ func TestRedisRateLimiterReturnsUnavailableOnRedisFailure(t *testing.T) {
 	client := redis.NewClient(&redis.Options{Addr: "127.0.0.1:1", DialTimeout: 10 * time.Millisecond})
 	t.Cleanup(func() { _ = client.Close() })
 
-	limiter := NewRedisRateLimiter(client, "test")
+	limiter := NewRedisRateLimiter(client, "test", false)
 	router := gin.New()
 	router.Use(limiter.Middleware(RateLimitConfig{Name: "global"}))
 	router.GET("/", func(c *gin.Context) { c.Status(http.StatusOK) })
@@ -51,5 +51,25 @@ func TestRedisRateLimiterReturnsUnavailableOnRedisFailure(t *testing.T) {
 	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/", nil))
 	if response.Code != http.StatusServiceUnavailable {
 		t.Fatalf("expected %d, got %d", http.StatusServiceUnavailable, response.Code)
+	}
+}
+
+func TestRedisRateLimiterBypassesTaggedLoadTest(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	client := redis.NewClient(&redis.Options{Addr: "127.0.0.1:1", DialTimeout: 10 * time.Millisecond})
+	t.Cleanup(func() { _ = client.Close() })
+
+	limiter := NewRedisRateLimiter(client, "test", true)
+	router := gin.New()
+	router.Use(limiter.Middleware(RateLimitConfig{Name: "global"}))
+	router.GET("/", func(c *gin.Context) { c.Status(http.StatusOK) })
+
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request.Header.Set("X-Load-Test-Run-ID", "test-run")
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Errorf("tagged load-test request status = %d, want %d", response.Code, http.StatusOK)
 	}
 }

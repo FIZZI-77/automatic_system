@@ -711,12 +711,67 @@ func (b *BrigadeRepoStruct) setBrigadeStatusWithTx(
 	if err = insertOutboxEvent(ctx, tx, "brigade", brigade.ID, eventType, payload, requestID, traceID); err != nil {
 		return nil, fmt.Errorf("insert outbox event: %w", err)
 	}
+	if err = syncBrigadeShift(ctx, tx, current, brigade, reason, changedBy, requestID, traceID); err != nil {
+		return nil, fmt.Errorf("sync brigade shift: %w", err)
+	}
 
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("commit tx: %w", err)
 	}
 
 	return brigade, nil
+}
+
+func syncBrigadeShift(
+	ctx context.Context,
+	tx pgx.Tx,
+	previous, current *models.Brigade,
+	reason string,
+	changedBy *uuid.UUID,
+	requestID, traceID *string,
+) error {
+	switch current.Status {
+	case models.BrigadeStatusAvailable:
+		shiftID := uuid.New()
+		command, err := tx.Exec(ctx, `INSERT INTO brigade_shifts(
+			id,brigade_id,department_id,started_by_user_id,start_reason
+		) VALUES($1,$2,$3,$4,$5) ON CONFLICT (brigade_id) WHERE ended_at IS NULL DO NOTHING`,
+			shiftID, current.ID, current.DepartmentID, changedBy, reason)
+		if err != nil {
+			return err
+		}
+		if command.RowsAffected() == 0 {
+			return nil
+		}
+		payload := map[string]any{
+			"event_id": uuid.NewString(), "event_type": "BrigadeShiftStarted", "event_version": 1,
+			"shift_id": shiftID.String(), "brigade_id": current.ID.String(),
+			"department_id": current.DepartmentID.String(), "started_at": current.UpdatedAt,
+			"from_status": previous.Status, "to_status": current.Status, "reason": reason,
+		}
+		return insertOutboxEvent(ctx, tx, "brigade_shift", shiftID, "BrigadeShiftStarted", payload, requestID, traceID)
+	case models.BrigadeStatusOffline, models.BrigadeStatusInactive, models.BrigadeStatusArchived:
+		var shiftID uuid.UUID
+		var startedAt time.Time
+		err := tx.QueryRow(ctx, `UPDATE brigade_shifts SET ended_at=$1,ended_by_user_id=$2,end_reason=$3,updated_at=$1
+			WHERE brigade_id=$4 AND ended_at IS NULL RETURNING id,started_at`,
+			current.UpdatedAt, changedBy, reason, current.ID).Scan(&shiftID, &startedAt)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		payload := map[string]any{
+			"event_id": uuid.NewString(), "event_type": "BrigadeShiftEnded", "event_version": 1,
+			"shift_id": shiftID.String(), "brigade_id": current.ID.String(),
+			"department_id": current.DepartmentID.String(), "started_at": startedAt,
+			"ended_at": current.UpdatedAt, "from_status": previous.Status, "to_status": current.Status, "reason": reason,
+		}
+		return insertOutboxEvent(ctx, tx, "brigade_shift", shiftID, "BrigadeShiftEnded", payload, requestID, traceID)
+	default:
+		return nil
+	}
 }
 
 func (b *BrigadeRepoStruct) getBrigadeByIDForUpdate(ctx context.Context, tx pgx.Tx, brigadeID uuid.UUID) (*models.Brigade, error) {
@@ -824,9 +879,39 @@ func insertOutboxEvent(
 	if err != nil {
 		return fmt.Errorf("marshal payload: %w", err)
 	}
+	var envelope map[string]any
+	if err = json.Unmarshal(payloadBytes, &envelope); err != nil {
+		return fmt.Errorf("normalize payload: %w", err)
+	}
+	eventID := uuid.New()
+	envelope["event_id"] = eventID.String()
+	envelope["event_type"] = eventType
+	envelope["event_version"] = 1
+	envelope["producer"] = "brigade-service"
+	envelope["aggregate_type"] = aggregateType
+	envelope["aggregate_id"] = aggregateID.String()
+	envelope["occurred_at"] = time.Now().UTC()
+	if requestID != nil {
+		envelope["request_id"] = *requestID
+	}
+	if traceID != nil {
+		envelope["trace_id"] = *traceID
+	}
+	if aggregateType == "brigade" {
+		var departmentID uuid.UUID
+		if err = tx.QueryRow(ctx, `SELECT department_id FROM brigades WHERE id=$1`, aggregateID).Scan(&departmentID); err != nil {
+			return fmt.Errorf("load event department: %w", err)
+		}
+		envelope["department_id"] = departmentID.String()
+	}
+	payloadBytes, err = json.Marshal(envelope)
+	if err != nil {
+		return fmt.Errorf("marshal event envelope: %w", err)
+	}
 
 	const query = `
 		INSERT INTO outbox_events (
+			id,
 			aggregate_type,
 			aggregate_id,
 			event_type,
@@ -834,12 +919,13 @@ func insertOutboxEvent(
 			request_id,
 			trace_id
 		)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
 
 	_, err = tx.Exec(
 		ctx,
 		query,
+		eventID,
 		aggregateType,
 		aggregateID,
 		eventType,

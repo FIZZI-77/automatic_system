@@ -3,9 +3,11 @@ package repository
 import (
 	"brigade/models"
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func TestMemberRepository_AddListChangeAvailabilityRemove(t *testing.T) {
@@ -96,5 +98,57 @@ func TestMemberRepository_AddListChangeAvailabilityRemove(t *testing.T) {
 	}
 	if statusHistory.Total != 1 {
 		t.Fatalf("expected 1 status history item, got %d", statusHistory.Total)
+	}
+
+	assertMemberEvent(t, db, brigade, added.Member.ID, "BrigadeMemberAdded", map[string]any{
+		"role":                string(models.BrigadeMemberRoleLead),
+		"active":              true,
+		"member_status":       "ACTIVE",
+		"availability_status": string(models.BrigadeMemberAvailabilityAvailable),
+	})
+	assertMemberEvent(t, db, brigade, added.Member.ID, "BrigadeMemberAvailabilityChanged", map[string]any{
+		"role":                string(models.BrigadeMemberRoleDriver),
+		"active":              true,
+		"member_status":       "ACTIVE",
+		"availability_status": string(models.BrigadeMemberAvailabilityUnavailable),
+	})
+	assertMemberEvent(t, db, brigade, added.Member.ID, "BrigadeMemberRemoved", map[string]any{
+		"role":                string(models.BrigadeMemberRoleDriver),
+		"active":              false,
+		"member_status":       "REMOVED",
+		"availability_status": string(models.BrigadeMemberAvailabilityUnavailable),
+	})
+}
+
+func assertMemberEvent(t *testing.T, db *pgxpool.Pool, brigade *models.Brigade, memberID uuid.UUID, eventType string, expected map[string]any) {
+	t.Helper()
+	var eventID string
+	var payloadBytes []byte
+	if err := db.QueryRow(
+		context.Background(),
+		`SELECT id::text,payload FROM outbox_events WHERE aggregate_id=$1 AND event_type=$2 ORDER BY created_at DESC LIMIT 1`,
+		brigade.ID,
+		eventType,
+	).Scan(&eventID, &payloadBytes); err != nil {
+		t.Fatalf("read %s outbox event: %v", eventType, err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(payloadBytes, &payload); err != nil {
+		t.Fatalf("decode %s outbox event: %v", eventType, err)
+	}
+	expected["event_id"] = eventID
+	expected["event_type"] = eventType
+	expected["event_version"] = float64(1)
+	expected["producer"] = "brigade-service"
+	expected["department_id"] = brigade.DepartmentID.String()
+	expected["brigade_id"] = brigade.ID.String()
+	expected["member_id"] = memberID.String()
+	for field, want := range expected {
+		if got := payload[field]; got != want {
+			t.Errorf("%s payload[%q] = %#v, want %#v", eventType, field, got, want)
+		}
+	}
+	if _, ok := payload["occurred_at"]; !ok {
+		t.Errorf("%s payload has no occurred_at", eventType)
 	}
 }

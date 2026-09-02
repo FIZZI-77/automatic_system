@@ -1,0 +1,730 @@
+{{- if .Values.migrations.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    app.kubernetes.io/component: job
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: migrator-asset
+    app.kubernetes.io/part-of: automatic-system
+    automatic-system.io/job-type: migration
+  name: {{ printf "%s-asset-migrate-%d" .Release.Name .Release.Revision | trunc 63 | trimSuffix "-" }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-10"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+  namespace: {{ .Release.Namespace }}
+spec:
+  activeDeadlineSeconds: 300
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: migrator-asset
+        sidecar.istio.io/inject: "false"
+        app.kubernetes.io/component: job
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: migrator-asset
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - args:
+        - -dir
+        - /migrations
+        - up
+        env:
+        - name: GOOSE_DRIVER
+          value: postgres
+        - name: GOOSE_DBSTRING
+          valueFrom:
+            secretKeyRef:
+              key: ASSET_GOOSE_DBSTRING
+              name: runtime-secrets
+        image: '{{ .Values.migrations.registry }}/automatic-system-asset-migrator:{{ required "migrations.tag is required when migrations.enabled=true" .Values.migrations.tag }}'
+        imagePullPolicy: {{ .Values.migrations.pullPolicy }}
+        name: migrator
+        resources:
+          limits:
+            cpu: 250m
+            memory: 256Mi
+          requests:
+            cpu: 10m
+            memory: 32Mi
+      enableServiceLinks: false
+      restartPolicy: Never
+  ttlSecondsAfterFinished: 86400
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    app.kubernetes.io/component: job
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: migrator-audit
+    app.kubernetes.io/part-of: automatic-system
+    automatic-system.io/job-type: migration
+  name: {{ printf "%s-audit-migrate-%d" .Release.Name .Release.Revision | trunc 63 | trimSuffix "-" }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-10"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+  namespace: {{ .Release.Namespace }}
+spec:
+  activeDeadlineSeconds: 300
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: migrator-audit
+        sidecar.istio.io/inject: "false"
+        app.kubernetes.io/component: job
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: migrator-audit
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - args:
+        - -dir
+        - /migrations
+        - up
+        env:
+        - name: GOOSE_DRIVER
+          value: postgres
+        - name: GOOSE_DBSTRING
+          valueFrom:
+            secretKeyRef:
+              key: AUDIT_GOOSE_DBSTRING
+              name: runtime-secrets
+        image: '{{ .Values.migrations.registry }}/automatic-system-audit-migrator:{{ required "migrations.tag is required when migrations.enabled=true" .Values.migrations.tag }}'
+        imagePullPolicy: {{ .Values.migrations.pullPolicy }}
+        name: migrator
+        resources:
+          limits:
+            cpu: 250m
+            memory: 256Mi
+          requests:
+            cpu: 10m
+            memory: 32Mi
+      enableServiceLinks: false
+      restartPolicy: Never
+  ttlSecondsAfterFinished: 86400
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    app.kubernetes.io/component: job
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: migrator-auth
+    app.kubernetes.io/part-of: automatic-system
+    automatic-system.io/job-type: migration
+  name: {{ printf "%s-auth-migrate-%d" .Release.Name .Release.Revision | trunc 63 | trimSuffix "-" }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-10"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+  namespace: {{ .Release.Namespace }}
+spec:
+  activeDeadlineSeconds: 300
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: migrator-auth
+        sidecar.istio.io/inject: "false"
+        app.kubernetes.io/component: job
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: migrator-auth
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - args:
+        - -dir
+        - /migrations
+        - up
+        env:
+        - name: GOOSE_DRIVER
+          value: postgres
+        - name: GOOSE_DBSTRING
+          valueFrom:
+            secretKeyRef:
+              key: AUTH_GOOSE_DBSTRING
+              name: runtime-secrets
+        image: '{{ .Values.migrations.registry }}/automatic-system-auth-migrator:{{ required "migrations.tag is required when migrations.enabled=true" .Values.migrations.tag }}'
+        imagePullPolicy: {{ .Values.migrations.pullPolicy }}
+        name: migrator
+        resources:
+          limits:
+            cpu: 250m
+            memory: 256Mi
+          requests:
+            cpu: 10m
+            memory: 32Mi
+      enableServiceLinks: false
+      restartPolicy: Never
+  ttlSecondsAfterFinished: 86400
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    app.kubernetes.io/component: job
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: migrator-brigade
+    app.kubernetes.io/part-of: automatic-system
+    automatic-system.io/job-type: migration
+  name: {{ printf "%s-brigade-migrate-%d" .Release.Name .Release.Revision | trunc 63 | trimSuffix "-" }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-10"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+  namespace: {{ .Release.Namespace }}
+spec:
+  activeDeadlineSeconds: 300
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: migrator-brigade
+        sidecar.istio.io/inject: "false"
+        app.kubernetes.io/component: job
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: migrator-brigade
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - args:
+        - -dir
+        - /migrations
+        - up
+        env:
+        - name: GOOSE_DRIVER
+          value: postgres
+        - name: GOOSE_DBSTRING
+          valueFrom:
+            secretKeyRef:
+              key: BRIGADE_GOOSE_DBSTRING
+              name: runtime-secrets
+        image: '{{ .Values.migrations.registry }}/automatic-system-brigade-migrator:{{ required "migrations.tag is required when migrations.enabled=true" .Values.migrations.tag }}'
+        imagePullPolicy: {{ .Values.migrations.pullPolicy }}
+        name: migrator
+        resources:
+          limits:
+            cpu: 250m
+            memory: 256Mi
+          requests:
+            cpu: 10m
+            memory: 32Mi
+      enableServiceLinks: false
+      restartPolicy: Never
+  ttlSecondsAfterFinished: 86400
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    app.kubernetes.io/component: job
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: migrator-department
+    app.kubernetes.io/part-of: automatic-system
+    automatic-system.io/job-type: migration
+  name: {{ printf "%s-department-migrate-%d" .Release.Name .Release.Revision | trunc 63 | trimSuffix "-" }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-10"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+  namespace: {{ .Release.Namespace }}
+spec:
+  activeDeadlineSeconds: 300
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: migrator-department
+        sidecar.istio.io/inject: "false"
+        app.kubernetes.io/component: job
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: migrator-department
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - args:
+        - -dir
+        - /migrations
+        - up
+        env:
+        - name: GOOSE_DRIVER
+          value: postgres
+        - name: GOOSE_DBSTRING
+          valueFrom:
+            secretKeyRef:
+              key: DEPARTMENT_GOOSE_DBSTRING
+              name: runtime-secrets
+        image: '{{ .Values.migrations.registry }}/automatic-system-department-migrator:{{ required "migrations.tag is required when migrations.enabled=true" .Values.migrations.tag }}'
+        imagePullPolicy: {{ .Values.migrations.pullPolicy }}
+        name: migrator
+        resources:
+          limits:
+            cpu: 250m
+            memory: 256Mi
+          requests:
+            cpu: 10m
+            memory: 32Mi
+      enableServiceLinks: false
+      restartPolicy: Never
+  ttlSecondsAfterFinished: 86400
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    app.kubernetes.io/component: job
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: migrator-file
+    app.kubernetes.io/part-of: automatic-system
+    automatic-system.io/job-type: migration
+  name: {{ printf "%s-file-migrate-%d" .Release.Name .Release.Revision | trunc 63 | trimSuffix "-" }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-10"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+  namespace: {{ .Release.Namespace }}
+spec:
+  activeDeadlineSeconds: 300
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: migrator-file
+        sidecar.istio.io/inject: "false"
+        app.kubernetes.io/component: job
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: migrator-file
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - args:
+        - -dir
+        - /migrations
+        - up
+        env:
+        - name: GOOSE_DRIVER
+          value: postgres
+        - name: GOOSE_DBSTRING
+          valueFrom:
+            secretKeyRef:
+              key: FILE_GOOSE_DBSTRING
+              name: runtime-secrets
+        image: '{{ .Values.migrations.registry }}/automatic-system-file-migrator:{{ required "migrations.tag is required when migrations.enabled=true" .Values.migrations.tag }}'
+        imagePullPolicy: {{ .Values.migrations.pullPolicy }}
+        name: migrator
+        resources:
+          limits:
+            cpu: 250m
+            memory: 256Mi
+          requests:
+            cpu: 10m
+            memory: 32Mi
+      enableServiceLinks: false
+      restartPolicy: Never
+  ttlSecondsAfterFinished: 86400
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    app.kubernetes.io/component: job
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: migrator-location
+    app.kubernetes.io/part-of: automatic-system
+    automatic-system.io/job-type: migration
+  name: {{ printf "%s-location-migrate-%d" .Release.Name .Release.Revision | trunc 63 | trimSuffix "-" }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-10"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+  namespace: {{ .Release.Namespace }}
+spec:
+  activeDeadlineSeconds: 300
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: migrator-location
+        sidecar.istio.io/inject: "false"
+        app.kubernetes.io/component: job
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: migrator-location
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - args:
+        - -dir
+        - /migrations
+        - up
+        env:
+        - name: GOOSE_DRIVER
+          value: postgres
+        - name: GOOSE_DBSTRING
+          valueFrom:
+            secretKeyRef:
+              key: LOCATION_GOOSE_DBSTRING
+              name: runtime-secrets
+        image: '{{ .Values.migrations.registry }}/automatic-system-location-migrator:{{ required "migrations.tag is required when migrations.enabled=true" .Values.migrations.tag }}'
+        imagePullPolicy: {{ .Values.migrations.pullPolicy }}
+        name: migrator
+        resources:
+          limits:
+            cpu: 250m
+            memory: 256Mi
+          requests:
+            cpu: 10m
+            memory: 32Mi
+      enableServiceLinks: false
+      restartPolicy: Never
+  ttlSecondsAfterFinished: 86400
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    app.kubernetes.io/component: job
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: migrator-notification
+    app.kubernetes.io/part-of: automatic-system
+    automatic-system.io/job-type: migration
+  name: {{ printf "%s-notification-migrate-%d" .Release.Name .Release.Revision | trunc 63 | trimSuffix "-" }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-10"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+  namespace: {{ .Release.Namespace }}
+spec:
+  activeDeadlineSeconds: 300
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: migrator-notification
+        sidecar.istio.io/inject: "false"
+        app.kubernetes.io/component: job
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: migrator-notification
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - args:
+        - -dir
+        - /migrations
+        - up
+        env:
+        - name: GOOSE_DRIVER
+          value: postgres
+        - name: GOOSE_DBSTRING
+          valueFrom:
+            secretKeyRef:
+              key: NOTIFICATION_GOOSE_DBSTRING
+              name: runtime-secrets
+        image: '{{ .Values.migrations.registry }}/automatic-system-notification-migrator:{{ required "migrations.tag is required when migrations.enabled=true" .Values.migrations.tag }}'
+        imagePullPolicy: {{ .Values.migrations.pullPolicy }}
+        name: migrator
+        resources:
+          limits:
+            cpu: 250m
+            memory: 256Mi
+          requests:
+            cpu: 10m
+            memory: 32Mi
+      enableServiceLinks: false
+      restartPolicy: Never
+  ttlSecondsAfterFinished: 86400
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    app.kubernetes.io/component: job
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: migrator-profile
+    app.kubernetes.io/part-of: automatic-system
+    automatic-system.io/job-type: migration
+  name: {{ printf "%s-profile-migrate-%d" .Release.Name .Release.Revision | trunc 63 | trimSuffix "-" }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-10"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+  namespace: {{ .Release.Namespace }}
+spec:
+  activeDeadlineSeconds: 300
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: migrator-profile
+        sidecar.istio.io/inject: "false"
+        app.kubernetes.io/component: job
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: migrator-profile
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - args:
+        - -dir
+        - /migrations
+        - up
+        env:
+        - name: GOOSE_DRIVER
+          value: postgres
+        - name: GOOSE_DBSTRING
+          valueFrom:
+            secretKeyRef:
+              key: PROFILE_GOOSE_DBSTRING
+              name: runtime-secrets
+        image: '{{ .Values.migrations.registry }}/automatic-system-profile-migrator:{{ required "migrations.tag is required when migrations.enabled=true" .Values.migrations.tag }}'
+        imagePullPolicy: {{ .Values.migrations.pullPolicy }}
+        name: migrator
+        resources:
+          limits:
+            cpu: 250m
+            memory: 256Mi
+          requests:
+            cpu: 10m
+            memory: 32Mi
+      enableServiceLinks: false
+      restartPolicy: Never
+  ttlSecondsAfterFinished: 86400
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    app.kubernetes.io/component: job
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: migrator-report
+    app.kubernetes.io/part-of: automatic-system
+    automatic-system.io/job-type: migration
+  name: {{ printf "%s-report-migrate-%d" .Release.Name .Release.Revision | trunc 63 | trimSuffix "-" }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-10"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+  namespace: {{ .Release.Namespace }}
+spec:
+  activeDeadlineSeconds: 300
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: migrator-report
+        sidecar.istio.io/inject: "false"
+        app.kubernetes.io/component: job
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: migrator-report
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - args:
+        - -dir
+        - /migrations
+        - up
+        env:
+        - name: GOOSE_DRIVER
+          value: postgres
+        - name: GOOSE_DBSTRING
+          valueFrom:
+            secretKeyRef:
+              key: REPORT_GOOSE_DBSTRING
+              name: runtime-secrets
+        image: '{{ .Values.migrations.registry }}/automatic-system-report-migrator:{{ required "migrations.tag is required when migrations.enabled=true" .Values.migrations.tag }}'
+        imagePullPolicy: {{ .Values.migrations.pullPolicy }}
+        name: migrator
+        resources:
+          limits:
+            cpu: 250m
+            memory: 256Mi
+          requests:
+            cpu: 10m
+            memory: 32Mi
+      enableServiceLinks: false
+      restartPolicy: Never
+  ttlSecondsAfterFinished: 86400
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    app.kubernetes.io/component: job
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: migrator-routing
+    app.kubernetes.io/part-of: automatic-system
+    automatic-system.io/job-type: migration
+  name: {{ printf "%s-routing-migrate-%d" .Release.Name .Release.Revision | trunc 63 | trimSuffix "-" }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-10"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+  namespace: {{ .Release.Namespace }}
+spec:
+  activeDeadlineSeconds: 300
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: migrator-routing
+        sidecar.istio.io/inject: "false"
+        app.kubernetes.io/component: job
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: migrator-routing
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - args:
+        - -dir
+        - /migrations
+        - up
+        env:
+        - name: GOOSE_DRIVER
+          value: postgres
+        - name: GOOSE_DBSTRING
+          valueFrom:
+            secretKeyRef:
+              key: ROUTING_GOOSE_DBSTRING
+              name: runtime-secrets
+        image: '{{ .Values.migrations.registry }}/automatic-system-routing-migrator:{{ required "migrations.tag is required when migrations.enabled=true" .Values.migrations.tag }}'
+        imagePullPolicy: {{ .Values.migrations.pullPolicy }}
+        name: migrator
+        resources:
+          limits:
+            cpu: 250m
+            memory: 256Mi
+          requests:
+            cpu: 10m
+            memory: 32Mi
+      enableServiceLinks: false
+      restartPolicy: Never
+  ttlSecondsAfterFinished: 86400
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    app.kubernetes.io/component: job
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: migrator-sla
+    app.kubernetes.io/part-of: automatic-system
+    automatic-system.io/job-type: migration
+  name: {{ printf "%s-sla-migrate-%d" .Release.Name .Release.Revision | trunc 63 | trimSuffix "-" }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-10"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+  namespace: {{ .Release.Namespace }}
+spec:
+  activeDeadlineSeconds: 300
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: migrator-sla
+        sidecar.istio.io/inject: "false"
+        app.kubernetes.io/component: job
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: migrator-sla
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - args:
+        - -dir
+        - /migrations
+        - up
+        env:
+        - name: GOOSE_DRIVER
+          value: postgres
+        - name: GOOSE_DBSTRING
+          valueFrom:
+            secretKeyRef:
+              key: SLA_GOOSE_DBSTRING
+              name: runtime-secrets
+        image: '{{ .Values.migrations.registry }}/automatic-system-sla-migrator:{{ required "migrations.tag is required when migrations.enabled=true" .Values.migrations.tag }}'
+        imagePullPolicy: {{ .Values.migrations.pullPolicy }}
+        name: migrator
+        resources:
+          limits:
+            cpu: 250m
+            memory: 256Mi
+          requests:
+            cpu: 10m
+            memory: 32Mi
+      enableServiceLinks: false
+      restartPolicy: Never
+  ttlSecondsAfterFinished: 86400
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    app.kubernetes.io/component: job
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: migrator-ticket
+    app.kubernetes.io/part-of: automatic-system
+    automatic-system.io/job-type: migration
+  name: {{ printf "%s-ticket-migrate-%d" .Release.Name .Release.Revision | trunc 63 | trimSuffix "-" }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-10"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+  namespace: {{ .Release.Namespace }}
+spec:
+  activeDeadlineSeconds: 300
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: migrator-ticket
+        sidecar.istio.io/inject: "false"
+        app.kubernetes.io/component: job
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: migrator-ticket
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - args:
+        - -dir
+        - /migrations
+        - up
+        env:
+        - name: GOOSE_DRIVER
+          value: postgres
+        - name: GOOSE_DBSTRING
+          valueFrom:
+            secretKeyRef:
+              key: TICKET_GOOSE_DBSTRING
+              name: runtime-secrets
+        image: '{{ .Values.migrations.registry }}/automatic-system-ticket-migrator:{{ required "migrations.tag is required when migrations.enabled=true" .Values.migrations.tag }}'
+        imagePullPolicy: {{ .Values.migrations.pullPolicy }}
+        name: migrator
+        resources:
+          limits:
+            cpu: 250m
+            memory: 256Mi
+          requests:
+            cpu: 10m
+            memory: 32Mi
+      enableServiceLinks: false
+      restartPolicy: Never
+  ttlSecondsAfterFinished: 86400
+
+{{- end }}

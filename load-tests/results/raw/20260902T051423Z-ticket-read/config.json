@@ -1,0 +1,12 @@
+{
+  "measurement": "5s",
+  "stabilization": "1s",
+  "base_url": "http://127.0.0.1:18081",
+  "k6_exit_code": 0,
+  "rates": "2",
+  "warmup": "2s",
+  "run_id": "20260902T051423Z-ticket-read",
+  "write_scenario": false,
+  "git_sha": "c825f9abe801ea1df299e31c56cc5aec3e0911a9",
+  "scenario": "ticket-read"
+}

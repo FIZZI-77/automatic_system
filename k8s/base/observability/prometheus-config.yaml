@@ -5,6 +5,9 @@ global:
     cluster_name: automatic-system
     environment: local-ha
 
+rule_files:
+  - /etc/prometheus/rules/*.yaml
+
 scrape_configs:
   - job_name: prometheus
     static_configs:

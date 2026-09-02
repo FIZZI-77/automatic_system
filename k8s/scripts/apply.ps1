@@ -51,20 +51,14 @@ kubectl -n $ns delete job -l automatic-system.io/job-type=init --ignore-not-foun
 Write-Host "Running migrations and initialization jobs..."
 kubectl apply -k "$local/migrations"
 $jobs = @(
-  "kafka-init","migrator-auth","migrator-ticket","migrator-department","migrator-brigade","migrator-profile",
-  "migrator-location","migrator-routing","migrator-dispatch","migrator-file","migrator-sla","migrator-notification",
-  "migrator-audit","migrator-report","migrator-asset","clickhouse-init"
+  "kafka-init"
 )
 foreach($j in $jobs) { kubectl -n $ns wait --for=condition=complete "job/$j" --timeout=600s }
 
 Write-Host "Applying applications..."
-kubectl apply -k "$local/apps"
-$appDeployments = @(
-  "auth-service","ticket-service","department-service","brigade-service","profile-service","location-service",
-  "routing-service","dispatch-service","file-service","sla-service","notification-service","audit-service",
-  "analytics-service","report-service","asset-service","api-gateway"
-)
-foreach($d in $appDeployments) { kubectl -n $ns rollout status "deployment/$d" --timeout=300s }
+$applicationsHelm = Join-Path $PSScriptRoot "deploy-applications-helm.ps1"
+& $applicationsHelm -Environment local
+if ($LASTEXITCODE -ne 0) { throw "Applications Helm release failed" }
 
 Write-Host "Deployment complete."
 kubectl -n $ns get pods

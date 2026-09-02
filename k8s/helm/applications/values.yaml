@@ -1,0 +1,207 @@
+environment: local
+dispatch:
+  enabled: true
+  image:
+    repository: automatic-system/dispatch
+    tag: dev
+    pullPolicy: IfNotPresent
+  replicaCount: 2
+  service:
+    port: 50058
+    metricsPort: 9464
+  config:
+    GRPC_PORT: "50058"
+    TICKET_SERVICE_ADDR: ticket-service:50052
+    BRIGADE_SERVICE_ADDR: brigade-service:50054
+    RESERVATION_TTL: 2m
+    CLEANUP_INTERVAL: 15s
+    DEPENDENCY_TIMEOUT: 10s
+    SHUTDOWN_TIMEOUT: 25s
+    DATABASE_MAX_CONNECTIONS: "8"
+    READ_DATABASE_MAX_CONNECTIONS: "4"
+    LOCK_DATABASE_MAX_CONNECTIONS: "4"
+    KAFKA_BROKERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
+    KAFKA_DISPATCH_TOPIC: dispatch.events.v1
+    KAFKA_TICKET_TOPIC: tickets.events.v1
+    KAFKA_TICKET_GROUP: dispatch-emergency-v1
+    AUTO_DISPATCH_ACTOR_ID: 00000000-0000-4000-8000-000000000058
+    AUTO_DISPATCH_CANDIDATE_LIMIT: "10"
+    KAFKA_TICKET_MAX_ATTEMPTS: "5"
+    OUTBOX_WORKER_COUNT: "4"
+    OUTBOX_BATCH_SIZE: "50"
+  database:
+    secretName: runtime-secrets
+    writeKey: DISPATCH_DATABASE_URL
+    readKey: DISPATCH_READ_DATABASE_URL
+  telemetryConfigMap: telemetry-config
+  podLabels: {}
+  podAnnotations:
+    prometheus.io/path: /metrics
+    prometheus.io/port: "9464"
+    prometheus.io/scrape: "true"
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 6
+    cpuUtilization: 70
+    memoryUtilization: 80
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+  topologySpread:
+    enabled: false
+    whenUnsatisfiable: ScheduleAnyway
+  migration:
+    enabled: true
+    image:
+      repository: automatic-system/dispatch-migrator
+      tag: dev
+      pullPolicy: IfNotPresent
+    secretName: runtime-secrets
+    databaseKey: DISPATCH_GOOSE_DBSTRING
+globalImage:
+  registry: ""
+  tag: ""
+  pullPolicy: ""
+migrations:
+  enabled: true
+  registry: automatic-system
+  tag: dev
+  pullPolicy: IfNotPresent
+analyticsInit:
+  enabled: true
+  registry: automatic-system
+  tag: dev
+  pullPolicy: IfNotPresent
+apiGateway:
+  serviceType: ClusterIP
+  pdb:
+    enabled: false
+    minAvailable: 1
+  topologySpread:
+    enabled: false
+    whenUnsatisfiable: ScheduleAnyway
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+applicationAutoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 6
+  cpuUtilization: 70
+  memoryUtilization: 80
+haDatabase:
+  enabled: false
+  platformPrimary: pgbouncer-platform-primary
+  platformReplicas: pgbouncer-platform-replicas
+  ticketPrimary: pgbouncer-ticket-primary
+  ticketReplicas: pgbouncer-ticket-replicas
+  port: "6432"
+applications:
+  analytics:
+    replicaCount: 2
+    image:
+      repository: automatic-system/analytics
+      tag: dev
+      pullPolicy: IfNotPresent
+  asset:
+    replicaCount: 2
+    image:
+      repository: automatic-system/asset
+      tag: dev
+      pullPolicy: IfNotPresent
+  sla:
+    replicaCount: 2
+    image:
+      repository: automatic-system/sla
+      tag: dev
+      pullPolicy: IfNotPresent
+  api-gateway:
+    replicaCount: 2
+    image:
+      repository: automatic-system/api-gateway
+      tag: dev
+      pullPolicy: IfNotPresent
+  audit:
+    replicaCount: 2
+    image:
+      repository: automatic-system/audit
+      tag: dev
+      pullPolicy: IfNotPresent
+  auth:
+    replicaCount: 2
+    image:
+      repository: automatic-system/auth
+      tag: dev
+      pullPolicy: IfNotPresent
+  brigade:
+    replicaCount: 2
+    image:
+      repository: automatic-system/brigade
+      tag: dev
+      pullPolicy: IfNotPresent
+  department:
+    replicaCount: 2
+    image:
+      repository: automatic-system/department
+      tag: dev
+      pullPolicy: IfNotPresent
+  file:
+    replicaCount: 2
+    image:
+      repository: automatic-system/file
+      tag: dev
+      pullPolicy: IfNotPresent
+  frontend:
+    replicaCount: 1
+    image:
+      repository: automatic-system/frontend
+      tag: dev
+      pullPolicy: IfNotPresent
+  location:
+    replicaCount: 2
+    image:
+      repository: automatic-system/location
+      tag: dev
+      pullPolicy: IfNotPresent
+  notification:
+    replicaCount: 2
+    image:
+      repository: automatic-system/notification
+      tag: dev
+      pullPolicy: IfNotPresent
+  profile:
+    replicaCount: 2
+    image:
+      repository: automatic-system/profile
+      tag: dev
+      pullPolicy: IfNotPresent
+  report:
+    replicaCount: 2
+    image:
+      repository: automatic-system/report
+      tag: dev
+      pullPolicy: IfNotPresent
+  routing:
+    replicaCount: 2
+    image:
+      repository: automatic-system/routing
+      tag: dev
+      pullPolicy: IfNotPresent
+  ticket:
+    replicaCount: 2
+    image:
+      repository: automatic-system/ticket
+      tag: dev
+      pullPolicy: IfNotPresent

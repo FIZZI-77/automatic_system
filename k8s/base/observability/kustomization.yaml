@@ -32,6 +32,9 @@ configMapGenerator:
   - name: prometheus-config
     files:
       - prometheus.yml=prometheus-config.yaml
+  - name: prometheus-slo-rules
+    files:
+      - slo-alert-rules.yaml=slo-alert-rules.yaml
   - name: grafana-datasources
     files:
       - datasources.yaml=grafana-datasources.yaml

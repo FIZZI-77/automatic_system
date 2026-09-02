@@ -323,12 +323,24 @@ func (t *TicketRepoStruct) updateTicket(ctx context.Context, q Querier, in *mode
 		addSet("longitude", *in.Longitude)
 	}
 
+	if in.AssetID != nil {
+		addSet("asset_id", *in.AssetID)
+	}
+
 	currentTicket, err := t.getTicketByIDForUpdate(ctx, q, in.TicketID)
 	if err != nil {
 		return nil, fmt.Errorf("repository: UpdateTicket(): get ticket: %w", err)
 	}
 
-	if !hasPrivilegedRole(in.ActorRoles) && currentTicket.UserID != *in.UpdatedBy {
+	workerRole := false
+	for _, role := range in.ActorRoles {
+		if role == "worker" {
+			workerRole = true
+			break
+		}
+	}
+	workerOwnsTicket := workerRole && in.ActorBrigadeID != nil && currentTicket.BrigadeID != nil && *currentTicket.BrigadeID == *in.ActorBrigadeID && currentTicket.Status == models.TicketStatusInProgress
+	if !hasPrivilegedRole(in.ActorRoles) && !workerOwnsTicket && currentTicket.UserID != *in.UpdatedBy {
 		return nil, fmt.Errorf("repository: UpdateTicket(): %w", models.ErrPermissionDenied)
 	}
 

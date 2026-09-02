@@ -35,6 +35,9 @@ const (
 type Operation struct {
 	ID            uuid.UUID
 	TicketID      uuid.UUID
+	DepartmentID  *uuid.UUID
+	CategoryID    *uuid.UUID
+	Priority      string
 	BrigadeID     *uuid.UUID
 	RouteID       *uuid.UUID
 	Mode          Mode
@@ -42,9 +45,22 @@ type Operation struct {
 	Version       int32
 	RequestedBy   uuid.UUID
 	FailureReason *string
+	FailureCode   *string
+	FailureStage  *string
 	ExpiresAt     time.Time
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
+}
+
+type CreateOperationInput struct {
+	TicketID       uuid.UUID
+	DepartmentID   uuid.UUID
+	CategoryID     uuid.UUID
+	Priority       string
+	RequestedBy    uuid.UUID
+	Mode           Mode
+	TTL            time.Duration
+	TriggerEventID *uuid.UUID
 }
 
 type Candidate struct {
@@ -82,6 +98,7 @@ type AutoInput struct {
 	RequiredSkillIDs []uuid.UUID
 	RequestedBy      uuid.UUID
 	CandidateLimit   int32
+	TriggerEventID   *uuid.UUID
 }
 
 type CancelInput struct {

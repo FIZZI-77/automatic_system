@@ -67,16 +67,20 @@ func (s *Service) Create(ctx context.Context, in models.CreateInput) (*models.Pr
 func (s *Service) Confirm(ctx context.Context, id, actor uuid.UUID, privileged bool) (*models.File, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx), zap.String("operation", "confirm_upload"), zap.String("file_id", id.String()))
 	f, err := s.repo.Get(ctx, id)
+
 	if err != nil {
 		return nil, err
 	}
+
 	if f.OwnerUserID != actor && !privileged {
 		return nil, models.ErrPermissionDenied
 	}
+
 	size, typ, err := s.store.Stat(ctx, f.ObjectKey)
 	if err != nil {
 		return nil, err
 	}
+
 	if size != f.Size || typ != f.ContentType {
 		logger.Warn("uploaded object metadata mismatch", zap.Int64("expected_size", f.Size), zap.Int64("actual_size", size), zap.String("expected_content_type", f.ContentType), zap.String("actual_content_type", typ))
 		if quarantineErr := s.repo.Quarantine(ctx, id); quarantineErr != nil {

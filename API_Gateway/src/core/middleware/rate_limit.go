@@ -46,16 +46,18 @@ type RateLimitConfig struct {
 }
 
 type RedisRateLimiter struct {
-	client redis.UniversalClient
-	script *redis.Script
-	prefix string
+	client          redis.UniversalClient
+	script          *redis.Script
+	prefix          string
+	bypassLoadTests bool
 }
 
-func NewRedisRateLimiter(client redis.UniversalClient, prefix string) *RedisRateLimiter {
+func NewRedisRateLimiter(client redis.UniversalClient, prefix string, bypassLoadTests bool) *RedisRateLimiter {
 	return &RedisRateLimiter{
-		client: client,
-		script: redis.NewScript(rateLimitScript),
-		prefix: prefix,
+		client:          client,
+		script:          redis.NewScript(rateLimitScript),
+		prefix:          prefix,
+		bypassLoadTests: bypassLoadTests,
 	}
 }
 
@@ -63,6 +65,11 @@ func (l *RedisRateLimiter) Middleware(config RateLimitConfig) gin.HandlerFunc {
 	config.normalize()
 
 	return func(c *gin.Context) {
+		if l.bypassLoadTests && c.GetHeader("X-Load-Test-Run-ID") != "" {
+			c.Next()
+			return
+		}
+
 		if config.SkipFunc != nil && config.SkipFunc(c) {
 			c.Next()
 			return

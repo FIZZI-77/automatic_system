@@ -1,0 +1,335 @@
+groups:
+  - name: automatic-system-slo-recording
+    interval: 30s
+    rules:
+      - record: automatic_system:gateway_requests:rate5m
+        expr: |
+          sum(rate(http_server_request_count_total{
+            job="application-services",
+            service="api-gateway",
+            http_route!~"/(livez|readyz)"
+          }[5m]))
+
+      - record: automatic_system:gateway_error_ratio:rate5m
+        expr: |
+          sum(rate(http_server_request_count_total{
+            job="application-services",
+            service="api-gateway",
+            http_route!~"/(livez|readyz)",
+            http_response_status_class="5xx"
+          }[5m]))
+          /
+          clamp_min(automatic_system:gateway_requests:rate5m, 0.001)
+
+      - record: automatic_system:gateway_error_ratio:rate1h
+        expr: |
+          sum(rate(http_server_request_count_total{
+            job="application-services",
+            service="api-gateway",
+            http_route!~"/(livez|readyz)",
+            http_response_status_class="5xx"
+          }[1h]))
+          /
+          clamp_min(
+            sum(rate(http_server_request_count_total{
+              job="application-services",
+              service="api-gateway",
+              http_route!~"/(livez|readyz)"
+            }[1h])),
+            0.001
+          )
+
+      - record: automatic_system:gateway_slow_ratio:rate5m
+        expr: |
+          1 - (
+            sum(rate(http_server_request_duration_seconds_bucket{
+              job="application-services",
+              service="api-gateway",
+              http_route!~"/(livez|readyz)",
+              le="1.0"
+            }[5m]))
+            /
+            clamp_min(
+              sum(rate(http_server_request_duration_seconds_count{
+                job="application-services",
+                service="api-gateway",
+                http_route!~"/(livez|readyz)"
+              }[5m])),
+              0.001
+            )
+          )
+
+      - record: automatic_system:gateway_slow_ratio:rate1h
+        expr: |
+          1 - (
+            sum(rate(http_server_request_duration_seconds_bucket{
+              job="application-services",
+              service="api-gateway",
+              http_route!~"/(livez|readyz)",
+              le="1.0"
+            }[1h]))
+            /
+            clamp_min(
+              sum(rate(http_server_request_duration_seconds_count{
+                job="application-services",
+                service="api-gateway",
+                http_route!~"/(livez|readyz)"
+              }[1h])),
+              0.001
+            )
+          )
+
+      - record: automatic_system:grpc_server_error_ratio:rate5m
+        expr: |
+          sum by (service) (rate(rpc_server_call_duration_seconds_count{
+            job="application-services",
+            rpc_method!="grpc.health.v1.Health/Check",
+            rpc_response_status_code=~"UNKNOWN|DEADLINE_EXCEEDED|RESOURCE_EXHAUSTED|INTERNAL|UNAVAILABLE|DATA_LOSS"
+          }[5m]))
+          /
+          clamp_min(
+            sum by (service) (rate(rpc_server_call_duration_seconds_count{
+              job="application-services",
+              rpc_method!="grpc.health.v1.Health/Check"
+            }[5m])),
+            0.001
+          )
+
+      - record: automatic_system:grpc_server_error_ratio:rate1h
+        expr: |
+          sum by (service) (rate(rpc_server_call_duration_seconds_count{
+            job="application-services",
+            rpc_method!="grpc.health.v1.Health/Check",
+            rpc_response_status_code=~"UNKNOWN|DEADLINE_EXCEEDED|RESOURCE_EXHAUSTED|INTERNAL|UNAVAILABLE|DATA_LOSS"
+          }[1h]))
+          /
+          clamp_min(
+            sum by (service) (rate(rpc_server_call_duration_seconds_count{
+              job="application-services",
+              rpc_method!="grpc.health.v1.Health/Check"
+            }[1h])),
+            0.001
+          )
+
+      - record: automatic_system:critical_deployments_available:ratio
+        expr: |
+          sum(kube_deployment_status_replicas_available{
+            namespace="automatic-system",
+            deployment=~"api-gateway|auth-service|ticket-service|dispatch-service|routing-service|sla-service|notification-service"
+          })
+          /
+          clamp_min(
+            sum(kube_deployment_spec_replicas{
+              namespace="automatic-system",
+              deployment=~"api-gateway|auth-service|ticket-service|dispatch-service|routing-service|sla-service|notification-service"
+            }),
+            1
+          )
+
+  - name: automatic-system-slo-alerts
+    interval: 30s
+    rules:
+      - alert: GatewayAvailabilityErrorBudgetFastBurn
+        expr: |
+          automatic_system:gateway_error_ratio:rate5m > (14.4 * 0.001)
+          and
+          automatic_system:gateway_error_ratio:rate1h > (14.4 * 0.001)
+        for: 2m
+        labels:
+          severity: critical
+          slo: gateway-availability
+          team: platform
+        annotations:
+          summary: "Gateway rapidly consumes its 99.9% availability budget"
+          description: "The 5xx ratio is above the 14.4x burn-rate threshold in both 5m and 1h windows."
+          runbook_url: "https://github.com/FIZZI-77/automatic-system/blob/main/k8s/base/observability/SLO.md#gateway-availability"
+
+      - alert: GatewayAvailabilityErrorBudgetSlowBurn
+        expr: |
+          (
+            sum(rate(http_server_request_count_total{job="application-services",service="api-gateway",http_route!~"/(livez|readyz)",http_response_status_class="5xx"}[30m]))
+            /
+            clamp_min(sum(rate(http_server_request_count_total{job="application-services",service="api-gateway",http_route!~"/(livez|readyz)"}[30m])), 0.001)
+          ) > (6 * 0.001)
+          and
+          (
+            sum(rate(http_server_request_count_total{job="application-services",service="api-gateway",http_route!~"/(livez|readyz)",http_response_status_class="5xx"}[6h]))
+            /
+            clamp_min(sum(rate(http_server_request_count_total{job="application-services",service="api-gateway",http_route!~"/(livez|readyz)"}[6h])), 0.001)
+          ) > (6 * 0.001)
+        for: 15m
+        labels:
+          severity: warning
+          slo: gateway-availability
+          team: platform
+        annotations:
+          summary: "Gateway steadily consumes its 99.9% availability budget"
+          description: "The 5xx ratio is above the 6x burn-rate threshold in both 30m and 6h windows."
+          runbook_url: "https://github.com/FIZZI-77/automatic-system/blob/main/k8s/base/observability/SLO.md#gateway-availability"
+
+      - alert: GatewayLatencyErrorBudgetFastBurn
+        expr: |
+          automatic_system:gateway_slow_ratio:rate5m > (14.4 * 0.01)
+          and
+          automatic_system:gateway_slow_ratio:rate1h > (14.4 * 0.01)
+        for: 2m
+        labels:
+          severity: critical
+          slo: gateway-latency
+          team: platform
+        annotations:
+          summary: "Gateway rapidly consumes its latency budget"
+          description: "More than the allowed burn rate of requests exceed 1 second in both 5m and 1h windows."
+          runbook_url: "https://github.com/FIZZI-77/automatic-system/blob/main/k8s/base/observability/SLO.md#gateway-latency"
+
+      - alert: BackendGRPCErrorBudgetFastBurn
+        expr: |
+          automatic_system:grpc_server_error_ratio:rate5m > (14.4 * 0.001)
+          and on (service)
+          automatic_system:grpc_server_error_ratio:rate1h > (14.4 * 0.001)
+        for: 2m
+        labels:
+          severity: critical
+          slo: backend-availability
+          team: backend
+        annotations:
+          summary: "{{ $labels.service }} rapidly consumes its gRPC availability budget"
+          description: "Server-side gRPC failures exceed the 14.4x burn-rate threshold. Client validation and permission errors are excluded."
+          runbook_url: "https://github.com/FIZZI-77/automatic-system/blob/main/k8s/base/observability/SLO.md#backend-grpc-availability"
+
+      - alert: CriticalDeploymentUnavailable
+        expr: |
+          kube_deployment_status_replicas_available{
+            namespace="automatic-system",
+            deployment=~"api-gateway|auth-service|ticket-service|dispatch-service|routing-service|sla-service|notification-service"
+          } < 1
+        for: 2m
+        labels:
+          severity: critical
+          slo: workload-availability
+          team: platform
+        annotations:
+          summary: "Critical deployment {{ $labels.deployment }} has no available replicas"
+          description: "The user-facing critical path is unavailable for at least two minutes."
+          runbook_url: "https://github.com/FIZZI-77/automatic-system/blob/main/k8s/base/observability/SLO.md#critical-workloads"
+
+      - alert: CriticalDeploymentDegraded
+        expr: |
+          kube_deployment_status_replicas_available{
+            namespace="automatic-system",
+            deployment=~"api-gateway|auth-service|ticket-service|dispatch-service|routing-service|sla-service|notification-service"
+          }
+          <
+          kube_deployment_spec_replicas{
+            namespace="automatic-system",
+            deployment=~"api-gateway|auth-service|ticket-service|dispatch-service|routing-service|sla-service|notification-service"
+          }
+        for: 10m
+        labels:
+          severity: warning
+          slo: workload-availability
+          team: platform
+        annotations:
+          summary: "Critical deployment {{ $labels.deployment }} is degraded"
+          description: "Available replicas have remained below the desired count for ten minutes."
+          runbook_url: "https://github.com/FIZZI-77/automatic-system/blob/main/k8s/base/observability/SLO.md#critical-workloads"
+
+      - alert: KafkaConsumerLagHigh
+        expr: kafka_consumergroup_lag_sum{job="kafka-exporter"} > 100
+        for: 10m
+        labels:
+          severity: warning
+          slo: event-freshness
+          team: backend
+        annotations:
+          summary: "Kafka consumer {{ $labels.consumergroup }} is behind"
+          description: "Consumer lag for {{ $labels.topic }} has exceeded 100 messages for ten minutes."
+          runbook_url: "https://github.com/FIZZI-77/automatic-system/blob/main/k8s/base/observability/SLO.md#event-freshness"
+
+      - alert: KafkaConsumerLagCritical
+        expr: kafka_consumergroup_lag_sum{job="kafka-exporter"} > 1000
+        for: 5m
+        labels:
+          severity: critical
+          slo: event-freshness
+          team: backend
+        annotations:
+          summary: "Kafka consumer {{ $labels.consumergroup }} is critically behind"
+          description: "Consumer lag for {{ $labels.topic }} has exceeded 1000 messages for five minutes."
+          runbook_url: "https://github.com/FIZZI-77/automatic-system/blob/main/k8s/base/observability/SLO.md#event-freshness"
+
+      - alert: PlatformPostgresPrimaryMissing
+        expr: sum(patroni_primary{job="patroni",db_cluster="postgres-platform"}) != 1
+        for: 1m
+        labels:
+          severity: critical
+          slo: database-availability
+          team: platform
+        annotations:
+          summary: "Platform PostgreSQL does not have exactly one primary"
+          description: "Patroni reports a missing or split-brain primary for the shared platform cluster."
+          runbook_url: "https://github.com/FIZZI-77/automatic-system/blob/main/k8s/base/observability/SLO.md#data-plane"
+
+      - alert: TicketCoordinatorPrimaryMissing
+        expr: sum(patroni_primary{job="patroni",db_cluster="postgres-ticket-citus",pod=~"coordinator-ticket-citus-.*"}) != 1
+        for: 1m
+        labels:
+          severity: critical
+          slo: database-availability
+          team: platform
+        annotations:
+          summary: "Ticket Citus coordinator does not have exactly one primary"
+          description: "Patroni reports a missing or split-brain primary among Ticket coordinator nodes."
+          runbook_url: "https://github.com/FIZZI-77/automatic-system/blob/main/k8s/base/observability/SLO.md#data-plane"
+
+      - alert: DatabaseEndpointDown
+        expr: min by (job, db_cluster) ({__name__=~"pg_up|pgbouncer_up"}) < 1
+        for: 2m
+        labels:
+          severity: critical
+          slo: database-availability
+          team: platform
+        annotations:
+          summary: "Database endpoint {{ $labels.db_cluster }} is down"
+          description: "A PostgreSQL or PgBouncer exporter has reported an unavailable endpoint for two minutes."
+          runbook_url: "https://github.com/FIZZI-77/automatic-system/blob/main/k8s/base/observability/SLO.md#data-plane"
+
+      - alert: RedisEndpointDown
+        expr: redis_up{job="redis-exporter"} < 1
+        for: 2m
+        labels:
+          severity: critical
+          slo: dependency-availability
+          team: platform
+        annotations:
+          summary: "Redis endpoint {{ $labels.instance }} is down"
+          description: "Redis is unavailable and may break rate limiting, notifications, or location processing."
+          runbook_url: "https://github.com/FIZZI-77/automatic-system/blob/main/k8s/base/observability/SLO.md#data-plane"
+
+      - alert: MetricsTargetDown
+        expr: up{job=~"application-services|kafka-exporter|postgres-exporter|patroni|pgbouncer-exporter|redis-exporter|clickhouse"} < 1
+        for: 5m
+        labels:
+          severity: warning
+          slo: observability-coverage
+          team: platform
+        annotations:
+          summary: "Prometheus target {{ $labels.job }} / {{ $labels.instance }} is down"
+          description: "Metrics are unavailable for five minutes; service SLO evaluation may be incomplete."
+          runbook_url: "https://github.com/FIZZI-77/automatic-system/blob/main/k8s/base/observability/SLO.md#observability-coverage"
+
+      - alert: ContainerRestartLoop
+        expr: |
+          increase(kube_pod_container_status_restarts_total{
+            namespace="automatic-system",
+            container!="istio-proxy"
+          }[15m]) >= 3
+        for: 5m
+        labels:
+          severity: warning
+          slo: workload-availability
+          team: platform
+        annotations:
+          summary: "Container {{ $labels.container }} in {{ $labels.pod }} is restarting"
+          description: "At least three restarts occurred within fifteen minutes."
+          runbook_url: "https://github.com/FIZZI-77/automatic-system/blob/main/k8s/base/observability/SLO.md#critical-workloads"

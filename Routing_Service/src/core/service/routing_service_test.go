@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"routing/models"
@@ -10,13 +11,14 @@ import (
 type engineStub struct {
 	cells []models.MatrixCell
 	route *models.CalculatedRoute
+	err   error
 }
 
 func (s *engineStub) BuildRoute(
 	context.Context,
 	*models.BuildRouteInput,
 ) (*models.CalculatedRoute, error) {
-	return s.route, nil
+	return s.route, s.err
 }
 
 func (s *engineStub) BuildMatrix(
@@ -27,7 +29,13 @@ func (s *engineStub) BuildMatrix(
 }
 
 type repoStub struct {
-	route *models.Route
+	route   *models.Route
+	failure *models.CalculationFailure
+}
+
+func (s *repoStub) RecordCalculationFailure(_ context.Context, failure models.CalculationFailure) error {
+	s.failure = &failure
+	return nil
 }
 
 func (s *repoStub) CreateRoute(
@@ -136,6 +144,10 @@ func TestCreateAndRecalculateRoute(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create route: %v", err)
 	}
+	if route.CalculationStartedAt == nil || route.CalculationFinishedAt == nil ||
+		route.CalculationDurationMillis == nil || route.CalculationSuccess == nil || !*route.CalculationSuccess {
+		t.Fatalf("CreateRoute() calculation telemetry = %#v, want complete successful telemetry", route)
+	}
 	updated, err := value.RecalculateRoute(
 		context.Background(),
 		&models.RecalculateRouteInput{
@@ -151,5 +163,32 @@ func TestCreateAndRecalculateRoute(t *testing.T) {
 	}
 	if updated.Revision != 2 || updated.Origin.Latitude != 55.755 {
 		t.Fatalf("updated route = %#v", updated)
+	}
+	if updated.CalculationDurationMillis == nil || updated.CalculationSuccess == nil || !*updated.CalculationSuccess {
+		t.Fatalf("RecalculateRoute() calculation telemetry = %#v, want complete successful telemetry", updated)
+	}
+}
+
+func TestCreateRouteRecordsEngineFailure(t *testing.T) {
+	repo := &repoStub{}
+	engineErr := errors.New("valhalla unavailable")
+	value := New(repo, &engineStub{err: engineErr}, nil)
+	_, err := value.CreateRoute(context.Background(), &models.CreateRouteInput{
+		TicketID:    "14c39ee8-0104-4b07-9a97-f0b62b35e844",
+		BrigadeID:   "f28296a1-999c-4708-9e85-04984530e90d",
+		Origin:      models.Point{Latitude: 55.75, Longitude: 37.61},
+		Destination: models.Point{Latitude: 55.76, Longitude: 37.62},
+	})
+	if !errors.Is(err, engineErr) {
+		t.Fatalf("CreateRoute() error = %v, want engine error", err)
+	}
+	if repo.failure == nil {
+		t.Fatal("CreateRoute() did not record calculation failure")
+	}
+	if repo.failure.AggregateType != "ticket" || repo.failure.FailureCode != "ENGINE_ERROR" || repo.failure.TicketID == "" || repo.failure.BrigadeID == "" {
+		t.Errorf("CreateRoute() failure = %+v, want ticket aggregate and normalized engine failure", repo.failure)
+	}
+	if repo.route != nil {
+		t.Errorf("CreateRoute() persisted route = %+v, want no fictitious route", repo.route)
 	}
 }

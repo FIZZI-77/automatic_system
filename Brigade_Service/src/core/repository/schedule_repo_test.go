@@ -3,6 +3,7 @@ package repository
 import (
 	"brigade/models"
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -35,6 +36,25 @@ func TestScheduleRepository_SetAndList(t *testing.T) {
 	}
 	if len(result.Schedule) != 1 {
 		t.Fatalf("expected one schedule item, got %d", len(result.Schedule))
+	}
+	var payloadBytes []byte
+	if err = db.QueryRow(ctx, `SELECT payload FROM outbox_events WHERE aggregate_id=$1 AND event_type='BrigadeScheduleChanged' ORDER BY created_at DESC LIMIT 1`, brigade.ID).Scan(&payloadBytes); err != nil {
+		t.Fatalf("read BrigadeScheduleChanged event: %v", err)
+	}
+	var payload struct {
+		DepartmentID string `json:"department_id"`
+		OccurredAt   string `json:"occurred_at"`
+		Schedule     []struct {
+			StartsAt string `json:"starts_at"`
+			EndsAt   string `json:"ends_at"`
+			Timezone string `json:"timezone"`
+		} `json:"schedule"`
+	}
+	if err = json.Unmarshal(payloadBytes, &payload); err != nil {
+		t.Fatalf("decode BrigadeScheduleChanged event: %v", err)
+	}
+	if payload.DepartmentID != brigade.DepartmentID.String() || payload.OccurredAt == "" || len(payload.Schedule) != 1 || payload.Schedule[0].StartsAt != "09:00:00" || payload.Schedule[0].EndsAt != "18:00:00" || payload.Schedule[0].Timezone != "UTC" {
+		t.Errorf("BrigadeScheduleChanged payload = %#v, want department and 09:00-18:00 UTC schedule", payload)
 	}
 
 	active := true

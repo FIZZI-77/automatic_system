@@ -207,9 +207,11 @@ type UpdateTicketInput struct {
 	Address   *string
 	Latitude  *float64
 	Longitude *float64
+	AssetID   *uuid.UUID
 
-	UpdatedBy  *uuid.UUID
-	ActorRoles []string
+	UpdatedBy      *uuid.UUID
+	ActorBrigadeID *uuid.UUID
+	ActorRoles     []string
 }
 
 type UpdateTicketResult struct {

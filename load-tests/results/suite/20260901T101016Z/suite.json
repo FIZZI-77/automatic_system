@@ -1,0 +1,8 @@
+{
+    "scenario":  "services-parallel",
+    "rates":  "3,5,10,15,20",
+    "writes":  false,
+    "exit_code":  1,
+    "started_at":  "\/Date(1788257493096)\/",
+    "ended_at":  "\/Date(1788257741330)\/"
+}

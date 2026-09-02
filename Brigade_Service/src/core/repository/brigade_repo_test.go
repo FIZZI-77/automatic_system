@@ -91,6 +91,51 @@ func TestBrigadeRepository_DuplicateName(t *testing.T) {
 	}
 }
 
+func TestBrigadeRepository_StatusLifecycleCreatesAndClosesOneShift(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	repo := NewRepository(DBPools{Write: db, Read: db})
+	ctx := context.Background()
+	brigade := createTestBrigade(t, repo, uuid.New())
+	for _, status := range []models.BrigadeStatus{
+		models.BrigadeStatusActive,
+		models.BrigadeStatusAvailable,
+		models.BrigadeStatusBusy,
+		models.BrigadeStatusAvailable,
+		models.BrigadeStatusOffline,
+	} {
+		if _, err := repo.SetBrigadeStatus(ctx, &models.SetBrigadeStatusInput{
+			BrigadeID: brigade.ID,
+			Status:    status,
+			Reason:    "test lifecycle",
+		}); err != nil {
+			t.Fatalf("set status %s: %v", status, err)
+		}
+	}
+
+	var shifts, closed uint64
+	if err := db.QueryRow(ctx, `SELECT count(*),count(*) FILTER (WHERE ended_at IS NOT NULL)
+		FROM brigade_shifts WHERE brigade_id=$1`, brigade.ID).Scan(&shifts, &closed); err != nil {
+		t.Fatalf("query brigade shifts: %v", err)
+	}
+	if shifts != 1 || closed != 1 {
+		t.Fatalf("shift lifecycle = total %d closed %d, want one closed shift", shifts, closed)
+	}
+
+	var startedEvents, endedEvents uint64
+	if err := db.QueryRow(ctx, `SELECT
+		count(*) FILTER (WHERE event_type='BrigadeShiftStarted'),
+		count(*) FILTER (WHERE event_type='BrigadeShiftEnded')
+		FROM outbox_events WHERE aggregate_type='brigade_shift' AND aggregate_id IN
+		(SELECT id FROM brigade_shifts WHERE brigade_id=$1)`, brigade.ID).Scan(&startedEvents, &endedEvents); err != nil {
+		t.Fatalf("query shift outbox events: %v", err)
+	}
+	if startedEvents != 1 || endedEvents != 1 {
+		t.Fatalf("shift events = started %d ended %d, want one of each", startedEvents, endedEvents)
+	}
+}
+
 func TestBrigadeRepository_Readiness(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()

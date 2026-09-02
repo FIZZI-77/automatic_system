@@ -436,6 +436,12 @@ func (t *TicketHandler) UpdateTicket(ctx context.Context, req *ticketv1.UpdateTi
 		return nil, ticketStatusError("UpdateTicket", fmt.Errorf("%w: %v", models.ErrValidation, err))
 	}
 
+	assetID, err := parseOptionalUUID(req.GetAssetId(), "asset_id")
+	if err != nil {
+		logger.Warn("gRPC request failed", zap.String("method", "UpdateTicket"), zap.Error(err))
+		return nil, ticketStatusError("UpdateTicket", fmt.Errorf("%w: %v", models.ErrValidation, err))
+	}
+
 	var priority *models.TicketPriority
 	if req.Priority != nil && req.GetPriority() != ticketv1.TicketPriority_TICKET_PRIORITY_UNSPECIFIED {
 		v := FromProtoPriority(req.GetPriority())
@@ -444,14 +450,16 @@ func (t *TicketHandler) UpdateTicket(ctx context.Context, req *ticketv1.UpdateTi
 
 	actor := actorFromContext(ctx)
 	in := &models.UpdateTicketInput{
-		TicketID:    ticketID,
-		Title:       req.Title,
-		Description: req.Description,
-		CategoryID:  categoryID,
-		Priority:    priority,
-		Address:     req.Address,
-		UpdatedBy:   updatedBy,
-		ActorRoles:  actor.Roles,
+		TicketID:       ticketID,
+		Title:          req.Title,
+		Description:    req.Description,
+		CategoryID:     categoryID,
+		Priority:       priority,
+		Address:        req.Address,
+		UpdatedBy:      updatedBy,
+		AssetID:        assetID,
+		ActorBrigadeID: actor.BrigadeID,
+		ActorRoles:     actor.Roles,
 	}
 
 	if req.Latitude != nil {

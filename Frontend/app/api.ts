@@ -23,6 +23,7 @@ export type Ticket = {
   category_id: string;
   user_id: string;
   brigade_id?: string;
+  asset_id?: string;
   title: string;
   description: string;
   status: string;
@@ -38,6 +39,8 @@ export type Ticket = {
   created_by_name?: string;
   accepted_by_name?: string;
 };
+
+export type Asset = { id: string; external_id?: string; serial_number?: string; name: string; address?: string; latitude?: number; longitude?: number };
 
 export type Position = {
   vehicle_id: string;
@@ -163,6 +166,15 @@ export const config = {
     analyticsSlaSummary: process.env.NEXT_PUBLIC_API_ANALYTICS_SLA_SUMMARY || "/analytics/sla/summary",
     analyticsBreakdown: process.env.NEXT_PUBLIC_API_ANALYTICS_BREAKDOWN || "/analytics/tickets/breakdown",
     analyticsDaily: process.env.NEXT_PUBLIC_API_ANALYTICS_DAILY || "/analytics/tickets/daily",
+    analyticsDispatchFailures: process.env.NEXT_PUBLIC_API_ANALYTICS_DISPATCH_FAILURES || "/analytics/dispatch/failures",
+    analyticsBrigadeWorkload: process.env.NEXT_PUBLIC_API_ANALYTICS_BRIGADE_WORKLOAD || "/analytics/brigades/workload",
+    analyticsOperationalInsights: process.env.NEXT_PUBLIC_API_ANALYTICS_OPERATIONAL_INSIGHTS || "/analytics/operations/insights",
+    analyticsProjectionHealth: process.env.NEXT_PUBLIC_API_ANALYTICS_PROJECTION_HEALTH || "/analytics/projections/health",
+    analyticsDispatchOperations: process.env.NEXT_PUBLIC_API_ANALYTICS_DISPATCH_OPERATIONS || "/analytics/dispatch/operations",
+    analyticsBrigadePerformance: process.env.NEXT_PUBLIC_API_ANALYTICS_BRIGADE_PERFORMANCE || "/analytics/brigades/performance",
+    analyticsActiveWorkers: process.env.NEXT_PUBLIC_API_ANALYTICS_ACTIVE_WORKERS || "/analytics/workers/active",
+    analyticsAssignmentFunnel: process.env.NEXT_PUBLIC_API_ANALYTICS_ASSIGNMENT_FUNNEL || "/analytics/dispatch/funnel",
+    analyticsDispatchEffectiveness: process.env.NEXT_PUBLIC_API_ANALYTICS_DISPATCH_EFFECTIVENESS || "/analytics/dispatch/effectiveness",
     slaList: process.env.NEXT_PUBLIC_API_SLA_LIST || "/sla/tickets/list",
     slaTicketGet: process.env.NEXT_PUBLIC_API_SLA_TICKET_GET || "/sla/tickets/get",
     slaHistory: process.env.NEXT_PUBLIC_API_SLA_HISTORY || "/sla/history/list",
@@ -208,6 +220,7 @@ export const config = {
     brigadeSchedulesList: process.env.NEXT_PUBLIC_API_BRIGADE_SCHEDULES_LIST || "/brigade-schedules/list",
     assetsCreate: process.env.NEXT_PUBLIC_API_ASSETS_CREATE || "/assets/create",
     assetsGet: process.env.NEXT_PUBLIC_API_ASSETS_GET || "/assets/get",
+    assetsResolve: process.env.NEXT_PUBLIC_API_ASSETS_RESOLVE || "/assets/resolve",
     assetsUpdate: process.env.NEXT_PUBLIC_API_ASSETS_UPDATE || "/assets/update",
     assetsList: process.env.NEXT_PUBLIC_API_ASSETS_LIST || "/assets/list",
     assetsStatus: process.env.NEXT_PUBLIC_API_ASSETS_STATUS || "/assets/status",

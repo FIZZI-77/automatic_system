@@ -3,7 +3,7 @@ module gateway
 go 1.25.9
 
 require (
-	github.com/FIZZI-77/automatic-system-contracts v0.0.0-20260823165728-4cdb30d82de6
+	github.com/FIZZI-77/automatic-system-contracts v0.0.0-20260831131140-88cf08aabb04
 	github.com/alicebob/miniredis/v2 v2.37.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/golang-jwt/jwt/v5 v5.3.1

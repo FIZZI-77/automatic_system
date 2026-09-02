@@ -66,6 +66,18 @@ redis.call("SET", KEYS[2], ARGV[4], "EX", ARGV[18])
 redis.call("SET", KEYS[3], ARGV[4], "EX", ARGV[18])
 redis.call("GEOADD", KEYS[4], ARGV[7], ARGV[6], ARGV[4])
 redis.call("ZADD", KEYS[5], ARGV[15], ARGV[4])
+redis.call("XADD", KEYS[6], "MAXLEN", "~", 100000, "*",
+    "event_id", ARGV[1],
+    "event_type", "VehiclePositionUpdated",
+    "event_version", ARGV[19],
+    "brigade_id", ARGV[4],
+    "vehicle_id", ARGV[3],
+    "sequence", ARGV[5],
+    "latitude", ARGV[6],
+    "longitude", ARGV[7],
+    "speed_kmh", ARGV[8],
+    "accuracy_meters", ARGV[10],
+    "occurred_at", ARGV[13])
 return 1
 `)
 
@@ -168,6 +180,7 @@ func (c *CurrentLocationRepoStruct) SaveCurrentLocation(
 		vehicleBrigadeKey(in.VehicleID),
 		brigadeGeoKey,
 		signalLastSeenKey,
+		signalEventsKey,
 	}
 	result, err := saveCurrentLocationScript.Run(
 		ctx,
@@ -193,6 +206,7 @@ func (c *CurrentLocationRepoStruct) SaveCurrentLocation(
 		string(models.SignalStatusOnline),
 		staleAfter.Format(time.RFC3339Nano),
 		int64(c.cfg.CurrentLocationTTL/time.Second),
+		in.EventVersion,
 	).Int()
 	if err != nil {
 		return nil, fmt.Errorf("repository: SaveCurrentLocation: redis script: %w", err)

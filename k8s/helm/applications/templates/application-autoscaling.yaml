@@ -1,0 +1,53 @@
+{{- if .Values.applicationAutoscaling.enabled }}
+{{- $root := . }}
+{{- $services := list "analytics" "api-gateway" "asset" "audit" "auth" "brigade" "department" "file" "location" "notification" "profile" "report" "routing" "sla" "ticket" }}
+{{- range $service := $services }}
+{{- $deploymentName := ternary "api-gateway" (printf "%s-service" $service) (eq $service "api-gateway") }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ $deploymentName }}
+  namespace: {{ $root.Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: {{ $deploymentName }}
+    app.kubernetes.io/managed-by: Helm
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ $deploymentName }}
+  minReplicas: {{ $root.Values.applicationAutoscaling.minReplicas }}
+  maxReplicas: {{ $root.Values.applicationAutoscaling.maxReplicas }}
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      selectPolicy: Max
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 60
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 25
+          periodSeconds: 60
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ $root.Values.applicationAutoscaling.cpuUtilization }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ $root.Values.applicationAutoscaling.memoryUtilization }}
+---
+{{- end }}
+{{- end }}

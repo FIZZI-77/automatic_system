@@ -16,7 +16,9 @@
   бизнес-процессам.
 - Analytics Service получает доменные события Kafka и хранит read model в
   ClickHouse. Уже доступны обзор заявок, среднее время реакции/выполнения,
-  SLA, дневная динамика, разбивки и базовая аналитика Asset Service.
+  SLA, дневная динамика, разбивки, базовая аналитика Asset Service и отдельные
+  распределения времени назначения/расчёта маршрута (average, median, p90,
+  p95, p99 и sample count).
 - Kubernetes-стек включает Istio ingress/service mesh, NetworkPolicy,
   Prometheus, Grafana, OpenTelemetry Collector, Jaeger, Kiali,
   Elasticsearch, Filebeat и Kibana.
@@ -39,99 +41,135 @@
 
 ### 1. Событийные контракты и качество данных
 
-- Добавить в Dispatch Service transactional outbox и публикацию полного
-  жизненного цикла в `dispatch.events.v1`:
-  `dispatch.requested`, `dispatch.candidates_ranked`, `dispatch.reserved`,
+- Dispatch Service публикует через transactional outbox в
+  `dispatch.events.v1` жизненный цикл `dispatch.requested`,
+  `dispatch.candidates_ranked`, `dispatch.reserved`, `dispatch.route_built`,
   `dispatch.assigned`, `dispatch.failed`, `dispatch.expired` и
-  `dispatch.canceled`.
-- Передавать в Dispatch events: `operation_id`, `ticket_id`, `department_id`,
-  `brigade_id`, `route_id`, `mode`, `status`, `failure_code`,
-  `failure_reason`, `candidate_count`, `reachable_candidate_count`,
-  `requested_at`, `reserved_at`, `assigned_at`, `occurred_at` и `trace_id`.
-- Расширить Routing events полями `calculation_started_at`,
+  `dispatch.canceled`. Добавить Kafka integration/E2E с проверкой retry,
+  исчерпания попыток и восстановления зависших `PROCESSING` событий.
+- Базовый Dispatch payload содержит `operation_id`, `ticket_id`,
+  `department_id`, `category_id`, `priority`, `brigade_id`, `route_id`, `mode`,
+  `status`, `failure_code`, `failure_reason`, числа кандидатов, timestamps
+  этапов, `occurred_at`, `trace_id` и явный `failure_stage`. Чистые contract
+  tests покрывают все восемь типов, envelope и stage timestamps; PostgreSQL
+  integration дополнительно проверяет транзакционность ключевых переходов.
+- Routing events успешного и неуспешного расчёта содержат `calculation_started_at`,
   `calculation_finished_at`, `calculation_duration_ms`, `engine`,
-  `travel_mode`, `distance_meters`, `duration_seconds`, `success` и
-  нормализованным `failure_code`.
-- Проверить Brigade events и добавить недостающие данные для проекции текущего
-  состава: `department_id`, `brigade_id`, `user_id`, статус участника,
-  доступность, роль, начало/конец смены и `occurred_at`.
+  `travel_mode`, `distance_meters`, `duration_seconds`, `success`,
+  нормализованный `failure_code` и единый envelope. Неуспешный первичный
+  расчёт использует Ticket aggregate и не создаёт фиктивный Route.
+- Brigade member/status/schedule events содержат `department_id`, `brigade_id`,
+  `member_id`, `user_id`, статус участника, доступность, роль и `occurred_at`.
+  Фактический lifecycle смен реализован отдельными transactional-outbox
+  событиями `BrigadeShiftStarted/BrigadeShiftEnded`: первый переход в
+  `AVAILABLE` открывает смену, возвраты из рабочих статусов её не дублируют,
+  `OFFLINE/INACTIVE/ARCHIVED` закрывают. Плановое расписание в этих формулах не
+  используется.
 - Установить единые правила envelope для всех событий: стабильный `event_id`,
   `event_type`, `event_version`, `occurred_at`, `producer`, `trace_id` и
   идентификаторы агрегатов.
-- Добавить schema/contract tests, которые гарантируют, что Analytics Service
-  сможет извлечь поля из payload независимо от языка и регистра имён.
-- Сохранять неизвестные версии событий, но не включать их в проекции до
-  появления явного преобразователя; отслеживать их отдельной метрикой.
+- Базовые contract tests Analytics проверяют извлечение полей Dispatch,
+  Routing и Brigade из snake_case, CamelCase, имён с дефисами и вложенного
+  `Data`; fixtures покрывают все текущие типы Dispatch/Routing/Brigade.
+  Запускать их совместно с producer-модулями в CI.
+- Analytics сохраняет неизвестные версии событий с
+  `projection_eligible=false`, не включает их в проекции и считает метрикой
+  `analytics_unknown_event_versions_total`. API и dashboard показывают их
+  количество, freshness, ingestion p95 и расхождения raw/projection. Явный
+  преобразователь добавлять вместе с первым реальным контрактом версии 2.
 
 ### 2. Обязательные показатели
 
-- **Время назначения бригады**: считать от `ticket.created` или
-  `dispatch.requested` до успешного `ticket.assigned`/`dispatch.assigned`.
-  Отдавать average, median, p90, p95 и p99 по периоду, департаменту, категории,
-  приоритету и режиму `MANUAL/AUTOMATIC`.
-- Не смешивать время назначения с текущим `AvgResponseSeconds`: сохранить
-  существующий показатель для обратной совместимости, но добавить отдельный
-  `assignment_time` с однозначной формулой.
-- **Нагрузка по бригадам**: активные `ASSIGNED/IN_PROGRESS` заявки, завершённые
-  заявки за период, входящий поток, backlog, среднее число параллельных задач,
-  время занятости и доля занятости относительно рабочего расписания.
-- **Количество активных работников**: текущее число доступных работников и
-  работников на смене; показывать общее значение, по департаментам и бригадам.
-  Отдельно считать работников без активной бригады и бригады без достаточного
-  состава.
-- **Ошибки Dispatch**: количество и процент `FAILED/EXPIRED/CANCELED`, причины,
-  стадия отказа, ручной/автоматический режим, затронутые департаменты и
-  категории. Для каждой ошибки сохранять ссылку на `trace_id`.
-- **Время построения маршрута**: average, median, p90, p95 и p99 по Routing
-  Service, Valhalla, режиму движения и успешности. Не использовать ETA маршрута
-  как длительность вычисления — это разные показатели.
+- **Время назначения бригады**: базовое распределение от `dispatch.requested`
+  (с fallback на `ticket.created`) до успешного назначения и группированные
+  ряды по департаменту, категории, приоритету, режиму `MANUAL/AUTOMATIC` и
+  бригаде реализованы в отдельном `assignment_time`.
+- Существующий `AvgResponseSeconds` сохранён для обратной совместимости и не
+  смешивается с `assignment_time`.
+- **Нагрузка по бригадам**: ClickHouse read model считает по каждой бригаде
+  текущие `ASSIGNED/IN_PROGRESS`, созданные, назначенные и завершённые заявки
+  за период, а также общий backlog неназначенных `NEW`; публичные
+  Analytics/Gateway API и frontend-блок реализованы. По фактическим сменам
+  считаются смено-часы, busy hours, среднее число параллельных задач,
+  completed per shift и utilization; плановое расписание не используется.
+- **Количество активных работников**: ClickHouse read model считает активных и
+  доступных участников бригад по последнему member event, всего, по
+  департаментам и бригадам; публичные Analytics/Gateway API и frontend-блок
+  реализованы. Работники на фактической смене считаются по открытому shift
+  lifecycle на момент snapshot.
+  Для работников без активной бригады добавить поток worker-профилей, а для
+  недостаточного состава — явный норматив минимального состава бригады.
+- **Ошибки Dispatch**: ClickHouse read model считает количество и процент
+  `FAILED/EXPIRED/CANCELED` по отдельным `operation_id`, а также разбивки по
+  нормализованным причине и стадии отказа; доступны фильтры периода,
+  департамента, категории, приоритета, бригады, режима назначения и причины.
+  Публичные Analytics/Gateway API, frontend-блок и drill-down списка операций
+  со ссылкой на Jaeger по `trace_id` реализованы.
+- **Время построения маршрута**: базовое распределение по измеренной длительности
+  вызова движка реализовано отдельно от ETA, включая группированные ряды по
+  движку, режиму движения, успешности и нормализованной причине ошибки.
 
 ### 3. Дополнительные полезные показатели
 
-- Воронка назначения:
-  `requested -> candidates found -> reserved -> route built -> assigned`, с
-  conversion rate и временем между этапами.
+- Воронка назначения: ClickHouse read model реализует
+  `requested -> candidates found -> reserved -> route built -> assigned`,
+  conversion rate относительно предыдущего этапа и распределение времени
+  перехода (average, median, p90, p95, p99, sample count); публичные
+  Analytics/Gateway API и frontend-визуализация реализованы.
 - Доля заявок без подходящей бригады, без доступного маршрута и с истёкшей
-  reservation; top причин по департаментам и категориям.
-- Эффективность автоматического назначения: success rate, доля ручных
-  переназначений после auto-dispatch и сравнение времени назначения с ручным
-  режимом.
-- Баланс нагрузки: максимальная/средняя нагрузка, коэффициент вариации и Gini
-  по активным заявкам бригад. Это позволит увидеть, когда часть бригад
-  перегружена, а часть простаивает.
-- Время до выезда: от назначения до первого валидного движения машины или
-  перехода заявки в `IN_PROGRESS`.
-- Точность ETA: сравнивать прогноз Routing Service с фактическим временем
-  прибытия, когда появится надёжное событие прибытия в геозону заявки.
-- Частота перестроения и отмены маршрутов, доля недостижимых кандидатов,
-  средняя длина маршрута и километры на одну завершённую заявку.
-- Производительность бригад: completed per shift, среднее и p95 времени
-  выполнения, SLA breach rate и повторные обращения по тому же объекту.
-- Возраст очереди: average/p95 времени активных неназначенных заявок и buckets
-  `0-5`, `5-15`, `15-30`, `30-60`, `60+` минут.
-- Capacity forecast: почасовая/дневная сезонность входящих заявок и прогноз
-  требуемого числа бригад по департаменту. Начать с прозрачной moving average,
-  не вводить ML до накопления и проверки данных.
+  reservation реализована в Dispatch failure read model относительно всех
+  `dispatch.requested`; публичный ответ и frontend показывают top-10 причин по
+  департаментам и категориям с долей внутри каждой причины.
+- Эффективность автоматического назначения: ClickHouse read model и публичный
+  Analytics/Gateway API сравнивают `AUTOMATIC` и `MANUAL` по requested,
+  assigned, success rate и распределению времени назначения;
+  frontend-визуализация реализована. Доля ручных переназначений намеренно
+  помечена как недоступная: Ticket Service должен поддержать безопасный переход
+  `ASSIGNED -> ASSIGNED` со сменой `brigade_id` и публиковать
+  `ticket.reassigned` с old/new brigade, actor, reason и occurred_at.
+- Баланс нагрузки реализован по активным заявкам бригад: максимальная и
+  средняя нагрузка, стандартное отклонение, коэффициент вариации и Gini.
+  В выборку входят эксплуатационные бригады без заявок, поэтому простой не
+  теряется; метрики доступны через Analytics/Gateway API и frontend.
+- Время до выезда реализовано от назначения до первого принятого движения
+  машины (`speed >= 5 км/ч`, `accuracy <= 50 м`) или `IN_PROGRESS`.
+- Точность ETA реализована по последнему прогнозу ревизии маршрута и первому
+  принятому Location-событию в геозоне назначения: sample count, bias, MAE,
+  p95 absolute error и доля в пределах пяти минут.
+- Реализованы частота перестроения и отмены маршрутов, доля недостижимых
+  кандидатов, средняя длина маршрута и километры на завершённую заявку.
+- Производительность бригад реализует completed per shift, average/p95 времени
+  выполнения, SLA breach rate и повторы по `asset_id`.
+- Возраст очереди реализует average/p95 и buckets `0-5`, `5-15`, `15-30`,
+  `30-60`, `60+` минут.
+- Capacity forecast реализован прозрачной формулой на дневном среднем,
+  почасовом пике и среднем времени выполнения; ML намеренно не используется.
 
 ### 4. ClickHouse read models и API
 
-- Добавить версионируемые проекции/materialized views для assignment funnel,
-  brigade workload, active workers, dispatch failures и routing latency.
-- Для текущего состояния бригад и работников использовать
-  `argMax(..., occurred_at)`; для длительностей хранить исходные timestamps и
-  агрегаты, чтобы можно было пересчитать percentiles.
-- Добавить методы Analytics gRPC API и Gateway endpoints для новых показателей;
-  поддержать фильтры периода, департамента, категории, приоритета, бригады,
-  режима назначения и причины ошибки.
-- Добавить frontend-блоки с drill-down до заявки/бригады и ссылкой на Jaeger по
-  `trace_id`; пустые выборки показывать как «Нет данных», а не как нулевую
-  производительность.
-- Добавить freshness/lag indicators: время последнего события, consumer lag,
-  долю ошибок проекции и число событий неизвестной версии.
-- Реализовать replay в новую таблицу/версию проекции с атомарным переключением;
-  проверить повторную обработку, дедупликацию и сверку итогов со source DB.
-- Добавить unit tests для формул, ClickHouse integration tests и E2E от
-  доменного события до Analytics API и frontend.
+- Версионируемая `domain_events_projection_v1` и materialized view используются
+  всеми operational read models; raw events остаются источником replay.
+- Текущее состояние бригад и работников восстанавливается через
+  `argMax(..., occurred_at)`; длительности считаются из исходных timestamps,
+  поэтому percentiles можно пересчитать.
+- Analytics gRPC, Gateway endpoints и фильтры бизнес-разрезов реализованы.
+- Frontend-блоки, Dispatch drill-down и Jaeger trace link реализованы; наличие
+  shift lifecycle и ETA samples отображается отдельно от нулевого значения.
+- Dashboard показывает freshness, ingestion p95, raw/projection reconciliation
+  и неизвестные версии; Prometheus экспортирует consumer lag/errors/duration.
+- Analytics consumer обрабатывает один offset до результата, выполняет пять
+  попыток с bounded backoff и публикует poison message в `<topic>.dlq`; commit
+  происходит только после ClickHouse Store или успешного DLQ publish.
+- Replay строит новую версию таблицы, сверяет unique/eligible/unknown counts,
+  атомарно переключает её и дочитывает события окна переключения. Остаётся
+  добавить внешнюю сверку итогов с source PostgreSQL в restore/reconciliation
+  runbook.
+- Unit tests формул, ClickHouse integration fixtures и Gateway/frontend API
+  contract E2E добавлены. CI job поднимает ClickHouse 25.8, применяет схему и
+  запускает integration suite; отдельный frontend job проверяет lint, build и
+  компиляцию Playwright inventory. Browser E2E проверен на локальном
+  Kubernetes-стенде с Gateway/Kafka/ClickHouse: 31 сценарий прошёл, три
+  временно rate-limited сценария подтверждены отдельным повтором.
 
 ## Frontend и E2E
 
@@ -149,6 +187,15 @@
 
 ## Надёжность доменных сервисов
 
+- Dispatch Service автоматически запускает `AutoDispatch` для новой заявки с
+  приоритетом `EMERGENCY` по событию `ticket.created`: Kafka consumer имеет
+  ручной commit, retry/DLQ, OTel propagation и идемпотентный `trigger_event_id`,
+  а повторная доставка продолжает `PENDING/RESERVED/CONFIRMING` операцию.
+  Добавить Kafka E2E
+  `создание экстренной заявки -> поиск доступной бригады -> резервирование ->
+  построение маршрута -> назначение`, включая падение процесса между этапами;
+  ошибки поиска и назначения уже сохраняются в lifecycle Dispatch с
+  `failure_stage`, `failure_code` и `trace_id`.
 - Ticket retention: добавить E2E для `DONE/CANCELED -> ARCHIVED -> PURGED`,
   метрики воркеров и подтверждение удаления связанных объектов File Service.
 - File Service: antivirus scan, thumbnails, lifecycle cleanup и интеграционные

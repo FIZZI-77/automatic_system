@@ -1,0 +1,12 @@
+{
+  "base_url": "http://localhost:18081",
+  "scenario": "gateway",
+  "rates": "2,5",
+  "warmup": "20s",
+  "k6_exit_code": 0,
+  "note": "rate-limit boundary control, read-only local Kubernetes",
+  "stabilization": "15s",
+  "git_sha": "c825f9abe801ea1df299e31c56cc5aec3e0911a9",
+  "measurement": "1m",
+  "run_id": "20260901T052934Z-gateway-ratelimit-boundary"
+}

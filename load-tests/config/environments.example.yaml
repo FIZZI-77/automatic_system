@@ -1,0 +1,6 @@
+name: local
+gateway_url: http://localhost:8081
+prometheus_url: http://localhost:9090
+namespace: automatic-system
+production: false
+queries: []

@@ -43,6 +43,71 @@ spec:
                       operator: In
                       values: ["0"]
                 topologyKey: kubernetes.io/hostname
+      initContainers:
+        - name: clear-stale-patroni-member
+          image: automatic-system-postgres-citus-ha:dev
+          imagePullPolicy: IfNotPresent
+          command: ["python3", "-c"]
+          args:
+            - |
+              import json
+              import os
+              import ssl
+              import urllib.request
+              from urllib.parse import urlparse
+
+              pod_name = os.environ["POD_NAME"]
+              pod_ip = os.environ["POD_IP"]
+              namespace = os.environ["POD_NAMESPACE"]
+              api = "https://kubernetes.default.svc"
+              token_path = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+              ca_path = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+              token = open(token_path, encoding="utf-8").read().strip()
+              url = f"{api}/api/v1/namespaces/{namespace}/pods/{pod_name}"
+              headers = {"Authorization": f"Bearer {token}"}
+              request = urllib.request.Request(url, headers=headers)
+              context = ssl.create_default_context(cafile=ca_path)
+              with urllib.request.urlopen(request, context=context, timeout=5) as response:
+                  pod = json.load(response)
+
+              raw_status = pod.get("metadata", {}).get("annotations", {}).get("status")
+              if raw_status:
+                  member = json.loads(raw_status)
+                  recorded_ip = urlparse(member.get("api_url", "")).hostname
+                  if recorded_ip and recorded_ip != pod_ip:
+                      patch = json.dumps({"metadata": {"annotations": {"status": None}}}).encode()
+                      headers["Content-Type"] = "application/merge-patch+json"
+                      request = urllib.request.Request(url, data=patch, headers=headers, method="PATCH")
+                      with urllib.request.urlopen(request, context=context, timeout=5):
+                          pass
+                      print(f"removed stale Patroni member address {recorded_ip}; current pod IP is {pod_ip}")
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          resources:
+            requests:
+              cpu: 5m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          securityContext:
+            runAsUser: 999
+            runAsGroup: 999
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
       containers:
         - name: postgres
           image: automatic-system-postgres-citus-ha:dev

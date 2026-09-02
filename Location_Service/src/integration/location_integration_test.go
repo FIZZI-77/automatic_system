@@ -168,15 +168,16 @@ func TestLocationIntegration_GeoZonesAndSignalStream(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read signal stream: %v", err)
 	}
-	if len(events) != 1 || events[0].Values["brigade_id"] != position.BrigadeID.String() ||
-		events[0].Values["event_type"] != "BrigadeSignalLost" {
+	if len(events) != 2 || events[0].Values["brigade_id"] != position.BrigadeID.String() ||
+		events[0].Values["event_type"] != "VehiclePositionUpdated" ||
+		events[1].Values["event_type"] != "BrigadeSignalLost" {
 		t.Fatalf("stream events = %#v", events)
 	}
 	if _, err = app.service.DetectLostSignals(ctx, thresholds); err != nil {
 		t.Fatalf("repeat signal detection: %v", err)
 	}
 	events, err = app.redis.XRangeN(ctx, "locations:events", "-", "+", 10).Result()
-	if err != nil || len(events) != 1 {
+	if err != nil || len(events) != 2 {
 		t.Fatalf("repeated stream events = %#v, err=%v", events, err)
 	}
 }

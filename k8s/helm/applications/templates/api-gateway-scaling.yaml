@@ -1,0 +1,16 @@
+{{- if .Values.apiGateway.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: api-gateway
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: api-gateway
+    app.kubernetes.io/managed-by: Helm
+spec:
+  minAvailable: {{ .Values.apiGateway.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      app: api-gateway
+---
+{{- end }}

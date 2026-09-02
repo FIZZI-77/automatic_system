@@ -31,6 +31,31 @@ func (h *AssetHandler) Get(c *gin.Context) {
 	x, e := h.c.GetAsset(dispatchContext(c), &assetv1.GetAssetRequest{AssetId: v.AssetID})
 	dispatchResponse(c, http.StatusOK, e, x)
 }
+func (h *AssetHandler) Resolve(c *gin.Context) {
+	var v models.ResolveAssetRequest
+	if !bindJSON(c, &v) {
+		return
+	}
+	identifier := strings.TrimSpace(v.Identifier)
+	const pageSize int32 = 500
+	for offset := int32(0); ; offset += pageSize {
+		result, err := h.c.ListAssets(dispatchContext(c), &assetv1.ListAssetsRequest{Limit: pageSize, Offset: offset})
+		if err != nil {
+			dispatchResponse(c, http.StatusOK, err, nil)
+			return
+		}
+		for _, asset := range result.GetAssets() {
+			if strings.EqualFold(asset.GetId(), identifier) || strings.EqualFold(asset.GetExternalId(), identifier) || strings.EqualFold(asset.GetSerialNumber(), identifier) {
+				c.JSON(http.StatusOK, &assetv1.AssetResponse{Asset: asset})
+				return
+			}
+		}
+		if len(result.GetAssets()) < int(pageSize) {
+			break
+		}
+	}
+	c.JSON(http.StatusNotFound, gin.H{"error": "asset not found"})
+}
 func (h *AssetHandler) Update(c *gin.Context) {
 	var v models.UpdateAssetRequest
 	if !bindJSON(c, &v) {

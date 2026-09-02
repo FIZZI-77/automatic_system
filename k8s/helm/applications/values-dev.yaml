@@ -1,0 +1,19 @@
+environment: dev
+dispatch:
+  image:
+    pullPolicy: Always
+apiGateway:
+  serviceType: LoadBalancer
+globalImage:
+  registry: ghcr.io/fizzi-77
+  tag: ""
+  pullPolicy: Always
+migrations:
+  enabled: true
+  registry: ghcr.io/fizzi-77
+  tag: ""
+  pullPolicy: Always
+analyticsInit:
+  registry: ghcr.io/fizzi-77
+  tag: ""
+  pullPolicy: Always

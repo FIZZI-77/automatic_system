@@ -42,14 +42,19 @@ func New(repo *repository.Repository, deps Dependencies, ttl time.Duration, logg
 }
 
 func (s *Service) Cleanup(ctx context.Context) error {
-	items, err := s.repo.Expire(ctx)
-	if err != nil {
-		return err
-	}
-	for _, item := range items {
-		if item.BrigadeID != nil {
-			s.release(forwardMetadata(ctx), *item.BrigadeID, item.RequestedBy)
+	const batchSize = 100
+	for {
+		items, err := s.repo.Expire(ctx, batchSize)
+		if err != nil {
+			return err
+		}
+		for _, item := range items {
+			if item.BrigadeID != nil {
+				s.release(forwardMetadata(ctx), *item.BrigadeID, item.RequestedBy)
+			}
+		}
+		if len(items) < batchSize {
+			return nil
 		}
 	}
-	return nil
 }

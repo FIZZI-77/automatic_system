@@ -1,0 +1,2263 @@
+apiVersion: v1
+data:
+  ANALYTICS_SERVICE_ADDR: "analytics-service:50063"
+  ASSET_SERVICE_ADDR: "asset-service:50065"
+  AUDIT_SERVICE_ADDR: "audit-service:50062"
+  AUTH_SERVICE_ADDR: "auth-service:50051"
+  BRIGADE_SERVICE_ADDR: "brigade-service:50054"
+  CORS_ALLOWED_ORIGINS: "https://city.localhost,http://localhost:3000,http://127.0.0.1:3000"
+  DEPARTMENT_SERVICE_ADDR: "department-service:50053"
+  FILE_SERVICE_ADDR: "file-service:50059"
+  GATEWAY_ADDR: ":8081"
+  JWT_AUDIENCE: "api-gateway"
+  JWT_ISSUER: "auth-jwt"
+  JWT_PUBLIC_KEY_PATH: "/app/keys/public.pem"
+  NOTIFICATION_LIVE_PREFIX: 'notifications:user:'
+  NOTIFICATION_SERVICE_ADDR: "notification-service:50061"
+  PROFILE_SERVICE_ADDR: "profile-service:50055"
+  RATE_LIMIT_PREFIX: "gateway:ratelimit"
+  RATE_LIMIT_BYPASS_LOAD_TESTS: "false"
+  REDIS_ADDR: "redis-gateway:6379"
+  REDIS_DB: "0"
+  REPORT_INTERNAL_URL: "http://report-service:8084"
+  REPORT_SERVICE_ADDR: "report-service:50064"
+  SLA_SERVICE_ADDR: "sla-service:50060"
+  TICKET_SERVICE_ADDR: "ticket-service:50052"
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: gateway
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: api-gateway
+    app.kubernetes.io/part-of: automatic-system
+  name: api-gateway-config
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+data:
+  DB_HOST: {{ ternary .Values.haDatabase.platformPrimary "postgres-auth" .Values.haDatabase.enabled | quote }}
+  DB_NAME: "auth_db"
+  DB_PORT: {{ ternary .Values.haDatabase.port "5432" .Values.haDatabase.enabled | quote }}
+  DB_READ_HOST: {{ ternary .Values.haDatabase.platformReplicas "postgres-auth" .Values.haDatabase.enabled | quote }}
+  DB_USERNAME: "auth_user"
+  FRONTEND_BASE_URL: "https://city.localhost"
+  GRPC_PORT: "50051"
+  JWT_KEY_ID: "local-dev-key"
+  JWT_PRIVATE_KEY_PATH: "/app/keys/private.pem"
+  KAFKA_BROKERS: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
+  OUTBOX_WORKER_COUNT: "4"
+  PROFILE_GRPC_ADDR: "profile-service:50055"
+  SMTP_FROM_NAME: "Automatic System"
+  SMTP_HOST: "smtp.gmail.com"
+  SMTP_PORT: "587"
+  SMTP_USE_STARTTLS: "true"
+  SMTP_USE_TLS: "false"
+  SSLMODE: "disable"
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: auth-service
+    app.kubernetes.io/part-of: automatic-system
+  name: auth-service-config
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+data:
+  DB_HOST: {{ ternary .Values.haDatabase.platformPrimary "postgres-brigade" .Values.haDatabase.enabled | quote }}
+  DB_NAME: "brigade_db"
+  DB_PORT: {{ ternary .Values.haDatabase.port "5432" .Values.haDatabase.enabled | quote }}
+  DB_READ_HOST: {{ ternary .Values.haDatabase.platformReplicas "postgres-brigade" .Values.haDatabase.enabled | quote }}
+  DB_USERNAME: "brigade_user"
+  DEPARTMENT_GRPC_ADDR: "department-service:50053"
+  GRPC_PORT: "50054"
+  KAFKA_BROKERS: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
+  KAFKA_ROUTING_TOPIC: "routing.events.v1"
+  KAFKA_TICKET_TOPIC: "tickets.events.v1"
+  OUTBOX_WORKER_COUNT: "4"
+  PROFILE_CONSUMER_WORKER_COUNT: "4"
+  PROFILE_GRPC_ADDR: "profile-service:50055"
+  PROFILE_KAFKA_GROUP_ID: "brigade-profile-projection-v1"
+  PROFILE_RETRY_WORKER_COUNT: "2"
+  SSLMODE: "disable"
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: brigade-service
+    app.kubernetes.io/part-of: automatic-system
+  name: brigade-service-config
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+data:
+  DB_HOST: {{ ternary .Values.haDatabase.platformPrimary "postgres-department" .Values.haDatabase.enabled | quote }}
+  DB_NAME: "department_db"
+  DB_PORT: {{ ternary .Values.haDatabase.port "5432" .Values.haDatabase.enabled | quote }}
+  DB_READ_HOST: {{ ternary .Values.haDatabase.platformReplicas "postgres-department" .Values.haDatabase.enabled | quote }}
+  DB_USERNAME: "department_user"
+  GRPC_PORT: "50053"
+  KAFKA_BROKERS: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
+  OUTBOX_WORKER_COUNT: "4"
+  SSLMODE: "disable"
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: department-service
+    app.kubernetes.io/part-of: automatic-system
+  name: department-service-config
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+data:
+  GRPC_PORT: "50059"
+  PRESIGN_TTL: "15m"
+  S3_BUCKET: "city-files"
+  S3_ENDPOINT: "http://minio:9000"
+  S3_PATH_STYLE: "true"
+  S3_PUBLIC_ENDPOINT: "http://localhost:9000"
+  S3_REGION: "us-east-1"
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: file-service
+    app.kubernetes.io/part-of: automatic-system
+  name: file-service-config
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+data:
+  GRPC_PORT: "50056"
+  HISTORY_BATCH_SIZE: "500"
+  HISTORY_BUFFER_CAPACITY: "10000"
+  HISTORY_FLUSH_INTERVAL: "5s"
+  HTTP_PORT: "8080"
+  KAFKA_BROKERS: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
+  KAFKA_LOCATION_TOPIC: "locations.events.v1"
+  LOG_LEVEL: "info"
+  REDIS_DB: "0"
+  REDIS_EVENTS_CONSUMER: "location-service"
+  REDIS_EVENTS_GROUP: "location-kafka-relay"
+  REDIS_EVENTS_STREAM: "locations:events"
+  REDIS_MASTER_NAME: "location-master"
+  REDIS_MIN_IDLE_CONNS: "5"
+  REDIS_POOL_SIZE: "20"
+  REDIS_SENTINEL_ADDRS: "redis-location-sentinel-0.redis-location-sentinel:26379,redis-location-sentinel-1.redis-location-sentinel:26379,redis-location-sentinel-2.redis-location-sentinel:26379"
+  SHUTDOWN_TIMEOUT: "20s"
+  SIGNAL_BATCH_SIZE: "500"
+  SIGNAL_OFFLINE_AFTER: "10m"
+  SIGNAL_SCAN_INTERVAL: "5s"
+  SIGNAL_STALE_AFTER: "5m"
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: location-service
+    app.kubernetes.io/part-of: automatic-system
+  name: location-service-config
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+data:
+  FCM_SERVICE_ACCOUNT_FILE: ""
+  GRPC_PORT: "50061"
+  KAFKA_BROKERS: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
+  KAFKA_GROUP: "notification-service"
+  KAFKA_TOPICS: "tickets.events.v1,sla.events.v1,dispatch.events.v1,departments.events.v1,brigades.events.v1,locations.events.v1,routing.events.v1,files.events.v1,reports.events.v1"
+  LIVE_CHANNEL_PREFIX: 'notifications:user:'
+  REDIS_ADDR: "redis-notification:6379"
+  SMTP_ADDR: "smtp.gmail.com:587"
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: notification-service
+    app.kubernetes.io/part-of: automatic-system
+  name: notification-service-config
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+data:
+  AUTH_GRPC_ADDR: "auth-service:50051"
+  DB_HOST: {{ ternary .Values.haDatabase.platformPrimary "postgres-profile" .Values.haDatabase.enabled | quote }}
+  DB_NAME: "profile_db"
+  DB_PORT: {{ ternary .Values.haDatabase.port "5432" .Values.haDatabase.enabled | quote }}
+  DB_READ_HOST: {{ ternary .Values.haDatabase.platformReplicas "postgres-profile" .Values.haDatabase.enabled | quote }}
+  DB_USERNAME: "profile_user"
+  DEPARTMENT_GRPC_ADDR: "department-service:50053"
+  GRPC_PORT: "50055"
+  KAFKA_BROKERS: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
+  OUTBOX_WORKER_COUNT: "4"
+  SSLMODE: "disable"
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: profile-service
+    app.kubernetes.io/part-of: automatic-system
+  name: profile-service-config
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+data:
+  ANALYTICS_SERVICE_ADDR: "analytics-service:50063"
+  COMPLETION_CONSUMER_GROUP_ID: "report-completion-v1"
+  FILE_SERVICE_ADDR: "file-service:50059"
+  INTERNAL_HTTP_PORT: "8084"
+  KAFKA_BROKERS: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
+  KAFKA_REPORT_TOPIC: "reports.events.v1"
+  KAFKA_TICKET_TOPIC: "tickets.events.v1"
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: report-service
+    app.kubernetes.io/part-of: automatic-system
+  name: report-service-config
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+data:
+  GRPC_PORT: "50057"
+  KAFKA_BROKERS: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
+  KAFKA_ROUTING_TOPIC: "routing.events.v1"
+  KAFKA_TICKET_TOPIC: "tickets.events.v1"
+  LOG_LEVEL: "info"
+  OUTBOX_WORKER_COUNT: "4"
+  SHUTDOWN_TIMEOUT: "20s"
+  VALHALLA_TIMEOUT: "15s"
+  VALHALLA_URL: "http://valhalla:8002"
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: routing-service
+    app.kubernetes.io/part-of: automatic-system
+  name: routing-service-config
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+data:
+  DEADLINE_SCAN_INTERVAL: "1s"
+  GRPC_PORT: "50060"
+  KAFKA_BROKERS: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
+  KAFKA_CONSUMER_GROUP: "sla-service"
+  KAFKA_SLA_TOPIC: "sla.events.v1"
+  KAFKA_TICKET_TOPIC: "tickets.events.v1"
+  LOG_LEVEL: "info"
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: sla-service
+    app.kubernetes.io/part-of: automatic-system
+  name: sla-service-config
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+data:
+  COMPLETION_SAGA_ATTEMPT_TIMEOUT: "10m"
+  COMPLETION_SAGA_BATCH_SIZE: "50"
+  COMPLETION_SAGA_MAX_ATTEMPTS: "3"
+  COMPLETION_SAGA_POLL_INTERVAL: "30s"
+  DB_HOST: {{ ternary .Values.haDatabase.ticketPrimary "postgres-ticket" .Values.haDatabase.enabled | quote }}
+  DB_NAME: "ticket_db"
+  DB_PORT: {{ ternary .Values.haDatabase.port "5432" .Values.haDatabase.enabled | quote }}
+  DB_READ_HOST: {{ ternary .Values.haDatabase.ticketReplicas "postgres-ticket" .Values.haDatabase.enabled | quote }}
+  DB_READ_MAX_CONNS: "16"
+  DB_READ_MIN_CONNS: "2"
+  DB_USERNAME: "ticket_user"
+  DB_WRITE_MAX_CONNS: "16"
+  DB_WRITE_MIN_CONNS: "2"
+  GRPC_PORT: "50052"
+  KAFKA_BROKERS: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
+  KAFKA_REPORT_TOPIC: "reports.events.v1"
+  KAFKA_ROUTING_TOPIC: "routing.events.v1"
+  OUTBOX_WORKER_COUNT: "4"
+  REPORT_RESULT_CONSUMER_GROUP_ID: "ticket-report-result-v1"
+  SSLMODE: "disable"
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: ticket-service
+    app.kubernetes.io/part-of: automatic-system
+  name: ticket-service-config
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: analytics-service
+    app.kubernetes.io/part-of: automatic-system
+  name: analytics-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - name: grpc
+    port: 50063
+    targetPort: 50063
+  selector:
+    app: analytics-service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: gateway
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: api-gateway
+    app.kubernetes.io/part-of: automatic-system
+  name: api-gateway
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - appProtocol: http
+    name: http
+    port: 8081
+    targetPort: 8081
+  selector:
+    app: api-gateway
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: asset-service
+    app.kubernetes.io/part-of: automatic-system
+  name: asset-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - name: grpc
+    port: 50065
+    targetPort: 50065
+  selector:
+    app: asset-service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: audit-service
+    app.kubernetes.io/part-of: automatic-system
+  name: audit-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - name: grpc
+    port: 50062
+    targetPort: 50062
+  selector:
+    app: audit-service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: auth-service
+    app.kubernetes.io/part-of: automatic-system
+  name: auth-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - name: grpc
+    port: 50051
+    targetPort: 50051
+  selector:
+    app: auth-service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: brigade-service
+    app.kubernetes.io/part-of: automatic-system
+  name: brigade-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - name: grpc
+    port: 50054
+    targetPort: 50054
+  selector:
+    app: brigade-service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: department-service
+    app.kubernetes.io/part-of: automatic-system
+  name: department-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - name: grpc
+    port: 50053
+    targetPort: 50053
+  selector:
+    app: department-service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: file-service
+    app.kubernetes.io/part-of: automatic-system
+  name: file-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - name: grpc
+    port: 50059
+    targetPort: 50059
+  selector:
+    app: file-service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - appProtocol: http
+    name: http
+    port: 3000
+    targetPort: http
+  selector:
+    app: frontend
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: location-service
+    app.kubernetes.io/part-of: automatic-system
+  name: location-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - name: grpc
+    port: 50056
+    targetPort: 50056
+  - name: http
+    port: 8080
+    targetPort: 8080
+  selector:
+    app: location-service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: notification-service
+    app.kubernetes.io/part-of: automatic-system
+  name: notification-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - name: grpc
+    port: 50061
+    targetPort: 50061
+  selector:
+    app: notification-service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: profile-service
+    app.kubernetes.io/part-of: automatic-system
+  name: profile-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - name: grpc
+    port: 50055
+    targetPort: 50055
+  selector:
+    app: profile-service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: report-service
+    app.kubernetes.io/part-of: automatic-system
+  name: report-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - name: grpc
+    port: 50064
+    targetPort: 50064
+  - name: internal
+    port: 8084
+    targetPort: 8084
+  selector:
+    app: report-service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: routing-service
+    app.kubernetes.io/part-of: automatic-system
+  name: routing-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - name: grpc
+    port: 50057
+    targetPort: 50057
+  selector:
+    app: routing-service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: sla-service
+    app.kubernetes.io/part-of: automatic-system
+  name: sla-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - name: grpc
+    port: 50060
+    targetPort: 50060
+  selector:
+    app: sla-service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: ticket-service
+    app.kubernetes.io/part-of: automatic-system
+  name: ticket-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - name: grpc
+    port: 50052
+    targetPort: 50052
+  selector:
+    app: ticket-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: analytics-service
+    app.kubernetes.io/part-of: automatic-system
+  name: analytics-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  minReadySeconds: 3
+  {{- if not .Values.applicationAutoscaling.enabled }}
+  replicas: {{ (index .Values.applications "analytics").replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: analytics-service
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9464"
+        prometheus.io/scrape: "true"
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts":true}'
+      labels:
+        app: analytics-service
+        app.kubernetes.io/component: backend
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: analytics-service
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - env:
+        - name: CLICKHOUSE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: CLICKHOUSE_PASSWORD
+              name: runtime-secrets
+        envFrom:
+        - configMapRef:
+            name: telemetry-config
+        image: '{{ include "applications.image" (dict "root" $ "name" "analytics") }}'
+        imagePullPolicy: {{ default (index .Values.applications "analytics").image.pullPolicy .Values.globalImage.pullPolicy }}
+        livenessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50063
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 2
+        name: analytics-service
+        ports:
+        - containerPort: 50063
+          name: grpc
+        - containerPort: 9464
+          name: metrics
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50063
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          timeoutSeconds: 2
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 25m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        startupProbe:
+          failureThreshold: 45
+          grpc:
+            port: 50063
+          periodSeconds: 2
+          timeoutSeconds: 1
+      enableServiceLinks: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: gateway
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: api-gateway
+    app.kubernetes.io/part-of: automatic-system
+  name: api-gateway
+  namespace: {{ .Release.Namespace }}
+spec:
+  minReadySeconds: 3
+  {{- if not .Values.applicationAutoscaling.enabled }}
+  replicas: {{ (index .Values.applications "api-gateway").replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: api-gateway
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9464"
+        prometheus.io/scrape: "true"
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts":true}'
+      labels:
+        app: api-gateway
+        app.kubernetes.io/component: gateway
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: api-gateway
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      {{- if .Values.apiGateway.topologySpread.enabled }}
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: {{ .Values.apiGateway.topologySpread.whenUnsatisfiable }}
+        matchLabelKeys:
+        - pod-template-hash
+        labelSelector:
+          matchLabels:
+            app: api-gateway
+      {{- end }}
+      containers:
+      - env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: REDIS_PASSWORD
+              name: runtime-secrets
+              optional: true
+        - name: REPORT_INTERNAL_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: REPORT_INTERNAL_TOKEN
+              name: runtime-secrets
+        envFrom:
+        - configMapRef:
+            name: telemetry-config
+        - configMapRef:
+            name: api-gateway-config
+        image: '{{ include "applications.image" (dict "root" $ "name" "api-gateway") }}'
+        imagePullPolicy: {{ default (index .Values.applications "api-gateway").image.pullPolicy .Values.globalImage.pullPolicy }}
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /livez
+            port: http
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 2
+        name: api-gateway
+        ports:
+        - containerPort: 8081
+          name: http
+        - containerPort: 9464
+          name: metrics
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /readyz
+            port: http
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          timeoutSeconds: 2
+        resources:
+          {{- toYaml .Values.apiGateway.resources | nindent 10 }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+        startupProbe:
+          failureThreshold: 45
+          httpGet:
+            path: /livez
+            port: http
+          periodSeconds: 2
+          timeoutSeconds: 1
+        volumeMounts:
+        - mountPath: /app/keys/public.pem
+          name: jwt-public
+          readOnly: true
+          subPath: public.pem
+      enableServiceLinks: false
+      securityContext:
+        runAsGroup: 10001
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: jwt-public
+        secret:
+          defaultMode: 292
+          secretName: jwt-public-key
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: asset-service
+    app.kubernetes.io/part-of: automatic-system
+  name: asset-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  minReadySeconds: 3
+  {{- if not .Values.applicationAutoscaling.enabled }}
+  replicas: {{ (index .Values.applications "asset").replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: asset-service
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9464"
+        prometheus.io/scrape: "true"
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts":true}'
+      labels:
+        app: asset-service
+        app.kubernetes.io/component: backend
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: asset-service
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              key: ASSET_DATABASE_URL
+              name: runtime-secrets
+        envFrom:
+        - configMapRef:
+            name: telemetry-config
+        image: '{{ include "applications.image" (dict "root" $ "name" "asset") }}'
+        imagePullPolicy: {{ default (index .Values.applications "asset").image.pullPolicy .Values.globalImage.pullPolicy }}
+        livenessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50065
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 2
+        name: asset-service
+        ports:
+        - containerPort: 50065
+          name: grpc
+        - containerPort: 9464
+          name: metrics
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50065
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          timeoutSeconds: 2
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 25m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        startupProbe:
+          failureThreshold: 45
+          grpc:
+            port: 50065
+          periodSeconds: 2
+          timeoutSeconds: 1
+      enableServiceLinks: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: audit-service
+    app.kubernetes.io/part-of: automatic-system
+  name: audit-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  minReadySeconds: 3
+  {{- if not .Values.applicationAutoscaling.enabled }}
+  replicas: {{ (index .Values.applications "audit").replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: audit-service
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9464"
+        prometheus.io/scrape: "true"
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts":true}'
+      labels:
+        app: audit-service
+        app.kubernetes.io/component: backend
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: audit-service
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              key: AUDIT_DATABASE_URL
+              name: runtime-secrets
+        envFrom:
+        - configMapRef:
+            name: telemetry-config
+        image: '{{ include "applications.image" (dict "root" $ "name" "audit") }}'
+        imagePullPolicy: {{ default (index .Values.applications "audit").image.pullPolicy .Values.globalImage.pullPolicy }}
+        livenessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50062
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 2
+        name: audit-service
+        ports:
+        - containerPort: 50062
+          name: grpc
+        - containerPort: 9464
+          name: metrics
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50062
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          timeoutSeconds: 2
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 25m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        startupProbe:
+          failureThreshold: 45
+          grpc:
+            port: 50062
+          periodSeconds: 2
+          timeoutSeconds: 1
+      enableServiceLinks: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: auth-service
+    app.kubernetes.io/part-of: automatic-system
+  name: auth-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  minReadySeconds: 3
+  {{- if not .Values.applicationAutoscaling.enabled }}
+  replicas: {{ (index .Values.applications "auth").replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: auth-service
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9464"
+        prometheus.io/scrape: "true"
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts":true}'
+      labels:
+        app: auth-service
+        app.kubernetes.io/component: backend
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: auth-service
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - env:
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: AUTH_DB_PASSWORD
+              name: runtime-secrets
+        - name: SMTP_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: grafana-smtp
+              key: smtp-user
+
+        - name: SMTP_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: grafana-smtp
+              key: smtp-password
+        - name: SMTP_FROM_EMAIL
+          valueFrom:
+            secretKeyRef:
+              name: grafana-smtp
+              key: smtp-user
+        envFrom:
+        - configMapRef:
+            name: telemetry-config
+        - configMapRef:
+            name: auth-service-config
+        image: '{{ include "applications.image" (dict "root" $ "name" "auth") }}'
+        imagePullPolicy: {{ default (index .Values.applications "auth").image.pullPolicy .Values.globalImage.pullPolicy }}
+        livenessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50051
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 2
+        name: auth-service
+        ports:
+        - containerPort: 50051
+          name: grpc
+        - containerPort: 9464
+          name: metrics
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50051
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          timeoutSeconds: 2
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 25m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        startupProbe:
+          failureThreshold: 45
+          grpc:
+            port: 50051
+          periodSeconds: 2
+          timeoutSeconds: 1
+        volumeMounts:
+        - mountPath: /app/keys/private.pem
+          name: jwt-private
+          readOnly: true
+          subPath: private.pem
+      enableServiceLinks: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: jwt-private
+        secret:
+          defaultMode: 292
+          secretName: jwt-private-key
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: brigade-service
+    app.kubernetes.io/part-of: automatic-system
+  name: brigade-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  minReadySeconds: 3
+  {{- if not .Values.applicationAutoscaling.enabled }}
+  replicas: {{ (index .Values.applications "brigade").replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: brigade-service
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        traffic.sidecar.istio.io/excludeOutboundPorts: "587"
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9464"
+        prometheus.io/scrape: "true"
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts":true}'
+      labels:
+        app: brigade-service
+        app.kubernetes.io/component: backend
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: brigade-service
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - env:
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: BRIGADE_DB_PASSWORD
+              name: runtime-secrets
+        envFrom:
+        - configMapRef:
+            name: telemetry-config
+        - configMapRef:
+            name: brigade-service-config
+        image: '{{ include "applications.image" (dict "root" $ "name" "brigade") }}'
+        imagePullPolicy: {{ default (index .Values.applications "brigade").image.pullPolicy .Values.globalImage.pullPolicy }}
+        livenessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50054
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 2
+        name: brigade-service
+        ports:
+        - containerPort: 50054
+          name: grpc
+        - containerPort: 9464
+          name: metrics
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50054
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          timeoutSeconds: 2
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 25m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        startupProbe:
+          failureThreshold: 45
+          grpc:
+            port: 50054
+          periodSeconds: 2
+          timeoutSeconds: 1
+      enableServiceLinks: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: department-service
+    app.kubernetes.io/part-of: automatic-system
+  name: department-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  minReadySeconds: 3
+  {{- if not .Values.applicationAutoscaling.enabled }}
+  replicas: {{ (index .Values.applications "department").replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: department-service
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9464"
+        prometheus.io/scrape: "true"
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts":true}'
+      labels:
+        app: department-service
+        app.kubernetes.io/component: backend
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: department-service
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - env:
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: DEPARTMENT_DB_PASSWORD
+              name: runtime-secrets
+        envFrom:
+        - configMapRef:
+            name: telemetry-config
+        - configMapRef:
+            name: department-service-config
+        image: '{{ include "applications.image" (dict "root" $ "name" "department") }}'
+        imagePullPolicy: {{ default (index .Values.applications "department").image.pullPolicy .Values.globalImage.pullPolicy }}
+        livenessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50053
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 2
+        name: department-service
+        ports:
+        - containerPort: 50053
+          name: grpc
+        - containerPort: 9464
+          name: metrics
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50053
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          timeoutSeconds: 2
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 25m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        startupProbe:
+          failureThreshold: 45
+          grpc:
+            port: 50053
+          periodSeconds: 2
+          timeoutSeconds: 1
+      enableServiceLinks: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: file-service
+    app.kubernetes.io/part-of: automatic-system
+  name: file-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  minReadySeconds: 3
+  {{- if not .Values.applicationAutoscaling.enabled }}
+  replicas: {{ (index .Values.applications "file").replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: file-service
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9464"
+        prometheus.io/scrape: "true"
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts":true}'
+      labels:
+        app: file-service
+        app.kubernetes.io/component: backend
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: file-service
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              key: FILE_DATABASE_URL
+              name: runtime-secrets
+        {{- if .Values.haDatabase.enabled }}
+        - name: READ_DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              key: FILE_READ_DATABASE_URL
+              name: runtime-secrets
+        {{- end }}
+        - name: S3_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              key: S3_ACCESS_KEY
+              name: runtime-secrets
+        - name: S3_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              key: S3_SECRET_KEY
+              name: runtime-secrets
+        envFrom:
+        - configMapRef:
+            name: telemetry-config
+        - configMapRef:
+            name: file-service-config
+        image: '{{ include "applications.image" (dict "root" $ "name" "file") }}'
+        imagePullPolicy: {{ default (index .Values.applications "file").image.pullPolicy .Values.globalImage.pullPolicy }}
+        livenessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50059
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 2
+        name: file-service
+        ports:
+        - containerPort: 50059
+          name: grpc
+        - containerPort: 9464
+          name: metrics
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50059
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          timeoutSeconds: 2
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 25m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        startupProbe:
+          failureThreshold: 45
+          grpc:
+            port: 50059
+          periodSeconds: 2
+          timeoutSeconds: 1
+      enableServiceLinks: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: frontend
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/part-of: automatic-system
+  name: frontend
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: {{ (index .Values.applications "frontend").replicaCount }}
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+        app.kubernetes.io/component: frontend
+        app.kubernetes.io/name: frontend
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - env:
+        - name: VALHALLA_URL
+          value: http://valhalla:8002
+        image: '{{ include "applications.image" (dict "root" $ "name" "frontend") }}'
+        imagePullPolicy: {{ default (index .Values.applications "frontend").image.pullPolicy .Values.globalImage.pullPolicy }}
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /
+            port: http
+          periodSeconds: 10
+        name: frontend
+        ports:
+        - containerPort: 3000
+          name: http
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /
+            port: http
+          periodSeconds: 5
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 25m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+        startupProbe:
+          failureThreshold: 45
+          httpGet:
+            path: /
+            port: http
+          periodSeconds: 2
+        volumeMounts:
+        - mountPath: /tmp
+          name: tmp
+      enableServiceLinks: false
+      securityContext:
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+      - emptyDir: {}
+        name: tmp
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: location-service
+    app.kubernetes.io/part-of: automatic-system
+  name: location-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  minReadySeconds: 3
+  {{- if not .Values.applicationAutoscaling.enabled }}
+  replicas: {{ (index .Values.applications "location").replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: location-service
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9464"
+        prometheus.io/scrape: "true"
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts":true}'
+      labels:
+        app: location-service
+        app.kubernetes.io/component: backend
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: location-service
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              key: LOCATION_DATABASE_URL
+              name: runtime-secrets
+        {{- if .Values.haDatabase.enabled }}
+        - name: READ_DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              key: LOCATION_READ_DATABASE_URL
+              name: runtime-secrets
+        {{- end }}
+        - name: REDIS_SENTINEL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: REDIS_SENTINEL_PASSWORD
+              name: runtime-secrets
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: REDIS_PASSWORD
+              name: runtime-secrets
+              optional: true
+        - name: TRANSPONDER_API_KEY
+          valueFrom:
+            secretKeyRef:
+              key: TRANSPONDER_API_KEY
+              name: runtime-secrets
+        envFrom:
+        - configMapRef:
+            name: telemetry-config
+        - configMapRef:
+            name: location-service-config
+        image: '{{ include "applications.image" (dict "root" $ "name" "location") }}'
+        imagePullPolicy: {{ default (index .Values.applications "location").image.pullPolicy .Values.globalImage.pullPolicy }}
+        livenessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50056
+          periodSeconds: 10
+          timeoutSeconds: 2
+        name: location-service
+        ports:
+        - containerPort: 50056
+          name: grpc
+        - containerPort: 8080
+          name: http
+        - containerPort: 9464
+          name: metrics
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50056
+          periodSeconds: 5
+          timeoutSeconds: 2
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 25m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        startupProbe:
+          failureThreshold: 45
+          grpc:
+            port: 50056
+          periodSeconds: 2
+          timeoutSeconds: 2
+      enableServiceLinks: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 45
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: notification-service
+    app.kubernetes.io/part-of: automatic-system
+  name: notification-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  minReadySeconds: 3
+  {{- if not .Values.applicationAutoscaling.enabled }}
+  replicas: {{ (index .Values.applications "notification").replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: notification-service
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9464"
+        prometheus.io/scrape: "true"
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts":true}'
+      labels:
+        app: notification-service
+        app.kubernetes.io/component: backend
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: notification-service
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - env:
+          - name: DATABASE_URL
+            valueFrom:
+              secretKeyRef:
+                name: runtime-secrets
+                key: NOTIFICATION_DATABASE_URL
+
+          - name: SMTP_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: grafana-smtp
+                key: smtp-user
+
+          - name: SMTP_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: grafana-smtp
+                key: smtp-password
+
+          - name: SMTP_FROM
+            valueFrom:
+              secretKeyRef:
+                name: grafana-smtp
+                key: smtp-user
+
+        envFrom:
+        - configMapRef:
+            name: telemetry-config
+        - configMapRef:
+            name: notification-service-config
+        image: '{{ include "applications.image" (dict "root" $ "name" "notification") }}'
+        imagePullPolicy: {{ default (index .Values.applications "notification").image.pullPolicy .Values.globalImage.pullPolicy }}
+        livenessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50061
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 2
+        name: notification-service
+        ports:
+        - containerPort: 50061
+          name: grpc
+        - containerPort: 9464
+          name: metrics
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50061
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          timeoutSeconds: 2
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 25m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        startupProbe:
+          failureThreshold: 45
+          grpc:
+            port: 50061
+          periodSeconds: 2
+          timeoutSeconds: 1
+      enableServiceLinks: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: profile-service
+    app.kubernetes.io/part-of: automatic-system
+  name: profile-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  minReadySeconds: 3
+  {{- if not .Values.applicationAutoscaling.enabled }}
+  replicas: {{ (index .Values.applications "profile").replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: profile-service
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9464"
+        prometheus.io/scrape: "true"
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts":true}'
+      labels:
+        app: profile-service
+        app.kubernetes.io/component: backend
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: profile-service
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - env:
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: PROFILE_DB_PASSWORD
+              name: runtime-secrets
+        envFrom:
+        - configMapRef:
+            name: telemetry-config
+        - configMapRef:
+            name: profile-service-config
+        image: '{{ include "applications.image" (dict "root" $ "name" "profile") }}'
+        imagePullPolicy: {{ default (index .Values.applications "profile").image.pullPolicy .Values.globalImage.pullPolicy }}
+        livenessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50055
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 2
+        name: profile-service
+        ports:
+        - containerPort: 50055
+          name: grpc
+        - containerPort: 9464
+          name: metrics
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50055
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          timeoutSeconds: 2
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 25m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        startupProbe:
+          failureThreshold: 45
+          grpc:
+            port: 50055
+          periodSeconds: 2
+          timeoutSeconds: 1
+      enableServiceLinks: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: report-service
+    app.kubernetes.io/part-of: automatic-system
+  name: report-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  minReadySeconds: 3
+  {{- if not .Values.applicationAutoscaling.enabled }}
+  replicas: {{ (index .Values.applications "report").replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: report-service
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9464"
+        prometheus.io/scrape: "true"
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts":true}'
+      labels:
+        app: report-service
+        app.kubernetes.io/component: backend
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: report-service
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              key: REPORT_DATABASE_URL
+              name: runtime-secrets
+        - name: REPORT_INTERNAL_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: REPORT_INTERNAL_TOKEN
+              name: runtime-secrets
+        envFrom:
+        - configMapRef:
+            name: telemetry-config
+        - configMapRef:
+            name: report-service-config
+        image: '{{ include "applications.image" (dict "root" $ "name" "report") }}'
+        imagePullPolicy: {{ default (index .Values.applications "report").image.pullPolicy .Values.globalImage.pullPolicy }}
+        livenessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50064
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 2
+        name: report-service
+        ports:
+        - containerPort: 50064
+          name: grpc
+        - containerPort: 8084
+          name: internal
+        - containerPort: 9464
+          name: metrics
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50064
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          timeoutSeconds: 2
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 25m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        startupProbe:
+          failureThreshold: 45
+          grpc:
+            port: 50064
+          periodSeconds: 2
+          timeoutSeconds: 1
+      enableServiceLinks: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: routing-service
+    app.kubernetes.io/part-of: automatic-system
+  name: routing-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  minReadySeconds: 3
+  {{- if not .Values.applicationAutoscaling.enabled }}
+  replicas: {{ (index .Values.applications "routing").replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: routing-service
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9464"
+        prometheus.io/scrape: "true"
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts":true}'
+      labels:
+        app: routing-service
+        app.kubernetes.io/component: backend
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: routing-service
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              key: ROUTING_DATABASE_URL
+              name: runtime-secrets
+        {{- if .Values.haDatabase.enabled }}
+        - name: READ_DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              key: ROUTING_READ_DATABASE_URL
+              name: runtime-secrets
+        {{- end }}
+        envFrom:
+        - configMapRef:
+            name: telemetry-config
+        - configMapRef:
+            name: routing-service-config
+        image: '{{ include "applications.image" (dict "root" $ "name" "routing") }}'
+        imagePullPolicy: {{ default (index .Values.applications "routing").image.pullPolicy .Values.globalImage.pullPolicy }}
+        livenessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50057
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 2
+        name: routing-service
+        ports:
+        - containerPort: 50057
+          name: grpc
+        - containerPort: 9464
+          name: metrics
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50057
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          timeoutSeconds: 2
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 25m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        startupProbe:
+          failureThreshold: 45
+          grpc:
+            port: 50057
+          periodSeconds: 2
+          timeoutSeconds: 1
+      enableServiceLinks: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 45
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: sla-service
+    app.kubernetes.io/part-of: automatic-system
+  name: sla-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  minReadySeconds: 3
+  {{- if not .Values.applicationAutoscaling.enabled }}
+  replicas: {{ (index .Values.applications "sla").replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: sla-service
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9464"
+        prometheus.io/scrape: "true"
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts":true}'
+      labels:
+        app: sla-service
+        app.kubernetes.io/component: backend
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: sla-service
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              key: SLA_DATABASE_URL
+              name: runtime-secrets
+        envFrom:
+        - configMapRef:
+            name: telemetry-config
+        - configMapRef:
+            name: sla-service-config
+        image: '{{ include "applications.image" (dict "root" $ "name" "sla") }}'
+        imagePullPolicy: {{ default (index .Values.applications "sla").image.pullPolicy .Values.globalImage.pullPolicy }}
+        livenessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50060
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 2
+        name: sla-service
+        ports:
+        - containerPort: 50060
+          name: grpc
+        - containerPort: 9464
+          name: metrics
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50060
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          timeoutSeconds: 2
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 25m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        startupProbe:
+          failureThreshold: 45
+          grpc:
+            port: 50060
+          periodSeconds: 2
+          timeoutSeconds: 1
+      enableServiceLinks: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: ticket-service
+    app.kubernetes.io/part-of: automatic-system
+  name: ticket-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  minReadySeconds: 3
+  {{- if not .Values.applicationAutoscaling.enabled }}
+  replicas: {{ (index .Values.applications "ticket").replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: ticket-service
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9464"
+        prometheus.io/scrape: "true"
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts":true}'
+      labels:
+        app: ticket-service
+        app.kubernetes.io/component: backend
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: ticket-service
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - env:
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: TICKET_DB_PASSWORD
+              name: runtime-secrets
+        envFrom:
+        - configMapRef:
+            name: telemetry-config
+        - configMapRef:
+            name: ticket-service-config
+        image: '{{ include "applications.image" (dict "root" $ "name" "ticket") }}'
+        imagePullPolicy: {{ default (index .Values.applications "ticket").image.pullPolicy .Values.globalImage.pullPolicy }}
+        livenessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50052
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 2
+        name: ticket-service
+        ports:
+        - containerPort: 50052
+          name: grpc
+        - containerPort: 9464
+          name: metrics
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50052
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          timeoutSeconds: 2
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 25m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        startupProbe:
+          failureThreshold: 45
+          grpc:
+            port: 50052
+          periodSeconds: 2
+          timeoutSeconds: 1
+      enableServiceLinks: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30

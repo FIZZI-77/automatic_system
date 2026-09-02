@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -45,7 +46,8 @@ func main() {
 	defer stop()
 	logger, _ := zap.NewProduction()
 	defer logger.Sync()
-	writeDB, err := telemetry.NewPostgresPool(ctx, required("DATABASE_URL"))
+	databaseURL := required("DATABASE_URL")
+	writeDB, err := telemetry.NewPostgresPool(ctx, databaseURL, int32(integer("DATABASE_MAX_CONNECTIONS", 8)))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -53,7 +55,7 @@ func main() {
 	if err = writeDB.Ping(ctx); err != nil {
 		log.Fatal(err)
 	}
-	readDB, err := telemetry.NewPostgresPool(ctx, env("READ_DATABASE_URL", required("DATABASE_URL")))
+	readDB, err := telemetry.NewPostgresPool(ctx, env("READ_DATABASE_URL", databaseURL), int32(integer("READ_DATABASE_MAX_CONNECTIONS", 4)))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -61,11 +63,21 @@ func main() {
 	if err = readDB.Ping(ctx); err != nil {
 		log.Fatal(err)
 	}
+	lockDB, err := telemetry.NewPostgresPool(ctx, databaseURL, int32(integer("LOCK_DATABASE_MAX_CONNECTIONS", 4)))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer lockDB.Close()
+	if err = lockDB.Ping(ctx); err != nil {
+		log.Fatal(err)
+	}
+	dependencyTimeout := duration("DEPENDENCY_TIMEOUT", 10*time.Second)
 	dial := func(address string) *grpc.ClientConn {
 		connection, dialErr := grpc.NewClient(
 			address,
 			telemetry.GRPCClientOption(),
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithChainUnaryInterceptor(defaultTimeoutInterceptor(dependencyTimeout)),
 		)
 		if dialErr != nil {
 			log.Fatal(dialErr)
@@ -87,7 +99,7 @@ func main() {
 		Routing:  routingv1.NewRoutingServiceClient(routingConn),
 	}
 	value, err := service.New(
-		repository.New(writeDB, readDB),
+		repository.NewWithLockPool(writeDB, readDB, lockDB),
 		dependencies,
 		duration("RESERVATION_TTL", 2*time.Minute),
 		logger,
@@ -95,9 +107,22 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	workerCtx, cancelWorker := context.WithCancel(context.Background())
+	workerCtx, cancelWorker := context.WithCancel(ctx)
 	defer cancelWorker()
-	go cleanupLoop(workerCtx, value, duration("CLEANUP_INTERVAL", 15*time.Second), logger)
+	var workers sync.WaitGroup
+	workers.Add(1)
+	go func() {
+		defer workers.Done()
+		cleanupLoop(workerCtx, value, duration("CLEANUP_INTERVAL", 15*time.Second), logger)
+	}()
+	outboxWorker := startOutboxRelay(workerCtx, writeDB, &workers, logger)
+	if outboxWorker != nil {
+		defer outboxWorker.Close()
+	}
+	ticketConsumer := startTicketConsumer(workerCtx, value, &workers, logger)
+	if ticketConsumer != nil {
+		defer ticketConsumer.Close()
+	}
 	listener, err := net.Listen("tcp", ":"+env("GRPC_PORT", "50058"))
 	if err != nil {
 		log.Fatal(err)
@@ -114,7 +139,37 @@ func main() {
 	}()
 	<-ctx.Done()
 	cancelWorker()
-	server.GracefulStop()
+	stopGRPCServer(server, duration("SHUTDOWN_TIMEOUT", 25*time.Second), logger)
+	workers.Wait()
+}
+
+func defaultTimeoutInterceptor(timeout time.Duration) grpc.UnaryClientInterceptor {
+	return func(ctx context.Context, method string, request, reply any, connection *grpc.ClientConn, invoke grpc.UnaryInvoker, options ...grpc.CallOption) error {
+		if _, hasDeadline := ctx.Deadline(); hasDeadline {
+			return invoke(ctx, method, request, reply, connection, options...)
+		}
+		callCtx, cancel := context.WithTimeout(ctx, timeout)
+		defer cancel()
+		return invoke(callCtx, method, request, reply, connection, options...)
+	}
+}
+
+func stopGRPCServer(server *grpc.Server, timeout time.Duration, logger *zap.Logger) {
+	stopped := make(chan struct{})
+	go func() {
+		server.GracefulStop()
+		close(stopped)
+	}()
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	select {
+	case <-stopped:
+		return
+	case <-timer.C:
+		logger.Warn("dispatch gRPC graceful shutdown timed out", zap.Duration("timeout", timeout))
+		server.Stop()
+		<-stopped
+	}
 }
 func cleanupLoop(ctx context.Context, value *service.Service, interval time.Duration, logger *zap.Logger) {
 	ticker := time.NewTicker(interval)
