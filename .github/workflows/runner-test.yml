@@ -6,13 +6,53 @@ on:
       - test
 
 jobs:
-  test:
+  test-and-deploy:
     runs-on: automatic-system-runner
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Check runner
         run: |
           echo "Runner works"
           uname -a
+          whoami
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.18.6
+
+      - name: Check Kubernetes access
+        run: |
+          kubectl get nodes
+          kubectl get deployments -n automatic-system
+
+      - name: Helm lint
+        run: |
+          helm lint k8s/helm/applications
+
+      - name: Deploy to Kubernetes
+        run: |
+          helm upgrade --install applications \
+            k8s/helm/applications \
+            --namespace automatic-system \
+            --wait \
+            --timeout 10m \
+            --atomic
+
+      - name: Show deployment state
+        if: always()
+        run: |
+          echo "=== Deployments ==="
+          kubectl get deployments -n automatic-system
+
+          echo "=== Pods ==="
+          kubectl get pods -n automatic-system -o wide
+
+          echo "=== Jobs ==="
+          kubectl get jobs -n automatic-system
