@@ -29,7 +29,9 @@ jobs:
 
       - name: Check Kubernetes access
         run: |
-          kubectl get nodes
+          kubectl auth can-i get deployments -n automatic-system
+          kubectl auth can-i patch deployments -n automatic-system
+          kubectl get deployments -n automatic-system
           kubectl get deployments -n automatic-system
 
       - name: Helm lint
