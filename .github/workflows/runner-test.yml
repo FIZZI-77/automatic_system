@@ -1,7 +1,9 @@
 name: Runner Test
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - test
 
 jobs:
   test:
