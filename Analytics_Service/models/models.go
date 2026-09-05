@@ -63,9 +63,11 @@ type AssetSummary struct {
 }
 
 type LatencyDistribution struct {
-	SampleCount                               uint64
-	AverageSeconds, MedianSeconds, P90Seconds float64
-	P95Seconds, P99Seconds                    float64
+	SampleCount            uint64
+	AverageSeconds         float64
+	MedianSeconds          float64
+	P90Seconds             float64
+	P95Seconds, P99Seconds float64
 }
 
 type OperationalLatency struct {

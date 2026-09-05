@@ -1,4 +1,4 @@
-apiVersion: v1
+kapiVersion: v1
 kind: ServiceAccount
 metadata:
   name: postgres-ticket-citus

@@ -1,0 +1,7 @@
+﻿{
+  "data": {
+    "DB_HOST": "pgbouncer-platform-primary",
+    "DB_READ_HOST": "pgbouncer-platform-primary",
+    "DB_PORT": "6432"
+  }
+}

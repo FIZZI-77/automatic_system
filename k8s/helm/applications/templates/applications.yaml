@@ -166,7 +166,11 @@ metadata:
 ---
 apiVersion: v1
 data:
+  {{- if .Values.applications.notification.fcm.enabled }}
+  FCM_SERVICE_ACCOUNT_FILE: {{ .Values.applications.notification.fcm.serviceAccountPath | quote }}
+    {{- else }}
   FCM_SERVICE_ACCOUNT_FILE: ""
+    {{- end }}
   GRPC_PORT: "50061"
   KAFKA_BROKERS: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
   KAFKA_GROUP: "notification-service"
@@ -334,7 +338,7 @@ spec:
     targetPort: 8081
   selector:
     app: api-gateway
-  type: ClusterIP
+  type: {{ .Values.apiGateway.serviceType }}
 ---
 apiVersion: v1
 kind: Service
@@ -1711,6 +1715,14 @@ spec:
             name: telemetry-config
         - configMapRef:
             name: notification-service-config
+
+        {{- if .Values.applications.notification.fcm.enabled }}
+        volumeMounts:
+        - name: firebase-service-account
+          mountPath: /var/run/secrets/firebase
+          readOnly: true
+        {{- end }}
+
         image: '{{ include "applications.image" (dict "root" $ "name" "notification") }}'
         imagePullPolicy: {{ default (index .Values.applications "notification").image.pullPolicy .Values.globalImage.pullPolicy }}
         livenessProbe:
@@ -1752,7 +1764,19 @@ spec:
             port: 50061
           periodSeconds: 2
           timeoutSeconds: 1
+
+      {{- if .Values.applications.notification.fcm.enabled }}
+      volumes:
+        - name: firebase-service-account
+          secret:
+            secretName: {{ .Values.applications.notification.fcm.serviceAccountSecretName }}
+            items:
+              - key: {{ .Values.applications.notification.fcm.serviceAccountKey }}
+                path: service-account.json
+      {{- end }}
+
       enableServiceLinks: false
+
       securityContext:
         seccompProfile:
           type: RuntimeDefault

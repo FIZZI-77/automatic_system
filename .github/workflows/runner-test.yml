@@ -1,0 +1,16 @@
+name: Runner Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: automatic-system-runner
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check runner
+        run: |
+          echo "Runner works"
+          uname -a

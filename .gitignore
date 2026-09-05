@@ -4,6 +4,7 @@
 .env.*
 !.env.example
 runtime.env
+firebase/
 .runtime/
 
 # IDE

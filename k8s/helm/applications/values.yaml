@@ -102,7 +102,7 @@ applicationAutoscaling:
   cpuUtilization: 70
   memoryUtilization: 80
 haDatabase:
-  enabled: false
+  enabled: true
   platformPrimary: pgbouncer-platform-primary
   platformReplicas: pgbouncer-platform-replicas
   ticketPrimary: pgbouncer-ticket-primary
@@ -181,6 +181,12 @@ applications:
       repository: automatic-system/notification
       tag: dev
       pullPolicy: IfNotPresent
+    fcm:
+      enabled: true
+      serviceAccountSecretName: firebase-fcm
+      serviceAccountKey: service-account.json
+      serviceAccountPath: /var/run/secrets/firebase/service-account.json
+
   profile:
     replicaCount: 2
     image:

@@ -1,0 +1,33 @@
+﻿{
+  "spec": {
+    "template": {
+      "spec": {
+        "containers": [
+          {
+            "name": "kafka-exporter",
+            "livenessProbe": {
+              "httpGet": null,
+              "tcpSocket": {
+                "port": 9308
+              },
+              "initialDelaySeconds": 10,
+              "periodSeconds": 10,
+              "timeoutSeconds": 2,
+              "failureThreshold": 3
+            },
+            "readinessProbe": {
+              "httpGet": null,
+              "tcpSocket": {
+                "port": 9308
+              },
+              "initialDelaySeconds": 5,
+              "periodSeconds": 5,
+              "timeoutSeconds": 2,
+              "failureThreshold": 3
+            }
+          }
+        ]
+      }
+    }
+  }
+}
