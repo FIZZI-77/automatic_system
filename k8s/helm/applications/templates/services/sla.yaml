@@ -1,0 +1,134 @@
+apiVersion: v1
+data:
+  DEADLINE_SCAN_INTERVAL: "1s"
+  GRPC_PORT: "50060"
+  KAFKA_BROKERS: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
+  KAFKA_CONSUMER_GROUP: "sla-service"
+  KAFKA_SLA_TOPIC: "sla.events.v1"
+  KAFKA_TICKET_TOPIC: "tickets.events.v1"
+  LOG_LEVEL: "info"
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: sla-service
+    app.kubernetes.io/part-of: automatic-system
+  name: sla-service-config
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: sla-service
+    app.kubernetes.io/part-of: automatic-system
+  name: sla-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - name: grpc
+    port: 50060
+    targetPort: 50060
+  selector:
+    app: {{ ternary "sla-service-primary" "sla-service" .Values.canary.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: sla-service
+    app.kubernetes.io/part-of: automatic-system
+  name: sla-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  minReadySeconds: 3
+  {{- if not .Values.applicationAutoscaling.enabled }}
+  replicas: {{ (index .Values.applications "sla").replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: sla-service
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9464"
+        prometheus.io/scrape: "true"
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts":true}'
+      labels:
+        app: sla-service
+        app.kubernetes.io/component: backend
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: sla-service
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              key: SLA_DATABASE_URL
+              name: runtime-secrets
+        envFrom:
+        - configMapRef:
+            name: telemetry-config
+        - configMapRef:
+            name: sla-service-config
+        image: '{{ include "applications.image" (dict "root" $ "name" "sla") }}'
+        imagePullPolicy: {{ default (index .Values.applications "sla").image.pullPolicy .Values.globalImage.pullPolicy }}
+        livenessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50060
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 2
+        name: sla-service
+        ports:
+        - containerPort: 50060
+          name: grpc
+        - containerPort: 9464
+          name: metrics
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50060
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          timeoutSeconds: 2
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 25m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        startupProbe:
+          failureThreshold: 45
+          grpc:
+            port: 50060
+          periodSeconds: 2
+          timeoutSeconds: 1
+      enableServiceLinks: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30

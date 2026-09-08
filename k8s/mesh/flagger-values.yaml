@@ -1,0 +1,8 @@
+meshProvider: istio
+metricsServer: http://prometheus.automatic-system.svc.cluster.local:9090
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8080"
+  proxy.istio.io/config: '{"holdApplicationUntilProxyStarts":true}'
+  sidecar.istio.io/inject: "true"

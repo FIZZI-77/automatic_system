@@ -1,0 +1,27 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: automatic-system
+  namespace: flux-system
+spec:
+  interval: 1m
+  ref:
+    branch: test
+  timeout: 60s
+  url: https://github.com/FIZZI-77/automatic_system.git
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: automatic-system-local-ha
+  namespace: flux-system
+spec:
+  interval: 5m
+  path: ./k8s/flux/clusters/local-ha
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: automatic-system
+  suspend: true
+  timeout: 40m
+  wait: true

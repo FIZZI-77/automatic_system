@@ -1,0 +1,189 @@
+apiVersion: v1
+data:
+  GRPC_PORT: "50056"
+  HISTORY_BATCH_SIZE: "500"
+  HISTORY_BUFFER_CAPACITY: "10000"
+  HISTORY_FLUSH_INTERVAL: "5s"
+  HTTP_PORT: "8080"
+  KAFKA_BROKERS: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
+  KAFKA_LOCATION_TOPIC: "locations.events.v1"
+  LOG_LEVEL: "info"
+  REDIS_DB: "0"
+  REDIS_EVENTS_CONSUMER: "location-service"
+  REDIS_EVENTS_GROUP: "location-kafka-relay"
+  REDIS_EVENTS_STREAM: "locations:events"
+  REDIS_MASTER_NAME: "location-master"
+  REDIS_MIN_IDLE_CONNS: "5"
+  REDIS_POOL_SIZE: "20"
+  REDIS_SENTINEL_ADDRS: "redis-location-sentinel-0.redis-location-sentinel:26379,redis-location-sentinel-1.redis-location-sentinel:26379,redis-location-sentinel-2.redis-location-sentinel:26379"
+  SHUTDOWN_TIMEOUT: "20s"
+  SIGNAL_BATCH_SIZE: "500"
+  SIGNAL_OFFLINE_AFTER: "10m"
+  SIGNAL_SCAN_INTERVAL: "5s"
+  SIGNAL_STALE_AFTER: "5m"
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: location-service
+    app.kubernetes.io/part-of: automatic-system
+  name: location-service-config
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: location-service
+    app.kubernetes.io/part-of: automatic-system
+  name: location-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - name: grpc
+    port: 50056
+    targetPort: 50056
+  selector:
+    app: {{ ternary "location-service-primary" "location-service" .Values.canary.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: location-service-http
+    app.kubernetes.io/part-of: automatic-system
+  name: location-service-http
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+  selector:
+    app: {{ ternary "location-service-primary" "location-service" .Values.canary.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: location-service
+    app.kubernetes.io/part-of: automatic-system
+  name: location-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  minReadySeconds: 3
+  {{- if not .Values.applicationAutoscaling.enabled }}
+  replicas: {{ (index .Values.applications "location").replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: location-service
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9464"
+        prometheus.io/scrape: "true"
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts":true}'
+      labels:
+        app: location-service
+        app.kubernetes.io/component: backend
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: location-service
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              key: LOCATION_DATABASE_URL
+              name: runtime-secrets
+        {{- if .Values.haDatabase.enabled }}
+        - name: READ_DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              key: LOCATION_READ_DATABASE_URL
+              name: runtime-secrets
+        {{- end }}
+        - name: REDIS_SENTINEL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: REDIS_SENTINEL_PASSWORD
+              name: runtime-secrets
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: REDIS_PASSWORD
+              name: runtime-secrets
+              optional: true
+        - name: TRANSPONDER_API_KEY
+          valueFrom:
+            secretKeyRef:
+              key: TRANSPONDER_API_KEY
+              name: runtime-secrets
+        envFrom:
+        - configMapRef:
+            name: telemetry-config
+        - configMapRef:
+            name: location-service-config
+        image: '{{ include "applications.image" (dict "root" $ "name" "location") }}'
+        imagePullPolicy: {{ default (index .Values.applications "location").image.pullPolicy .Values.globalImage.pullPolicy }}
+        livenessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50056
+          periodSeconds: 10
+          timeoutSeconds: 2
+        name: location-service
+        ports:
+        - containerPort: 50056
+          name: grpc
+        - containerPort: 8080
+          name: http
+        - containerPort: 9464
+          name: metrics
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50056
+          periodSeconds: 5
+          timeoutSeconds: 2
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 25m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        startupProbe:
+          failureThreshold: 45
+          grpc:
+            port: 50056
+          periodSeconds: 2
+          timeoutSeconds: 2
+      enableServiceLinks: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 45

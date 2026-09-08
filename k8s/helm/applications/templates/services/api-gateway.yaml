@@ -1,0 +1,181 @@
+apiVersion: v1
+data:
+  ANALYTICS_SERVICE_ADDR: "analytics-service:50063"
+  ASSET_SERVICE_ADDR: "asset-service:50065"
+  AUDIT_SERVICE_ADDR: "audit-service:50062"
+  AUTH_SERVICE_ADDR: "auth-service:50051"
+  BRIGADE_SERVICE_ADDR: "brigade-service:50054"
+  CORS_ALLOWED_ORIGINS: "https://city.localhost,http://localhost:3000,http://127.0.0.1:3000"
+  DEPARTMENT_SERVICE_ADDR: "department-service:50053"
+  FILE_SERVICE_ADDR: "file-service:50059"
+  GATEWAY_ADDR: ":8081"
+  JWT_AUDIENCE: "api-gateway"
+  JWT_ISSUER: "auth-jwt"
+  JWT_PUBLIC_KEY_PATH: "/app/keys/public.pem"
+  NOTIFICATION_LIVE_PREFIX: 'notifications:user:'
+  NOTIFICATION_SERVICE_ADDR: "notification-service:50061"
+  PROFILE_SERVICE_ADDR: "profile-service:50055"
+  RATE_LIMIT_PREFIX: "gateway:ratelimit"
+  RATE_LIMIT_BYPASS_LOAD_TESTS: "false"
+  REDIS_ADDR: "redis-gateway:6379"
+  REDIS_DB: "0"
+  REPORT_INTERNAL_URL: "http://report-service-internal:8084"
+  REPORT_SERVICE_ADDR: "report-service:50064"
+  SLA_SERVICE_ADDR: "sla-service:50060"
+  TICKET_SERVICE_ADDR: "ticket-service:50052"
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: gateway
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: api-gateway
+    app.kubernetes.io/part-of: automatic-system
+  name: api-gateway-config
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: gateway
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: api-gateway
+    app.kubernetes.io/part-of: automatic-system
+  name: api-gateway
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - appProtocol: http
+    name: http
+    port: 8081
+    targetPort: 8081
+  selector:
+    app: {{ ternary "api-gateway-primary" "api-gateway" .Values.canary.enabled }}
+  type: {{ .Values.apiGateway.serviceType }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: gateway
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: api-gateway
+    app.kubernetes.io/part-of: automatic-system
+  name: api-gateway
+  namespace: {{ .Release.Namespace }}
+spec:
+  minReadySeconds: 3
+  {{- if not .Values.applicationAutoscaling.enabled }}
+  replicas: {{ (index .Values.applications "api-gateway").replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: api-gateway
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9464"
+        prometheus.io/scrape: "true"
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts":true}'
+      labels:
+        app: api-gateway
+        app.kubernetes.io/component: gateway
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: api-gateway
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      {{- if .Values.apiGateway.topologySpread.enabled }}
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: {{ .Values.apiGateway.topologySpread.whenUnsatisfiable }}
+        matchLabelKeys:
+        - pod-template-hash
+        labelSelector:
+          matchLabels:
+            app: api-gateway
+      {{- end }}
+      containers:
+      - env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: REDIS_PASSWORD
+              name: runtime-secrets
+              optional: true
+        - name: REPORT_INTERNAL_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: REPORT_INTERNAL_TOKEN
+              name: runtime-secrets
+        envFrom:
+        - configMapRef:
+            name: telemetry-config
+        - configMapRef:
+            name: api-gateway-config
+        image: '{{ include "applications.image" (dict "root" $ "name" "api-gateway") }}'
+        imagePullPolicy: {{ default (index .Values.applications "api-gateway").image.pullPolicy .Values.globalImage.pullPolicy }}
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /livez
+            port: http
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 2
+        name: api-gateway
+        ports:
+        - containerPort: 8081
+          name: http
+        - containerPort: 9464
+          name: metrics
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /readyz
+            port: http
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          timeoutSeconds: 2
+        resources:
+          {{- toYaml .Values.apiGateway.resources | nindent 10 }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+        startupProbe:
+          failureThreshold: 45
+          httpGet:
+            path: /livez
+            port: http
+          periodSeconds: 2
+          timeoutSeconds: 1
+        volumeMounts:
+        - mountPath: /app/keys/public.pem
+          name: jwt-public
+          readOnly: true
+          subPath: public.pem
+      enableServiceLinks: false
+      securityContext:
+        runAsGroup: 10001
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: jwt-public
+        secret:
+          defaultMode: 292
+          secretName: jwt-public-key

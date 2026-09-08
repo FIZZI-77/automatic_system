@@ -1,0 +1,147 @@
+apiVersion: v1
+data:
+  COMPLETION_SAGA_ATTEMPT_TIMEOUT: "10m"
+  COMPLETION_SAGA_BATCH_SIZE: "50"
+  COMPLETION_SAGA_MAX_ATTEMPTS: "3"
+  COMPLETION_SAGA_POLL_INTERVAL: "30s"
+  DB_HOST: {{ ternary .Values.haDatabase.ticketPrimary "postgres-ticket" .Values.haDatabase.enabled | quote }}
+  DB_NAME: "ticket_db"
+  DB_PORT: {{ ternary .Values.haDatabase.port "5432" .Values.haDatabase.enabled | quote }}
+  DB_READ_HOST: {{ ternary .Values.haDatabase.ticketReplicas "postgres-ticket" .Values.haDatabase.enabled | quote }}
+  DB_READ_MAX_CONNS: "16"
+  DB_READ_MIN_CONNS: "2"
+  DB_USERNAME: "ticket_user"
+  DB_WRITE_MAX_CONNS: "16"
+  DB_WRITE_MIN_CONNS: "2"
+  GRPC_PORT: "50052"
+  KAFKA_BROKERS: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
+  KAFKA_REPORT_TOPIC: "reports.events.v1"
+  KAFKA_ROUTING_TOPIC: "routing.events.v1"
+  OUTBOX_WORKER_COUNT: "4"
+  REPORT_RESULT_CONSUMER_GROUP_ID: "ticket-report-result-v1"
+  SSLMODE: "disable"
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: ticket-service
+    app.kubernetes.io/part-of: automatic-system
+  name: ticket-service-config
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: ticket-service
+    app.kubernetes.io/part-of: automatic-system
+  name: ticket-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - name: grpc
+    port: 50052
+    targetPort: 50052
+  selector:
+    app: {{ ternary "ticket-service-primary" "ticket-service" .Values.canary.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: ticket-service
+    app.kubernetes.io/part-of: automatic-system
+  name: ticket-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  minReadySeconds: 3
+  {{- if not .Values.applicationAutoscaling.enabled }}
+  replicas: {{ (index .Values.applications "ticket").replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: ticket-service
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9464"
+        prometheus.io/scrape: "true"
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts":true}'
+      labels:
+        app: ticket-service
+        app.kubernetes.io/component: backend
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: ticket-service
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - env:
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: TICKET_DB_PASSWORD
+              name: runtime-secrets
+        envFrom:
+        - configMapRef:
+            name: telemetry-config
+        - configMapRef:
+            name: ticket-service-config
+        image: '{{ include "applications.image" (dict "root" $ "name" "ticket") }}'
+        imagePullPolicy: {{ default (index .Values.applications "ticket").image.pullPolicy .Values.globalImage.pullPolicy }}
+        livenessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50052
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 2
+        name: ticket-service
+        ports:
+        - containerPort: 50052
+          name: grpc
+        - containerPort: 9464
+          name: metrics
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50052
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          timeoutSeconds: 2
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 25m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        startupProbe:
+          failureThreshold: 45
+          grpc:
+            port: 50052
+          periodSeconds: 2
+          timeoutSeconds: 1
+      enableServiceLinks: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30
