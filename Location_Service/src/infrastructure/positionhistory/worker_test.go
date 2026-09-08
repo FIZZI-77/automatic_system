@@ -17,6 +17,7 @@ type repositoryStub struct {
 	mu      sync.Mutex
 	batches [][]*models.Position
 	err     error
+	written *int64
 }
 
 func (r *repositoryStub) AppendPositionsBatch(
@@ -28,6 +29,9 @@ func (r *repositoryStub) AppendPositionsBatch(
 	r.batches = append(r.batches, append([]*models.Position(nil), positions...))
 	if r.err != nil {
 		return 0, r.err
+	}
+	if r.written != nil {
+		return *r.written, nil
 	}
 	return int64(len(positions)), nil
 }
@@ -70,7 +74,7 @@ func TestWorkerFlushesWhenBatchSizeReached(t *testing.T) {
 	}
 }
 
-func TestWorkerDropsFailedBatch(t *testing.T) {
+func TestWorkerReturnsFailedBatchToBuffer(t *testing.T) {
 	repo := &repositoryStub{err: errors.New("copy failed")}
 	buffer := service.NewMemoryPositionBuffer(10)
 	worker, err := New(buffer, repo, Config{BatchSize: 2}, zap.NewNop())
@@ -81,7 +85,24 @@ func TestWorkerDropsFailedBatch(t *testing.T) {
 	_ = buffer.Add(&models.Position{Sequence: 2})
 
 	worker.flushAll(context.Background())
-	if buffer.Len() != 0 {
-		t.Fatalf("failed batch returned to buffer: len = %d", buffer.Len())
+	if buffer.Len() != 2 {
+		t.Fatalf("failed batch was not returned to buffer: len = %d", buffer.Len())
+	}
+}
+
+func TestWorkerReturnsUnwrittenPositionsToBuffer(t *testing.T) {
+	written := int64(1)
+	repo := &repositoryStub{written: &written}
+	buffer := service.NewMemoryPositionBuffer(10)
+	worker, err := New(buffer, repo, Config{BatchSize: 2}, zap.NewNop())
+	if err != nil {
+		t.Fatalf("new worker: %v", err)
+	}
+	_ = buffer.Add(&models.Position{Sequence: 1})
+	_ = buffer.Add(&models.Position{Sequence: 2})
+
+	worker.flushAll(context.Background())
+	if buffer.Len() != 1 {
+		t.Fatalf("unwritten position was not returned to buffer: len = %d", buffer.Len())
 	}
 }

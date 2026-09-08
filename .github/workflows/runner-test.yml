@@ -1,60 +1,174 @@
-name: Runner Test
+name: Deploy test through Flux
 
 on:
-  push:
+  workflow_run:
+    workflows:
+      - Automatic City Services CI/CD
     branches:
       - test
+    types:
+      - completed
+
+permissions:
+  contents: write
+
+concurrency:
+  group: automatic-system-test-deploy
+  cancel-in-progress: false
 
 jobs:
-  test-and-deploy:
+  deploy:
+    if: github.event.workflow_run.conclusion == 'success'
     runs-on: automatic-system-runner
+    timeout-minutes: 50
+    env:
+      TARGET_SHA: ${{ github.event.workflow_run.head_sha }}
 
     steps:
-      - name: Checkout
+      - name: Checkout tested commit
         uses: actions/checkout@v4
-
-      - name: Check runner
-        run: |
-          echo "Runner works"
-          uname -a
-          whoami
-
-      - name: Setup kubectl
-        uses: azure/setup-kubectl@v4
-
-      - name: Setup Helm
-        uses: azure/setup-helm@v4
         with:
-          version: v3.18.6
+          fetch-depth: 0
+          ref: ${{ env.TARGET_SHA }}
 
-      - name: Check Kubernetes access
+      - name: Check runner tools and Kubernetes access
+        shell: bash
         run: |
-          kubectl auth can-i get deployments -n automatic-system
-          kubectl auth can-i patch deployments -n automatic-system
+          set -euo pipefail
+
+          command -v git
+          command -v kubectl
+          kubectl auth can-i get deployments -n automatic-system | grep -qx true
+          kubectl auth can-i patch deployments -n automatic-system | grep -qx true
+          kubectl auth can-i patch kustomizations.kustomize.toolkit.fluxcd.io \
+            -n flux-system | grep -qx true
+          kubectl auth can-i get canaries.flagger.app \
+            -n automatic-system | grep -qx true
           kubectl get deployments -n automatic-system
-          kubectl get deployments -n automatic-system
 
-      - name: Helm lint
+      - name: Publish immutable test image tags
+        id: gitops
+        shell: bash
         run: |
-          helm lint k8s/helm/applications
+          set -euo pipefail
 
-      - name: Deploy to Kubernetes
+          SHORT_SHA="${TARGET_SHA::12}"
+          VALUES_FILE=k8s/flux/clusters/local-ha/applications-values.yaml
+
+          git fetch origin test
+          git merge-base --is-ancestor "$TARGET_SHA" origin/test
+
+          if ! git diff --quiet "$TARGET_SHA..origin/test" -- \
+            . ":(exclude)$VALUES_FILE"; then
+            echo "::error::The test branch advanced after the tested commit"
+            exit 1
+          fi
+
+          git checkout -B test-deploy origin/test
+
+          sed -Ei \
+            "s/tag: sha-[0-9a-fA-F]+/tag: sha-${SHORT_SHA}/g" \
+            "$VALUES_FILE"
+
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+
+          if ! git diff --quiet -- "$VALUES_FILE"; then
+            git add "$VALUES_FILE"
+            git commit -m "deploy(test): sha-${SHORT_SHA} [skip ci]"
+            git push origin HEAD:test
+          fi
+
+          echo "revision=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "image_tag=sha-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Enable and reconcile Flux
+        shell: bash
+        env:
+          DEPLOY_REVISION: ${{ steps.gitops.outputs.revision }}
         run: |
-          helm upgrade --install applications \
-            k8s/helm/applications \
-            --namespace automatic-system \
-            --wait \
-            --timeout 10m \
-            --atomic
+          set -euo pipefail
+
+          kubectl apply -f k8s/flux/bootstrap/local-ha-sync.yaml
+          kubectl patch kustomization automatic-system-local-ha \
+            -n flux-system \
+            --type merge \
+            -p '{"spec":{"suspend":false}}'
+
+          for _ in $(seq 1 60); do
+            SOURCE_REVISION="$(kubectl get gitrepository automatic-system \
+              -n flux-system \
+              -o jsonpath='{.status.artifact.revision}')"
+
+            if [[ "$SOURCE_REVISION" == "test@sha1:${DEPLOY_REVISION}" ]]; then
+              break
+            fi
+
+            sleep 5
+          done
+
+          SOURCE_REVISION="$(kubectl get gitrepository automatic-system \
+            -n flux-system \
+            -o jsonpath='{.status.artifact.revision}')"
+          test "$SOURCE_REVISION" = "test@sha1:${DEPLOY_REVISION}"
+
+          kubectl annotate kustomization automatic-system-local-ha \
+            -n flux-system \
+            reconcile.fluxcd.io/requestedAt="$(date +%s)" \
+            --overwrite
+
+          kubectl wait kustomization/automatic-system-local-ha \
+            -n flux-system \
+            --for=condition=ready \
+            --timeout=40m
+
+      - name: Verify Flagger promotion
+        shell: bash
+        env:
+          IMAGE_TAG: ${{ steps.gitops.outputs.image_tag }}
+        run: |
+          set -euo pipefail
+
+          for _ in $(seq 1 480); do
+            FAILED="$(kubectl get canary -n automatic-system \
+              -o jsonpath='{range .items[?(@.status.phase=="Failed")]}{.metadata.name}{"\n"}{end}')"
+            test -z "$FAILED" || {
+              echo "::error::Flagger failed: $FAILED"
+              exit 1
+            }
+
+            PRIMARY_COUNT=0
+            CANARY_COUNT=0
+
+            while read -r CANARY_NAME; do
+              test -n "$CANARY_NAME" || continue
+              CANARY_COUNT=$((CANARY_COUNT + 1))
+
+              PRIMARY_IMAGE="$(kubectl get deployment "${CANARY_NAME}-primary" \
+                -n automatic-system \
+                -o jsonpath='{.spec.template.spec.containers[0].image}')"
+
+              if [[ "$PRIMARY_IMAGE" == *":${IMAGE_TAG}" ]]; then
+                PRIMARY_COUNT=$((PRIMARY_COUNT + 1))
+              fi
+            done < <(kubectl get canary -n automatic-system \
+              -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}')
+
+            if [ "$CANARY_COUNT" -eq 17 ] && [ "$PRIMARY_COUNT" -eq 17 ]; then
+              exit 0
+            fi
+
+            sleep 5
+          done
+
+          echo "::error::Not all 17 primary deployments were promoted to ${IMAGE_TAG}"
+          exit 1
 
       - name: Show deployment state
         if: always()
+        shell: bash
         run: |
-          echo "=== Deployments ==="
-          kubectl get deployments -n automatic-system
-
-          echo "=== Pods ==="
-          kubectl get pods -n automatic-system -o wide
-
-          echo "=== Jobs ==="
-          kubectl get jobs -n automatic-system
+          kubectl get kustomization,gitrepository -n flux-system -o wide || true
+          kubectl get helmrelease -n flux-system -o wide || true
+          kubectl get canary -n automatic-system || true
+          kubectl get pods -n automatic-system -o wide || true

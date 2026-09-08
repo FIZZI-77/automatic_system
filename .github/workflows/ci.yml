@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - "feature/**"
+      - test
       - main
       - master
 
@@ -196,6 +197,29 @@ jobs:
       - name: Run ClickHouse integration tests
         working-directory: Analytics_Service
         run: go test -race -count=1 -tags=integration ./src/core/repository
+
+  location-integration:
+    name: Location / PostgreSQL and Redis integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      GOWORK: "off"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: Location_Service/go.sum
+
+      - name: Run Location integration tests
+        working-directory: Location_Service
+        run: go test -count=1 -timeout=15m -tags=integration ./src/integration
 
   # ===========================================================================
   # FRONTEND ANALYTICS QUALITY
@@ -442,6 +466,7 @@ jobs:
     needs:
       - go-quality
       - analytics-integration
+      - location-integration
       - frontend-quality
       - go-workspace-validation
       - compose-validation
@@ -500,6 +525,11 @@ jobs:
             package: automatic-system-file
             context: File_Service
             dockerfile: File_Service/Dockerfile
+
+          - service: frontend
+            package: automatic-system-frontend
+            context: Frontend
+            dockerfile: Frontend/Dockerfile
 
           - service: sla
             package: automatic-system-sla
@@ -1080,7 +1110,8 @@ jobs:
     if: >
       github.event_name == 'push' &&
       (github.ref == 'refs/heads/main' ||
-       github.ref == 'refs/heads/master')
+       github.ref == 'refs/heads/master') &&
+      vars.PRODUCTION_DEPLOY_ENABLED == 'true'
 
     runs-on: ubuntu-latest
 
@@ -1152,6 +1183,7 @@ jobs:
       github.event_name == 'push' &&
       (github.ref == 'refs/heads/main' ||
        github.ref == 'refs/heads/master') &&
+      vars.PRODUCTION_DEPLOY_ENABLED == 'true' &&
       needs.check-prod-cluster.outputs.available == 'true'
 
     runs-on: ubuntu-latest
