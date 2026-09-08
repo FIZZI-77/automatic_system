@@ -5,7 +5,7 @@ import { initializeApp, getApps } from "firebase/app";
 import { getMessaging, getToken } from "firebase/messaging";
 
 const firebaseConfig = {
-    apiKey: "AIzaSyAwRnAOApwimP_1_bsk4yRVH5ZbBtnAfhk",
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
     authDomain: "automatic-city-system.firebaseapp.com",
     projectId: "automatic-city-system",
     storageBucket: "automatic-city-system.firebasestorage.app",
@@ -14,7 +14,7 @@ const firebaseConfig = {
     measurementId: "G-GX1GJ1RE2T"
 };
 
-const VAPID_KEY = "BH-3UDkqCZUf4mRwBC0CqelSsSh6K92pHZDHr5Re6sRU9CnDQsIQGi-bFT4JHQ_9aws7eXf03GHc6nKJfrorKDo";
+const vapidKey = "BH-3UDkqCZUf4mRwBC0CqelSsSh6K92pHZDHr5Re6sRU9CnDQsIQGi-bFT4JHQ_9aws7eXf03GHc6nKJfrorKDo";
 
 export default function FCMTestPage() {
     const [token, setToken] = useState("");
@@ -23,6 +23,10 @@ export default function FCMTestPage() {
     async function generateToken() {
         try {
             setError("");
+
+            if (!firebaseConfig.apiKey) {
+                throw new Error("Конфигурация Firebase не задана");
+            }
 
             const permission = await Notification.requestPermission();
 
@@ -42,7 +46,7 @@ export default function FCMTestPage() {
             const messaging = getMessaging(app);
 
             const currentToken = await getToken(messaging, {
-                vapidKey: VAPID_KEY,
+                vapidKey,
                 serviceWorkerRegistration: registration,
             });
 
@@ -51,7 +55,6 @@ export default function FCMTestPage() {
             }
 
             setToken(currentToken);
-            console.log("FCM TOKEN:", currentToken);
         } catch (e) {
             setError(e instanceof Error ? e.message : String(e));
         }
