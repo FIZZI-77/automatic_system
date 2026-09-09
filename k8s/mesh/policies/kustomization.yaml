@@ -4,6 +4,7 @@ namespace: automatic-system
 
 resources:
   - strict-mtls.yaml
+  - clickhouse-plaintext.yaml
   - authorization-audit.yaml
   - destination-rules.yaml
   - infrastructure-plaintext.yaml

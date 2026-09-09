@@ -8,7 +8,6 @@ resources:
   - network
   - infra
   - migrations
-  - apps
 patches:
   - target:
       version: v1

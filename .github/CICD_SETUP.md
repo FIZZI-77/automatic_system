@@ -60,7 +60,9 @@ Workflow оставляет поддержку обоих имён, поэтом
 `GHCR_PULL_TOKEN`
 : PAT с `read:packages`.
 
-Если GHCR packages public, эти два secret не нужны.
+Локальное и производственное развёртывания создают из этих значений
+`imagePullSecret` с именем `ghcr-pull`. Если все GHCR packages публичные, эти
+два secret не нужны.
 
 ## PowerShell: как получить Base64
 

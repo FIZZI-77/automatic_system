@@ -1,0 +1,1166 @@
+{
+  "panels": [
+    {
+      "id": 1,
+      "datasource": {
+        "uid": "prometheus",
+        "type": "prometheus"
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "fields": "",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto"
+      },
+      "type": "stat",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "y": 0,
+        "x": 0
+      },
+      "title": "Ошибки канареек",
+      "targets": [
+        {
+          "legendFormat": "ошибки",
+          "datasource": {
+            "uid": "prometheus",
+            "type": "prometheus"
+          },
+          "range": true,
+          "editorMode": "code",
+          "refId": "A",
+          "expr": "sum(flagger_canary_status{namespace=\"$namespace\",name=~\"$canary\"} == 2) or vector(0)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "datasource": {
+        "uid": "prometheus",
+        "type": "prometheus"
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "fields": "",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto"
+      },
+      "type": "stat",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "y": 0,
+        "x": 6
+      },
+      "title": "Flagger",
+      "targets": [
+        {
+          "legendFormat": "доступен",
+          "datasource": {
+            "uid": "prometheus",
+            "type": "prometheus"
+          },
+          "range": true,
+          "editorMode": "code",
+          "refId": "B",
+          "expr": "min(up{job=\"flagger\"}) or vector(0)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "red"
+              },
+              {
+                "value": 1,
+                "color": "green"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "datasource": {
+        "uid": "prometheus",
+        "type": "prometheus"
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "fields": "",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto"
+      },
+      "type": "stat",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "y": 0,
+        "x": 12
+      },
+      "title": "Нет реплик",
+      "targets": [
+        {
+          "legendFormat": "реплики",
+          "datasource": {
+            "uid": "prometheus",
+            "type": "prometheus"
+          },
+          "range": true,
+          "editorMode": "code",
+          "refId": "C",
+          "expr": "sum(kube_deployment_status_replicas_unavailable{namespace=\"$namespace\",deployment=~\"($canary)-primary\"}) or vector(0)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "datasource": {
+        "uid": "prometheus",
+        "type": "prometheus"
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "fields": "",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto"
+      },
+      "type": "stat",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "y": 0,
+        "x": 18
+      },
+      "title": "Перезапуски 15м",
+      "targets": [
+        {
+          "legendFormat": "перезапуски",
+          "datasource": {
+            "uid": "prometheus",
+            "type": "prometheus"
+          },
+          "range": true,
+          "editorMode": "code",
+          "refId": "D",
+          "expr": "round(sum(increase(kube_pod_container_status_restarts_total{namespace=\"$namespace\",pod=~\"($canary)(-primary)?-.+\",container!=\"istio-proxy\"}[15m]))) or vector(0)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "datasource": {
+        "uid": "prometheus",
+        "type": "prometheus"
+      },
+      "options": {
+        "tooltip": {
+          "sort": "desc",
+          "mode": "multi"
+        },
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "placement": "bottom",
+          "displayMode": "table"
+        }
+      },
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "y": 5,
+        "x": 0
+      },
+      "title": "Распределение трафика",
+      "targets": [
+        {
+          "legendFormat": "{{workload}}",
+          "datasource": {
+            "uid": "prometheus",
+            "type": "prometheus"
+          },
+          "range": true,
+          "editorMode": "code",
+          "refId": "E",
+          "expr": "flagger_canary_weight{namespace=\"$namespace\",workload=~\"($canary)(-primary)?\"}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "datasource": {
+        "uid": "prometheus",
+        "type": "prometheus"
+      },
+      "options": {
+        "tooltip": {
+          "sort": "desc",
+          "mode": "multi"
+        },
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "placement": "bottom",
+          "displayMode": "table"
+        }
+      },
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "y": 5,
+        "x": 12
+      },
+      "title": "Последнее состояние анализа",
+      "targets": [
+        {
+          "legendFormat": "{{name}}: 0 выполняется, 1 успешно, 2 ошибка",
+          "datasource": {
+            "uid": "prometheus",
+            "type": "prometheus"
+          },
+          "range": true,
+          "editorMode": "code",
+          "refId": "F",
+          "expr": "flagger_canary_status{namespace=\"$namespace\",name=~\"$canary\"}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 7,
+      "datasource": {
+        "uid": "prometheus",
+        "type": "prometheus"
+      },
+      "options": {
+        "tooltip": {
+          "sort": "desc",
+          "mode": "multi"
+        },
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "placement": "bottom",
+          "displayMode": "table"
+        }
+      },
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "y": 13,
+        "x": 0
+      },
+      "title": "Результаты проверок Flagger",
+      "targets": [
+        {
+          "legendFormat": "{{name}} / {{metric}}",
+          "datasource": {
+            "uid": "prometheus",
+            "type": "prometheus"
+          },
+          "range": true,
+          "editorMode": "code",
+          "refId": "G",
+          "expr": "flagger_canary_metric_analysis{namespace=\"$namespace\",name=~\"$canary\"}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 8,
+      "datasource": {
+        "uid": "prometheus",
+        "type": "prometheus"
+      },
+      "options": {
+        "tooltip": {
+          "sort": "desc",
+          "mode": "multi"
+        },
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "placement": "bottom",
+          "displayMode": "table"
+        }
+      },
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "y": 13,
+        "x": 12
+      },
+      "title": "Продвижения и откаты за период",
+      "targets": [
+        {
+          "legendFormat": "{{name}} успешно",
+          "datasource": {
+            "uid": "prometheus",
+            "type": "prometheus"
+          },
+          "range": true,
+          "editorMode": "code",
+          "refId": "H",
+          "expr": "sum by (name) (increase(flagger_canary_successes_total{namespace=\"$namespace\",name=~\"$canary\"}[$__range]))"
+        },
+        {
+          "legendFormat": "{{name}} откат",
+          "datasource": {
+            "uid": "prometheus",
+            "type": "prometheus"
+          },
+          "range": true,
+          "editorMode": "code",
+          "refId": "I",
+          "expr": "sum by (name) (increase(flagger_canary_failures_total{namespace=\"$namespace\",name=~\"$canary\"}[$__range]))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 9,
+      "datasource": {
+        "uid": "prometheus",
+        "type": "prometheus"
+      },
+      "options": {
+        "tooltip": {
+          "sort": "desc",
+          "mode": "multi"
+        },
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "placement": "bottom",
+          "displayMode": "table"
+        }
+      },
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "y": 21,
+        "x": 0
+      },
+      "title": "Желаемые и доступные реплики",
+      "targets": [
+        {
+          "legendFormat": "{{deployment}} желаемые",
+          "datasource": {
+            "uid": "prometheus",
+            "type": "prometheus"
+          },
+          "range": true,
+          "editorMode": "code",
+          "refId": "J",
+          "expr": "sum by (deployment) (kube_deployment_spec_replicas{namespace=\"$namespace\",deployment=~\"($canary)(-primary)?\"})"
+        },
+        {
+          "legendFormat": "{{deployment}} доступные",
+          "datasource": {
+            "uid": "prometheus",
+            "type": "prometheus"
+          },
+          "range": true,
+          "editorMode": "code",
+          "refId": "K",
+          "expr": "sum by (deployment) (kube_deployment_status_replicas_available{namespace=\"$namespace\",deployment=~\"($canary)(-primary)?\"})"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 10,
+      "datasource": {
+        "uid": "prometheus",
+        "type": "prometheus"
+      },
+      "options": {
+        "tooltip": {
+          "sort": "desc",
+          "mode": "multi"
+        },
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "placement": "bottom",
+          "displayMode": "table"
+        }
+      },
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "y": 21,
+        "x": 12
+      },
+      "title": "Готовность Pod-ов",
+      "targets": [
+        {
+          "legendFormat": "{{pod}}",
+          "datasource": {
+            "uid": "prometheus",
+            "type": "prometheus"
+          },
+          "range": true,
+          "editorMode": "code",
+          "refId": "L",
+          "expr": "kube_pod_status_ready{namespace=\"$namespace\",pod=~\"($canary)(-primary)?-.+\",condition=\"true\"}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 11,
+      "datasource": {
+        "uid": "prometheus",
+        "type": "prometheus"
+      },
+      "options": {
+        "tooltip": {
+          "sort": "desc",
+          "mode": "multi"
+        },
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "placement": "bottom",
+          "displayMode": "table"
+        }
+      },
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "y": 29,
+        "x": 0
+      },
+      "title": "Использование процессора",
+      "targets": [
+        {
+          "legendFormat": "{{pod}}",
+          "datasource": {
+            "uid": "prometheus",
+            "type": "prometheus"
+          },
+          "range": true,
+          "editorMode": "code",
+          "refId": "M",
+          "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"$namespace\",pod=~\"($canary)(-primary)?-.+\",container!~\"POD|istio-proxy\",container!=\"\"}[5m]))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cores",
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 12,
+      "datasource": {
+        "uid": "prometheus",
+        "type": "prometheus"
+      },
+      "options": {
+        "tooltip": {
+          "sort": "desc",
+          "mode": "multi"
+        },
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "placement": "bottom",
+          "displayMode": "table"
+        }
+      },
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "y": 29,
+        "x": 12
+      },
+      "title": "Использование памяти",
+      "targets": [
+        {
+          "legendFormat": "{{pod}}",
+          "datasource": {
+            "uid": "prometheus",
+            "type": "prometheus"
+          },
+          "range": true,
+          "editorMode": "code",
+          "refId": "N",
+          "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"$namespace\",pod=~\"($canary)(-primary)?-.+\",container!~\"POD|istio-proxy\",container!=\"\"})"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 13,
+      "datasource": {
+        "uid": "prometheus",
+        "type": "prometheus"
+      },
+      "options": {
+        "tooltip": {
+          "sort": "desc",
+          "mode": "multi"
+        },
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "placement": "bottom",
+          "displayMode": "table"
+        }
+      },
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "y": 37,
+        "x": 0
+      },
+      "title": "Входящие запросы",
+      "targets": [
+        {
+          "legendFormat": "{{destination_workload}}",
+          "datasource": {
+            "uid": "prometheus",
+            "type": "prometheus"
+          },
+          "range": true,
+          "editorMode": "code",
+          "refId": "O",
+          "expr": "sum by (destination_workload) (rate(istio_requests_total{reporter=\"destination\",destination_workload_namespace=\"$namespace\",destination_workload=~\"($canary)(-primary)?\"}[5m]))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 14,
+      "datasource": {
+        "uid": "prometheus",
+        "type": "prometheus"
+      },
+      "options": {
+        "tooltip": {
+          "sort": "desc",
+          "mode": "multi"
+        },
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "placement": "bottom",
+          "displayMode": "table"
+        }
+      },
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "y": 37,
+        "x": 12
+      },
+      "title": "Доля ответов 5xx",
+      "targets": [
+        {
+          "legendFormat": "{{destination_workload}}",
+          "datasource": {
+            "uid": "prometheus",
+            "type": "prometheus"
+          },
+          "range": true,
+          "editorMode": "code",
+          "refId": "P",
+          "expr": "sum by (destination_workload) (rate(istio_requests_total{reporter=\"destination\",destination_workload_namespace=\"$namespace\",destination_workload=~\"($canary)(-primary)?\",response_code=~\"5..\"}[5m])) / clamp_min(sum by (destination_workload) (rate(istio_requests_total{reporter=\"destination\",destination_workload_namespace=\"$namespace\",destination_workload=~\"($canary)(-primary)?\"}[5m])), 0.001)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 15,
+      "datasource": {
+        "uid": "prometheus",
+        "type": "prometheus"
+      },
+      "options": {
+        "tooltip": {
+          "sort": "desc",
+          "mode": "multi"
+        },
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "placement": "bottom",
+          "displayMode": "table"
+        }
+      },
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "y": 45,
+        "x": 0
+      },
+      "title": "Задержка запросов, 99-й процентиль",
+      "targets": [
+        {
+          "legendFormat": "{{destination_workload}}",
+          "datasource": {
+            "uid": "prometheus",
+            "type": "prometheus"
+          },
+          "range": true,
+          "editorMode": "code",
+          "refId": "Q",
+          "expr": "histogram_quantile(0.99, sum by (le, destination_workload) (rate(istio_request_duration_milliseconds_bucket{reporter=\"destination\",destination_workload_namespace=\"$namespace\",destination_workload=~\"($canary)(-primary)?\"}[5m]))) / 1000"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 16,
+      "datasource": {
+        "uid": "prometheus",
+        "type": "prometheus"
+      },
+      "options": {
+        "tooltip": {
+          "sort": "desc",
+          "mode": "multi"
+        },
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "placement": "bottom",
+          "displayMode": "table"
+        }
+      },
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "y": 45,
+        "x": 12
+      },
+      "title": "Длительность канареечного анализа, 95-й процентиль",
+      "targets": [
+        {
+          "legendFormat": "{{name}}",
+          "datasource": {
+            "uid": "prometheus",
+            "type": "prometheus"
+          },
+          "range": true,
+          "editorMode": "code",
+          "refId": "R",
+          "expr": "histogram_quantile(0.95, sum by (le, name) (rate(flagger_canary_duration_seconds_bucket{namespace=\"$namespace\",name=~\"$canary\"}[5m])))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 17,
+      "datasource": {
+        "uid": "elasticsearch",
+        "type": "elasticsearch"
+      },
+      "options": {
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "showCommonLabels": false,
+        "sortOrder": "Descending",
+        "showTime": true,
+        "dedupStrategy": "none",
+        "wrapLogMessage": true,
+        "showLabels": false
+      },
+      "type": "logs",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "y": 53,
+        "x": 0
+      },
+      "title": "Последние журналы Flagger",
+      "targets": [
+        {
+          "datasource": {
+            "uid": "elasticsearch",
+            "type": "elasticsearch"
+          },
+          "query": "kubernetes.namespace: flagger-system",
+          "metrics": [
+            {
+              "type": "logs",
+              "id": "1"
+            }
+          ],
+          "queryType": "logs",
+          "bucketAggs": [],
+          "timeField": "@timestamp",
+          "refId": "Logs"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 41,
+  "tags": [
+    "automatic-system",
+    "deployment",
+    "flagger",
+    "canary"
+  ],
+  "graphTooltip": 1,
+  "editable": false,
+  "timepicker": {},
+  "title": "Развёртывания / Flagger и Pod-ы",
+  "uid": "automatic-system-deployments",
+  "links": [],
+  "version": 1,
+  "liveNow": false,
+  "id": null,
+  "templating": {
+    "list": [
+      {
+        "hide": 2,
+        "query": "automatic-system",
+        "type": "constant",
+        "label": "Пространство имён",
+        "name": "namespace",
+        "current": {
+          "text": "automatic-system",
+          "value": "automatic-system",
+          "selected": true
+        }
+      },
+      {
+        "datasource": {
+          "uid": "prometheus",
+          "type": "prometheus"
+        },
+        "sort": 1,
+        "refresh": 1,
+        "query": "label_values(flagger_canary_status{namespace=\"$namespace\"}, name)",
+        "current": {
+          "text": "Все",
+          "value": "$__all",
+          "selected": true
+        },
+        "label": "Сервис",
+        "includeAll": true,
+        "definition": "label_values(flagger_canary_status{namespace=\"$namespace\"}, name)",
+        "multi": true,
+        "type": "query",
+        "name": "canary",
+        "allValue": ".+"
+      }
+    ]
+  },
+  "fiscalYearStartMonth": 0,
+  "weekStart": "",
+  "time": {
+    "to": "now",
+    "from": "now-6h"
+  },
+  "refresh": "30s",
+  "timezone": "browser",
+  "annotations": {
+    "list": []
+  }
+}

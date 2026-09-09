@@ -106,20 +106,24 @@ func (w *Worker) Run(ctx context.Context) error {
 
 func (w *Worker) flushFullBatches(ctx context.Context) {
 	for w.buffer.Len() >= w.cfg.BatchSize && ctx.Err() == nil {
-		w.flush(ctx, w.cfg.BatchSize)
+		if !w.flush(ctx, w.cfg.BatchSize) {
+			return
+		}
 	}
 }
 
 func (w *Worker) flushAll(ctx context.Context) {
 	for w.buffer.Len() > 0 && ctx.Err() == nil {
-		w.flush(ctx, w.cfg.BatchSize)
+		if !w.flush(ctx, w.cfg.BatchSize) {
+			return
+		}
 	}
 }
 
-func (w *Worker) flush(ctx context.Context, maxSize int) {
+func (w *Worker) flush(ctx context.Context, maxSize int) bool {
 	batch := w.buffer.TakeBatch(maxSize)
 	if len(batch) == 0 {
-		return
+		return true
 	}
 	written, err := w.repo.AppendPositionsBatch(ctx, batch)
 	if err != nil {
@@ -129,7 +133,7 @@ func (w *Worker) flush(ctx context.Context, maxSize int) {
 			zap.Int("batch_size", len(batch)),
 			zap.Error(err),
 		)
-		return
+		return false
 	}
 	if written != int64(len(batch)) {
 		remaining := int(written)
@@ -145,7 +149,9 @@ func (w *Worker) flush(ctx context.Context, maxSize int) {
 			zap.Int("batch_size", len(batch)),
 			zap.Int64("written", written),
 		)
+		return false
 	}
+	return true
 }
 
 func (w *Worker) String() string {

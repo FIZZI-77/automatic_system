@@ -190,6 +190,8 @@ spec:
                   name: grafana-dashboard-community-clickhouse
               - configMap:
                   name: grafana-dashboard-community-minio
+              - configMap:
+                  name: grafana-dashboards-deployments
         - name: data
           persistentVolumeClaim:
             claimName: grafana-data

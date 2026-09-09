@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - "feature/**"
+      - test
       - main
       - master
 
@@ -13,7 +14,7 @@ on:
 
 concurrency:
   group: automatic-system-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -196,6 +197,29 @@ jobs:
       - name: Run ClickHouse integration tests
         working-directory: Analytics_Service
         run: go test -race -count=1 -tags=integration ./src/core/repository
+
+  location-integration:
+    name: Location / PostgreSQL and Redis integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      GOWORK: "off"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: Location_Service/go.sum
+
+      - name: Run Location integration tests
+        working-directory: Location_Service
+        run: go test -count=1 -timeout=15m -tags=integration ./src/integration
 
   # ===========================================================================
   # FRONTEND ANALYTICS QUALITY
@@ -442,6 +466,7 @@ jobs:
     needs:
       - go-quality
       - analytics-integration
+      - location-integration
       - frontend-quality
       - go-workspace-validation
       - compose-validation
@@ -590,6 +615,71 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=app-${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=app-${{ matrix.service }}
+          provenance: true
+          sbom: true
+
+  frontend-image:
+    name: App image / frontend
+    runs-on: ubuntu-latest
+    environment:
+      name: development
+
+    needs:
+      - go-quality
+      - analytics-integration
+      - location-integration
+      - frontend-quality
+      - go-workspace-validation
+      - compose-validation
+      - kubernetes-validation
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Normalize registry owner
+        shell: bash
+        run: |
+          echo "REGISTRY_OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.REGISTRY_OWNER }}/automatic-system-frontend
+          tags: |
+            type=sha,prefix=sha-,format=short
+            type=ref,event=branch
+
+      - name: Build and publish
+        uses: docker/build-push-action@v6
+        with:
+          context: Frontend
+          file: Frontend/Dockerfile
+          build-args: |
+            NEXT_PUBLIC_FIREBASE_API_KEY=${{ secrets.FIREBASE_WEB_API_KEY }}
+            NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${{ vars.FIREBASE_AUTH_DOMAIN }}
+            NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ vars.FIREBASE_PROJECT_ID }}
+            NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${{ vars.FIREBASE_STORAGE_BUCKET }}
+            NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${{ vars.FIREBASE_MESSAGING_SENDER_ID }}
+            NEXT_PUBLIC_FIREBASE_APP_ID=${{ vars.FIREBASE_APP_ID }}
+            NEXT_PUBLIC_FIREBASE_VAPID_KEY=${{ vars.FIREBASE_WEB_VAPID_KEY }}
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=app-frontend
+          cache-to: type=gha,mode=max,scope=app-frontend
           provenance: true
           sbom: true
 
@@ -764,217 +854,72 @@ jobs:
           sbom: true
 
   # ===========================================================================
-  # CHECK DEV CLUSTER
-  # ===========================================================================
-  #
-  # Если домашний/dev Kubernetes выключен:
-  #   - job остаётся SUCCESS;
-  #   - available=false;
-  #   - deploy-dev становится SKIPPED.
-  #
-  # CI, Docker build и push в GHCR продолжают работать.
-
-  check-dev-cluster:
-    name: Check dev Kubernetes availability
-
-    if: >
-      github.event_name == 'push' &&
-      startsWith(github.ref, 'refs/heads/feature/')
-
-    runs-on: ubuntu-latest
-
-    environment:
-      name: development
-
-    outputs:
-      available: ${{ steps.cluster.outputs.available }}
-
-    steps:
-      - name: Setup kubectl
-        uses: azure/setup-kubectl@v4
-
-      - name: Check cluster
-        id: cluster
-        shell: bash
-        env:
-          KUBECONFIG_B64: ${{ secrets.KUBECONFIG_B64 }}
-        run: |
-          set +e
-
-          echo "available=false" >> "$GITHUB_OUTPUT"
-
-          if [ -z "${KUBECONFIG_B64:-}" ]; then
-            echo "KUBECONFIG_B64 is not configured."
-            echo "Dev deployment will be skipped."
-            exit 0
-          fi
-
-          mkdir -p "$HOME/.kube"
-
-          if ! printf '%s' "$KUBECONFIG_B64" |
-            base64 --decode > "$HOME/.kube/config"
-          then
-            echo "KUBECONFIG_B64 cannot be decoded."
-            echo "Dev deployment will be skipped."
-            exit 0
-          fi
-
-          chmod 600 "$HOME/.kube/config"
-
-          if timeout 15s kubectl \
-            --request-timeout=10s \
-            cluster-info >/dev/null 2>&1
-          then
-            echo "available=true" >> "$GITHUB_OUTPUT"
-            echo "Dev Kubernetes is available."
-          else
-            echo "Dev Kubernetes is offline or unreachable."
-            echo "Dev deployment will be skipped."
-          fi
-
-          exit 0
-
-  # ===========================================================================
-  # DEV DEPLOY
+  # LOCAL FLUX + FLAGGER DEPLOY
   # ===========================================================================
 
-  deploy-dev:
-    name: Deploy feature branch to dev
+  deploy-local:
+    name: Deploy test/feature through Flux and Flagger
 
     needs:
       - application-images
+      - frontend-image
       - migrator-images
       - clickhouse-init-image
-      - check-dev-cluster
 
     if: >
       github.event_name == 'push' &&
-      startsWith(github.ref, 'refs/heads/feature/') &&
-      needs.check-dev-cluster.outputs.available == 'true'
+      (github.ref == 'refs/heads/test' ||
+       startsWith(github.ref, 'refs/heads/feature/'))
 
-    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    runs-on: automatic-system-runner
+    timeout-minutes: 50
 
     environment:
       name: development
 
     concurrency:
-      group: automatic-system-development
-      cancel-in-progress: true
+      group: automatic-system-local-cluster-deploy
+      cancel-in-progress: false
 
     env:
       GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
       GHCR_PULL_USERNAME: ${{ secrets.GHCR_PULL_USERNAME }}
+      TARGET_BRANCH: ${{ github.ref_name }}
+      TARGET_SHA: ${{ github.sha }}
 
     steps:
-      - name: Checkout
+      - name: Checkout tested commit
         uses: actions/checkout@v4
+        env:
+          GIT_CONFIG_COUNT: 1
+          GIT_CONFIG_KEY_0: http.version
+          GIT_CONFIG_VALUE_0: HTTP/1.1
+        with:
+          fetch-depth: 2
+          ref: ${{ env.TARGET_SHA }}
 
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4
 
-      - name: Setup Helm
-        uses: azure/setup-helm@v4
-        with:
-          version: v3.18.6
-
-      - name: Configure kubeconfig
-        shell: bash
-        env:
-          KUBECONFIG_B64: ${{ secrets.KUBECONFIG_B64 }}
-        run: |
-          set -euo pipefail
-
-          mkdir -p "$HOME/.kube"
-
-          printf '%s' "$KUBECONFIG_B64" |
-            base64 --decode > "$HOME/.kube/config"
-
-          chmod 600 "$HOME/.kube/config"
-
-          kubectl --request-timeout=10s cluster-info
-
-      - name: Set immutable image tag
+      - name: Check runner tools and Kubernetes access
         shell: bash
         run: |
           set -euo pipefail
 
-          SHORT_SHA="${GITHUB_SHA::12}"
-
-          sed -Ei \
-            "s/newTag: sha-[0-9a-fA-F]+/newTag: sha-${SHORT_SHA}/g" \
-            k8s/overlays/dev/apps/kustomization.yaml \
-            k8s/overlays/dev/migrations/kustomization.yaml
-
-      - name: Create namespace
-        run: kubectl apply -f k8s/overlays/dev/namespace.yaml
-
-      - name: Apply runtime secrets
-        shell: bash
-        env:
-          RUNTIME_ENV_B64: ${{ secrets.RUNTIME_ENV_B64 }}
-          JWT_PRIVATE_KEY_B64: ${{ secrets.JWT_PRIVATE_KEY_B64 }}
-          JWT_PUBLIC_KEY_B64: ${{ secrets.JWT_PUBLIC_KEY_B64 }}
-        run: |
-          set -euo pipefail
-
-          test -n "$RUNTIME_ENV_B64" || {
-            echo "::error::RUNTIME_ENV_B64 is missing"
-            exit 1
-          }
-
-          test -n "$JWT_PRIVATE_KEY_B64" || {
-            echo "::error::JWT_PRIVATE_KEY_B64 is missing"
-            exit 1
-          }
-
-          test -n "$JWT_PUBLIC_KEY_B64" || {
-            echo "::error::JWT_PUBLIC_KEY_B64 is missing"
-            exit 1
-          }
-
-          RUNTIME_FILE="$(mktemp)"
-          PRIVATE_FILE="$(mktemp)"
-          PUBLIC_FILE="$(mktemp)"
-
-          cleanup() {
-            rm -f "$RUNTIME_FILE" "$PRIVATE_FILE" "$PUBLIC_FILE"
-          }
-
-          trap cleanup EXIT
-
-          printf '%s' "$RUNTIME_ENV_B64" |
-            base64 --decode > "$RUNTIME_FILE"
-
-          printf '%s' "$JWT_PRIVATE_KEY_B64" |
-            base64 --decode > "$PRIVATE_FILE"
-
-          printf '%s' "$JWT_PUBLIC_KEY_B64" |
-            base64 --decode > "$PUBLIC_FILE"
-
-          test -s "$RUNTIME_FILE"
-          test -s "$PRIVATE_FILE"
-          test -s "$PUBLIC_FILE"
-
-          kubectl create secret generic runtime-secrets \
-            -n automatic-system-dev \
-            --from-env-file="$RUNTIME_FILE" \
-            --dry-run=client \
-            -o yaml |
-            kubectl apply -f -
-
-          kubectl create secret generic jwt-private-key \
-            -n automatic-system-dev \
-            --from-file=private.pem="$PRIVATE_FILE" \
-            --dry-run=client \
-            -o yaml |
-            kubectl apply -f -
-
-          kubectl create secret generic jwt-public-key \
-            -n automatic-system-dev \
-            --from-file=public.pem="$PUBLIC_FILE" \
-            --dry-run=client \
-            -o yaml |
-            kubectl apply -f -
+          command -v git
+          command -v kubectl
+          kubectl auth can-i get deployments -n automatic-system
+          kubectl auth can-i patch deployments -n automatic-system
+          kubectl auth can-i patch kustomizations.kustomize.toolkit.fluxcd.io \
+            -n flux-system
+          kubectl auth can-i patch gitrepositories.source.toolkit.fluxcd.io \
+            -n flux-system
+          kubectl auth can-i get canaries.flagger.app \
+            -n automatic-system
+          kubectl get deployments -n automatic-system
 
       - name: Configure optional private GHCR pull secret
         if: ${{ env.GHCR_PULL_TOKEN != '' }}
@@ -983,7 +928,7 @@ jobs:
           set -euo pipefail
 
           kubectl create secret docker-registry ghcr-pull \
-            -n automatic-system-dev \
+            -n automatic-system \
             --docker-server=ghcr.io \
             --docker-username="${GHCR_PULL_USERNAME:-${GITHUB_ACTOR}}" \
             --docker-password="$GHCR_PULL_TOKEN" \
@@ -992,83 +937,163 @@ jobs:
             kubectl apply -f -
 
           kubectl patch serviceaccount default \
-            -n automatic-system-dev \
+            -n automatic-system \
             --type=merge \
             -p '{"imagePullSecrets":[{"name":"ghcr-pull"}]}'
 
-      - name: Deploy infrastructure
+      - name: Publish immutable local image tags
+        id: gitops
         shell: bash
         run: |
           set -euo pipefail
 
-          kubectl apply -k k8s/overlays/dev/infra
+          SHORT_SHA="${TARGET_SHA::12}"
+          VALUES_FILE=k8s/flux/clusters/local-ha/applications-values.yaml
 
-          kubectl wait \
-            --for=condition=Ready \
-            pod \
-            --all \
-            -n automatic-system-dev \
-            --timeout=15m
+          case "$TARGET_BRANCH" in
+            test|feature/*) ;;
+            *)
+              echo "::error::Unsupported deployment branch: $TARGET_BRANCH"
+              exit 1
+              ;;
+          esac
 
-      - name: Run migrations
-        shell: bash
-        run: |
-          set -euo pipefail
+          for attempt in 1 2 3 4; do
+            if git -c http.version=HTTP/1.1 fetch \
+              --no-tags \
+              --depth=50 \
+              origin \
+              "+refs/heads/${TARGET_BRANCH}:refs/remotes/origin/${TARGET_BRANCH}"; then
+              break
+            fi
 
-          kubectl delete \
-            -k k8s/overlays/dev/migrations \
-            --ignore-not-found=true
+            if [ "$attempt" -eq 4 ]; then
+              echo "::error::Unable to fetch $TARGET_BRANCH after four attempts"
+              exit 1
+            fi
 
-          kubectl apply \
-            -k k8s/overlays/dev/migrations
+            sleep $((attempt * 5))
+          done
+          git merge-base --is-ancestor "$TARGET_SHA" "origin/$TARGET_BRANCH"
 
-          kubectl wait \
-            --for=condition=complete \
-            job \
-            --all \
-            -n automatic-system-dev \
-            --timeout=15m
-
-      - name: Deploy applications
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          SHORT_SHA="${GITHUB_SHA::12}"
-          APPLICATION_OWNERSHIP_ARGS=()
-          if ! helm status applications -n automatic-system-dev >/dev/null 2>&1; then
-            APPLICATION_OWNERSHIP_ARGS+=(--take-ownership)
+          if ! git diff --quiet "$TARGET_SHA..origin/$TARGET_BRANCH" -- \
+            . ":(exclude)$VALUES_FILE"; then
+            echo "::error::$TARGET_BRANCH advanced after the tested commit"
+            exit 1
           fi
-          helm upgrade --install applications k8s/helm/applications \
-            --namespace automatic-system-dev \
-            -f k8s/helm/applications/values-dev.yaml \
-            --set-string "globalImage.tag=sha-${SHORT_SHA}" \
-            --set-string "migrations.tag=sha-${SHORT_SHA}" \
-            --set-string "analyticsInit.tag=sha-${SHORT_SHA}" \
-            "${APPLICATION_OWNERSHIP_ARGS[@]}" \
-            --atomic \
-            --wait \
-            --timeout 15m
 
-          kubectl rollout status \
-            deployment \
-            --all \
-            -n automatic-system-dev \
-            --timeout=15m
+          git checkout -B local-cluster-deploy "origin/$TARGET_BRANCH"
 
-      - name: Deployment summary
+          sed -Ei \
+            "s/tag: sha-[0-9a-fA-F]+/tag: sha-${SHORT_SHA}/g" \
+            "$VALUES_FILE"
+
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+
+          if ! git diff --quiet -- "$VALUES_FILE"; then
+            git add "$VALUES_FILE"
+            git commit -m "deploy(local): sha-${SHORT_SHA} [skip ci]"
+            git push origin "HEAD:$TARGET_BRANCH"
+          fi
+
+          echo "revision=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "image_tag=sha-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Enable and reconcile Flux
+        shell: bash
+        env:
+          DEPLOY_REVISION: ${{ steps.gitops.outputs.revision }}
+        run: |
+          set -euo pipefail
+
+          kubectl apply -f k8s/flux/bootstrap/local-ha-sync.yaml
+          kubectl patch gitrepository automatic-system \
+            -n flux-system \
+            --type merge \
+            -p "{\"spec\":{\"ref\":{\"branch\":\"${TARGET_BRANCH}\"}}}"
+          kubectl patch kustomization automatic-system-local-ha \
+            -n flux-system \
+            --type merge \
+            -p '{"spec":{"suspend":false}}'
+
+          for _ in $(seq 1 60); do
+            SOURCE_REVISION="$(kubectl get gitrepository automatic-system \
+              -n flux-system \
+              -o jsonpath='{.status.artifact.revision}')"
+
+            if [[ "$SOURCE_REVISION" == "${TARGET_BRANCH}@sha1:${DEPLOY_REVISION}" ]]; then
+              break
+            fi
+
+            sleep 5
+          done
+
+          SOURCE_REVISION="$(kubectl get gitrepository automatic-system \
+            -n flux-system \
+            -o jsonpath='{.status.artifact.revision}')"
+          test "$SOURCE_REVISION" = "${TARGET_BRANCH}@sha1:${DEPLOY_REVISION}"
+
+          kubectl annotate kustomization automatic-system-local-ha \
+            -n flux-system \
+            reconcile.fluxcd.io/requestedAt="$(date +%s)" \
+            --overwrite
+
+          kubectl wait kustomization/automatic-system-local-ha \
+            -n flux-system \
+            --for=condition=ready \
+            --timeout=40m
+
+      - name: Verify Flagger promotion
+        shell: bash
+        env:
+          IMAGE_TAG: ${{ steps.gitops.outputs.image_tag }}
+        run: |
+          set -euo pipefail
+
+          for _ in $(seq 1 480); do
+            FAILED="$(kubectl get canary -n automatic-system \
+              -o jsonpath='{range .items[?(@.status.phase=="Failed")]}{.metadata.name}{"\n"}{end}')"
+            test -z "$FAILED" || {
+              echo "::error::Flagger failed: $FAILED"
+              exit 1
+            }
+
+            PRIMARY_COUNT=0
+            CANARY_COUNT=0
+
+            while read -r CANARY_NAME; do
+              test -n "$CANARY_NAME" || continue
+              CANARY_COUNT=$((CANARY_COUNT + 1))
+
+              PRIMARY_IMAGE="$(kubectl get deployment "${CANARY_NAME}-primary" \
+                -n automatic-system \
+                -o jsonpath='{.spec.template.spec.containers[0].image}')"
+
+              if [[ "$PRIMARY_IMAGE" == *":${IMAGE_TAG}" ]]; then
+                PRIMARY_COUNT=$((PRIMARY_COUNT + 1))
+              fi
+            done < <(kubectl get canary -n automatic-system \
+              -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}')
+
+            if [ "$CANARY_COUNT" -eq 17 ] && [ "$PRIMARY_COUNT" -eq 17 ]; then
+              exit 0
+            fi
+
+            sleep 5
+          done
+
+          echo "::error::Not all 17 primary deployments were promoted to ${IMAGE_TAG}"
+          exit 1
+
+      - name: Show deployment state
         if: always()
         shell: bash
         run: |
-          kubectl get pods \
-            -n automatic-system-dev \
-            -o wide || true
-
-          kubectl get svc \
-            -n automatic-system-dev || true
-
-          kubectl get jobs \
-            -n automatic-system-dev || true
+          kubectl get kustomization,gitrepository -n flux-system -o wide || true
+          kubectl get helmrelease -n flux-system -o wide || true
+          kubectl get canary -n automatic-system || true
+          kubectl get pods -n automatic-system -o wide || true
 
   # ===========================================================================
   # CHECK PRODUCTION CLUSTER
@@ -1080,7 +1105,8 @@ jobs:
     if: >
       github.event_name == 'push' &&
       (github.ref == 'refs/heads/main' ||
-       github.ref == 'refs/heads/master')
+       github.ref == 'refs/heads/master') &&
+      vars.PRODUCTION_DEPLOY_ENABLED == 'true'
 
     runs-on: ubuntu-latest
 
@@ -1144,6 +1170,7 @@ jobs:
 
     needs:
       - application-images
+      - frontend-image
       - migrator-images
       - clickhouse-init-image
       - check-prod-cluster
@@ -1152,6 +1179,7 @@ jobs:
       github.event_name == 'push' &&
       (github.ref == 'refs/heads/main' ||
        github.ref == 'refs/heads/master') &&
+      vars.PRODUCTION_DEPLOY_ENABLED == 'true' &&
       needs.check-prod-cluster.outputs.available == 'true'
 
     runs-on: ubuntu-latest

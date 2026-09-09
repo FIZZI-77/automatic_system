@@ -12,6 +12,7 @@ $dashboards = @(
   @{ ID = 3662; Revision = 2; File = "prometheus-overview.json"; UID = "community-prometheus"; Title = "Community / Prometheus Overview" },
   @{ ID = "clickhouse-official"; SourceUri = "https://raw.githubusercontent.com/ClickHouse/clickhouse-mixin/main/dashboard.json"; File = "clickhouse-official.json"; UID = "community-clickhouse"; Title = "Community / ClickHouse Official" },
   @{ ID = "minio-official"; SourceUri = "https://raw.githubusercontent.com/minio/minio/master/docs/metrics/prometheus/grafana/minio-dashboard.json"; File = "minio-official.json"; UID = "community-minio"; Title = "Community / MinIO Official" }
+  @{ ID = "flagger-istio-official"; SourceUri = "https://raw.githubusercontent.com/fluxcd/flagger/main/charts/grafana/dashboards/istio.json"; File = "flagger-istio.json"; UID = "community-flagger-istio"; Title = "Community / Flagger Istio Canary" }
 )
 
 function Remove-WindowsTargets {
@@ -215,6 +216,25 @@ foreach ($dashboard in $dashboards) {
       value = 'minio'
     }
     Add-ZeroFallbacksToAllTargets -Panels $model.panels
+  }
+  if ($dashboard.ID -eq 'flagger-istio-official') {
+    $namespaceVariable = $model.templating.list | Where-Object { $_.name -eq 'namespace' }
+    $namespaceVariable.current = [pscustomobject]@{
+      selected = $true
+      text = 'automatic-system'
+      value = 'automatic-system'
+    }
+    $primaryVariable = $model.templating.list | Where-Object { $_.name -eq 'primary' }
+    $primaryVariable.query = 'label_values(flagger_canary_weight{namespace="$namespace",workload=~".+-primary"}, workload)'
+    $canaryVariable = $model.templating.list | Where-Object { $_.name -eq 'canary' }
+    $canaryVariable.query = 'label_values(flagger_canary_status{namespace="$namespace"}, name)'
+    foreach ($panel in $model.panels) {
+      foreach ($target in @($panel.targets)) {
+        if ($target.expr) {
+          $target.expr = $target.expr.Replace('cpu="total",', '')
+        }
+      }
+    }
   }
   if ($dashboard.ID -eq 24155) {
     $model.templating.list = @(

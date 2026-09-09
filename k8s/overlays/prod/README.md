@@ -11,10 +11,12 @@ Overlay собран поверх текущих `k8s/base/*` манифесто
 
 Перед применением:
 1. Образы с указанным SHA должны существовать в GHCR.
-2. `kubectl top pods` должен работать, иначе HPA не получит метрики.
-3. `runtime-secrets`, JWT secrets и прочие production secrets создаются отдельно.
-4. Resource values для Gateway — стартовый baseline; финальный tuning делается по Prometheus.
-5. PVC/storage здесь не переопределяются до выбора production StorageClass и backup policy.
+2. Для автоматического развертывания из `main` переменная среды GitHub
+   `PRODUCTION_DEPLOY_ENABLED` должна быть равна `true`.
+3. `kubectl top pods` должен работать, иначе HPA не получит метрики.
+4. `runtime-secrets`, JWT secrets и прочие production secrets создаются отдельно.
+5. Resource values для Gateway — стартовый baseline; финальный tuning делается по Prometheus.
+6. PVC/storage здесь не переопределяются до выбора production StorageClass и backup policy.
 
 Проверка:
 ```powershell

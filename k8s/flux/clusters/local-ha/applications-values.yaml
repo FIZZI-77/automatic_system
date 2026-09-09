@@ -1,14 +1,14 @@
 globalImage:
   registry: ghcr.io/fizzi-77
-  tag: sha-a5f98279d239
+  tag: sha-7e50eb65738b
   pullPolicy: Always
 
 migrations:
   registry: ghcr.io/fizzi-77
-  tag: sha-a5f98279d239
+  tag: sha-7e50eb65738b
   pullPolicy: Always
 
 analyticsInit:
   registry: ghcr.io/fizzi-77
-  tag: sha-a5f98279d239
+  tag: sha-7e50eb65738b
   pullPolicy: Always

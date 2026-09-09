@@ -3,6 +3,13 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { api, config, type Role, type Session, type Ticket } from "./api";
+import {
+  obtainPushToken,
+  pushPermission,
+  removePushToken,
+  subscribeToForegroundMessages,
+  type PushMessage,
+} from "./firebase-messaging";
 import { ReadableDetails } from "./readable-details";
 import { TicketLocationPicker, type TicketLocation } from "./ticket-location-picker";
 
@@ -53,17 +60,380 @@ export function CreateTicketPage({session,onCreated,onNotice}:{session:Session;o
   return <section className="content-page service-form-page"><div className="page-toolbar"><div><h2>Сообщить о проблеме</h2><p>Новая заявка сразу попадёт в очередь выбранной городской службы</p></div></div><form className="service-form" onSubmit={submit}><div className="form-grid"><label>Департамент<select name="department_id" required>{departments.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>Категория<select name="category_id" required>{categories.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label className="wide">Заголовок<input name="title" required minLength={3}/></label><label className="wide">Описание<textarea name="description" required rows={5}/></label><TicketLocationPicker value={location} onChange={selectLocation}/><label>Приоритет<select name="priority" defaultValue="MEDIUM"><option value="LOW">Низкий</option><option value="MEDIUM">Средний</option><option value="HIGH">Высокий</option><option value="EMERGENCY">Экстренный</option></select></label></div><button className="primary" disabled={busy}>{busy?"Создаём…":"Создать заявку"}</button></form></section>
 }
 
-export function NotificationsPage({session,onNotice}:{session:Session;onNotice:Notice}){
-  const demo=session.accessToken==="demo";const [items,setItems]=useState<Notification[]>([]),[preferences,setPreferences]=useState({in_app_enabled:true,push_enabled:false,email_enabled:true,sms_enabled:false}),[live,setLive]=useState(false),[deviceId,setDeviceId]=useState(""),[unreadOnly,setUnreadOnly]=useState(false);
-  useEffect(()=>{if(demo){setItems([{id:"demo-n1",title:"Бригада назначена",body:"Заявка принята в работу",created_at:new Date().toISOString()}]);return}(async()=>{try{const [list,prefs]=await Promise.all([api<{notifications:Notification[]}>(config.endpoints.notifications,{unread_only:unreadOnly,limit:100,offset:0},"POST",session.accessToken),api<{preferences:typeof preferences}>(config.endpoints.notificationPreferencesGet,{},"POST",session.accessToken)]);setItems(list.notifications||[]);if(prefs.preferences)setPreferences(prefs.preferences)}catch(error){onNotice(error instanceof Error?error.message:"Не удалось загрузить уведомления")}})()},[demo,onNotice,session.accessToken,unreadOnly]);
-  useEffect(()=>{if(demo)return;const separator=config.wsUrl.includes("?")?"&":"?",socket=new WebSocket(`${config.wsUrl}${separator}access_token=${encodeURIComponent(session.accessToken)}`);socket.onopen=()=>setLive(true);socket.onclose=()=>setLive(false);socket.onmessage=event=>{try{const notification=JSON.parse(event.data) as Notification;setItems(current=>[notification,...current.filter(item=>item.id!==notification.id)])}catch{onNotice("Получено новое уведомление")}};return()=>socket.close()},[demo,onNotice,session.accessToken]);
-  async function read(id:string){if(!demo)await api(config.endpoints.notificationsRead,{notification_id:id},"POST",session.accessToken);setItems(value=>value.map(item=>item.id===id?{...item,read_at:new Date().toISOString()}:item))}
-  async function readAll(){if(!demo)await api(config.endpoints.notificationsReadAll,{},"POST",session.accessToken);setItems(value=>value.map(item=>({...item,read_at:item.read_at||new Date().toISOString()})))}
-  async function savePreferences(event:FormEvent<HTMLFormElement>){event.preventDefault();const form=new FormData(event.currentTarget),next={in_app_enabled:form.has("in_app_enabled"),push_enabled:form.has("push_enabled"),email_enabled:form.has("email_enabled"),sms_enabled:form.has("sms_enabled")};if(!demo)await api(config.endpoints.notificationPreferencesUpdate,next,"POST",session.accessToken);setPreferences(next);onNotice("Настройки уведомлений сохранены")}
-  async function registerDevice(event:FormEvent<HTMLFormElement>){event.preventDefault();const form=new FormData(event.currentTarget);if(demo)return;const result=await api<{device:{id:string}}>(config.endpoints.notificationDevicesRegister,{token:String(form.get("token")),platform:String(form.get("platform"))},"POST",session.accessToken);setDeviceId(result.device.id);onNotice("Устройство зарегистрировано")}
-  async function deleteDevice(){if(!deviceId||demo)return;await api(config.endpoints.notificationDevicesDelete,{device_id:deviceId},"POST",session.accessToken);setDeviceId("");onNotice("Устройство удалено")}
-  const visibleItems=items.filter(userFacingNotification).filter(item=>!unreadOnly||!item.read_at&&!item.read);
-  return <section className="content-page service-split-page"><div className="page-toolbar"><div><h2>Центр уведомлений</h2><p><span className={`live-indicator ${live?"connected":""}`}>● {live?"Онлайн-канал подключён":"Онлайн-канал отключён"}</span> · важные обновления по вашим заявкам</p></div><button className="ghost" onClick={()=>readAll()}>Прочитать все</button></div><div className="service-filters"><label className="check-filter"><input type="checkbox" checked={unreadOnly} onChange={e=>setUnreadOnly(e.target.checked)}/> Только непрочитанные</label><button onClick={()=>setUnreadOnly(false)}>Сбросить</button></div><div className="service-split"><div className="notification-list">{visibleItems.length?visibleItems.map(item=><button key={item.id} className={item.read_at||item.read?"read":"unread"} onClick={()=>read(item.id)}><i>●</i><span><b>{notificationTitle(item)}</b><small>{notificationBody(item)}</small></span><time>{notificationDate(item.created_at)}</time></button>):<p className="service-empty">По выбранному фильтру уведомлений нет.</p>}</div><div><form className="settings-card" onSubmit={savePreferences}><h3>Каналы доставки</h3>{([['in_app_enabled','В приложении'],['push_enabled','Push'],['email_enabled','Email'],['sms_enabled','SMS']] as const).map(([key,label])=><label key={key}><input type="checkbox" name={key} defaultChecked={preferences[key]}/><span>{label}</span></label>)}<button className="primary">Сохранить</button></form><form className="settings-card device-card" onSubmit={registerDevice}><h3>Push-устройство</h3><label>Платформа<select name="platform"><option>WEB</option><option>ANDROID</option><option>IOS</option></select></label><label>Токен<input name="token" required/></label>{deviceId?<button type="button" className="danger-action" onClick={()=>void deleteDevice()}>Удалить устройство</button>:<button className="ghost">Зарегистрировать</button>}</form></div></div></section>
+type PushState = "idle" | "enabling" | "enabled" | "denied" | "unsupported" | "error";
+
+function pushDeviceStorageKey(session: Session): string {
+  return `automatic-system:fcm-device:${session.user?.user_id || "current"}`;
+}
+
+function notificationFromPush(message: PushMessage): Notification {
+  return {
+    id: message.id,
+    title: message.title,
+    body: message.body,
+    event_type: message.eventType,
+    created_at: message.createdAt,
+  };
+}
+
+export function NotificationsPage({ session, onNotice }: { session: Session; onNotice: Notice }) {
+  const demo = session.accessToken === "demo";
+  const [items, setItems] = useState<Notification[]>([]);
+  const [preferences, setPreferences] = useState({
+    in_app_enabled: true,
+    push_enabled: false,
+    email_enabled: true,
+    sms_enabled: false,
+  });
+  const [live, setLive] = useState(false);
+  const [deviceId, setDeviceId] = useState("");
+  const [pushState, setPushState] = useState<PushState>(() => {
+    const permission = pushPermission();
+    if (permission === "unsupported") return "unsupported";
+    if (permission === "denied") return "denied";
+    return permission === "granted" ? "enabling" : "idle";
+  });
+  const [pushError, setPushError] = useState("");
+  const [unreadOnly, setUnreadOnly] = useState(false);
+
+  useEffect(() => {
+    if (demo) {
+      setItems([
+        {
+          id: "demo-n1",
+          title: "Бригада назначена",
+          body: "Заявка принята в работу",
+          created_at: new Date().toISOString(),
+        },
+      ]);
+      return;
+    }
+
+    void (async () => {
+      try {
+        const [list, savedPreferences] = await Promise.all([
+          api<{ notifications: Notification[] }>(
+            config.endpoints.notifications,
+            { unread_only: unreadOnly, limit: 100, offset: 0 },
+            "POST",
+            session.accessToken,
+          ),
+          api<{ preferences: typeof preferences }>(
+            config.endpoints.notificationPreferencesGet,
+            {},
+            "POST",
+            session.accessToken,
+          ),
+        ]);
+
+        setItems(list.notifications || []);
+        if (savedPreferences.preferences) {
+          setPreferences(savedPreferences.preferences);
+        }
+      } catch (error) {
+        onNotice(error instanceof Error ? error.message : "Не удалось загрузить уведомления");
+      }
+    })();
+  }, [demo, onNotice, session.accessToken, unreadOnly]);
+
+  useEffect(() => {
+    if (demo) return;
+
+    const separator = config.wsUrl.includes("?") ? "&" : "?";
+    const socket = new WebSocket(
+      `${config.wsUrl}${separator}access_token=${encodeURIComponent(session.accessToken)}`,
+    );
+
+    socket.onopen = () => setLive(true);
+    socket.onclose = () => setLive(false);
+    socket.onmessage = (event) => {
+      try {
+        const notification = JSON.parse(event.data) as Notification;
+        setItems((current) => [
+          notification,
+          ...current.filter((item) => item.id !== notification.id),
+        ]);
+      } catch {
+        onNotice("Получено новое уведомление");
+      }
+    };
+
+    return () => socket.close();
+  }, [demo, onNotice, session.accessToken]);
+
+  useEffect(() => {
+    if (demo) return;
+
+    let unsubscribe: (() => void) | undefined;
+    void subscribeToForegroundMessages((message) => {
+      const notification = notificationFromPush(message);
+      setItems((current) => [
+        notification,
+        ...current.filter((item) => item.id !== notification.id),
+      ]);
+      onNotice(`${message.title}: ${message.body}`);
+    })
+      .then((stop) => {
+        unsubscribe = stop;
+      })
+      .catch(() => undefined);
+
+    return () => unsubscribe?.();
+  }, [demo, onNotice]);
+
+  useEffect(() => {
+    if (demo || pushPermission() !== "granted") return;
+
+    let active = true;
+    void registerBrowserPush(false, false).catch(() => {
+      if (active) setPushState("error");
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [demo, session.accessToken, session.user?.user_id]);
+
+  async function registerBrowserPush(requestPermission: boolean, notify = true): Promise<void> {
+    if (demo) return;
+
+    setPushState("enabling");
+    setPushError("");
+
+    try {
+      const token = await obtainPushToken(requestPermission);
+      const result = await api<{ device: { id: string } }>(
+        config.endpoints.notificationDevicesRegister,
+        { token, platform: "WEB" },
+        "POST",
+        session.accessToken,
+      );
+
+      setDeviceId(result.device.id);
+      localStorage.setItem(pushDeviceStorageKey(session), result.device.id);
+      setPushState("enabled");
+
+      if (requestPermission && !preferences.push_enabled) {
+        const nextPreferences = { ...preferences, push_enabled: true };
+        await api(
+          config.endpoints.notificationPreferencesUpdate,
+          nextPreferences,
+          "POST",
+          session.accessToken,
+        );
+        setPreferences(nextPreferences);
+      }
+
+      if (notify) onNotice("Push-уведомления подключены");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Не удалось подключить уведомления";
+      setPushError(message);
+      setPushState(pushPermission() === "denied" ? "denied" : "error");
+      if (notify) onNotice(message);
+      throw error;
+    }
+  }
+
+  async function disableBrowserPush(): Promise<void> {
+    if (demo) return;
+
+    try {
+      const savedDeviceId = deviceId || localStorage.getItem(pushDeviceStorageKey(session));
+      if (savedDeviceId) {
+        await api(
+          config.endpoints.notificationDevicesDelete,
+          { device_id: savedDeviceId },
+          "POST",
+          session.accessToken,
+        );
+      }
+
+      await removePushToken();
+      localStorage.removeItem(pushDeviceStorageKey(session));
+      setDeviceId("");
+      setPushState("idle");
+
+      if (preferences.push_enabled) {
+        const nextPreferences = { ...preferences, push_enabled: false };
+        await api(
+          config.endpoints.notificationPreferencesUpdate,
+          nextPreferences,
+          "POST",
+          session.accessToken,
+        );
+        setPreferences(nextPreferences);
+      }
+
+      onNotice("Push-уведомления отключены");
+    } catch (error) {
+      onNotice(error instanceof Error ? error.message : "Не удалось отключить уведомления");
+    }
+  }
+
+  async function read(id: string): Promise<void> {
+    if (!demo) {
+      await api(
+        config.endpoints.notificationsRead,
+        { notification_id: id },
+        "POST",
+        session.accessToken,
+      );
+    }
+    setItems((value) =>
+      value.map((item) =>
+        item.id === id ? { ...item, read_at: new Date().toISOString() } : item,
+      ),
+    );
+  }
+
+  async function readAll(): Promise<void> {
+    if (!demo) {
+      await api(config.endpoints.notificationsReadAll, {}, "POST", session.accessToken);
+    }
+    setItems((value) =>
+      value.map((item) => ({
+        ...item,
+        read_at: item.read_at || new Date().toISOString(),
+      })),
+    );
+  }
+
+  async function savePreferences(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const nextPreferences = {
+      in_app_enabled: form.has("in_app_enabled"),
+      push_enabled: form.has("push_enabled"),
+      email_enabled: form.has("email_enabled"),
+      sms_enabled: form.has("sms_enabled"),
+    };
+
+    if (!demo) {
+      await api(
+        config.endpoints.notificationPreferencesUpdate,
+        nextPreferences,
+        "POST",
+        session.accessToken,
+      );
+    }
+    setPreferences(nextPreferences);
+    onNotice("Настройки уведомлений сохранены");
+  }
+
+  const visibleItems = items
+    .filter(userFacingNotification)
+    .filter((item) => !unreadOnly || (!item.read_at && !item.read));
+  const pushStatus = {
+    idle: "Не подключены",
+    enabling: "Подключение…",
+    enabled: "Подключены к этому браузеру",
+    denied: "Запрещены в браузере",
+    unsupported: "Не поддерживаются браузером",
+    error: pushError || "Ошибка подключения",
+  }[pushState];
+
+  return (
+    <section className="content-page service-split-page">
+      <div className="page-toolbar">
+        <div>
+          <h2>Центр уведомлений</h2>
+          <p>
+            <span className={`live-indicator ${live ? "connected" : ""}`}>
+              ● {live ? "Онлайн-канал подключён" : "Онлайн-канал отключён"}
+            </span>{" "}
+            · важные обновления по вашим заявкам
+          </p>
+        </div>
+        <button className="ghost" onClick={() => void readAll()}>
+          Прочитать все
+        </button>
+      </div>
+      <div className="service-filters">
+        <label className="check-filter">
+          <input
+            type="checkbox"
+            checked={unreadOnly}
+            onChange={(event) => setUnreadOnly(event.target.checked)}
+          />
+          Только непрочитанные
+        </label>
+        <button onClick={() => setUnreadOnly(false)}>Сбросить</button>
+      </div>
+      <div className="service-split">
+        <div className="notification-list">
+          {visibleItems.length ? (
+            visibleItems.map((item) => (
+              <button
+                key={item.id}
+                className={item.read_at || item.read ? "read" : "unread"}
+                onClick={() => void read(item.id)}
+              >
+                <i>●</i>
+                <span>
+                  <b>{notificationTitle(item)}</b>
+                  <small>{notificationBody(item)}</small>
+                </span>
+                <time>{notificationDate(item.created_at)}</time>
+              </button>
+            ))
+          ) : (
+            <p className="service-empty">По выбранному фильтру уведомлений нет.</p>
+          )}
+        </div>
+        <div>
+          <form className="settings-card" onSubmit={savePreferences}>
+            <h3>Каналы доставки</h3>
+            {(
+              [
+                ["in_app_enabled", "В приложении"],
+                ["push_enabled", "Push"],
+                ["email_enabled", "Email"],
+                ["sms_enabled", "SMS"],
+              ] as const
+            ).map(([key, label]) => (
+              <label key={key}>
+                <input
+                  type="checkbox"
+                  name={key}
+                  checked={preferences[key]}
+                  onChange={(event) =>
+                    setPreferences((current) => ({
+                      ...current,
+                      [key]: event.target.checked,
+                    }))
+                  }
+                />
+                <span>{label}</span>
+              </label>
+            ))}
+            <button className="primary">Сохранить</button>
+          </form>
+          <section className="settings-card device-card" aria-labelledby="push-device-title">
+            <h3 id="push-device-title">Push-уведомления</h3>
+            <p className={`push-device-status ${pushState}`}>{pushStatus}</p>
+            {pushState === "enabled" ? (
+              <button
+                type="button"
+                className="danger-action"
+                onClick={() => void disableBrowserPush()}
+              >
+                Отключить
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="ghost"
+                disabled={pushState === "enabling" || pushState === "unsupported"}
+                onClick={() => void registerBrowserPush(true)}
+              >
+                {pushState === "enabling" ? "Подключаем…" : "Подключить браузер"}
+              </button>
+            )}
+          </section>
+        </div>
+      </div>
+    </section>
+  );
 }
 
 export function ProfilePage({session,role,onNotice}:{session:Session;role:Role;onNotice:Notice}){

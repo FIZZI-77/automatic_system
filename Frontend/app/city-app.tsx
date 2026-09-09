@@ -117,6 +117,13 @@ function DashboardV2({ session, role, setDemoRole, onExit }: {session:Session;ro
   const [overviewMetrics,setOverviewMetrics]=useState<{avg_response_seconds:number}>({avg_response_seconds:0});
   const [slaMetrics,setSlaMetrics]=useState<{breach_rate:number;response_warnings:number;resolution_warnings:number}>({breach_rate:0,response_warnings:0,resolution_warnings:0});
   const demo = session.accessToken === "demo";
+  useEffect(() => {
+    const requestedSection = new URLSearchParams(window.location.search).get("section");
+    if (requestedSection && pageTitles[requestedSection]) {
+      const update = window.setTimeout(() => setSection(requestedSection), 0);
+      return () => window.clearTimeout(update);
+    }
+  }, []);
   useEffect(()=>{if(demo)return;let active=true;api<{user_profile?:{full_name?:string}}>(config.endpoints.profile,undefined,"GET",session.accessToken).then(result=>{if(active&&result.user_profile?.full_name)setAccountName(result.user_profile.full_name)}).catch(()=>undefined);return()=>{active=false}},[demo,session.accessToken]);
   useEffect(() => {
     let active = true;

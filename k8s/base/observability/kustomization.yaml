@@ -167,5 +167,9 @@ configMapGenerator:
   - name: grafana-dashboard-community-minio
     files:
       - dashboards/community/minio-official.json
+  - name: grafana-dashboards-deployments
+    files:
+      - dashboards/automatic-system-deployments.json
+      - dashboards/community/flagger-istio.json
 generatorOptions:
   disableNameSuffixHash: true

@@ -6,6 +6,7 @@ The stack receives OTLP telemetry from every backend service:
 - Jaeger stores and displays distributed traces;
 - Prometheus stores application, runtime, gRPC, HTTP, PostgreSQL and span-derived RED metrics;
 - Grafana has provisioned Prometheus and Jaeger data sources, including metric-exemplar links to traces.
+- Grafana provisions an ACS deployment dashboard and the official Flagger Istio dashboard for canary and Pod health monitoring.
 
 Application configuration is provided by the generated `telemetry-config` ConfigMap. The SDK uses parent-based sampling and exports asynchronously, so a temporary Collector outage does not stop an application.
 
