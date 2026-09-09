@@ -225,13 +225,27 @@ foreach ($dashboard in $dashboards) {
       value = 'automatic-system'
     }
     $primaryVariable = $model.templating.list | Where-Object { $_.name -eq 'primary' }
-    $primaryVariable.query = 'label_values(flagger_canary_weight{namespace="$namespace",workload=~".+-primary"}, workload)'
+    $primaryVariable.query = 'label_values(flagger_canary_status{namespace="$namespace"}, name)'
+    $primaryVariable.regex = ''
+    $primaryVariable.current = [pscustomobject]@{
+      selected = $true
+      text = 'frontend'
+      value = 'frontend'
+    }
     $canaryVariable = $model.templating.list | Where-Object { $_.name -eq 'canary' }
     $canaryVariable.query = 'label_values(flagger_canary_status{namespace="$namespace"}, name)'
+    $canaryVariable.regex = ''
+    $canaryVariable.current = [pscustomobject]@{
+      selected = $true
+      text = 'frontend'
+      value = 'frontend'
+    }
+    $model.time.from = 'now-6h'
     foreach ($panel in $model.panels) {
       foreach ($target in @($panel.targets)) {
         if ($target.expr) {
           $target.expr = $target.expr.Replace('cpu="total",', '')
+          $target.expr = $target.expr.Replace('$primary', '${primary}-primary')
         }
       }
     }
