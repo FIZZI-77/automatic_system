@@ -5,6 +5,7 @@ resources:
   - flagger-namespace.yaml
   - flagger-repository.yaml
   - flagger-release.yaml
+  - flagger-loadtester-release.yaml
   - mesh-policies.yaml
   - mesh-ingress.yaml
   - applications-release.yaml

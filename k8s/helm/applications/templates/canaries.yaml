@@ -50,6 +50,16 @@ spec:
         interval: {{ $root.Values.canary.analysis.interval }}
         thresholdRange:
           max: {{ $root.Values.canary.analysis.requestDuration.maxMilliseconds }}
+    {{- with $service.loadTest }}
+    webhooks:
+      - name: load-test
+        type: rollout
+        url: {{ .url }}
+        timeout: {{ .timeout }}
+        metadata:
+          type: cmd
+          cmd: {{ .command | quote }}
+    {{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

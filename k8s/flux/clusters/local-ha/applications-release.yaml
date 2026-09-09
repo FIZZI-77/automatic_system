@@ -17,6 +17,7 @@ spec:
         - k8s/helm/applications/values-local-ha.yaml
   dependsOn:
     - name: flagger
+    - name: flagger-loadtester
   install:
     remediation:
       retries: 3
