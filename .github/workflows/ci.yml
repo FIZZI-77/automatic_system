@@ -921,15 +921,11 @@ jobs:
             -n automatic-system
           kubectl get deployments -n automatic-system
 
-      - name: Configure private GHCR pull secret
+      - name: Configure optional private GHCR pull secret
+        if: ${{ env.GHCR_PULL_TOKEN != '' }}
         shell: bash
         run: |
           set -euo pipefail
-
-          test -n "$GHCR_PULL_TOKEN" || {
-            echo "::error::GHCR_PULL_TOKEN is required while application packages are private"
-            exit 1
-          }
 
           kubectl create secret docker-registry ghcr-pull \
             -n automatic-system \
