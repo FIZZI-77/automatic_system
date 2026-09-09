@@ -526,11 +526,6 @@ jobs:
             context: File_Service
             dockerfile: File_Service/Dockerfile
 
-          - service: frontend
-            package: automatic-system-frontend
-            context: Frontend
-            dockerfile: Frontend/Dockerfile
-
           - service: sla
             package: automatic-system-sla
             context: "."
@@ -611,7 +606,6 @@ jobs:
             type=ref,event=branch
 
       - name: Build and publish
-        if: matrix.service != 'frontend'
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
@@ -624,19 +618,68 @@ jobs:
           provenance: true
           sbom: true
 
-      - name: Build and publish frontend
-        if: matrix.service == 'frontend'
+  frontend-image:
+    name: App image / frontend
+    runs-on: ubuntu-latest
+    environment:
+      name: development
+
+    needs:
+      - go-quality
+      - analytics-integration
+      - location-integration
+      - frontend-quality
+      - go-workspace-validation
+      - compose-validation
+      - kubernetes-validation
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Normalize registry owner
+        shell: bash
+        run: |
+          echo "REGISTRY_OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.REGISTRY_OWNER }}/automatic-system-frontend
+          tags: |
+            type=sha,prefix=sha-,format=short
+            type=ref,event=branch
+
+      - name: Build and publish
         uses: docker/build-push-action@v6
         with:
-          context: ${{ matrix.context }}
-          file: ${{ matrix.dockerfile }}
+          context: Frontend
+          file: Frontend/Dockerfile
           build-args: |
-            NEXT_PUBLIC_FIREBASE_API_KEY=${{ vars.FIREBASE_WEB_API_KEY }}
+            NEXT_PUBLIC_FIREBASE_API_KEY=${{ secrets.FIREBASE_WEB_API_KEY }}
+            NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${{ vars.FIREBASE_AUTH_DOMAIN }}
+            NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ vars.FIREBASE_PROJECT_ID }}
+            NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${{ vars.FIREBASE_STORAGE_BUCKET }}
+            NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${{ vars.FIREBASE_MESSAGING_SENDER_ID }}
+            NEXT_PUBLIC_FIREBASE_APP_ID=${{ vars.FIREBASE_APP_ID }}
+            NEXT_PUBLIC_FIREBASE_VAPID_KEY=${{ vars.FIREBASE_WEB_VAPID_KEY }}
           push: ${{ github.event_name == 'push' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=app-${{ matrix.service }}
-          cache-to: type=gha,mode=max,scope=app-${{ matrix.service }}
+          cache-from: type=gha,scope=app-frontend
+          cache-to: type=gha,mode=max,scope=app-frontend
           provenance: true
           sbom: true
 
@@ -819,6 +862,7 @@ jobs:
 
     needs:
       - application-images
+      - frontend-image
       - migrator-images
       - clickhouse-init-image
 
@@ -844,8 +888,12 @@ jobs:
     steps:
       - name: Checkout tested commit
         uses: actions/checkout@v4
+        env:
+          GIT_CONFIG_COUNT: 1
+          GIT_CONFIG_KEY_0: http.version
+          GIT_CONFIG_VALUE_0: HTTP/1.1
         with:
-          fetch-depth: 0
+          fetch-depth: 2
           ref: ${{ env.TARGET_SHA }}
 
       - name: Check runner tools and Kubernetes access
@@ -882,8 +930,22 @@ jobs:
               ;;
           esac
 
-          git fetch origin \
-            "+refs/heads/${TARGET_BRANCH}:refs/remotes/origin/${TARGET_BRANCH}"
+          for attempt in 1 2 3 4; do
+            if git -c http.version=HTTP/1.1 fetch \
+              --no-tags \
+              --depth=50 \
+              origin \
+              "+refs/heads/${TARGET_BRANCH}:refs/remotes/origin/${TARGET_BRANCH}"; then
+              break
+            fi
+
+            if [ "$attempt" -eq 4 ]; then
+              echo "::error::Unable to fetch $TARGET_BRANCH after four attempts"
+              exit 1
+            fi
+
+            sleep $((attempt * 5))
+          done
           git merge-base --is-ancestor "$TARGET_SHA" "origin/$TARGET_BRANCH"
 
           if ! git diff --quiet "$TARGET_SHA..origin/$TARGET_BRANCH" -- \
@@ -1080,6 +1142,7 @@ jobs:
 
     needs:
       - application-images
+      - frontend-image
       - migrator-images
       - clickhouse-init-image
       - check-prod-cluster

@@ -15,6 +15,19 @@
 Запуск production-сборки: `docker compose -f compose.yml up -d --build`.
 Порт меняется через `FRONTEND_PORT`, адрес Gateway — через `NEXT_PUBLIC_API_BASE_URL`.
 
+## Push-уведомления
+
+Для браузерных уведомлений заполните параметры `NEXT_PUBLIC_FIREBASE_*` из
+`.env.example`. В сборке GitHub Actions им соответствуют переменные репозитория
+`FIREBASE_WEB_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_PROJECT_ID`,
+`FIREBASE_STORAGE_BUCKET`, `FIREBASE_MESSAGING_SENDER_ID`, `FIREBASE_APP_ID` и
+`FIREBASE_WEB_VAPID_KEY`.
+
+Пользователь подключает браузер в разделе «Уведомления». Фронтенд получает токен
+FCM, регистрирует его через `/notifications/devices/register` и принимает
+сообщения как в открытой вкладке, так и через Service Worker в фоне. Для работы
+Service Worker приложение должно быть открыто через HTTPS или `localhost`.
+
 ## Тестовые данные
 
 После запуска основного `docker-compose.yml` связанный набор данных для всех экранов можно безопасно загрузить повторно:

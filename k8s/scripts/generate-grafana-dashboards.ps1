@@ -148,6 +148,100 @@ function New-KubernetesDashboard {
     return New-Dashboard "automatic-system-kubernetes-cluster" "Kubernetes / Cluster Overview" @("automatic-system", "kubernetes", "cluster") $panels
 }
 
+function New-DeploymentDashboard {
+    $script:TargetIndex = 0
+    $panels = @(
+        New-Panel 1 "Ошибки канареек" "stat" 0 0 6 5 @(
+            New-PrometheusTarget 'sum(flagger_canary_status{namespace="$namespace",name=~"$canary"} == 2) or vector(0)' "ошибки"
+        )
+        New-Panel 2 "Flagger" "stat" 6 0 6 5 @(
+            New-PrometheusTarget 'min(up{job="flagger"}) or vector(0)' "доступен"
+        )
+        New-Panel 3 "Нет реплик" "stat" 12 0 6 5 @(
+            New-PrometheusTarget 'sum(kube_deployment_status_replicas_unavailable{namespace="$namespace",deployment=~"($canary)-primary"}) or vector(0)' "реплики"
+        )
+        New-Panel 4 "Перезапуски 15м" "stat" 18 0 6 5 @(
+            New-PrometheusTarget 'round(sum(increase(kube_pod_container_status_restarts_total{namespace="$namespace",pod=~"($canary)(-primary)?-.+",container!="istio-proxy"}[15m]))) or vector(0)' "перезапуски"
+        )
+        New-Panel 5 "Распределение трафика" "timeseries" 0 5 12 8 @(
+            New-PrometheusTarget 'flagger_canary_weight{namespace="$namespace",workload=~"($canary)(-primary)?"}' '{{workload}}'
+        ) "percent"
+        New-Panel 6 "Последнее состояние анализа" "timeseries" 12 5 12 8 @(
+            New-PrometheusTarget 'flagger_canary_status{namespace="$namespace",name=~"$canary"}' '{{name}}: 0 выполняется, 1 успешно, 2 ошибка'
+        ) "short"
+        New-Panel 7 "Результаты проверок Flagger" "timeseries" 0 13 12 8 @(
+            New-PrometheusTarget 'flagger_canary_metric_analysis{namespace="$namespace",name=~"$canary"}' '{{name}} / {{metric}}'
+        ) "short"
+        New-Panel 8 "Продвижения и откаты за период" "timeseries" 12 13 12 8 @(
+            New-PrometheusTarget 'sum by (name) (increase(flagger_canary_successes_total{namespace="$namespace",name=~"$canary"}[$__range]))' '{{name}} успешно'
+            New-PrometheusTarget 'sum by (name) (increase(flagger_canary_failures_total{namespace="$namespace",name=~"$canary"}[$__range]))' '{{name}} откат'
+        ) "short"
+        New-Panel 9 "Желаемые и доступные реплики" "timeseries" 0 21 12 8 @(
+            New-PrometheusTarget 'sum by (deployment) (kube_deployment_spec_replicas{namespace="$namespace",deployment=~"($canary)(-primary)?"})' '{{deployment}} желаемые'
+            New-PrometheusTarget 'sum by (deployment) (kube_deployment_status_replicas_available{namespace="$namespace",deployment=~"($canary)(-primary)?"})' '{{deployment}} доступные'
+        ) "short"
+        New-Panel 10 "Готовность Pod-ов" "timeseries" 12 21 12 8 @(
+            New-PrometheusTarget 'kube_pod_status_ready{namespace="$namespace",pod=~"($canary)(-primary)?-.+",condition="true"}' '{{pod}}'
+        ) "short"
+        New-Panel 11 "Использование процессора" "timeseries" 0 29 12 8 @(
+            New-PrometheusTarget 'sum by (pod) (rate(container_cpu_usage_seconds_total{namespace="$namespace",pod=~"($canary)(-primary)?-.+",container!~"POD|istio-proxy",container!=""}[5m]))' '{{pod}}'
+        ) "cores"
+        New-Panel 12 "Использование памяти" "timeseries" 12 29 12 8 @(
+            New-PrometheusTarget 'sum by (pod) (container_memory_working_set_bytes{namespace="$namespace",pod=~"($canary)(-primary)?-.+",container!~"POD|istio-proxy",container!=""})' '{{pod}}'
+        ) "bytes"
+        New-Panel 13 "Входящие запросы" "timeseries" 0 37 12 8 @(
+            New-PrometheusTarget 'sum by (destination_workload) (rate(istio_requests_total{reporter="destination",destination_workload_namespace="$namespace",destination_workload=~"($canary)(-primary)?"}[5m]))' '{{destination_workload}}'
+        ) "reqps"
+        New-Panel 14 "Доля ответов 5xx" "timeseries" 12 37 12 8 @(
+            New-PrometheusTarget 'sum by (destination_workload) (rate(istio_requests_total{reporter="destination",destination_workload_namespace="$namespace",destination_workload=~"($canary)(-primary)?",response_code=~"5.."}[5m])) / clamp_min(sum by (destination_workload) (rate(istio_requests_total{reporter="destination",destination_workload_namespace="$namespace",destination_workload=~"($canary)(-primary)?"}[5m])), 0.001)' '{{destination_workload}}'
+        ) "percentunit"
+        New-Panel 15 "Задержка запросов, 99-й процентиль" "timeseries" 0 45 12 8 @(
+            New-PrometheusTarget 'histogram_quantile(0.99, sum by (le, destination_workload) (rate(istio_request_duration_milliseconds_bucket{reporter="destination",destination_workload_namespace="$namespace",destination_workload=~"($canary)(-primary)?"}[5m]))) / 1000' '{{destination_workload}}'
+        ) "s"
+        New-Panel 16 "Длительность канареечного анализа, 95-й процентиль" "timeseries" 12 45 12 8 @(
+            New-PrometheusTarget 'histogram_quantile(0.95, sum by (le, name) (rate(flagger_canary_duration_seconds_bucket{namespace="$namespace",name=~"$canary"}[5m])))' '{{name}}'
+        ) "s"
+        New-LogsPanel 17 53 'kubernetes.namespace: flagger-system'
+    )
+
+    $panels[1].fieldConfig.defaults.thresholds.steps = @(
+        @{ color = "red"; value = $null },
+        @{ color = "green"; value = 1 }
+    )
+    foreach ($panel in $panels[0..3]) {
+        $panel.fieldConfig.defaults.color.mode = "thresholds"
+    }
+    $panels[16].title = "Последние журналы Flagger"
+
+    $dashboard = New-Dashboard "automatic-system-deployments" "Развёртывания / Flagger и Pod-ы" @("automatic-system", "deployment", "flagger", "canary") $panels
+    $dashboard.templating.list = @(
+        @{
+            name = "namespace"
+            label = "Пространство имён"
+            type = "constant"
+            query = "automatic-system"
+            current = @{ selected = $true; text = "automatic-system"; value = "automatic-system" }
+            hide = 2
+        },
+        @{
+            name = "canary"
+            label = "Сервис"
+            type = "query"
+            datasource = @{ type = "prometheus"; uid = "prometheus" }
+            query = "label_values(flagger_canary_status{namespace=`"`$namespace`"}, name)"
+            definition = "label_values(flagger_canary_status{namespace=`"`$namespace`"}, name)"
+            refresh = 1
+            sort = 1
+            multi = $true
+            includeAll = $true
+            allValue = ".+"
+            current = @{ selected = $true; text = "Все"; value = "`$__all" }
+        }
+    )
+
+    return $dashboard
+}
+
 function New-Dashboard {
     param(
         [string]$UID,
@@ -342,6 +436,8 @@ $services = @(
 foreach ($service in $services) {
     Write-Dashboard (New-ServiceDashboard $service.Name $service.Title)
 }
+
+Write-Dashboard (New-DeploymentDashboard)
 
 $postgresMetrics = @(
     @{ Title = "PostgreSQL availability"; Expression = 'pg_up{__FILTER__}'; Legend = '{{pod}}'; Unit = "short" },

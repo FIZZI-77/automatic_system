@@ -115,13 +115,13 @@ groups:
         expr: |
           sum(kube_deployment_status_replicas_available{
             namespace="automatic-system",
-            deployment=~"api-gateway|auth-service|ticket-service|dispatch-service|routing-service|sla-service|notification-service"
+            deployment=~"(api-gateway|auth-service|ticket-service|dispatch-service|routing-service|sla-service|notification-service)(-primary)?"
           })
           /
           clamp_min(
             sum(kube_deployment_spec_replicas{
               namespace="automatic-system",
-              deployment=~"api-gateway|auth-service|ticket-service|dispatch-service|routing-service|sla-service|notification-service"
+              deployment=~"(api-gateway|auth-service|ticket-service|dispatch-service|routing-service|sla-service|notification-service)(-primary)?"
             }),
             1
           )
@@ -201,7 +201,7 @@ groups:
         expr: |
           kube_deployment_status_replicas_available{
             namespace="automatic-system",
-            deployment=~"api-gateway|auth-service|ticket-service|dispatch-service|routing-service|sla-service|notification-service"
+            deployment=~"(api-gateway|auth-service|ticket-service|dispatch-service|routing-service|sla-service|notification-service)(-primary)?"
           } < 1
         for: 2m
         labels:
@@ -217,12 +217,12 @@ groups:
         expr: |
           kube_deployment_status_replicas_available{
             namespace="automatic-system",
-            deployment=~"api-gateway|auth-service|ticket-service|dispatch-service|routing-service|sla-service|notification-service"
+            deployment=~"(api-gateway|auth-service|ticket-service|dispatch-service|routing-service|sla-service|notification-service)(-primary)?"
           }
           <
           kube_deployment_spec_replicas{
             namespace="automatic-system",
-            deployment=~"api-gateway|auth-service|ticket-service|dispatch-service|routing-service|sla-service|notification-service"
+            deployment=~"(api-gateway|auth-service|ticket-service|dispatch-service|routing-service|sla-service|notification-service)(-primary)?"
           }
         for: 10m
         labels:
@@ -307,7 +307,7 @@ groups:
           runbook_url: "https://github.com/FIZZI-77/automatic-system/blob/main/k8s/base/observability/SLO.md#data-plane"
 
       - alert: MetricsTargetDown
-        expr: up{job=~"application-services|kafka-exporter|postgres-exporter|patroni|pgbouncer-exporter|redis-exporter|clickhouse"} < 1
+        expr: up{job=~"application-services|flagger|kafka-exporter|postgres-exporter|patroni|pgbouncer-exporter|redis-exporter|clickhouse"} < 1
         for: 5m
         labels:
           severity: warning
@@ -317,6 +317,18 @@ groups:
           summary: "Prometheus target {{ $labels.job }} / {{ $labels.instance }} is down"
           description: "Metrics are unavailable for five minutes; service SLO evaluation may be incomplete."
           runbook_url: "https://github.com/FIZZI-77/automatic-system/blob/main/k8s/base/observability/SLO.md#observability-coverage"
+
+      - alert: CanaryDeploymentFailed
+        expr: flagger_canary_status{namespace="automatic-system"} == 2
+        for: 1m
+        labels:
+          severity: critical
+          slo: workload-availability
+          team: platform
+        annotations:
+          summary: "Canary deployment {{ $labels.name }} failed"
+          description: "Flagger rolled back or rejected the latest revision."
+          runbook_url: "https://github.com/FIZZI-77/automatic-system/blob/main/k8s/base/observability/SLO.md#critical-workloads"
 
       - alert: ContainerRestartLoop
         expr: |
