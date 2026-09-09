@@ -906,14 +906,14 @@ jobs:
 
           command -v git
           command -v kubectl
-          kubectl auth can-i get deployments -n automatic-system | grep -qx true
-          kubectl auth can-i patch deployments -n automatic-system | grep -qx true
+          kubectl auth can-i get deployments -n automatic-system
+          kubectl auth can-i patch deployments -n automatic-system
           kubectl auth can-i patch kustomizations.kustomize.toolkit.fluxcd.io \
-            -n flux-system | grep -qx true
+            -n flux-system
           kubectl auth can-i patch gitrepositories.source.toolkit.fluxcd.io \
-            -n flux-system | grep -qx true
+            -n flux-system
           kubectl auth can-i get canaries.flagger.app \
-            -n automatic-system | grep -qx true
+            -n automatic-system
           kubectl get deployments -n automatic-system
 
       - name: Publish immutable local image tags
