@@ -13,7 +13,7 @@ spec:
         kind: GitRepository
         name: automatic-system
       valuesFiles:
-        - values-local-ha.yaml
+        - k8s/helm/applications/values-local-ha.yaml
   dependsOn:
     - name: flagger
   install:
