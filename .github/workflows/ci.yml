@@ -877,6 +877,9 @@ jobs:
     runs-on: automatic-system-runner
     timeout-minutes: 50
 
+    environment:
+      name: development
+
     concurrency:
       group: automatic-system-local-cluster-deploy
       cancel-in-progress: false
