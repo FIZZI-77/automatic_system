@@ -978,7 +978,7 @@ jobs:
           set -euo pipefail
 
           mapfile -t EXPECTED_CANARIES < <(
-            python3 -c 'import json, os; print("\n".join(json.loads(os.environ["CHANGED_CANARIES"])))'
+            python3 -c 'import json, os, sys; names = json.loads(os.environ["CHANGED_CANARIES"]); sys.stdout.write("\n".join(names) + ("\n" if names else ""))'
           )
 
           if [ "${#EXPECTED_CANARIES[@]}" -eq 0 ]; then
