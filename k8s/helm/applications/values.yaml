@@ -69,11 +69,13 @@ dispatch:
 globalImage:
   registry: ""
   tag: ""
+  tags: {}
   pullPolicy: ""
 migrations:
   enabled: true
   registry: automatic-system
   tag: dev
+  tags: {}
   pullPolicy: IfNotPresent
 analyticsInit:
   enabled: true

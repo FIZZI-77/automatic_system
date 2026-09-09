@@ -384,7 +384,8 @@ function New-InfrastructureDashboard {
         [string]$Title,
         [string]$Filter,
         [string]$LogQuery,
-        [array]$Metrics
+        [array]$Metrics,
+        [bool]$ZeroFallback = $true
     )
 
     $script:TargetIndex = 0
@@ -395,7 +396,9 @@ function New-InfrastructureDashboard {
         for ($column = 0; $column -lt 2 -and ($index + $column) -lt $Metrics.Count; $column++) {
             $metric = $Metrics[$index + $column]
             $expression = $metric.Expression.Replace("__FILTER__", $Filter)
-            $expression = "($expression) or vector(0)"
+            if ($ZeroFallback) {
+                $expression = "($expression) or vector(0)"
+            }
             $panels += New-Panel $id $metric.Title "timeseries" ($column * 12) $y 12 8 @(
                 New-PrometheusTarget $expression $metric.Legend
             ) $metric.Unit
@@ -581,18 +584,18 @@ $kafkaMetrics = @(
 )
 
 $etcdMetrics = @(
-    @{ Title = "Cluster has leader"; Expression = 'etcd_server_has_leader{__FILTER__}'; Legend = '{{etcd_node}}'; Unit = "short" },
-    @{ Title = "Current leader"; Expression = 'etcd_server_is_leader{__FILTER__}'; Legend = '{{etcd_node}}'; Unit = "short" },
-    @{ Title = "Leader changes"; Expression = 'increase(etcd_server_leader_changes_seen_total{__FILTER__}[1h])'; Legend = '{{etcd_node}}'; Unit = "short" },
-    @{ Title = "Pending proposals"; Expression = 'etcd_server_proposals_pending{__FILTER__}'; Legend = '{{etcd_node}}'; Unit = "short" },
-    @{ Title = "Failed proposals"; Expression = 'rate(etcd_server_proposals_failed_total{__FILTER__}[5m])'; Legend = '{{etcd_node}}'; Unit = "ops" },
-    @{ Title = "Committed and applied proposals"; Expression = 'rate(etcd_server_proposals_committed_total{__FILTER__}[5m])'; Legend = '{{etcd_node}} committed'; Unit = "ops" },
-    @{ Title = "Backend commit p99"; Expression = 'histogram_quantile(0.99, sum by (le, etcd_node) (rate(etcd_disk_backend_commit_duration_seconds_bucket{__FILTER__}[5m])))'; Legend = '{{etcd_node}}'; Unit = "s" },
-    @{ Title = "WAL fsync p99"; Expression = 'histogram_quantile(0.99, sum by (le, etcd_node) (rate(etcd_disk_wal_fsync_duration_seconds_bucket{__FILTER__}[5m])))'; Legend = '{{etcd_node}}'; Unit = "s" },
-    @{ Title = "Database allocated size"; Expression = 'etcd_mvcc_db_total_size_in_bytes{__FILTER__}'; Legend = '{{etcd_node}}'; Unit = "bytes" },
-    @{ Title = "Database in-use size"; Expression = 'etcd_mvcc_db_total_size_in_use_in_bytes{__FILTER__}'; Legend = '{{etcd_node}}'; Unit = "bytes" },
-    @{ Title = "gRPC requests"; Expression = 'sum by (grpc_method, grpc_code, etcd_node) (rate(grpc_server_handled_total{__FILTER__}[5m]))'; Legend = '{{etcd_node}} / {{grpc_method}} / {{grpc_code}}'; Unit = "reqps" },
-    @{ Title = "Process memory"; Expression = 'process_resident_memory_bytes{__FILTER__}'; Legend = '{{etcd_node}}'; Unit = "bytes" }
+    @{ Title = "Cluster has leader"; Expression = 'etcd_server_has_leader{__FILTER__}'; Legend = '{{instance}}'; Unit = "short" },
+    @{ Title = "Current leader"; Expression = 'etcd_server_is_leader{__FILTER__}'; Legend = '{{instance}}'; Unit = "short" },
+    @{ Title = "Leader changes"; Expression = 'increase(etcd_server_leader_changes_seen_total{__FILTER__}[1h])'; Legend = '{{instance}}'; Unit = "short" },
+    @{ Title = "Pending proposals"; Expression = 'etcd_server_proposals_pending{__FILTER__}'; Legend = '{{instance}}'; Unit = "short" },
+    @{ Title = "Failed proposals"; Expression = 'rate(etcd_server_proposals_failed_total{__FILTER__}[5m])'; Legend = '{{instance}}'; Unit = "ops" },
+    @{ Title = "Committed and applied proposals"; Expression = 'rate(etcd_server_proposals_committed_total{__FILTER__}[5m])'; Legend = '{{instance}} committed'; Unit = "ops" },
+    @{ Title = "Backend commit p99"; Expression = 'histogram_quantile(0.99, sum by (le, instance) (rate(etcd_disk_backend_commit_duration_seconds_bucket{__FILTER__}[5m])))'; Legend = '{{instance}}'; Unit = "s" },
+    @{ Title = "WAL fsync p99"; Expression = 'histogram_quantile(0.99, sum by (le, instance) (rate(etcd_disk_wal_fsync_duration_seconds_bucket{__FILTER__}[5m])))'; Legend = '{{instance}}'; Unit = "s" },
+    @{ Title = "Database allocated size"; Expression = 'etcd_mvcc_db_total_size_in_bytes{__FILTER__}'; Legend = '{{instance}}'; Unit = "bytes" },
+    @{ Title = "Database in-use size"; Expression = 'etcd_mvcc_db_total_size_in_use_in_bytes{__FILTER__}'; Legend = '{{instance}}'; Unit = "bytes" },
+    @{ Title = "gRPC requests"; Expression = 'sum by (grpc_method, grpc_code, instance) (rate(grpc_server_handled_total{__FILTER__}[5m]))'; Legend = '{{instance}} / {{grpc_method}} / {{grpc_code}}'; Unit = "reqps" },
+    @{ Title = "Process memory"; Expression = 'process_resident_memory_bytes{__FILTER__}'; Legend = '{{instance}}'; Unit = "bytes" }
 )
 
 Write-Dashboard (New-InfrastructureDashboard "postgres-platform" "PostgreSQL Platform Cluster" 'db_cluster="postgres-platform"' 'kubernetes.pod.name: postgres-platform-*' $postgresMetrics)
@@ -647,7 +650,7 @@ foreach ($broker in @("kafka-1", "kafka-2", "kafka-3")) {
     Write-Dashboard (New-InfrastructureDashboard $broker "Kafka / $broker" "namespace=`"automatic-system`",pod=`"$broker-0`"" "kubernetes.pod.name: $broker-0" $kafkaBrokerMetrics)
 }
 
-Write-Dashboard (New-InfrastructureDashboard "etcd" "etcd Cluster" 'etcd_node=~".+"' 'kubernetes.pod.name: etcd-*' $etcdMetrics)
+Write-Dashboard (New-InfrastructureDashboard "etcd" "etcd Cluster" 'job="etcd"' 'kubernetes.pod.name: etcd-*' $etcdMetrics $false)
 
 $genericComponents = @(
     @{ ID = "frontend"; Title = "Frontend"; Pod = "frontend-*"; Filter = 'namespace="automatic-system",pod=~"frontend-.+"' },

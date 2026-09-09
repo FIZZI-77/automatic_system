@@ -27,6 +27,8 @@ coverage.html
 # Temporary files
 **/.tmp/
 **/tmp/
+**/__pycache__/
+*.py[cod]
 *.tmp
 *.log
 *.pid

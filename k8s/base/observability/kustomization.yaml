@@ -4,6 +4,7 @@ namespace: automatic-system
 
 resources:
   - application-metrics-peerauth.yaml
+  - prometheus-plaintext.yaml
   - service-account.yaml
   - otel-collector.yaml
   - jaeger.yaml
@@ -11,7 +12,6 @@ resources:
   - grafana.yaml
   - kube-state-metrics.yaml
   - node-exporter.yaml
-  - etcd-metrics-agent.yaml
   - infrastructure-exporters.yaml
 
 configMapGenerator:

@@ -8,7 +8,7 @@ spec:
     spec:
       chart: ./k8s/helm/applications
       interval: 1m
-      reconcileStrategy: Revision
+      reconcileStrategy: ChartVersion
       sourceRef:
         kind: GitRepository
         name: automatic-system

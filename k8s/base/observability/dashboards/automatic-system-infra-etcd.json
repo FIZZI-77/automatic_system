@@ -1,21 +1,25 @@
 {
+  "templating": {
+    "list": []
+  },
+  "version": 1,
+  "tags": [
+    "automatic-system",
+    "infrastructure",
+    "etcd"
+  ],
+  "timezone": "browser",
+  "links": [],
+  "weekStart": "",
+  "graphTooltip": 1,
+  "liveNow": false,
+  "uid": "automatic-system-infra-etcd",
+  "annotations": {
+    "list": []
+  },
   "panels": [
     {
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "legendFormat": "{{etcd_node}}",
-          "refId": "A",
-          "range": true,
-          "expr": "(etcd_server_has_leader{etcd_node=~\".+\"}) or vector(0)"
-        }
-      ],
       "title": "Cluster has leader",
-      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -23,64 +27,64 @@
       "fieldConfig": {
         "overrides": [],
         "defaults": {
-          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "value": null,
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
-                "value": 1,
-                "color": "red"
+                "color": "red",
+                "value": 1
               }
             ],
             "mode": "absolute"
           },
+          "unit": "short",
           "color": {
             "mode": "palette-classic"
           },
-          "unit": "short"
+          "noValue": "0"
         }
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 0
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 1
-    },
-    {
       "targets": [
         {
+          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "editorMode": "code",
-          "legendFormat": "{{etcd_node}}",
-          "refId": "B",
-          "range": true,
-          "expr": "(etcd_server_is_leader{etcd_node=~\".+\"}) or vector(0)"
+          "refId": "A",
+          "legendFormat": "{{instance}}",
+          "expr": "etcd_server_has_leader{job=\"etcd\"}",
+          "range": true
         }
       ],
+      "gridPos": {
+        "w": 12,
+        "x": 0,
+        "y": 0,
+        "h": 8
+      },
+      "id": 1,
+      "type": "timeseries",
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "placement": "bottom",
+          "displayMode": "table"
+        }
+      }
+    },
+    {
       "title": "Current leader",
-      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -88,64 +92,64 @@
       "fieldConfig": {
         "overrides": [],
         "defaults": {
-          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "value": null,
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
-                "value": 1,
-                "color": "red"
+                "color": "red",
+                "value": 1
               }
             ],
             "mode": "absolute"
           },
+          "unit": "short",
           "color": {
             "mode": "palette-classic"
           },
-          "unit": "short"
+          "noValue": "0"
         }
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 0
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 2
-    },
-    {
       "targets": [
         {
+          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "editorMode": "code",
-          "legendFormat": "{{etcd_node}}",
-          "refId": "C",
-          "range": true,
-          "expr": "(increase(etcd_server_leader_changes_seen_total{etcd_node=~\".+\"}[1h])) or vector(0)"
+          "refId": "B",
+          "legendFormat": "{{instance}}",
+          "expr": "etcd_server_is_leader{job=\"etcd\"}",
+          "range": true
         }
       ],
+      "gridPos": {
+        "w": 12,
+        "x": 12,
+        "y": 0,
+        "h": 8
+      },
+      "id": 2,
+      "type": "timeseries",
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "placement": "bottom",
+          "displayMode": "table"
+        }
+      }
+    },
+    {
       "title": "Leader changes",
-      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -153,64 +157,64 @@
       "fieldConfig": {
         "overrides": [],
         "defaults": {
-          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "value": null,
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
-                "value": 1,
-                "color": "red"
+                "color": "red",
+                "value": 1
               }
             ],
             "mode": "absolute"
           },
+          "unit": "short",
           "color": {
             "mode": "palette-classic"
           },
-          "unit": "short"
+          "noValue": "0"
         }
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 8
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 3
-    },
-    {
       "targets": [
         {
+          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "editorMode": "code",
-          "legendFormat": "{{etcd_node}}",
-          "refId": "D",
-          "range": true,
-          "expr": "(etcd_server_proposals_pending{etcd_node=~\".+\"}) or vector(0)"
+          "refId": "C",
+          "legendFormat": "{{instance}}",
+          "expr": "increase(etcd_server_leader_changes_seen_total{job=\"etcd\"}[1h])",
+          "range": true
         }
       ],
+      "gridPos": {
+        "w": 12,
+        "x": 0,
+        "y": 8,
+        "h": 8
+      },
+      "id": 3,
+      "type": "timeseries",
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "placement": "bottom",
+          "displayMode": "table"
+        }
+      }
+    },
+    {
       "title": "Pending proposals",
-      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -218,64 +222,64 @@
       "fieldConfig": {
         "overrides": [],
         "defaults": {
-          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "value": null,
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
-                "value": 1,
-                "color": "red"
+                "color": "red",
+                "value": 1
               }
             ],
             "mode": "absolute"
           },
+          "unit": "short",
           "color": {
             "mode": "palette-classic"
           },
-          "unit": "short"
+          "noValue": "0"
         }
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 8
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 4
-    },
-    {
       "targets": [
         {
+          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "editorMode": "code",
-          "legendFormat": "{{etcd_node}}",
-          "refId": "E",
-          "range": true,
-          "expr": "(rate(etcd_server_proposals_failed_total{etcd_node=~\".+\"}[5m])) or vector(0)"
+          "refId": "D",
+          "legendFormat": "{{instance}}",
+          "expr": "etcd_server_proposals_pending{job=\"etcd\"}",
+          "range": true
         }
       ],
+      "gridPos": {
+        "w": 12,
+        "x": 12,
+        "y": 8,
+        "h": 8
+      },
+      "id": 4,
+      "type": "timeseries",
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "placement": "bottom",
+          "displayMode": "table"
+        }
+      }
+    },
+    {
       "title": "Failed proposals",
-      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -283,64 +287,64 @@
       "fieldConfig": {
         "overrides": [],
         "defaults": {
-          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "value": null,
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
-                "value": 1,
-                "color": "red"
+                "color": "red",
+                "value": 1
               }
             ],
             "mode": "absolute"
           },
+          "unit": "ops",
           "color": {
             "mode": "palette-classic"
           },
-          "unit": "ops"
+          "noValue": "0"
         }
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 16
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 5
-    },
-    {
       "targets": [
         {
+          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "editorMode": "code",
-          "legendFormat": "{{etcd_node}} committed",
-          "refId": "F",
-          "range": true,
-          "expr": "(rate(etcd_server_proposals_committed_total{etcd_node=~\".+\"}[5m])) or vector(0)"
+          "refId": "E",
+          "legendFormat": "{{instance}}",
+          "expr": "rate(etcd_server_proposals_failed_total{job=\"etcd\"}[5m])",
+          "range": true
         }
       ],
+      "gridPos": {
+        "w": 12,
+        "x": 0,
+        "y": 16,
+        "h": 8
+      },
+      "id": 5,
+      "type": "timeseries",
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "placement": "bottom",
+          "displayMode": "table"
+        }
+      }
+    },
+    {
       "title": "Committed and applied proposals",
-      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -348,64 +352,64 @@
       "fieldConfig": {
         "overrides": [],
         "defaults": {
-          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "value": null,
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
-                "value": 1,
-                "color": "red"
+                "color": "red",
+                "value": 1
               }
             ],
             "mode": "absolute"
           },
+          "unit": "ops",
           "color": {
             "mode": "palette-classic"
           },
-          "unit": "ops"
+          "noValue": "0"
         }
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 16
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 6
-    },
-    {
       "targets": [
         {
+          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "editorMode": "code",
-          "legendFormat": "{{etcd_node}}",
-          "refId": "G",
-          "range": true,
-          "expr": "(histogram_quantile(0.99, sum by (le, etcd_node) (rate(etcd_disk_backend_commit_duration_seconds_bucket{etcd_node=~\".+\"}[5m])))) or vector(0)"
+          "refId": "F",
+          "legendFormat": "{{instance}} committed",
+          "expr": "rate(etcd_server_proposals_committed_total{job=\"etcd\"}[5m])",
+          "range": true
         }
       ],
+      "gridPos": {
+        "w": 12,
+        "x": 12,
+        "y": 16,
+        "h": 8
+      },
+      "id": 6,
+      "type": "timeseries",
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "placement": "bottom",
+          "displayMode": "table"
+        }
+      }
+    },
+    {
       "title": "Backend commit p99",
-      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -413,64 +417,64 @@
       "fieldConfig": {
         "overrides": [],
         "defaults": {
-          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "value": null,
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
-                "value": 1,
-                "color": "red"
+                "color": "red",
+                "value": 1
               }
             ],
             "mode": "absolute"
           },
+          "unit": "s",
           "color": {
             "mode": "palette-classic"
           },
-          "unit": "s"
+          "noValue": "0"
         }
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 24
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 7
-    },
-    {
       "targets": [
         {
+          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "editorMode": "code",
-          "legendFormat": "{{etcd_node}}",
-          "refId": "H",
-          "range": true,
-          "expr": "(histogram_quantile(0.99, sum by (le, etcd_node) (rate(etcd_disk_wal_fsync_duration_seconds_bucket{etcd_node=~\".+\"}[5m])))) or vector(0)"
+          "refId": "G",
+          "legendFormat": "{{instance}}",
+          "expr": "histogram_quantile(0.99, sum by (le, instance) (rate(etcd_disk_backend_commit_duration_seconds_bucket{job=\"etcd\"}[5m])))",
+          "range": true
         }
       ],
+      "gridPos": {
+        "w": 12,
+        "x": 0,
+        "y": 24,
+        "h": 8
+      },
+      "id": 7,
+      "type": "timeseries",
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "placement": "bottom",
+          "displayMode": "table"
+        }
+      }
+    },
+    {
       "title": "WAL fsync p99",
-      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -478,64 +482,64 @@
       "fieldConfig": {
         "overrides": [],
         "defaults": {
-          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "value": null,
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
-                "value": 1,
-                "color": "red"
+                "color": "red",
+                "value": 1
               }
             ],
             "mode": "absolute"
           },
+          "unit": "s",
           "color": {
             "mode": "palette-classic"
           },
-          "unit": "s"
+          "noValue": "0"
         }
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 24
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 8
-    },
-    {
       "targets": [
         {
+          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "editorMode": "code",
-          "legendFormat": "{{etcd_node}}",
-          "refId": "I",
-          "range": true,
-          "expr": "(etcd_mvcc_db_total_size_in_bytes{etcd_node=~\".+\"}) or vector(0)"
+          "refId": "H",
+          "legendFormat": "{{instance}}",
+          "expr": "histogram_quantile(0.99, sum by (le, instance) (rate(etcd_disk_wal_fsync_duration_seconds_bucket{job=\"etcd\"}[5m])))",
+          "range": true
         }
       ],
+      "gridPos": {
+        "w": 12,
+        "x": 12,
+        "y": 24,
+        "h": 8
+      },
+      "id": 8,
+      "type": "timeseries",
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "placement": "bottom",
+          "displayMode": "table"
+        }
+      }
+    },
+    {
       "title": "Database allocated size",
-      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -543,64 +547,64 @@
       "fieldConfig": {
         "overrides": [],
         "defaults": {
-          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "value": null,
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
-                "value": 1,
-                "color": "red"
+                "color": "red",
+                "value": 1
               }
             ],
             "mode": "absolute"
           },
+          "unit": "bytes",
           "color": {
             "mode": "palette-classic"
           },
-          "unit": "bytes"
+          "noValue": "0"
         }
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 32
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 9
-    },
-    {
       "targets": [
         {
+          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "editorMode": "code",
-          "legendFormat": "{{etcd_node}}",
-          "refId": "J",
-          "range": true,
-          "expr": "(etcd_mvcc_db_total_size_in_use_in_bytes{etcd_node=~\".+\"}) or vector(0)"
+          "refId": "I",
+          "legendFormat": "{{instance}}",
+          "expr": "etcd_mvcc_db_total_size_in_bytes{job=\"etcd\"}",
+          "range": true
         }
       ],
+      "gridPos": {
+        "w": 12,
+        "x": 0,
+        "y": 32,
+        "h": 8
+      },
+      "id": 9,
+      "type": "timeseries",
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "placement": "bottom",
+          "displayMode": "table"
+        }
+      }
+    },
+    {
       "title": "Database in-use size",
-      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -608,64 +612,64 @@
       "fieldConfig": {
         "overrides": [],
         "defaults": {
-          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "value": null,
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
-                "value": 1,
-                "color": "red"
+                "color": "red",
+                "value": 1
               }
             ],
             "mode": "absolute"
           },
+          "unit": "bytes",
           "color": {
             "mode": "palette-classic"
           },
-          "unit": "bytes"
+          "noValue": "0"
         }
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 32
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 10
-    },
-    {
       "targets": [
         {
+          "editorMode": "code",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "editorMode": "code",
-          "legendFormat": "{{etcd_node}} / {{grpc_method}} / {{grpc_code}}",
-          "refId": "K",
-          "range": true,
-          "expr": "(sum by (grpc_method, grpc_code, etcd_node) (rate(grpc_server_handled_total{etcd_node=~\".+\"}[5m]))) or vector(0)"
+          "refId": "J",
+          "legendFormat": "{{instance}}",
+          "expr": "etcd_mvcc_db_total_size_in_use_in_bytes{job=\"etcd\"}",
+          "range": true
         }
       ],
-      "title": "gRPC requests",
+      "gridPos": {
+        "w": 12,
+        "x": 12,
+        "y": 32,
+        "h": 8
+      },
+      "id": 10,
       "type": "timeseries",
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "placement": "bottom",
+          "displayMode": "table"
+        }
+      }
+    },
+    {
+      "title": "gRPC requests",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -673,64 +677,64 @@
       "fieldConfig": {
         "overrides": [],
         "defaults": {
-          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "value": null,
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
-                "value": 1,
-                "color": "red"
+                "color": "red",
+                "value": 1
               }
             ],
             "mode": "absolute"
           },
+          "unit": "reqps",
           "color": {
             "mode": "palette-classic"
           },
-          "unit": "reqps"
+          "noValue": "0"
         }
       },
+      "targets": [
+        {
+          "editorMode": "code",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "K",
+          "legendFormat": "{{instance}} / {{grpc_method}} / {{grpc_code}}",
+          "expr": "sum by (grpc_method, grpc_code, instance) (rate(grpc_server_handled_total{job=\"etcd\"}[5m]))",
+          "range": true
+        }
+      ],
       "gridPos": {
-        "h": 8,
         "w": 12,
         "x": 0,
-        "y": 40
+        "y": 40,
+        "h": 8
       },
+      "id": 11,
+      "type": "timeseries",
       "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        },
         "tooltip": {
           "mode": "multi",
           "sort": "desc"
+        },
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "placement": "bottom",
+          "displayMode": "table"
         }
-      },
-      "id": 11
+      }
     },
     {
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "legendFormat": "{{etcd_node}}",
-          "refId": "L",
-          "range": true,
-          "expr": "(process_resident_memory_bytes{etcd_node=~\".+\"}) or vector(0)"
-        }
-      ],
       "title": "Process memory",
-      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -738,120 +742,116 @@
       "fieldConfig": {
         "overrides": [],
         "defaults": {
-          "noValue": "0",
           "thresholds": {
             "steps": [
               {
-                "value": null,
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
-                "value": 1,
-                "color": "red"
+                "color": "red",
+                "value": 1
               }
             ],
             "mode": "absolute"
           },
+          "unit": "bytes",
           "color": {
             "mode": "palette-classic"
           },
-          "unit": "bytes"
+          "noValue": "0"
         }
       },
+      "targets": [
+        {
+          "editorMode": "code",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "L",
+          "legendFormat": "{{instance}}",
+          "expr": "process_resident_memory_bytes{job=\"etcd\"}",
+          "range": true
+        }
+      ],
       "gridPos": {
-        "h": 8,
         "w": 12,
         "x": 12,
-        "y": 40
+        "y": 40,
+        "h": 8
       },
+      "id": 12,
+      "type": "timeseries",
       "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        },
         "tooltip": {
           "mode": "multi",
           "sort": "desc"
+        },
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "placement": "bottom",
+          "displayMode": "table"
         }
-      },
-      "id": 12
+      }
     },
     {
       "datasource": {
         "type": "elasticsearch",
         "uid": "elasticsearch"
       },
+      "id": 13,
+      "title": "Recent logs",
+      "type": "logs",
       "targets": [
         {
-          "metrics": [
-            {
-              "id": "1",
-              "type": "logs"
-            }
-          ],
-          "query": "kubernetes.pod.name: etcd-*",
+          "queryType": "logs",
           "datasource": {
             "type": "elasticsearch",
             "uid": "elasticsearch"
           },
           "timeField": "@timestamp",
+          "query": "kubernetes.pod.name: etcd-*",
           "bucketAggs": [],
-          "queryType": "logs",
-          "refId": "Logs"
+          "refId": "Logs",
+          "metrics": [
+            {
+              "id": "1",
+              "type": "logs"
+            }
+          ]
         }
       ],
-      "type": "logs",
-      "title": "Recent logs",
+      "gridPos": {
+        "w": 24,
+        "x": 0,
+        "y": 48,
+        "h": 10
+      },
       "options": {
-        "sortOrder": "Descending",
+        "showTime": true,
         "wrapLogMessage": true,
         "enableLogDetails": true,
         "prettifyLogMessage": false,
+        "sortOrder": "Descending",
+        "showLabels": false,
         "dedupStrategy": "none",
-        "showCommonLabels": false,
-        "showTime": true,
-        "showLabels": false
-      },
-      "id": 13,
-      "gridPos": {
-        "h": 10,
-        "w": 24,
-        "x": 0,
-        "y": 48
+        "showCommonLabels": false
       }
     }
   ],
-  "editable": false,
-  "time": {
-    "to": "now",
-    "from": "now-6h"
-  },
-  "uid": "automatic-system-infra-etcd",
-  "timezone": "browser",
   "id": null,
   "title": "Infrastructure / etcd Cluster",
-  "tags": [
-    "automatic-system",
-    "infrastructure",
-    "etcd"
-  ],
-  "refresh": "30s",
-  "timepicker": {},
-  "version": 1,
-  "graphTooltip": 1,
-  "schemaVersion": 41,
-  "templating": {
-    "list": []
-  },
-  "annotations": {
-    "list": []
-  },
-  "weekStart": "",
   "fiscalYearStartMonth": 0,
-  "links": [],
-  "liveNow": false
+  "refresh": "30s",
+  "schemaVersion": 41,
+  "timepicker": {},
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "editable": false
 }

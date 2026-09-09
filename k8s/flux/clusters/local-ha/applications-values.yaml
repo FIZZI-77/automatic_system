@@ -1,11 +1,44 @@
 globalImage:
   registry: ghcr.io/fizzi-77
   tag: sha-7e50eb65738b
+  tags:
+    analytics: sha-7e50eb65738b
+    api-gateway: sha-7e50eb65738b
+    asset: sha-7e50eb65738b
+    audit: sha-7e50eb65738b
+    auth: sha-7e50eb65738b
+    brigade: sha-7e50eb65738b
+    department: sha-7e50eb65738b
+    dispatch: sha-7e50eb65738b
+    file: sha-7e50eb65738b
+    frontend: sha-7e50eb65738b
+    location: sha-7e50eb65738b
+    notification: sha-7e50eb65738b
+    profile: sha-7e50eb65738b
+    report: sha-7e50eb65738b
+    routing: sha-7e50eb65738b
+    sla: sha-7e50eb65738b
+    ticket: sha-7e50eb65738b
   pullPolicy: Always
 
 migrations:
   registry: ghcr.io/fizzi-77
   tag: sha-7e50eb65738b
+  tags:
+    asset: sha-7e50eb65738b
+    audit: sha-7e50eb65738b
+    auth: sha-7e50eb65738b
+    brigade: sha-7e50eb65738b
+    department: sha-7e50eb65738b
+    dispatch: sha-7e50eb65738b
+    file: sha-7e50eb65738b
+    location: sha-7e50eb65738b
+    notification: sha-7e50eb65738b
+    profile: sha-7e50eb65738b
+    report: sha-7e50eb65738b
+    routing: sha-7e50eb65738b
+    sla: sha-7e50eb65738b
+    ticket: sha-7e50eb65738b
   pullPolicy: Always
 
 analyticsInit:

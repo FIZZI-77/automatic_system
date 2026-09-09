@@ -277,6 +277,6 @@ scrape_configs:
         regex: "true"
       - source_labels: [__meta_kubernetes_node_address_InternalIP]
         target_label: __address__
-        replacement: $1:9465
+        replacement: $1:2381
       - source_labels: [__meta_kubernetes_node_name]
         target_label: instance

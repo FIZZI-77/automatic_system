@@ -41,7 +41,7 @@ spec:
             secretKeyRef:
               key: ASSET_GOOSE_DBSTRING
               name: runtime-secrets
-        image: '{{ .Values.migrations.registry }}/automatic-system-asset-migrator:{{ required "migrations.tag is required when migrations.enabled=true" .Values.migrations.tag }}'
+        image: '{{ .Values.migrations.registry }}/automatic-system-asset-migrator:{{ required "asset migration image tag is required" (default .Values.migrations.tag (index (default dict .Values.migrations.tags) "asset")) }}'
         imagePullPolicy: {{ .Values.migrations.pullPolicy }}
         name: migrator
         resources:
@@ -97,7 +97,7 @@ spec:
             secretKeyRef:
               key: AUDIT_GOOSE_DBSTRING
               name: runtime-secrets
-        image: '{{ .Values.migrations.registry }}/automatic-system-audit-migrator:{{ required "migrations.tag is required when migrations.enabled=true" .Values.migrations.tag }}'
+        image: '{{ .Values.migrations.registry }}/automatic-system-audit-migrator:{{ required "audit migration image tag is required" (default .Values.migrations.tag (index (default dict .Values.migrations.tags) "audit")) }}'
         imagePullPolicy: {{ .Values.migrations.pullPolicy }}
         name: migrator
         resources:
@@ -153,7 +153,7 @@ spec:
             secretKeyRef:
               key: AUTH_GOOSE_DBSTRING
               name: runtime-secrets
-        image: '{{ .Values.migrations.registry }}/automatic-system-auth-migrator:{{ required "migrations.tag is required when migrations.enabled=true" .Values.migrations.tag }}'
+        image: '{{ .Values.migrations.registry }}/automatic-system-auth-migrator:{{ required "auth migration image tag is required" (default .Values.migrations.tag (index (default dict .Values.migrations.tags) "auth")) }}'
         imagePullPolicy: {{ .Values.migrations.pullPolicy }}
         name: migrator
         resources:
@@ -209,7 +209,7 @@ spec:
             secretKeyRef:
               key: BRIGADE_GOOSE_DBSTRING
               name: runtime-secrets
-        image: '{{ .Values.migrations.registry }}/automatic-system-brigade-migrator:{{ required "migrations.tag is required when migrations.enabled=true" .Values.migrations.tag }}'
+        image: '{{ .Values.migrations.registry }}/automatic-system-brigade-migrator:{{ required "brigade migration image tag is required" (default .Values.migrations.tag (index (default dict .Values.migrations.tags) "brigade")) }}'
         imagePullPolicy: {{ .Values.migrations.pullPolicy }}
         name: migrator
         resources:
@@ -265,7 +265,7 @@ spec:
             secretKeyRef:
               key: DEPARTMENT_GOOSE_DBSTRING
               name: runtime-secrets
-        image: '{{ .Values.migrations.registry }}/automatic-system-department-migrator:{{ required "migrations.tag is required when migrations.enabled=true" .Values.migrations.tag }}'
+        image: '{{ .Values.migrations.registry }}/automatic-system-department-migrator:{{ required "department migration image tag is required" (default .Values.migrations.tag (index (default dict .Values.migrations.tags) "department")) }}'
         imagePullPolicy: {{ .Values.migrations.pullPolicy }}
         name: migrator
         resources:
@@ -321,7 +321,7 @@ spec:
             secretKeyRef:
               key: FILE_GOOSE_DBSTRING
               name: runtime-secrets
-        image: '{{ .Values.migrations.registry }}/automatic-system-file-migrator:{{ required "migrations.tag is required when migrations.enabled=true" .Values.migrations.tag }}'
+        image: '{{ .Values.migrations.registry }}/automatic-system-file-migrator:{{ required "file migration image tag is required" (default .Values.migrations.tag (index (default dict .Values.migrations.tags) "file")) }}'
         imagePullPolicy: {{ .Values.migrations.pullPolicy }}
         name: migrator
         resources:
@@ -377,7 +377,7 @@ spec:
             secretKeyRef:
               key: LOCATION_GOOSE_DBSTRING
               name: runtime-secrets
-        image: '{{ .Values.migrations.registry }}/automatic-system-location-migrator:{{ required "migrations.tag is required when migrations.enabled=true" .Values.migrations.tag }}'
+        image: '{{ .Values.migrations.registry }}/automatic-system-location-migrator:{{ required "location migration image tag is required" (default .Values.migrations.tag (index (default dict .Values.migrations.tags) "location")) }}'
         imagePullPolicy: {{ .Values.migrations.pullPolicy }}
         name: migrator
         resources:
@@ -433,7 +433,7 @@ spec:
             secretKeyRef:
               key: NOTIFICATION_GOOSE_DBSTRING
               name: runtime-secrets
-        image: '{{ .Values.migrations.registry }}/automatic-system-notification-migrator:{{ required "migrations.tag is required when migrations.enabled=true" .Values.migrations.tag }}'
+        image: '{{ .Values.migrations.registry }}/automatic-system-notification-migrator:{{ required "notification migration image tag is required" (default .Values.migrations.tag (index (default dict .Values.migrations.tags) "notification")) }}'
         imagePullPolicy: {{ .Values.migrations.pullPolicy }}
         name: migrator
         resources:
@@ -489,7 +489,7 @@ spec:
             secretKeyRef:
               key: PROFILE_GOOSE_DBSTRING
               name: runtime-secrets
-        image: '{{ .Values.migrations.registry }}/automatic-system-profile-migrator:{{ required "migrations.tag is required when migrations.enabled=true" .Values.migrations.tag }}'
+        image: '{{ .Values.migrations.registry }}/automatic-system-profile-migrator:{{ required "profile migration image tag is required" (default .Values.migrations.tag (index (default dict .Values.migrations.tags) "profile")) }}'
         imagePullPolicy: {{ .Values.migrations.pullPolicy }}
         name: migrator
         resources:
@@ -545,7 +545,7 @@ spec:
             secretKeyRef:
               key: REPORT_GOOSE_DBSTRING
               name: runtime-secrets
-        image: '{{ .Values.migrations.registry }}/automatic-system-report-migrator:{{ required "migrations.tag is required when migrations.enabled=true" .Values.migrations.tag }}'
+        image: '{{ .Values.migrations.registry }}/automatic-system-report-migrator:{{ required "report migration image tag is required" (default .Values.migrations.tag (index (default dict .Values.migrations.tags) "report")) }}'
         imagePullPolicy: {{ .Values.migrations.pullPolicy }}
         name: migrator
         resources:
@@ -601,7 +601,7 @@ spec:
             secretKeyRef:
               key: ROUTING_GOOSE_DBSTRING
               name: runtime-secrets
-        image: '{{ .Values.migrations.registry }}/automatic-system-routing-migrator:{{ required "migrations.tag is required when migrations.enabled=true" .Values.migrations.tag }}'
+        image: '{{ .Values.migrations.registry }}/automatic-system-routing-migrator:{{ required "routing migration image tag is required" (default .Values.migrations.tag (index (default dict .Values.migrations.tags) "routing")) }}'
         imagePullPolicy: {{ .Values.migrations.pullPolicy }}
         name: migrator
         resources:
@@ -657,7 +657,7 @@ spec:
             secretKeyRef:
               key: SLA_GOOSE_DBSTRING
               name: runtime-secrets
-        image: '{{ .Values.migrations.registry }}/automatic-system-sla-migrator:{{ required "migrations.tag is required when migrations.enabled=true" .Values.migrations.tag }}'
+        image: '{{ .Values.migrations.registry }}/automatic-system-sla-migrator:{{ required "sla migration image tag is required" (default .Values.migrations.tag (index (default dict .Values.migrations.tags) "sla")) }}'
         imagePullPolicy: {{ .Values.migrations.pullPolicy }}
         name: migrator
         resources:
@@ -713,7 +713,7 @@ spec:
             secretKeyRef:
               key: TICKET_GOOSE_DBSTRING
               name: runtime-secrets
-        image: '{{ .Values.migrations.registry }}/automatic-system-ticket-migrator:{{ required "migrations.tag is required when migrations.enabled=true" .Values.migrations.tag }}'
+        image: '{{ .Values.migrations.registry }}/automatic-system-ticket-migrator:{{ required "ticket migration image tag is required" (default .Values.migrations.tag (index (default dict .Values.migrations.tags) "ticket")) }}'
         imagePullPolicy: {{ .Values.migrations.pullPolicy }}
         name: migrator
         resources:
