@@ -52,7 +52,7 @@ Workflow оставляет поддержку обоих имён, поэтом
 `JWT_PUBLIC_KEY_B64`
 : base64 PEM public key для `jwt-public-key`.
 
-### Optional for private GHCR packages
+### Required while GHCR packages are private
 
 `GHCR_PULL_USERNAME`
 : GitHub user / machine user.
@@ -60,7 +60,9 @@ Workflow оставляет поддержку обоих имён, поэтом
 `GHCR_PULL_TOKEN`
 : PAT с `read:packages`.
 
-Если GHCR packages public, эти два secret не нужны.
+Локальное и производственное развёртывания создают из этих значений
+`imagePullSecret` с именем `ghcr-pull`. Если все GHCR packages публичные, этот
+шаг можно снова сделать необязательным.
 
 ## PowerShell: как получить Base64
 
