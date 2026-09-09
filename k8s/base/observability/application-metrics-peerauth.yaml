@@ -6,7 +6,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/part-of: automatic-system
+      app.kubernetes.io/managed-by: Helm
   portLevelMtls:
     "9464":
       mode: DISABLE
