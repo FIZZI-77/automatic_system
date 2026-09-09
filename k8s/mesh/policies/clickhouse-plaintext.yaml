@@ -1,0 +1,11 @@
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: clickhouse-native-plaintext
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: clickhouse
+  portLevelMtls:
+    "9000":
+      mode: DISABLE
