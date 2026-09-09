@@ -25,20 +25,20 @@ migrations:
   registry: ghcr.io/fizzi-77
   tag: sha-7e50eb65738b
   tags:
-    asset: sha-7e50eb65738b
-    audit: sha-7e50eb65738b
-    auth: sha-7e50eb65738b
-    brigade: sha-7e50eb65738b
-    department: sha-7e50eb65738b
-    dispatch: sha-7e50eb65738b
-    file: sha-7e50eb65738b
-    location: sha-7e50eb65738b
-    notification: sha-7e50eb65738b
-    profile: sha-7e50eb65738b
-    report: sha-7e50eb65738b
-    routing: sha-7e50eb65738b
-    sla: sha-7e50eb65738b
-    ticket: sha-7e50eb65738b
+    asset: sha-0f958cb6f658
+    audit: sha-0f958cb6f658
+    auth: sha-0f958cb6f658
+    brigade: sha-0f958cb6f658
+    department: sha-0f958cb6f658
+    dispatch: sha-0f958cb6f658
+    file: sha-0f958cb6f658
+    location: sha-0f958cb6f658
+    notification: sha-0f958cb6f658
+    profile: sha-0f958cb6f658
+    report: sha-0f958cb6f658
+    routing: sha-0f958cb6f658
+    sla: sha-0f958cb6f658
+    ticket: sha-0f958cb6f658
   pullPolicy: Always
 
 analyticsInit:
