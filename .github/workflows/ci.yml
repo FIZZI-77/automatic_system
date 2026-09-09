@@ -896,6 +896,9 @@ jobs:
           fetch-depth: 2
           ref: ${{ env.TARGET_SHA }}
 
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
       - name: Check runner tools and Kubernetes access
         shell: bash
         run: |
