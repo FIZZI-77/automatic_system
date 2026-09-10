@@ -165,7 +165,7 @@ canary:
       loadTest:
         url: http://flagger-loadtester.automatic-system/
         timeout: 5s
-        command: hey -z 1m -q 2 -c 1 http://frontend-canary.automatic-system:3000/
+        command: hey -z 12m -q 2 -c 1 http://frontend-canary.automatic-system:3000/
     location-service:
       deployment: location-service
       service: location-service

@@ -986,25 +986,56 @@ jobs:
             exit 0
           fi
 
+          declare -A ROLLOUT_STARTED
+
+          for CANARY_NAME in "${EXPECTED_CANARIES[@]}"; do
+            PRIMARY_IMAGE="$(kubectl get deployment "${CANARY_NAME}-primary" \
+              -n automatic-system \
+              -o jsonpath='{.spec.template.spec.containers[0].image}')"
+
+            if [[ "$PRIMARY_IMAGE" == *":${IMAGE_TAG}" ]]; then
+              ROLLOUT_STARTED["$CANARY_NAME"]=true
+              continue
+            fi
+
+            PHASE="$(kubectl get canary "$CANARY_NAME" \
+              -n automatic-system \
+              -o jsonpath='{.status.phase}')"
+
+            if [ "$PHASE" = "Failed" ]; then
+              echo "Restarting failed Flagger analysis for $CANARY_NAME"
+              kubectl patch deployment "$CANARY_NAME" \
+                -n automatic-system \
+                --type merge \
+                -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"ci.automatic-system/retry\":\"${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}\"}}}}}"
+              ROLLOUT_STARTED["$CANARY_NAME"]=false
+            else
+              ROLLOUT_STARTED["$CANARY_NAME"]=true
+            fi
+          done
+
           for _ in $(seq 1 480); do
             PRIMARY_COUNT=0
 
             for CANARY_NAME in "${EXPECTED_CANARIES[@]}"; do
-              PHASE="$(kubectl get canary "$CANARY_NAME" \
-                -n automatic-system \
-                -o jsonpath='{.status.phase}')"
-
-              if [ "$PHASE" = "Failed" ]; then
-                echo "::error::Flagger failed: $CANARY_NAME"
-                exit 1
-              fi
-
               PRIMARY_IMAGE="$(kubectl get deployment "${CANARY_NAME}-primary" \
                 -n automatic-system \
                 -o jsonpath='{.spec.template.spec.containers[0].image}')"
 
               if [[ "$PRIMARY_IMAGE" == *":${IMAGE_TAG}" ]]; then
                 PRIMARY_COUNT=$((PRIMARY_COUNT + 1))
+                continue
+              fi
+
+              PHASE="$(kubectl get canary "$CANARY_NAME" \
+                -n automatic-system \
+                -o jsonpath='{.status.phase}')"
+
+              if [ "$PHASE" != "Failed" ]; then
+                ROLLOUT_STARTED["$CANARY_NAME"]=true
+              elif [ "${ROLLOUT_STARTED[$CANARY_NAME]}" = "true" ]; then
+                echo "::error::Flagger failed: $CANARY_NAME"
+                exit 1
               fi
             done
 
