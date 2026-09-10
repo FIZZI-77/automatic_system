@@ -291,11 +291,11 @@ ON CONFLICT (id) DO UPDATE SET status=EXCLUDED.status,origin=EXCLUDED.origin,des
 "@
 
 Invoke-SeedSql "postgres-dispatch" "dispatch" "dispatch" @"
-INSERT INTO dispatch_operations(id,ticket_id,brigade_id,route_id,mode,status,version,requested_by,failure_reason,expires_at,created_at,updated_at) VALUES
-('80000000-0000-4000-8000-000000000001','$ticketAssigned','$brigadeRoad','$routePlanned','MANUAL','ASSIGNED',2,'$dispatcherId',NULL,now()+interval '2 hours',now()-interval '25 minutes',now()-interval '25 minutes'),
-('80000000-0000-4000-8000-000000000002','$ticketProgress','$brigadeUtility','$routeActive','AUTO','ASSIGNED',3,'$dispatcherId',NULL,now()+interval '2 hours',now()-interval '45 minutes',now()-interval '18 minutes'),
-('80000000-0000-4000-8000-000000000003','$ticketCanceled',NULL,NULL,'AUTO','FAILED',1,'$dispatcherId','Нет доступной бригады нужной квалификации',now()-interval '1 day',now()-interval '2 days',now()-interval '2 days')
-ON CONFLICT (id) DO UPDATE SET brigade_id=EXCLUDED.brigade_id,route_id=EXCLUDED.route_id,status=EXCLUDED.status,version=EXCLUDED.version,failure_reason=EXCLUDED.failure_reason,updated_at=EXCLUDED.updated_at;
+INSERT INTO dispatch_operations(id,ticket_id,department_id,category_id,priority,brigade_id,route_id,mode,status,version,requested_by,failure_reason,expires_at,created_at,updated_at) VALUES
+('80000000-0000-4000-8000-000000000001','$ticketAssigned','$depRoads','$catLight','HIGH','$brigadeRoad','$routePlanned','MANUAL','ASSIGNED',2,'$dispatcherId',NULL,now()+interval '2 hours',now()-interval '25 minutes',now()-interval '25 minutes'),
+('80000000-0000-4000-8000-000000000002','$ticketProgress','$depUtilities','$catWater','EMERGENCY','$brigadeUtility','$routeActive','AUTO','ASSIGNED',3,'$dispatcherId',NULL,now()+interval '2 hours',now()-interval '45 minutes',now()-interval '18 minutes'),
+('80000000-0000-4000-8000-000000000003','$ticketCanceled','$depRoads','$catRoad','LOW',NULL,NULL,'AUTO','FAILED',1,'$dispatcherId','Нет доступной бригады нужной квалификации',now()-interval '1 day',now()-interval '2 days',now()-interval '2 days')
+ON CONFLICT (id) DO UPDATE SET department_id=EXCLUDED.department_id,category_id=EXCLUDED.category_id,priority=EXCLUDED.priority,brigade_id=EXCLUDED.brigade_id,route_id=EXCLUDED.route_id,status=EXCLUDED.status,version=EXCLUDED.version,failure_reason=EXCLUDED.failure_reason,updated_at=EXCLUDED.updated_at;
 "@
 
 Invoke-SeedSql "postgres-sla" "sla" "sla" @"

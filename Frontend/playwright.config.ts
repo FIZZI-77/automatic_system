@@ -13,6 +13,7 @@ export default defineConfig({
   globalTeardown: "./e2e/global-teardown.ts",
   use: {
     baseURL: process.env.E2E_BASE_URL || "http://127.0.0.1:3000",
+    extraHTTPHeaders: ngrokHeaders(),
     ignoreHTTPSErrors: process.env.E2E_IGNORE_HTTPS_ERRORS === "1",
     actionTimeout: 12_000,
     navigationTimeout: 30_000,
@@ -45,4 +46,10 @@ export default defineConfig({
 function hostResolverLaunchOptions() {
   const rules = process.env.E2E_HOST_RESOLVER_RULES;
   return rules ? { args: [`--host-resolver-rules=${rules}`] } : undefined;
+}
+
+function ngrokHeaders() {
+  if (process.env.E2E_NGROK_SKIP_BROWSER_WARNING !== "1") return undefined;
+
+  return { "ngrok-skip-browser-warning": "playwright-e2e" };
 }
