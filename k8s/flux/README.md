@@ -10,7 +10,7 @@ secrets, migrations, and backup jobs remain outside Flux in this first phase.
 - the `automatic-system` runtime and JWT secrets already exist;
 - the self-hosted GitHub runner uses the `github-runner` ServiceAccount from
   namespace `arc-runners`;
-- the `test` and deployable `feature/**` branches contain this directory;
+- the `test`, `feature`, and deployable `feature/**` branches contain this directory;
 - the first successful local deployment creates the `deploy/local` branch
   before reconciliation is enabled.
 
@@ -55,8 +55,8 @@ The release values are generated from
 SHA tag groups, commits the GitOps snapshot to `deploy/local` with `[skip ci]`,
 and waits for the changed Flagger primary deployments to promote that tag. The
 source branches are never modified by the deployment job. Deployments from
-`test` and `feature/**` share one deployment branch and one concurrency group
-because they target the same local cluster.
+`test`, `feature`, and `feature/**` share one deployment branch and one
+concurrency group because they target the same local cluster.
 
 Do not add stateful infrastructure to this Kustomization until storage adoption,
 pruning, and rollback have been tested separately.

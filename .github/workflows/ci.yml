@@ -5,6 +5,7 @@ on:
 
   push:
     branches:
+      - feature
       - "feature/**"
       - test
       - main
@@ -775,9 +776,10 @@ jobs:
 
     if: >
       always() &&
-      github.event_name == 'push' &&
-      (github.ref == 'refs/heads/test' ||
-       startsWith(github.ref, 'refs/heads/feature/')) &&
+       github.event_name == 'push' &&
+       (github.ref == 'refs/heads/test' ||
+        github.ref == 'refs/heads/feature' ||
+        startsWith(github.ref, 'refs/heads/feature/')) &&
       needs.application-images.result == 'success' &&
       needs.migrator-images.result == 'success' &&
       (needs.frontend-image.result == 'success' || needs.frontend-image.result == 'skipped') &&
@@ -871,7 +873,7 @@ jobs:
             --heads origin "refs/heads/${DEPLOY_BRANCH}")"
 
           case "$TARGET_BRANCH" in
-            test|feature/*) ;;
+            test|feature|feature/*) ;;
             *)
               echo "::error::Unsupported deployment branch: $TARGET_BRANCH"
               exit 1
