@@ -1,0 +1,20 @@
+{
+  "info": {"name":"SLA Service via Gateway","schema":"https://schema.getpostman.com/json/collection/v2.1.0/collection.json"},
+  "auth": {"type":"bearer","bearer":[{"key":"token","value":"{{access_token}}","type":"string"}]},
+  "item": [
+    {"name":"01 Create SLA rule","event":[{"listen":"test","script":{"exec":["pm.test('rule created',()=>pm.response.to.have.status(201));","pm.collectionVariables.set('sla_rule_id',pm.response.json().rule.id);"]}}],"request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"name\": \"Postman emergency rule\",\n  \"department_id\": \"{{department_id}}\",\n  \"priority\": \"EMERGENCY\",\n  \"response_time_seconds\": 300,\n  \"resolution_time_seconds\": 3600,\n  \"warning_percent\": 80\n}"},"url":"{{base_url}}/sla/rules/create"}},
+    {"name":"02 Get SLA rule","event":[{"listen":"test","script":{"exec":["pm.test('rule returned',()=>pm.response.to.have.status(200));"]}}],"request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"id\":\"{{sla_rule_id}}\"}"},"url":"{{base_url}}/sla/rules/get"}},
+    {"name":"03 List SLA rules","event":[{"listen":"test","script":{"exec":["pm.test('rules returned',()=>pm.response.to.have.status(200));"]}}],"request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"active\":true,\"limit\":100}"},"url":"{{base_url}}/sla/rules/list"}},
+    {"name":"04 Get ticket SLA","description":"Create a ticket first and wait briefly for Kafka consumption.","event":[{"listen":"test","script":{"exec":["pm.test('ticket SLA returned',()=>pm.response.to.have.status(200));","pm.expect(pm.response.json().sla.ticket_id).to.eql(pm.collectionVariables.get('ticket_id'));"]}}],"request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"ticket_id\":\"{{ticket_id}}\"}"},"url":"{{base_url}}/sla/tickets/get"}},
+    {"name":"05 List active ticket SLAs","event":[{"listen":"test","script":{"exec":["pm.test('SLAs returned',()=>pm.response.to.have.status(200));"]}}],"request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"status\":\"ACTIVE\",\"limit\":100}"},"url":"{{base_url}}/sla/tickets/list"}},
+    {"name":"06 List SLA history","event":[{"listen":"test","script":{"exec":["pm.test('history returned',()=>pm.response.to.have.status(200));"]}}],"request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"ticket_id\":\"{{ticket_id}}\"}"},"url":"{{base_url}}/sla/history/list"}},
+    {"name":"07 Disable SLA rule","event":[{"listen":"test","script":{"exec":["pm.test('rule disabled',()=>pm.response.to.have.status(200));","pm.expect(pm.response.json().rule.active).to.eql(false);"]}}],"request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"id\":\"{{sla_rule_id}}\"}"},"url":"{{base_url}}/sla/rules/delete"}}
+  ],
+  "variable": [
+    {"key":"base_url","value":"http://localhost:8081"},
+    {"key":"access_token","value":""},
+    {"key":"department_id","value":""},
+    {"key":"ticket_id","value":""},
+    {"key":"sla_rule_id","value":""}
+  ]
+}

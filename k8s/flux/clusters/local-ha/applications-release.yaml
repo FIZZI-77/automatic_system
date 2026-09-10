@@ -1,0 +1,44 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: applications
+  namespace: flux-system
+spec:
+  chart:
+    spec:
+      chart: ./k8s/helm/applications
+      interval: 1m
+      reconcileStrategy: ChartVersion
+      sourceRef:
+        kind: GitRepository
+        name: automatic-system
+      valuesFiles:
+        - k8s/helm/applications/values.yaml
+        - k8s/helm/applications/values-local-ha.yaml
+  dependsOn:
+    - name: flagger
+    - name: flagger-loadtester
+  install:
+    remediation:
+      retries: 3
+  interval: 5m
+  maxHistory: 10
+  releaseName: applications
+  rollback:
+    cleanupOnFail: true
+  storageNamespace: automatic-system
+  targetNamespace: automatic-system
+  timeout: 35m
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      remediateLastFailure: true
+      retries: 2
+      strategy: rollback
+  valuesFrom:
+    - kind: ConfigMap
+      name: applications-release-values
+      valuesKey: values.yaml
+  values:
+    canary:
+      enabled: true

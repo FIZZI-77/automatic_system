@@ -6,23 +6,32 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
 	"strings"
-	"ticket/models"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"ticket/models"
 )
 
 type TicketRepoStruct struct {
-	db *sql.DB
+	writePool *pgxpool.Pool
+	readPool  *pgxpool.Pool
 }
 
-func NewTicketRepository(db *sql.DB) *TicketRepoStruct {
+func NewTicketRepository(writePool *pgxpool.Pool, readPool *pgxpool.Pool) *TicketRepoStruct {
+	if readPool == nil {
+		readPool = writePool
+	}
+
 	return &TicketRepoStruct{
-		db: db,
+		writePool: writePool,
+		readPool:  readPool,
 	}
 }
 
-var ErrNotFound = errors.New("not found")
+var ErrNotFound = models.ErrNotFound
 
 type ticketCreatedEventPayload struct {
 	EventID      string    `json:"event_id"`
@@ -36,315 +45,69 @@ type ticketCreatedEventPayload struct {
 	Address      string    `json:"address"`
 	Latitude     float64   `json:"latitude"`
 	Longitude    float64   `json:"longitude"`
+	AssetID      *string   `json:"asset_id,omitempty"`
 	CreatedAt    time.Time `json:"created_at"`
 }
 
-func (t *TicketRepoStruct) CreateTicket(ctx context.Context, in models.CreateTicketInput) (*models.Ticket, error) {
-
-	tx, err := t.db.BeginTx(ctx, nil)
+func (t *TicketRepoStruct) CreateTicket(ctx context.Context, in *models.CreateTicketInput) (*models.Ticket, error) {
+	tx, err := beginCommandTx(ctx, t.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: CreateTicket(): begin tx: %w", err)
 	}
-	defer func(tx *sql.Tx) {
-		err := tx.Rollback()
-		if err != nil {
+	defer rollbackTxOnCancel(ctx, tx)()
 
-		}
-	}(tx)
-
-	categoryActive, err := t.isCategoryActive(ctx, tx, in.CategoryID)
+	ticket, err := t.createTicket(ctx, tx, in)
 	if err != nil {
-		return nil, fmt.Errorf("repository: CreateTicket(): check category: %w", err)
+		return nil, err
 	}
-
-	if !categoryActive {
-		return nil, fmt.Errorf("repository: CreateTicket(): category is not active")
-	}
-
-	ticketID := uuid.NewString()
-	now := time.Now().UTC()
-
-	ticket, err := t.insertTicket(ctx, tx, ticketID, now, in)
-	if err != nil {
-		return nil, fmt.Errorf("repository: CreateTicket(): insert ticket: %w", err)
-	}
-
-	if err = t.insertTicketStatusHistory(
-		ctx,
-		tx,
-		ticket.ID,
-		"",
-		models.TicketStatusNew,
-		in.UserID,
-		"Ticket created",
-	); err != nil {
-		return nil, fmt.Errorf("repository: CreateTicket(): insert status history: %w", err)
-	}
-
-	if err = t.insertTicketCreatedOutboxEvent(ctx, tx, ticket); err != nil {
-		return nil, fmt.Errorf("repository: CreateTicket(): insert outbox event: %w", err)
-	}
-
-	if err = tx.Commit(); err != nil {
+	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repository: CreateTicket(): commit: %w", err)
 	}
 
 	return ticket, nil
 }
 
-func (t *TicketRepoStruct) isCategoryActive(ctx context.Context, tx *sql.Tx, categoryID string) (bool, error) {
-	const query = `
-		SELECT is_active
-		FROM ticket_categories
-		WHERE id = $1
-	`
-
-	var isActive bool
-
-	err := tx.QueryRowContext(ctx, query, categoryID).Scan(&isActive)
-	if errors.Is(err, sql.ErrNoRows) {
-		return false, ErrNotFound
-	}
-
+func (t *TicketRepoStruct) createTicket(ctx context.Context, q Querier, in *models.CreateTicketInput) (*models.Ticket, error) {
+	categoryActive, err := t.isCategoryActive(ctx, q, in.CategoryID)
 	if err != nil {
-		return false, err
+		return nil, fmt.Errorf("repository: CreateTicket(): check category: %w", err)
 	}
 
-	return isActive, nil
-}
-
-func (t *TicketRepoStruct) insertTicket(
-	ctx context.Context,
-	tx *sql.Tx,
-	ticketID string,
-	now time.Time,
-	in models.CreateTicketInput,
-) (*models.Ticket, error) {
-	const query = `
-		INSERT INTO tickets (
-			id,
-			department_id,
-			category_id,
-			user_id,
-			brigade_id,
-			title,
-			description,
-			status,
-			priority,
-			address,
-			latitude,
-			longitude,
-			created_at,
-			updated_at,
-			assigned_at,
-			completed_at,
-			canceled_at
-		)
-		VALUES (
-			$1, $2, $3, $4, NULL,
-			$5, $6, $7, $8,
-			$9, $10, $11,
-			$12, $13,
-			NULL, NULL, NULL
-		)
-		RETURNING
-			id,
-			department_id,
-			category_id,
-			user_id,
-			brigade_id,
-			title,
-			description,
-			status,
-			priority,
-			address,
-			latitude,
-			longitude,
-			created_at,
-			updated_at,
-			assigned_at,
-			completed_at,
-			canceled_at
-	`
-
-	row := tx.QueryRowContext(
-		ctx,
-		query,
-		ticketID,
-		in.DepartmentID,
-		in.CategoryID,
-		in.UserID,
-		in.Title,
-		in.Description,
-		models.TicketStatusNew,
-		in.Priority,
-		in.Address,
-		in.Latitude,
-		in.Longitude,
-		now,
-		now,
-	)
-
-	return scanTicket(row)
-}
-
-func (t *TicketRepoStruct) insertTicketStatusHistory(
-	ctx context.Context,
-	tx *sql.Tx,
-	ticketID string,
-	oldStatus models.TicketStatus,
-	newStatus models.TicketStatus,
-	changedBy string,
-	comment string,
-) error {
-	const query = `
-		INSERT INTO ticket_status_history (
-			id,
-			ticket_id,
-			old_status,
-			new_status,
-			changed_by,
-			comment,
-			created_at
-		)
-		VALUES ($1, $2, $3, $4, $5, $6, now())
-	`
-
-	var oldStatusValue any
-	if oldStatus == "" {
-		oldStatusValue = nil
-	} else {
-		oldStatusValue = string(oldStatus)
+	if !categoryActive {
+		return nil, fmt.Errorf("repository: CreateTicket(): %w", models.ErrCategoryInactive)
 	}
 
-	_, err := tx.ExecContext(
-		ctx,
-		query,
-		uuid.NewString(),
-		ticketID,
-		oldStatusValue,
-		string(newStatus),
-		changedBy,
-		comment,
-	)
+	ticketID := uuid.New()
+	now := time.Now().UTC()
 
-	return err
-}
-
-func (t *TicketRepoStruct) insertTicketCreatedOutboxEvent(
-	ctx context.Context,
-	tx *sql.Tx,
-	ticket *models.Ticket,
-) error {
-	eventID := uuid.NewString()
-
-	payload := ticketCreatedEventPayload{
-		EventID:      eventID,
-		EventType:    "ticket.created",
-		TicketID:     ticket.ID,
-		DepartmentID: ticket.DepartmentID,
-		CategoryID:   ticket.CategoryID,
-		UserID:       ticket.UserID,
-		Priority:     string(ticket.Priority),
-		Status:       string(ticket.Status),
-		Address:      ticket.Address,
-		Latitude:     ticket.Latitude,
-		Longitude:    ticket.Longitude,
-		CreatedAt:    ticket.CreatedAt,
-	}
-
-	payloadBytes, err := json.Marshal(payload)
+	ticket, err := t.insertTicket(ctx, q, ticketID, now, in)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("repository: CreateTicket(): insert ticket: %w", err)
 	}
 
-	const query = `
-		INSERT INTO outbox_events (
-			id,
-			aggregate_type,
-			aggregate_id,
-			event_type,
-			payload,
-			status,
-			attempts,
-			created_at
-		)
-		VALUES ($1, $2, $3, $4, $5::jsonb, $6, 0, now())
-	`
+	comment := "Ticket created"
 
-	_, err = tx.ExecContext(
+	if err = t.insertTicketStatusHistory(
 		ctx,
-		query,
-		eventID,
-		"ticket",
+		q,
 		ticket.ID,
-		"ticket.created",
-		string(payloadBytes),
-		"PENDING",
-	)
+		ticket.DepartmentID,
+		nil,
+		models.TicketStatusNew,
+		&in.UserID,
+		&comment,
+	); err != nil {
+		return nil, fmt.Errorf("repository: CreateTicket(): insert status history: %w", err)
+	}
 
-	return err
+	if err = t.insertTicketCreatedOutboxEvent(ctx, q, ticket); err != nil {
+		return nil, fmt.Errorf("repository: CreateTicket(): insert outbox event: %w", err)
+	}
+
+	return ticket, nil
 }
 
-type scanner interface {
-	Scan(dest ...any) error
-}
-
-func scanTicket(s scanner) (*models.Ticket, error) {
-	var ticket models.Ticket
-
-	var brigadeID sql.NullString
-	var assignedAt sql.NullTime
-	var completedAt sql.NullTime
-	var canceledAt sql.NullTime
-
-	err := s.Scan(
-		&ticket.ID,
-		&ticket.DepartmentID,
-		&ticket.CategoryID,
-		&ticket.UserID,
-		&brigadeID,
-		&ticket.Title,
-		&ticket.Description,
-		&ticket.Status,
-		&ticket.Priority,
-		&ticket.Address,
-		&ticket.Latitude,
-		&ticket.Longitude,
-		&ticket.CreatedAt,
-		&ticket.UpdatedAt,
-		&assignedAt,
-		&completedAt,
-		&canceledAt,
-	)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNotFound
-		}
-
-		return nil, err
-	}
-
-	if brigadeID.Valid {
-		ticket.BrigadeID = &brigadeID.String
-	}
-
-	if assignedAt.Valid {
-		ticket.AssignedAt = &assignedAt.Time
-	}
-
-	if completedAt.Valid {
-		ticket.CompletedAt = &completedAt.Time
-	}
-
-	if canceledAt.Valid {
-		ticket.CanceledAt = &canceledAt.Time
-	}
-
-	return &ticket, nil
-}
-
-func (t *TicketRepoStruct) GetTicketByID(ctx context.Context, ticketID string) (*models.Ticket, error) {
+func (t *TicketRepoStruct) GetTicketByID(ctx context.Context, ticketID uuid.UUID) (*models.Ticket, error) {
 	const query = `
 		SELECT
 			id,
@@ -363,12 +126,13 @@ func (t *TicketRepoStruct) GetTicketByID(ctx context.Context, ticketID string) (
 			updated_at,
 			assigned_at,
 			completed_at,
-			canceled_at
+			canceled_at,
+			asset_id
 		FROM tickets
-		WHERE id = $1
+		WHERE id = $1 AND status <> 'ARCHIVED'
 	`
 
-	row := t.db.QueryRowContext(ctx, query, ticketID)
+	row := t.readPool.QueryRow(ctx, query, ticketID)
 
 	ticket, err := scanTicket(row)
 	if err != nil {
@@ -378,8 +142,14 @@ func (t *TicketRepoStruct) GetTicketByID(ctx context.Context, ticketID string) (
 	return ticket, nil
 }
 
-func (t *TicketRepoStruct) ListTickets(ctx context.Context, in models.ListTicketsInput) ([]*models.Ticket, int64, error) {
-	whereParts := make([]string, 0)
+func (t *TicketRepoStruct) ListTickets(ctx context.Context, in *models.ListTicketsInput) ([]*models.Ticket, int64, error) {
+	conn, err := t.readPool.Acquire(ctx)
+	if err != nil {
+		return nil, 0, fmt.Errorf("repository: ListTickets(): acquire connection: %w", err)
+	}
+	defer conn.Release()
+
+	whereParts := []string{"status <> 'ARCHIVED'"}
 	args := make([]any, 0)
 
 	addWhere := func(condition string, value any) {
@@ -387,28 +157,28 @@ func (t *TicketRepoStruct) ListTickets(ctx context.Context, in models.ListTicket
 		whereParts = append(whereParts, fmt.Sprintf(condition, len(args)))
 	}
 
-	if in.DepartmentID != "" {
-		addWhere("department_id = $%d", in.DepartmentID)
+	if in.DepartmentID != nil {
+		addWhere("department_id = $%d", *in.DepartmentID)
 	}
 
-	if in.UserID != "" {
-		addWhere("user_id = $%d", in.UserID)
+	if in.UserID != nil {
+		addWhere("user_id = $%d", *in.UserID)
 	}
 
-	if in.BrigadeID != "" {
-		addWhere("brigade_id = $%d", in.BrigadeID)
+	if in.BrigadeID != nil {
+		addWhere("brigade_id = $%d", *in.BrigadeID)
 	}
 
-	if in.CategoryID != "" {
-		addWhere("category_id = $%d", in.CategoryID)
+	if in.CategoryID != nil {
+		addWhere("category_id = $%d", *in.CategoryID)
 	}
 
-	if in.Status != "" {
-		addWhere("status = $%d", string(in.Status))
+	if in.Status != nil {
+		addWhere("status = $%d", string(*in.Status))
 	}
 
-	if in.Priority != "" {
-		addWhere("priority = $%d", string(in.Priority))
+	if in.Priority != nil {
+		addWhere("priority = $%d", string(*in.Priority))
 	}
 
 	if in.CreatedFrom != nil {
@@ -431,7 +201,7 @@ func (t *TicketRepoStruct) ListTickets(ctx context.Context, in models.ListTicket
 	`, whereSQL)
 
 	var total int64
-	if err := t.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
+	if err := conn.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("repository: ListTickets(): count: %w", err)
 	}
 
@@ -460,23 +230,19 @@ func (t *TicketRepoStruct) ListTickets(ctx context.Context, in models.ListTicket
 			updated_at,
 			assigned_at,
 			completed_at,
-			canceled_at
+			canceled_at,
+			asset_id
 		FROM tickets
 		%s
 		ORDER BY %s %s
 		LIMIT $%d OFFSET $%d
 	`, whereSQL, sortBy, sortOrder, limitArg, offsetArg)
 
-	rows, err := t.db.QueryContext(ctx, listQuery, args...)
+	rows, err := conn.Query(ctx, listQuery, args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("repository: ListTickets(): query: %w", err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-
-		}
-	}(rows)
+	defer rows.Close()
 
 	tickets := make([]*models.Ticket, 0)
 
@@ -496,18 +262,25 @@ func (t *TicketRepoStruct) ListTickets(ctx context.Context, in models.ListTicket
 	return tickets, total, nil
 }
 
-func (t *TicketRepoStruct) UpdateTicket(ctx context.Context, in models.UpdateTicketInput) (*models.Ticket, error) {
-	tx, err := t.db.BeginTx(ctx, nil)
+func (t *TicketRepoStruct) UpdateTicket(ctx context.Context, in *models.UpdateTicketInput) (*models.Ticket, error) {
+	tx, err := beginCommandTx(ctx, t.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: UpdateTicket(): begin tx: %w", err)
 	}
-	defer func(tx *sql.Tx) {
-		err := tx.Rollback()
-		if err != nil {
+	defer rollbackTxOnCancel(ctx, tx)()
 
-		}
-	}(tx)
+	ticket, err := t.updateTicket(ctx, tx, in)
+	if err != nil {
+		return nil, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("repository: UpdateTicket(): commit: %w", err)
+	}
 
+	return ticket, nil
+}
+
+func (t *TicketRepoStruct) updateTicket(ctx context.Context, q Querier, in *models.UpdateTicketInput) (*models.Ticket, error) {
 	setParts := make([]string, 0)
 	args := make([]any, 0)
 
@@ -516,38 +289,63 @@ func (t *TicketRepoStruct) UpdateTicket(ctx context.Context, in models.UpdateTic
 		setParts = append(setParts, fmt.Sprintf("%s = $%d", column, len(args)))
 	}
 
-	if strings.TrimSpace(in.Title) != "" {
-		addSet("title", in.Title)
+	if in.Title != nil {
+		addSet("title", *in.Title)
 	}
 
-	if strings.TrimSpace(in.Description) != "" {
-		addSet("description", in.Description)
+	if in.Description != nil {
+		addSet("description", *in.Description)
 	}
 
-	if strings.TrimSpace(in.CategoryID) != "" {
-		categoryActive, err := t.isCategoryActive(ctx, tx, in.CategoryID)
+	if in.CategoryID != nil {
+		categoryActive, err := t.isCategoryActive(ctx, q, *in.CategoryID)
 		if err != nil {
 			return nil, fmt.Errorf("repository: UpdateTicket(): check category: %w", err)
 		}
 
 		if !categoryActive {
-			return nil, fmt.Errorf("repository: UpdateTicket(): category is not active")
+			return nil, fmt.Errorf("repository: UpdateTicket(): %w", models.ErrCategoryInactive)
 		}
 
-		addSet("category_id", in.CategoryID)
+		addSet("category_id", *in.CategoryID)
 	}
 
-	if in.Priority != "" {
-		addSet("priority", string(in.Priority))
+	if in.Priority != nil {
+		addSet("priority", string(*in.Priority))
 	}
 
-	if strings.TrimSpace(in.Address) != "" {
-		addSet("address", in.Address)
+	if in.Address != nil {
+		addSet("address", *in.Address)
 	}
 
 	if in.Latitude != nil && in.Longitude != nil {
 		addSet("latitude", *in.Latitude)
 		addSet("longitude", *in.Longitude)
+	}
+
+	if in.AssetID != nil {
+		addSet("asset_id", *in.AssetID)
+	}
+
+	currentTicket, err := t.getTicketByIDForUpdate(ctx, q, in.TicketID)
+	if err != nil {
+		return nil, fmt.Errorf("repository: UpdateTicket(): get ticket: %w", err)
+	}
+
+	workerRole := false
+	for _, role := range in.ActorRoles {
+		if role == "worker" {
+			workerRole = true
+			break
+		}
+	}
+	workerOwnsTicket := workerRole && in.ActorBrigadeID != nil && currentTicket.BrigadeID != nil && *currentTicket.BrigadeID == *in.ActorBrigadeID && currentTicket.Status == models.TicketStatusInProgress
+	if !hasPrivilegedRole(in.ActorRoles) && !workerOwnsTicket && currentTicket.UserID != *in.UpdatedBy {
+		return nil, fmt.Errorf("repository: UpdateTicket(): %w", models.ErrPermissionDenied)
+	}
+
+	if currentTicket.Status == models.TicketStatusDone || currentTicket.Status == models.TicketStatusCanceled {
+		return nil, fmt.Errorf("repository: UpdateTicket(): %w", models.ErrTicketTerminalState)
 	}
 
 	addSet("updated_at", time.Now().UTC())
@@ -577,42 +375,50 @@ func (t *TicketRepoStruct) UpdateTicket(ctx context.Context, in models.UpdateTic
 			updated_at,
 			assigned_at,
 			completed_at,
-			canceled_at
+			canceled_at,
+			asset_id
 	`, strings.Join(setParts, ", "), ticketIDArg)
 
-	row := tx.QueryRowContext(ctx, query, args...)
+	row := q.QueryRow(ctx, query, args...)
 
 	ticket, err := scanTicket(row)
 	if err != nil {
 		return nil, fmt.Errorf("repository: UpdateTicket(): update ticket: %w", err)
 	}
 
-	if err = t.insertOutboxEvent(ctx, tx, "ticket", ticket.ID, "ticket.updated", ticket); err != nil {
+	if err = t.insertOutboxEvent(ctx, q, "ticket", ticket.ID, "ticket.updated", ticket); err != nil {
 		return nil, fmt.Errorf("repository: UpdateTicket(): insert outbox event: %w", err)
-	}
-
-	if err = tx.Commit(); err != nil {
-		return nil, fmt.Errorf("repository: UpdateTicket(): commit: %w", err)
 	}
 
 	return ticket, nil
 }
 
-func (t *TicketRepoStruct) ChangeTicketStatus(ctx context.Context, in models.ChangeTicketStatusInput) (*models.Ticket, error) {
-	tx, err := t.db.BeginTx(ctx, nil)
+func (t *TicketRepoStruct) ChangeTicketStatus(ctx context.Context, in *models.ChangeTicketStatusInput) (*models.Ticket, error) {
+	tx, err := beginCommandTx(ctx, t.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: ChangeTicketStatus(): begin tx: %w", err)
 	}
-	defer func(tx *sql.Tx) {
-		err := tx.Rollback()
-		if err != nil {
+	defer rollbackTxOnCancel(ctx, tx)()
 
-		}
-	}(tx)
+	ticket, err := t.changeTicketStatus(ctx, tx, in)
+	if err != nil {
+		return nil, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("repository: ChangeTicketStatus(): commit: %w", err)
+	}
 
-	oldTicket, err := t.getTicketByIDForUpdate(ctx, tx, in.TicketID)
+	return ticket, nil
+}
+
+func (t *TicketRepoStruct) changeTicketStatus(ctx context.Context, q Querier, in *models.ChangeTicketStatusInput) (*models.Ticket, error) {
+	oldTicket, err := t.getTicketByIDForUpdate(ctx, q, in.TicketID)
 	if err != nil {
 		return nil, fmt.Errorf("repository: ChangeTicketStatus(): get ticket: %w", err)
+	}
+
+	if err = validateStatusTransition(oldTicket.Status, in.NewStatus); err != nil {
+		return nil, fmt.Errorf("repository: ChangeTicketStatus(): %w", err)
 	}
 
 	const query = `
@@ -620,6 +426,7 @@ func (t *TicketRepoStruct) ChangeTicketStatus(ctx context.Context, in models.Cha
 		SET status = $1,
 		    updated_at = now()
 		WHERE id = $2
+		  AND status NOT IN ('DONE', 'CANCELED')
 		RETURNING
 			id,
 			department_id,
@@ -637,46 +444,77 @@ func (t *TicketRepoStruct) ChangeTicketStatus(ctx context.Context, in models.Cha
 			updated_at,
 			assigned_at,
 			completed_at,
-			canceled_at
+			canceled_at,
+			asset_id
 	`
 
-	row := tx.QueryRowContext(ctx, query, string(in.NewStatus), in.TicketID)
+	row := q.QueryRow(ctx, query, string(in.NewStatus), in.TicketID)
 
 	ticket, err := scanTicket(row)
 	if err != nil {
 		return nil, fmt.Errorf("repository: ChangeTicketStatus(): update ticket: %w", err)
 	}
 
-	if err = t.insertTicketStatusHistory(ctx, tx, ticket.ID, oldTicket.Status, in.NewStatus, in.ChangedBy, in.Comment); err != nil {
+	if err = t.insertTicketStatusHistory(ctx, q, ticket.ID, ticket.DepartmentID, &oldTicket.Status, in.NewStatus, &in.ChangedBy, in.Comment); err != nil {
 		return nil, fmt.Errorf("repository: ChangeTicketStatus(): insert status history: %w", err)
 	}
 
-	if err = t.insertOutboxEvent(ctx, tx, "ticket", ticket.ID, "ticket.status_changed", ticket); err != nil {
+	if err = t.insertOutboxEvent(ctx, q, "ticket", ticket.ID, "ticket.status_changed", ticket); err != nil {
 		return nil, fmt.Errorf("repository: ChangeTicketStatus(): insert outbox event: %w", err)
-	}
-
-	if err = tx.Commit(); err != nil {
-		return nil, fmt.Errorf("repository: ChangeTicketStatus(): commit: %w", err)
 	}
 
 	return ticket, nil
 }
 
-func (t *TicketRepoStruct) AssignBrigade(ctx context.Context, in models.AssignBrigadeInput) (*models.Ticket, error) {
-	tx, err := t.db.BeginTx(ctx, nil)
+func (t *TicketRepoStruct) AssignBrigade(ctx context.Context, in *models.AssignBrigadeInput) (*models.Ticket, error) {
+	tx, err := beginCommandTx(ctx, t.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: AssignBrigade(): begin tx: %w", err)
 	}
-	defer func(tx *sql.Tx) {
-		err := tx.Rollback()
-		if err != nil {
+	defer rollbackTxOnCancel(ctx, tx)()
 
-		}
-	}(tx)
+	ticket, err := t.assignBrigade(ctx, tx, in)
+	if err != nil {
+		return nil, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("repository: AssignBrigade(): commit: %w", err)
+	}
 
-	oldTicket, err := t.getTicketByIDForUpdate(ctx, tx, in.TicketID)
+	return ticket, nil
+}
+
+func (t *TicketRepoStruct) assignBrigade(ctx context.Context, q Querier, in *models.AssignBrigadeInput) (*models.Ticket, error) {
+	oldTicket, err := t.getTicketByIDForUpdate(ctx, q, in.TicketID)
 	if err != nil {
 		return nil, fmt.Errorf("repository: AssignBrigade(): get ticket: %w", err)
+	}
+
+	if err = validateStatusTransition(oldTicket.Status, models.TicketStatusAssigned); err != nil {
+		return nil, fmt.Errorf("repository: AssignBrigade(): %w", err)
+	}
+
+	// Serialise assignments for the same brigade. Locking only the ticket row is
+	// insufficient because concurrent requests can assign two different tickets.
+	if _, err = q.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1::text))`, in.BrigadeID); err != nil {
+		return nil, fmt.Errorf("repository: AssignBrigade(): lock brigade: %w", err)
+	}
+
+	var brigadeBusy bool
+	const brigadeBusyQuery = `
+		SELECT EXISTS (
+			SELECT 1
+			FROM tickets
+			WHERE brigade_id = $1
+			  AND id <> $2
+			  AND status IN ('ASSIGNED', 'IN_PROGRESS')
+		)
+	`
+	if err = q.QueryRow(ctx, brigadeBusyQuery, in.BrigadeID, in.TicketID).Scan(&brigadeBusy); err != nil {
+		return nil, fmt.Errorf("repository: AssignBrigade(): check active ticket: %w", err)
+	}
+	if brigadeBusy {
+		return nil, fmt.Errorf("repository: AssignBrigade(): %w", models.ErrBrigadeBusy)
 	}
 
 	const query = `
@@ -704,46 +542,54 @@ func (t *TicketRepoStruct) AssignBrigade(ctx context.Context, in models.AssignBr
 			updated_at,
 			assigned_at,
 			completed_at,
-			canceled_at
+			canceled_at,
+			asset_id
 	`
 
-	row := tx.QueryRowContext(ctx, query, in.BrigadeID, string(models.TicketStatusAssigned), in.TicketID)
+	row := q.QueryRow(ctx, query, in.BrigadeID, string(models.TicketStatusAssigned), in.TicketID)
 
 	ticket, err := scanTicket(row)
 	if err != nil {
 		return nil, fmt.Errorf("repository: AssignBrigade(): update ticket: %w", err)
 	}
 
-	if err = t.insertTicketStatusHistory(ctx, tx, ticket.ID, oldTicket.Status, models.TicketStatusAssigned, in.AssignedBy, in.Comment); err != nil {
+	if err = t.insertTicketStatusHistory(ctx, q, ticket.ID, ticket.DepartmentID, &oldTicket.Status, models.TicketStatusAssigned, &in.AssignedBy, in.Comment); err != nil {
 		return nil, fmt.Errorf("repository: AssignBrigade(): insert status history: %w", err)
 	}
 
-	if err = t.insertOutboxEvent(ctx, tx, "ticket", ticket.ID, "ticket.assigned", ticket); err != nil {
+	if err = t.insertOutboxEvent(ctx, q, "ticket", ticket.ID, "ticket.assigned", ticket); err != nil {
 		return nil, fmt.Errorf("repository: AssignBrigade(): insert outbox event: %w", err)
-	}
-
-	if err = tx.Commit(); err != nil {
-		return nil, fmt.Errorf("repository: AssignBrigade(): commit: %w", err)
 	}
 
 	return ticket, nil
 }
 
-func (t *TicketRepoStruct) CancelTicket(ctx context.Context, in models.CancelTicketInput) (*models.Ticket, error) {
-	tx, err := t.db.BeginTx(ctx, nil)
+func (t *TicketRepoStruct) CancelTicket(ctx context.Context, in *models.CancelTicketInput) (*models.Ticket, error) {
+	tx, err := beginCommandTx(ctx, t.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: CancelTicket(): begin tx: %w", err)
 	}
-	defer func(tx *sql.Tx) {
-		err := tx.Rollback()
-		if err != nil {
+	defer rollbackTxOnCancel(ctx, tx)()
 
-		}
-	}(tx)
+	ticket, err := t.cancelTicket(ctx, tx, in)
+	if err != nil {
+		return nil, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("repository: CancelTicket(): commit: %w", err)
+	}
 
-	oldTicket, err := t.getTicketByIDForUpdate(ctx, tx, in.TicketID)
+	return ticket, nil
+}
+
+func (t *TicketRepoStruct) cancelTicket(ctx context.Context, q Querier, in *models.CancelTicketInput) (*models.Ticket, error) {
+	oldTicket, err := t.getTicketByIDForUpdate(ctx, q, in.TicketID)
 	if err != nil {
 		return nil, fmt.Errorf("repository: CancelTicket(): get ticket: %w", err)
+	}
+
+	if err = validateStatusTransition(oldTicket.Status, models.TicketStatusCanceled); err != nil {
+		return nil, fmt.Errorf("repository: CancelTicket(): %w", err)
 	}
 
 	const query = `
@@ -771,45 +617,53 @@ func (t *TicketRepoStruct) CancelTicket(ctx context.Context, in models.CancelTic
 			assigned_at,
 			completed_at,
 			canceled_at
+			,asset_id
 	`
 
-	row := tx.QueryRowContext(ctx, query, string(models.TicketStatusCanceled), in.TicketID)
+	row := q.QueryRow(ctx, query, string(models.TicketStatusCanceled), in.TicketID)
 
 	ticket, err := scanTicket(row)
 	if err != nil {
 		return nil, fmt.Errorf("repository: CancelTicket(): update ticket: %w", err)
 	}
 
-	if err = t.insertTicketStatusHistory(ctx, tx, ticket.ID, oldTicket.Status, models.TicketStatusCanceled, in.CanceledBy, in.Reason); err != nil {
+	if err = t.insertTicketStatusHistory(ctx, q, ticket.ID, ticket.DepartmentID, &oldTicket.Status, models.TicketStatusCanceled, &in.CanceledBy, &in.Reason); err != nil {
 		return nil, fmt.Errorf("repository: CancelTicket(): insert status history: %w", err)
 	}
 
-	if err = t.insertOutboxEvent(ctx, tx, "ticket", ticket.ID, "ticket.canceled", ticket); err != nil {
+	if err = t.insertOutboxEvent(ctx, q, "ticket", ticket.ID, "ticket.canceled", ticket); err != nil {
 		return nil, fmt.Errorf("repository: CancelTicket(): insert outbox event: %w", err)
-	}
-
-	if err = tx.Commit(); err != nil {
-		return nil, fmt.Errorf("repository: CancelTicket(): commit: %w", err)
 	}
 
 	return ticket, nil
 }
 
-func (t *TicketRepoStruct) CompleteTicket(ctx context.Context, in models.CompleteTicketInput) (*models.Ticket, error) {
-	tx, err := t.db.BeginTx(ctx, nil)
+func (t *TicketRepoStruct) CompleteTicket(ctx context.Context, in *models.CompleteTicketInput) (*models.Ticket, error) {
+	tx, err := beginCommandTx(ctx, t.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: CompleteTicket(): begin tx: %w", err)
 	}
-	defer func(tx *sql.Tx) {
-		err := tx.Rollback()
-		if err != nil {
+	defer rollbackTxOnCancel(ctx, tx)()
 
-		}
-	}(tx)
+	ticket, err := t.completeTicket(ctx, tx, in)
+	if err != nil {
+		return nil, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("repository: CompleteTicket(): commit: %w", err)
+	}
 
-	oldTicket, err := t.getTicketByIDForUpdate(ctx, tx, in.TicketID)
+	return ticket, nil
+}
+
+func (t *TicketRepoStruct) completeTicket(ctx context.Context, q Querier, in *models.CompleteTicketInput) (*models.Ticket, error) {
+	oldTicket, err := t.getTicketByIDForUpdate(ctx, q, in.TicketID)
 	if err != nil {
 		return nil, fmt.Errorf("repository: CompleteTicket(): get ticket: %w", err)
+	}
+
+	if err = validateStatusTransition(oldTicket.Status, models.TicketStatusDone); err != nil {
+		return nil, fmt.Errorf("repository: CompleteTicket(): %w", err)
 	}
 
 	const query = `
@@ -837,31 +691,28 @@ func (t *TicketRepoStruct) CompleteTicket(ctx context.Context, in models.Complet
 			assigned_at,
 			completed_at,
 			canceled_at
+			,asset_id
 	`
 
-	row := tx.QueryRowContext(ctx, query, string(models.TicketStatusDone), in.TicketID)
+	row := q.QueryRow(ctx, query, string(models.TicketStatusDone), in.TicketID)
 
 	ticket, err := scanTicket(row)
 	if err != nil {
 		return nil, fmt.Errorf("repository: CompleteTicket(): update ticket: %w", err)
 	}
 
-	if err = t.insertTicketStatusHistory(ctx, tx, ticket.ID, oldTicket.Status, models.TicketStatusDone, in.CompletedBy, in.Comment); err != nil {
+	if err = t.insertTicketStatusHistory(ctx, q, ticket.ID, ticket.DepartmentID, &oldTicket.Status, models.TicketStatusDone, &in.CompletedBy, in.Comment); err != nil {
 		return nil, fmt.Errorf("repository: CompleteTicket(): insert status history: %w", err)
 	}
 
-	if err = t.insertOutboxEvent(ctx, tx, "ticket", ticket.ID, "ticket.completed", ticket); err != nil {
+	if err = t.insertOutboxEvent(ctx, q, "ticket", ticket.ID, "ticket.completed", ticket); err != nil {
 		return nil, fmt.Errorf("repository: CompleteTicket(): insert outbox event: %w", err)
-	}
-
-	if err = tx.Commit(); err != nil {
-		return nil, fmt.Errorf("repository: CompleteTicket(): commit: %w", err)
 	}
 
 	return ticket, nil
 }
 
-func (t *TicketRepoStruct) GetTicketStatusHistory(ctx context.Context, in models.GetTicketStatusHistoryInput) ([]*models.TicketStatusHistory, int64, error) {
+func (t *TicketRepoStruct) GetTicketStatusHistory(ctx context.Context, in *models.GetTicketStatusHistoryInput) ([]*models.TicketStatusHistory, int64, error) {
 	const countQuery = `
 		SELECT COUNT(*)
 		FROM ticket_status_history
@@ -869,7 +720,7 @@ func (t *TicketRepoStruct) GetTicketStatusHistory(ctx context.Context, in models
 	`
 
 	var total int64
-	if err := t.db.QueryRowContext(ctx, countQuery, in.TicketID).Scan(&total); err != nil {
+	if err := t.readPool.QueryRow(ctx, countQuery, in.TicketID).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("repository: GetTicketStatusHistory(): count: %w", err)
 	}
 
@@ -888,16 +739,11 @@ func (t *TicketRepoStruct) GetTicketStatusHistory(ctx context.Context, in models
 		LIMIT $2 OFFSET $3
 	`
 
-	rows, err := t.db.QueryContext(ctx, listQuery, in.TicketID, in.Limit, in.Offset)
+	rows, err := t.readPool.Query(ctx, listQuery, in.TicketID, in.Limit, in.Offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("repository: GetTicketStatusHistory(): query: %w", err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-
-		}
-	}(rows)
+	defer rows.Close()
 
 	history := make([]*models.TicketStatusHistory, 0)
 
@@ -910,14 +756,230 @@ func (t *TicketRepoStruct) GetTicketStatusHistory(ctx context.Context, in models
 		history = append(history, item)
 	}
 
-	if err := rows.Err(); err != nil {
+	if err = rows.Err(); err != nil {
 		return nil, 0, fmt.Errorf("repository: GetTicketStatusHistory(): rows: %w", err)
 	}
 
 	return history, total, nil
 }
 
-func (t *TicketRepoStruct) getTicketByIDForUpdate(ctx context.Context, tx *sql.Tx, ticketID string) (*models.Ticket, error) {
+func (t *TicketRepoStruct) isCategoryActive(ctx context.Context, exec Querier, categoryID uuid.UUID) (bool, error) {
+	const query = `
+		SELECT is_active
+		FROM ticket_categories
+		WHERE id = $1
+	`
+
+	var isActive bool
+
+	err := exec.QueryRow(ctx, query, categoryID).Scan(&isActive)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, ErrNotFound
+	}
+
+	if err != nil {
+		return false, err
+	}
+
+	return isActive, nil
+}
+
+func (t *TicketRepoStruct) insertTicket(
+	ctx context.Context,
+	exec Querier,
+	ticketID uuid.UUID,
+	now time.Time,
+	in *models.CreateTicketInput,
+) (*models.Ticket, error) {
+	const query = `
+		INSERT INTO tickets (
+			id,
+			department_id,
+			category_id,
+			user_id,
+			brigade_id,
+			title,
+			description,
+			status,
+			priority,
+			address,
+			latitude,
+			longitude,
+			created_at,
+			updated_at,
+			assigned_at,
+			completed_at,
+			canceled_at,
+			asset_id
+		)
+		VALUES (
+			$1, $2, $3, $4, NULL,
+			$5, $6, $7, $8,
+			$9, $10, $11,
+			$12, $13,
+			NULL, NULL, NULL, $14
+		)
+		RETURNING
+			id,
+			department_id,
+			category_id,
+			user_id,
+			brigade_id,
+			title,
+			description,
+			status,
+			priority,
+			address,
+			latitude,
+			longitude,
+			created_at,
+			updated_at,
+			assigned_at,
+			completed_at,
+			canceled_at,
+			asset_id
+	`
+
+	row := exec.QueryRow(
+		ctx,
+		query,
+		ticketID,
+		in.DepartmentID,
+		in.CategoryID,
+		in.UserID,
+		in.Title,
+		in.Description,
+		models.TicketStatusNew,
+		in.Priority,
+		in.Address,
+		in.Latitude,
+		in.Longitude,
+		now,
+		now,
+		in.AssetID,
+	)
+
+	return scanTicket(row)
+}
+
+func (t *TicketRepoStruct) insertTicketStatusHistory(
+	ctx context.Context,
+	exec Querier,
+	ticketID uuid.UUID,
+	departmentID uuid.UUID,
+	oldStatus *models.TicketStatus,
+	newStatus models.TicketStatus,
+	changedBy *uuid.UUID,
+	comment *string,
+) error {
+	const query = `
+		INSERT INTO ticket_status_history (
+			id,
+			department_id,
+			ticket_id,
+			old_status,
+			new_status,
+			changed_by,
+			comment,
+			created_at
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, now())
+	`
+
+	var oldStatusValue any
+	if oldStatus != nil {
+		oldStatusValue = string(*oldStatus)
+	}
+
+	var changedByValue any
+	if changedBy != nil {
+		changedByValue = *changedBy
+	}
+
+	var commentValue any
+	if comment != nil {
+		commentValue = *comment
+	}
+
+	_, err := exec.Exec(
+		ctx,
+		query,
+		uuid.New(),
+		departmentID,
+		ticketID,
+		oldStatusValue,
+		string(newStatus),
+		changedByValue,
+		commentValue,
+	)
+
+	return err
+}
+
+func (t *TicketRepoStruct) insertTicketCreatedOutboxEvent(ctx context.Context, exec Querier, ticket *models.Ticket) error {
+	eventID := uuid.New()
+
+	payload := ticketCreatedEventPayload{
+		EventID:      eventID.String(),
+		EventType:    "ticket.created",
+		TicketID:     ticket.ID.String(),
+		DepartmentID: ticket.DepartmentID.String(),
+		CategoryID:   ticket.CategoryID.String(),
+		UserID:       ticket.UserID.String(),
+		Priority:     string(ticket.Priority),
+		Status:       string(ticket.Status),
+		Address:      ticket.Address,
+		Latitude:     ticket.Latitude,
+		Longitude:    ticket.Longitude,
+		AssetID:      optionalUUIDString(ticket.AssetID),
+		CreatedAt:    ticket.CreatedAt,
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	const query = `
+		INSERT INTO outbox_events (
+			id,
+			aggregate_type,
+			aggregate_id,
+			event_type,
+			payload,
+			status,
+			attempts,
+			created_at
+		)
+		VALUES ($1, $2, $3, $4, $5::jsonb, $6, 0, now())
+	`
+
+	_, err = exec.Exec(
+		ctx,
+		query,
+		eventID,
+		"ticket",
+		ticket.ID,
+		"ticket.created",
+		string(payloadBytes),
+		"PENDING",
+	)
+
+	return err
+}
+
+func (t *TicketRepoStruct) getTicketByIDForUpdate(ctx context.Context, exec Querier, ticketID uuid.UUID) (*models.Ticket, error) {
+	const departmentQuery = `
+		SELECT department_id
+		FROM tickets
+		WHERE id = $1
+	`
+
+	var departmentID uuid.UUID
+	if err := exec.QueryRow(ctx, departmentQuery, ticketID).Scan(&departmentID); err != nil {
+		return nil, err
+	}
+
 	const query = `
 		SELECT
 			id,
@@ -937,12 +999,13 @@ func (t *TicketRepoStruct) getTicketByIDForUpdate(ctx context.Context, tx *sql.T
 			assigned_at,
 			completed_at,
 			canceled_at
+			,asset_id
 		FROM tickets
-		WHERE id = $1
+		WHERE department_id = $1 AND id = $2
 		FOR UPDATE
 	`
 
-	row := tx.QueryRowContext(ctx, query, ticketID)
+	row := exec.QueryRow(ctx, query, departmentID, ticketID)
 
 	ticket, err := scanTicket(row)
 	if err != nil {
@@ -954,13 +1017,13 @@ func (t *TicketRepoStruct) getTicketByIDForUpdate(ctx context.Context, tx *sql.T
 
 func (t *TicketRepoStruct) insertOutboxEvent(
 	ctx context.Context,
-	tx *sql.Tx,
+	exec Querier,
 	aggregateType string,
-	aggregateID string,
+	aggregateID uuid.UUID,
 	eventType string,
 	payload any,
 ) error {
-	eventID := uuid.NewString()
+	eventID := uuid.New()
 
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
@@ -981,7 +1044,7 @@ func (t *TicketRepoStruct) insertOutboxEvent(
 		VALUES ($1, $2, $3, $4, $5::jsonb, 'PENDING', 0, now())
 	`
 
-	_, err = tx.ExecContext(
+	_, err = exec.Exec(
 		ctx,
 		query,
 		eventID,
@@ -992,6 +1055,86 @@ func (t *TicketRepoStruct) insertOutboxEvent(
 	)
 
 	return err
+}
+
+type scanner interface {
+	Scan(dest ...any) error
+}
+
+func optionalUUIDString(v *uuid.UUID) *string {
+	if v == nil {
+		return nil
+	}
+	s := v.String()
+	return &s
+}
+
+func scanTicket(s scanner) (*models.Ticket, error) {
+	var ticket models.Ticket
+
+	var brigadeID sql.NullString
+	var assignedAt sql.NullTime
+	var completedAt sql.NullTime
+	var canceledAt sql.NullTime
+	var assetID sql.NullString
+
+	err := s.Scan(
+		&ticket.ID,
+		&ticket.DepartmentID,
+		&ticket.CategoryID,
+		&ticket.UserID,
+		&brigadeID,
+		&ticket.Title,
+		&ticket.Description,
+		&ticket.Status,
+		&ticket.Priority,
+		&ticket.Address,
+		&ticket.Latitude,
+		&ticket.Longitude,
+		&ticket.CreatedAt,
+		&ticket.UpdatedAt,
+		&assignedAt,
+		&completedAt,
+		&canceledAt,
+		&assetID,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+
+		return nil, err
+	}
+
+	if brigadeID.Valid {
+		parsedBrigadeID, err := uuid.Parse(brigadeID.String)
+		if err != nil {
+			return nil, fmt.Errorf("invalid brigade_id uuid: %w", err)
+		}
+
+		ticket.BrigadeID = &parsedBrigadeID
+	}
+	if assetID.Valid {
+		parsed, e := uuid.Parse(assetID.String)
+		if e != nil {
+			return nil, e
+		}
+		ticket.AssetID = &parsed
+	}
+
+	if assignedAt.Valid {
+		ticket.AssignedAt = &assignedAt.Time
+	}
+
+	if completedAt.Valid {
+		ticket.CompletedAt = &completedAt.Time
+	}
+
+	if canceledAt.Valid {
+		ticket.CanceledAt = &canceledAt.Time
+	}
+
+	return &ticket, nil
 }
 
 func scanTicketStatusHistory(s scanner) (*models.TicketStatusHistory, error) {
@@ -1011,7 +1154,7 @@ func scanTicketStatusHistory(s scanner) (*models.TicketStatusHistory, error) {
 		&item.CreatedAt,
 	)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
 		}
 
@@ -1019,18 +1162,77 @@ func scanTicketStatusHistory(s scanner) (*models.TicketStatusHistory, error) {
 	}
 
 	if oldStatus.Valid {
-		item.OldStatus = models.TicketStatus(oldStatus.String)
+		status := models.TicketStatus(oldStatus.String)
+		item.OldStatus = &status
 	}
 
 	if changedBy.Valid {
-		item.ChangedBy = changedBy.String
+		parsedChangedBy, err := uuid.Parse(changedBy.String)
+		if err != nil {
+			return nil, fmt.Errorf("invalid changed_by uuid: %w", err)
+		}
+
+		item.ChangedBy = &parsedChangedBy
 	}
 
 	if comment.Valid {
-		item.Comment = comment.String
+		item.Comment = &comment.String
 	}
 
 	return &item, nil
+}
+
+func validateStatusTransition(from models.TicketStatus, to models.TicketStatus) error {
+	if from == to {
+		return fmt.Errorf("%w: new status must be different from current status", models.ErrInvalidStatusTransition)
+	}
+
+	if from == models.TicketStatusDone {
+		return fmt.Errorf("%w: ticket is already done", models.ErrTicketTerminalState)
+	}
+
+	if from == models.TicketStatusCanceled {
+		return fmt.Errorf("%w: ticket is already canceled", models.ErrTicketTerminalState)
+	}
+
+	allowedTransitions := map[models.TicketStatus][]models.TicketStatus{
+		models.TicketStatusNew: {
+			models.TicketStatusAssigned,
+			models.TicketStatusCanceled,
+		},
+		models.TicketStatusAssigned: {
+			models.TicketStatusInProgress,
+			models.TicketStatusCanceled,
+		},
+		models.TicketStatusInProgress: {
+			models.TicketStatusDone,
+			models.TicketStatusCanceled,
+		},
+	}
+
+	nextStatuses, ok := allowedTransitions[from]
+	if !ok {
+		return fmt.Errorf("%w: invalid current status", models.ErrInvalidStatusTransition)
+	}
+
+	for _, allowedStatus := range nextStatuses {
+		if allowedStatus == to {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("%w: %s -> %s", models.ErrInvalidStatusTransition, from, to)
+}
+
+func hasPrivilegedRole(roles []string) bool {
+	for _, role := range roles {
+		switch role {
+		case "admin", "dispatcher":
+			return true
+		}
+	}
+
+	return false
 }
 
 func ticketSortColumn(sortBy models.TicketSortBy) string {

@@ -1,0 +1,36 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: flagger-loadtester
+  namespace: flux-system
+spec:
+  chart:
+    spec:
+      chart: loadtester
+      interval: 12h
+      sourceRef:
+        kind: HelmRepository
+        name: flagger
+      version: 0.38.0
+  dependsOn:
+    - name: flagger
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+  interval: 30m
+  releaseName: flagger-loadtester
+  storageNamespace: automatic-system
+  targetNamespace: automatic-system
+  timeout: 5m
+  upgrade:
+    remediation:
+      remediateLastFailure: true
+      retries: 2
+  values:
+    cmd:
+      namespaceRegexp: ""
+      timeout: 1h
+    podAnnotations:
+      proxy.istio.io/config: '{"holdApplicationUntilProxyStarts":true}'
+      sidecar.istio.io/inject: "true"

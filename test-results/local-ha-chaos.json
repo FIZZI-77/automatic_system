@@ -1,0 +1,58 @@
+﻿[
+    {
+        "Name":  "platform-read-replica",
+        "Status":  "passed",
+        "DurationSeconds":  46.4,
+        "SuccessfulRequests":  85,
+        "FailedRequests":  0
+    },
+    {
+        "Name":  "platform-primary-failover",
+        "Status":  "passed",
+        "DurationSeconds":  46.44,
+        "SuccessfulRequests":  86,
+        "FailedRequests":  0
+    },
+    {
+        "Name":  "ticket-citus-coordinator-primary",
+        "Status":  "passed",
+        "DurationSeconds":  46.53,
+        "SuccessfulRequests":  86,
+        "FailedRequests":  0
+    },
+    {
+        "Name":  "pgbouncer-ticket-primary",
+        "Status":  "passed",
+        "DurationSeconds":  46.62,
+        "SuccessfulRequests":  86,
+        "FailedRequests":  0
+    },
+    {
+        "Name":  "kafka-single-broker",
+        "Status":  "passed",
+        "DurationSeconds":  46.48,
+        "SuccessfulRequests":  86,
+        "FailedRequests":  0
+    },
+    {
+        "Name":  "minio-restart",
+        "Status":  "passed",
+        "DurationSeconds":  46.59,
+        "SuccessfulRequests":  86,
+        "FailedRequests":  0
+    },
+    {
+        "Name":  "redis-gateway-restart",
+        "Status":  "passed",
+        "DurationSeconds":  46,
+        "SuccessfulRequests":  73,
+        "FailedRequests":  6
+    },
+    {
+        "Name":  "ticket-service-restart",
+        "Status":  "passed",
+        "DurationSeconds":  46.01,
+        "SuccessfulRequests":  75,
+        "FailedRequests":  8
+    }
+]

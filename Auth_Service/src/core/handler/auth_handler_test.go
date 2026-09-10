@@ -1,17 +1,18 @@
 package handler
 
 import (
-	authv1 "auth/auth/v1"
 	"auth/models"
 	"auth/src/core/service"
 	"context"
 	"errors"
+	v1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/auth/v1"
 	"testing"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 type mockAuthService struct {
@@ -125,7 +126,7 @@ func TestAuthHandler_Register_Success(t *testing.T) {
 
 	h := newTestHandler(mock)
 
-	resp, err := h.Register(context.Background(), &authv1.RegisterRequest{
+	resp, err := h.Register(context.Background(), &v1.RegisterRequest{
 		Email:    "test@example.com",
 		Username: "testuser",
 		Password: "password123",
@@ -157,7 +158,7 @@ func TestAuthHandler_Register_ServiceError(t *testing.T) {
 
 	h := newTestHandler(mock)
 
-	resp, err := h.Register(context.Background(), &authv1.RegisterRequest{
+	resp, err := h.Register(context.Background(), &v1.RegisterRequest{
 		Email:    "test@example.com",
 		Username: "testuser",
 		Password: "password123",
@@ -208,7 +209,7 @@ func TestAuthHandler_Login_Success(t *testing.T) {
 
 	h := newTestHandler(mock)
 
-	resp, err := h.Login(context.Background(), &authv1.LoginRequest{
+	resp, err := h.Login(context.Background(), &v1.LoginRequest{
 		Email:     "test@example.com",
 		Password:  "password123",
 		ClientId:  "web-client",
@@ -246,7 +247,7 @@ func TestAuthHandler_Login_ServiceError(t *testing.T) {
 
 	h := newTestHandler(mock)
 
-	resp, err := h.Login(context.Background(), &authv1.LoginRequest{
+	resp, err := h.Login(context.Background(), &v1.LoginRequest{
 		Email:     "test@example.com",
 		Password:  "wrong-password",
 		ClientId:  "web-client",
@@ -259,6 +260,46 @@ func TestAuthHandler_Login_ServiceError(t *testing.T) {
 	}
 
 	assertGRPCCode(t, err, codes.Internal)
+}
+
+func TestAuthHandler_Login_HidesUserExistence(t *testing.T) {
+	tests := []struct {
+		name       string
+		serviceErr error
+	}{
+		{
+			name:       "user not found",
+			serviceErr: models.ErrUserNotFound,
+		},
+		{
+			name:       "invalid password",
+			serviceErr: models.ErrInvalidPassword,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			mock := &mockAuthService{
+				loginFunc: func(context.Context, models.LoginInput) (*models.LoginResult, error) {
+					return nil, test.serviceErr
+				},
+			}
+
+			handler := newTestHandler(mock)
+			response, err := handler.Login(context.Background(), &v1.LoginRequest{
+				Email:    "user@example.com",
+				Password: "wrong-password",
+			})
+
+			if response != nil {
+				t.Errorf("Login() response = %v, want nil", response)
+			}
+			assertGRPCCode(t, err, codes.Unauthenticated)
+			if got, want := status.Convert(err).Message(), "invalid email or password"; got != want {
+				t.Errorf("Login() error message = %q, want %q", got, want)
+			}
+		})
+	}
 }
 
 func TestAuthHandler_Refresh_Success(t *testing.T) {
@@ -295,7 +336,7 @@ func TestAuthHandler_Refresh_Success(t *testing.T) {
 
 	h := newTestHandler(mock)
 
-	resp, err := h.Refresh(context.Background(), &authv1.RefreshRequest{
+	resp, err := h.Refresh(context.Background(), &v1.RefreshRequest{
 		RefreshToken: "old-refresh-token",
 		ClientId:     "web-client",
 		Ip:           "127.0.0.1",
@@ -328,7 +369,7 @@ func TestAuthHandler_Refresh_ServiceError(t *testing.T) {
 
 	h := newTestHandler(mock)
 
-	resp, err := h.Refresh(context.Background(), &authv1.RefreshRequest{
+	resp, err := h.Refresh(context.Background(), &v1.RefreshRequest{
 		RefreshToken: "bad-refresh-token",
 		ClientId:     "web-client",
 		Ip:           "127.0.0.1",
@@ -362,7 +403,7 @@ func TestAuthHandler_Logout_Success(t *testing.T) {
 
 	h := newTestHandler(mock)
 
-	resp, err := h.Logout(context.Background(), &authv1.LogoutRequest{
+	resp, err := h.Logout(context.Background(), &v1.LogoutRequest{
 		UserId:    userID.String(),
 		SessionId: sessionID.String(),
 	})
@@ -379,7 +420,7 @@ func TestAuthHandler_Logout_Success(t *testing.T) {
 func TestAuthHandler_Logout_InvalidUserID(t *testing.T) {
 	h := newTestHandler(&mockAuthService{})
 
-	resp, err := h.Logout(context.Background(), &authv1.LogoutRequest{
+	resp, err := h.Logout(context.Background(), &v1.LogoutRequest{
 		UserId:    "bad-user-id",
 		SessionId: uuid.New().String(),
 	})
@@ -394,7 +435,7 @@ func TestAuthHandler_Logout_InvalidUserID(t *testing.T) {
 func TestAuthHandler_Logout_InvalidSessionID(t *testing.T) {
 	h := newTestHandler(&mockAuthService{})
 
-	resp, err := h.Logout(context.Background(), &authv1.LogoutRequest{
+	resp, err := h.Logout(context.Background(), &v1.LogoutRequest{
 		UserId:    uuid.New().String(),
 		SessionId: "bad-session-id",
 	})
@@ -421,7 +462,7 @@ func TestAuthHandler_LogoutAll_Success(t *testing.T) {
 
 	h := newTestHandler(mock)
 
-	resp, err := h.LogoutAll(context.Background(), &authv1.LogoutAllRequest{
+	resp, err := h.LogoutAll(context.Background(), &v1.LogoutAllRequest{
 		UserId: userID.String(),
 	})
 
@@ -441,7 +482,7 @@ func TestAuthHandler_LogoutAll_Success(t *testing.T) {
 func TestAuthHandler_LogoutAll_InvalidUserID(t *testing.T) {
 	h := newTestHandler(&mockAuthService{})
 
-	resp, err := h.LogoutAll(context.Background(), &authv1.LogoutAllRequest{
+	resp, err := h.LogoutAll(context.Background(), &v1.LogoutAllRequest{
 		UserId: "bad-user-id",
 	})
 
@@ -474,7 +515,7 @@ func TestAuthHandler_GetUserAuthInfo_Success(t *testing.T) {
 
 	h := newTestHandler(mock)
 
-	resp, err := h.GetUserAuthInfo(context.Background(), &authv1.GetUserAuthInfoRequest{
+	resp, err := h.GetUserAuthInfo(context.Background(), &v1.GetUserAuthInfoRequest{
 		UserId: userID.String(),
 	})
 
@@ -510,7 +551,7 @@ func TestAuthHandler_GetUserAuthInfo_Success(t *testing.T) {
 func TestAuthHandler_GetUserAuthInfo_InvalidUserID(t *testing.T) {
 	h := newTestHandler(&mockAuthService{})
 
-	resp, err := h.GetUserAuthInfo(context.Background(), &authv1.GetUserAuthInfoRequest{
+	resp, err := h.GetUserAuthInfo(context.Background(), &v1.GetUserAuthInfoRequest{
 		UserId: "bad-user-id",
 	})
 
@@ -530,7 +571,7 @@ func TestAuthHandler_GetJWKS_Success(t *testing.T) {
 
 	h := newTestHandler(mock)
 
-	resp, err := h.GetJWKS(context.Background(), &authv1.GetJWKSRequest{})
+	resp, err := h.GetJWKS(context.Background(), &v1.GetJWKSRequest{})
 
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
@@ -550,7 +591,7 @@ func TestAuthHandler_GetJWKS_ServiceError(t *testing.T) {
 
 	h := newTestHandler(mock)
 
-	resp, err := h.GetJWKS(context.Background(), &authv1.GetJWKSRequest{})
+	resp, err := h.GetJWKS(context.Background(), &v1.GetJWKSRequest{})
 
 	if resp != nil {
 		t.Fatal("expected nil response")
@@ -594,12 +635,12 @@ func TestAuthHandler_ChangePassword_Success(t *testing.T) {
 
 	h := newTestHandler(mock)
 
-	resp, err := h.ChangePassword(context.Background(), &authv1.ChangePasswordRequest{
+	resp, err := h.ChangePassword(context.Background(), &v1.ChangePasswordRequest{
 		UserId:              userID.String(),
 		SessionId:           sessionID.String(),
 		OldPassword:         "old-password",
 		NewPassword:         "new-password",
-		RevokeOtherSessions: true,
+		RevokeOtherSessions: proto.Bool(true),
 	})
 
 	if err != nil {
@@ -618,7 +659,7 @@ func TestAuthHandler_ChangePassword_Success(t *testing.T) {
 func TestAuthHandler_ChangePassword_InvalidUserID(t *testing.T) {
 	h := newTestHandler(&mockAuthService{})
 
-	resp, err := h.ChangePassword(context.Background(), &authv1.ChangePasswordRequest{
+	resp, err := h.ChangePassword(context.Background(), &v1.ChangePasswordRequest{
 		UserId:    "bad-user-id",
 		SessionId: uuid.New().String(),
 	})
@@ -633,7 +674,7 @@ func TestAuthHandler_ChangePassword_InvalidUserID(t *testing.T) {
 func TestAuthHandler_ChangePassword_InvalidSessionID(t *testing.T) {
 	h := newTestHandler(&mockAuthService{})
 
-	resp, err := h.ChangePassword(context.Background(), &authv1.ChangePasswordRequest{
+	resp, err := h.ChangePassword(context.Background(), &v1.ChangePasswordRequest{
 		UserId:    uuid.New().String(),
 		SessionId: "bad-session-id",
 	})
@@ -667,7 +708,7 @@ func TestAuthHandler_SendVerificationEmail_Success(t *testing.T) {
 
 	h := newTestHandler(mock)
 
-	resp, err := h.SendVerificationEmail(context.Background(), &authv1.SendVerificationEmailRequest{
+	resp, err := h.SendVerificationEmail(context.Background(), &v1.SendVerificationEmailRequest{
 		UserId: userID.String(),
 		Email:  "test@example.com",
 	})
@@ -688,7 +729,7 @@ func TestAuthHandler_SendVerificationEmail_Success(t *testing.T) {
 func TestAuthHandler_SendVerificationEmail_InvalidUserID(t *testing.T) {
 	h := newTestHandler(&mockAuthService{})
 
-	resp, err := h.SendVerificationEmail(context.Background(), &authv1.SendVerificationEmailRequest{
+	resp, err := h.SendVerificationEmail(context.Background(), &v1.SendVerificationEmailRequest{
 		UserId: "bad-user-id",
 		Email:  "test@example.com",
 	})
@@ -721,7 +762,7 @@ func TestAuthHandler_VerifyEmail_Success(t *testing.T) {
 
 	h := newTestHandler(mock)
 
-	resp, err := h.VerifyEmail(context.Background(), &authv1.VerifyEmailRequest{
+	resp, err := h.VerifyEmail(context.Background(), &v1.VerifyEmailRequest{
 		Token: "verify-token",
 	})
 
@@ -766,7 +807,7 @@ func TestAuthHandler_RequestPasswordReset_Success(t *testing.T) {
 
 	h := newTestHandler(mock)
 
-	resp, err := h.RequestPasswordReset(context.Background(), &authv1.RequestPasswordResetRequest{
+	resp, err := h.RequestPasswordReset(context.Background(), &v1.RequestPasswordResetRequest{
 		Email: "test@example.com",
 	})
 
@@ -803,7 +844,7 @@ func TestAuthHandler_ResetPassword_Success(t *testing.T) {
 
 	h := newTestHandler(mock)
 
-	resp, err := h.ResetPassword(context.Background(), &authv1.ResetPasswordRequest{
+	resp, err := h.ResetPassword(context.Background(), &v1.ResetPasswordRequest{
 		Token:       "reset-token",
 		NewPassword: "new-password",
 	})

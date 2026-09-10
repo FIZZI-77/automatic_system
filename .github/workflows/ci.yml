@@ -1,104 +1,1460 @@
-name: Auth Service CI/CD
+name: Automatic City Services CI/CD
 
 on:
+  pull_request:
+
   push:
     branches:
+      - feature
+      - "feature/**"
+      - test
       - main
-      - develop
-    tags:
-      - 'v*'
-  pull_request:
-    branches:
-      - main
-      - develop
+      - master
+
+  workflow_dispatch:
+
+concurrency:
+  group: automatic-system-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
   packages: write
 
 env:
+  GO_VERSION: "1.25.9"
   REGISTRY: ghcr.io
-  GO_VERSION: '1.25'
-  SERVICE_NAME: auth-service
-  SERVICE_PATH: Auth_Service
+  DOCKER_METADATA_SHORT_SHA_LENGTH: 12
 
 jobs:
-  test:
-    name: Test Auth Service
+  changes:
+    name: Detect changed build targets
     runs-on: ubuntu-latest
+    outputs:
+      application_matrix: ${{ steps.detect.outputs.application_matrix }}
+      migrator_matrix: ${{ steps.detect.outputs.migrator_matrix }}
+      frontend_changed: ${{ steps.detect.outputs.frontend_changed }}
+      clickhouse_init_changed: ${{ steps.detect.outputs.clickhouse_init_changed }}
+      deployed_applications: ${{ steps.detect.outputs.deployed_applications }}
+      migrator_services: ${{ steps.detect.outputs.migrator_services }}
+      changed_canaries: ${{ steps.detect.outputs.changed_canaries }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed components
+        id: detect
+        shell: bash
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+
+          args=(--head "$GITHUB_SHA" --output-file "$GITHUB_OUTPUT")
+
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ||
+                "$GITHUB_REF" == "refs/heads/main" ||
+                "$GITHUB_REF" == "refs/heads/master" ||
+                "${BEFORE_SHA:-}" =~ ^0+$ ]]; then
+            args+=(--force-all)
+          elif [ -n "${PR_BASE_SHA:-}" ]; then
+            args+=(--base "$PR_BASE_SHA")
+          else
+            args+=(--base "$BEFORE_SHA")
+          fi
+
+          python3 .github/scripts/detect-build-changes.py "${args[@]}"
+
+  # ===========================================================================
+  # GO QUALITY
+  # ===========================================================================
+
+  go-quality:
+    name: Go / ${{ matrix.name }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: root
+            path: "."
+
+          - name: api-gateway
+            path: API_Gateway
+
+          - name: auth
+            path: Auth_Service
+
+          - name: ticket
+            path: Ticket_Service
+
+          - name: department
+            path: Department_Service
+
+          - name: brigade
+            path: Brigade_Service
+
+          - name: profile
+            path: Profile_Service
+
+          - name: location
+            path: Location_Service
+
+          - name: routing
+            path: Routing_Service
+
+          - name: dispatch
+            path: Dispatch_Service
+
+          - name: file
+            path: File_Service
+
+          - name: sla
+            path: SLA_Service
+
+          - name: notification
+            path: Notification_Service
+
+          - name: audit
+            path: Audit_Service
+
+          - name: analytics
+            path: Analytics_Service
+
+          - name: report
+            path: Report_Service
+
+          - name: asset
+            path: Asset_Service
+
+          - name: transponder-simulator
+            path: Transponder_Simulator
 
     defaults:
       run:
-        working-directory: ${{ env.SERVICE_PATH }}
+        working-directory: ${{ matrix.path }}
+
+    # Каждый модуль проверяется независимо.
+    # Ошибка одного пути в go.work не должна валить CI всех остальных сервисов.
+    env:
+      GOWORK: "off"
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v7
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-          cache-dependency-path: ${{ env.SERVICE_PATH }}/go.sum
-
-      - name: Show Go workspace
-        run: go env GOWORK
+          cache-dependency-path: ${{ matrix.path }}/go.sum
 
       - name: Download dependencies
         run: go mod download
 
-      - name: Check formatting
-        run: test -z "$(gofmt -l .)"
+      - name: Verify dependencies
+        run: go mod verify
+
+      - name: Check gofmt
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          unformatted="$(gofmt -l .)"
+
+          if [ -n "$unformatted" ]; then
+            echo "The following Go files are not formatted:"
+            echo "$unformatted"
+            exit 1
+          fi
 
       - name: Run go vet
         run: go vet ./...
 
-      - name: Run tests
-        run: go test -v -race ./...
+      - name: Run tests with race detector
+        run: go test -race -count=1 ./...
 
-  docker-build-and-push:
-    name: Build and push Auth Service image
+  # ===========================================================================
+  # ANALYTICS CLICKHOUSE INTEGRATION
+  # ===========================================================================
+
+  analytics-integration:
+    name: Analytics / ClickHouse integration
     runs-on: ubuntu-latest
-    needs: test
 
-    if: github.event_name == 'push'
+    services:
+      clickhouse:
+        image: clickhouse/clickhouse-server:25.8
+        env:
+          CLICKHOUSE_DB: analytics
+          CLICKHOUSE_USER: analytics
+          CLICKHOUSE_PASSWORD: analytics
+          CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+        ports:
+          - 8123:8123
+          - 9000:9000
+        options: >-
+          --health-cmd "clickhouse-client --user analytics --password analytics --query 'SELECT 1'"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      GOWORK: "off"
+      CLICKHOUSE_TEST_ADDR: 127.0.0.1:9000
+      CLICKHOUSE_TEST_PASSWORD: analytics
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: Analytics_Service/go.sum
+
+      - name: Initialize analytics schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          container_id="$(docker ps \
+            --filter ancestor=clickhouse/clickhouse-server:25.8 \
+            --format '{{.ID}}' | head -n 1)"
+          test -n "$container_id"
+          docker cp Analytics_Service/scheme/001_events.sql \
+            "$container_id:/tmp/analytics-schema.sql"
+          docker exec "$container_id" clickhouse-client \
+            --user analytics \
+            --password analytics \
+            --multiquery \
+            --queries-file /tmp/analytics-schema.sql
+
+      - name: Run ClickHouse integration tests
+        working-directory: Analytics_Service
+        run: go test -race -count=1 -tags=integration ./src/core/repository
+
+  location-integration:
+    name: Location / PostgreSQL and Redis integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      GOWORK: "off"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: Location_Service/go.sum
+
+      - name: Run Location integration tests
+        working-directory: Location_Service
+        run: go test -count=1 -timeout=15m -tags=integration ./src/integration
+
+  # ===========================================================================
+  # FRONTEND ANALYTICS QUALITY
+  # ===========================================================================
+
+  frontend-quality:
+    name: Frontend / analytics and E2E contracts
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22.19.0"
+          cache: npm
+          cache-dependency-path: Frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: Frontend
+        run: npm ci
+
+      - name: Lint analytics and E2E contracts
+        working-directory: Frontend
+        run: npx eslint app/analytics-page.tsx e2e/api-contracts.spec.ts e2e/global-teardown.ts
+
+      - name: Build frontend
+        working-directory: Frontend
+        run: npm run build
+
+      - name: Compile Playwright test inventory
+        working-directory: Frontend
+        run: npx playwright test --list
+
+  # ===========================================================================
+  # GO WORKSPACE VALIDATION
+  # ===========================================================================
+  #
+  # Отдельная проверка go.work.
+  # Она нужна, но её ошибка не должна маскироваться как ошибка всех 18 сервисов.
+
+  go-workspace-validation:
+    name: Validate Go workspace
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+
+      - name: Validate workspace module paths
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          go work edit -json >/tmp/go-work.json
+
+          missing=0
+
+          while IFS= read -r module; do
+            if [ ! -f "$module/go.mod" ]; then
+              echo "::error::go.work module does not exist: $module/go.mod"
+              missing=1
+            fi
+          done < <(
+            go work edit -json |
+              python3 -c '
+          import json
+          import sys
+
+          data = json.load(sys.stdin)
+
+          for item in data.get("Use", []):
+              print(item["DiskPath"])
+          '
+          )
+
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
+          echo "All go.work module paths are valid."
+
+  # ===========================================================================
+  # DOCKER COMPOSE VALIDATION
+  # ===========================================================================
+
+  compose-validation:
+    name: Validate Docker Compose
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # Настоящие .env в Git не нужны.
+      # Для docker compose config достаточно example-файлов.
+      - name: Prepare CI env files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          while IFS= read -r example; do
+            target="${example%.example}"
+
+            if [ ! -f "$target" ]; then
+              echo "Creating temporary CI env: $target"
+              cp "$example" "$target"
+            fi
+          done < <(
+            find . \
+              -type f \
+              -name '.env.example' \
+              -not -path './.git/*' \
+              -print
+          )
+
+      - name: Validate Compose
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker compose config --quiet
+
+  # ===========================================================================
+  # KUBERNETES VALIDATION
+  # ===========================================================================
+  #
+  # ВАЖНО:
+  # здесь специально НЕТ kubectl apply --dry-run=client.
+  #
+  # kubectl apply даже с client dry-run может выполнять API discovery и пытаться
+  # подключиться к localhost:8080, если kubeconfig отсутствует.
+  #
+  # CI должен уметь проверять manifests даже при полностью выключенном сервере.
+
+  kubernetes-validation:
+    name: Kubernetes / ${{ matrix.overlay }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        overlay:
+          - local
+          - dev
+          - prod
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.18.6
+
+      # local overlay использует:
+      #
+      # secretGenerator:
+      #   envs:
+      #     - runtime.env
+      #
+      # Настоящие secrets CI для рендера не нужны.
+      - name: Prepare dummy local secrets
+        if: matrix.overlay == 'local'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p k8s/overlays/local/secrets
+
+          cat > k8s/overlays/local/secrets/runtime.env <<'EOF'
+          CI_DUMMY_SECRET=ci-validation-only
+          EOF
+
+      - name: Render Kustomize
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          kubectl kustomize \
+            "k8s/overlays/${{ matrix.overlay }}" \
+            > rendered.yaml
+
+          if [ "${{ matrix.overlay }}" = "prod" ]; then
+            kubectl kustomize \
+              k8s/overlays/prod/checks \
+              >> rendered.yaml
+          fi
+
+          if [ ! -s rendered.yaml ]; then
+            echo "::error::Kustomize rendered an empty manifest"
+           exit 1
+          fi
+
+          echo "Rendered $(wc -l < rendered.yaml) lines."
+
+      - name: Validate applications Helm chart
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          helm lint k8s/helm/applications
+          helm lint k8s/helm/applications -f k8s/helm/applications/values-local-ha.yaml
+          helm template applications k8s/helm/applications \
+            --namespace automatic-system \
+            -f k8s/helm/applications/values-prod.yaml \
+            --set-string globalImage.tag=sha-ci-validation \
+            --set-string migrations.tag=sha-ci-validation \
+            --set-string analyticsInit.tag=sha-ci-validation \
+            > applications-helm-rendered.yaml
+
+          test -s applications-helm-rendered.yaml
+
+      - name: Reject mutable production application images
+        if: matrix.overlay == 'prod'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if grep -E 'image: .*automatic-system-.*:(latest|dev)$' rendered.yaml; then
+            echo "::error::Mutable application image tag found in production overlay"
+            exit 1
+          fi
+
+  # ===========================================================================
+  # APPLICATION IMAGES
+  # ===========================================================================
+
+  application-images:
+    name: App image / ${{ matrix.service }}
+    runs-on: ubuntu-latest
+
+    needs:
+      - changes
+      - go-quality
+      - analytics-integration
+      - location-integration
+      - frontend-quality
+      - go-workspace-validation
+      - compose-validation
+      - kubernetes-validation
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.changes.outputs.application_matrix) }}
+
+    steps:
+      - name: Checkout
+        if: matrix.enabled
+        uses: actions/checkout@v7
+
+      - name: Normalize registry owner
+        if: matrix.enabled
+        shell: bash
+        run: |
+          echo "REGISTRY_OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
 
       - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        if: matrix.enabled
+        uses: docker/setup-buildx-action@v4
 
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
+      - name: Login to GHCR
+        if: matrix.enabled && github.event_name == 'push'
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Generate Docker image metadata
+      - name: Generate image metadata
+        if: matrix.enabled
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
-          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.SERVICE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.REGISTRY_OWNER }}/${{ matrix.package }}
           tags: |
+            type=sha,prefix=sha-,format=short
             type=ref,event=branch
-            type=ref,event=tag
-            type=sha,prefix=sha-
 
-      - name: Create .env file for Docker build
-        run: |
-          cat > ${{ env.SERVICE_PATH }}/.env <<EOF
-          APP_ENV=${{ secrets.APP_ENV }}
-          EOF
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v6
+      - name: Build and publish
+        if: matrix.enabled
+        uses: docker/build-push-action@v7
         with:
-          context: ./${{ env.SERVICE_PATH }}
-          file: ./${{ env.SERVICE_PATH }}/Dockerfile
-          push: true
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: ${{ github.event_name == 'push' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=app-${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=app-${{ matrix.service }}
+          provenance: true
+          sbom: true
+
+  frontend-image:
+    name: App image / frontend
+    runs-on: ubuntu-latest
+    environment:
+      name: development
+
+    needs:
+      - changes
+      - go-quality
+      - analytics-integration
+      - location-integration
+      - frontend-quality
+      - go-workspace-validation
+      - compose-validation
+      - kubernetes-validation
+
+    if: needs.changes.outputs.frontend_changed == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Normalize registry owner
+        shell: bash
+        run: |
+          echo "REGISTRY_OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login to GHCR
+        if: github.event_name == 'push'
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate image metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.REGISTRY_OWNER }}/automatic-system-frontend
+          tags: |
+            type=sha,prefix=sha-,format=short
+            type=ref,event=branch
+
+      - name: Build and publish
+        uses: docker/build-push-action@v7
+        with:
+          context: Frontend
+          file: Frontend/Dockerfile
+          build-args: |
+            NEXT_PUBLIC_FIREBASE_API_KEY=${{ secrets.FIREBASE_WEB_API_KEY }}
+            NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${{ vars.FIREBASE_AUTH_DOMAIN }}
+            NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ vars.FIREBASE_PROJECT_ID }}
+            NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${{ vars.FIREBASE_STORAGE_BUCKET }}
+            NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${{ vars.FIREBASE_MESSAGING_SENDER_ID }}
+            NEXT_PUBLIC_FIREBASE_APP_ID=${{ vars.FIREBASE_APP_ID }}
+            NEXT_PUBLIC_FIREBASE_VAPID_KEY=${{ vars.FIREBASE_WEB_VAPID_KEY }}
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=app-frontend
+          cache-to: type=gha,mode=max,scope=app-frontend
+          provenance: true
+          sbom: true
+
+  # ===========================================================================
+  # MIGRATOR IMAGES
+  # ===========================================================================
+
+  migrator-images:
+    name: Migrator image / ${{ matrix.service }}
+    runs-on: ubuntu-latest
+
+    needs:
+      - changes
+      - go-quality
+      - go-workspace-validation
+      - kubernetes-validation
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.changes.outputs.migrator_matrix) }}
+
+    steps:
+      - name: Checkout
+        if: matrix.enabled
+        uses: actions/checkout@v7
+
+      - name: Normalize registry owner
+        if: matrix.enabled
+        shell: bash
+        run: |
+          echo "REGISTRY_OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+
+      - name: Setup Docker Buildx
+        if: matrix.enabled
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login to GHCR
+        if: matrix.enabled && github.event_name == 'push'
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate image metadata
+        if: matrix.enabled
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.REGISTRY_OWNER }}/${{ matrix.package }}
+          tags: |
+            type=sha,prefix=sha-,format=short
+            type=ref,event=branch
+
+      - name: Build and publish
+        if: matrix.enabled
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.context }}
+          file: k8s/build/Dockerfile.migrator
+          build-args: |
+            MIGRATIONS_DIR=scheme
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=migrator-${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=migrator-${{ matrix.service }}
+          provenance: true
+          sbom: true
+
+  # ===========================================================================
+  # CLICKHOUSE INIT IMAGE
+  # ===========================================================================
+
+  clickhouse-init-image:
+    name: ClickHouse init image
+    runs-on: ubuntu-latest
+
+    needs:
+      - changes
+      - kubernetes-validation
+
+    if: needs.changes.outputs.clickhouse_init_changed == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Normalize registry owner
+        shell: bash
+        run: |
+          echo "REGISTRY_OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login to GHCR
+        if: github.event_name == 'push'
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate image metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.REGISTRY_OWNER }}/automatic-system-analytics-clickhouse-init
+          tags: |
+            type=sha,prefix=sha-,format=short
+            type=ref,event=branch
+
+      - name: Build and publish
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: k8s/build/Dockerfile.clickhouse-init
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=clickhouse-init
+          cache-to: type=gha,mode=max,scope=clickhouse-init
+          provenance: true
+          sbom: true
+
+  # ===========================================================================
+  # LOCAL FLUX + FLAGGER DEPLOY
+  # ===========================================================================
+
+  deploy-local:
+    name: Deploy test/feature through Flux and Flagger
+
+    needs:
+      - changes
+      - application-images
+      - frontend-image
+      - migrator-images
+      - clickhouse-init-image
+
+    if: >
+      always() &&
+       github.event_name == 'push' &&
+       (github.ref == 'refs/heads/test' ||
+        github.ref == 'refs/heads/feature' ||
+        startsWith(github.ref, 'refs/heads/feature/')) &&
+      needs.application-images.result == 'success' &&
+      needs.migrator-images.result == 'success' &&
+      (needs.frontend-image.result == 'success' || needs.frontend-image.result == 'skipped') &&
+      (needs.clickhouse-init-image.result == 'success' || needs.clickhouse-init-image.result == 'skipped')
+
+    permissions:
+      contents: write
+
+    runs-on: automatic-system-runner
+    timeout-minutes: 50
+
+    environment:
+      name: development
+
+    concurrency:
+      group: automatic-system-local-cluster-deploy
+      cancel-in-progress: false
+
+    env:
+      GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
+      GHCR_PULL_USERNAME: ${{ secrets.GHCR_PULL_USERNAME }}
+      DEPLOY_BRANCH: deploy/local
+      TARGET_BRANCH: ${{ github.ref_name }}
+      TARGET_SHA: ${{ github.sha }}
+
+    steps:
+      - name: Checkout tested commit
+        uses: actions/checkout@v7
+        env:
+          GIT_CONFIG_COUNT: 1
+          GIT_CONFIG_KEY_0: http.version
+          GIT_CONFIG_VALUE_0: HTTP/1.1
+        with:
+          fetch-depth: 2
+          ref: ${{ env.TARGET_SHA }}
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Check runner tools and Kubernetes access
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          command -v git
+          command -v kubectl
+          kubectl auth can-i get deployments -n automatic-system
+          kubectl auth can-i patch deployments -n automatic-system
+          kubectl auth can-i patch kustomizations.kustomize.toolkit.fluxcd.io \
+            -n flux-system
+          kubectl auth can-i patch gitrepositories.source.toolkit.fluxcd.io \
+            -n flux-system
+          kubectl auth can-i get canaries.flagger.app \
+            -n automatic-system
+          kubectl get deployments -n automatic-system
+
+      - name: Configure optional private GHCR pull secret
+        if: ${{ env.GHCR_PULL_TOKEN != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          kubectl create secret docker-registry ghcr-pull \
+            -n automatic-system \
+            --docker-server=ghcr.io \
+            --docker-username="${GHCR_PULL_USERNAME:-${GITHUB_ACTOR}}" \
+            --docker-password="$GHCR_PULL_TOKEN" \
+            --dry-run=client \
+            -o yaml |
+            kubectl apply -f -
+
+          kubectl patch serviceaccount default \
+            -n automatic-system \
+            --type=merge \
+            -p '{"imagePullSecrets":[{"name":"ghcr-pull"}]}'
+
+      - name: Publish immutable local image tags
+        id: gitops
+        shell: bash
+        env:
+          DEPLOYED_APPLICATIONS: ${{ needs.changes.outputs.deployed_applications }}
+          MIGRATOR_SERVICES: ${{ needs.changes.outputs.migrator_services }}
+          ANALYTICS_INIT_CHANGED: ${{ needs.changes.outputs.clickhouse_init_changed }}
+        run: |
+          set -euo pipefail
+
+          SHORT_SHA="${TARGET_SHA::12}"
+          VALUES_FILE=k8s/flux/clusters/local-ha/applications-values.yaml
+          DEPLOY_BRANCH_EXISTS=false
+          REMOTE_DEPLOY_REF="$(git -c http.version=HTTP/1.1 ls-remote \
+            --heads origin "refs/heads/${DEPLOY_BRANCH}")"
+
+          case "$TARGET_BRANCH" in
+            test|feature|feature/*) ;;
+            *)
+              echo "::error::Unsupported deployment branch: $TARGET_BRANCH"
+              exit 1
+              ;;
+          esac
+
+          for attempt in 1 2 3 4; do
+            if git -c http.version=HTTP/1.1 fetch \
+              --no-tags \
+              --depth=50 \
+              origin \
+              "+refs/heads/${TARGET_BRANCH}:refs/remotes/origin/${TARGET_BRANCH}"; then
+              break
+            fi
+
+            if [ "$attempt" -eq 4 ]; then
+              echo "::error::Unable to fetch $TARGET_BRANCH after four attempts"
+              exit 1
+            fi
+
+            sleep $((attempt * 5))
+          done
+          git merge-base --is-ancestor "$TARGET_SHA" "origin/$TARGET_BRANCH"
+
+          if ! git diff --quiet "$TARGET_SHA..origin/$TARGET_BRANCH" -- .; then
+            echo "::error::$TARGET_BRANCH advanced after the tested commit"
+            exit 1
+          fi
+
+          if [ -n "$REMOTE_DEPLOY_REF" ]; then
+            DEPLOY_BRANCH_EXISTS=true
+            for attempt in 1 2 3 4; do
+              if git -c http.version=HTTP/1.1 fetch \
+                --no-tags \
+                --depth=50 \
+                origin \
+                "+refs/heads/${DEPLOY_BRANCH}:refs/remotes/origin/${DEPLOY_BRANCH}"; then
+                break
+              fi
+
+              if [ "$attempt" -eq 4 ]; then
+                echo "::error::Unable to fetch $DEPLOY_BRANCH after four attempts"
+                exit 1
+              fi
+
+              sleep $((attempt * 5))
+            done
+          else
+            echo "Creating deployment branch $DEPLOY_BRANCH"
+          fi
+
+          if [ "$DEPLOY_BRANCH_EXISTS" = "true" ]; then
+            git checkout -B local-cluster-deploy "origin/$DEPLOY_BRANCH"
+            git read-tree --reset -u "$TARGET_SHA"
+            git checkout "origin/$DEPLOY_BRANCH" -- "$VALUES_FILE"
+          else
+            git checkout -B local-cluster-deploy "$TARGET_SHA"
+          fi
+
+          update_args=(
+            --file "$VALUES_FILE"
+            --tag "sha-${SHORT_SHA}"
+            --applications "$DEPLOYED_APPLICATIONS"
+            --migrations "$MIGRATOR_SERVICES"
+          )
+
+          if [ "$ANALYTICS_INIT_CHANGED" = "true" ]; then
+            update_args+=(--analytics-init)
+          fi
+
+          python3 .github/scripts/update-local-deploy-values.py "${update_args[@]}"
+
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+
+          git add -A
+
+          if ! git diff --cached --quiet; then
+            git commit -m "deploy(local): ${TARGET_BRANCH}@sha-${SHORT_SHA} [skip ci]"
+          fi
+
+          git push origin "HEAD:$DEPLOY_BRANCH"
+
+          echo "revision=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "image_tag=sha-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Enable and reconcile Flux
+        shell: bash
+        env:
+          DEPLOY_REVISION: ${{ steps.gitops.outputs.revision }}
+        run: |
+          set -euo pipefail
+
+          kubectl apply -f k8s/flux/bootstrap/local-ha-sync.yaml
+          kubectl patch gitrepository automatic-system \
+            -n flux-system \
+            --type merge \
+            -p "{\"spec\":{\"ref\":{\"branch\":\"${DEPLOY_BRANCH}\"}}}"
+          kubectl patch kustomization automatic-system-local-ha \
+            -n flux-system \
+            --type merge \
+            -p '{"spec":{"suspend":false}}'
+
+          for _ in $(seq 1 60); do
+            SOURCE_REVISION="$(kubectl get gitrepository automatic-system \
+              -n flux-system \
+              -o jsonpath='{.status.artifact.revision}')"
+
+            if [[ "$SOURCE_REVISION" == "${DEPLOY_BRANCH}@sha1:${DEPLOY_REVISION}" ]]; then
+              break
+            fi
+
+            sleep 5
+          done
+
+          SOURCE_REVISION="$(kubectl get gitrepository automatic-system \
+            -n flux-system \
+            -o jsonpath='{.status.artifact.revision}')"
+          test "$SOURCE_REVISION" = "${DEPLOY_BRANCH}@sha1:${DEPLOY_REVISION}"
+
+          kubectl annotate kustomization automatic-system-local-ha \
+            -n flux-system \
+            reconcile.fluxcd.io/requestedAt="$(date +%s)" \
+            --overwrite
+
+          kubectl wait kustomization/automatic-system-local-ha \
+            -n flux-system \
+            --for=condition=ready \
+            --timeout=40m
+
+      - name: Verify Flagger promotion
+        shell: bash
+        env:
+          IMAGE_TAG: ${{ steps.gitops.outputs.image_tag }}
+          CHANGED_CANARIES: ${{ needs.changes.outputs.changed_canaries }}
+        run: |
+          set -euo pipefail
+
+          mapfile -t EXPECTED_CANARIES < <(
+            python3 -c 'import json, os, sys; names = json.loads(os.environ["CHANGED_CANARIES"]); sys.stdout.write("\n".join(names) + ("\n" if names else ""))'
+          )
+
+          if [ "${#EXPECTED_CANARIES[@]}" -eq 0 ]; then
+            echo "No application image changed; Flagger promotion is not required."
+            exit 0
+          fi
+
+          declare -A ROLLOUT_STARTED
+
+          for CANARY_NAME in "${EXPECTED_CANARIES[@]}"; do
+            PRIMARY_IMAGE="$(kubectl get deployment "${CANARY_NAME}-primary" \
+              -n automatic-system \
+              -o jsonpath='{.spec.template.spec.containers[0].image}')"
+
+            if [[ "$PRIMARY_IMAGE" == *":${IMAGE_TAG}" ]]; then
+              ROLLOUT_STARTED["$CANARY_NAME"]=true
+              continue
+            fi
+
+            PHASE="$(kubectl get canary "$CANARY_NAME" \
+              -n automatic-system \
+              -o jsonpath='{.status.phase}')"
+
+            if [ "$PHASE" = "Failed" ]; then
+              echo "Restarting failed Flagger analysis for $CANARY_NAME"
+              kubectl patch deployment "$CANARY_NAME" \
+                -n automatic-system \
+                --type merge \
+                -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"ci.automatic-system/retry\":\"${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}\"}}}}}"
+              ROLLOUT_STARTED["$CANARY_NAME"]=false
+            else
+              ROLLOUT_STARTED["$CANARY_NAME"]=true
+            fi
+          done
+
+          for _ in $(seq 1 480); do
+            PRIMARY_COUNT=0
+
+            for CANARY_NAME in "${EXPECTED_CANARIES[@]}"; do
+              PRIMARY_IMAGE="$(kubectl get deployment "${CANARY_NAME}-primary" \
+                -n automatic-system \
+                -o jsonpath='{.spec.template.spec.containers[0].image}')"
+
+              if [[ "$PRIMARY_IMAGE" == *":${IMAGE_TAG}" ]]; then
+                PRIMARY_COUNT=$((PRIMARY_COUNT + 1))
+                continue
+              fi
+
+              PHASE="$(kubectl get canary "$CANARY_NAME" \
+                -n automatic-system \
+                -o jsonpath='{.status.phase}')"
+
+              if [ "$PHASE" != "Failed" ]; then
+                ROLLOUT_STARTED["$CANARY_NAME"]=true
+              elif [ "${ROLLOUT_STARTED[$CANARY_NAME]}" = "true" ]; then
+                echo "::error::Flagger failed: $CANARY_NAME"
+                exit 1
+              fi
+            done
+
+            if [ "$PRIMARY_COUNT" -eq "${#EXPECTED_CANARIES[@]}" ]; then
+              exit 0
+            fi
+
+            sleep 5
+          done
+
+          echo "::error::Not all changed primary deployments were promoted to ${IMAGE_TAG}"
+          exit 1
+
+      - name: Show deployment state
+        if: always()
+        shell: bash
+        run: |
+          kubectl get kustomization,gitrepository -n flux-system -o wide || true
+          kubectl get helmrelease -n flux-system -o wide || true
+          kubectl get canary -n automatic-system || true
+          kubectl get pods -n automatic-system -o wide || true
+
+  # ===========================================================================
+  # CHECK PRODUCTION CLUSTER
+  # ===========================================================================
+
+  check-prod-cluster:
+    name: Check production Kubernetes availability
+
+    if: >
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/main' ||
+       github.ref == 'refs/heads/master') &&
+      vars.PRODUCTION_DEPLOY_ENABLED == 'true'
+
+    runs-on: ubuntu-latest
+
+    environment:
+      name: production
+
+    outputs:
+      available: ${{ steps.cluster.outputs.available }}
+
+    steps:
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Check cluster
+        id: cluster
+        shell: bash
+        env:
+          KUBECONFIG_B64: ${{ secrets.KUBECONFIG_B64 }}
+        run: |
+          set +e
+
+          echo "available=false" >> "$GITHUB_OUTPUT"
+
+          if [ -z "${KUBECONFIG_B64:-}" ]; then
+            echo "KUBECONFIG_B64 is not configured."
+            echo "Production deployment will be skipped."
+            exit 0
+          fi
+
+          mkdir -p "$HOME/.kube"
+
+          if ! printf '%s' "$KUBECONFIG_B64" |
+            base64 --decode > "$HOME/.kube/config"
+          then
+            echo "KUBECONFIG_B64 cannot be decoded."
+            echo "Production deployment will be skipped."
+            exit 0
+          fi
+
+          chmod 600 "$HOME/.kube/config"
+
+          if timeout 15s kubectl \
+            --request-timeout=10s \
+            cluster-info >/dev/null 2>&1
+          then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+            echo "Production Kubernetes is available."
+          else
+            echo "Production Kubernetes is offline or unreachable."
+            echo "Production deployment will be skipped."
+          fi
+
+          exit 0
+
+  # ===========================================================================
+  # PRODUCTION DEPLOY
+  # ===========================================================================
+
+  deploy-prod:
+    name: Deploy main/master to production
+
+    needs:
+      - application-images
+      - frontend-image
+      - migrator-images
+      - clickhouse-init-image
+      - check-prod-cluster
+
+    if: >
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/main' ||
+       github.ref == 'refs/heads/master') &&
+      vars.PRODUCTION_DEPLOY_ENABLED == 'true' &&
+      needs.check-prod-cluster.outputs.available == 'true'
+
+    runs-on: ubuntu-latest
+
+    concurrency:
+      group: automatic-system-production
+      cancel-in-progress: false
+
+    environment:
+      name: production
+
+    env:
+      GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
+      GHCR_PULL_USERNAME: ${{ secrets.GHCR_PULL_USERNAME }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.18.6
+
+      - name: Configure kubeconfig
+        shell: bash
+        env:
+          KUBECONFIG_B64: ${{ secrets.KUBECONFIG_B64 }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p "$HOME/.kube"
+
+          printf '%s' "$KUBECONFIG_B64" |
+            base64 --decode > "$HOME/.kube/config"
+
+          chmod 600 "$HOME/.kube/config"
+
+          kubectl --request-timeout=10s cluster-info
+
+      - name: Set immutable image tag
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SHORT_SHA="${GITHUB_SHA::12}"
+
+          sed -Ei \
+            "s/newTag: sha-[0-9a-fA-F]+/newTag: sha-${SHORT_SHA}/g" \
+            k8s/overlays/prod/apps/kustomization.yaml \
+            k8s/overlays/prod/migrations/kustomization.yaml \
+            k8s/overlays/prod/infra/kustomization.yaml \
+            k8s/overlays/prod/checks/kustomization.yaml
+
+      - name: Create namespace
+        run: kubectl apply -k k8s/base/namespace
+
+      - name: Apply runtime secrets
+        shell: bash
+        env:
+          RUNTIME_ENV_B64: ${{ secrets.RUNTIME_ENV_B64 }}
+          JWT_PRIVATE_KEY_B64: ${{ secrets.JWT_PRIVATE_KEY_B64 }}
+          JWT_PUBLIC_KEY_B64: ${{ secrets.JWT_PUBLIC_KEY_B64 }}
+        run: |
+          set -euo pipefail
+
+          test -n "$RUNTIME_ENV_B64" || {
+            echo "::error::RUNTIME_ENV_B64 is missing"
+            exit 1
+          }
+
+          test -n "$JWT_PRIVATE_KEY_B64" || {
+            echo "::error::JWT_PRIVATE_KEY_B64 is missing"
+            exit 1
+          }
+
+          test -n "$JWT_PUBLIC_KEY_B64" || {
+            echo "::error::JWT_PUBLIC_KEY_B64 is missing"
+            exit 1
+          }
+
+          RUNTIME_FILE="$(mktemp)"
+          PRIVATE_FILE="$(mktemp)"
+          PUBLIC_FILE="$(mktemp)"
+
+          cleanup() {
+            rm -f "$RUNTIME_FILE" "$PRIVATE_FILE" "$PUBLIC_FILE"
+          }
+
+          trap cleanup EXIT
+
+          printf '%s' "$RUNTIME_ENV_B64" |
+            base64 --decode > "$RUNTIME_FILE"
+
+          printf '%s' "$JWT_PRIVATE_KEY_B64" |
+            base64 --decode > "$PRIVATE_FILE"
+
+          printf '%s' "$JWT_PUBLIC_KEY_B64" |
+            base64 --decode > "$PUBLIC_FILE"
+
+          test -s "$RUNTIME_FILE"
+          test -s "$PRIVATE_FILE"
+          test -s "$PUBLIC_FILE"
+
+          kubectl create secret generic runtime-secrets \
+            -n automatic-system \
+            --from-env-file="$RUNTIME_FILE" \
+            --dry-run=client \
+            -o yaml |
+            kubectl apply -f -
+
+          kubectl create secret generic jwt-private-key \
+            -n automatic-system \
+            --from-file=private.pem="$PRIVATE_FILE" \
+            --dry-run=client \
+            -o yaml |
+            kubectl apply -f -
+
+          kubectl create secret generic jwt-public-key \
+            -n automatic-system \
+            --from-file=public.pem="$PUBLIC_FILE" \
+            --dry-run=client \
+            -o yaml |
+            kubectl apply -f -
+
+      - name: Configure optional private GHCR pull secret
+        if: ${{ env.GHCR_PULL_TOKEN != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          kubectl create secret docker-registry ghcr-pull \
+            -n automatic-system \
+            --docker-server=ghcr.io \
+            --docker-username="${GHCR_PULL_USERNAME:-${GITHUB_ACTOR}}" \
+            --docker-password="$GHCR_PULL_TOKEN" \
+            --dry-run=client \
+            -o yaml |
+            kubectl apply -f -
+
+          kubectl patch serviceaccount default \
+            -n automatic-system \
+            --type=merge \
+            -p '{"imagePullSecrets":[{"name":"ghcr-pull"}]}'
+
+      - name: Deploy infrastructure
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          kubectl delete job \
+            postgres-backup-bucket-init \
+            postgres-platform-backup-init \
+            postgres-ticket-citus-backup-init \
+            postgres-ticket-citus-distribute \
+            -n automatic-system \
+            --ignore-not-found=true
+
+          kubectl apply \
+            -k k8s/overlays/prod/infra
+
+          kubectl rollout status \
+            statefulset \
+            --all \
+            -n automatic-system \
+            --timeout=15m
+
+          kubectl rollout status \
+            deployment \
+            --all \
+            -n automatic-system \
+            --timeout=15m
+
+      - name: Run migrations
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          kubectl delete \
+            -k k8s/overlays/prod/migrations \
+            --ignore-not-found=true
+
+          kubectl apply \
+            -k k8s/overlays/prod/migrations
+
+          kubectl wait \
+            --for=condition=complete \
+            job \
+            --all \
+            -n automatic-system \
+            --timeout=15m
+
+      - name: Verify PgBouncer connectivity
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          kubectl delete \
+            -k k8s/overlays/prod/checks \
+            --ignore-not-found=true
+
+          kubectl apply \
+            -k k8s/overlays/prod/checks
+
+          kubectl wait \
+            --for=condition=complete \
+            job/pgbouncer-connectivity-check \
+            -n automatic-system \
+            --timeout=5m
+
+          kubectl logs \
+            job/pgbouncer-connectivity-check \
+            -n automatic-system
+
+      - name: Deploy applications
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SHORT_SHA="${GITHUB_SHA::12}"
+          APPLICATION_OWNERSHIP_ARGS=()
+          if ! helm status applications -n automatic-system >/dev/null 2>&1; then
+            APPLICATION_OWNERSHIP_ARGS+=(--take-ownership)
+          fi
+          helm upgrade --install applications k8s/helm/applications \
+            --namespace automatic-system \
+            -f k8s/helm/applications/values-prod.yaml \
+            --set-string "globalImage.tag=sha-${SHORT_SHA}" \
+            --set-string "migrations.tag=sha-${SHORT_SHA}" \
+            --set-string "analyticsInit.tag=sha-${SHORT_SHA}" \
+            "${APPLICATION_OWNERSHIP_ARGS[@]}" \
+            --atomic \
+            --wait \
+            --timeout 15m
+
+          kubectl rollout status \
+            deployment \
+            --all \
+            -n automatic-system \
+            --timeout=15m
+
+      - name: Apply production NetworkPolicies
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          kubectl apply \
+            -k k8s/overlays/prod/network
+
+      - name: Deployment summary
+        if: always()
+        shell: bash
+        run: |
+          echo "=== Pods ==="
+          kubectl get pods \
+            -n automatic-system \
+            -o wide || true
+
+          echo
+          echo "=== Services ==="
+          kubectl get svc \
+            -n automatic-system || true
+
+          echo
+          echo "=== HPA ==="
+          kubectl get hpa \
+            -n automatic-system || true
+
+          echo
+          echo "=== PDB ==="
+          kubectl get pdb \
+            -n automatic-system || true
+
+          echo
+          echo "=== Jobs ==="
+          kubectl get jobs \
+            -n automatic-system || true

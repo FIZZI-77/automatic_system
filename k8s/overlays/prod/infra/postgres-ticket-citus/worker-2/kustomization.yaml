@@ -1,0 +1,28 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../group-base
+namePrefix: worker-2-
+patches:
+  - target:
+      kind: StatefulSet
+      name: ticket-citus
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 2
+      - op: replace
+        path: /spec/selector/matchLabels/citus-group
+        value: "2"
+      - op: replace
+        path: /spec/template/metadata/labels/citus-group
+        value: "2"
+      - op: replace
+        path: /spec/template/spec/containers/0/env/2/value
+        value: "2"
+      - op: replace
+        path: /spec/template/spec/containers/0/env/3/value
+        value: ticket-2
+      - op: replace
+        path: /spec/template/spec/affinity/podAntiAffinity/preferredDuringSchedulingIgnoredDuringExecution/0/podAffinityTerm/labelSelector/matchExpressions/1/values/0
+        value: "2"

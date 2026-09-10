@@ -1,0 +1,60 @@
+extensions:
+  healthcheckv2:
+    use_v2: true
+    http:
+      endpoint: 0.0.0.0:13133
+  jaeger_storage:
+    backends:
+      primary_store:
+        badger:
+          ephemeral: false
+          directories:
+            keys: /var/lib/jaeger/badger/keys
+            values: /var/lib/jaeger/badger/values
+          ttl:
+            spans: 168h
+    metric_backends:
+      prometheus_store:
+        prometheus:
+          endpoint: http://prometheus:9090
+          normalize_calls: true
+          normalize_duration: true
+  jaeger_query:
+    storage:
+      traces: primary_store
+      metrics: prometheus_store
+    http:
+      endpoint: 0.0.0.0:16686
+    grpc:
+      endpoint: 0.0.0.0:16685
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    send_batch_size: 1024
+    timeout: 5s
+
+exporters:
+  jaeger_storage_exporter:
+    trace_storage: primary_store
+    queue:
+      num_consumers: 10
+      queue_size: 1000
+
+service:
+  extensions: [healthcheckv2, jaeger_storage, jaeger_query]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [jaeger_storage_exporter]
+  telemetry:
+    logs:
+      level: info

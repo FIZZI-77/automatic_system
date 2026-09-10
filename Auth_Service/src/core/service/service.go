@@ -1,10 +1,12 @@
 package service
 
 import (
-	"auth/models"
-	"auth/src/core/repository"
 	"context"
 	"crypto/rsa"
+
+	"auth/models"
+	"auth/src/core/repository"
+
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
@@ -29,13 +31,27 @@ type MailService interface {
 	SendVerificationEmail(ctx context.Context, toEmail string, token string) error
 	SendPasswordResetEmail(ctx context.Context, toEmail string, token string) error
 }
+
+type ProfileProvisioner interface {
+	CreateUserProfile(ctx context.Context, userID uuid.UUID, fullName string) error
+}
 type Service struct {
 	AuthService
 	MailService
 }
 
-func NewAuthService(repo *repository.Repo, privateKey *rsa.PrivateKey, keyID string, mailService MailService, logger *zap.Logger) *Service {
-	return &Service{
-		AuthService: NewAuthServiceStruct(repo, privateKey, keyID, mailService, logger),
+func NewService(repo *repository.Repository, privateKey *rsa.PrivateKey, keyID string, mailService MailService, profileProvisioner ProfileProvisioner, logger *zap.Logger) *Service {
+	if logger == nil {
+		logger = zap.NewNop()
 	}
+
+	return &Service{
+		AuthService: NewAuthServiceStruct(repo, privateKey, keyID, mailService, profileProvisioner, logger),
+		MailService: mailService,
+	}
+}
+
+// NewAuthService is kept as a compatibility alias for existing callers.
+func NewAuthService(repo *repository.Repo, privateKey *rsa.PrivateKey, keyID string, mailService MailService, profileProvisioner ProfileProvisioner, logger *zap.Logger) *Service {
+	return NewService(repo, privateKey, keyID, mailService, profileProvisioner, logger)
 }

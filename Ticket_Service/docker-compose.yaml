@@ -1,0 +1,53 @@
+services:
+  ticket-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ticket-service
+    env_file:
+      - .env
+    environment:
+      KAFKA_BROKERS: host.docker.internal:29092
+    ports:
+      - "50052:50052"
+    depends_on:
+      migrator:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  postgres-ticket:
+    image: postgres:16
+    container_name: ticket-postgres
+    env_file:
+      - .env
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_ticket_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${DB_USERNAME}\" -d \"$${DB_NAME}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  migrator:
+    build:
+      context: ./migrator
+      dockerfile: Dockerfile
+    container_name: ticket-migrator
+    env_file:
+      - .env
+    depends_on:
+      postgres-ticket:
+        condition: service_healthy
+    volumes:
+      - ./scheme:/migrations:ro
+    environment:
+      GOOSE_DRIVER: postgres
+    command: >
+      sh -c 'export GOOSE_DBSTRING="postgres://$${DB_USERNAME}:$${DB_PASSWORD}@$${DB_HOST}:$${DB_PORT}/$${DB_NAME}?sslmode=$${SSLMODE}";
+      goose -dir /migrations up'
+
+volumes:
+  postgres_ticket_data:

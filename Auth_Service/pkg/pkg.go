@@ -1,12 +1,13 @@
 package pkg
 
 import (
+	"auth/pkg/telemetry"
+	"context"
 	"crypto/rsa"
 	"crypto/x509"
-	"database/sql"
 	"encoding/pem"
 	"fmt"
-	_ "github.com/lib/pq"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"os"
 )
 
@@ -19,16 +20,17 @@ type Config struct {
 	SSLMode  string
 }
 
-func NewPostgresDB(cfg Config) (*sql.DB, error) {
-	db, err := sql.Open("postgres", fmt.Sprintf("host=%s port=%s user=%s dbname=%s password=%s sslmode=%s",
-		cfg.Host, cfg.Port, cfg.Username, cfg.DbName, cfg.Password, cfg.SSLMode))
+func NewPostgresDB(cfg Config) (*pgxpool.Pool, error) {
+	connString := fmt.Sprintf("host=%s port=%s user=%s dbname=%s password=%s sslmode=%s",
+		cfg.Host, cfg.Port, cfg.Username, cfg.DbName, cfg.Password, cfg.SSLMode)
+	db, err := telemetry.NewPostgresPool(context.Background(), connString)
 
 	if err != nil {
 		return nil, err
 	}
 
-	err = db.Ping()
-	if err != nil {
+	if err = db.Ping(context.Background()); err != nil {
+		db.Close()
 		return nil, err
 	}
 	return db, nil

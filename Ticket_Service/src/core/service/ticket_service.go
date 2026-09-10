@@ -2,71 +2,184 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"ticket/pkg"
+	"time"
+
+	"github.com/google/uuid"
+	"go.uber.org/zap"
 
 	"ticket/models"
 	"ticket/src/core/repository"
 )
 
 type TicketServiceStruct struct {
-	repo *repository.Repository
+	repo   *repository.Repository
+	logger *zap.Logger
 }
 
-func NewTicketServiceStruct(repo *repository.Repository) *TicketServiceStruct {
-	return &TicketServiceStruct{
-		repo: repo,
-	}
+func NewTicketServiceStruct(repo *repository.Repository, logger *zap.Logger) *TicketServiceStruct {
+	return &TicketServiceStruct{repo: repo, logger: logger}
 }
 
-func (s *TicketServiceStruct) CreateTicket(
-	ctx context.Context,
-	in models.CreateTicketInput,
-) (*models.CreateTicketResult, error) {
+func (s *TicketServiceStruct) CreateTicket(ctx context.Context, in *models.CreateTicketInput) (*models.CreateTicketResult, error) {
+	logger := s.logger.With(pkg.RequestIDField(ctx))
+	start := time.Now()
+
+	logger.Info("CreateTicket",
+		zap.String("user_id", in.UserID.String()),
+		zap.String("department_id", in.DepartmentID.String()),
+		zap.String("category_id", in.CategoryID.String()),
+		zap.String("title", in.Title),
+	)
+
 	if err := in.Validate(); err != nil {
-		return nil, fmt.Errorf("service: CreateTicket(): validate: %w", err)
+		logger.Warn("CreateTicket validation failed",
+			zap.String("user_id", in.UserID.String()),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		)
+		return nil, fmt.Errorf("service: CreateTicket(): %w: %v", models.ErrValidation, err)
 	}
 
-	ticket, err := s.repo.CreateTicket(ctx, in)
+	if !hasPrivilegedRole(in.ActorRoles) {
+		if in.ActorUserID == nil || in.UserID != *in.ActorUserID {
+			return nil, fmt.Errorf("service: CreateTicket(): %w", models.ErrPermissionDenied)
+		}
+	}
+
+	result, err := s.withIdempotency(ctx, "CreateTicket", idempotencyActor(in.ActorUserID, in.UserID), in, func(ctx context.Context) (any, uuid.UUID, error) {
+		ticket, err := s.repo.CreateTicket(ctx, in)
+		if err != nil {
+			return nil, uuid.Nil, err
+		}
+		return &models.CreateTicketResult{Ticket: ticket}, ticket.ID, nil
+	})
 	if err != nil {
+		logger.Error("CreateTicket failed",
+			zap.String("user_id", in.UserID.String()),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("service: CreateTicket(): %w", err)
 	}
+	createResult, err := cachedResult[models.CreateTicketResult](result)
+	if err != nil {
+		return nil, fmt.Errorf("service: CreateTicket(): idempotency result: %w", err)
+	}
+	ticket := createResult.Ticket
 
-	return &models.CreateTicketResult{
-		Ticket: ticket,
-	}, nil
+	logger.Info("CreateTicket success",
+		zap.String("ticket_id", ticket.ID.String()),
+		zap.String("user_id", in.UserID.String()),
+		zap.String("status", string(ticket.Status)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
+	)
+
+	return createResult, nil
 }
 
-func (s *TicketServiceStruct) GetTicket(
-	ctx context.Context,
-	in models.GetTicketInput,
-) (*models.GetTicketResult, error) {
+func (s *TicketServiceStruct) GetTicket(ctx context.Context, in *models.GetTicketInput) (*models.GetTicketResult, error) {
+	logger := s.logger.With(pkg.RequestIDField(ctx))
+	start := time.Now()
+
+	logger.Info("GetTicket",
+		zap.String("ticket_id", in.TicketID.String()),
+	)
+
 	if err := in.Validate(); err != nil {
-		return nil, fmt.Errorf("service: GetTicket(): validate: %w", err)
+		logger.Warn("GetTicket validation failed",
+			zap.String("ticket_id", in.TicketID.String()),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		)
+		return nil, fmt.Errorf("service: GetTicket(): %w: %v", models.ErrValidation, err)
 	}
 
 	ticket, err := s.repo.GetTicketByID(ctx, in.TicketID)
 	if err != nil {
+		logger.Error("GetTicket failed",
+			zap.String("ticket_id", in.TicketID.String()),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("service: GetTicket(): %w", err)
 	}
+
+	if !canReadTicket(ticket, in.ActorUserID, in.ActorBrigadeID, in.ActorRoles) {
+		return nil, fmt.Errorf("service: GetTicket(): %w", models.ErrPermissionDenied)
+	}
+
+	logger.Info("GetTicket success",
+		zap.String("ticket_id", ticket.ID.String()),
+		zap.String("status", string(ticket.Status)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
+	)
 
 	return &models.GetTicketResult{
 		Ticket: ticket,
 	}, nil
 }
 
-func (s *TicketServiceStruct) ListTickets(
-	ctx context.Context,
-	in models.ListTicketsInput,
-) (*models.ListTicketsResult, error) {
+func (s *TicketServiceStruct) ListTickets(ctx context.Context, in *models.ListTicketsInput) (*models.ListTicketsResult, error) {
+	logger := s.logger.With(pkg.RequestIDField(ctx))
+	start := time.Now()
+
+	logger.Info("ListTickets",
+		zap.Int32("limit", in.Limit),
+		zap.Int32("offset", in.Offset),
+	)
+
+	if in.DepartmentID != nil {
+		logger.Debug("ListTickets department_id", zap.String("department_id", in.DepartmentID.String()))
+	}
+	if in.UserID != nil {
+		logger.Debug("ListTickets user_id", zap.String("user_id", in.UserID.String()))
+	}
+	if in.Status != nil {
+		logger.Debug("ListTickets status", zap.String("status", string(*in.Status)))
+	}
+	if in.Priority != nil {
+		logger.Debug("ListTickets priority", zap.String("priority", string(*in.Priority)))
+	}
+
+	if hasRole(in.ActorRoles, "worker") {
+		if in.ActorUserID == nil || in.ActorBrigadeID == nil {
+			return nil, fmt.Errorf("service: ListTickets(): %w", models.ErrPermissionDenied)
+		}
+		in.UserID = nil
+		in.BrigadeID = in.ActorBrigadeID
+	} else if !hasPrivilegedRole(in.ActorRoles) {
+		if in.ActorUserID == nil {
+			return nil, fmt.Errorf("service: ListTickets(): %w", models.ErrPermissionDenied)
+		}
+
+		in.UserID = in.ActorUserID
+		in.BrigadeID = nil
+	}
+
 	if err := in.Validate(); err != nil {
-		return nil, fmt.Errorf("service: ListTickets(): validate: %w", err)
+		logger.Warn("ListTickets validation failed",
+			zap.Int64("duration", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		)
+		return nil, fmt.Errorf("service: ListTickets(): %w: %v", models.ErrValidation, err)
 	}
 
 	tickets, total, err := s.repo.ListTickets(ctx, in)
 	if err != nil {
+		logger.Error("ListTickets failed",
+			zap.Int64("duration", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("service: ListTickets(): %w", err)
 	}
+
+	logger.Info("ListTickets success",
+		zap.Int("count", len(tickets)),
+		zap.Int64("total", total),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
+	)
 
 	return &models.ListTicketsResult{
 		Tickets: tickets,
@@ -74,84 +187,202 @@ func (s *TicketServiceStruct) ListTickets(
 	}, nil
 }
 
-func (s *TicketServiceStruct) UpdateTicket(
-	ctx context.Context,
-	in models.UpdateTicketInput,
-) (*models.UpdateTicketResult, error) {
-	if err := in.Validate(); err != nil {
-		return nil, fmt.Errorf("service: UpdateTicket(): validate: %w", err)
+func hasRole(roles []string, expected string) bool {
+	for _, role := range roles {
+		if role == expected {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *TicketServiceStruct) UpdateTicket(ctx context.Context, in *models.UpdateTicketInput) (*models.UpdateTicketResult, error) {
+	logger := s.logger.With(pkg.RequestIDField(ctx))
+	start := time.Now()
+
+	logger.Info("UpdateTicket",
+		zap.String("ticket_id", in.TicketID.String()),
+	)
+
+	if in.Title != nil {
+		logger.Debug("UpdateTicket title", zap.String("title", *in.Title))
+	}
+	if in.Priority != nil {
+		logger.Debug("UpdateTicket priority", zap.String("priority", string(*in.Priority)))
 	}
 
-	ticket, err := s.repo.UpdateTicket(ctx, in)
+	if err := in.Validate(); err != nil {
+		logger.Warn("UpdateTicket validation failed",
+			zap.String("ticket_id", in.TicketID.String()),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		)
+		return nil, fmt.Errorf("service: UpdateTicket(): %w: %v", models.ErrValidation, err)
+	}
+
+	result, err := s.withIdempotency(ctx, "UpdateTicket", idempotencyActor(in.UpdatedBy, uuid.Nil), in, func(ctx context.Context) (any, uuid.UUID, error) {
+		ticket, err := s.repo.UpdateTicket(ctx, in)
+		if err != nil {
+			return nil, uuid.Nil, err
+		}
+		return &models.UpdateTicketResult{Ticket: ticket}, ticket.ID, nil
+	})
 	if err != nil {
+		logger.Error("UpdateTicket failed",
+			zap.String("ticket_id", in.TicketID.String()),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("service: UpdateTicket(): %w", err)
 	}
+	updateResult, err := cachedResult[models.UpdateTicketResult](result)
+	if err != nil {
+		return nil, fmt.Errorf("service: UpdateTicket(): idempotency result: %w", err)
+	}
+	ticket := updateResult.Ticket
 
-	return &models.UpdateTicketResult{
-		Ticket: ticket,
-	}, nil
+	logger.Info("UpdateTicket success",
+		zap.String("ticket_id", ticket.ID.String()),
+		zap.String("status", string(ticket.Status)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
+	)
+
+	return updateResult, nil
 }
 
-func (s *TicketServiceStruct) ChangeTicketStatus(
-	ctx context.Context,
-	in models.ChangeTicketStatusInput,
-) (*models.ChangeTicketStatusResult, error) {
+func (s *TicketServiceStruct) ChangeTicketStatus(ctx context.Context, in *models.ChangeTicketStatusInput) (*models.ChangeTicketStatusResult, error) {
+	logger := s.logger.With(pkg.RequestIDField(ctx))
+	start := time.Now()
+
+	logger.Info("ChangeTicketStatus",
+		zap.String("ticket_id", in.TicketID.String()),
+		zap.String("new_status", string(in.NewStatus)),
+		zap.String("changed_by", in.ChangedBy.String()),
+	)
+
 	if err := in.Validate(); err != nil {
-		return nil, fmt.Errorf("service: ChangeTicketStatus(): validate: %w", err)
+		logger.Warn("ChangeTicketStatus validation failed",
+			zap.String("ticket_id", in.TicketID.String()),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		)
+		return nil, fmt.Errorf("service: ChangeTicketStatus(): %w: %v", models.ErrValidation, err)
 	}
 
-	currentTicket, err := s.repo.GetTicketByID(ctx, in.TicketID)
+	if !hasPrivilegedRole(in.ActorRoles) {
+		if !hasRole(in.ActorRoles, "worker") || in.NewStatus != models.TicketStatusInProgress || in.ActorBrigadeID == nil {
+			return nil, fmt.Errorf("service: ChangeTicketStatus(): %w", models.ErrPermissionDenied)
+		}
+		currentTicket, err := s.repo.GetTicketByID(ctx, in.TicketID)
+		if err != nil {
+			return nil, fmt.Errorf("service: ChangeTicketStatus(): get ticket: %w", err)
+		}
+		if currentTicket.BrigadeID == nil || *currentTicket.BrigadeID != *in.ActorBrigadeID {
+			return nil, fmt.Errorf("service: ChangeTicketStatus(): %w", models.ErrPermissionDenied)
+		}
+	}
+
+	result, err := s.withIdempotency(ctx, "ChangeTicketStatus", in.ChangedBy.String(), in, func(ctx context.Context) (any, uuid.UUID, error) {
+		ticket, err := s.repo.ChangeTicketStatus(ctx, in)
+		if err != nil {
+			return nil, uuid.Nil, err
+		}
+		return &models.ChangeTicketStatusResult{Ticket: ticket}, ticket.ID, nil
+	})
 	if err != nil {
-		return nil, fmt.Errorf("service: ChangeTicketStatus(): get ticket: %w", err)
-	}
-
-	if err = validateStatusTransition(currentTicket.Status, in.NewStatus); err != nil {
+		logger.Error("ChangeTicketStatus failed",
+			zap.String("ticket_id", in.TicketID.String()),
+			zap.String("new_status", string(in.NewStatus)),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("service: ChangeTicketStatus(): %w", err)
 	}
-
-	ticket, err := s.repo.ChangeTicketStatus(ctx, in)
+	statusResult, err := cachedResult[models.ChangeTicketStatusResult](result)
 	if err != nil {
-		return nil, fmt.Errorf("service: ChangeTicketStatus(): %w", err)
+		return nil, fmt.Errorf("service: ChangeTicketStatus(): idempotency result: %w", err)
 	}
+	ticket := statusResult.Ticket
 
-	return &models.ChangeTicketStatusResult{
-		Ticket: ticket,
-	}, nil
+	logger.Info("ChangeTicketStatus success",
+		zap.String("ticket_id", ticket.ID.String()),
+		zap.String("new_status", string(ticket.Status)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
+	)
+
+	return statusResult, nil
 }
 
-func (s *TicketServiceStruct) AssignBrigade(
-	ctx context.Context,
-	in models.AssignBrigadeInput,
-) (*models.AssignBrigadeResult, error) {
+func (s *TicketServiceStruct) AssignBrigade(ctx context.Context, in *models.AssignBrigadeInput) (*models.AssignBrigadeResult, error) {
+	logger := s.logger.With(pkg.RequestIDField(ctx))
+	start := time.Now()
+
+	logger.Info("AssignBrigade",
+		zap.String("ticket_id", in.TicketID.String()),
+		zap.String("brigade_id", in.BrigadeID.String()),
+		zap.String("assigned_by", in.AssignedBy.String()),
+	)
+
 	if err := in.Validate(); err != nil {
-		return nil, fmt.Errorf("service: AssignBrigade(): validate: %w", err)
+		logger.Warn("AssignBrigade validation failed",
+			zap.String("ticket_id", in.TicketID.String()),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		)
+		return nil, fmt.Errorf("service: AssignBrigade(): %w: %v", models.ErrValidation, err)
 	}
 
-	currentTicket, err := s.repo.GetTicketByID(ctx, in.TicketID)
+	if !hasPrivilegedRole(in.ActorRoles) {
+		return nil, fmt.Errorf("service: AssignBrigade(): %w", models.ErrPermissionDenied)
+	}
+	result, err := s.withIdempotency(ctx, "AssignBrigade", in.AssignedBy.String(), in, func(ctx context.Context) (any, uuid.UUID, error) {
+		ticket, err := s.repo.AssignBrigade(ctx, in)
+		if err != nil {
+			return nil, uuid.Nil, err
+		}
+		return &models.AssignBrigadeResult{Ticket: ticket}, ticket.ID, nil
+	})
 	if err != nil {
-		return nil, fmt.Errorf("service: AssignBrigade(): get ticket: %w", err)
-	}
-
-	if err = validateStatusTransition(currentTicket.Status, models.TicketStatusAssigned); err != nil {
+		logger.Error("AssignBrigade failed",
+			zap.String("ticket_id", in.TicketID.String()),
+			zap.String("brigade_id", in.BrigadeID.String()),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("service: AssignBrigade(): %w", err)
 	}
-
-	ticket, err := s.repo.AssignBrigade(ctx, in)
+	assignResult, err := cachedResult[models.AssignBrigadeResult](result)
 	if err != nil {
-		return nil, fmt.Errorf("service: AssignBrigade(): %w", err)
+		return nil, fmt.Errorf("service: AssignBrigade(): idempotency result: %w", err)
 	}
+	ticket := assignResult.Ticket
 
-	return &models.AssignBrigadeResult{
-		Ticket: ticket,
-	}, nil
+	logger.Info("AssignBrigade success",
+		zap.String("ticket_id", ticket.ID.String()),
+		zap.String("brigade_id", in.BrigadeID.String()),
+		zap.String("status", string(ticket.Status)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
+	)
+
+	return assignResult, nil
 }
 
-func (s *TicketServiceStruct) CancelTicket(
-	ctx context.Context,
-	in models.CancelTicketInput,
-) (*models.CancelTicketResult, error) {
+func (s *TicketServiceStruct) CancelTicket(ctx context.Context, in *models.CancelTicketInput) (*models.CancelTicketResult, error) {
+	logger := s.logger.With(pkg.RequestIDField(ctx))
+	start := time.Now()
+
+	logger.Info("CancelTicket",
+		zap.String("ticket_id", in.TicketID.String()),
+		zap.String("canceled_by", in.CanceledBy.String()),
+	)
+
 	if err := in.Validate(); err != nil {
-		return nil, fmt.Errorf("service: CancelTicket(): validate: %w", err)
+		logger.Warn("CancelTicket validation failed",
+			zap.String("ticket_id", in.TicketID.String()),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		)
+		return nil, fmt.Errorf("service: CancelTicket(): %w: %v", models.ErrValidation, err)
 	}
 
 	currentTicket, err := s.repo.GetTicketByID(ctx, in.TicketID)
@@ -159,59 +390,145 @@ func (s *TicketServiceStruct) CancelTicket(
 		return nil, fmt.Errorf("service: CancelTicket(): get ticket: %w", err)
 	}
 
-	if err = validateStatusTransition(currentTicket.Status, models.TicketStatusCanceled); err != nil {
+	if !hasPrivilegedRole(in.ActorRoles) && currentTicket.UserID != in.CanceledBy {
+		return nil, fmt.Errorf("service: CancelTicket(): %w", models.ErrPermissionDenied)
+	}
+
+	result, err := s.withIdempotency(ctx, "CancelTicket", in.CanceledBy.String(), in, func(ctx context.Context) (any, uuid.UUID, error) {
+		ticket, err := s.repo.CancelTicket(ctx, in)
+		if err != nil {
+			return nil, uuid.Nil, err
+		}
+		return &models.CancelTicketResult{Ticket: ticket}, ticket.ID, nil
+	})
+	if err != nil {
+		logger.Error("CancelTicket failed",
+			zap.String("ticket_id", in.TicketID.String()),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("service: CancelTicket(): %w", err)
 	}
-
-	ticket, err := s.repo.CancelTicket(ctx, in)
+	cancelResult, err := cachedResult[models.CancelTicketResult](result)
 	if err != nil {
-		return nil, fmt.Errorf("service: CancelTicket(): %w", err)
+		return nil, fmt.Errorf("service: CancelTicket(): idempotency result: %w", err)
 	}
+	ticket := cancelResult.Ticket
 
-	return &models.CancelTicketResult{
-		Ticket: ticket,
-	}, nil
+	logger.Info("CancelTicket success",
+		zap.String("ticket_id", ticket.ID.String()),
+		zap.String("status", string(ticket.Status)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
+	)
+
+	return cancelResult, nil
 }
 
-func (s *TicketServiceStruct) CompleteTicket(
-	ctx context.Context,
-	in models.CompleteTicketInput,
-) (*models.CompleteTicketResult, error) {
+func (s *TicketServiceStruct) CompleteTicket(ctx context.Context, in *models.CompleteTicketInput) (*models.CompleteTicketResult, error) {
+	logger := s.logger.With(pkg.RequestIDField(ctx))
+	start := time.Now()
+
+	logger.Info("CompleteTicket",
+		zap.String("ticket_id", in.TicketID.String()),
+		zap.String("completed_by", in.CompletedBy.String()),
+	)
+
 	if err := in.Validate(); err != nil {
-		return nil, fmt.Errorf("service: CompleteTicket(): validate: %w", err)
+		logger.Warn("CompleteTicket validation failed",
+			zap.String("ticket_id", in.TicketID.String()),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		)
+		return nil, fmt.Errorf("service: CompleteTicket(): %w: %v", models.ErrValidation, err)
 	}
 
-	currentTicket, err := s.repo.GetTicketByID(ctx, in.TicketID)
+	if !hasPrivilegedRole(in.ActorRoles) {
+		if !hasRole(in.ActorRoles, "worker") || in.ActorBrigadeID == nil {
+			return nil, fmt.Errorf("service: CompleteTicket(): %w", models.ErrPermissionDenied)
+		}
+		currentTicket, err := s.repo.GetTicketByID(ctx, in.TicketID)
+		if err != nil {
+			return nil, fmt.Errorf("service: CompleteTicket(): get ticket: %w", err)
+		}
+		if currentTicket.BrigadeID == nil || *currentTicket.BrigadeID != *in.ActorBrigadeID {
+			return nil, fmt.Errorf("service: CompleteTicket(): %w", models.ErrPermissionDenied)
+		}
+	}
+
+	result, err := s.withIdempotency(ctx, "CompleteTicket", in.CompletedBy.String(), in, func(ctx context.Context) (any, uuid.UUID, error) {
+		ticket, err := s.repo.CompleteTicket(ctx, in)
+		if err != nil {
+			return nil, uuid.Nil, err
+		}
+		return &models.CompleteTicketResult{Ticket: ticket}, ticket.ID, nil
+	})
 	if err != nil {
-		return nil, fmt.Errorf("service: CompleteTicket(): get ticket: %w", err)
-	}
-
-	if err = validateStatusTransition(currentTicket.Status, models.TicketStatusDone); err != nil {
+		logger.Error("CompleteTicket failed",
+			zap.String("ticket_id", in.TicketID.String()),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("service: CompleteTicket(): %w", err)
 	}
-
-	ticket, err := s.repo.CompleteTicket(ctx, in)
+	completeResult, err := cachedResult[models.CompleteTicketResult](result)
 	if err != nil {
-		return nil, fmt.Errorf("service: CompleteTicket(): %w", err)
+		return nil, fmt.Errorf("service: CompleteTicket(): idempotency result: %w", err)
 	}
+	ticket := completeResult.Ticket
 
-	return &models.CompleteTicketResult{
-		Ticket: ticket,
-	}, nil
+	logger.Info("CompleteTicket success",
+		zap.String("ticket_id", ticket.ID.String()),
+		zap.String("status", string(ticket.Status)),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
+	)
+
+	return completeResult, nil
 }
 
-func (s *TicketServiceStruct) GetTicketStatusHistory(
-	ctx context.Context,
-	in models.GetTicketStatusHistoryInput,
-) (*models.GetTicketStatusHistoryResult, error) {
+func (s *TicketServiceStruct) GetTicketStatusHistory(ctx context.Context, in *models.GetTicketStatusHistoryInput) (*models.GetTicketStatusHistoryResult, error) {
+	logger := s.logger.With(pkg.RequestIDField(ctx))
+	start := time.Now()
+
+	logger.Info("GetTicketStatusHistory",
+		zap.String("ticket_id", in.TicketID.String()),
+		zap.Int32("limit", in.Limit),
+		zap.Int32("offset", in.Offset),
+	)
+
 	if err := in.Validate(); err != nil {
-		return nil, fmt.Errorf("service: GetTicketStatusHistory(): validate: %w", err)
+		logger.Warn("GetTicketStatusHistory validation failed",
+			zap.String("ticket_id", in.TicketID.String()),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		)
+		return nil, fmt.Errorf("service: GetTicketStatusHistory(): %w: %v", models.ErrValidation, err)
+	}
+
+	ticket, err := s.repo.GetTicketByID(ctx, in.TicketID)
+	if err != nil {
+		return nil, fmt.Errorf("service: GetTicketStatusHistory(): get ticket: %w", err)
+	}
+
+	if !canReadTicket(ticket, in.ActorUserID, in.ActorBrigadeID, in.ActorRoles) {
+		return nil, fmt.Errorf("service: GetTicketStatusHistory(): %w", models.ErrPermissionDenied)
 	}
 
 	history, total, err := s.repo.GetTicketStatusHistory(ctx, in)
 	if err != nil {
+		logger.Error("GetTicketStatusHistory failed",
+			zap.String("ticket_id", in.TicketID.String()),
+			zap.Int64("duration", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("service: GetTicketStatusHistory(): %w", err)
 	}
+
+	logger.Info("GetTicketStatusHistory success",
+		zap.String("ticket_id", in.TicketID.String()),
+		zap.Int("count", len(history)),
+		zap.Int64("total", total),
+		zap.Int64("duration", time.Since(start).Milliseconds()),
+	)
 
 	return &models.GetTicketStatusHistoryResult{
 		History: history,
@@ -219,44 +536,29 @@ func (s *TicketServiceStruct) GetTicketStatusHistory(
 	}, nil
 }
 
-func validateStatusTransition(from models.TicketStatus, to models.TicketStatus) error {
-	if from == to {
-		return errors.New("new status must be different from current status")
+func canReadTicket(ticket *models.Ticket, actorUserID, actorBrigadeID *uuid.UUID, actorRoles []string) bool {
+	if ticket == nil {
+		return false
 	}
 
-	if from == models.TicketStatusDone {
-		return errors.New("ticket is already done")
+	if hasPrivilegedRole(actorRoles) {
+		return true
 	}
 
-	if from == models.TicketStatusCanceled {
-		return errors.New("ticket is already canceled")
+	if actorUserID != nil && ticket.UserID == *actorUserID {
+		return true
 	}
 
-	allowedTransitions := map[models.TicketStatus][]models.TicketStatus{
-		models.TicketStatusNew: {
-			models.TicketStatusAssigned,
-			models.TicketStatusCanceled,
-		},
-		models.TicketStatusAssigned: {
-			models.TicketStatusInProgress,
-			models.TicketStatusCanceled,
-		},
-		models.TicketStatusInProgress: {
-			models.TicketStatusDone,
-			models.TicketStatusCanceled,
-		},
-	}
+	return hasRole(actorRoles, "worker") && actorBrigadeID != nil && ticket.BrigadeID != nil && *ticket.BrigadeID == *actorBrigadeID
+}
 
-	nextStatuses, ok := allowedTransitions[from]
-	if !ok {
-		return errors.New("invalid current status")
-	}
-
-	for _, allowedStatus := range nextStatuses {
-		if allowedStatus == to {
-			return nil
+func hasPrivilegedRole(roles []string) bool {
+	for _, role := range roles {
+		switch role {
+		case "admin", "dispatcher":
+			return true
 		}
 	}
 
-	return fmt.Errorf("invalid status transition: %s -> %s", from, to)
+	return false
 }

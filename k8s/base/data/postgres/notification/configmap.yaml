@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-notification-config
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: automatic-system
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/instance: notification
+  namespace: automatic-system
+data:
+  POSTGRES_USER: notification
+  POSTGRES_DB: notification

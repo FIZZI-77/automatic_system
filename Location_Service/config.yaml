@@ -1,0 +1,11 @@
+grpc_port: 50056
+http_port: 8080
+redis_addr: "redis-location-master:6379"
+redis_master_name: "location-master"
+redis_sentinel_addrs: ["redis-location-sentinel-1:26379", "redis-location-sentinel-2:26379", "redis-location-sentinel-3:26379"]
+redis_events_stream: "locations:events"
+redis_events_group: "location-kafka-relay"
+redis_events_consumer: "location-service"
+kafka_brokers: ["kafka-1:9092", "kafka-2:9092", "kafka-3:9092"]
+kafka_location_topic: "locations.events.v1"
+log_level: "info"

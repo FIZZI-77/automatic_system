@@ -1,0 +1,12 @@
+{
+    "scenario":  "location",
+    "k6_exit_code":  99,
+    "rates":  "10,25,50",
+    "base_url":  "http://host.docker.internal:18081",
+    "git_sha":  "c825f9abe801ea1df299e31c56cc5aec3e0911a9",
+    "warmup":  "5s",
+    "stabilization":  "5s",
+    "write_scenario":  true,
+    "run_id":  "20260901T082825Z-20260901T083543Z-location",
+    "measurement":  "20s"
+}

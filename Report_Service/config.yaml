@@ -1,0 +1,8 @@
+grpc_port: 50064
+analytics_service_addr: "analytics-service:50063"
+file_service_addr: "file-service:50059"
+file_upload_internal_endpoint: "http://minio:9000"
+kafka_brokers: ["kafka-1:9092", "kafka-2:9092", "kafka-3:9092"]
+kafka_report_topic: "reports.events.v1"
+worker_interval: "1s"
+log_level: "info"

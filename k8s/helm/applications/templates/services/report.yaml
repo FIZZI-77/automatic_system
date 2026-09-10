@@ -1,0 +1,159 @@
+apiVersion: v1
+data:
+  ANALYTICS_SERVICE_ADDR: "analytics-service:50063"
+  COMPLETION_CONSUMER_GROUP_ID: "report-completion-v1"
+  FILE_SERVICE_ADDR: "file-service:50059"
+  INTERNAL_HTTP_PORT: "8084"
+  KAFKA_BROKERS: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
+  KAFKA_REPORT_TOPIC: "reports.events.v1"
+  KAFKA_TICKET_TOPIC: "tickets.events.v1"
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: report-service
+    app.kubernetes.io/part-of: automatic-system
+  name: report-service-config
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: report-service
+    app.kubernetes.io/part-of: automatic-system
+  name: report-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - name: grpc
+    port: 50064
+    targetPort: 50064
+  selector:
+    app: {{ ternary "report-service-primary" "report-service" .Values.canary.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: report-service-internal
+    app.kubernetes.io/part-of: automatic-system
+  name: report-service-internal
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - name: internal
+    port: 8084
+    targetPort: 8084
+  selector:
+    app: {{ ternary "report-service-primary" "report-service" .Values.canary.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: report-service
+    app.kubernetes.io/part-of: automatic-system
+  name: report-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  minReadySeconds: 3
+  {{- if not .Values.applicationAutoscaling.enabled }}
+  replicas: {{ (index .Values.applications "report").replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: report-service
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9464"
+        prometheus.io/scrape: "true"
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts":true}'
+      labels:
+        app: report-service
+        app.kubernetes.io/component: backend
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: report-service
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              key: REPORT_DATABASE_URL
+              name: runtime-secrets
+        - name: REPORT_INTERNAL_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: REPORT_INTERNAL_TOKEN
+              name: runtime-secrets
+        envFrom:
+        - configMapRef:
+            name: telemetry-config
+        - configMapRef:
+            name: report-service-config
+        image: '{{ include "applications.image" (dict "root" $ "name" "report") }}'
+        imagePullPolicy: {{ default (index .Values.applications "report").image.pullPolicy .Values.globalImage.pullPolicy }}
+        livenessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50064
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 2
+        name: report-service
+        ports:
+        - containerPort: 50064
+          name: grpc
+        - containerPort: 8084
+          name: internal
+        - containerPort: 9464
+          name: metrics
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50064
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          timeoutSeconds: 2
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 25m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        startupProbe:
+          failureThreshold: 45
+          grpc:
+            port: 50064
+          periodSeconds: 2
+          timeoutSeconds: 1
+      enableServiceLinks: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30

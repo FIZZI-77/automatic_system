@@ -1,0 +1,72 @@
+# Architecture Communication
+
+```mermaid
+flowchart LR
+    Client["Client / Web / Mobile"]
+    Gateway["API Gateway"]
+
+    Auth["Auth Service"]
+    Ticket["Ticket Service"]
+    Department["Department Service"]
+    Brigade["Brigade Service"]
+    Dispatch["Dispatch Service"]
+    Location["Location Service"]
+    Routing["Routing Service"]
+    File["File Service"]
+    SLA["SLA Service"]
+    Notification["Notification Service"]
+    Analytics["Analytics Service"]
+    Audit["Audit Service"]
+    Report["Report Service"]
+
+    Kafka["Kafka"]
+    S3["S3 / MinIO"]
+    CH["ClickHouse"]
+
+    Client -->|"HTTP/REST"| Gateway
+
+    Gateway -->|"gRPC"| Auth
+    Gateway -->|"gRPC"| Ticket
+    Gateway -->|"gRPC"| Department
+    Gateway -->|"gRPC"| Brigade
+    Gateway -->|"gRPC"| Dispatch
+    Gateway -->|"gRPC"| Location
+    Gateway -->|"gRPC"| File
+    Gateway -->|"gRPC"| Report
+
+    Ticket -->|"gRPC: проверить отдел/категорию"| Department
+    Ticket -->|"gRPC: проверить бригаду/доступ"| Brigade
+
+    Dispatch -->|"gRPC: данные заявки"| Ticket
+    Dispatch -->|"gRPC: отделы"| Department
+    Dispatch -->|"gRPC: свободные бригады"| Brigade
+    Dispatch -->|"gRPC: лучший маршрут/ETA"| Routing
+
+    Routing -->|"gRPC: координаты бригад"| Location
+    Routing -->|"gRPC: кандидаты/специализация"| Brigade
+
+    File -->|"gRPC: проверить доступ к заявке"| Ticket
+    File -->|"Presigned URL / object storage"| S3
+
+    Report -->|"read/query"| Analytics
+    Report -->|"save generated reports"| File
+
+    Auth -->|"auth.events"| Kafka
+    Ticket -->|"tickets.events"| Kafka
+    Department -->|"departments.events"| Kafka
+    Brigade -->|"brigades.events"| Kafka
+    Dispatch -->|"dispatch.events"| Kafka
+    Location -->|"locations.events"| Kafka
+    Routing -->|"routing.events"| Kafka
+    File -->|"files.events"| Kafka
+    SLA -->|"sla.events"| Kafka
+    Report -->|"reports.events"| Kafka
+
+    Kafka -->|"tickets.events"| SLA
+    Kafka -->|"domain events"| Notification
+    Kafka -->|"all domain events"| Analytics
+    Kafka -->|"all domain events"| Audit
+    Kafka -->|"analytics stream"| CH
+
+    Analytics -->|"store/read analytics"| CH
+```

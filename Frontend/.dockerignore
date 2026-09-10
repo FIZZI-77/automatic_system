@@ -1,0 +1,8 @@
+node_modules
+dist
+.vinext
+.wrangler
+.npm-cache
+.git
+.env*
+.dev*.log

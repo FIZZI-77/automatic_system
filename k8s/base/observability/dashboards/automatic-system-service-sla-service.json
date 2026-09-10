@@ -1,0 +1,1303 @@
+{
+  "panels": [
+    {
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "legendFormat": "up",
+          "refId": "A",
+          "range": true,
+          "expr": "max(up{job=\"application-services\",service=\"sla-service\"}) or vector(0)"
+        }
+      ],
+      "title": "Scrape availability",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "overrides": [],
+        "defaults": {
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 0,
+        "y": 0
+      },
+      "options": {
+        "colorMode": "value",
+        "reduceOptions": {
+          "fields": "",
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "justifyMode": "auto",
+        "graphMode": "area"
+      },
+      "id": 1
+    },
+    {
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "legendFormat": "spans/s",
+          "refId": "B",
+          "range": true,
+          "expr": "sum(rate(traces_span_metrics_calls_total{exported_job=\"sla-service\"}[5m])) or vector(0)"
+        }
+      ],
+      "title": "Span rate",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "overrides": [],
+        "defaults": {
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "reqps"
+        }
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 4,
+        "y": 0
+      },
+      "options": {
+        "colorMode": "value",
+        "reduceOptions": {
+          "fields": "",
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "justifyMode": "auto",
+        "graphMode": "area"
+      },
+      "id": 2
+    },
+    {
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "legendFormat": "errors",
+          "refId": "C",
+          "range": true,
+          "expr": "100 * sum(rate(traces_span_metrics_calls_total{exported_job=\"sla-service\",status_code=\"STATUS_CODE_ERROR\"}[5m])) / clamp_min(sum(rate(traces_span_metrics_calls_total{exported_job=\"sla-service\"}[5m])), 0.001) or vector(0)"
+        }
+      ],
+      "title": "Span error rate",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "overrides": [],
+        "defaults": {
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "percent"
+        }
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 9,
+        "y": 0
+      },
+      "options": {
+        "colorMode": "value",
+        "reduceOptions": {
+          "fields": "",
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "justifyMode": "auto",
+        "graphMode": "area"
+      },
+      "id": 3
+    },
+    {
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "legendFormat": "p95",
+          "refId": "D",
+          "range": true,
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(traces_span_metrics_duration_milliseconds_bucket{exported_job=\"sla-service\"}[5m]))) or vector(0)"
+        }
+      ],
+      "title": "Span p95 latency",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "overrides": [],
+        "defaults": {
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "ms"
+        }
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 14,
+        "y": 0
+      },
+      "options": {
+        "colorMode": "value",
+        "reduceOptions": {
+          "fields": "",
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "justifyMode": "auto",
+        "graphMode": "area"
+      },
+      "id": 4
+    },
+    {
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "legendFormat": "memory",
+          "refId": "E",
+          "range": true,
+          "expr": "sum(go_memory_used_bytes{job=\"application-services\",service=\"sla-service\"}) or vector(0)"
+        }
+      ],
+      "title": "Go managed memory",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "overrides": [],
+        "defaults": {
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "bytes"
+        }
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 19,
+        "y": 0
+      },
+      "options": {
+        "colorMode": "value",
+        "reduceOptions": {
+          "fields": "",
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "justifyMode": "auto",
+        "graphMode": "area"
+      },
+      "id": 5
+    },
+    {
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "legendFormat": "{{span_kind}} / {{span_name}}",
+          "refId": "F",
+          "range": true,
+          "expr": "sum by (span_name, span_kind) (rate(traces_span_metrics_calls_total{exported_job=\"sla-service\"}[5m])) or vector(0)"
+        }
+      ],
+      "title": "Operations by span name",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "overrides": [],
+        "defaults": {
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "ops"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 5
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 6
+    },
+    {
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "legendFormat": "{{span_name}}",
+          "refId": "G",
+          "range": true,
+          "expr": "histogram_quantile(0.95, sum by (le, span_name) (rate(traces_span_metrics_duration_milliseconds_bucket{exported_job=\"sla-service\"}[5m]))) or vector(0)"
+        }
+      ],
+      "title": "Operation p95 latency",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "overrides": [],
+        "defaults": {
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "ms"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 5
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 7
+    },
+    {
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "legendFormat": "{{span_kind}} / {{span_name}}",
+          "refId": "H",
+          "range": true,
+          "expr": "sum by (span_name, span_kind) (rate(traces_span_metrics_calls_total{exported_job=\"sla-service\",status_code=\"STATUS_CODE_ERROR\"}[5m])) or vector(0)"
+        }
+      ],
+      "title": "Failed operations",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "overrides": [],
+        "defaults": {
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "ops"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 13
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 8
+    },
+    {
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "legendFormat": "{{client}} / failed={{failed}}",
+          "refId": "I",
+          "range": true,
+          "expr": "sum by (client, failed) (rate(traces_service_graph_request_total{server=\"sla-service\"}[5m])) or vector(0)"
+        }
+      ],
+      "title": "Incoming service graph",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "overrides": [],
+        "defaults": {
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "reqps"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 13
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 9
+    },
+    {
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "legendFormat": "{{server}} / failed={{failed}}",
+          "refId": "J",
+          "range": true,
+          "expr": "sum by (server, failed) (rate(traces_service_graph_request_total{client=\"sla-service\"}[5m])) or vector(0)"
+        }
+      ],
+      "title": "Outgoing service graph",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "overrides": [],
+        "defaults": {
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "reqps"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 21
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 10
+    },
+    {
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "legendFormat": "{{server}}",
+          "refId": "K",
+          "range": true,
+          "expr": "histogram_quantile(0.95, sum by (le, server) (rate(traces_service_graph_request_server_seconds_bucket{client=\"sla-service\"}[5m]))) or vector(0)"
+        }
+      ],
+      "title": "Outgoing dependency p95",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "overrides": [],
+        "defaults": {
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 21
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 11
+    },
+    {
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "legendFormat": "{{rpc_method}} / {{rpc_response_status_code}}",
+          "refId": "L",
+          "range": true,
+          "expr": "sum by (rpc_method, rpc_response_status_code) (rate(rpc_server_call_duration_seconds_count{job=\"application-services\",service=\"sla-service\",rpc_method!~\"grpc.health.*\"}[5m])) or vector(0)"
+        }
+      ],
+      "title": "Requests by operation and status",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "overrides": [],
+        "defaults": {
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "ops"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 29
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 12
+    },
+    {
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "legendFormat": "p50",
+          "refId": "M",
+          "range": true,
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(rpc_server_call_duration_seconds_bucket{job=\"application-services\",service=\"sla-service\",rpc_method!~\"grpc.health.*\"}[5m]))) or vector(0)"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "legendFormat": "p95",
+          "refId": "N",
+          "range": true,
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(rpc_server_call_duration_seconds_bucket{job=\"application-services\",service=\"sla-service\",rpc_method!~\"grpc.health.*\"}[5m]))) or vector(0)"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "legendFormat": "p99",
+          "refId": "O",
+          "range": true,
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(rpc_server_call_duration_seconds_bucket{job=\"application-services\",service=\"sla-service\",rpc_method!~\"grpc.health.*\"}[5m]))) or vector(0)"
+        }
+      ],
+      "title": "Request latency percentiles",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "overrides": [],
+        "defaults": {
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 29
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 13
+    },
+    {
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "legendFormat": "{{pgx_operation_type}}",
+          "refId": "P",
+          "range": true,
+          "expr": "sum by (pgx_operation_type) (rate(db_client_operation_duration_seconds_count{job=\"application-services\",service=\"sla-service\"}[5m])) or vector(0)"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "legendFormat": "{{pgx_operation_type}} errors",
+          "refId": "Q",
+          "range": true,
+          "expr": "sum by (pgx_operation_type) (rate(db_client_operation_errors_total{job=\"application-services\",service=\"sla-service\"}[5m])) or vector(0)"
+        }
+      ],
+      "title": "Database operations",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "overrides": [],
+        "defaults": {
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "ops"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 37
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 14
+    },
+    {
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "legendFormat": "{{pgx_operation_type}}",
+          "refId": "R",
+          "range": true,
+          "expr": "histogram_quantile(0.95, sum by (le, pgx_operation_type) (rate(db_client_operation_duration_seconds_bucket{job=\"application-services\",service=\"sla-service\"}[5m]))) or vector(0)"
+        }
+      ],
+      "title": "Database p95 latency",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "overrides": [],
+        "defaults": {
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 37
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 15
+    },
+    {
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "legendFormat": "acquired",
+          "refId": "S",
+          "range": true,
+          "expr": "sum(pgxpool_acquired_connections{job=\"application-services\",service=\"sla-service\"}) or vector(0)"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "legendFormat": "idle",
+          "refId": "T",
+          "range": true,
+          "expr": "sum(pgxpool_idle_connections{job=\"application-services\",service=\"sla-service\"}) or vector(0)"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "legendFormat": "max",
+          "refId": "U",
+          "range": true,
+          "expr": "sum(pgxpool_max_connections{job=\"application-services\",service=\"sla-service\"}) or vector(0)"
+        }
+      ],
+      "title": "Connection pool",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "overrides": [],
+        "defaults": {
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 45
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 16
+    },
+    {
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "legendFormat": "goroutines",
+          "refId": "V",
+          "range": true,
+          "expr": "sum(go_goroutine_count{job=\"application-services\",service=\"sla-service\"}) or vector(0)"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "legendFormat": "CPU cores",
+          "refId": "W",
+          "range": true,
+          "expr": "sum(rate(process_cpu_seconds_total{job=\"application-services\",service=\"sla-service\"}[5m])) or vector(0)"
+        }
+      ],
+      "title": "Go runtime",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "overrides": [],
+        "defaults": {
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 45
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 17
+    },
+    {
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "legendFormat": "{{destination_service_name}} / {{response_code}}",
+          "refId": "X",
+          "range": true,
+          "expr": "sum by (destination_service_name, response_code) (rate(istio_requests_total{source_app=\"sla-service\",reporter=\"source\"}[5m])) or vector(0)"
+        }
+      ],
+      "title": "Istio traffic by destination",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "overrides": [],
+        "defaults": {
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "ops"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 53
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 18
+    },
+    {
+      "datasource": {
+        "type": "elasticsearch",
+        "uid": "elasticsearch"
+      },
+      "targets": [
+        {
+          "metrics": [
+            {
+              "id": "1",
+              "type": "logs"
+            }
+          ],
+          "query": "kubernetes.pod.name: sla-service-*",
+          "datasource": {
+            "type": "elasticsearch",
+            "uid": "elasticsearch"
+          },
+          "timeField": "@timestamp",
+          "bucketAggs": [],
+          "queryType": "logs",
+          "refId": "Logs"
+        }
+      ],
+      "type": "logs",
+      "title": "Recent logs",
+      "options": {
+        "sortOrder": "Descending",
+        "wrapLogMessage": true,
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "dedupStrategy": "none",
+        "showCommonLabels": false,
+        "showTime": true,
+        "showLabels": false
+      },
+      "id": 19,
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 61
+      }
+    }
+  ],
+  "editable": false,
+  "time": {
+    "to": "now",
+    "from": "now-6h"
+  },
+  "uid": "automatic-system-service-sla-service",
+  "timezone": "browser",
+  "id": null,
+  "title": "Service / SLA Service",
+  "tags": [
+    "automatic-system",
+    "service",
+    "sla-service"
+  ],
+  "refresh": "30s",
+  "timepicker": {},
+  "version": 1,
+  "graphTooltip": 1,
+  "schemaVersion": 41,
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "weekStart": "",
+  "fiscalYearStartMonth": 0,
+  "links": [],
+  "liveNow": false
+}

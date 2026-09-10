@@ -1,0 +1,113 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: asset-service
+    app.kubernetes.io/part-of: automatic-system
+  name: asset-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - name: grpc
+    port: 50065
+    targetPort: 50065
+  selector:
+    app: {{ ternary "asset-service-primary" "asset-service" .Values.canary.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: asset-service
+    app.kubernetes.io/part-of: automatic-system
+  name: asset-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  minReadySeconds: 3
+  {{- if not .Values.applicationAutoscaling.enabled }}
+  replicas: {{ (index .Values.applications "asset").replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: asset-service
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9464"
+        prometheus.io/scrape: "true"
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts":true}'
+      labels:
+        app: asset-service
+        app.kubernetes.io/component: backend
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: asset-service
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              key: ASSET_DATABASE_URL
+              name: runtime-secrets
+        envFrom:
+        - configMapRef:
+            name: telemetry-config
+        image: '{{ include "applications.image" (dict "root" $ "name" "asset") }}'
+        imagePullPolicy: {{ default (index .Values.applications "asset").image.pullPolicy .Values.globalImage.pullPolicy }}
+        livenessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50065
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 2
+        name: asset-service
+        ports:
+        - containerPort: 50065
+          name: grpc
+        - containerPort: 9464
+          name: metrics
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50065
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          timeoutSeconds: 2
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 25m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        startupProbe:
+          failureThreshold: 45
+          grpc:
+            port: 50065
+          periodSeconds: 2
+          timeoutSeconds: 1
+      enableServiceLinks: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30

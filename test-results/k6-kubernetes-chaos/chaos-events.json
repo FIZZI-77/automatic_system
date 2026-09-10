@@ -1,0 +1,32 @@
+[
+  {
+    "Name": "kafka-single-broker",
+    "Status": "recovered",
+    "StartedAt": "2026-08-28T17:06:48.4422417+03:00",
+    "RecoverySeconds": 32.44
+  },
+  {
+    "Name": "ticket-service-pod",
+    "Status": "recovered",
+    "StartedAt": "2026-08-28T17:07:20.9033623+03:00",
+    "RecoverySeconds": 16.44
+  },
+  {
+    "Name": "redis-gateway",
+    "Status": "recovered",
+    "StartedAt": "2026-08-28T17:07:37.3448226+03:00",
+    "RecoverySeconds": 4.9
+  },
+  {
+    "Name": "pgbouncer-ticket-primary",
+    "Status": "recovered",
+    "StartedAt": "2026-08-28T17:07:42.2485512+03:00",
+    "RecoverySeconds": 3.39
+  },
+  {
+    "Name": "platform-read-replica",
+    "Status": "recovered",
+    "StartedAt": "2026-08-28T17:07:45.6437068+03:00",
+    "RecoverySeconds": 7.3
+  }
+]

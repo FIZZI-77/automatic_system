@@ -1,0 +1,12 @@
+server: {name: local-test, cpu_cores: 8, memory_gib: 16, disk: {type: nvme, read_mb_s: 2500, write_mb_s: 1800, read_iops: 100000, write_iops: 80000}, network: {download_mbps: 1000, upload_mbps: 1000}}
+reserved: {cpu_cores: 1, memory_gib: 2}
+components:
+  api_gateway: {replicas: 2, cpu_request_m: 250, cpu_limit_m: 1000, memory_request_mib: 256, memory_limit_mib: 512}
+  ticket: {replicas: 2, cpu_request_m: 250, cpu_limit_m: 1000, memory_request_mib: 256, memory_limit_mib: 512}
+  location: {replicas: 2, cpu_request_m: 250, cpu_limit_m: 1000, memory_request_mib: 256, memory_limit_mib: 512}
+  postgres: {replicas: 1, stateful: true}
+  redis_location: {replicas: 1, stateful: true}
+  kafka: {replicas: 1, stateful: true}
+  clickhouse: {replicas: 1, stateful: true}
+  valhalla: {replicas: 1, stateful: true}
+  minio: {replicas: 1, stateful: true}

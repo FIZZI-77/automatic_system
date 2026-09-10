@@ -1,0 +1,22 @@
+defaults:
+  error_rate_max: 0.001
+  cpu_target: 0.70
+  cpu_hard_limit: 0.85
+  memory_target: 0.80
+  p95_ms: 500
+  p99_ms: 1000
+  queue_growth_allowed: false
+  kafka_lag_growth_allowed: false
+scenarios:
+  location_position:
+    {error_rate_max: 0.001, cpu_target: 0.70, memory_target: 0.80, p95_ms: 20, p99_ms: 50}
+  dispatch_auto:
+    {error_rate_max: 0.001, cpu_target: 0.70, memory_target: 0.80, p95_ms: 1000, p99_ms: 2000}
+  analytics_overview:
+    {error_rate_max: 0.001, cpu_target: 0.70, memory_target: 0.80, p95_ms: 1000, p99_ms: 2000}
+regression:
+  throughput_decrease_max: 0.10
+  p95_increase_max: 0.20
+  p99_increase_max: 0.20
+  cpu_per_op_increase_max: 0.15
+  memory_per_op_increase_max: 0.15

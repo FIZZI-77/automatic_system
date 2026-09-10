@@ -1,0 +1,107 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-platform-patroni
+  namespace: automatic-system
+data:
+  patroni.yaml.template: |
+    scope: postgres-platform
+    namespace: automatic-system
+    name: ${PATRONI_NAME}
+    log:
+      level: INFO
+      traceback_level: ERROR
+    restapi:
+      listen: 0.0.0.0:8008
+      connect_address: ${POD_IP}:8008
+    kubernetes:
+      namespace: automatic-system
+      labels:
+        cluster-name: postgres-platform
+      role_label: role
+      leader_label_value: primary
+      follower_label_value: replica
+      use_endpoints: true
+    bootstrap:
+      dcs:
+        ttl: 30
+        loop_wait: 10
+        retry_timeout: 10
+        maximum_lag_on_failover: 1048576
+        synchronous_mode: true
+        synchronous_mode_strict: false
+        postgresql:
+          use_pg_rewind: true
+          use_slots: true
+          parameters:
+            wal_level: replica
+            hot_standby: "on"
+            max_wal_senders: 10
+            max_replication_slots: 10
+            wal_log_hints: "on"
+            password_encryption: scram-sha-256
+            archive_mode: "on"
+            archive_command: pgbackrest --stanza=platform archive-push %p
+      initdb:
+        - encoding: UTF8
+        - data-checksums
+      post_bootstrap: /opt/automatic-system/bootstrap-platform.sh
+      pg_hba:
+        - local all all trust
+        - host replication replicator 0.0.0.0/0 scram-sha-256
+        - host all all 0.0.0.0/0 scram-sha-256
+    postgresql:
+      listen: 0.0.0.0:5432
+      connect_address: ${POD_IP}:5432
+      data_dir: /var/lib/postgresql/data/pgdata
+      bin_dir: /usr/lib/postgresql/16/bin
+      authentication:
+        superuser:
+          username: postgres
+          password: ${PLATFORM_POSTGRES_SUPERUSER_PASSWORD}
+        replication:
+          username: replicator
+          password: ${PLATFORM_POSTGRES_REPLICATION_PASSWORD}
+      parameters:
+        unix_socket_directories: /var/run/postgresql
+    tags:
+      nofailover: false
+      noloadbalance: false
+      clonefrom: false
+      nosync: false
+  bootstrap-platform.sh: |
+    #!/bin/sh
+    set -eu
+
+    create_role_and_database() {
+      service_name="$1"
+      database_name="$2"
+      password="$3"
+      psql --username postgres --dbname postgres \
+        --set=service_name="$service_name" \
+        --set=database_name="$database_name" \
+        --set=service_password="$password" <<'SQL'
+    SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'service_name', :'service_password')
+    WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'service_name') \gexec
+    SELECT format('CREATE DATABASE %I OWNER %I', :'database_name', :'service_name')
+    WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'database_name') \gexec
+    SQL
+    }
+
+    create_role_and_database auth_user auth_db "$AUTH_DB_PASSWORD"
+    create_role_and_database department_user department_db "$DEPARTMENT_DB_PASSWORD"
+    create_role_and_database brigade_user brigade_db "$BRIGADE_DB_PASSWORD"
+    create_role_and_database profile_user profile_db "$PROFILE_DB_PASSWORD"
+    create_role_and_database location location "$LOCATION_DB_PASSWORD"
+    create_role_and_database routing routing "$ROUTING_DB_PASSWORD"
+    create_role_and_database dispatch dispatch "$DISPATCH_DB_PASSWORD"
+    create_role_and_database file file "$FILE_DB_PASSWORD"
+    create_role_and_database sla sla "$SLA_DB_PASSWORD"
+    create_role_and_database notification notification "$NOTIFICATION_DB_PASSWORD"
+    create_role_and_database audit audit "$AUDIT_DB_PASSWORD"
+    create_role_and_database report report "$REPORT_DB_PASSWORD"
+    create_role_and_database asset asset "$ASSET_DB_PASSWORD"
+
+    psql --username postgres --dbname location -c 'CREATE EXTENSION IF NOT EXISTS postgis'
+    psql --username postgres --dbname brigade_db -c 'CREATE EXTENSION IF NOT EXISTS postgis'
+    psql --username postgres --dbname asset -c 'CREATE EXTENSION IF NOT EXISTS postgis'

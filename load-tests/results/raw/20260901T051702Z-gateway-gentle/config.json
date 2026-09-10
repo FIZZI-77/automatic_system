@@ -1,0 +1,12 @@
+{
+  "run_id": "20260901T051702Z-gateway-gentle",
+  "scenario": "gateway",
+  "git_sha": "c825f9abe801ea1df299e31c56cc5aec3e0911a9",
+  "base_url": "http://localhost:18081",
+  "rates": "10,25,50",
+  "measurement": "1m",
+  "warmup": "20s",
+  "stabilization": "15s",
+  "k6_exit_code": 99,
+  "note": "Read-only local Kubernetes run; threshold failed because the shared per-IP rate limiter returned non-2xx responses."
+}

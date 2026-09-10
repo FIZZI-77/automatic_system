@@ -1,0 +1,402 @@
+{
+  "panels": [
+    {
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
+          "refId": "A",
+          "range": true,
+          "expr": "(sum(rate(container_cpu_usage_seconds_total{namespace=\"automatic-system\",pod=\"kafka-1-0\",container!=\"\",container!=\"POD\"}[5m]))) or vector(0)"
+        }
+      ],
+      "title": "CPU usage",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "overrides": [],
+        "defaults": {
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "cores"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 1
+    },
+    {
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
+          "refId": "B",
+          "range": true,
+          "expr": "(sum(container_memory_working_set_bytes{namespace=\"automatic-system\",pod=\"kafka-1-0\",container!=\"\",container!=\"POD\"})) or vector(0)"
+        }
+      ],
+      "title": "Memory working set",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "overrides": [],
+        "defaults": {
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "bytes"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 2
+    },
+    {
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
+          "refId": "C",
+          "range": true,
+          "expr": "(sum(kube_pod_container_status_restarts_total{namespace=\"automatic-system\",pod=\"kafka-1-0\"})) or vector(0)"
+        }
+      ],
+      "title": "Container restarts",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "overrides": [],
+        "defaults": {
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 3
+    },
+    {
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
+          "refId": "D",
+          "range": true,
+          "expr": "(sum(rate(container_network_receive_bytes_total{namespace=\"automatic-system\",pod=\"kafka-1-0\"}[5m]))) or vector(0)"
+        }
+      ],
+      "title": "Network receive",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "overrides": [],
+        "defaults": {
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "Bps"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 4
+    },
+    {
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "legendFormat": "{{pod}}",
+          "refId": "E",
+          "range": true,
+          "expr": "(sum(rate(container_network_transmit_bytes_total{namespace=\"automatic-system\",pod=\"kafka-1-0\"}[5m]))) or vector(0)"
+        }
+      ],
+      "title": "Network transmit",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "overrides": [],
+        "defaults": {
+          "noValue": "0",
+          "thresholds": {
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ],
+            "mode": "absolute"
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "Bps"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 5
+    },
+    {
+      "datasource": {
+        "type": "elasticsearch",
+        "uid": "elasticsearch"
+      },
+      "targets": [
+        {
+          "metrics": [
+            {
+              "id": "1",
+              "type": "logs"
+            }
+          ],
+          "query": "kubernetes.pod.name: kafka-1-0",
+          "datasource": {
+            "type": "elasticsearch",
+            "uid": "elasticsearch"
+          },
+          "timeField": "@timestamp",
+          "bucketAggs": [],
+          "queryType": "logs",
+          "refId": "Logs"
+        }
+      ],
+      "type": "logs",
+      "title": "Recent logs",
+      "options": {
+        "sortOrder": "Descending",
+        "wrapLogMessage": true,
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "dedupStrategy": "none",
+        "showCommonLabels": false,
+        "showTime": true,
+        "showLabels": false
+      },
+      "id": 6,
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      }
+    }
+  ],
+  "editable": false,
+  "time": {
+    "to": "now",
+    "from": "now-6h"
+  },
+  "uid": "automatic-system-infra-kafka-1",
+  "timezone": "browser",
+  "id": null,
+  "title": "Infrastructure / Kafka / kafka-1",
+  "tags": [
+    "automatic-system",
+    "infrastructure",
+    "kafka-1"
+  ],
+  "refresh": "30s",
+  "timepicker": {},
+  "version": 1,
+  "graphTooltip": 1,
+  "schemaVersion": 41,
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "weekStart": "",
+  "fiscalYearStartMonth": 0,
+  "links": [],
+  "liveNow": false
+}

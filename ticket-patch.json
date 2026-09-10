@@ -1,0 +1,7 @@
+﻿{
+  "data": {
+    "DB_HOST": "pgbouncer-ticket-primary",
+    "DB_READ_HOST": "pgbouncer-ticket-replicas",
+    "DB_PORT": "6432"
+  }
+}

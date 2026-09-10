@@ -1,0 +1,6 @@
+import { arrivalScenarios, standardThresholds, requireEnv } from '../lib/config.js';
+import { authToken } from '../lib/auth.js';
+import { request, jsonHeaders } from '../lib/http.js';
+export const options = { scenarios: arrivalScenarios(), thresholds: standardThresholds() };
+export function setup() { return { token: authToken(), ticket: requireEnv('TICKET_ID'), brigade: requireEnv('BRIGADE_ID') }; }
+export function workload(data) { const n = __ITER % 100; const h = jsonHeaders(data.token); if (n < 35) request('POST', '/tickets/list', {limit:50}, h); else if (n < 50) request('POST', '/brigades/list', {limit:50}, h); else if (n < 60) request('GET', '/auth/me', null, h); else if (n < 70) request('POST', '/tickets/get', {ticket_id:data.ticket}, h); else if (n < 80) { const to=new Date(); const from=new Date(to.getTime()-3600000); request('POST', '/locations/history', {brigade_id:data.brigade,from:from.toISOString(),to:to.toISOString(),limit:20}, h); } else if (n < 88) request('POST', '/dispatch/preview', {ticket_id:data.ticket,limit:10}, h); else if (n < 92) request('POST', '/analytics/tickets/overview', {}, h); else if (n < 96) request('POST', '/notifications/list', {limit:20}, h); else request('POST', '/reports/list', {limit:20}, h); }

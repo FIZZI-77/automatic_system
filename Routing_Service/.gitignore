@@ -1,0 +1,27 @@
+# Environment and local secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# IDE and OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Go build and test artifacts
+bin/
+dist/
+tmp/
+*.exe
+*.exe~
+*.test
+*.out
+coverage.*
+
+# Runtime files
+*.log
+*.pid
+

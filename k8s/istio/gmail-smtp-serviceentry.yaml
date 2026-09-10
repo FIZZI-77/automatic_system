@@ -1,0 +1,14 @@
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: gmail-smtp
+  namespace: automatic-system
+spec:
+  hosts:
+    - smtp.gmail.com
+  location: MESH_EXTERNAL
+  resolution: DNS
+  ports:
+    - number: 587
+      name: tcp-smtp
+      protocol: TCP

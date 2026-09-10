@@ -1,0 +1,89 @@
+NAME                                          READY   STATUS             RESTARTS         AGE     IP            NODE                    NOMINATED NODE   READINESS GATES
+analytics-service-55cbd45576-59dg7            2/2     Running            11 (9m23s ago)   19h     10.244.2.28   desktop-worker2         <none>           <none>
+api-gateway-dffc758c4-7d62z                   2/2     Running            0                7m19s   10.244.2.36   desktop-worker2         <none>           <none>
+api-gateway-dffc758c4-gfm8z                   2/2     Running            0                7m6s    10.244.1.34   desktop-worker          <none>           <none>
+asset-service-6c67cc5bc5-9xzvw                2/2     Running            9 (10m ago)      19h     10.244.1.25   desktop-worker          <none>           <none>
+audit-service-79b68f94f8-qhp4l                2/2     Running            8 (10m ago)      19h     10.244.1.27   desktop-worker          <none>           <none>
+auth-service-b9f54dcf8-p85ml                  2/2     Running            9 (10m ago)      19h     10.244.2.23   desktop-worker2         <none>           <none>
+brigade-service-8464dcd444-m2rkn              2/2     Running            9 (10m ago)      19h     10.244.1.21   desktop-worker          <none>           <none>
+clickhouse-0                                  2/2     Running            18 (10m ago)     3d5h    10.244.2.32   desktop-worker2         <none>           <none>
+coordinator-ticket-citus-0                    2/2     Running            8 (10m ago)      18h     10.244.0.8    desktop-control-plane   <none>           <none>
+coordinator-ticket-citus-1                    2/2     Running            8 (10m ago)      18h     10.244.1.22   desktop-worker          <none>           <none>
+coordinator-ticket-citus-2                    2/2     Running            8 (10m ago)      18h     10.244.2.17   desktop-worker2         <none>           <none>
+department-service-79d559d946-xz5cj           2/2     Running            8 (10m ago)      19h     10.244.1.24   desktop-worker          <none>           <none>
+dispatch-service-7484d8599-6lqpd              0/2     Pending            0                56s     <none>        <none>                  <none>           <none>
+dispatch-service-7484d8599-8kxsz              2/2     Running            9 (10m ago)      18h     10.244.2.24   desktop-worker2         <none>           <none>
+dispatch-service-7484d8599-l4bql              0/2     Pending            0                55s     <none>        <none>                  <none>           <none>
+dispatch-service-7484d8599-s7qlb              0/2     Pending            0                3m23s   <none>        <none>                  <none>           <none>
+dispatch-service-7484d8599-vw9kz              2/2     Running            8 (10m ago)      18h     10.244.1.30   desktop-worker          <none>           <none>
+dispatch-service-7484d8599-xp4r7              0/2     Pending            0                3m23s   <none>        <none>                  <none>           <none>
+elasticsearch-0                               1/1     Running            9 (10m ago)      3d5h    10.244.1.8    desktop-worker          <none>           <none>
+etcd-metrics-agent-m2dfp                      1/1     Running            9 (10m ago)      3d5h    172.21.0.4    desktop-control-plane   <none>           <none>
+file-service-f5d8ccd64-jxsst                  2/2     Running            8 (10m ago)      19h     10.244.2.27   desktop-worker2         <none>           <none>
+filebeat-ksj45                                1/1     Running            6 (10m ago)      45h     10.244.2.15   desktop-worker2         <none>           <none>
+filebeat-sh895                                1/1     Running            6 (10m ago)      45h     10.244.1.5    desktop-worker          <none>           <none>
+frontend-7559c8969-blwm7                      2/2     Running            10 (10m ago)     24h     10.244.2.26   desktop-worker2         <none>           <none>
+grafana-6b69895bd7-r6fdf                      2/2     Running            2 (10m ago)      6h7m    10.244.2.22   desktop-worker2         <none>           <none>
+jaeger-f95bf59b4-kv6w5                        0/1     CrashLoopBackOff   20 (91s ago)     3d5h    10.244.2.13   desktop-worker2         <none>           <none>
+k6-services-parallel-89bl6                    0/2     Error              0                6m53s   10.244.2.37   desktop-worker2         <none>           <none>
+kafka-1-0                                     2/2     Running            18 (10m ago)     3d5h    10.244.2.33   desktop-worker2         <none>           <none>
+kafka-2-0                                     2/2     Running            18 (10m ago)     3d5h    10.244.1.20   desktop-worker          <none>           <none>
+kafka-3-0                                     2/2     Running            18 (10m ago)     3d5h    10.244.2.29   desktop-worker2         <none>           <none>
+kafka-exporter-6bbd94978c-76p7t               2/2     Running            4 (9m10s ago)    6h14m   10.244.2.21   desktop-worker2         <none>           <none>
+kibana-585989d4fb-ml27z                       1/1     Running            9 (10m ago)      3d5h    10.244.2.2    desktop-worker2         <none>           <none>
+kube-state-metrics-7664bd759-t6dxl            1/1     Running            18 (10m ago)     3d5h    10.244.2.9    desktop-worker2         <none>           <none>
+location-service-b886985c5-5j7dj              2/2     Running            10 (10m ago)     19h     10.244.2.31   desktop-worker2         <none>           <none>
+mailhog-79484b8f9b-r5x74                      1/1     Running            9 (10m ago)      3d5h    10.244.2.5    desktop-worker2         <none>           <none>
+migrator-dispatch-gb66n                       0/2     Completed          0                23h     <none>        desktop-worker          <none>           <none>
+minio-0                                       1/1     Running            9 (10m ago)      3d5h    10.244.2.12   desktop-worker2         <none>           <none>
+ngrok-tunnel-6fc9fbc5f-cbxpn                  1/1     Running            16 (10m ago)     2d22h   10.244.1.10   desktop-worker          <none>           <none>
+node-exporter-sgcvm                           1/1     Running            9 (10m ago)      3d5h    172.21.0.5    desktop-worker2         <none>           <none>
+node-exporter-xtg4x                           1/1     Running            9 (10m ago)      3d5h    172.21.0.3    desktop-worker          <none>           <none>
+node-exporter-zkxq6                           1/1     Running            9 (10m ago)      3d5h    172.21.0.4    desktop-control-plane   <none>           <none>
+notification-service-579cd494b8-zvz66         2/2     Running            8 (10m ago)      19h     10.244.1.26   desktop-worker          <none>           <none>
+otel-collector-9877dc96f-zppcq                1/1     Running            9 (10m ago)      3d5h    10.244.1.7    desktop-worker          <none>           <none>
+pgbouncer-platform-primary-d9bcb97cc-5z2f6    2/2     Running            18 (10m ago)     3d5h    10.244.2.11   desktop-worker2         <none>           <none>
+pgbouncer-platform-primary-d9bcb97cc-95grb    2/2     Running            18 (10m ago)     3d5h    10.244.1.6    desktop-worker          <none>           <none>
+pgbouncer-platform-replicas-9d8d9cfc8-6xct9   2/2     Running            18 (10m ago)     3d5h    10.244.2.8    desktop-worker2         <none>           <none>
+pgbouncer-platform-replicas-9d8d9cfc8-rdrgw   2/2     Running            18 (10m ago)     3d5h    10.244.1.11   desktop-worker          <none>           <none>
+pgbouncer-ticket-primary-86854df849-nb6km     2/2     Running            18 (10m ago)     3d5h    10.244.2.4    desktop-worker2         <none>           <none>
+pgbouncer-ticket-primary-86854df849-vrc8w     2/2     Running            18 (10m ago)     3d5h    10.244.1.17   desktop-worker          <none>           <none>
+pgbouncer-ticket-replicas-84b5976f74-fk8m5    2/2     Running            18 (10m ago)     3d5h    10.244.2.3    desktop-worker2         <none>           <none>
+pgbouncer-ticket-replicas-84b5976f74-xmv25    2/2     Running            18 (10m ago)     3d5h    10.244.1.14   desktop-worker          <none>           <none>
+postgres-backup-bucket-init-2nj4q             0/1     Completed          0                3d5h    <none>        desktop-worker2         <none>           <none>
+postgres-platform-0                           2/2     Running            184 (10m ago)    3d5h    10.244.0.6    desktop-control-plane   <none>           <none>
+postgres-platform-1                           2/2     Running            24 (10m ago)     3d5h    10.244.1.16   desktop-worker          <none>           <none>
+postgres-platform-2                           2/2     Running            24 (10m ago)     3d5h    10.244.2.7    desktop-worker2         <none>           <none>
+postgres-platform-backup-29800877-b86gm       0/1     Error              0                2d3h    <none>        desktop-worker2         <none>           <none>
+postgres-platform-backup-29800877-kns7g       0/1     Error              0                2d3h    <none>        desktop-worker2         <none>           <none>
+postgres-platform-backup-29800877-xx4h8       0/1     Error              0                2d3h    <none>        desktop-worker2         <none>           <none>
+postgres-platform-backup-29802317-66v84       0/1     Completed          0                25h     <none>        desktop-worker2         <none>           <none>
+postgres-platform-backup-29803757-95j6n       0/1     Completed          0                11h     <none>        desktop-worker2         <none>           <none>
+postgres-platform-backup-init-v59td           0/1     Completed          0                3d5h    <none>        desktop-worker2         <none>           <none>
+postgres-ticket-citus-backup-29800907-qdqxc   0/1     Completed          0                2d3h    <none>        desktop-worker          <none>           <none>
+postgres-ticket-citus-backup-29802347-2lckx   0/1     Error              0                25h     <none>        desktop-worker          <none>           <none>
+postgres-ticket-citus-backup-29802347-5d6pd   0/1     Error              0                25h     <none>        desktop-worker          <none>           <none>
+postgres-ticket-citus-backup-29802347-mmb6d   0/1     Error              0                25h     <none>        desktop-worker          <none>           <none>
+postgres-ticket-citus-backup-init-vzp6h       0/1     Completed          0                3d5h    <none>        desktop-worker2         <none>           <none>
+postgres-ticket-citus-bootstrap-local-m4fkx   0/1     Completed          0                3d5h    <none>        desktop-worker2         <none>           <none>
+postgres-ticket-citus-distribute-f8q9j        0/2     Completed          0                3d5h    <none>        desktop-worker2         <none>           <none>
+profile-service-b57cd9c4b-whzd9               2/2     Running            9 (10m ago)      19h     10.244.1.29   desktop-worker          <none>           <none>
+prometheus-66d9b8c46d-wsrb6                   2/2     Running            2 (10m ago)      6h12m   10.244.2.30   desktop-worker2         <none>           <none>
+redis-exporter-7ff46dd666-t8sgd               1/1     Running            9 (10m ago)      3d5h    10.244.1.2    desktop-worker          <none>           <none>
+redis-gateway-0                               1/1     Running            9 (10m ago)      3d5h    10.244.1.15   desktop-worker          <none>           <none>
+redis-location-master-0                       1/1     Running            9 (10m ago)      3d5h    10.244.1.13   desktop-worker          <none>           <none>
+redis-location-replica-1-0                    1/1     Running            9 (10m ago)      3d5h    10.244.1.9    desktop-worker          <none>           <none>
+redis-location-replica-2-0                    1/1     Running            9 (10m ago)      3d5h    10.244.1.19   desktop-worker          <none>           <none>
+redis-location-sentinel-0                     1/1     Running            9 (10m ago)      3d5h    10.244.1.3    desktop-worker          <none>           <none>
+redis-location-sentinel-1                     1/1     Running            9 (10m ago)      3d5h    10.244.2.14   desktop-worker2         <none>           <none>
+redis-location-sentinel-2                     1/1     Running            9 (10m ago)      3d5h    10.244.1.12   desktop-worker          <none>           <none>
+redis-notification-0                          1/1     Running            9 (10m ago)      3d5h    10.244.1.18   desktop-worker          <none>           <none>
+report-service-5874fc48fd-8wsd6               2/2     Running            8 (10m ago)      19h     10.244.1.31   desktop-worker          <none>           <none>
+routing-service-7fbd6dd58-dhq2n               2/2     Running            9 (10m ago)      19h     10.244.1.28   desktop-worker          <none>           <none>
+sla-service-65db87c44d-9dzcl                  2/2     Running            8 (10m ago)      19h     10.244.2.19   desktop-worker2         <none>           <none>
+ticket-service-c78788fb8-82scs                2/2     Running            16 (9m18s ago)   19h     10.244.2.25   desktop-worker2         <none>           <none>
+valhalla-0                                    2/2     Running            6 (10m ago)      8h      10.244.1.32   desktop-worker          <none>           <none>
+worker-1-ticket-citus-0                       2/2     Running            8 (10m ago)      18h     10.244.0.7    desktop-control-plane   <none>           <none>
+worker-1-ticket-citus-1                       2/2     Running            9 (10m ago)      18h     10.244.2.18   desktop-worker2         <none>           <none>
+worker-2-ticket-citus-0                       2/2     Running            8 (10m ago)      18h     10.244.0.5    desktop-control-plane   <none>           <none>
+worker-2-ticket-citus-1                       2/2     Running            8 (10m ago)      18h     10.244.2.20   desktop-worker2         <none>           <none>

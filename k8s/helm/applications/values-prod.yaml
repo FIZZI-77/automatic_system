@@ -1,0 +1,56 @@
+environment: prod
+dispatch:
+  replicaCount: 2
+  image:
+    pullPolicy: Always
+  podLabels:
+    sidecar.istio.io/inject: "true"
+  podAnnotations:
+    proxy.istio.io/config: '{"holdApplicationUntilProxyStarts":true}'
+  resources:
+    requests:
+      cpu: 150m
+      memory: 192Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+  autoscaling:
+    enabled: false
+  podDisruptionBudget:
+    enabled: true
+  topologySpread:
+    enabled: true
+    whenUnsatisfiable: DoNotSchedule
+apiGateway:
+  pdb:
+    enabled: true
+  topologySpread:
+    enabled: true
+    whenUnsatisfiable: DoNotSchedule
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 768Mi
+haDatabase:
+  enabled: true
+applicationAutoscaling:
+  enabled: false
+globalImage:
+  registry: ghcr.io/fizzi-77
+  tag: ""
+  pullPolicy: Always
+migrations:
+  enabled: true
+  registry: ghcr.io/fizzi-77
+  tag: ""
+  pullPolicy: Always
+analyticsInit:
+  registry: ghcr.io/fizzi-77
+  tag: ""
+  pullPolicy: Always
+applications:
+  api-gateway:
+    replicaCount: 2

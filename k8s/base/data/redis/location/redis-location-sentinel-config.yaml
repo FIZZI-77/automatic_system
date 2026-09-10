@@ -1,0 +1,28 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-location-sentinel-config
+  namespace: automatic-system
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/component: cache
+    app.kubernetes.io/part-of: automatic-system
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/instance: location
+data:
+  sentinel.conf: 'port 26379
+
+    sentinel resolve-hostnames yes
+
+    sentinel announce-hostnames yes
+
+    sentinel monitor location-master redis-location-master 6379 2
+
+    sentinel down-after-milliseconds location-master 5000
+
+    sentinel failover-timeout location-master 10000
+
+    sentinel parallel-syncs location-master 1
+
+    '

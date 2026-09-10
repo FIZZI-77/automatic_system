@@ -1,0 +1,104 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 384
+    spike_limit_mib: 96
+  k8s_attributes:
+    auth_type: serviceAccount
+    passthrough: false
+    extract:
+      metadata:
+        - k8s.namespace.name
+        - k8s.deployment.name
+        - k8s.statefulset.name
+        - k8s.pod.name
+        - k8s.pod.uid
+        - k8s.node.name
+    pod_association:
+      - sources:
+          - from: resource_attribute
+            name: k8s.pod.ip
+      - sources:
+          - from: connection
+  resource:
+    attributes:
+      - key: k8s.cluster.name
+        action: upsert
+        value: automatic-system-local
+  filter/noise:
+    error_mode: ignore
+    traces:
+      span:
+        - 'name == "grpc.health.v1.Health/Check"'
+  transform/dependencies:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        statements:
+          - 'set(attributes["peer.service"], attributes["server.address"]) where attributes["db.system.name"] == "postgresql" and attributes["server.address"] != nil'
+          - 'set(attributes["peer.service"], "kafka") where attributes["messaging.system"] == "kafka"'
+  batch:
+    send_batch_size: 1024
+    timeout: 5s
+
+connectors:
+  span_metrics:
+    histogram:
+      explicit:
+        buckets: [5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2.5s, 5s, 10s]
+    exemplars:
+      enabled: true
+    dimensions:
+      - name: rpc.grpc.status_code
+      - name: http.response.status_code
+  service_graph:
+    latency_histogram_buckets: [100ms, 250ms, 500ms, 1s, 2s, 5s]
+    store:
+      ttl: 2s
+
+exporters:
+  otlp_grpc/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+    sending_queue:
+      enabled: true
+      queue_size: 2048
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 30s
+      max_elapsed_time: 5m
+  prometheus/trace-derived:
+    endpoint: 0.0.0.0:8889
+    enable_open_metrics: true
+    resource_to_telemetry_conversion:
+      enabled: false
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+service:
+  extensions: [health_check]
+  telemetry:
+    logs:
+      level: warn
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, k8s_attributes, resource, filter/noise, transform/dependencies, batch]
+      exporters: [otlp_grpc/jaeger, span_metrics, service_graph]
+    metrics/trace-derived:
+      receivers: [span_metrics, service_graph]
+      processors: [memory_limiter, batch]
+      exporters: [prometheus/trace-derived]
+

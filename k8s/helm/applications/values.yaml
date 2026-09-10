@@ -1,0 +1,341 @@
+environment: local
+dispatch:
+  enabled: true
+  image:
+    repository: automatic-system/dispatch
+    tag: dev
+    pullPolicy: IfNotPresent
+  replicaCount: 2
+  service:
+    port: 50058
+    metricsPort: 9464
+  config:
+    GRPC_PORT: "50058"
+    TICKET_SERVICE_ADDR: ticket-service:50052
+    BRIGADE_SERVICE_ADDR: brigade-service:50054
+    RESERVATION_TTL: 2m
+    CLEANUP_INTERVAL: 15s
+    DEPENDENCY_TIMEOUT: 10s
+    SHUTDOWN_TIMEOUT: 25s
+    DATABASE_MAX_CONNECTIONS: "8"
+    READ_DATABASE_MAX_CONNECTIONS: "4"
+    LOCK_DATABASE_MAX_CONNECTIONS: "4"
+    KAFKA_BROKERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
+    KAFKA_DISPATCH_TOPIC: dispatch.events.v1
+    KAFKA_TICKET_TOPIC: tickets.events.v1
+    KAFKA_TICKET_GROUP: dispatch-emergency-v1
+    AUTO_DISPATCH_ACTOR_ID: 00000000-0000-4000-8000-000000000058
+    AUTO_DISPATCH_CANDIDATE_LIMIT: "10"
+    KAFKA_TICKET_MAX_ATTEMPTS: "5"
+    OUTBOX_WORKER_COUNT: "4"
+    OUTBOX_BATCH_SIZE: "50"
+  database:
+    secretName: runtime-secrets
+    writeKey: DISPATCH_DATABASE_URL
+    readKey: DISPATCH_READ_DATABASE_URL
+  telemetryConfigMap: telemetry-config
+  podLabels: {}
+  podAnnotations:
+    prometheus.io/path: /metrics
+    prometheus.io/port: "9464"
+    prometheus.io/scrape: "true"
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 6
+    cpuUtilization: 70
+    memoryUtilization: 80
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+  topologySpread:
+    enabled: false
+    whenUnsatisfiable: ScheduleAnyway
+  migration:
+    enabled: true
+    image:
+      repository: automatic-system/dispatch-migrator
+      tag: dev
+      pullPolicy: IfNotPresent
+    secretName: runtime-secrets
+    databaseKey: DISPATCH_GOOSE_DBSTRING
+globalImage:
+  registry: ""
+  tag: ""
+  tags: {}
+  pullPolicy: ""
+migrations:
+  enabled: true
+  registry: automatic-system
+  tag: dev
+  tags: {}
+  pullPolicy: IfNotPresent
+analyticsInit:
+  enabled: true
+  registry: automatic-system
+  tag: dev
+  pullPolicy: IfNotPresent
+canary:
+  enabled: false
+  provider: istio
+  metricsServer: http://prometheus.automatic-system.svc.cluster.local:9090
+  progressDeadlineSeconds: 600
+  portDiscovery: false
+  serviceFilter: []
+  analysis:
+    interval: 1m
+    threshold: 5
+    maxWeight: 25
+    stepWeight: 5
+    successRate:
+      min: 99
+    requestDuration:
+      maxMilliseconds: 1500
+  services:
+    analytics-service:
+      deployment: analytics-service
+      service: analytics-service
+      port: 50063
+      targetPort: grpc
+      portName: grpc
+    api-gateway:
+      deployment: api-gateway
+      service: api-gateway
+      port: 8081
+      targetPort: http
+      portName: http
+      delegation: true
+      timeout: 30s
+    asset-service:
+      deployment: asset-service
+      service: asset-service
+      port: 50065
+      targetPort: grpc
+      portName: grpc
+    audit-service:
+      deployment: audit-service
+      service: audit-service
+      port: 50062
+      targetPort: grpc
+      portName: grpc
+    auth-service:
+      deployment: auth-service
+      service: auth-service
+      port: 50051
+      targetPort: grpc
+      portName: grpc
+    brigade-service:
+      deployment: brigade-service
+      service: brigade-service
+      port: 50054
+      targetPort: grpc
+      portName: grpc
+    department-service:
+      deployment: department-service
+      service: department-service
+      port: 50053
+      targetPort: grpc
+      portName: grpc
+    dispatch-service:
+      deployment: dispatch-service
+      service: dispatch-service
+      port: 50058
+      targetPort: grpc
+      portName: grpc
+    file-service:
+      deployment: file-service
+      service: file-service
+      port: 50059
+      targetPort: grpc
+      portName: grpc
+    frontend:
+      deployment: frontend
+      service: frontend
+      port: 3000
+      targetPort: http
+      portName: http
+      delegation: true
+      loadTest:
+        url: http://flagger-loadtester.automatic-system/
+        timeout: 5s
+        command: hey -z 12m -q 2 -c 1 http://frontend-canary.automatic-system:3000/
+    location-service:
+      deployment: location-service
+      service: location-service
+      port: 50056
+      targetPort: grpc
+      portName: grpc
+    notification-service:
+      deployment: notification-service
+      service: notification-service
+      port: 50061
+      targetPort: grpc
+      portName: grpc
+    profile-service:
+      deployment: profile-service
+      service: profile-service
+      port: 50055
+      targetPort: grpc
+      portName: grpc
+    report-service:
+      deployment: report-service
+      service: report-service
+      port: 50064
+      targetPort: grpc
+      portName: grpc
+    routing-service:
+      deployment: routing-service
+      service: routing-service
+      port: 50057
+      targetPort: grpc
+      portName: grpc
+    sla-service:
+      deployment: sla-service
+      service: sla-service
+      port: 50060
+      targetPort: grpc
+      portName: grpc
+    ticket-service:
+      deployment: ticket-service
+      service: ticket-service
+      port: 50052
+      targetPort: grpc
+      portName: grpc
+apiGateway:
+  serviceType: ClusterIP
+  pdb:
+    enabled: false
+    minAvailable: 1
+  topologySpread:
+    enabled: false
+    whenUnsatisfiable: ScheduleAnyway
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+applicationAutoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 6
+  cpuUtilization: 70
+  memoryUtilization: 80
+haDatabase:
+  enabled: true
+  platformPrimary: pgbouncer-platform-primary
+  platformReplicas: pgbouncer-platform-replicas
+  ticketPrimary: pgbouncer-ticket-primary
+  ticketReplicas: pgbouncer-ticket-replicas
+  port: "6432"
+applications:
+  analytics:
+    replicaCount: 2
+    image:
+      repository: automatic-system/analytics
+      tag: dev
+      pullPolicy: IfNotPresent
+  asset:
+    replicaCount: 2
+    image:
+      repository: automatic-system/asset
+      tag: dev
+      pullPolicy: IfNotPresent
+  sla:
+    replicaCount: 2
+    image:
+      repository: automatic-system/sla
+      tag: dev
+      pullPolicy: IfNotPresent
+  api-gateway:
+    replicaCount: 2
+    image:
+      repository: automatic-system/api-gateway
+      tag: dev
+      pullPolicy: IfNotPresent
+  audit:
+    replicaCount: 2
+    image:
+      repository: automatic-system/audit
+      tag: dev
+      pullPolicy: IfNotPresent
+  auth:
+    replicaCount: 2
+    image:
+      repository: automatic-system/auth
+      tag: dev
+      pullPolicy: IfNotPresent
+  brigade:
+    replicaCount: 2
+    image:
+      repository: automatic-system/brigade
+      tag: dev
+      pullPolicy: IfNotPresent
+  department:
+    replicaCount: 2
+    image:
+      repository: automatic-system/department
+      tag: dev
+      pullPolicy: IfNotPresent
+  file:
+    replicaCount: 2
+    image:
+      repository: automatic-system/file
+      tag: dev
+      pullPolicy: IfNotPresent
+  frontend:
+    replicaCount: 1
+    image:
+      repository: automatic-system/frontend
+      tag: dev
+      pullPolicy: IfNotPresent
+  location:
+    replicaCount: 2
+    image:
+      repository: automatic-system/location
+      tag: dev
+      pullPolicy: IfNotPresent
+  notification:
+    replicaCount: 2
+    image:
+      repository: automatic-system/notification
+      tag: dev
+      pullPolicy: IfNotPresent
+    fcm:
+      enabled: true
+      serviceAccountSecretName: firebase-fcm
+      serviceAccountKey: service-account.json
+      serviceAccountPath: /var/run/secrets/firebase/service-account.json
+
+  profile:
+    replicaCount: 2
+    image:
+      repository: automatic-system/profile
+      tag: dev
+      pullPolicy: IfNotPresent
+  report:
+    replicaCount: 2
+    image:
+      repository: automatic-system/report
+      tag: dev
+      pullPolicy: IfNotPresent
+  routing:
+    replicaCount: 2
+    image:
+      repository: automatic-system/routing
+      tag: dev
+      pullPolicy: IfNotPresent
+  ticket:
+    replicaCount: 2
+    image:
+      repository: automatic-system/ticket
+      tag: dev
+      pullPolicy: IfNotPresent

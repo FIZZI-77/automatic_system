@@ -1,0 +1,7 @@
+FROM alpine:3.22
+RUN adduser -D -H routing
+USER routing
+COPY test-results/bin/routing /routing
+COPY Routing_Service/config.yaml /config.yaml
+EXPOSE 50057
+ENTRYPOINT ["/routing"]

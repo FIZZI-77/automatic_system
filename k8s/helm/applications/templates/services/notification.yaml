@@ -1,0 +1,178 @@
+apiVersion: v1
+data:
+  {{- if .Values.applications.notification.fcm.enabled }}
+  FCM_SERVICE_ACCOUNT_FILE: {{ .Values.applications.notification.fcm.serviceAccountPath | quote }}
+    {{- else }}
+  FCM_SERVICE_ACCOUNT_FILE: ""
+    {{- end }}
+  GRPC_PORT: "50061"
+  KAFKA_BROKERS: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
+  KAFKA_GROUP: "notification-service"
+  KAFKA_TOPICS: "tickets.events.v1,sla.events.v1,dispatch.events.v1,departments.events.v1,brigades.events.v1,locations.events.v1,routing.events.v1,files.events.v1,reports.events.v1"
+  LIVE_CHANNEL_PREFIX: 'notifications:user:'
+  REDIS_ADDR: "redis-notification:6379"
+  SMTP_ADDR: "smtp.gmail.com:587"
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: notification-service
+    app.kubernetes.io/part-of: automatic-system
+  name: notification-service-config
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: notification-service
+    app.kubernetes.io/part-of: automatic-system
+  name: notification-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - name: grpc
+    port: 50061
+    targetPort: 50061
+  selector:
+    app: {{ ternary "notification-service-primary" "notification-service" .Values.canary.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: notification-service
+    app.kubernetes.io/part-of: automatic-system
+  name: notification-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  minReadySeconds: 3
+  {{- if not .Values.applicationAutoscaling.enabled }}
+  replicas: {{ (index .Values.applications "notification").replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: notification-service
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9464"
+        prometheus.io/scrape: "true"
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts":true}'
+      labels:
+        app: notification-service
+        app.kubernetes.io/component: backend
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: notification-service
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - env:
+          - name: DATABASE_URL
+            valueFrom:
+              secretKeyRef:
+                name: runtime-secrets
+                key: NOTIFICATION_DATABASE_URL
+
+          - name: SMTP_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: grafana-smtp
+                key: smtp-user
+
+          - name: SMTP_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: grafana-smtp
+                key: smtp-password
+
+          - name: SMTP_FROM
+            valueFrom:
+              secretKeyRef:
+                name: grafana-smtp
+                key: smtp-user
+
+        envFrom:
+        - configMapRef:
+            name: telemetry-config
+        - configMapRef:
+            name: notification-service-config
+
+        {{- if .Values.applications.notification.fcm.enabled }}
+        volumeMounts:
+        - name: firebase-service-account
+          mountPath: /var/run/secrets/firebase
+          readOnly: true
+        {{- end }}
+
+        image: '{{ include "applications.image" (dict "root" $ "name" "notification") }}'
+        imagePullPolicy: {{ default (index .Values.applications "notification").image.pullPolicy .Values.globalImage.pullPolicy }}
+        livenessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50061
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 2
+        name: notification-service
+        ports:
+        - containerPort: 50061
+          name: grpc
+        - containerPort: 9464
+          name: metrics
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 50061
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          timeoutSeconds: 2
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 25m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        startupProbe:
+          failureThreshold: 45
+          grpc:
+            port: 50061
+          periodSeconds: 2
+          timeoutSeconds: 1
+
+      {{- if .Values.applications.notification.fcm.enabled }}
+      volumes:
+        - name: firebase-service-account
+          secret:
+            secretName: {{ .Values.applications.notification.fcm.serviceAccountSecretName }}
+            items:
+              - key: {{ .Values.applications.notification.fcm.serviceAccountKey }}
+                path: service-account.json
+      {{- end }}
+
+      enableServiceLinks: false
+
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30

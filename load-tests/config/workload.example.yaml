@@ -1,0 +1,28 @@
+stages:
+  - {rate: 100, warmup: 30s, measurement: 3m, stabilization: 15s}
+  - {rate: 250, warmup: 30s, measurement: 3m, stabilization: 15s}
+  - {rate: 500, warmup: 30s, measurement: 3m, stabilization: 15s}
+
+mix:
+  ticket_read: 0.35
+  brigade_read: 0.15
+  authenticated_user: 0.10
+  ticket_write: 0.10
+  location_query: 0.10
+  dispatch_preview: 0.08
+  dispatch_confirm_auto: 0.04
+  analytics: 0.04
+  notification: 0.02
+  reports_files: 0.02
+
+user_activity:
+  ticket_list: { every_seconds: 10 }
+  ticket_get: { every_seconds: 20 }
+  profile: { every_seconds: 60 }
+  create_ticket: { every_seconds: 1800 }
+
+telemetry_intervals: [1, 2, 5, 10, 30]
+resource_capacity: {}
+amplification:
+  # Populate from traces/confirmed counters. Empty means not measured.
+  auto_dispatch: {}

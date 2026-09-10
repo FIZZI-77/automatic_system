@@ -9,6 +9,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
+	"errors"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
@@ -18,6 +19,7 @@ import (
 
 type mockUserRepo struct {
 	createUserFunc     func(ctx context.Context, user *models.User) (uuid.UUID, error)
+	deleteUserFunc     func(ctx context.Context, userID uuid.UUID) error
 	getUserByIDFunc    func(ctx context.Context, id uuid.UUID) (*models.User, error)
 	getUserByEmailFunc func(ctx context.Context, email string) (*models.User, error)
 	updateUserFunc     func(ctx context.Context, user *models.User) error
@@ -25,6 +27,13 @@ type mockUserRepo struct {
 
 func (m *mockUserRepo) CreateUser(ctx context.Context, user *models.User) (uuid.UUID, error) {
 	return m.createUserFunc(ctx, user)
+}
+
+func (m *mockUserRepo) DeleteUserRegistration(ctx context.Context, userID uuid.UUID) error {
+	if m.deleteUserFunc == nil {
+		return nil
+	}
+	return m.deleteUserFunc(ctx, userID)
 }
 
 func (m *mockUserRepo) GetUserByID(ctx context.Context, id uuid.UUID) (*models.User, error) {
@@ -119,10 +128,12 @@ func (m *mockRoleRepo) AssignRoleToUser(ctx context.Context, userID uuid.UUID, r
 }
 
 type mockTXRepo struct {
-	changePasswordFunc func(ctx context.Context, userID uuid.UUID, password string, sessionID uuid.UUID, revokeOtherSessions bool) (int32, error)
-	logoutFunc         func(ctx context.Context, sessionID uuid.UUID) error
-	logoutAllFunc      func(ctx context.Context, userID uuid.UUID) (int64, error)
-	resetPasswordFunc  func(ctx context.Context, userID uuid.UUID, passwordHash string) (int32, error)
+	changePasswordFunc         func(ctx context.Context, userID uuid.UUID, password string, sessionID uuid.UUID, revokeOtherSessions bool) (int32, error)
+	logoutFunc                 func(ctx context.Context, sessionID uuid.UUID) error
+	logoutAllFunc              func(ctx context.Context, userID uuid.UUID) (int64, error)
+	resetPasswordFunc          func(ctx context.Context, userID uuid.UUID, passwordHash string) (int32, error)
+	resetPasswordWithTokenFunc func(ctx context.Context, userID uuid.UUID, passwordHash string, tokenID uuid.UUID) (int32, error)
+	verifyEmailFunc            func(ctx context.Context, userID uuid.UUID, tokenID uuid.UUID) error
 }
 
 func (m *mockTXRepo) ChangePassword(ctx context.Context, userID uuid.UUID, password string, sessionID uuid.UUID, revokeOtherSessions bool) (int32, error) {
@@ -139,6 +150,14 @@ func (m *mockTXRepo) LogoutAll(ctx context.Context, userID uuid.UUID) (int64, er
 
 func (m *mockTXRepo) ResetPassword(ctx context.Context, userID uuid.UUID, passwordHash string) (int32, error) {
 	return m.resetPasswordFunc(ctx, userID, passwordHash)
+}
+
+func (m *mockTXRepo) ResetPasswordWithToken(ctx context.Context, userID uuid.UUID, passwordHash string, tokenID uuid.UUID) (int32, error) {
+	return m.resetPasswordWithTokenFunc(ctx, userID, passwordHash, tokenID)
+}
+
+func (m *mockTXRepo) VerifyEmail(ctx context.Context, userID uuid.UUID, tokenID uuid.UUID) error {
+	return m.verifyEmailFunc(ctx, userID, tokenID)
 }
 
 type mockOneTimeTokenRepo struct {
@@ -169,6 +188,17 @@ type mockMailService struct {
 	sendPasswordResetEmailFunc func(ctx context.Context, toEmail string, token string) error
 }
 
+type mockProfileProvisioner struct {
+	createFunc func(ctx context.Context, userID uuid.UUID, fullName string) error
+}
+
+func (m mockProfileProvisioner) CreateUserProfile(ctx context.Context, userID uuid.UUID, fullName string) error {
+	if m.createFunc == nil {
+		return nil
+	}
+	return m.createFunc(ctx, userID, fullName)
+}
+
 func (m *mockMailService) SendVerificationEmail(ctx context.Context, toEmail string, token string) error {
 	return m.sendVerificationEmailFunc(ctx, toEmail, token)
 }
@@ -196,6 +226,7 @@ func newTestService(repo *repository.Repo, mail MailService, t *testing.T) *Auth
 		newTestPrivateKey(t),
 		"test-key-id",
 		mail,
+		mockProfileProvisioner{},
 		zap.NewNop(),
 	)
 }
@@ -207,6 +238,7 @@ func hashToken(raw string) string {
 
 func TestAuthService_Register_Success(t *testing.T) {
 	userID := uuid.New()
+	profileCreated := false
 
 	userRepo := &mockUserRepo{
 		getUserByEmailFunc: func(ctx context.Context, email string) (*models.User, error) {
@@ -246,6 +278,16 @@ func TestAuthService_Register_Success(t *testing.T) {
 	}
 
 	svc := newTestService(repo, &mockMailService{}, t)
+	svc.profiles = mockProfileProvisioner{createFunc: func(_ context.Context, gotUserID uuid.UUID, fullName string) error {
+		if gotUserID != userID {
+			t.Fatalf("expected profile user id %s, got %s", userID, gotUserID)
+		}
+		if fullName != "testuser" {
+			t.Fatalf("expected profile full name testuser, got %s", fullName)
+		}
+		profileCreated = true
+		return nil
+	}}
 
 	result, err := svc.Register(context.Background(), models.RegisterInput{
 		Email:    "test@example.com",
@@ -267,6 +309,52 @@ func TestAuthService_Register_Success(t *testing.T) {
 
 	if result.EmailVerified {
 		t.Fatal("expected email verified false")
+	}
+	if !profileCreated {
+		t.Fatal("expected profile to be created before registration succeeds")
+	}
+}
+
+func TestAuthService_Register_ProfileFailureCompensatesUser(t *testing.T) {
+	userID := uuid.New()
+	profileErr := errors.New("profile unavailable")
+	compensated := false
+
+	userRepo := &mockUserRepo{
+		getUserByEmailFunc: func(context.Context, string) (*models.User, error) {
+			return nil, sql.ErrNoRows
+		},
+		createUserFunc: func(context.Context, *models.User) (uuid.UUID, error) {
+			return userID, nil
+		},
+		deleteUserFunc: func(_ context.Context, gotUserID uuid.UUID) error {
+			if gotUserID != userID {
+				t.Fatalf("expected compensated user id %s, got %s", userID, gotUserID)
+			}
+			compensated = true
+			return nil
+		},
+	}
+
+	svc := newTestService(&repository.Repo{UserRepository: userRepo}, &mockMailService{}, t)
+	svc.profiles = mockProfileProvisioner{createFunc: func(context.Context, uuid.UUID, string) error {
+		return profileErr
+	}}
+
+	result, err := svc.Register(context.Background(), models.RegisterInput{
+		Email:    "profile-failure@example.com",
+		Password: "password123",
+		Username: "profilefailure",
+	})
+
+	if result != nil {
+		t.Fatal("expected nil result")
+	}
+	if !errors.Is(err, profileErr) {
+		t.Fatalf("expected profile error, got %v", err)
+	}
+	if !compensated {
+		t.Fatal("expected auth user registration to be compensated")
 	}
 }
 
@@ -454,6 +542,52 @@ func TestAuthService_Login_UserNotFound(t *testing.T) {
 	}
 }
 
+func TestAuthService_Login_CleansUpSessionAfterRoleFailure(t *testing.T) {
+	userID := uuid.New()
+	sessionID := uuid.New()
+	passwordHash, err := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
+	if err != nil {
+		t.Fatalf("failed to hash password: %v", err)
+	}
+
+	cleanupCalled := false
+	repo := &repository.Repo{
+		UserRepository: &mockUserRepo{
+			getUserByEmailFunc: func(context.Context, string) (*models.User, error) {
+				return &models.User{ID: userID, PasswordHash: string(passwordHash), IsActive: true}, nil
+			},
+		},
+		SessionRepository: &mockSessionRepo{
+			createSessionFunc: func(context.Context, *models.Session) (uuid.UUID, error) {
+				return sessionID, nil
+			},
+		},
+		RoleRepository: &mockRoleRepo{
+			getRolesByUserIDFunc: func(context.Context, uuid.UUID) ([]string, error) {
+				return nil, errors.New("roles unavailable")
+			},
+		},
+		TXRepository: &mockTXRepo{
+			logoutFunc: func(_ context.Context, id uuid.UUID) error {
+				cleanupCalled = id == sessionID
+				return nil
+			},
+		},
+	}
+
+	svc := newTestService(repo, &mockMailService{}, t)
+	result, err := svc.Login(context.Background(), models.LoginInput{
+		Email: "test@example.com", Password: "password123", ClientID: "web-client",
+		IP: "127.0.0.1", UserAgent: "Mozilla/5.0",
+	})
+	if result != nil || err == nil {
+		t.Fatalf("expected login failure, got result=%v err=%v", result, err)
+	}
+	if !cleanupCalled {
+		t.Fatal("expected created session to be revoked")
+	}
+}
+
 func TestAuthService_Login_InvalidPassword(t *testing.T) {
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte("correct-password"), bcrypt.DefaultCost)
 	if err != nil {
@@ -500,6 +634,7 @@ func TestAuthService_Refresh_Success(t *testing.T) {
 	oldTokenID := uuid.New()
 	rawRefreshToken := "old-refresh-token"
 	oldHash := hashToken(rawRefreshToken)
+	sessionExpiresAt := time.Now().Add(time.Hour).Truncate(time.Second)
 
 	refreshRepo := &mockRefreshTokenRepo{
 		getByTokenHashFunc: func(ctx context.Context, tokenHash string) (*models.RefreshToken, error) {
@@ -531,6 +666,9 @@ func TestAuthService_Refresh_Success(t *testing.T) {
 			if newToken.TokenHash == "" {
 				t.Fatal("expected new token hash")
 			}
+			if !newToken.ExpiresAt.Equal(sessionExpiresAt) {
+				t.Fatalf("expected refresh expiry %s, got %s", sessionExpiresAt, newToken.ExpiresAt)
+			}
 
 			return nil
 		},
@@ -545,7 +683,8 @@ func TestAuthService_Refresh_Success(t *testing.T) {
 			return &models.Session{
 				ID:        sessionID,
 				UserID:    userID,
-				ExpiresAt: time.Now().Add(time.Hour),
+				ClientID:  "web-client",
+				ExpiresAt: sessionExpiresAt,
 			}, nil
 		},
 	}
@@ -589,6 +728,42 @@ func TestAuthService_Refresh_Success(t *testing.T) {
 
 	if result.TokenType != "Bearer" {
 		t.Fatalf("expected Bearer, got %s", result.TokenType)
+	}
+}
+
+func TestAuthService_Refresh_RejectsDifferentClient(t *testing.T) {
+	userID := uuid.New()
+	sessionID := uuid.New()
+	rawRefreshToken := "old-refresh-token"
+
+	repo := &repository.Repo{
+		RefreshTokenRepository: &mockRefreshTokenRepo{
+			getByTokenHashFunc: func(context.Context, string) (*models.RefreshToken, error) {
+				return &models.RefreshToken{
+					ID: uuid.New(), UserID: userID, SessionID: sessionID,
+					ExpiresAt: time.Now().Add(time.Hour),
+				}, nil
+			},
+		},
+		SessionRepository: &mockSessionRepo{
+			getSessionByIDFunc: func(context.Context, uuid.UUID) (*models.Session, error) {
+				return &models.Session{
+					ID: sessionID, UserID: userID, ClientID: "mobile-client",
+					ExpiresAt: time.Now().Add(time.Hour),
+				}, nil
+			},
+		},
+	}
+
+	svc := newTestService(repo, &mockMailService{}, t)
+	result, err := svc.Refresh(context.Background(), models.RefreshInput{
+		RefreshToken: rawRefreshToken,
+		ClientID:     "web-client",
+		IP:           "127.0.0.1",
+		UserAgent:    "Mozilla/5.0",
+	})
+	if result != nil || !errors.Is(err, models.ErrInvalidRefreshToken) {
+		t.Fatalf("expected invalid refresh token, got result=%v err=%v", result, err)
 	}
 }
 
@@ -681,6 +856,34 @@ func TestAuthService_Logout_SessionNotFound(t *testing.T) {
 
 	if err == nil {
 		t.Fatal("expected error")
+	}
+}
+
+func TestAuthService_Logout_RejectsForeignSession(t *testing.T) {
+	requestUserID := uuid.New()
+	sessionID := uuid.New()
+	logoutCalled := false
+	repo := &repository.Repo{
+		SessionRepository: &mockSessionRepo{
+			getSessionByIDFunc: func(context.Context, uuid.UUID) (*models.Session, error) {
+				return &models.Session{ID: sessionID, UserID: uuid.New()}, nil
+			},
+		},
+		TXRepository: &mockTXRepo{
+			logoutFunc: func(context.Context, uuid.UUID) error {
+				logoutCalled = true
+				return nil
+			},
+		},
+	}
+
+	svc := newTestService(repo, &mockMailService{}, t)
+	err := svc.Logout(context.Background(), models.LogoutInput{UserID: requestUserID, SessionID: sessionID})
+	if !errors.Is(err, models.ErrInvalidSession) {
+		t.Fatalf("expected invalid session, got %v", err)
+	}
+	if logoutCalled {
+		t.Fatal("foreign session must not be logged out")
 	}
 }
 
@@ -1021,9 +1224,16 @@ func TestAuthService_VerifyEmail_Success(t *testing.T) {
 				EmailVerified: false,
 			}, nil
 		},
-		updateUserFunc: func(ctx context.Context, user *models.User) error {
-			if !user.EmailVerified {
-				t.Fatal("expected email verified true")
+	}
+
+	txRepo := &mockTXRepo{
+		verifyEmailFunc: func(ctx context.Context, id uuid.UUID, usedTokenID uuid.UUID) error {
+			if id != userID {
+				t.Fatalf("expected user id %s, got %s", userID, id)
+			}
+
+			if usedTokenID != tokenID {
+				t.Fatalf("expected token id %s, got %s", tokenID, usedTokenID)
 			}
 
 			return nil
@@ -1033,6 +1243,7 @@ func TestAuthService_VerifyEmail_Success(t *testing.T) {
 	repo := &repository.Repo{
 		UserRepository:   userRepo,
 		OneTimeTokenRepo: oneTimeRepo,
+		TXRepository:     txRepo,
 	}
 
 	svc := newTestService(repo, &mockMailService{}, t)
@@ -1131,9 +1342,13 @@ func TestAuthService_ResetPassword_Success(t *testing.T) {
 	}
 
 	txRepo := &mockTXRepo{
-		resetPasswordFunc: func(ctx context.Context, id uuid.UUID, passwordHash string) (int32, error) {
+		resetPasswordWithTokenFunc: func(ctx context.Context, id uuid.UUID, passwordHash string, usedTokenID uuid.UUID) (int32, error) {
 			if id != userID {
 				t.Fatalf("expected user id %s, got %s", userID, id)
+			}
+
+			if usedTokenID != tokenID {
+				t.Fatalf("expected token id %s, got %s", tokenID, usedTokenID)
 			}
 
 			if passwordHash == "" {

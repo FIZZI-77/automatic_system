@@ -1,0 +1,247 @@
+flowchart TB
+    %% External clients
+    subgraph Clients["Clients"]
+        Web["Web client"]
+        Mobile["Mobile app"]
+        Admin["Admin panel"]
+        TestTools["Load tests: k6 / wrk / ab / ghz"]
+    end
+
+    %% Edge layer
+    subgraph Edge["Edge / API layer"]
+        Traefik["Traefik reverse proxy"]
+        Gateway["API Gateway\nHTTP REST -> internal gRPC"]
+    end
+
+    %% Service mesh / orchestration target
+    subgraph Platform["Runtime platform"]
+        Docker["Docker Compose\nlocal/dev"]
+        Kubernetes["Kubernetes\nfuture production target"]
+        Istio["Istio service mesh\nmTLS, retries, circuit breaking, traffic splitting"]
+    end
+
+    %% Core domain services
+    subgraph Services["Core microservices"]
+        Auth["Auth Service"]
+        Department["Department Service"]
+        Ticket["Ticket Service"]
+        Brigade["Brigade Service"]
+        Dispatch["Dispatch Service"]
+        Location["Location Service"]
+        Routing["Routing Service"]
+        File["File Service"]
+        SLA["SLA Service"]
+        Notification["Notification Service"]
+        Report["Report Service"]
+        Analytics["Analytics Service"]
+        Audit["Audit Service"]
+    end
+
+    %% Data stores
+    subgraph Storage["Storage"]
+        PgAuth[("PostgreSQL\nAuth DB")]
+        PgDepartment[("PostgreSQL\nDepartment DB")]
+        PgTicket[("PostgreSQL\nTicket DB")]
+        PgBrigade[("PostgreSQL\nBrigade DB")]
+        PgDispatch[("PostgreSQL\nDispatch DB")]
+        PgFile[("PostgreSQL\nFile metadata DB")]
+        PgSLA[("PostgreSQL\nSLA DB")]
+        PgNotify[("PostgreSQL\nNotification history DB")]
+        PgAudit[("PostgreSQL\nAudit DB")]
+        PgReport[("PostgreSQL\nReport metadata DB")]
+        PostGIS[("PostgreSQL + PostGIS\nzones, districts, spatial queries")]
+        Redis[("Redis\ncache, rate limit, operational state, live locations")]
+        ClickHouse[("ClickHouse\nanalytics read model")]
+        MinIO[("S3 / MinIO\nfiles, attachments, generated reports")]
+    end
+
+    %% Messaging
+    subgraph Messaging["Async messaging"]
+        Kafka["Kafka"]
+        AuthTopic["auth.events.v1"]
+        DepartmentTopic["departments.events.v1"]
+        TicketTopic["tickets.events.v1"]
+        BrigadeTopic["brigades.events.v1"]
+        DispatchTopic["dispatch.events.v1"]
+        LocationTopic["locations.events.v1"]
+        RoutingTopic["routing.events.v1"]
+        FileTopic["files.events.v1"]
+        SLATopic["sla.events.v1"]
+        NotificationTopic["notifications.events.v1"]
+        ReportTopic["reports.events.v1"]
+        RetryTopics["retry topics"]
+        DLQ["dead-letter topics"]
+    end
+
+    %% Outbox
+    subgraph Outbox["Transactional outbox pattern"]
+        OutboxTables["outbox_events tables\ninside service PostgreSQL DBs"]
+        OutboxRelay["Outbox relay\nPostgreSQL -> Kafka"]
+    end
+
+    %% Observability
+    subgraph Observability["Observability"]
+        OTel["OpenTelemetry SDK / Collector"]
+        Prometheus["Prometheus\nmetrics"]
+        Grafana["Grafana\ndashboards"]
+        Jaeger["Jaeger\ntraces"]
+        ELK["ELK / centralized logs"]
+        Pprof["Go pprof\nCPU, heap, goroutines"]
+        PgStats["pg_stat_statements\nslow SQL"]
+    end
+
+    %% Client traffic
+    Web --> Traefik
+    Mobile --> Traefik
+    Admin --> Traefik
+    TestTools --> Traefik
+    TestTools -. "direct HTTP load" .-> Gateway
+    TestTools -. "direct gRPC load with ghz" .-> Auth
+    TestTools -. "direct gRPC load with ghz" .-> Department
+    TestTools -. "direct gRPC load with ghz" .-> Ticket
+
+    Traefik --> Gateway
+
+    %% Gateway to services
+    Gateway -->|gRPC| Auth
+    Gateway -->|gRPC| Department
+    Gateway -->|gRPC| Ticket
+    Gateway -->|gRPC| Brigade
+    Gateway -->|gRPC| Dispatch
+    Gateway -->|gRPC| Location
+    Gateway -->|gRPC| File
+    Gateway -->|gRPC| Report
+
+    %% Synchronous service calls
+    Ticket -->|validate category / department| Department
+    Ticket -->|validate brigade / access| Brigade
+    Dispatch -->|ticket data| Ticket
+    Dispatch -->|departments / zones| Department
+    Dispatch -->|available brigades| Brigade
+    Dispatch -->|best route / ETA| Routing
+    Routing -->|brigade candidates / specialization| Brigade
+    Routing -->|live coordinates| Location
+    File -->|resource access check| Ticket
+    Report -->|analytics queries| Analytics
+    Report -->|save generated report| File
+    Notification -. "optional user / department lookup" .-> Auth
+    Notification -. "optional ticket context" .-> Ticket
+
+    %% Service ownership
+    Auth --> PgAuth
+    Department --> PgDepartment
+    Department --> PostGIS
+    Ticket --> PgTicket
+    Brigade --> PgBrigade
+    Dispatch --> PgDispatch
+    Location --> Redis
+    Location --> PostGIS
+    Routing --> Redis
+    Routing --> PostGIS
+    File --> PgFile
+    File --> MinIO
+    SLA --> PgSLA
+    Notification --> PgNotify
+    Notification --> Redis
+    Report --> PgReport
+    Report --> MinIO
+    Analytics --> ClickHouse
+    Audit --> PgAudit
+
+    %% Outbox writes
+    Auth --> OutboxTables
+    Department --> OutboxTables
+    Ticket --> OutboxTables
+    Brigade --> OutboxTables
+    Dispatch --> OutboxTables
+    File --> OutboxTables
+    SLA --> OutboxTables
+    Report --> OutboxTables
+    OutboxTables --> OutboxRelay
+    OutboxRelay --> Kafka
+
+    %% Kafka topics
+    Kafka --> AuthTopic
+    Kafka --> DepartmentTopic
+    Kafka --> TicketTopic
+    Kafka --> BrigadeTopic
+    Kafka --> DispatchTopic
+    Kafka --> LocationTopic
+    Kafka --> RoutingTopic
+    Kafka --> FileTopic
+    Kafka --> SLATopic
+    Kafka --> NotificationTopic
+    Kafka --> ReportTopic
+    Kafka --> RetryTopics
+    RetryTopics --> DLQ
+
+    %% Consumers
+    TicketTopic --> SLA
+    TicketTopic --> Dispatch
+    DepartmentTopic --> Dispatch
+    BrigadeTopic --> Dispatch
+    RoutingTopic --> Dispatch
+    LocationTopic --> Routing
+    TicketTopic --> Notification
+    DepartmentTopic --> Notification
+    BrigadeTopic --> Notification
+    DispatchTopic --> Notification
+    RoutingTopic --> Notification
+    FileTopic --> Notification
+    SLATopic --> Notification
+    AuthTopic --> Analytics
+    DepartmentTopic --> Analytics
+    TicketTopic --> Analytics
+    BrigadeTopic --> Analytics
+    DispatchTopic --> Analytics
+    LocationTopic --> Analytics
+    RoutingTopic --> Analytics
+    FileTopic --> Analytics
+    SLATopic --> Analytics
+    NotificationTopic --> Analytics
+    ReportTopic --> Analytics
+    AuthTopic --> Audit
+    DepartmentTopic --> Audit
+    TicketTopic --> Audit
+    BrigadeTopic --> Audit
+    DispatchTopic --> Audit
+    LocationTopic --> Audit
+    RoutingTopic --> Audit
+    FileTopic --> Audit
+    SLATopic --> Audit
+    NotificationTopic --> Audit
+    ReportTopic --> Audit
+
+    %% Observability flows
+    Gateway --> OTel
+    Auth --> OTel
+    Department --> OTel
+    Ticket --> OTel
+    Brigade --> OTel
+    Dispatch --> OTel
+    Location --> OTel
+    Routing --> OTel
+    File --> OTel
+    SLA --> OTel
+    Notification --> OTel
+    Report --> OTel
+    Analytics --> OTel
+    Audit --> OTel
+    OTel --> Prometheus
+    OTel --> Jaeger
+    OTel --> ELK
+    Prometheus --> Grafana
+    PgAuth --> PgStats
+    PgDepartment --> PgStats
+    PgTicket --> PgStats
+    PgBrigade --> PgStats
+    PgDispatch --> PgStats
+    PgFile --> PgStats
+    PgSLA --> PgStats
+
+    %% Runtime relation
+    Docker -. "local runs services and infra" .-> Services
+    Docker -. "local runs infra containers" .-> Storage
+    Docker -. "local runs Kafka/observability" .-> Messaging
+    Kubernetes -. "future deploy target" .-> Services
+    Istio -. "future mesh layer" .-> Services

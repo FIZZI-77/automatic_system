@@ -1,0 +1,7 @@
+grpc_port: 50063
+clickhouse_addr: clickhouse:9000
+clickhouse_database: analytics
+clickhouse_user: analytics
+kafka_brokers: ["kafka-1:9092", "kafka-2:9092", "kafka-3:9092"]
+kafka_group: analytics-service
+kafka_topics: ["auth.events.v1", "tickets.events.v1", "departments.events.v1", "brigades.events.v1", "profiles.events.v1", "locations.events.v1", "routing.events.v1", "dispatch.events.v1", "sla.events.v1", "notifications.events.v1", "reports.events.v1", "assets.events.v1"]

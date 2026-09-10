@@ -1,0 +1,88 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-ticket-citus-patroni
+  namespace: automatic-system
+data:
+  patroni.yaml.template: |
+    scope: postgres-ticket-citus
+    namespace: automatic-system
+    name: ${PATRONI_NAME}
+    log:
+      level: INFO
+      traceback_level: ERROR
+    restapi:
+      listen: 0.0.0.0:8008
+      connect_address: ${POD_IP}:8008
+    kubernetes:
+      namespace: automatic-system
+      labels:
+        cluster-name: postgres-ticket-citus
+      role_label: role
+      leader_label_value: primary
+      follower_label_value: replica
+      use_endpoints: true
+    citus:
+      database: ticket_db
+      group: ${CITUS_GROUP}
+    bootstrap:
+      dcs:
+        ttl: 30
+        loop_wait: 10
+        retry_timeout: 10
+        maximum_lag_on_failover: 1048576
+        synchronous_mode: true
+        postgresql:
+          use_pg_rewind: true
+          use_slots: true
+          parameters:
+            shared_preload_libraries: citus
+            wal_level: replica
+            hot_standby: "on"
+            max_wal_senders: 10
+            max_replication_slots: 10
+            wal_log_hints: "on"
+            password_encryption: scram-sha-256
+            archive_mode: "on"
+            archive_command: pgbackrest archive-push %p
+      initdb:
+        - encoding: UTF8
+        - data-checksums
+      post_bootstrap: /opt/automatic-system/bootstrap-ticket.sh
+      pg_hba:
+        - local all all trust
+        - host replication replicator 0.0.0.0/0 scram-sha-256
+        - host all all 0.0.0.0/0 scram-sha-256
+    postgresql:
+      listen: 0.0.0.0:5432
+      connect_address: ${POD_IP}:5432
+      data_dir: /var/lib/postgresql/data/pgdata
+      bin_dir: /usr/lib/postgresql/16/bin
+      authentication:
+        superuser:
+          username: postgres
+          password: ${TICKET_POSTGRES_SUPERUSER_PASSWORD}
+        replication:
+          username: replicator
+          password: ${TICKET_POSTGRES_REPLICATION_PASSWORD}
+      parameters:
+        unix_socket_directories: /var/run/postgresql
+    tags:
+      nofailover: false
+      noloadbalance: false
+      clonefrom: false
+      nosync: false
+  bootstrap-ticket.sh: |
+    #!/bin/sh
+    set -eu
+    psql --username postgres --dbname postgres \
+      --set=service_password="$TICKET_DB_PASSWORD" \
+      --set=replication_password="$TICKET_POSTGRES_REPLICATION_PASSWORD" <<'SQL'
+    SELECT format('CREATE ROLE replicator WITH REPLICATION LOGIN PASSWORD %L', :'replication_password')
+    WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='replicator') \gexec
+    SELECT format('CREATE ROLE ticket_user LOGIN PASSWORD %L', :'service_password')
+    WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='ticket_user') \gexec
+    SELECT 'CREATE DATABASE ticket_db OWNER ticket_user'
+    WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname='ticket_db') \gexec
+    SQL
+    psql --username postgres --dbname ticket_db -c 'CREATE EXTENSION IF NOT EXISTS citus'

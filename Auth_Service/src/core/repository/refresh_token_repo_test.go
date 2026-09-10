@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func TestRefreshTokenRepo_CreateToken_And_GetByTokenHash(t *testing.T) {
@@ -511,7 +512,7 @@ func TestRefreshTokenRepo_MarkUsedAndReplaceToken_OldTokenAlreadyRevoked(t *test
 	}
 }
 
-func getRefreshTokenByIDForTest(ctx context.Context, db *sql.DB, tokenID uuid.UUID) (*models.RefreshToken, error) {
+func getRefreshTokenByIDForTest(ctx context.Context, db *pgxpool.Pool, tokenID uuid.UUID) (*models.RefreshToken, error) {
 	var token models.RefreshToken
 
 	const query = `
@@ -520,7 +521,7 @@ func getRefreshTokenByIDForTest(ctx context.Context, db *sql.DB, tokenID uuid.UU
 		WHERE id = $1
 	`
 
-	err := db.QueryRowContext(ctx, query, tokenID).Scan(
+	err := db.QueryRow(ctx, query, tokenID).Scan(
 		&token.ID,
 		&token.UserID,
 		&token.SessionID,
@@ -539,7 +540,7 @@ func getRefreshTokenByIDForTest(ctx context.Context, db *sql.DB, tokenID uuid.UU
 	return &token, nil
 }
 
-func getRefreshTokenByHashForTest(ctx context.Context, db *sql.DB, tokenHash string) (*models.RefreshToken, error) {
+func getRefreshTokenByHashForTest(ctx context.Context, db *pgxpool.Pool, tokenHash string) (*models.RefreshToken, error) {
 	var token models.RefreshToken
 
 	const query = `
@@ -548,7 +549,7 @@ func getRefreshTokenByHashForTest(ctx context.Context, db *sql.DB, tokenHash str
 		WHERE token_hash = $1
 	`
 
-	err := db.QueryRowContext(ctx, query, tokenHash).Scan(
+	err := db.QueryRow(ctx, query, tokenHash).Scan(
 		&token.ID,
 		&token.UserID,
 		&token.SessionID,

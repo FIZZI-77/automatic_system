@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-auth-config
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: automatic-system
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/instance: auth
+  namespace: automatic-system
+data:
+  POSTGRES_USER: auth_user
+  POSTGRES_DB: auth_db

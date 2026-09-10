@@ -1,0 +1,127 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="980" viewBox="0 0 1600 980">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#4b5563"/>
+    </marker>
+    <style>
+      .box { fill: #f8fafc; stroke: #334155; stroke-width: 2; rx: 8; }
+      .core { fill: #eef2ff; stroke: #3730a3; }
+      .infra { fill: #ecfdf5; stroke: #047857; }
+      .async { fill: #fff7ed; stroke: #c2410c; }
+      .text { font-family: Arial, sans-serif; font-size: 18px; fill: #0f172a; text-anchor: middle; dominant-baseline: middle; }
+      .small { font-family: Arial, sans-serif; font-size: 13px; fill: #475569; text-anchor: middle; }
+      .label { font-family: Arial, sans-serif; font-size: 13px; fill: #334155; text-anchor: middle; }
+      .arrow { stroke: #4b5563; stroke-width: 2; fill: none; marker-end: url(#arrow); }
+      .event { stroke: #c2410c; stroke-width: 2; fill: none; marker-end: url(#arrow); stroke-dasharray: 7 5; }
+    </style>
+  </defs>
+
+  <text x="800" y="40" class="text" style="font-size:28px;font-weight:700">Unified City Services Architecture</text>
+  <text x="800" y="70" class="small">Solid arrows: synchronous HTTP/gRPC. Dashed arrows: Kafka events.</text>
+
+  <rect x="50" y="130" width="190" height="70" class="box"/>
+  <text x="145" y="165" class="text">Client / Frontend</text>
+
+  <rect x="320" y="130" width="190" height="70" class="box core"/>
+  <text x="415" y="165" class="text">API Gateway</text>
+  <text x="280" y="122" class="label">HTTP/2 HTTPS REST/JSON</text>
+  <path d="M240 165 H320" class="arrow"/>
+
+  <rect x="620" y="110" width="180" height="60" class="box core"/>
+  <text x="710" y="140" class="text">Auth Service</text>
+
+  <rect x="620" y="195" width="180" height="60" class="box core"/>
+  <text x="710" y="225" class="text">Ticket Service</text>
+
+  <rect x="620" y="280" width="180" height="60" class="box core"/>
+  <text x="710" y="310" class="text">Department</text>
+
+  <rect x="620" y="365" width="180" height="60" class="box core"/>
+  <text x="710" y="395" class="text">Brigade Service</text>
+
+  <rect x="620" y="450" width="180" height="60" class="box core"/>
+  <text x="710" y="480" class="text">Dispatch Service</text>
+
+  <rect x="620" y="535" width="180" height="60" class="box core"/>
+  <text x="710" y="565" class="text">Location Service</text>
+
+  <rect x="620" y="620" width="180" height="60" class="box core"/>
+  <text x="710" y="650" class="text">File Service</text>
+
+  <rect x="620" y="705" width="180" height="60" class="box core"/>
+  <text x="710" y="735" class="text">Report Service</text>
+
+  <path d="M510 165 C550 165 560 140 620 140" class="arrow"/>
+  <path d="M510 165 C550 165 560 225 620 225" class="arrow"/>
+  <path d="M510 165 C550 165 560 310 620 310" class="arrow"/>
+  <path d="M510 165 C550 165 560 395 620 395" class="arrow"/>
+  <path d="M510 165 C550 165 560 480 620 480" class="arrow"/>
+  <path d="M510 165 C550 165 560 565 620 565" class="arrow"/>
+  <path d="M510 165 C550 165 560 650 620 650" class="arrow"/>
+  <path d="M510 165 C550 165 560 735 620 735" class="arrow"/>
+  <text x="560" y="100" class="label">gRPC</text>
+
+  <rect x="930" y="385" width="180" height="60" class="box core"/>
+  <text x="1020" y="415" class="text">Routing Service</text>
+
+  <rect x="930" y="535" width="180" height="60" class="box infra"/>
+  <text x="1020" y="565" class="text">S3 / MinIO</text>
+
+  <rect x="930" y="705" width="180" height="60" class="box async"/>
+  <text x="1020" y="735" class="text">Analytics</text>
+
+  <rect x="1230" y="705" width="180" height="60" class="box infra"/>
+  <text x="1320" y="735" class="text">ClickHouse</text>
+
+  <path d="M800 480 C850 480 875 415 930 415" class="arrow"/>
+  <text x="875" y="430" class="label">best route / ETA</text>
+  <path d="M930 415 C880 415 850 565 800 565" class="arrow"/>
+  <text x="890" y="545" class="label">positions</text>
+  <path d="M930 415 C880 415 850 395 800 395" class="arrow"/>
+  <text x="875" y="385" class="label">candidates</text>
+
+  <path d="M800 650 C850 650 875 565 930 565" class="arrow"/>
+  <text x="875" y="610" class="label">presigned URLs</text>
+  <path d="M620 650 C560 650 550 225 620 225" class="arrow"/>
+  <text x="520" y="455" class="label">check ticket access</text>
+
+  <path d="M800 735 H930" class="arrow"/>
+  <text x="865" y="720" class="label">read/query</text>
+  <path d="M1110 735 H1230" class="arrow"/>
+  <text x="1170" y="720" class="label">analytics store</text>
+  <path d="M800 735 C860 735 880 650 800 650" class="arrow"/>
+  <text x="870" y="690" class="label">save reports</text>
+
+  <rect x="1220" y="190" width="190" height="80" class="box async"/>
+  <text x="1315" y="230" class="text">Kafka</text>
+  <text x="1315" y="252" class="small">domain events</text>
+
+  <rect x="1220" y="330" width="190" height="60" class="box async"/>
+  <text x="1315" y="360" class="text">SLA Service</text>
+
+  <rect x="1220" y="425" width="190" height="60" class="box async"/>
+  <text x="1315" y="455" class="text">Notification</text>
+
+  <rect x="1220" y="520" width="190" height="60" class="box async"/>
+  <text x="1315" y="550" class="text">Audit Service</text>
+
+  <path d="M800 140 C1010 140 1060 230 1220 230" class="event"/>
+  <path d="M800 225 C1010 225 1060 230 1220 230" class="event"/>
+  <path d="M800 310 C1010 310 1060 230 1220 230" class="event"/>
+  <path d="M800 395 C1010 395 1060 230 1220 230" class="event"/>
+  <path d="M800 480 C1010 480 1060 230 1220 230" class="event"/>
+  <path d="M800 565 C1010 565 1060 230 1220 230" class="event"/>
+  <path d="M1110 415 C1165 415 1170 230 1220 230" class="event"/>
+  <path d="M800 650 C1010 650 1060 230 1220 230" class="event"/>
+  <path d="M800 735 C1010 735 1060 230 1220 230" class="event"/>
+
+  <path d="M1315 270 V330" class="event"/>
+  <path d="M1315 270 V425" class="event"/>
+  <path d="M1315 270 V520" class="event"/>
+  <path d="M1220 230 C1160 230 1115 735 1110 735" class="event"/>
+  <path d="M1410 230 C1480 230 1480 735 1410 735 H1410" class="event"/>
+  <path d="M1410 230 C1490 230 1490 735 1410 735 H1410" class="event"/>
+
+  <text x="1010" y="210" class="label">*.events.v1</text>
+  <text x="1315" y="300" class="label">Kafka consumers</text>
+</svg>

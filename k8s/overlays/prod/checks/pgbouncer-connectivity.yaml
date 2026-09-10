@@ -1,0 +1,98 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pgbouncer-connectivity-check
+  namespace: automatic-system
+  labels:
+    app.kubernetes.io/name: pgbouncer-connectivity-check
+    app.kubernetes.io/component: job
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 300
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: pgbouncer-connectivity-check
+        app.kubernetes.io/component: job
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: check
+          image: automatic-system-pgbouncer:dev
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              check_database() {
+                label="$1"
+                host="$2"
+                database="$3"
+                username="$4"
+                password="$5"
+
+                echo "Checking ${label} at ${host}:6432"
+                PGPASSWORD="$password" psql \
+                  --host="$host" \
+                  --port=6432 \
+                  --username="$username" \
+                  --dbname="$database" \
+                  --set=ON_ERROR_STOP=1 \
+                  --command='SELECT 1' >/dev/null
+              }
+
+              check_database \
+                platform-primary \
+                pgbouncer-platform-primary \
+                auth_db \
+                auth_user \
+                "$AUTH_DB_PASSWORD"
+
+              check_database \
+                platform-replicas \
+                pgbouncer-platform-replicas \
+                auth_db \
+                auth_user \
+                "$AUTH_DB_PASSWORD"
+
+              check_database \
+                ticket-primary \
+                pgbouncer-ticket-primary \
+                ticket_db \
+                ticket_user \
+                "$TICKET_DB_PASSWORD"
+
+              check_database \
+                ticket-replicas \
+                pgbouncer-ticket-replicas \
+                ticket_db \
+                ticket_user \
+                "$TICKET_DB_PASSWORD"
+          env:
+            - name: AUTH_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: runtime-secrets
+                  key: AUTH_DB_PASSWORD
+            - name: TICKET_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: runtime-secrets
+                  key: TICKET_DB_PASSWORD
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]

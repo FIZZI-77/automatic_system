@@ -1,0 +1,35 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - postgres/asset
+  - postgres/audit
+  - postgres/auth
+  - postgres/brigade
+  - postgres/department
+  - postgres/dispatch
+  - postgres/file
+  - postgres/location
+  - postgres/notification
+  - postgres/profile
+  - postgres/report
+  - postgres/routing
+  - postgres/sla
+  - postgres/ticket
+  - redis/gateway
+  - redis/notification
+  - redis/location
+  - kafka/kafka-1
+  - kafka/kafka-2
+  - kafka/kafka-3
+  - minio
+  - clickhouse
+  - valhalla
+patches:
+  - target:
+      group: apps
+      version: v1
+      kind: StatefulSet
+    patch: |-
+      - op: add
+        path: /spec/template/metadata/labels/sidecar.istio.io~1inject
+        value: "false"

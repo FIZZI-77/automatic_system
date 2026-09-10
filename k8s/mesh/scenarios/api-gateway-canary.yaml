@@ -1,0 +1,64 @@
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: api-gateway-canary
+  namespace: automatic-system
+spec:
+  host: api-gateway.automatic-system.svc.cluster.local
+  subsets:
+    - name: stable
+      labels:
+        app.kubernetes.io/version: stable
+    - name: canary
+      labels:
+        app.kubernetes.io/version: canary
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        connectTimeout: 3s
+        maxConnections: 100
+      http:
+        http2MaxRequests: 1000
+        maxRequestsPerConnection: 100
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 10s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: api-gateway-canary
+  namespace: automatic-system
+spec:
+  hosts:
+    - api-gateway.automatic-system.svc.cluster.local
+  http:
+    - match:
+        - uri:
+            exact: /livez
+        - uri:
+            exact: /readyz
+      retries:
+        attempts: 2
+        perTryTimeout: 1s
+        retryOn: connect-failure,reset,503
+      route:
+        - destination:
+            host: api-gateway.automatic-system.svc.cluster.local
+            subset: stable
+          weight: 90
+        - destination:
+            host: api-gateway.automatic-system.svc.cluster.local
+            subset: canary
+          weight: 10
+    - route:
+        - destination:
+            host: api-gateway.automatic-system.svc.cluster.local
+            subset: stable
+          weight: 90
+        - destination:
+            host: api-gateway.automatic-system.svc.cluster.local
+            subset: canary
+          weight: 10

@@ -1,0 +1,12 @@
+db_host: "postgres-brigade"
+db_port: 5432
+db_username: "postgres"
+db_name: "brigadedb"
+sslmode: "disable"
+grpc_port: 50054
+profile_service_addr: "profile-service:50055"
+department_service_addr: "department-service:50053"
+kafka_brokers: ["kafka-1:9092", "kafka-2:9092", "kafka-3:9092"]
+kafka_routing_topic: "routing.events.v1"
+kafka_ticket_topic: "tickets.events.v1"
+outbox_worker_count: 4

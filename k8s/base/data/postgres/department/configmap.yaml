@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-department-config
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: automatic-system
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/instance: department
+  namespace: automatic-system
+data:
+  POSTGRES_USER: department_user
+  POSTGRES_DB: department_db

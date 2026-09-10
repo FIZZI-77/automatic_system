@@ -2,30 +2,38 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"ticket/models"
 )
 
 type CategoryRepoStruct struct {
-	db *sql.DB
+	writePool *pgxpool.Pool
+	readPool  *pgxpool.Pool
 }
 
-func NewCategoryRepository(db *sql.DB) *CategoryRepoStruct {
+func NewCategoryRepository(writePool *pgxpool.Pool, readPool *pgxpool.Pool) *CategoryRepoStruct {
+	if readPool == nil {
+		readPool = writePool
+	}
+
 	return &CategoryRepoStruct{
-		db: db,
+		writePool: writePool,
+		readPool:  readPool,
 	}
 }
 
 type categoryEventPayload struct {
-	EventID    string    `json:"event_id"`
+	EventID    uuid.UUID `json:"event_id"`
 	EventType  string    `json:"event_type"`
-	CategoryID string    `json:"category_id"`
+	CategoryID uuid.UUID `json:"category_id"`
 	Code       string    `json:"code"`
 	Name       string    `json:"name"`
 	IsActive   bool      `json:"is_active"`
@@ -33,18 +41,25 @@ type categoryEventPayload struct {
 	UpdatedAt  time.Time `json:"updated_at"`
 }
 
-func (c *CategoryRepoStruct) CreateCategory(ctx context.Context, in models.CreateCategoryInput) (*models.TicketCategory, error) {
-	tx, err := c.db.BeginTx(ctx, nil)
+func (c *CategoryRepoStruct) CreateCategory(ctx context.Context, in *models.CreateCategoryInput) (*models.TicketCategory, error) {
+	tx, err := beginCommandTx(ctx, c.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: CreateCategory(): begin tx: %w", err)
 	}
-	defer func(tx *sql.Tx) {
-		err := tx.Rollback()
-		if err != nil {
+	defer rollbackTxOnCancel(ctx, tx)()
 
-		}
-	}(tx)
+	category, err := c.createCategory(ctx, tx, in)
+	if err != nil {
+		return nil, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("repository: CreateCategory(): commit: %w", err)
+	}
 
+	return category, nil
+}
+
+func (c *CategoryRepoStruct) createCategory(ctx context.Context, q Querier, in *models.CreateCategoryInput) (*models.TicketCategory, error) {
 	categoryID := uuid.NewString()
 
 	const query = `
@@ -68,7 +83,7 @@ func (c *CategoryRepoStruct) CreateCategory(ctx context.Context, in models.Creat
 			updated_at
 	`
 
-	row := tx.QueryRowContext(
+	row := q.QueryRow(
 		ctx,
 		query,
 		categoryID,
@@ -79,21 +94,21 @@ func (c *CategoryRepoStruct) CreateCategory(ctx context.Context, in models.Creat
 
 	category, err := scanCategory(row)
 	if err != nil {
+		if isUniqueViolation(err) {
+			return nil, fmt.Errorf("repository: CreateCategory(): %w", models.ErrAlreadyExists)
+		}
+
 		return nil, fmt.Errorf("repository: CreateCategory(): insert category: %w", err)
 	}
 
-	if err = c.insertCategoryOutboxEvent(ctx, tx, "ticket_category.created", category); err != nil {
+	if err = c.insertCategoryOutboxEvent(ctx, q, "ticket_category.created", category); err != nil {
 		return nil, fmt.Errorf("repository: CreateCategory(): insert outbox event: %w", err)
-	}
-
-	if err = tx.Commit(); err != nil {
-		return nil, fmt.Errorf("repository: CreateCategory(): commit: %w", err)
 	}
 
 	return category, nil
 }
 
-func (c *CategoryRepoStruct) GetCategoryByID(ctx context.Context, categoryID string) (*models.TicketCategory, error) {
+func (c *CategoryRepoStruct) GetCategoryByID(ctx context.Context, categoryID uuid.UUID) (*models.TicketCategory, error) {
 	const query = `
 		SELECT
 			id,
@@ -107,7 +122,7 @@ func (c *CategoryRepoStruct) GetCategoryByID(ctx context.Context, categoryID str
 		WHERE id = $1
 	`
 
-	row := c.db.QueryRowContext(ctx, query, categoryID)
+	row := c.readPool.QueryRow(ctx, query, categoryID)
 
 	category, err := scanCategory(row)
 	if err != nil {
@@ -117,7 +132,7 @@ func (c *CategoryRepoStruct) GetCategoryByID(ctx context.Context, categoryID str
 	return category, nil
 }
 
-func (c *CategoryRepoStruct) ListCategories(ctx context.Context, in models.ListCategoriesInput) ([]*models.TicketCategory, int64, error) {
+func (c *CategoryRepoStruct) ListCategories(ctx context.Context, in *models.ListCategoriesInput) ([]*models.TicketCategory, int64, error) {
 	whereSQL := ""
 	args := make([]any, 0)
 
@@ -133,7 +148,7 @@ func (c *CategoryRepoStruct) ListCategories(ctx context.Context, in models.ListC
 	`, whereSQL)
 
 	var total int64
-	if err := c.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
+	if err := c.readPool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("repository: ListCategories(): count: %w", err)
 	}
 
@@ -156,7 +171,7 @@ func (c *CategoryRepoStruct) ListCategories(ctx context.Context, in models.ListC
 		LIMIT $%d OFFSET $%d
 	`, whereSQL, limitArg, offsetArg)
 
-	rows, err := c.db.QueryContext(ctx, listQuery, args...)
+	rows, err := c.readPool.Query(ctx, listQuery, args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("repository: ListCategories(): query: %w", err)
 	}
@@ -180,24 +195,31 @@ func (c *CategoryRepoStruct) ListCategories(ctx context.Context, in models.ListC
 	return categories, total, nil
 }
 
-func (c *CategoryRepoStruct) UpdateCategory(ctx context.Context, in models.UpdateCategoryInput) (*models.TicketCategory, error) {
-	tx, err := c.db.BeginTx(ctx, nil)
+func (c *CategoryRepoStruct) UpdateCategory(ctx context.Context, in *models.UpdateCategoryInput) (*models.TicketCategory, error) {
+	tx, err := beginCommandTx(ctx, c.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: UpdateCategory(): begin tx: %w", err)
 	}
-	defer func(tx *sql.Tx) {
-		err = tx.Rollback()
-		if err != nil {
+	defer rollbackTxOnCancel(ctx, tx)()
 
-		}
-	}(tx)
+	category, err := c.updateCategory(ctx, tx, in)
+	if err != nil {
+		return nil, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("repository: UpdateCategory(): commit: %w", err)
+	}
 
+	return category, nil
+}
+
+func (c *CategoryRepoStruct) updateCategory(ctx context.Context, q Querier, in *models.UpdateCategoryInput) (*models.TicketCategory, error) {
 	const query = `
 		UPDATE ticket_categories
 		SET
 			name = COALESCE(NULLIF($1, ''), name),
 			description = COALESCE(NULLIF($2, ''), description),
-			is_active = $3,
+			is_active = COALESCE($3, is_active),
 			updated_at = now()
 		WHERE id = $4
 		RETURNING
@@ -210,7 +232,7 @@ func (c *CategoryRepoStruct) UpdateCategory(ctx context.Context, in models.Updat
 			updated_at
 	`
 
-	row := tx.QueryRowContext(
+	row := q.QueryRow(
 		ctx,
 		query,
 		in.Name,
@@ -221,32 +243,39 @@ func (c *CategoryRepoStruct) UpdateCategory(ctx context.Context, in models.Updat
 
 	category, err := scanCategory(row)
 	if err != nil {
+		if isUniqueViolation(err) {
+			return nil, fmt.Errorf("repository: UpdateCategory(): %w", models.ErrAlreadyExists)
+		}
+
 		return nil, fmt.Errorf("repository: UpdateCategory(): update category: %w", err)
 	}
 
-	if err = c.insertCategoryOutboxEvent(ctx, tx, "ticket_category.updated", category); err != nil {
+	if err = c.insertCategoryOutboxEvent(ctx, q, "ticket_category.updated", category); err != nil {
 		return nil, fmt.Errorf("repository: UpdateCategory(): insert outbox event: %w", err)
-	}
-
-	if err = tx.Commit(); err != nil {
-		return nil, fmt.Errorf("repository: UpdateCategory(): commit: %w", err)
 	}
 
 	return category, nil
 }
 
-func (c *CategoryRepoStruct) DeleteCategory(ctx context.Context, in models.DeleteCategoryInput) (*models.TicketCategory, error) {
-	tx, err := c.db.BeginTx(ctx, nil)
+func (c *CategoryRepoStruct) DeleteCategory(ctx context.Context, in *models.DeleteCategoryInput) (*models.TicketCategory, error) {
+	tx, err := beginCommandTx(ctx, c.writePool)
 	if err != nil {
 		return nil, fmt.Errorf("repository: DeleteCategory(): begin tx: %w", err)
 	}
-	defer func(tx *sql.Tx) {
-		err := tx.Rollback()
-		if err != nil {
+	defer rollbackTxOnCancel(ctx, tx)()
 
-		}
-	}(tx)
+	category, err := c.deleteCategory(ctx, tx, in)
+	if err != nil {
+		return nil, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("repository: DeleteCategory(): commit: %w", err)
+	}
 
+	return category, nil
+}
+
+func (c *CategoryRepoStruct) deleteCategory(ctx context.Context, q Querier, in *models.DeleteCategoryInput) (*models.TicketCategory, error) {
 	const query = `
 		UPDATE ticket_categories
 		SET
@@ -263,19 +292,15 @@ func (c *CategoryRepoStruct) DeleteCategory(ctx context.Context, in models.Delet
 			updated_at
 	`
 
-	row := tx.QueryRowContext(ctx, query, in.CategoryID)
+	row := q.QueryRow(ctx, query, in.CategoryID)
 
 	category, err := scanCategory(row)
 	if err != nil {
 		return nil, fmt.Errorf("repository: DeleteCategory(): deactivate category: %w", err)
 	}
 
-	if err = c.insertCategoryOutboxEvent(ctx, tx, "ticket_category.deactivated", category); err != nil {
+	if err = c.insertCategoryOutboxEvent(ctx, q, "ticket_category.deactivated", category); err != nil {
 		return nil, fmt.Errorf("repository: DeleteCategory(): insert outbox event: %w", err)
-	}
-
-	if err = tx.Commit(); err != nil {
-		return nil, fmt.Errorf("repository: DeleteCategory(): commit: %w", err)
 	}
 
 	return category, nil
@@ -294,7 +319,7 @@ func scanCategory(s scanner) (*models.TicketCategory, error) {
 		&category.UpdatedAt,
 	)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
 		}
 
@@ -304,13 +329,17 @@ func scanCategory(s scanner) (*models.TicketCategory, error) {
 	return &category, nil
 }
 
-func (c *CategoryRepoStruct) insertCategoryOutboxEvent(
-	ctx context.Context,
-	tx *sql.Tx,
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
+}
+
+func (c *CategoryRepoStruct) insertCategoryOutboxEvent(ctx context.Context,
+	exec Querier,
 	eventType string,
 	category *models.TicketCategory,
 ) error {
-	eventID := uuid.NewString()
+	eventID := uuid.New()
 
 	payload := categoryEventPayload{
 		EventID:    eventID,
@@ -342,7 +371,7 @@ func (c *CategoryRepoStruct) insertCategoryOutboxEvent(
 		VALUES ($1, $2, $3, $4, $5::jsonb, 'PENDING', 0, now())
 	`
 
-	_, err = tx.ExecContext(
+	_, err = exec.Exec(
 		ctx,
 		query,
 		eventID,

@@ -1,0 +1,65 @@
+{{- if .Values.canary.enabled }}
+{{- $root := . }}
+{{- $serviceFilter := default (list) .Values.canary.serviceFilter }}
+{{- range $name, $service := .Values.canary.services }}
+{{- if or (eq (len $serviceFilter) 0) (has $name $serviceFilter) }}
+---
+apiVersion: flagger.app/v1beta1
+kind: Canary
+metadata:
+  name: {{ $service.deployment }}
+  namespace: {{ $root.Release.Namespace }}
+  labels:
+    app.kubernetes.io/component: progressive-delivery
+    app.kubernetes.io/managed-by: {{ $root.Release.Service }}
+    app.kubernetes.io/name: {{ $service.deployment }}
+    app.kubernetes.io/part-of: automatic-system
+spec:
+  provider: {{ $root.Values.canary.provider }}
+  metricsServer: {{ $root.Values.canary.metricsServer }}
+  progressDeadlineSeconds: {{ $root.Values.canary.progressDeadlineSeconds }}
+  revertOnDeletion: true
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ $service.deployment }}
+  service:
+    name: {{ $service.service }}
+    port: {{ $service.port }}
+    targetPort: {{ $service.targetPort }}
+    portName: {{ $service.portName }}
+    appProtocol: {{ $service.portName }}
+    portDiscovery: {{ $root.Values.canary.portDiscovery }}
+    {{- if $service.delegation }}
+    delegation: true
+    {{- end }}
+    {{- if $service.timeout }}
+    timeout: {{ $service.timeout }}
+    {{- end }}
+  analysis:
+    interval: {{ $root.Values.canary.analysis.interval }}
+    threshold: {{ $root.Values.canary.analysis.threshold }}
+    maxWeight: {{ $root.Values.canary.analysis.maxWeight }}
+    stepWeight: {{ $root.Values.canary.analysis.stepWeight }}
+    metrics:
+      - name: request-success-rate
+        interval: {{ $root.Values.canary.analysis.interval }}
+        thresholdRange:
+          min: {{ $root.Values.canary.analysis.successRate.min }}
+      - name: request-duration
+        interval: {{ $root.Values.canary.analysis.interval }}
+        thresholdRange:
+          max: {{ $root.Values.canary.analysis.requestDuration.maxMilliseconds }}
+    {{- with $service.loadTest }}
+    webhooks:
+      - name: load-test
+        type: rollout
+        url: {{ .url }}
+        timeout: {{ .timeout }}
+        metadata:
+          type: cmd
+          cmd: {{ .command | quote }}
+    {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

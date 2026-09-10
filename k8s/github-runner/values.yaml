@@ -1,0 +1,26 @@
+githubConfigUrl: "https://github.com/FIZZI-77/automatic_system"
+
+githubConfigSecret: github-runner-secret
+
+runnerScaleSetName: automatic-system-runner
+
+minRunners: 0
+maxRunners: 2
+
+template:
+  spec:
+    serviceAccountName: github-runner
+
+    containers:
+      - name: runner
+        image: ghcr.io/actions/actions-runner:latest
+        command:
+          - /home/runner/run.sh
+
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: "2"
+            memory: 2Gi

@@ -1,0 +1,241 @@
+{{- if .Values.dispatch.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dispatch-service-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "applications.dispatchLabels" . | nindent 4 }}
+data:
+  {{- include "applications.dispatchConfig" . | nindent 2 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dispatch-service
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "applications.dispatchLabels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "applications.dispatchSelectorLabels" . | nindent 4 }}
+  ports:
+    - name: grpc
+      port: {{ .Values.dispatch.service.port }}
+      targetPort: grpc
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dispatch-service
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "applications.dispatchLabels" . | nindent 4 }}
+spec:
+  {{- if not .Values.dispatch.autoscaling.enabled }}
+  replicas: {{ .Values.dispatch.replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: 3
+  minReadySeconds: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      {{- include "applications.dispatchSelectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include "applications.dispatchConfig" . | sha256sum }}
+        {{- with .Values.dispatch.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "applications.dispatchSelectorLabels" . | nindent 8 }}
+        {{- include "applications.dispatchLabels" . | nindent 8 }}
+        {{- with .Values.dispatch.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      {{- if .Values.dispatch.topologySpread.enabled }}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: {{ .Values.dispatch.topologySpread.whenUnsatisfiable }}
+          matchLabelKeys:
+            - pod-template-hash
+          labelSelector:
+            matchLabels:
+              {{- include "applications.dispatchSelectorLabels" . | nindent 14 }}
+      {{- end }}
+      containers:
+        - name: dispatch-service
+          image: {{ include "applications.dispatchImage" . | quote }}
+          imagePullPolicy: {{ default .Values.dispatch.image.pullPolicy .Values.globalImage.pullPolicy }}
+          ports:
+            - name: grpc
+              containerPort: {{ .Values.dispatch.service.port }}
+            - name: metrics
+              containerPort: {{ .Values.dispatch.service.metricsPort }}
+          envFrom:
+            - configMapRef:
+                name: {{ .Values.dispatch.telemetryConfigMap }}
+            - configMapRef:
+                name: dispatch-service-config
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.dispatch.database.secretName }}
+                  key: {{ .Values.dispatch.database.writeKey }}
+            - name: READ_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.dispatch.database.secretName }}
+                  key: {{ .Values.dispatch.database.readKey }}
+          resources:
+            {{- toYaml .Values.dispatch.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          readinessProbe:
+            grpc:
+              port: {{ .Values.dispatch.service.port }}
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            failureThreshold: 3
+            timeoutSeconds: 2
+          livenessProbe:
+            grpc:
+              port: {{ .Values.dispatch.service.port }}
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 3
+            timeoutSeconds: 2
+          startupProbe:
+            grpc:
+              port: {{ .Values.dispatch.service.port }}
+            periodSeconds: 2
+            timeoutSeconds: 1
+            failureThreshold: 45
+{{- if .Values.dispatch.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: dispatch-service
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "applications.dispatchLabels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: dispatch-service
+  minReplicas: {{ .Values.dispatch.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.dispatch.autoscaling.maxReplicas }}
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 60
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+      selectPolicy: Max
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.dispatch.autoscaling.cpuUtilization }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.dispatch.autoscaling.memoryUtilization }}
+{{- end }}
+{{- if .Values.dispatch.podDisruptionBudget.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: dispatch-service
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "applications.dispatchLabels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.dispatch.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "applications.dispatchSelectorLabels" . | nindent 6 }}
+{{- end }}
+{{- if and .Values.migrations.enabled .Values.dispatch.migration.enabled }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ printf "%s-dispatch-migrate-%d" .Release.Name .Release.Revision | trunc 63 | trimSuffix "-" }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "applications.dispatchLabels" . | nindent 4 }}
+    automatic-system.io/job-type: migration
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-10"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 300
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        {{- include "applications.dispatchLabels" . | nindent 8 }}
+        automatic-system.io/job-type: migration
+        sidecar.istio.io/inject: "false"
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      containers:
+        - name: migrator
+          image: {{ include "applications.dispatchMigrationImage" . | quote }}
+          imagePullPolicy: {{ default .Values.dispatch.migration.image.pullPolicy .Values.migrations.pullPolicy }}
+          args: ["-dir", "/migrations", "up"]
+          env:
+            - name: GOOSE_DRIVER
+              value: postgres
+            - name: GOOSE_DBSTRING
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.dispatch.migration.secretName }}
+                  key: {{ .Values.dispatch.migration.databaseKey }}
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+{{- end }}
+{{- end }}

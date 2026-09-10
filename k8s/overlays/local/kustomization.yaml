@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: automatic-system
+resources:
+  - ../../base/namespace
+  - ../../base/observability
+  - secrets
+  - infra
+  - migrations
+  - apps

@@ -96,7 +96,7 @@ func (ah *AuthHandler) LogoutAll(c *gin.Context) {
 }
 
 func (ah *AuthHandler) Register(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 15*time.Second)
 	defer cancel()
 
 	var req models.RegisterRequest
@@ -217,12 +217,13 @@ func (ah *AuthHandler) ChangePassword(c *gin.Context) {
 		return
 	}
 
+	revokeOtherSessions := req.RevokeOtherSessions
 	res, err := ah.authClient.ChangePassword(ctx, &v1.ChangePasswordRequest{
 		UserId:              c.GetString("user_id"),
 		OldPassword:         req.OldPassword,
 		NewPassword:         req.NewPassword,
 		SessionId:           c.GetString("session_id"),
-		RevokeOtherSessions: req.RevokeOtherSessions,
+		RevokeOtherSessions: &revokeOtherSessions,
 	})
 
 	if err != nil {

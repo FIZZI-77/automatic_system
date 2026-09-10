@@ -1,0 +1,57 @@
+{{- if .Values.analyticsInit.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    app.kubernetes.io/component: job
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: clickhouse-init
+    app.kubernetes.io/part-of: automatic-system
+    automatic-system.io/job-type: init
+  name: {{ printf "%s-clickhouse-init-%d" .Release.Name .Release.Revision | trunc 63 | trimSuffix "-" }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-9"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+  namespace: {{ .Release.Namespace }}
+spec:
+  activeDeadlineSeconds: 600
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: clickhouse-init
+        sidecar.istio.io/inject: "false"
+        app.kubernetes.io/component: job
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: clickhouse-init
+        app.kubernetes.io/part-of: automatic-system
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - args:
+        - exec clickhouse-client --host clickhouse --user analytics --password "$CLICKHOUSE_PASSWORD"
+          --multiquery --queries-file /schema/001_events.sql
+        command:
+        - sh
+        - -c
+        env:
+        - name: CLICKHOUSE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: CLICKHOUSE_PASSWORD
+              name: runtime-secrets
+        image: '{{ .Values.analyticsInit.registry }}/automatic-system-analytics-clickhouse-init:{{ required "analyticsInit.tag is required when analyticsInit.enabled=true" .Values.analyticsInit.tag }}'
+        imagePullPolicy: {{ .Values.analyticsInit.pullPolicy }}
+        name: init
+        resources:
+          limits:
+            cpu: 250m
+            memory: 256Mi
+          requests:
+            cpu: 10m
+            memory: 32Mi
+      enableServiceLinks: false
+      restartPolicy: Never
+  ttlSecondsAfterFinished: 86400
+{{- end }}

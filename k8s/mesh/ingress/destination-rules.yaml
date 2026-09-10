@@ -1,0 +1,12 @@
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: ingress-api-gateway-websocket
+spec:
+  host: api-gateway.automatic-system.svc.cluster.local
+  trafficPolicy:
+    connectionPool:
+      http:
+        # Keep this hop on HTTP/1.1 so the standard WebSocket Upgrade reaches
+        # the Go gateway. Client-to-Istio traffic still negotiates HTTP/2.
+        h2UpgradePolicy: DO_NOT_UPGRADE

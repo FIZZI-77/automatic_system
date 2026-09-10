@@ -1,0 +1,79 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: transponder-simulator-auto
+  namespace: automatic-system
+  labels:
+    app.kubernetes.io/name: transponder-simulator
+    app.kubernetes.io/component: simulator
+    app.kubernetes.io/part-of: automatic-system
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/instance: transponder-simulator-auto
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: transponder-simulator-auto
+  template:
+    metadata:
+      labels:
+        app: transponder-simulator-auto
+        app.kubernetes.io/name: transponder-simulator
+        app.kubernetes.io/component: simulator
+        app.kubernetes.io/part-of: automatic-system
+        app.kubernetes.io/managed-by: kustomize
+        app.kubernetes.io/instance: transponder-simulator-auto
+    spec:
+      containers:
+      - name: transponder-simulator-auto
+        image: automatic-system/transponder-simulator:dev
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: VEHICLE_ID
+          value: 55555555-5555-5555-5555-555555555556
+        - name: BRIGADE_ID
+          value: dd720703-bc5d-4278-8180-29f1f0909e0d
+        - name: DEVICE_ID
+          value: simulator-car-002
+        - name: TARGET_URL
+          value: http://location-service:8080/v1/positions
+        - name: TRANSPONDER_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: runtime-secrets
+              key: TRANSPONDER_API_KEY
+              optional: true
+        - name: ROUTE_FILE
+          value: routes/moscow-center.json
+        - name: SEND_INTERVAL
+          value: 2s
+        - name: REQUEST_TIMEOUT
+          value: 5s
+        - name: RETRY_COUNT
+          value: '3'
+        - name: LOOP_ROUTE
+          value: 'true'
+        - name: DEFAULT_SPEED_KMH
+          value: '35'
+        - name: GPS_ACCURACY_METERS
+          value: '5'
+        ports: []
+        resources:
+          requests:
+            cpu: 25m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 20
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault

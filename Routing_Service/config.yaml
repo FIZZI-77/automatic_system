@@ -1,0 +1,9 @@
+grpc_port: 50057
+valhalla_url: "http://valhalla:8002"
+valhalla_timeout: "15s"
+kafka_brokers: ["kafka-1:9092", "kafka-2:9092", "kafka-3:9092"]
+kafka_routing_topic: "routing.events.v1"
+kafka_ticket_topic: "tickets.events.v1"
+ticket_consumer_group_id: "routing-ticket-lifecycle-v1"
+outbox_worker_count: 4
+log_level: "info"
