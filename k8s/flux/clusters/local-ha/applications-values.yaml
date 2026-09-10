@@ -9,9 +9,9 @@ globalImage:
     auth: sha-7e50eb65738b
     brigade: sha-7e50eb65738b
     department: sha-7e50eb65738b
-    dispatch: sha-7e50eb65738b
+    dispatch: sha-f2f6a8d7e2b2
     file: sha-7e50eb65738b
-    frontend: sha-7e50eb65738b
+    frontend: sha-f2f6a8d7e2b2
     location: sha-7e50eb65738b
     notification: sha-7e50eb65738b
     profile: sha-7e50eb65738b
