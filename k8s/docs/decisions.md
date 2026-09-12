@@ -1,10 +1,19 @@
-# Manifest decisions
+# Принятые решения по манифестам
 
-- Current runtime topology is preserved; no Patroni, Istio, Citus, PgBouncer or observability stack is introduced here.
-- Application Deployments remain at one replica in local mode.
-- PDB is deferred until stateless services run with at least two replicas.
-- HPA is deferred until metrics and representative resource requests are validated.
-- NetworkPolicy is deferred to avoid silently breaking the current service graph; it should be added from observed/declared dependencies.
-- StorageClass is not pinned in base/local so the Docker Desktop default provisioner remains usable.
-- PVC retention is explicit on StatefulSets.
-- Secrets are generated from an ignored local env file; production should use an external secret manager/GitOps-compatible secret solution.
+Исторический простой контур `local` сохранен, но `local-ha` и `prod` уже
+содержат Patroni, Citus, PgBouncer, Istio и наблюдаемость. Следующие решения
+отражают текущее состояние репозитория.
+
+| Решение | Причина и граница |
+|---|---|
+| Приложения выпускаются единым Helm-чартом. | Один Deployment не должен одновременно управляться Kustomize и Helm. Dispatch находится в том же чарте. |
+| `local-ha` использует платформенный Patroni и Citus для Ticket. | Базы сервисов остаются логически отдельными; Ticket распределяется по `department_id`. |
+| Инфраструктура с данными остается вне Flux. | Автоматические удаление, откат и изменение StatefulSet не должны затронуть данные. |
+| Автоматическое масштабирование по умолчанию отключено. | HPA-параметры подготовлены, но их включение требует проверки метрик и нагрузки. |
+| Строгий mTLS применяется к приложениям, инфраструктура не получает sidecar. | Для публичных и измерительных портов заданы отдельные исключения. |
+| Секреты создаются вне Git. | `runtime.env` игнорируется; производству нужно отдельное управление секретами. |
+| PVC Patroni и Citus сохраняются при удалении StatefulSet и уменьшении реплик. | Репликация не заменяет резервные копии pgBackRest. |
+| Производственные класс хранения и размеры заданы наложением. | Перед применением они должны соответствовать CSI и емкости кластера. |
+
+Состав ресурсов описан в [`manifests.md`](manifests.md), порядок выпуска — в
+[`deployment.md`](deployment.md).

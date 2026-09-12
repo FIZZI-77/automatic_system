@@ -146,6 +146,7 @@ func (h *Handler) InitRouters() *gin.Engine {
 	}))
 	router.Use(middleware.RequestLogger())
 	router.Use(gin.Recovery())
+	registerAPIDocs(router)
 
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{

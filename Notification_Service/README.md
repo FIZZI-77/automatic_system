@@ -1,9 +1,203 @@
 # Notification Service
 
-Consumes domain events and creates durable user notifications. PostgreSQL is the source of truth; Redis Pub/Sub provides live fan-out to Gateway WebSocket connections.
+## Общее описание и общий принцип работы
 
-Channels are independent deliveries: in-app/WebSocket, FCM push, SMTP email and pluggable SMS. Failed delivery uses exponential backoff and becomes `DEAD` after eight attempts. Invalid FCM tokens are deactivated automatically.
+`Notification_Service` преобразует выбранные события заявок в долговечные
+уведомления пользователей. PostgreSQL является источником истины, а
+`Publisher` передает уже созданные уведомления в канал живых соединений.
+Предпочтения пользователя определяют независимые доставки внутри приложения,
+через FCM, электронную почту и СМС.
 
-FCM uses the HTTP v1 API. Set `FCM_SERVICE_ACCOUNT_FILE` to a mounted Google service-account JSON file. Push data contains only non-sensitive identifiers such as `ticket_id`; personal data is never included.
+`Consume` сознательно пропускает события, которых нет в разрешенном списке.
+Для поддерживаемого события репозиторий определяет получателей и одной
+операцией создает уведомления и доставки. Ошибка живой публикации игнорируется:
+запись уже сохранена, поэтому клиент после переподключения может получить ее
+через `List`.
 
-WebSocket endpoint: `ws://localhost:8081/notifications/ws?access_token=<JWT>`. Production must use `wss://` so the query token is encrypted in transit. After reconnect, clients should call `/notifications/list` to recover messages delivered while offline.
+## Модели
+
+### `Notification`
+
+| Поле | Тип Go | Назначение |
+|---|---|---|
+| `ID` | `uuid.UUID` | Идентификатор уведомления. |
+| `EventID` | `string` | Исходное событие. |
+| `UserID` | `uuid.UUID` | Получатель. |
+| `EventType` | `string` | Вид исходного события. |
+| `Title` | `string` | Заголовок. |
+| `Body` | `string` | Текст. |
+| `Data` | `map[string]string` | Дополнительные неперсональные данные. |
+| `Read` | `bool` | Признак прочтения. |
+| `ReadAt` | `*time.Time` | Время прочтения. |
+| `CreatedAt` | `time.Time` | Время создания. |
+
+### Остальные структуры
+
+| Структура | Поля и назначение |
+|---|---|
+| `Preferences` | `UserID` — пользователь; `InApp`, `Push`, `Email`, `SMS` — разрешенные каналы; `EmailAddress`, `Phone` — необязательные адрес и номер; `UpdatedAt` — время изменения. |
+| `Device` | `ID` — устройство; `UserID` — владелец; `Token` — токен FCM; `Platform` — `android`, `ios` или `web`; `Active` — пригодность токена; `CreatedAt`, `UpdatedAt` — времена. |
+| `Template` | `ID` — шаблон; `EventType` — вид события; `Channel` — канал; `Subject` — тема; `Body` — текст с подстановками; `Active` — активность; `CreatedAt`, `UpdatedAt` — времена. |
+| `Delivery` | `ID` — доставка; `NotificationID` — уведомление; `Channel` — канал; `Recipient` — адрес получателя; `Status` — состояние; `ProviderID` — идентификатор внешнего поставщика; `LastError` — последняя ошибка; `Attempts` — попытки; `NextAttemptAt` — следующая попытка; `CreatedAt`, `UpdatedAt` — времена. |
+| `Event` | `ID` — событие; `Type` — вид; `Topic` — раздел Kafka; `Payload` — разобранное содержимое. |
+
+## Функции
+
+### `New`
+
+Создает сервис с репозиторием и необязательным издателем живых уведомлений.
+
+### `Consume`
+
+1. Проверяет вид события через `isUserFacingEvent`; неизвестное событие
+   считается успешно пропущенным.
+2. Вызывает `ResolveRecipients`.
+3. Передает событие и получателей в `Dispatch`, который сохраняет уведомления
+   и доставки.
+4. Для каждого созданного уведомления вызывает `live.Publish`, если издатель
+   настроен.
+5. Ошибка живого канала не возвращается и не отменяет сохраненные данные.
+
+### `isUserFacingEvent`
+
+Удаляет пробелы, приводит вид события к нижнему регистру и разрешает:
+`ticket.created`, `ticket.assigned`, `ticket.status_changed`,
+`ticket.completed`, `ticket.canceled`,
+`ticket.completion_report.generated.v1` и
+`ticket.completion_report.failed.v1`.
+
+### `List`
+
+Передает пользователя, необязательный признак прочтения, предел и смещение
+репозиторию. Возвращает страницу уведомлений, общее количество и число
+непрочитанных.
+
+### `MarkRead`
+
+Помечает одно уведомление пользователя прочитанным. Ошибка отсутствующей строки
+преобразуется функцией `mapErr` в `ErrNotFound`.
+
+### `MarkAllRead`
+
+Помечает прочитанными все уведомления пользователя и возвращает число
+измененных строк.
+
+### `GetPreferences` и `SavePreferences`
+
+Первый метод читает настройки каналов пользователя. Второй передает всю
+`Preferences` репозиторию для вставки либо обновления.
+
+### `RegisterDevice`
+
+Приводит платформу к нижнему регистру, удаляет пробелы и требует непустой токен
+и платформу `android`, `ios` или `web`. Затем регистрирует устройство
+через репозиторий.
+
+### `DeleteDevice`
+
+Удаляет либо деактивирует устройство конкретного пользователя. Отсутствие
+строки преобразуется в `ErrNotFound`.
+
+### `UpsertTemplate`
+
+Требует непустые `EventType`, `Body` и `Channel`, после чего вставляет или
+обновляет шаблон. Допустимость канала дополнительно защищена ограничением базы.
+
+### `ListTemplates`
+
+Возвращает страницу шаблонов с необязательными ограничениями по событию и
+каналу.
+
+### `ListDeliveries`
+
+Возвращает страницу попыток доставки с необязательными ограничениями по
+состоянию и каналу.
+
+### `mapErr`
+
+Преобразует `pgx.ErrNoRows` в предметную `ErrNotFound`; остальные ошибки
+возвращает без изменения.
+
+## Структура БД
+
+### `notification_preferences` — предпочтения
+
+| Поле | Тип | Назначение |
+|---|---|---|
+| `user_id` | `uuid` | Пользователь и первичный ключ. |
+| `in_app_enabled`, `push_enabled`, `email_enabled` | `bool` | Разрешение каналов, по умолчанию `true`. |
+| `sms_enabled` | `bool` | Разрешение СМС, по умолчанию `false`. |
+| `email`, `phone` | `text` | Необязательные адрес и номер телефона. |
+| `updated_at` | `timestamptz` | Время изменения. |
+
+### `devices` — устройства FCM
+
+| Поле | Тип | Назначение |
+|---|---|---|
+| `id`, `user_id` | `uuid` | Устройство и пользователь. |
+| `token` | `text` | Уникальный токен FCM. |
+| `platform` | `text` | `android`, `ios` или `web`. |
+| `active` | `bool` | Активность токена. |
+| `created_at`, `updated_at` | `timestamptz` | Времена записи. |
+
+### `notification_templates` — шаблоны
+
+| Поле | Тип | Назначение |
+|---|---|---|
+| `id` | `uuid` | Первичный ключ. |
+| `event_type` | `text` | Вид события. |
+| `channel` | `text` | `IN_APP`, `PUSH`, `EMAIL` или `SMS`. |
+| `subject` | `text` | Тема, по умолчанию пустая. |
+| `body` | `text` | Текст шаблона. |
+| `active` | `bool` | Активность. |
+| `created_at`, `updated_at` | `timestamptz` | Времена записи. |
+
+Пара `(event_type, channel)` уникальна.
+
+### `notifications` — уведомления
+
+| Поле | Тип | Назначение |
+|---|---|---|
+| `id` | `uuid` | Первичный ключ. |
+| `event_id` | `text` | Исходное событие. |
+| `user_id` | `uuid` | Получатель. |
+| `event_type`, `title`, `body` | `text` | Вид, заголовок и текст. |
+| `data` | `jsonb` | Дополнительные данные. |
+| `read` | `bool` | Признак прочтения. |
+| `read_at` | `timestamptz` | Время прочтения. |
+| `created_at` | `timestamptz` | Время создания. |
+
+Пара `(event_id, user_id)` уникальна.
+
+### `deliveries` — доставки по каналам
+
+| Поле | Тип | Назначение |
+|---|---|---|
+| `id`, `notification_id` | `uuid` | Доставка и уведомление. |
+| `channel`, `recipient`, `status` | `text` | Канал, адрес и состояние. |
+| `provider_id` | `text` | Идентификатор поставщика. |
+| `attempts` | `int` | Число попыток. |
+| `next_attempt_at`, `locked_at` | `timestamptz` | Следующая попытка и захват. |
+| `last_error` | `text` | Последняя ошибка. |
+| `created_at`, `updated_at` | `timestamptz` | Времена записи. |
+
+Сочетание уведомления, канала и получателя уникально.
+
+### `event_inbox` — принятые события
+
+| Поле | Тип | Назначение |
+|---|---|---|
+| `event_id` | `text` | Первичный ключ для устранения повторов. |
+| `event_type`, `topic` | `text` | Вид и раздел Kafka. |
+| `payload` | `jsonb` | Исходное содержимое. |
+| `processed_at` | `timestamptz` | Время обработки. |
+
+### `ticket_recipients` — получатели заявки
+
+| Поле | Тип | Назначение |
+|---|---|---|
+| `ticket_id` | `uuid` | Заявка и первичный ключ. |
+| `user_id` | `uuid` | Пользователь, связанный с заявкой. |
+| `department_id` | `uuid` | Подразделение. |
+| `brigade_id` | `uuid` | Назначенная бригада. |
+| `updated_at` | `timestamptz` | Время обновления снимка. |
