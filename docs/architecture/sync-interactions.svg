@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1050" viewBox="0 0 1600 1050" role="img" aria-label="Прямые связи Automatic City Services">
+<style>text{font-family:"Segoe UI",Arial,sans-serif;letter-spacing:0}</style>
+<rect width="1600" height="1050" fill="#f6f8fb"/>
+
+<rect x="0" y="0" width="1600" height="132" rx="0" fill="#ffffff" stroke="#ffffff"/><rect x="40" y="32" width="6" height="60" rx="3" fill="#2764a5" stroke="#2764a5"/><text x="62" y="47" fill="#2764a5" font-size="13" font-weight="700" text-anchor="start">01 / СИНХРОННЫЕ ВЗАИМОДЕЙСТВИЯ</text><text x="62" y="82" fill="#172235" font-size="29" font-weight="700" text-anchor="start">Карта прямых вызовов</text><text x="62" y="111" fill="#566579" font-size="15" font-weight="400" text-anchor="start">Внешний вход, межсервисные зависимости и вызовы сторонних систем</text><line x1="40" y1="132" x2="1560" y2="132" stroke="#d8e0ea" stroke-width="1"/>
+<rect x="40" y="164" width="250" height="238" rx="6" fill="#ffffff" stroke="#d8e0ea"/>
+<text x="62" y="194" fill="#2764a5" font-size="13" font-weight="700" text-anchor="start">КЛИЕНТ</text>
+<text x="62" y="231" fill="#172235" font-size="22" font-weight="700" text-anchor="start">Браузер</text>
+<line x1="62" y1="249" x2="268" y2="249" stroke="#d8e0ea" stroke-width="1"/>
+<text x="62" y="278" fill="#172235" font-size="19" font-weight="600" text-anchor="start">Frontend</text>
+<text x="62" y="306" fill="#566579" font-size="14" font-weight="400" text-anchor="start">страницы и запросы</text>
+<text x="62" y="345" fill="#566579" font-size="13" font-weight="400" text-anchor="start">Серверные маршруты:</text>
+<text x="62" y="368" fill="#172235" font-size="14" font-weight="400" text-anchor="start">карта · геокодирование</text>
+<rect x="340" y="164" width="256" height="238" rx="6" fill="#e8f1fb" stroke="#aac8e8"/>
+<text x="362" y="194" fill="#2764a5" font-size="13" font-weight="700" text-anchor="start">ВНЕШНЯЯ ТОЧКА ВХОДА</text>
+<text x="362" y="237" fill="#172235" font-size="24" font-weight="700" text-anchor="start">API Gateway</text>
+<line x1="362" y1="254" x2="574" y2="254" stroke="#aac8e8" stroke-width="1"/>
+<text x="362" y="290" fill="#172235" font-size="17" font-weight="600" text-anchor="start">HTTP-запросы</text>
+<text x="362" y="322" fill="#172235" font-size="17" font-weight="600" text-anchor="start">15 gRPC-клиентов</text>
+<text x="362" y="370" fill="#566579" font-size="14" font-weight="400" text-anchor="start">проверка доступа · Redis</text>
+<rect x="646" y="164" width="914" height="238" rx="6" fill="#ffffff" stroke="#d8e0ea"/>
+<text x="668" y="194" fill="#087e68" font-size="13" font-weight="700" text-anchor="start">ПРЕДМЕТНЫЕ И ВСПОМОГАТЕЛЬНЫЕ СЕРВИСЫ</text>
+<rect x="668" y="215" width="160" height="44" rx="5" fill="#e4f5ee" stroke="#c5e6d9"/>
+<text x="748" y="243" fill="#172235" font-size="15" font-weight="600" text-anchor="middle">Auth</text>
+<rect x="844" y="215" width="160" height="44" rx="5" fill="#e4f5ee" stroke="#c5e6d9"/>
+<text x="924" y="243" fill="#172235" font-size="15" font-weight="600" text-anchor="middle">Profile</text>
+<rect x="1020" y="215" width="160" height="44" rx="5" fill="#e4f5ee" stroke="#c5e6d9"/>
+<text x="1100" y="243" fill="#172235" font-size="15" font-weight="600" text-anchor="middle">Department</text>
+<rect x="1196" y="215" width="160" height="44" rx="5" fill="#e4f5ee" stroke="#c5e6d9"/>
+<text x="1276" y="243" fill="#172235" font-size="15" font-weight="600" text-anchor="middle">Brigade</text>
+<rect x="1372" y="215" width="160" height="44" rx="5" fill="#e4f5ee" stroke="#c5e6d9"/>
+<text x="1452" y="243" fill="#172235" font-size="15" font-weight="600" text-anchor="middle">Ticket</text>
+<rect x="668" y="272" width="160" height="44" rx="5" fill="#e4f5ee" stroke="#c5e6d9"/>
+<text x="748" y="300" fill="#172235" font-size="15" font-weight="600" text-anchor="middle">Dispatch</text>
+<rect x="844" y="272" width="160" height="44" rx="5" fill="#e4f5ee" stroke="#c5e6d9"/>
+<text x="924" y="300" fill="#172235" font-size="15" font-weight="600" text-anchor="middle">Location</text>
+<rect x="1020" y="272" width="160" height="44" rx="5" fill="#e4f5ee" stroke="#c5e6d9"/>
+<text x="1100" y="300" fill="#172235" font-size="15" font-weight="600" text-anchor="middle">Routing</text>
+<rect x="1196" y="272" width="160" height="44" rx="5" fill="#e4f5ee" stroke="#c5e6d9"/>
+<text x="1276" y="300" fill="#172235" font-size="15" font-weight="600" text-anchor="middle">Asset</text>
+<rect x="1372" y="272" width="160" height="44" rx="5" fill="#e4f5ee" stroke="#c5e6d9"/>
+<text x="1452" y="300" fill="#172235" font-size="15" font-weight="600" text-anchor="middle">File</text>
+<rect x="668" y="329" width="160" height="44" rx="5" fill="#e4f5ee" stroke="#c5e6d9"/>
+<text x="748" y="357" fill="#172235" font-size="15" font-weight="600" text-anchor="middle">SLA</text>
+<rect x="844" y="329" width="160" height="44" rx="5" fill="#e4f5ee" stroke="#c5e6d9"/>
+<text x="924" y="357" fill="#172235" font-size="15" font-weight="600" text-anchor="middle">Notification</text>
+<rect x="1020" y="329" width="160" height="44" rx="5" fill="#e4f5ee" stroke="#c5e6d9"/>
+<text x="1100" y="357" fill="#172235" font-size="15" font-weight="600" text-anchor="middle">Audit</text>
+<rect x="1196" y="329" width="160" height="44" rx="5" fill="#e4f5ee" stroke="#c5e6d9"/>
+<text x="1276" y="357" fill="#172235" font-size="15" font-weight="600" text-anchor="middle">Analytics</text>
+<rect x="1372" y="329" width="160" height="44" rx="5" fill="#e4f5ee" stroke="#c5e6d9"/>
+<text x="1452" y="357" fill="#172235" font-size="15" font-weight="600" text-anchor="middle">Report</text>
+<path d="M 290 283 H 330" fill="none" stroke="#2764a5" stroke-width="2.5"/><path d="M 329 277 L 340 283 L 329 289 Z" fill="#2764a5"/>
+<path d="M 596 283 H 636" fill="none" stroke="#087e68" stroke-width="2.5"/><path d="M 635 277 L 646 283 L 635 289 Z" fill="#087e68"/>
+<rect x="40" y="430" width="916" height="398" rx="6" fill="#ffffff" stroke="#d8e0ea"/>
+<rect x="64" y="450" width="28" height="28" rx="4" fill="#087e68" stroke="#087e68"/><text x="78" y="470" fill="#ffffff" font-size="14" font-weight="700" text-anchor="middle">2</text><text x="104" y="471" fill="#172235" font-size="19" font-weight="700" text-anchor="start">Между компонентами</text><text x="104" y="494" fill="#566579" font-size="13" font-weight="400" text-anchor="start">Только реально созданные клиенты и вызовы</text>
+<line x1="64" y1="510" x2="932" y2="510" stroke="#d8e0ea" stroke-width="1"/>
+<rect x="64" y="524" width="868" height="44" rx="3" fill="#f3f6fa" stroke="#f3f6fa"/>
+<text x="82" y="552" fill="#172235" font-size="16" font-weight="600" text-anchor="start">Auth</text>
+<text x="305" y="552" fill="#087e68" font-size="18" font-weight="700" text-anchor="start">→</text>
+<text x="340" y="552" fill="#172235" font-size="16" font-weight="400" text-anchor="start">Profile</text>
+<text x="912" y="552" fill="#566579" font-size="13" font-weight="600" text-anchor="end">gRPC</text>
+<text x="82" y="600" fill="#172235" font-size="16" font-weight="600" text-anchor="start">Profile</text>
+<text x="305" y="600" fill="#087e68" font-size="18" font-weight="700" text-anchor="start">→</text>
+<text x="340" y="600" fill="#172235" font-size="16" font-weight="400" text-anchor="start">Auth · Department</text>
+<text x="912" y="600" fill="#566579" font-size="13" font-weight="600" text-anchor="end">gRPC</text>
+<rect x="64" y="620" width="868" height="44" rx="3" fill="#f3f6fa" stroke="#f3f6fa"/>
+<text x="82" y="648" fill="#172235" font-size="16" font-weight="600" text-anchor="start">Brigade</text>
+<text x="305" y="648" fill="#087e68" font-size="18" font-weight="700" text-anchor="start">→</text>
+<text x="340" y="648" fill="#172235" font-size="16" font-weight="400" text-anchor="start">Profile · Department</text>
+<text x="912" y="648" fill="#566579" font-size="13" font-weight="600" text-anchor="end">gRPC</text>
+<text x="82" y="696" fill="#172235" font-size="16" font-weight="600" text-anchor="start">Dispatch</text>
+<text x="305" y="696" fill="#087e68" font-size="18" font-weight="700" text-anchor="start">→</text>
+<text x="340" y="696" fill="#172235" font-size="16" font-weight="400" text-anchor="start">Ticket · Brigade · Location · Routing</text>
+<text x="912" y="696" fill="#566579" font-size="13" font-weight="600" text-anchor="end">gRPC</text>
+<rect x="64" y="716" width="868" height="44" rx="3" fill="#f3f6fa" stroke="#f3f6fa"/>
+<text x="82" y="744" fill="#172235" font-size="16" font-weight="600" text-anchor="start">Report</text>
+<text x="305" y="744" fill="#087e68" font-size="18" font-weight="700" text-anchor="start">→</text>
+<text x="340" y="744" fill="#172235" font-size="16" font-weight="400" text-anchor="start">Analytics · File</text>
+<text x="912" y="744" fill="#566579" font-size="13" font-weight="600" text-anchor="end">gRPC</text>
+<text x="82" y="792" fill="#172235" font-size="16" font-weight="600" text-anchor="start">Transponder Simulator</text>
+<text x="305" y="792" fill="#087e68" font-size="18" font-weight="700" text-anchor="start">→</text>
+<text x="340" y="792" fill="#172235" font-size="16" font-weight="400" text-anchor="start">Location</text>
+<text x="912" y="792" fill="#566579" font-size="13" font-weight="600" text-anchor="end">HTTP</text>
+<rect x="980" y="430" width="580" height="398" rx="6" fill="#ffffff" stroke="#d8e0ea"/>
+<rect x="1004" y="450" width="28" height="28" rx="4" fill="#a56818" stroke="#a56818"/><text x="1018" y="470" fill="#ffffff" font-size="14" font-weight="700" text-anchor="middle">3</text><text x="1044" y="471" fill="#172235" font-size="19" font-weight="700" text-anchor="start">Внешние зависимости</text><text x="1044" y="494" fill="#566579" font-size="13" font-weight="400" text-anchor="start">Запросы, которые выполняет код</text>
+<line x1="1004" y1="510" x2="1536" y2="510" stroke="#d8e0ea" stroke-width="1"/>
+<rect x="1004" y="521" width="532" height="39" rx="3" fill="#f3f6fa" stroke="#f3f6fa"/>
+<text x="1018" y="547" fill="#172235" font-size="14" font-weight="600" text-anchor="start">Frontend</text>
+<text x="1190" y="547" fill="#a56818" font-size="16" font-weight="700" text-anchor="start">→</text>
+<text x="1220" y="547" fill="#172235" font-size="14" font-weight="400" text-anchor="start">Nominatim · Overpass · Valhalla</text>
+<text x="1018" y="589" fill="#172235" font-size="14" font-weight="600" text-anchor="start">Браузер</text>
+<text x="1190" y="589" fill="#a56818" font-size="16" font-weight="700" text-anchor="start">→</text>
+<text x="1220" y="589" fill="#172235" font-size="14" font-weight="400" text-anchor="start">S3 по подписанной ссылке</text>
+<rect x="1004" y="605" width="532" height="39" rx="3" fill="#f3f6fa" stroke="#f3f6fa"/>
+<text x="1018" y="631" fill="#172235" font-size="14" font-weight="600" text-anchor="start">Routing</text>
+<text x="1190" y="631" fill="#a56818" font-size="16" font-weight="700" text-anchor="start">→</text>
+<text x="1220" y="631" fill="#172235" font-size="14" font-weight="400" text-anchor="start">Valhalla</text>
+<text x="1018" y="673" fill="#172235" font-size="14" font-weight="600" text-anchor="start">File · Report</text>
+<text x="1190" y="673" fill="#a56818" font-size="16" font-weight="700" text-anchor="start">→</text>
+<text x="1220" y="673" fill="#172235" font-size="14" font-weight="400" text-anchor="start">S3 / MinIO</text>
+<rect x="1004" y="689" width="532" height="39" rx="3" fill="#f3f6fa" stroke="#f3f6fa"/>
+<text x="1018" y="715" fill="#172235" font-size="14" font-weight="600" text-anchor="start">Auth</text>
+<text x="1190" y="715" fill="#a56818" font-size="16" font-weight="700" text-anchor="start">→</text>
+<text x="1220" y="715" fill="#172235" font-size="14" font-weight="400" text-anchor="start">SMTP</text>
+<text x="1018" y="757" fill="#172235" font-size="14" font-weight="600" text-anchor="start">Notification</text>
+<text x="1190" y="757" fill="#a56818" font-size="16" font-weight="700" text-anchor="start">→</text>
+<text x="1220" y="757" fill="#172235" font-size="14" font-weight="400" text-anchor="start">Redis · SMTP · FCM*</text>
+<rect x="1004" y="773" width="532" height="39" rx="3" fill="#f3f6fa" stroke="#f3f6fa"/>
+<text x="1018" y="799" fill="#172235" font-size="14" font-weight="600" text-anchor="start">Gateway · Location</text>
+<text x="1190" y="799" fill="#a56818" font-size="16" font-weight="700" text-anchor="start">→</text>
+<text x="1220" y="799" fill="#172235" font-size="14" font-weight="400" text-anchor="start">отдельные Redis</text>
+<rect x="40" y="854" width="1520" height="156" rx="6" fill="#e8f1fb" stroke="#c9dcec"/>
+<text x="64" y="890" fill="#2764a5" font-size="14" font-weight="700" text-anchor="start">ГРАНИЦЫ СХЕМЫ</text>
+<text x="64" y="922" fill="#172235" font-size="18" font-weight="600" text-anchor="start">Kafka и фоновые обработчики показаны на отдельной событийной карте.</text>
+<text x="64" y="952" fill="#566579" font-size="16" font-weight="400" text-anchor="start">Хранилища PostgreSQL / ClickHouse и точные доказательства стрелок перечислены в текстовой карте.</text>
+<text x="64" y="982" fill="#566579" font-size="15" font-weight="400" text-anchor="start">* FCM используется только при наличии настроенного ключа. Схема описывает код, а не состояние кластера.</text>
+</svg>

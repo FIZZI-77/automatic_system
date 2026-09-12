@@ -1,35 +1,40 @@
 # Архитектура Automatic City Services
 
-Редактируемый исходник — [`automatic-city-system-architecture.drawio`](automatic-city-system-architecture.drawio). В нём три страницы:
+## Проверенная карта взаимодействий
 
-1. **Логическая архитектура** — презентационный слоистый вид с пиктограммами: клиенты, access layer, все доменные сервисы, Kafka, данные, интеграции, наблюдаемость, легенда и ключевые принципы.
-2. **Детальная архитектура** — расширенный технический вид синхронных gRPC/HTTP2-вызовов, Kafka/outbox/inbox/retry/DLQ, service-owned storage и внешних движков.
-3. **Kubernetes HA** — фактическая топология `prod` / `local-ha`: числа реплик, Istio, Patroni/Citus/PgBouncer, Kafka/Redis, backup flow и текущие точки отказа.
+[Карта взаимодействий по исходному коду](code-interactions.md) разделяет
+прямые вызовы, события Kafka и доступ к внешним системам. Для каждой группы
+связей приведены ссылки на точки запуска, обработчики или конфигурацию.
 
-Готовые превью:
+| Схема | Что показано |
+|---|---|
+| [Прямые вызовы](sync-interactions.svg) ([PNG](sync-interactions.png)) | Вход, gRPC-зависимости сервисов, HTTP и внешние вызовы. |
+| [События Kafka](event-interactions.svg) ([PNG](event-interactions.png)) | Издатели, читатели и группы тем. Точный список настроенных тем приведен в текстовой карте. |
 
-- [`logical-architecture.svg`](logical-architecture.svg) / [`logical-architecture.png`](logical-architecture.png)
-- [`architecture-overview.svg`](architecture-overview.svg) / [`architecture-overview.png`](architecture-overview.png)
-- [`kubernetes-ha.svg`](kubernetes-ha.svg) / [`kubernetes-ha.png`](kubernetes-ha.png)
-
-После изменения архитектуры SVG и draw.io можно пересобрать без дополнительных npm-пакетов:
+Обе схемы создаются из одного [редактируемого генератора](../../tools/render-code-architecture.mjs).
+После изменения списка связей обновите изображения из корня репозитория:
 
 ```powershell
-node .\tools\generate-architecture-diagrams.mjs
+node .\tools\render-code-architecture.mjs
 ```
 
-## Что отражено на схемах
+SVG создаются всегда; PNG создаются, когда установлены зависимости Frontend,
+включая `sharp`.
 
-- Patroni использует Kubernetes API/Endpoints как DCS. Отдельного etcd-кластера для Patroni в текущих манифестах нет; показанный etcd относится к control plane Kubernetes.
-- `postgres-platform` состоит из трёх Patroni members и содержит тринадцать изолированных баз прикладных сервисов.
-- Ticket хранится в Citus: coordinator group из трёх members и две worker groups по два members; shard key — `department_id`.
-- Перед обоими PostgreSQL-контурами стоят отдельные PgBouncer read/write pools по две реплики.
-- Kafka работает как KRaft cluster из трёх combined broker/controller nodes с RF=3 и `min.insync.replicas=2`.
-- Location Redis имеет master, две replicas и три Sentinel; Gateway Redis и Notification Redis пока одноузловые.
-- В production API Gateway масштабируется до 2–6 replicas, остальные прикладные Deployments и Frontend пока имеют одну replica.
-- MinIO, ClickHouse, Valhalla, Prometheus, OTel Collector, Jaeger, Grafana, Elasticsearch и Kibana сейчас одноузловые.
-- HA PostgreSQL/Citus зависит от наличия минимум трёх независимых node failure domains. Число replicas Istio ingress/istiod в репозитории явно не закреплено.
+Схемы описывают реализованные связи в коде, но не измеряют доступность
+сервисов и не подтверждают успешную доставку конкретного события в кластере.
+Описание развертывания и эксплуатации находится в [документации
+Kubernetes](../../k8s/README.md).
 
-## Основание
+## Ранее созданные рисунки
 
-Схемы собраны по текущим Kustomize manifests, runtime config сервисов, Kafka topic configuration, PostgreSQL HA-документации и frontend server routes. Это описание текущего состояния, а не целевая схема «когда-нибудь».
+[Исходник draw.io](automatic-city-system-architecture.drawio),
+[логический рисунок](logical-architecture.svg),
+[расширенный рисунок](architecture-overview.svg) и
+[схема Kubernetes HA](kubernetes-ha.svg) создавались для более широкой
+визуализации системы и кластера. Они не являются источником истины о прямых
+вызовах: часть стрелок была основана на проектном описании, а не на вызовах
+текущего кода. Для прикладных связей используйте проверенную карту выше.
+Старый набор пересобирается отдельным
+[генератором](../../tools/generate-architecture-diagrams.mjs) и не обновляет
+новые схемы.
