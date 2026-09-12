@@ -195,23 +195,26 @@ func (r *Repository) List(ctx context.Context, in *models.ListInput) ([]*models.
 	clause := strings.Join(where, " AND ")
 	var total int64
 	if err := r.readDB.QueryRow(ctx, "SELECT count(*) FROM dispatch_operations WHERE "+clause, args...).Scan(&total); err != nil {
-		return nil, 0, err
+		return nil, 0, fmt.Errorf("count dispatch operations: %w", err)
 	}
 	args = append(args, in.Limit, in.Offset)
 	rows, err := r.readDB.Query(ctx, baseSelect+" WHERE "+clause+fmt.Sprintf(" ORDER BY created_at DESC LIMIT $%d OFFSET $%d", len(args)-1, len(args)), args...)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, fmt.Errorf("query dispatch operations: %w", err)
 	}
 	defer rows.Close()
 	result := make([]*models.Operation, 0, in.Limit)
 	for rows.Next() {
 		item, scanErr := scan(rows)
 		if scanErr != nil {
-			return nil, 0, scanErr
+			return nil, 0, fmt.Errorf("scan dispatch operation: %w", scanErr)
 		}
 		result = append(result, item)
 	}
-	return result, total, rows.Err()
+	if err = rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("iterate dispatch operations: %w", err)
+	}
+	return result, total, nil
 }
 func (r *Repository) Expire(ctx context.Context, limit int) ([]*models.Operation, error) {
 	if limit <= 0 {
@@ -272,6 +275,6 @@ func nullable(value string) any {
 	return value
 }
 
-const baseSelect = `SELECT id,ticket_id,department_id,category_id,priority,brigade_id,route_id,mode,status,version,requested_by,failure_code,failure_stage,failure_reason,expires_at,created_at,updated_at FROM dispatch_operations`
+const baseSelect = `SELECT id,ticket_id,department_id,category_id,COALESCE(priority,''),brigade_id,route_id,mode,status,version,requested_by,failure_code,failure_stage,failure_reason,expires_at,created_at,updated_at FROM dispatch_operations`
 const baseSelectUpdate = `UPDATE dispatch_operations SET `
 const returning = ` RETURNING id,ticket_id,department_id,category_id,priority,brigade_id,route_id,mode,status,version,requested_by,failure_code,failure_stage,failure_reason,expires_at,created_at,updated_at`

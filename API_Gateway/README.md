@@ -1,105 +1,238 @@
 # API Gateway
 
-`API Gateway` — это входная точка для внешних клиентов системы. Сервис принимает HTTP-запросы, выполняет первичную обработку, проверяет авторизацию и перенаправляет запросы во внутреннюю часть системы.
+## Общее описание и общий принцип работы
 
-Gateway используется как промежуточный слой между клиентом и внутренними сервисами. Благодаря этому клиенту не нужно знать, из каких сервисов состоит система и как именно она устроена внутри.
+`API Gateway` — единая внешняя HTTP-точка системы. Он принимает JSON-запрос, проверяет заголовки и права, преобразует данные в сообщения gRPC, вызывает нужный внутренний сервис и переводит ответ обратно в JSON. Шлюз не хранит предметные данные и не заменяет бизнес-правила целевых сервисов.
 
-## Назначение
+Обработка защищенного запроса проходит так:
 
-Основная задача `API Gateway` — централизованно обрабатывать входящие запросы.
+1. `RequestID` принимает или создает `X-Request-ID` и добавляет его в контекст и ответ.
+2. `IdempotencyKey` переносит `Idempotency-Key` в контекст gRPC.
+3. Ограничитель частоты использует Redis и ключ клиента или пользователя.
+4. `RequestLogger` записывает структурированные сведения о запросе.
+5. `AuthMiddleware` извлекает Bearer JWT, проверяет подпись, алгоритм, издателя, получателя и срок действия.
+6. Обработчик разбирает JSON, берет идентификатор и роли только из проверенного контекста, создает gRPC-запрос и вызывает внутренний сервис.
+7. `handleGRPCError` переводит код gRPC в безопасный HTTP-ответ без внутренних деталей.
 
-Сервис отвечает за приём HTTP/REST-запросов от клиентов, маршрутизацию запросов во внутренние сервисы, преобразование внешних HTTP-запросов во внутренние вызовы, проверку access token, извлечение данных пользователя из JWT, передачу идентификационных данных пользователя дальше по цепочке обработки, обработку ошибок и возврат понятных HTTP-ответов клиенту.
+Глобальное ограничение — 300 запросов в минуту с запасом 100; проверки состояния исключены. Для публичных операций авторизации действует отдельный предел 20/мин с запасом 10 по адресу клиента и пути, для защищенных операций авторизации — 30/мин с запасом 10 по пользователю и пути.
 
-Gateway не хранит бизнес-данные и не выполняет бизнес-логику предметной области. Его задача — быть безопасным и единым входным слоем системы.
+## Модели
 
-## Роль в архитектуре
+Модели в каталоге `models` являются внешними HTTP-представлениями. Они не создают отдельную предметную модель и не сохраняются шлюзом. Имена `Request` описывают тело запроса, имена `Response` — JSON-ответ, а сущности без суффикса — представление ответа внутреннего сервиса.
 
-Общая схема работы выглядит так:
+### Общие правила полей
 
-```text
-Client -> API Gateway -> Internal Services
-```
+| Поле или группа | Назначение |
+|---|---|
+| `id`, `*_id` | Строковые UUID сущностей. Значения пользователя и ролей для защищенных операций берутся из JWT, а не из доверяемого клиентского поля. |
+| `limit`, `offset` | Размер страницы и смещение; окончательные ограничения проверяет целевой сервис. |
+| `created_at`, `updated_at`, `*_at` | Время в строковом или Unix-представлении, преобразуемое соответствующим модулем. |
+| поля-указатели | Отличают отсутствующее значение от явного нуля, `false` или пустой операции очистки. |
+| `actor_*` | Не принимаются как доверенные данные: формируются шлюзом из контекста авторизации. |
 
-Клиент взаимодействует только с API Gateway. Внутренние сервисы остаются скрытыми от внешнего доступа и доступны только внутри системы.
+### Авторизация — `models/auth.go`
 
-Такой подход позволяет отделить внешний API от внутренней реализации, централизовать авторизацию, скрыть внутреннюю структуру приложения, упростить подключение новых клиентов, снизить связанность между клиентской частью и внутренними сервисами, а также упростить дальнейшее расширение системы.
+| Модель | Поля и назначение |
+|---|---|
+| `RegisterRequest` | `Email`, `Password`, `DeviceID`, `DeviceName` — учетные данные и устройство регистрации. |
+| `RegisterResponse` | идентификатор пользователя и признак необходимости подтверждения. |
+| `LoginRequest` | адрес почты, пароль, устройство и сведения клиента. |
+| `LoginResponse` | доступный и обновляющий токены, срок, сеанс и пользователь. |
+| `RefreshRequest`, `RefreshResponse` | обновляющий токен/сеанс и новая пара токенов. |
+| `LogoutResponse`, `LogoutAllResponse` | результат завершения одного или всех сеансов. |
+| `MeResponse` | идентификатор, почта, состояние подтверждения и роли пользователя. |
+| `ChangePasswordRequest` | старый и новый пароль. |
+| `SendVerificationEmailRequest`, `VerifyEmailRequest` | адрес или одноразовый токен подтверждения. |
+| `RequestPasswordResetRequest`, `ResetPasswordRequest` | адрес почты либо токен и новый пароль. |
+| `ErrorResponse`, `ValidationErrorResponse` | безопасный код, сообщение и сведения об ошибках проверки. |
 
-##  Принцип работы
+### Заявки — `models/ticket.go`
 
-**Общий сценарий обработки запроса:**
+| Модель | Поля и назначение |
+|---|---|
+| `TicketCategory` | идентификатор, код, название, описание, активность и времена. |
+| `Ticket` | заявка, подразделение, категория, автор, бригада, объект, текст, состояние, приоритет, адрес, координаты и времена переходов. |
+| `TicketStatusHistory` | прежнее/новое состояние, автор, комментарий и время. |
+| `CreateTicketRequest` | подразделение, категория, заголовок, описание, приоритет, адрес, координаты и необязательный `AssetID`. |
+| `GetTicketRequest` | `TicketID`. |
+| `ListTicketRequest` | фильтры, период, сортировка и страница. |
+| `UpdateTicketRequest` | изменяемые поля заявки и необязательная связь с объектом. |
+| `ChangeTicketStatusRequest`, `AssignBrigadeRequest`, `CancelTicketRequest`, `CompleteTicketRequest` | идентификаторы, новое состояние/бригада, комментарий или причина. |
+| `GetTicketStatusHistoryRequest` | заявка и страница истории. |
+| `WorkReport`, `CreateWorkReportRequest`, `ListWorkReportsRequest` | отчет, описание, файлы, признак итогового отчета и получение списка. |
+| запросы категорий | создание, получение, список, изменение и удаление категории. |
+| ответы | содержат соответствующую заявку, категорию, отчет, список и `Total`. |
 
-Клиент отправляет HTTP-запрос в API Gateway.
-Gateway определяет маршрут запроса.
-Если маршрут публичный, запрос передаётся дальше без проверки access token.
-Если маршрут защищённый, Gateway проверяет JWT из заголовка Authorization.
-После успешной проверки Gateway извлекает из токена данные пользователя.
-Gateway формирует внутренний запрос к нужному сервису.
-Внутренний ответ преобразуется в HTTP/JSON-ответ.
-Клиент получает результат выполнения запроса.
-Таким образом, Gateway выполняет роль внешнего HTTP-слоя и точки контроля доступа.
-Публичные и защищённые маршруты
-Маршруты в Gateway делятся на публичные и защищённые.
-Публичные маршруты доступны без access token. Они используются для действий, которые клиент может выполнять до авторизации.
-Защищённые маршруты требуют наличия корректного access token.
-Для доступа к защищённым маршрутам клиент должен передавать заголовок:
-Authorization: Bearer <access_token>
-Если access token отсутствует, истёк или имеет неверную подпись, Gateway возвращает ошибку авторизации.
+### Бригады — `models/brigade.go`
 
-**Проверка JWT**
+| Группа моделей | Поля и назначение |
+|---|---|
+| `Brigade`, `BrigadeResponse`, `ListBrigadesResponse` | подразделение, название, описание, состояние, специализация, времена и список с общим количеством. |
+| `BrigadeMember` | пользователь, профиль, роль, активность, личная доступность и времена участия. |
+| `Skill`, `BrigadeSkill` | справочник навыков и связь с бригадой. |
+| `BrigadeSchedule`, `BrigadeScheduleItem` | день недели, начало, конец, часовой пояс и период действия. |
+| `BrigadeZone` | бригада, подразделение, название, GeoJSON, приоритет и активность. |
+| модели истории | переходы состояния бригады, состава, ролей и доступности с причиной, автором и временем. |
+| запросы бригады | создание, получение, список, изменение, деактивация, архивирование, состояние и история. |
+| запросы состава | добавление/удаление, роль, доступность, список, история и поиск по пользователю. |
+| запросы навыков | создание/изменение/деактивация справочника и добавление/удаление навыка бригады. |
+| запросы расписания и зон | замена/чтение расписания, создание/изменение/удаление зон, проверка точки и поиск подходящих бригад. |
 
-Gateway проверяет access token на своей стороне с помощью публичного ключа.
-При проверке JWT выполняются следующие действия: проверяется наличие заголовка Authorization, проверяется формат Bearer <token>, проверяется подпись токена, проверяется алгоритм подписи, проверяется срок действия токена, проверяется issuer, проверяется audience и наличие обязательных claims.
-После успешной проверки из JWT извлекаются данные пользователя.
-Эти данные сохраняются в контекст запроса и используются при дальнейшей обработке.
-Gateway не должен подписывать JWT и не должен хранить приватный ключ. Для проверки access token используется только публичный ключ.
+### Профили — `models/profile.go`
 
-**Передача данных пользователя**
+| Группа моделей | Поля и назначение |
+|---|---|
+| `UserProfile` | пользователь, имя, телефон, изображение, способ связи и времена. |
+| `WorkProfile`, `WorkProfileDetails` | подразделение, табельный номер, должность, состояние и объединенные личные данные. |
+| `WorkProfileStatusHistory` | переход, причина, автор, запрос и время. |
+| `CertificationType`, `CertificationTypeSkill` | вид сертификата и выдаваемые им навыки. |
+| `WorkProfileCertification` | реквизиты, даты, состояние, файл, проверяющий и причина отказа. |
+| `WorkProfileSkillGrant`, `EffectiveWorkProfileSkills` | навык, источник, уровень, срок и действующие выдачи. |
+| запросы личного профиля | создание, поиск, собственный профиль, список и изменение. |
+| запросы рабочего профиля | создание, поиск, список, изменение, подразделение, состояние и история. |
+| запросы квалификаций | справочник, связи навыков, загрузка/проверка/отзыв сертификатов и ручные навыки. |
+| ответы | соответствующие сущности, списки, общие количества и отсутствующие навыки. |
 
-После проверки токена Gateway получает данные пользователя из JWT и передаёт их во внутренние сервисы.
-Это позволяет внутренним сервисам понимать, от имени какого пользователя выполняется запрос, не принимая user_id напрямую от клиента.
-Такой подход повышает безопасность, потому что клиент не может самостоятельно подменить идентификатор пользователя в теле запроса.
-Для защищённых маршрутов данные пользователя должны браться только из проверенного access token.
-Внутреннее взаимодействие
-Снаружи Gateway принимает HTTP/JSON-запросы. Внутри системы он может использовать другой формат взаимодействия, например gRPC.
+### Остальные предметные модули
 
-Общая схема:
-```
-HTTP request -> Gateway handler -> Internal request -> Internal service
-```
-Gateway отвечает за преобразование внешнего запроса во внутренний формат и за обратное преобразование ответа.
-Это позволяет оставить внешний API удобным для клиентов, а внутреннее взаимодействие сделать более строгим и эффективным.
+| Файл | Модели и поля |
+|---|---|
+| `models/department.go` | `Department` и запросы создания, получения, списка, изменения, удаления: идентификатор, название, описание, состояние, сортировка и страница. |
+| `models/location.go` | `Position`, `CurrentLocation`, `GeoZone`, `NearbyBrigade` и запросы записи, истории, поиска рядом и управления зонами: субъект, координаты, последовательность, скорость, точность, время и GeoJSON. |
+| `models/routing.go` | точки, ограничения транспорта, параметры, кандидаты и запросы построения маршрута/матрицы, ранжирования, сохранения, перерасчета, состояния и списка. |
+| `models/dispatch.go` | запросы предварительного подбора, резервирования, подтверждения, автоматического назначения, чтения, списка и отмены; содержат заявку, бригаду, срок резерва, причину и страницу. |
+| `models/asset.go` | идентификаторы объекта, создание/изменение, состояние, поиск рядом, происшествия, ремонты, осмотры, планы обслуживания и перерасчет риска. |
+| `models/file.go` | `File` и запросы загрузки, привязки, получения ссылки, списка и удаления: владелец, имя, MIME-тип, размер, контрольная сумма, хранилище и ресурс. |
+| `models/sla.go` | правила, заявка и запросы создания/изменения/удаления/списка: категория, приоритет, сроки реакции/решения, активность и страница. |
+| `models/notification.go` | список уведомлений, прочтение, настройки каналов, устройство, шаблон и доставки. |
+| `models/audit.go` | получение записи и список по исполнителю, действию, сущности, времени и странице. |
+| `models/analytics.go` | общий фильтр времени/подразделения/категории/приоритета и запросы срезов, объектов и задержек. |
+| `models/report.go` | создание, получение и список формируемых файлов отчета. |
 
-**Обработка ошибок**
+Подробная семантика предметных полей находится в README соответствующего сервиса; шлюз сохраняет эти значения при преобразовании HTTP в gRPC.
 
-Gateway преобразует внутренние ошибки в понятные HTTP-ответы.
+### Полный указатель транспортных структур
 
-Пример соответствия ошибок:
-```
-Invalid input        -> 400 Bad Request
-Unauthenticated     -> 401 Unauthorized
-Permission denied   -> 403 Forbidden
-Not found           -> 404 Not Found
-Conflict            -> 409 Conflict
-Timeout             -> 504 Gateway Timeout
-Service unavailable -> 503 Service Unavailable
-Internal error      -> 500 Internal Server Error
-```
+Ниже перечислены все структуры каталога `models`. Указатель дополняет таблицы выше: точный состав полей определяется указанным файлом, а их предметное назначение раскрыто в соответствующем разделе и README целевого сервиса.
 
-Клиент не должен получать внутренние технические детали. Gateway должен возвращать понятный статус и краткое описание ошибки.
+| Файл | Структуры |
+|---|---|
+| `models/analytics.go` | `AnalyticsFilter`, `AnalyticsRequest`, `OperationalLatencyRequest`, `AnalyticsBreakdownRequest`, `AssetAnalyticsRequest`. |
+| `models/asset.go` | `AssetIDRequest`, `ResolveAssetRequest`, `CreateAssetRequest`, `UpdateAssetRequest`, `ChangeAssetStatusRequest`, `ListAssetsRequest`, `NearbyAssetsRequest`, `AssetIncidentRequest`, `AssetRepairRequest`, `AssetInspectionRequest`, `MaintenancePlanRequest`, `DueMaintenanceRequest`, `RecalculateAssetRisksRequest`. |
+| `models/audit.go` | `GetAuditEntryRequest`, `ListAuditEntriesRequest`. |
+| `models/auth.go` | `RegisterRequest`, `RegisterResponse`, `LoginRequest`, `LoginResponse`, `RefreshRequest`, `RefreshResponse`, `LogoutResponse`, `LogoutAllResponse`, `MeResponse`, `ChangePasswordRequest`, `ChangePasswordResponse`, `SendVerificationEmailRequest`, `SendVerificationEmailResponse`, `VerifyEmailRequest`, `VerifyEmailResponse`, `RequestPasswordResetRequest`, `RequestPasswordResetResponse`, `ResetPasswordRequest`, `ResetPasswordResponse`, `ErrorResponse`, `ValidationErrorResponse`. |
+| `models/department.go` | `Department`, `CreateDepartmentRequest`, `CreateDepartmentResponse`, `GetDepartmentByIDRequest`, `GetDepartmentByIDResponse`, `ListDepartmentsRequest`, `ListDepartmentsResponse`, `UpdateDepartmentRequest`, `UpdateDepartmentResponse`, `DeleteDepartmentRequest`, `DeleteDepartmentResponse`. |
+| `models/dispatch.go` | `PreviewDispatchRequest`, `ReserveBrigadeRequest`, `ConfirmDispatchRequest`, `AutoDispatchRequest`, `GetDispatchRequest`, `ListDispatchesRequest`, `CancelDispatchRequest`. |
+| `models/file.go` | `File`, `CreateFileUploadRequest`, `LinkFileRequest`, `FileIDRequest`, `ListResourceFilesRequest`. |
+| `models/location.go` | `Position`, `CurrentLocation`, `GeoZone`, `NearbyBrigade`, `RecordPositionRequest`, `GetCurrentLocationRequest`, `GetCurrentLocationsRequest`, `ListPositionHistoryRequest`, `FindNearbyBrigadesRequest`, `CreateGeoZoneRequest`, `UpdateGeoZoneRequest`, `DeleteGeoZoneRequest`, `ListGeoZonesRequest`, `CheckPointInZonesRequest`. |
+| `models/notification.go` | `NotificationListRequest`, `NotificationIDRequest`, `NotificationPreferencesRequest`, `RegisterDeviceRequest`, `DeleteDeviceRequest`, `UpsertNotificationTemplateRequest`, `ListNotificationTemplatesRequest`, `ListDeliveriesRequest`. |
+| `models/report.go` | `CreateReportRequest`, `GetReportRequest`, `ListReportsRequest`. |
+| `models/routing.go` | `RoutingPoint`, `RoutingVehicleConstraints`, `RoutingOptions`, `BuildRouteRequest`, `BuildMatrixRequest`, `RoutingCandidate`, `RankCandidatesRequest`, `CreateRoutingRouteRequest`, `GetRoutingRouteRequest`, `RecalculateRoutingRouteRequest`, `SetRoutingRouteStatusRequest`, `ListRoutingRoutesRequest`. |
+| `models/sla.go` | `CreateSLARuleRequest`, `UpdateSLARuleRequest`, `SLAIDRequest`, `TicketIDRequest`, `ListSLARulesRequest`, `ListTicketSLAsRequest`. |
+| `models/ticket.go` | `TicketCategory`, `Ticket`, `TicketStatusHistory`, `CreateTicketRequest`, `CreateTicketResponse`, `GetTicketRequest`, `GetTicketResponse`, `ListTicketRequest`, `ListTicketResponse`, `UpdateTicketRequest`, `UpdateTicketResponse`, `ChangeTicketStatusRequest`, `ChangeTicketStatusResponse`, `AssignBrigadeRequest`, `AssignBrigadeResponse`, `CancelTicketRequest`, `CancelTicketResponse`, `CompleteTicketRequest`, `CompleteTicketResponse`, `GetTicketStatusHistoryRequest`, `GetTicketStatusHistoryResponse`, `WorkReport`, `CreateWorkReportRequest`, `ListWorkReportsRequest`, `CreateCategoryRequest`, `CreateCategoryResponse`, `GetCategoryRequest`, `GetCategoryResponse`, `ListCategoriesRequest`, `ListCategoriesResponse`, `UpdateCategoryRequest`, `UpdateCategoryResponse`, `DeleteCategoryRequest`, `DeleteCategoryResponse`. |
 
+Структуры `models/brigade.go` сгруппированы так: предметные данные — `Brigade`, `BrigadeMember`, `Skill`, `BrigadeSkill`, `BrigadeSchedule`, `BrigadeScheduleItem`, `BrigadeZone`, `BrigadeStatusHistory`, `BrigadeMemberHistory`, `BrigadeMemberStatusHistory`; запросы — `CreateBrigadeRequest`, `GetBrigadeByIDRequest`, `ListBrigadesRequest`, `UpdateBrigadeRequest`, `BrigadeReasonRequest`, `SetBrigadeStatusRequest`, `BrigadePageRequest`, `AddBrigadeMemberRequest`, `BrigadeMemberMutationRequest`, `ChangeBrigadeMemberRoleRequest`, `SetBrigadeMemberAvailabilityRequest`, `ListBrigadeMembersRequest`, `BrigadeMemberHistoryRequest`, `GetBrigadeByUserIDRequest`, `CreateSkillRequest`, `UpdateSkillRequest`, `IDRequest`, `ListSkillsRequest`, `BrigadeSkillRequest`, `ListBrigadeSkillsRequest`, `SetBrigadeScheduleRequest`, `ListBrigadeScheduleRequest`, `CreateBrigadeZoneRequest`, `UpdateBrigadeZoneRequest`, `ListBrigadeZonesRequest`, `CheckBrigadeCoversPointRequest`, `FindBrigadesByPointRequest`, `GetAvailableBrigadesRequest`, `CheckBrigadeCanHandleTicketRequest`; ответы — `BrigadeResponse`, `ListBrigadesResponse`, `BrigadeMemberResponse`, `ListBrigadeMembersResponse`, `BrigadeStatusHistoryResponse`, `BrigadeMemberHistoryResponse`, `BrigadeMemberStatusHistoryResponse`, `GetBrigadeByUserIDResponse`, `SkillResponse`, `ListSkillsResponse`, `BrigadeSkillResponse`, `ListBrigadeSkillsResponse`, `BrigadeScheduleResponse`, `BrigadeZoneResponse`, `ListBrigadeZonesResponse`, `CheckBrigadeCoversPointResponse`, `CheckBrigadeCanHandleTicketResponse`.
 
-**Таймауты**
+Структуры `models/profile.go` сгруппированы так: предметные данные — `UserProfile`, `WorkProfile`, `WorkProfileDetails`, `WorkProfileStatusHistory`, `CertificationType`, `CertificationTypeSkill`, `WorkProfileCertification`, `WorkProfileSkillGrant`, `EffectiveWorkProfileSkills`; запросы — `CreateUserProfileRequest`, `GetUserProfileByIDRequest`, `GetUserProfileByUserIDRequest`, `ListUserProfilesRequest`, `UpdateUserProfileRequest`, `CreateWorkProfileRequest`, `GetWorkProfileByIDRequest`, `GetWorkProfileByUserIDRequest`, `ListWorkProfilesRequest`, `UpdateWorkProfileRequest`, `DeactivateWorkProfileRequest`, `ChangeWorkProfileDepartmentRequest`, `SetWorkProfileStatusRequest`, `WorkProfileStatusHistoryRequest`, `ResolveWorkingDepartmentRequest`, `CheckProfileCanJoinBrigadeRequest`, `CreateCertificationTypeRequest`, `UpdateCertificationTypeRequest`, `ListCertificationTypesRequest`, `CertificationTypeSkillRequest`, `ListCertificationTypeSkillsRequest`, `UploadWorkProfileCertificationRequest`, `CertificationIDRequest`, `RejectWorkProfileCertificationRequest`, `RevokeWorkProfileCertificationRequest`, `ExpireWorkProfileCertificationsRequest`, `ListWorkProfileCertificationsRequest`, `GrantManualWorkProfileSkillRequest`, `RevokeWorkProfileSkillGrantRequest`, `ListEffectiveWorkProfileSkillsRequest`, `BatchListEffectiveWorkProfileSkillsRequest`, `CheckWorkProfileHasSkillsRequest`; ответы — `UserProfileResponse`, `ListUserProfilesResponse`, `WorkProfileDetailsResponse`, `ListWorkProfilesResponse`, `WorkProfileStatusHistoryResponse`, `ResolveWorkingDepartmentResponse`, `CheckProfileCanJoinBrigadeResponse`, `CertificationTypeResponse`, `ListCertificationTypesResponse`, `CertificationTypeSkillResponse`, `RemoveCertificationTypeSkillResponse`, `ListCertificationTypeSkillsResponse`, `WorkProfileCertificationResponse`, `VerifyWorkProfileCertificationResponse`, `RevokeWorkProfileCertificationResponse`, `ExpireWorkProfileCertificationsResponse`, `ListWorkProfileCertificationsResponse`, `WorkProfileSkillGrantResponse`, `ListEffectiveWorkProfileSkillsResponse`, `BatchListEffectiveWorkProfileSkillsResponse`, `CheckWorkProfileHasSkillsResponse`.
 
-Для внутренних вызовов Gateway должен использовать таймауты.
-Таймаут нужен для того, чтобы запрос не ожидал ответ бесконечно. Если внутренняя часть системы не отвечает слишком долго, Gateway завершает запрос и возвращает клиенту ошибку.
-Это защищает систему от зависших соединений и помогает стабильнее работать при сбоях отдельных компонентов.
+## Функции
 
+### `NewHandler`
 
-## Важные особенности
+Принимает обработчики всех внутренних сервисов, `AuthMiddleware` и `RedisRateLimiter`, сохраняет их в общем `Handler`.
 
-```
-1. Gateway не должен хранить приватные ключи.
-2. Gateway не должен доверять идентификатору пользователя, переданному клиентом в теле запроса. Для защищённых маршрутов данные пользователя должны браться только из проверенного JWT.
-3. Gateway не должен содержать бизнес-логику. Он должен принять запрос, проверить авторизацию, вызвать нужную внутреннюю часть системы и вернуть ответ клиенту.
-4. Gateway является внешним HTTP-слоем системы, а не источником данных.
-```
+### `Handler.InitRouters`
+
+Создает `gin.Engine`, настраивает CORS из `CORS_ALLOWED_ORIGINS`, обработку `OPTIONS`, общие промежуточные обработчики, проверки `/health`, `/livez`, `/readyz`, публичные и защищенные группы маршрутов. На защищенные группы устанавливает JWT; WebSocket использует отдельную проверку токена.
+
+### `handleGRPCError`
+
+Преобразует `InvalidArgument` в 400, `Unauthenticated` в 401, `PermissionDenied` в 403, `NotFound` в 404, `AlreadyExists`/`Aborted`/`FailedPrecondition` в 409, `Canceled` в 408, `DeadlineExceeded` в 504, `Unavailable` в 503, остальные ошибки в 500.
+
+### `writeAPIError`
+
+Возвращает JSON с полями `code` и `error` и переданным HTTP-кодом.
+
+### `NewAuthMiddleware`
+
+Читает открытый ключ, проверяет его пригодность и сохраняет ожидаемые `issuer` и `audience`.
+
+### `AuthMiddleware.Handle`
+
+Извлекает Bearer-токен, проверяет JWT и помещает `user_id`, роли и остальные подтвержденные признаки в `gin.Context`. При любой ошибке завершает запрос с 401.
+
+### `AuthMiddleware.HandleWebSocket`
+
+Выполняет ту же проверку для соединения WebSocket с учетом поддерживаемого способа передачи токена.
+
+### `extractBearerToken`
+
+Требует заголовок вида `Bearer <token>`, обрезает пробелы и возвращает только токен.
+
+### `RequestID`, `requestid.New`, `requestid.WithContext`, `requestid.FromContext`, `requestid.UnaryClientInterceptor`
+
+Принимают корректный `X-Request-ID` либо создают новый, кладут его в HTTP- и Go-контекст и передают как метаданные gRPC.
+
+### `IdempotencyKey`, `idempotency.WithContext`, `idempotency.FromContext`, `idempotency.UnaryClientInterceptor`
+
+Проверяют и переносят ключ идемпотентности из HTTP-заголовка во внутренний вызов.
+
+### `RequestLogger`
+
+Записывает метод, путь, код, длительность, адрес клиента и идентификатор запроса после завершения обработки.
+
+### `NewRedisRateLimiter`
+
+Создает распределенный ограничитель на Redis, нормализует префикс и сохраняет настройку обхода для нагрузочных проверок.
+
+### `RedisRateLimiter.Middleware`
+
+Нормализует правило, вычисляет ключ клиента, вызывает `allow`, выставляет заголовки лимита и при превышении возвращает 429. Ошибка Redis обрабатывается согласно реализованной политике шлюза.
+
+### `RedisRateLimiter.allow`
+
+Атомарно выполняет Lua-сценарий Redis, возвращая разрешение, оставшийся запас и время до восстановления.
+
+### `RateLimitConfig.normalize`, `redisInt`
+
+Подставляют безопасные значения правила и преобразуют числовой ответ Redis в `int64`.
+
+### `retry.UnaryClientInterceptor`
+
+Повторяет только безопасные читающие операции и изменяющие операции с ключом идемпотентности. Учитывает контекст, задержки и только временные коды gRPC.
+
+### `retry.shouldRetry`, `retry.isReadOnlyMethod`, `retry.isIdempotentMutation`, `retry.isRetryable`
+
+Определяют допустимость повтора по методу, наличию ключа и коду ошибки.
+
+### Обработчики авторизации
+
+`NewAuthHandler` сохраняет клиент. `Register`, `Login`, `Refresh`, `VerifyEmail`, `RequestPasswordReset` и `ResetPassword` разбирают публичные запросы. `Logout`, `LogoutAll`, `GetUserAuthInfo`, `ChangePassword`, `SendVerificationEmail` используют подтвержденного пользователя. `GetJWKS` отдает набор открытых ключей. Каждый метод создает gRPC-запрос и передает ошибку в `handleGRPCError`.
+
+### Обработчики заявок и отчетов
+
+`NewTicketHandler` сохраняет клиентов заявок и бригад. `CreateTicket`, `GetTicket`, `ListTicket`, `UpdateTicket`, `ChangeTicketStatus`, `AssignBrigade`, `CancelTicket`, `CompleteTicket`, `GetTicketStatusHistory` обслуживают жизненный цикл заявки. `CreateWorkReport` и `ListWorkReports` при роли работника сначала определяют его активную бригаду. Методы категорий вызывают одноименные операции Ticket Service. `bindJSON`, `buildListTicketsRequest`, `buildUpdateTicketRequest` и преобразователи формируют строгий запрос.
+
+### Обработчики бригад
+
+`NewBrigadeHandler` сохраняет клиент. Методы от `CreateBrigade` до `CheckBrigadeCanHandleTicket` один к одному соответствуют операциям README `Brigade_Service`. `brigadeRequestContext` и `gatewayActorContext` добавляют подтвержденного исполнителя, `brigadeResponse` переводит ответ, а функции `ToProto*`/`FromProto*` преобразуют перечисления, сущности, списки, расписание и историю без бизнес-решений.
+
+### Обработчики профилей
+
+`NewProfileHandler` сохраняет клиент. Методы личных и рабочих профилей, сертификатов и навыков соответствуют README `Profile_Service`. `profileRequestContext` добавляет исполнителя, `profileResponse` возвращает JSON, а преобразователи `ToProto*`/`FromProto*` сохраняют необязательные поля, времена, перечисления и вложенные списки.
+
+### Обработчики маршрутизации и назначения
+
+`RoutingHandler.BuildRoute`, `BuildMatrix`, `RankCandidates`, `CreateRoute`, `GetRoute`, `RecalculateRoute`, `SetRouteStatus`, `ListRoutes` преобразуют координаты и параметры и вызывают Routing Service. `DispatchHandler.Preview`, `Reserve`, `Confirm`, `Auto`, `Get`, `List`, `Cancel` обслуживают подбор и подтверждение бригады. Контекстные функции передают исполнителя и идентификатор запроса.
+
+### Обработчики местоположения и объектов
+
+`LocationHandler` записывает позицию, читает текущее положение и историю, ищет бригады рядом и управляет геозонами. `AssetHandler` создает, ищет, разрешает по координате, изменяет объекты, регистрирует происшествия, ремонты, осмотры, планы и прогнозы. Вспомогательные функции преобразуют координаты, время и перечисления.
+
+### Обработчики файлов, SLA, уведомлений, аудита и аналитики
+
+`FileHandler` управляет загрузкой, подтверждением, связями, ссылками и удалением. `SLAHandler` управляет правилами и состоянием сроков заявок. `NotificationHandler` обслуживает уведомления, настройки, устройства, шаблоны, доставки и WebSocket. `AuditHandler` читает журнал. `AnalyticsHandler` вызывает все аналитические срезы и преобразует общий фильтр. `ReportHandler` создает, читает, отменяет, повторяет и скачивает формируемые отчеты.
+
+## Структура БД
+
+`API Gateway` не содержит SQL-миграций и не подключается к собственной базе данных. Redis используется только для распределенного ограничения частоты, а предметные и идемпотентные записи принадлежат внутренним сервисам.

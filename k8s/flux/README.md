@@ -1,36 +1,32 @@
-# Flux CD for local-ha
+# Flux CD для локального отказоустойчивого контура
 
-Flux owns the stateless application release, Flagger, and the Istio ingress and
-policy manifests in the current `local-ha` cluster. Stateful infrastructure,
-secrets, migrations, and backup jobs remain outside Flux in this first phase.
+Flux согласует Helm-выпуск приложений, Flagger, входящие маршруты и политики
+Istio. StatefulSet с данными, секреты, резервные копии и первичная подготовка
+остаются вне этого контура. Миграционные Job приложений создаются Helm как часть
+прикладного выпуска, а не отдельным ресурсом Flux Kustomization.
 
-## Prerequisites
+## Предварительные условия
 
-- the cluster and Istio/Flagger CRDs are installed by `k8s/scripts/install-mesh.ps1`;
-- the `automatic-system` runtime and JWT secrets already exist;
-- the self-hosted GitHub runner uses the `github-runner` ServiceAccount from
-  namespace `arc-runners`;
-- the `test` and deployable `feature/**` branches contain this directory before
-  reconciliation is enabled.
+- Kubernetes и Istio доступны; необходимые CRD Flagger установлены.
+- В `automatic-system` уже созданы `runtime-secrets` и ключи JWT.
+- Самостоятельный исполнитель GitHub Actions использует
+  `ServiceAccount/github-runner` в `arc-runners`.
+- Ветка `deploy/local` содержит проверенный снимок `k8s/flux` и Helm-чарта.
 
-## Install controllers
+## Установка
 
-Run from the repository root:
+Из корня репозитория:
 
 ```powershell
 .\k8s\scripts\install-flux.ps1
 ```
 
-This installs pinned Flux controllers and runner RBAC, but does not start Git
-reconciliation. That makes the bootstrap safe before the GitOps files have been
-pushed.
+Команда устанавливает закрепленную версию контроллеров и права исполнителя,
+но без `-ConfigureLocalHASync` не включает источник Git.
+Рабочий процесс CI публикует проверенный снимок в `deploy/local`, дожидается
+его появления в GitRepository и запускает согласование.
 
-After the files are available in the remote branch, the CI deployment job runs
-on the local GitHub runner, points Flux at the successfully tested `test` or
-`feature/**` branch, waits until Flux has fetched the exact release commit, and
-removes the initial suspension.
-
-For a manual first activation after the files are pushed:
+Ручное первоначальное включение:
 
 ```powershell
 .\k8s\scripts\install-flux.ps1 -ConfigureLocalHASync
@@ -40,20 +36,27 @@ kubectl patch kustomization automatic-system-local-ha `
   -p '{"spec":{"suspend":false}}'
 ```
 
-## Ownership boundary
+## Границы владения
 
-Flux reconciles:
+| Ресурс | Пространство объекта | Что он создает |
+|---|---|---|
+| `GitRepository/automatic-system` | `flux-system` | Снимок ветки `deploy/local`. |
+| `Kustomization/automatic-system-local-ha` | `flux-system` | Flagger, HelmRelease приложений и отдельные Kustomization Istio. |
+| `HelmRelease/applications` | `flux-system` | Ресурсы чарта в `automatic-system`. |
+| `HelmRelease/flagger` | `flux-system` | Контроллер в `flagger-system`. |
+| `HelmRelease/flagger-loadtester` | `flux-system` | Генератор трафика в `automatic-system`. |
+| `automatic-system-mesh-policies`, `automatic-system-mesh-ingress` | `flux-system` | Политики и маршруты в `automatic-system`. |
 
-- `HelmRelease/applications` in `automatic-system`;
-- `HelmRelease/flagger` in `flagger-system`;
-- `k8s/mesh/policies` and `k8s/mesh/ingress`.
+Общие значения выпуска генерируются из
+`clusters/local-ha/applications-values.yaml`. CI изменяет группы
+неизменяемых меток образов и записывает снимок в `deploy/local` с
+`[skip ci]`. Исходные ветки CI не изменяет. `test`, `feature` и
+`feature/**` используют одну ветку развертывания и одну очередь, поскольку
+направлены в один кластер.
 
-The release values are generated from
-`clusters/local-ha/applications-values.yaml`. CI changes only the three immutable
-SHA tags, commits the GitOps update to the tested branch with `[skip ci]`, and
-waits for all 17 Flagger primary deployments to promote that tag. Deployments
-from `test` and `feature/**` share one concurrency group because they target the
-same local cluster.
+`prune: true` удаляет исчезнувшие **управляемые Flux** ресурсы. Не добавляйте
+сюда StatefulSet и PVC, пока отдельно не проверены передача владения, удаление
+и восстановление.
 
-Do not add stateful infrastructure to this Kustomization until storage adoption,
-pruning, and rollback have been tested separately.
+Подробности — в [`deployment.md`](../docs/deployment.md) и
+[`resource-fields.md`](../docs/resource-fields.md).

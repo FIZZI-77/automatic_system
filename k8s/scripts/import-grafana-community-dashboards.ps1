@@ -1,3 +1,7 @@
+param(
+  [string]$OnlyDashboard = ""
+)
+
 $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $dashboardDirectory = Join-Path $repoRoot "k8s\base\observability\dashboards\community"
@@ -14,6 +18,15 @@ $dashboards = @(
   @{ ID = "minio-official"; SourceUri = "https://raw.githubusercontent.com/minio/minio/master/docs/metrics/prometheus/grafana/minio-dashboard.json"; File = "minio-official.json"; UID = "community-minio"; Title = "Community / MinIO Official" }
   @{ ID = "flagger-istio-official"; SourceUri = "https://raw.githubusercontent.com/fluxcd/flagger/main/charts/grafana/dashboards/istio.json"; File = "flagger-istio.json"; UID = "community-flagger-istio"; Title = "Community / Flagger Istio Canary" }
 )
+
+if ($OnlyDashboard) {
+  $dashboards = @(
+    $dashboards | Where-Object { [string]$_.ID -eq $OnlyDashboard }
+  )
+  if ($dashboards.Count -ne 1) {
+    throw "Unknown dashboard ID: $OnlyDashboard"
+  }
+}
 
 function Remove-WindowsTargets {
   param([object[]]$Panels)
@@ -126,6 +139,47 @@ function Adapt-ClickHouseTargets {
   }
 }
 
+function Adapt-EtcdTargets {
+  param([object[]]$Panels)
+
+  $metricPattern = '(?<![a-zA-Z0-9_:])(etcd_[a-zA-Z0-9_:]+|grpc_server_(?:started|handled)_total|process_resident_memory_bytes)'
+  foreach ($panel in $Panels) {
+    foreach ($target in @($panel.targets)) {
+      if (-not $target.expr) {
+        continue
+      }
+
+      if ($target.expr -match '^\((.*)\) or vector\(0\)$') {
+        $target.expr = $Matches[1]
+      }
+
+      if ($panel.title -eq 'The total number of failed proposals seen') {
+        $target.expr = $target.expr.Replace(
+          'etcd_server_leader_changes_seen_total',
+          'etcd_server_proposals_failed_total'
+        )
+      }
+      $target.expr = [regex]::Replace(
+        $target.expr,
+        "$metricPattern(?!\s*\{)",
+        '$1{job="etcd"}'
+      )
+      $target.expr = [regex]::Replace(
+        $target.expr,
+        "$metricPattern\{(?!job=)",
+        '$1{job="etcd",'
+      )
+      $target.expr = $target.expr.Replace(
+        'etcd_debugging_mvcc_db_total_size_in_bytes',
+        'etcd_mvcc_db_total_size_in_bytes'
+      )
+    }
+    if ($panel.PSObject.Properties['panels']) {
+      Adapt-EtcdTargets -Panels $panel.panels
+    }
+  }
+}
+
 function Get-DashboardContent {
   param([string]$Uri)
 
@@ -146,7 +200,7 @@ function Get-DashboardContent {
 
 New-Item -ItemType Directory -Path $dashboardDirectory -Force | Out-Null
 $obsoleteDashboard = Join-Path $dashboardDirectory "node-exporter-full.json"
-if (Test-Path -LiteralPath $obsoleteDashboard) {
+if (-not $OnlyDashboard -and (Test-Path -LiteralPath $obsoleteDashboard)) {
   Remove-Item -LiteralPath $obsoleteDashboard -Force
 }
 
@@ -196,9 +250,13 @@ foreach ($dashboard in $dashboards) {
     Normalize-KafkaLagTargets -Panels $model.panels
     Add-ZeroFallbacksToAllTargets -Panels $model.panels
   }
-  if ($dashboard.ID -in 1860, 3070, 3662) {
+  if ($dashboard.ID -in 1860, 3662) {
     Add-ZeroFallbacksToAllTargets -Panels $model.panels
     Add-ZeroFallbacksToAllTargets -Panels $model.rows
+  }
+  if ($dashboard.ID -eq 3070) {
+    Adapt-EtcdTargets -Panels $model.panels
+    Adapt-EtcdTargets -Panels $model.rows
   }
   if ($dashboard.ID -eq 'clickhouse-official') {
     $model.templating.list = @()
@@ -225,13 +283,27 @@ foreach ($dashboard in $dashboards) {
       value = 'automatic-system'
     }
     $primaryVariable = $model.templating.list | Where-Object { $_.name -eq 'primary' }
-    $primaryVariable.query = 'label_values(flagger_canary_weight{namespace="$namespace",workload=~".+-primary"}, workload)'
+    $primaryVariable.query = 'label_values(flagger_canary_status{namespace="$namespace"}, name)'
+    $primaryVariable.regex = ''
+    $primaryVariable.current = [pscustomobject]@{
+      selected = $true
+      text = 'frontend'
+      value = 'frontend'
+    }
     $canaryVariable = $model.templating.list | Where-Object { $_.name -eq 'canary' }
     $canaryVariable.query = 'label_values(flagger_canary_status{namespace="$namespace"}, name)'
+    $canaryVariable.regex = ''
+    $canaryVariable.current = [pscustomobject]@{
+      selected = $true
+      text = 'frontend'
+      value = 'frontend'
+    }
+    $model.time.from = 'now-6h'
     foreach ($panel in $model.panels) {
       foreach ($target in @($panel.targets)) {
         if ($target.expr) {
           $target.expr = $target.expr.Replace('cpu="total",', '')
+          $target.expr = $target.expr.Replace('$primary', '${primary}-primary')
         }
       }
     }

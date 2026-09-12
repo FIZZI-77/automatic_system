@@ -5,6 +5,7 @@ export type AccountRole = keyof typeof accounts;
 
 export async function loginThroughUi(page: Page, role: AccountRole) {
   await page.goto("/");
+  await page.waitForLoadState("networkidle");
   await page.getByRole("button", { name: "Войти", exact: true }).click();
   await page.getByLabel("Электронная почта").fill(accounts[role]);
   await page.getByLabel("Пароль", { exact: true }).fill(demoPassword);

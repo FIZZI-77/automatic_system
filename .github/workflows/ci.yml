@@ -5,6 +5,7 @@ on:
 
   push:
     branches:
+      - feature
       - "feature/**"
       - test
       - main
@@ -26,6 +27,48 @@ env:
   DOCKER_METADATA_SHORT_SHA_LENGTH: 12
 
 jobs:
+  changes:
+    name: Detect changed build targets
+    runs-on: ubuntu-latest
+    outputs:
+      application_matrix: ${{ steps.detect.outputs.application_matrix }}
+      migrator_matrix: ${{ steps.detect.outputs.migrator_matrix }}
+      frontend_changed: ${{ steps.detect.outputs.frontend_changed }}
+      clickhouse_init_changed: ${{ steps.detect.outputs.clickhouse_init_changed }}
+      deployed_applications: ${{ steps.detect.outputs.deployed_applications }}
+      migrator_services: ${{ steps.detect.outputs.migrator_services }}
+      changed_canaries: ${{ steps.detect.outputs.changed_canaries }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed components
+        id: detect
+        shell: bash
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+
+          args=(--head "$GITHUB_SHA" --output-file "$GITHUB_OUTPUT")
+
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ||
+                "$GITHUB_REF" == "refs/heads/main" ||
+                "$GITHUB_REF" == "refs/heads/master" ||
+                "${BEFORE_SHA:-}" =~ ^0+$ ]]; then
+            args+=(--force-all)
+          elif [ -n "${PR_BASE_SHA:-}" ]; then
+            args+=(--base "$PR_BASE_SHA")
+          else
+            args+=(--base "$BEFORE_SHA")
+          fi
+
+          python3 .github/scripts/detect-build-changes.py "${args[@]}"
+
   # ===========================================================================
   # GO QUALITY
   # ===========================================================================
@@ -103,10 +146,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -130,6 +173,10 @@ jobs:
             echo "$unformatted"
             exit 1
           fi
+
+      - name: Check Gateway OpenAPI specification
+        if: matrix.name == 'api-gateway'
+        run: go run ./tools/openapi -check
 
       - name: Run go vet
         run: go vet ./...
@@ -169,10 +216,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -208,10 +255,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -231,10 +278,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "22.19.0"
           cache: npm
@@ -269,10 +316,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: false
@@ -320,7 +367,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # Настоящие .env в Git не нужны.
       # Для docker compose config достаточно example-файлов.
@@ -376,7 +423,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4
@@ -464,6 +511,7 @@ jobs:
     runs-on: ubuntu-latest
 
     needs:
+      - changes
       - go-quality
       - analytics-integration
       - location-integration
@@ -475,130 +523,35 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - service: api-gateway
-            package: automatic-system-api-gateway
-            context: "."
-            dockerfile: API_Gateway/Dockerfile
-
-          - service: auth
-            package: automatic-system-auth
-            context: Auth_Service
-            dockerfile: Auth_Service/Dockerfile
-
-          - service: ticket
-            package: automatic-system-ticket
-            context: Ticket_Service
-            dockerfile: Ticket_Service/Dockerfile
-
-          - service: department
-            package: automatic-system-department
-            context: Department_Service
-            dockerfile: Department_Service/Dockerfile
-
-          - service: brigade
-            package: automatic-system-brigade
-            context: Brigade_Service
-            dockerfile: Brigade_Service/Dockerfile
-
-          - service: profile
-            package: automatic-system-profile
-            context: Profile_Service
-            dockerfile: Profile_Service/Dockerfile
-
-          - service: location
-            package: automatic-system-location
-            context: Location_Service
-            dockerfile: Location_Service/Dockerfile
-
-          - service: routing
-            package: automatic-system-routing
-            context: Routing_Service
-            dockerfile: Routing_Service/Dockerfile
-
-          - service: dispatch
-            package: automatic-system-dispatch
-            context: "."
-            dockerfile: Dispatch_Service/Dockerfile
-
-          - service: file
-            package: automatic-system-file
-            context: File_Service
-            dockerfile: File_Service/Dockerfile
-
-          - service: sla
-            package: automatic-system-sla
-            context: "."
-            dockerfile: SLA_Service/Dockerfile
-
-          - service: notification
-            package: automatic-system-notification
-            context: "."
-            dockerfile: Notification_Service/Dockerfile
-
-          - service: audit
-            package: automatic-system-audit
-            context: "."
-            dockerfile: Audit_Service/Dockerfile
-
-          - service: analytics
-            package: automatic-system-analytics
-            context: "."
-            dockerfile: Analytics_Service/Dockerfile
-
-          - service: report
-            package: automatic-system-report
-            context: "."
-            dockerfile: Report_Service/Dockerfile
-
-          - service: asset
-            package: automatic-system-asset
-            context: "."
-            dockerfile: Asset_Service/Dockerfile
-
-          - service: transponder-simulator
-            package: automatic-system-transponder-simulator
-            context: Transponder_Simulator
-            dockerfile: Transponder_Simulator/Dockerfile
-
-          - service: postgres-ha
-            package: automatic-system-postgres-ha
-            context: .
-            dockerfile: k8s/build/postgres-ha/Dockerfile
-
-          - service: postgres-citus-ha
-            package: automatic-system-postgres-citus-ha
-            context: .
-            dockerfile: k8s/build/postgres-citus-ha/Dockerfile
-
-          - service: pgbouncer
-            package: automatic-system-pgbouncer
-            context: .
-            dockerfile: k8s/build/pgbouncer/Dockerfile
+        include: ${{ fromJSON(needs.changes.outputs.application_matrix) }}
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        if: matrix.enabled
+        uses: actions/checkout@v7
 
       - name: Normalize registry owner
+        if: matrix.enabled
         shell: bash
         run: |
           echo "REGISTRY_OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
 
       - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        if: matrix.enabled
+        uses: docker/setup-buildx-action@v4
 
       - name: Login to GHCR
-        if: github.event_name == 'push'
-        uses: docker/login-action@v3
+        if: matrix.enabled && github.event_name == 'push'
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate image metadata
+        if: matrix.enabled
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.REGISTRY_OWNER }}/${{ matrix.package }}
           tags: |
@@ -606,7 +559,8 @@ jobs:
             type=ref,event=branch
 
       - name: Build and publish
-        uses: docker/build-push-action@v6
+        if: matrix.enabled
+        uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
@@ -625,6 +579,7 @@ jobs:
       name: development
 
     needs:
+      - changes
       - go-quality
       - analytics-integration
       - location-integration
@@ -633,9 +588,11 @@ jobs:
       - compose-validation
       - kubernetes-validation
 
+    if: needs.changes.outputs.frontend_changed == 'true'
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Normalize registry owner
         shell: bash
@@ -643,11 +600,11 @@ jobs:
           echo "REGISTRY_OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
 
       - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Login to GHCR
         if: github.event_name == 'push'
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -655,7 +612,7 @@ jobs:
 
       - name: Generate image metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.REGISTRY_OWNER }}/automatic-system-frontend
           tags: |
@@ -663,7 +620,7 @@ jobs:
             type=ref,event=branch
 
       - name: Build and publish
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: Frontend
           file: Frontend/Dockerfile
@@ -692,6 +649,7 @@ jobs:
     runs-on: ubuntu-latest
 
     needs:
+      - changes
       - go-quality
       - go-workspace-validation
       - kubernetes-validation
@@ -699,86 +657,35 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - service: auth
-            package: automatic-system-auth-migrator
-            context: Auth_Service
-
-          - service: ticket
-            package: automatic-system-ticket-migrator
-            context: Ticket_Service
-
-          - service: department
-            package: automatic-system-department-migrator
-            context: Department_Service
-
-          - service: brigade
-            package: automatic-system-brigade-migrator
-            context: Brigade_Service
-
-          - service: profile
-            package: automatic-system-profile-migrator
-            context: Profile_Service
-
-          - service: location
-            package: automatic-system-location-migrator
-            context: Location_Service
-
-          - service: routing
-            package: automatic-system-routing-migrator
-            context: Routing_Service
-
-          - service: dispatch
-            package: automatic-system-dispatch-migrator
-            context: Dispatch_Service
-
-          - service: file
-            package: automatic-system-file-migrator
-            context: File_Service
-
-          - service: sla
-            package: automatic-system-sla-migrator
-            context: SLA_Service
-
-          - service: notification
-            package: automatic-system-notification-migrator
-            context: Notification_Service
-
-          - service: audit
-            package: automatic-system-audit-migrator
-            context: Audit_Service
-
-          - service: report
-            package: automatic-system-report-migrator
-            context: Report_Service
-
-          - service: asset
-            package: automatic-system-asset-migrator
-            context: Asset_Service
+        include: ${{ fromJSON(needs.changes.outputs.migrator_matrix) }}
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        if: matrix.enabled
+        uses: actions/checkout@v7
 
       - name: Normalize registry owner
+        if: matrix.enabled
         shell: bash
         run: |
           echo "REGISTRY_OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
 
       - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        if: matrix.enabled
+        uses: docker/setup-buildx-action@v4
 
       - name: Login to GHCR
-        if: github.event_name == 'push'
-        uses: docker/login-action@v3
+        if: matrix.enabled && github.event_name == 'push'
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate image metadata
+        if: matrix.enabled
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.REGISTRY_OWNER }}/${{ matrix.package }}
           tags: |
@@ -786,7 +693,8 @@ jobs:
             type=ref,event=branch
 
       - name: Build and publish
-        uses: docker/build-push-action@v6
+        if: matrix.enabled
+        uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.context }}
           file: k8s/build/Dockerfile.migrator
@@ -809,11 +717,14 @@ jobs:
     runs-on: ubuntu-latest
 
     needs:
+      - changes
       - kubernetes-validation
+
+    if: needs.changes.outputs.clickhouse_init_changed == 'true'
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Normalize registry owner
         shell: bash
@@ -821,11 +732,11 @@ jobs:
           echo "REGISTRY_OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
 
       - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Login to GHCR
         if: github.event_name == 'push'
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -833,7 +744,7 @@ jobs:
 
       - name: Generate image metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.REGISTRY_OWNER }}/automatic-system-analytics-clickhouse-init
           tags: |
@@ -841,7 +752,7 @@ jobs:
             type=ref,event=branch
 
       - name: Build and publish
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: k8s/build/Dockerfile.clickhouse-init
@@ -861,15 +772,22 @@ jobs:
     name: Deploy test/feature through Flux and Flagger
 
     needs:
+      - changes
       - application-images
       - frontend-image
       - migrator-images
       - clickhouse-init-image
 
     if: >
-      github.event_name == 'push' &&
-      (github.ref == 'refs/heads/test' ||
-       startsWith(github.ref, 'refs/heads/feature/'))
+      always() &&
+       github.event_name == 'push' &&
+       (github.ref == 'refs/heads/test' ||
+        github.ref == 'refs/heads/feature' ||
+        startsWith(github.ref, 'refs/heads/feature/')) &&
+      needs.application-images.result == 'success' &&
+      needs.migrator-images.result == 'success' &&
+      (needs.frontend-image.result == 'success' || needs.frontend-image.result == 'skipped') &&
+      (needs.clickhouse-init-image.result == 'success' || needs.clickhouse-init-image.result == 'skipped')
 
     permissions:
       contents: write
@@ -887,12 +805,13 @@ jobs:
     env:
       GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
       GHCR_PULL_USERNAME: ${{ secrets.GHCR_PULL_USERNAME }}
+      DEPLOY_BRANCH: deploy/local
       TARGET_BRANCH: ${{ github.ref_name }}
       TARGET_SHA: ${{ github.sha }}
 
     steps:
       - name: Checkout tested commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         env:
           GIT_CONFIG_COUNT: 1
           GIT_CONFIG_KEY_0: http.version
@@ -944,14 +863,21 @@ jobs:
       - name: Publish immutable local image tags
         id: gitops
         shell: bash
+        env:
+          DEPLOYED_APPLICATIONS: ${{ needs.changes.outputs.deployed_applications }}
+          MIGRATOR_SERVICES: ${{ needs.changes.outputs.migrator_services }}
+          ANALYTICS_INIT_CHANGED: ${{ needs.changes.outputs.clickhouse_init_changed }}
         run: |
           set -euo pipefail
 
           SHORT_SHA="${TARGET_SHA::12}"
           VALUES_FILE=k8s/flux/clusters/local-ha/applications-values.yaml
+          DEPLOY_BRANCH_EXISTS=false
+          REMOTE_DEPLOY_REF="$(git -c http.version=HTTP/1.1 ls-remote \
+            --heads origin "refs/heads/${DEPLOY_BRANCH}")"
 
           case "$TARGET_BRANCH" in
-            test|feature/*) ;;
+            test|feature|feature/*) ;;
             *)
               echo "::error::Unsupported deployment branch: $TARGET_BRANCH"
               exit 1
@@ -976,26 +902,64 @@ jobs:
           done
           git merge-base --is-ancestor "$TARGET_SHA" "origin/$TARGET_BRANCH"
 
-          if ! git diff --quiet "$TARGET_SHA..origin/$TARGET_BRANCH" -- \
-            . ":(exclude)$VALUES_FILE"; then
+          if ! git diff --quiet "$TARGET_SHA..origin/$TARGET_BRANCH" -- .; then
             echo "::error::$TARGET_BRANCH advanced after the tested commit"
             exit 1
           fi
 
-          git checkout -B local-cluster-deploy "origin/$TARGET_BRANCH"
+          if [ -n "$REMOTE_DEPLOY_REF" ]; then
+            DEPLOY_BRANCH_EXISTS=true
+            for attempt in 1 2 3 4; do
+              if git -c http.version=HTTP/1.1 fetch \
+                --no-tags \
+                --depth=50 \
+                origin \
+                "+refs/heads/${DEPLOY_BRANCH}:refs/remotes/origin/${DEPLOY_BRANCH}"; then
+                break
+              fi
 
-          sed -Ei \
-            "s/tag: sha-[0-9a-fA-F]+/tag: sha-${SHORT_SHA}/g" \
-            "$VALUES_FILE"
+              if [ "$attempt" -eq 4 ]; then
+                echo "::error::Unable to fetch $DEPLOY_BRANCH after four attempts"
+                exit 1
+              fi
+
+              sleep $((attempt * 5))
+            done
+          else
+            echo "Creating deployment branch $DEPLOY_BRANCH"
+          fi
+
+          if [ "$DEPLOY_BRANCH_EXISTS" = "true" ]; then
+            git checkout -B local-cluster-deploy "origin/$DEPLOY_BRANCH"
+            git read-tree --reset -u "$TARGET_SHA"
+            git checkout "origin/$DEPLOY_BRANCH" -- "$VALUES_FILE"
+          else
+            git checkout -B local-cluster-deploy "$TARGET_SHA"
+          fi
+
+          update_args=(
+            --file "$VALUES_FILE"
+            --tag "sha-${SHORT_SHA}"
+            --applications "$DEPLOYED_APPLICATIONS"
+            --migrations "$MIGRATOR_SERVICES"
+          )
+
+          if [ "$ANALYTICS_INIT_CHANGED" = "true" ]; then
+            update_args+=(--analytics-init)
+          fi
+
+          python3 .github/scripts/update-local-deploy-values.py "${update_args[@]}"
 
           git config user.name github-actions
           git config user.email github-actions@github.com
 
-          if ! git diff --quiet -- "$VALUES_FILE"; then
-            git add "$VALUES_FILE"
-            git commit -m "deploy(local): sha-${SHORT_SHA} [skip ci]"
-            git push origin "HEAD:$TARGET_BRANCH"
+          git add -A
+
+          if ! git diff --cached --quiet; then
+            git commit -m "deploy(local): ${TARGET_BRANCH}@sha-${SHORT_SHA} [skip ci]"
           fi
+
+          git push origin "HEAD:$DEPLOY_BRANCH"
 
           echo "revision=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           echo "image_tag=sha-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
@@ -1011,7 +975,7 @@ jobs:
           kubectl patch gitrepository automatic-system \
             -n flux-system \
             --type merge \
-            -p "{\"spec\":{\"ref\":{\"branch\":\"${TARGET_BRANCH}\"}}}"
+            -p "{\"spec\":{\"ref\":{\"branch\":\"${DEPLOY_BRANCH}\"}}}"
           kubectl patch kustomization automatic-system-local-ha \
             -n flux-system \
             --type merge \
@@ -1022,7 +986,7 @@ jobs:
               -n flux-system \
               -o jsonpath='{.status.artifact.revision}')"
 
-            if [[ "$SOURCE_REVISION" == "${TARGET_BRANCH}@sha1:${DEPLOY_REVISION}" ]]; then
+            if [[ "$SOURCE_REVISION" == "${DEPLOY_BRANCH}@sha1:${DEPLOY_REVISION}" ]]; then
               break
             fi
 
@@ -1032,7 +996,7 @@ jobs:
           SOURCE_REVISION="$(kubectl get gitrepository automatic-system \
             -n flux-system \
             -o jsonpath='{.status.artifact.revision}')"
-          test "$SOURCE_REVISION" = "${TARGET_BRANCH}@sha1:${DEPLOY_REVISION}"
+          test "$SOURCE_REVISION" = "${DEPLOY_BRANCH}@sha1:${DEPLOY_REVISION}"
 
           kubectl annotate kustomization automatic-system-local-ha \
             -n flux-system \
@@ -1048,42 +1012,80 @@ jobs:
         shell: bash
         env:
           IMAGE_TAG: ${{ steps.gitops.outputs.image_tag }}
+          CHANGED_CANARIES: ${{ needs.changes.outputs.changed_canaries }}
         run: |
           set -euo pipefail
 
+          mapfile -t EXPECTED_CANARIES < <(
+            python3 -c 'import json, os, sys; names = json.loads(os.environ["CHANGED_CANARIES"]); sys.stdout.write("\n".join(names) + ("\n" if names else ""))'
+          )
+
+          if [ "${#EXPECTED_CANARIES[@]}" -eq 0 ]; then
+            echo "No application image changed; Flagger promotion is not required."
+            exit 0
+          fi
+
+          declare -A ROLLOUT_STARTED
+
+          for CANARY_NAME in "${EXPECTED_CANARIES[@]}"; do
+            PRIMARY_IMAGE="$(kubectl get deployment "${CANARY_NAME}-primary" \
+              -n automatic-system \
+              -o jsonpath='{.spec.template.spec.containers[0].image}')"
+
+            if [[ "$PRIMARY_IMAGE" == *":${IMAGE_TAG}" ]]; then
+              ROLLOUT_STARTED["$CANARY_NAME"]=true
+              continue
+            fi
+
+            PHASE="$(kubectl get canary "$CANARY_NAME" \
+              -n automatic-system \
+              -o jsonpath='{.status.phase}')"
+
+            if [ "$PHASE" = "Failed" ]; then
+              echo "Restarting failed Flagger analysis for $CANARY_NAME"
+              kubectl patch deployment "$CANARY_NAME" \
+                -n automatic-system \
+                --type merge \
+                -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"ci.automatic-system/retry\":\"${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}\"}}}}}"
+              ROLLOUT_STARTED["$CANARY_NAME"]=false
+            else
+              ROLLOUT_STARTED["$CANARY_NAME"]=true
+            fi
+          done
+
           for _ in $(seq 1 480); do
-            FAILED="$(kubectl get canary -n automatic-system \
-              -o jsonpath='{range .items[?(@.status.phase=="Failed")]}{.metadata.name}{"\n"}{end}')"
-            test -z "$FAILED" || {
-              echo "::error::Flagger failed: $FAILED"
-              exit 1
-            }
-
             PRIMARY_COUNT=0
-            CANARY_COUNT=0
 
-            while read -r CANARY_NAME; do
-              test -n "$CANARY_NAME" || continue
-              CANARY_COUNT=$((CANARY_COUNT + 1))
-
+            for CANARY_NAME in "${EXPECTED_CANARIES[@]}"; do
               PRIMARY_IMAGE="$(kubectl get deployment "${CANARY_NAME}-primary" \
                 -n automatic-system \
                 -o jsonpath='{.spec.template.spec.containers[0].image}')"
 
               if [[ "$PRIMARY_IMAGE" == *":${IMAGE_TAG}" ]]; then
                 PRIMARY_COUNT=$((PRIMARY_COUNT + 1))
+                continue
               fi
-            done < <(kubectl get canary -n automatic-system \
-              -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}')
 
-            if [ "$CANARY_COUNT" -eq 17 ] && [ "$PRIMARY_COUNT" -eq 17 ]; then
+              PHASE="$(kubectl get canary "$CANARY_NAME" \
+                -n automatic-system \
+                -o jsonpath='{.status.phase}')"
+
+              if [ "$PHASE" != "Failed" ]; then
+                ROLLOUT_STARTED["$CANARY_NAME"]=true
+              elif [ "${ROLLOUT_STARTED[$CANARY_NAME]}" = "true" ]; then
+                echo "::error::Flagger failed: $CANARY_NAME"
+                exit 1
+              fi
+            done
+
+            if [ "$PRIMARY_COUNT" -eq "${#EXPECTED_CANARIES[@]}" ]; then
               exit 0
             fi
 
             sleep 5
           done
 
-          echo "::error::Not all 17 primary deployments were promoted to ${IMAGE_TAG}"
+          echo "::error::Not all changed primary deployments were promoted to ${IMAGE_TAG}"
           exit 1
 
       - name: Show deployment state
@@ -1197,7 +1199,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4

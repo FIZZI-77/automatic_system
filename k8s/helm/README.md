@@ -1,41 +1,51 @@
-# Helm releases
+# Helm-выпуск приложений
 
-Application workloads are moving from Kustomize to independently deployable Helm releases. Stateful infrastructure, observability, Istio policy and bootstrap resources remain in Kustomize until their separate lifecycle and rollback procedures are migrated.
+`k8s/helm/applications` — единственный чарт прикладных сервисов:
+Analytics, API Gateway, Asset, Audit, Auth, Brigade, Department, Dispatch,
+File, Frontend, Location, Notification, Profile, Report, Routing, SLA и Ticket.
+Отдельного чарта Dispatch больше нет; его ресурсы находятся в
+`templates/dispatch.yaml`.
 
-## Applications
+Чарт создает Deployment, Service и ConfigMap приложений, миграционные Job,
+Canary Flagger и необязательные HPA/PDB. Хранилища данных, наблюдаемость,
+политики Istio и первичная подготовка остаются в Kustomize.
 
-`k8s/helm/applications` is the single stateless application release. Dispatch is included as a local subchart because it has additional scaling and migration settings; it is not deployed as a separate release.
+## Значения
 
-It contains Analytics, API Gateway, Asset, Audit, Auth, Brigade, Department, Dispatch, File, Frontend, Location, Notification, Profile, Report, Routing, SLA and Ticket.
+| Файл | Назначение |
+|---|---|
+| `values.yaml` | Общие порты, адреса, образы, настройки масштабирования, миграций и Canary. |
+| `values-local.yaml` | Простой локальный контур. |
+| `values-local-ha.yaml` | Локальный Patroni/Citus/PgBouncer и параметры распределения подов. |
+| `values-dev.yaml` | Разработческий контур. |
+| `values-prod.yaml` | Реестр GHCR и производственные ограничения ресурсов. |
 
-The release owns all application Deployments, Services and ConfigMaps, API Gateway and Dispatch HPA/PDB resources, PostgreSQL Goose hooks, and the Analytics ClickHouse schema hook.
+Для `dev` и `prod` сценарий выпуска требует неизменяемые метки приложения
+и мигратора. Общий HPA по умолчанию выключен. Dispatch имеет собственные
+настройки `dispatch.autoscaling` и `dispatch.podDisruptionBudget`.
 
-Environment files are `values-local.yaml`, `values-local-ha.yaml`, `values-dev.yaml` and `values-prod.yaml`. Dev and production require immutable application and migrator tags. HA values preserve the platform/ticket PgBouncer primary and replica endpoints.
+## Миграции
 
-The Dispatch subchart owns:
+Задания Goose и подготовки ClickHouse выполняются до смены Deployment.
+Неуспешный выпуск с `--atomic --wait` возвращает ресурсы Helm, но **не**
+откатывает SQL-схему. Миграции должны оставаться совместимыми с предыдущим
+образом приложения.
 
-- `Deployment/dispatch-service`
-- `Service/dispatch-service`
-- `ConfigMap/dispatch-service-config`
-- `HorizontalPodAutoscaler/dispatch-service` when enabled
-- `PodDisruptionBudget/dispatch-service` when enabled
-- a pre-install/pre-upgrade Goose migration hook when enabled
+## Команды
 
-The migration hook runs before the Deployment changes. `--atomic --wait` rolls an unsuccessful application release back; database migrations must therefore remain backward compatible.
-
-Local deployment:
+Локальный выпуск:
 
 ```powershell
 .\k8s\scripts\deploy-applications-helm.ps1 -Environment local
 ```
 
-Local HA deployment:
+Локальный отказоустойчивый контур:
 
 ```powershell
 .\k8s\scripts\deploy-applications-helm.ps1 -Environment local-ha
 ```
 
-Production requires explicit immutable application and migrator tags:
+Производственный выпуск:
 
 ```powershell
 .\k8s\scripts\deploy-applications-helm.ps1 `
@@ -44,11 +54,16 @@ Production requires explicit immutable application and migrator tags:
   -MigratorTag sha-<commit>
 ```
 
-For the one-time adoption of resources created by Kustomize, add `-TakeOwnership`. Do not use that flag for normal upgrades.
+`-TakeOwnership` нужен только для первоначальной передачи существующих
+ресурсов от Kustomize к Helm. При обычном обновлении его не используют.
 
-Inspect or roll back a release:
+Проверка истории и откат:
 
 ```powershell
 & .\.tools\mesh\helm.exe history applications -n automatic-system
 & .\.tools\mesh\helm.exe rollback applications <revision> -n automatic-system --wait
 ```
+
+Подробный разбор полей Helm-ресурсов — в
+[`resource-fields.md`](../docs/resource-fields.md), порядок развертывания —
+в [`deployment.md`](../docs/deployment.md).

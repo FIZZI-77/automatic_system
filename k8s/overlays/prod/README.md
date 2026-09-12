@@ -1,32 +1,37 @@
-# Production overlay
+# Производственное наложение
 
-Overlay собран поверх текущих `k8s/base/*` манифестов ветки `test`.
+`kustomization.yaml` собирает пространство `automatic-system`,
+наблюдаемость, правила Istio, ограничительную сеть, Patroni/Citus/PgBouncer
+и задания подготовки. Приложения выпускаются отдельно единым Helm-чартом.
+MailHog и секреты этим наложением не создаются.
 
-Что добавлено:
-- API Gateway: 2 replicas, HPA, PDB, topology spread.
-- GHCR images с immutable `sha-<git-sha>` tag.
-- PDB для Kafka и Redis Sentinel quorum.
-- Базовые ingress NetworkPolicy.
-- MailHog и production secrets намеренно не подключаются.
+| Набор | Назначение |
+|---|---|
+| `infra/postgres-platform` | Три узла Patroni для баз большинства сервисов. |
+| `infra/postgres-ticket-citus` | Координатор и две группы рабочих узлов Ticket Citus. |
+| `infra/pgbouncer` | Пулы platform/ticket и primary/replicas. |
+| `infra/pdb-kafka.yaml`, `infra/pdb-redis-sentinel.yaml` | Ограничение одновременного вывода узлов из работы. |
+| `network` | Запрет входа/выхода по умолчанию и точечные разрешения. |
+| `migrations` | Образы начальных заданий; сами SQL-миграции приложений выполняются Helm. |
+
+Наложение задает `standard-rwo` и размеры PVC: платформенная PostgreSQL
+`20Gi`, Kafka `50Gi`, ClickHouse и MinIO по `100Gi`. Для
+`postgres-platform` итоговый размер зависит от патча наложения; перед
+применением проверяйте отрисованный YAML. Автоматическое масштабирование
+приложений по умолчанию выключено.
 
 Перед применением:
-1. Образы с указанным SHA должны существовать в GHCR.
-2. Для автоматического развертывания из `main` переменная среды GitHub
-   `PRODUCTION_DEPLOY_ENABLED` должна быть равна `true`.
-3. `kubectl top pods` должен работать, иначе HPA не получит метрики.
-4. `runtime-secrets`, JWT secrets и прочие production secrets создаются отдельно.
-5. Resource values для Gateway — стартовый baseline; финальный tuning делается по Prometheus.
-6. PVC/storage здесь не переопределяются до выбора production StorageClass и backup policy.
 
-Проверка:
+1. Подставить существующие неизменяемые образы вместо `sha-0000000`.
+2. Проверить StorageClass, размер томов и распределение подов по узлам.
+3. Создать `runtime-secrets`, JWT и остальные производственные секреты вне Git.
+4. Проверить настройки резервных копий и восстановление в отдельном контуре.
+5. Собрать и просмотреть результат:
+
 ```powershell
-kubectl kustomize .\k8s\overlays\prod
-kubectl apply --dry-run=client -k .\k8s\overlays\prod
+kubectl kustomize k8s/overlays/prod
 ```
 
-Обновить tag под текущий commit:
-```powershell
-.\k8s\overlays\prod\set-image-tag.ps1
-```
-
-Не применяй prod overlay поверх текущего local окружения в том же namespace, если не хочешь заменить local workloads.
+Не применяйте `prod` поверх `local` или `local-ha` в том же пространстве
+имен без плана перехода: часть имен ресурсов совпадает, а состав хранилищ
+различается. Подробности — в [документации развертывания](../../docs/deployment.md).

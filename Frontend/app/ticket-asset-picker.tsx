@@ -132,7 +132,7 @@ export function TicketAssetPicker({ ticket, session, demo, onUpdate, onNotice }:
       <button type="button" className={mode === "number" ? "active" : ""} onClick={() => setMode("number")}>По номеру</button>
       <button type="button" className={mode === "qr" ? "active" : ""} onClick={() => setMode("qr")}>QR-код</button>
     </div>
-    {mode === "map" && <div><button type="button" disabled={busy} onClick={findNearby}>Показать объекты рядом</button>{assets.length > 0 && <div className="asset-picker-map" ref={mapRoot}/>}</div>}
+    {mode === "map" && <div><button className="asset-nearby-button" type="button" disabled={busy} onClick={findNearby}>Показать объекты рядом</button>{assets.length > 0 && <div className="asset-picker-map" ref={mapRoot}/>}</div>}
     {mode === "number" && <div className="asset-number-search"><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Серийный или инвентарный номер"/><button type="button" disabled={busy} onClick={findByNumber}>Найти</button></div>}
     {mode === "qr" && <div className="asset-qr"><video ref={videoRef} muted playsInline/><button type="button" disabled={busy} onClick={scanning ? stopQR : startQR}>{scanning ? "Остановить камеру" : "Сканировать QR"}</button></div>}
     {mode !== "map" && assets.length > 0 && <div className="asset-suggestions">{assets.map(asset => <button type="button" key={asset.id} disabled={busy} onClick={() => void attach(asset)}><b>{asset.name}</b><span>{asset.serial_number || asset.external_id || asset.id}</span></button>)}</div>}

@@ -69,6 +69,7 @@ test.describe("Заявки и пользовательские функции",
 
   test("фильтры заявок и карточка работают в демо", async ({ page }) => {
     await page.goto("/");
+    await page.waitForLoadState("networkidle");
     await page.getByRole("button", { name: "Открыть демо" }).click();
     await page.locator("aside nav").getByText("Инциденты", { exact: true }).click();
     await page.locator(".ticket-filters label").filter({ hasText: /^Статус/ }).locator("select").selectOption("NEW");
@@ -78,6 +79,30 @@ test.describe("Заявки и пользовательские функции",
     await expect(dialog.getByText(/Заявка inc-1031/i)).toBeVisible();
     await expect(dialog.getByText("Ожидает назначения")).toBeVisible();
     await page.keyboard.press("Escape");
+  });
+
+  test("выбор объекта бригадой находится внутри карточки заявки", async ({ page }) => {
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+    await page.getByRole("button", { name: "Открыть демо" }).click();
+    await page.getByRole("button", { name: "Работник", exact: true }).click();
+    await page.locator("aside nav").getByText("Задания", { exact: true }).click();
+    await page.getByRole("button", { name: /Повреждение водопровода/ }).click();
+
+    const dialog = page.getByRole("dialog", { name: /Заявка/ });
+    await expect(dialog.getByRole("heading", { name: "Объект работ" })).toBeVisible();
+    await expect(dialog.getByRole("group", { name: "Способ выбора объекта" })).toBeVisible();
+    await expect(page.locator(".ticket-workspace > .ticket-asset-linker")).toHaveCount(0);
+  });
+
+  test("карта показывает назначенный маршрут без перекрывающей панели слоёв", async ({ page }) => {
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+    await page.getByRole("button", { name: "Открыть демо" }).click();
+
+    await expect(page.locator(".layers-window")).toHaveCount(0);
+    await expect(page.locator(".assigned-route")).toBeVisible();
+    await expect(page.locator(".map-legend")).toContainText("Назначенный маршрут");
   });
 
   test("профиль открывает отдельное окно смены пароля с подтверждением", async ({ page }) => {

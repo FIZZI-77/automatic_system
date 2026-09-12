@@ -54,8 +54,8 @@ export function CityMap({ tickets, vehicles, selected, session, onSelect, onNoti
   const [route, setRoute] = useState<RoutePoint[]>([]);
   const [infrastructure, setInfrastructure] = useState<InfraFeature[]>([]);
   const [base, setBase] = useState<BaseId>("standard");
-  const [layers, setLayers] = useState<LayerId[]>(["districts", "roads", "stops"]);
-  const [panelOpen, setPanelOpen] = useState(true);
+  const [layers, setLayers] = useState<LayerId[]>(["districts", "roads"]);
+  const [panelOpen, setPanelOpen] = useState(false);
   const [error, setError] = useState("");
   const [selectedInfrastructure,setSelectedInfrastructure]=useState<InfraFeature>();
   const [passport,setPassport]=useState<AssetPassport>();
@@ -131,7 +131,9 @@ export function CityMap({ tickets, vehicles, selected, session, onSelect, onNoti
 
   useEffect(() => {
     if (!root.current) return;
-    let disposed = false; let mapInstance: { remove: () => void } | undefined;
+    let disposed = false;
+    let invalidateTimer: number | undefined;
+    let mapInstance: { remove: () => void } | undefined;
     const target = tickets.find(ticket => ticket.id === selected) || vehicles.find(vehicle => vehicle.vehicle_id === selected || vehicle.brigade_id === selected);
     import("leaflet").then(L => {
       if (disposed || !root.current) return;
@@ -160,12 +162,18 @@ export function CityMap({ tickets, vehicles, selected, session, onSelect, onNoti
           }).addTo(map);
         }
       });
-      if (route.length > 1) L.polyline(route, { color: "#547b68", weight: 5, opacity: .95 }).addTo(map);
+      if (route.length > 1) L.polyline(route, { className: "assigned-route", color: "#547b68", weight: 5, opacity: .95 }).addTo(map);
       tickets.forEach(ticket => { const icon = L.divIcon({ className: "leaflet-div-icon-clean", html: `<span class="leaflet-incident ${selected === ticket.id ? "selected" : ""} ${ticket.priority.toLowerCase()}">!</span>`, iconSize: [34, 34], iconAnchor: [17, 17] }); L.marker([ticket.latitude, ticket.longitude], { icon, title: `${ticket.title} — ${ticket.address}`, zIndexOffset: selected === ticket.id ? 1000 : 0 }).on("click", () => onSelect(ticket.id)).addTo(map); });
       vehicles.forEach(vehicle => { const active = selected === vehicle.vehicle_id || selected === vehicle.brigade_id; const icon = L.divIcon({ className: "leaflet-div-icon-clean", html: `<span class="leaflet-vehicle ${active ? "selected" : ""}" style="transform:rotate(${vehicle.heading}deg)">▲</span>`, iconSize: [38, 30], iconAnchor: [19, 15] }); L.marker([vehicle.latitude, vehicle.longitude], { icon, title: `${vehicleDisplayName(vehicle.vehicle_id)} · ${brigadeDisplayName(vehicle.brigade_id)}`, zIndexOffset: active ? 1200 : 500 }).on("click", () => onSelect(vehicle.vehicle_id)).addTo(map); });
-      window.setTimeout(() => map.invalidateSize(), 50);
+      invalidateTimer = window.setTimeout(() => {
+        if (!disposed) map.invalidateSize();
+      }, 50);
     });
-    return () => { disposed = true; mapInstance?.remove(); };
+    return () => {
+      disposed = true;
+      if (invalidateTimer !== undefined) window.clearTimeout(invalidateTimer);
+      mapInstance?.remove();
+    };
   }, [tickets, vehicles, selected, session, onSelect, route, infrastructure, layers, base]);
 
   const toggleLayer = (layer: LayerId) => setLayers(current => current.includes(layer) ? current.filter(item => item !== layer) : [...current, layer]);

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"dispatch/pkg"
 	"dispatch/pkg/telemetry"
 	"log"
 	"net"
@@ -127,7 +128,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	server := grpc.NewServer(telemetry.GRPCServerOption())
+	server := grpc.NewServer(
+		telemetry.GRPCServerOption(),
+		grpc.ChainUnaryInterceptor(pkg.AccessLogUnaryServerInterceptor(logger)),
+	)
 	dispatchv1.RegisterDispatchServiceServer(server, handler.New(value))
 	healthv1.RegisterHealthServer(server, health.NewServer())
 	go func() {

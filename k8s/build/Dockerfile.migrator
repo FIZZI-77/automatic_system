@@ -3,7 +3,15 @@ FROM golang:1.25-alpine
 ARG GOOSE_VERSION=3.27.3
 
 ENV GOBIN=/usr/local/bin
-RUN go install github.com/pressly/goose/v3/cmd/goose@v${GOOSE_VERSION}
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    for attempt in 1 2 3; do \
+      if GODEBUG=http2client=0 go install github.com/pressly/goose/v3/cmd/goose@v${GOOSE_VERSION}; then \
+        exit 0; \
+      fi; \
+      sleep $((attempt * 5)); \
+    done; \
+    exit 1
 
 ARG MIGRATIONS_DIR=scheme
 WORKDIR /migrations

@@ -3,7 +3,8 @@
 {{- $name := .name -}}
 {{- $application := index $root.Values.applications $name -}}
 {{- if $root.Values.globalImage.registry -}}
-{{ printf "%s/automatic-system-%s:%s" $root.Values.globalImage.registry $name (required "globalImage.tag is required when globalImage.registry is set" $root.Values.globalImage.tag) }}
+{{- $tag := default $root.Values.globalImage.tag (index (default dict $root.Values.globalImage.tags) $name) -}}
+{{ printf "%s/automatic-system-%s:%s" $root.Values.globalImage.registry $name (required "an application image tag is required when globalImage.registry is set" $tag) }}
 {{- else -}}
 {{ printf "%s:%s" $application.image.repository $application.image.tag }}
 {{- end -}}
@@ -31,7 +32,8 @@ app: dispatch-service
 
 {{- define "applications.dispatchImage" -}}
 {{- if .Values.globalImage.registry -}}
-{{ printf "%s/automatic-system-dispatch:%s" .Values.globalImage.registry (required "globalImage.tag is required when globalImage.registry is set" .Values.globalImage.tag) }}
+{{- $tag := default .Values.globalImage.tag (index (default dict .Values.globalImage.tags) "dispatch") -}}
+{{ printf "%s/automatic-system-dispatch:%s" .Values.globalImage.registry (required "a dispatch image tag is required when globalImage.registry is set" $tag) }}
 {{- else -}}
 {{ printf "%s:%s" (required "dispatch.image.repository is required" .Values.dispatch.image.repository) (required "dispatch.image.tag is required" .Values.dispatch.image.tag) }}
 {{- end -}}
@@ -39,7 +41,8 @@ app: dispatch-service
 
 {{- define "applications.dispatchMigrationImage" -}}
 {{- if .Values.migrations.registry -}}
-{{ printf "%s/automatic-system-dispatch-migrator:%s" .Values.migrations.registry (required "migrations.tag is required when dispatch migration is enabled" .Values.migrations.tag) }}
+{{- $tag := default .Values.migrations.tag (index (default dict .Values.migrations.tags) "dispatch") -}}
+{{ printf "%s/automatic-system-dispatch-migrator:%s" .Values.migrations.registry (required "a dispatch migration image tag is required" $tag) }}
 {{- else -}}
 {{ printf "%s:%s" (required "dispatch.migration.image.repository is required" .Values.dispatch.migration.image.repository) (required "dispatch.migration.image.tag is required" .Values.dispatch.migration.image.tag) }}
 {{- end -}}
