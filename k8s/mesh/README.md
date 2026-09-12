@@ -1,21 +1,22 @@
-# Istio mesh
+# Сеть Istio
 
-`policies/` contains the baseline applied by the local HA and production overlays:
+`policies/` содержит правила для `local-ha` и `prod`:
 
-- namespace-wide strict mTLS for meshed workloads;
-- plaintext exceptions only for the public Gateway and Frontend workload ports;
-- bounded connection pools for application clients;
-- audit-only detection of unauthenticated backend traffic.
+- строгий mTLS для приложений пространства `automatic-system`;
+- точечные исключения для входных портов, метрик и инфраструктуры без sidecar;
+- ограничения пулов соединений;
+- аудит неаутентифицированного доступа к внутренним сервисам.
 
-Infrastructure workloads such as Patroni, PgBouncer, Kafka, Redis, MinIO and
-observability storage remain outside the mesh. Istio auto-mTLS therefore must
-not be replaced with a wildcard `ISTIO_MUTUAL` destination rule.
+Patroni, PgBouncer, Kafka, Redis, MinIO и часть наблюдаемости работают без
+sidecar. Поэтому нельзя заменять автоматический выбор mTLS общим
+`DestinationRule` с `ISTIO_MUTUAL` для всех адресов: инфраструктура не
+сможет принять такой трафик.
 
-## Canary test
+## Проверка канареечного маршрута
 
-`scenarios/api-gateway-canary.yaml` is intentionally opt-in. Before applying it,
-run stable and canary Gateway deployments behind the same Service and label
-their pod templates respectively:
+`scenarios/api-gateway-canary.yaml` применяется только вручную и не
+заменяет рабочие Canary Flagger. Перед применением нужно запустить основной и
+канареечный Gateway за одной службой и разметить шаблоны подов:
 
 ```yaml
 app.kubernetes.io/version: stable
@@ -25,27 +26,34 @@ app.kubernetes.io/version: stable
 app.kubernetes.io/version: canary
 ```
 
-Then apply the scenario and verify the 90/10 split, mTLS, errors and latency in
-Kiali. Retries are limited to `/livez` and `/readyz`; business requests are not
-retried because their idempotency is not guaranteed.
+После применения проверьте долю трафика 90/10, mTLS, ошибки и длительность в
+Kiali. Повторные запросы настроены только для `/livez` и `/readyz`;
+предметные операции не повторяются без гарантии идемпотентности.
 
-Do not enable enforcing `AuthorizationPolicy` until each application has its
-own Kubernetes ServiceAccount. With the shared `default` account, Istio cannot
-reliably distinguish Gateway and backend SPIFFE identities.
-# Istio ingress
+Не включайте принудительный `AuthorizationPolicy`, пока приложения
+используют общую учетную запись Kubernetes `default`: Istio не сможет
+надежно отличить идентичность Gateway от внутренних сервисов.
 
-The local mesh exposes the application through the Istio ingress gateway:
+## Входящий шлюз
 
-- `https://city.localhost` routes to the frontend;
-- `https://api.city.localhost` routes to API Gateway;
-- browser-to-ingress traffic uses TLS with HTTP/2 negotiated through ALPN;
-- ingress-to-API Gateway traffic uses h2c;
-- ingress-to-frontend remains HTTP/1.1 because the current vinext server does not expose h2c.
+Локальные адреса:
 
-`k8s/scripts/install-mesh.ps1` installs the ingress gateway and creates a two-year
-self-signed local certificate. Trust the certificate locally or accept the browser
-warning before opening the frontend. To rotate it, run:
+| Адрес | Назначение |
+|---|---|
+| `https://city.localhost` | Frontend. |
+| `https://api.city.localhost` | API Gateway. |
+
+Браузер подключается к шлюзу по TLS; до API Gateway шлюз использует h2c, а до
+текущего сервера Frontend — HTTP/1.1. `install-mesh.ps1` устанавливает Istio,
+Kiali и входной шлюз. Локальный самоподписанный сертификат выдается на два
+года; его нужно принять или добавить в доверенные сертификаты.
+
+Ротация:
 
 ```powershell
 .\k8s\scripts\setup-ingress.ps1 -RotateCertificate
 ```
+
+Состав манифестов и исключения mTLS описаны в
+[`manifests.md`](../docs/manifests.md) и
+[`security-observability.md`](../docs/security-observability.md).

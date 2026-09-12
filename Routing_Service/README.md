@@ -1,35 +1,287 @@
 # Routing Service
 
-Routing Service calculates road routes and ETA through Valhalla, ranks brigade candidates, persists assigned route calculations and publishes durable route events.
+## Общее описание и общий принцип работы
 
-## gRPC
+`Routing Service` рассчитывает маршруты, строит матрицу расстояний и времени в пути, ранжирует бригады по времени прибытия и хранит маршрут, назначенный на заявку. Внешним механизмом расчета служит Valhalla. Сервис проверяет входные данные, приводит параметры к нормальной форме, вызывает `RoutingEngine` и сохраняет результат в PostgreSQL.
 
-The service implements the contract from `routing/v1/routing.proto`:
+Создание маршрута проходит так:
 
-- BuildRoute
-- BuildMatrix
-- RankCandidates
-- CreateRoute
-- GetRoute
-- RecalculateRoute
-- SetRouteStatus
-- ListRoutes
+1. Проверяются идентификаторы заявки и бригады, координаты, промежуточные точки и ограничения транспорта.
+2. Если хранилище поддерживает поиск открытого маршрута, сервис ищет маршрут заявки со статусом `PLANNED` или `ACTIVE`.
+3. Повторный запрос для той же заявки и бригады возвращает существующий маршрут. Попытка назначить другую бригаду завершается конфликтом.
+4. Valhalla рассчитывает длину, продолжительность, участки, привязанные к дороге точки и кодированную линию маршрута.
+5. Успешный результат сохраняется со статусом `PLANNED`, версией `1` и временными показателями расчета.
+6. Изменение маршрута записывается вместе с событием в `outbox_events`; отдельный обработчик публикует событие в Kafka.
+7. Ошибка Valhalla классифицируется и, если хранилище поддерживает операцию, записывается как событие неудачного расчета.
 
-## Valhalla
+Допустимые переходы состояния: `PLANNED -> ACTIVE`, `PLANNED -> CANCELLED`, `ACTIVE -> COMPLETED` и `ACTIVE -> CANCELLED`. Завершенный или отмененный маршрут больше не меняет состояние.
 
-The adapter uses:
+## Модели
 
-- `POST /route` for route geometry, distance and ETA
-- `POST /sources_to_targets` for candidate ranking
-- `truck` costing options for vehicle dimensions, weight, axle load and hazardous materials
+### Перечисления
 
-## Storage
+| Тип | Значения | Назначение |
+|---|---|---|
+| `TravelMode` | `auto`, `truck`, `bicycle`, `pedestrian` | Способ передвижения, от которого зависит расчет. |
+| `RouteStatus` | `PLANNED`, `ACTIVE`, `COMPLETED`, `CANCELLED` | Текущее состояние сохраненного маршрута. |
 
-PostgreSQL stores routes and the transactional outbox. Route creation, recalculation and status transitions are published to `routing.events.v1`.
+### `Point`
 
-## Local checks
+| Поле | Тип Go | Назначение |
+|---|---|---|
+| `Latitude` | `float64` | Широта от -90 до 90. |
+| `Longitude` | `float64` | Долгота от -180 до 180. |
 
-```bash
-go test ./...
-go vet ./...
-```
+### `VehicleConstraints`
+
+| Поле | Тип Go | Назначение |
+|---|---|---|
+| `HeightMeters` | `*float64` | Высота транспорта в метрах. |
+| `WidthMeters` | `*float64` | Ширина транспорта в метрах. |
+| `LengthMeters` | `*float64` | Длина транспорта в метрах. |
+| `WeightTons` | `*float64` | Полная масса транспорта в тоннах. |
+| `AxleLoadTons` | `*float64` | Нагрузка на ось в тоннах. |
+| `HazardousMaterials` | `bool` | Признак перевозки опасных материалов. |
+
+Все заданные числовые ограничения должны быть больше нуля.
+
+### `RouteOptions`
+
+| Поле | Тип Go | Назначение |
+|---|---|---|
+| `TravelMode` | `TravelMode` | Способ передвижения; пустое значение заменяется на `auto`. |
+| `DepartureAt` | `*time.Time` | Необязательное время отправления. |
+| `Alternatives` | `bool` | Требуется ли запросить альтернативные варианты. |
+| `Vehicle` | `*VehicleConstraints` | Необязательные ограничения транспорта. |
+
+### `RouteSummary`
+
+| Поле | Тип Go | Назначение |
+|---|---|---|
+| `DistanceMeters` | `float64` | Полная длина маршрута в метрах. |
+| `DurationSeconds` | `int64` | Расчетное время движения в секундах. |
+
+### `RouteLeg`
+
+| Поле | Тип Go | Назначение |
+|---|---|---|
+| `From` | `Point` | Начальная точка участка. |
+| `To` | `Point` | Конечная точка участка. |
+| `DistanceMeters` | `float64` | Длина участка в метрах. |
+| `DurationSeconds` | `int64` | Время прохождения участка в секундах. |
+
+### `CalculatedRoute`
+
+| Поле | Тип Go | Назначение |
+|---|---|---|
+| `Summary` | `RouteSummary` | Итоговые длина и время маршрута. |
+| `EncodedPolyline` | `string` | Линия маршрута в кодировке polyline6 для карты. |
+| `Legs` | `[]RouteLeg` | Участки между исходной, промежуточными и конечной точками. |
+| `SnappedPoints` | `[]Point` | Координаты, привязанные к доступным дорогам. |
+| `Engine` | `string` | Название механизма расчета. |
+
+### `Route`
+
+| Поле | Тип Go | Назначение |
+|---|---|---|
+| `ID` | `string` | Уникальный идентификатор маршрута. |
+| `TicketID` | `string` | Идентификатор заявки. |
+| `BrigadeID` | `string` | Идентификатор назначенной бригады. |
+| `Status` | `RouteStatus` | Текущее состояние маршрута. |
+| `Origin` | `Point` | Точка начала движения. |
+| `Destination` | `Point` | Место назначения. |
+| `Waypoints` | `[]Point` | Промежуточные точки. |
+| `Options` | `RouteOptions` | Параметры расчета. |
+| `Calculation` | `CalculatedRoute` | Последний успешный результат. |
+| `Revision` | `int32` | Версия маршрута; увеличивается при перерасчете. |
+| `CreatedAt` | `time.Time` | Время создания. |
+| `UpdatedAt` | `time.Time` | Время последнего изменения. |
+| `CalculationStartedAt` | `*time.Time` | Начало последнего успешного расчета. |
+| `CalculationFinishedAt` | `*time.Time` | Окончание последнего успешного расчета. |
+| `CalculationDurationMillis` | `*float64` | Продолжительность расчета в миллисекундах. |
+| `CalculationSuccess` | `*bool` | Признак успешного расчета. |
+
+### `CalculationFailure`
+
+| Поле | Тип Go | Назначение |
+|---|---|---|
+| `AggregateType` | `string` | Вид сущности: `ticket` или `route`. |
+| `AggregateID` | `string` | Идентификатор сущности. |
+| `TicketID` | `string` | Идентификатор заявки. |
+| `BrigadeID` | `string` | Идентификатор бригады. |
+| `RouteID` | `string` | Идентификатор маршрута, если он уже создан. |
+| `Engine` | `string` | Название механизма маршрутизации. |
+| `TravelMode` | `TravelMode` | Режим движения. |
+| `FailureCode` | `string` | Нормализованный код причины. |
+| `FailureReason` | `string` | Исходный текст ошибки. |
+| `CalculationStartedAt` | `time.Time` | Начало неудачного расчета. |
+| `CalculationFinishedAt` | `time.Time` | Окончание неудачного расчета. |
+| `CalculationDurationMS` | `float64` | Продолжительность в миллисекундах. |
+
+### Входные и выходные модели
+
+| Структура | Поля | Назначение |
+|---|---|---|
+| `BuildRouteInput` | `Origin`, `Destination`, `Waypoints`, `Options` | Расчет одного маршрута без сохранения. |
+| `BuildMatrixInput` | `Sources`, `Targets`, `Options` | Матрица между исходными и конечными точками; каждая сторона содержит от 1 до 100 точек. |
+| `MatrixCell` | `SourceIndex`, `TargetIndex`, `DistanceMeters`, `DurationSeconds`, `Reachable` | Индексы пары, расстояние, время и доступность пути. |
+| `Candidate` | `BrigadeID`, `Location` | Бригада и ее текущая координата. |
+| `RankedCandidate` | `Candidate`, `Rank`, `DistanceMeters`, `ETASeconds`, `Reachable` | Бригада с местом, расстоянием и временем прибытия. |
+| `RankCandidatesInput` | `Destination`, `Candidates`, `Options`, `Limit` | Место назначения, бригады, параметры и ограничение результата. |
+| `CreateRouteInput` | `TicketID`, `BrigadeID`, `Origin`, `Destination`, `Waypoints`, `Options` | Данные для расчета и сохранения маршрута заявки. |
+| `RecalculateRouteInput` | `ID`, `CurrentPosition` | Идентификатор маршрута и новая позиция бригады. |
+| `ListRoutesInput` | `TicketID`, `BrigadeID`, `Status`, `Limit`, `Offset` | Условия отбора и постраничный вывод. |
+| `ListRoutesResult` | `Routes`, `Total` | Страница маршрутов и полное число записей. |
+
+## Функции
+
+### `New`
+
+Принимает `RouteRepository`, `RoutingEngine` и `*zap.Logger`, возвращает `*Service`. Если журнал отсутствует, подставляет `zap.NewNop()`, поэтому методы не проверяют журнал на `nil`.
+
+### `Point.Validate`
+
+Проверяет диапазоны широты и долготы. Имя поля включается в ошибку, чтобы указать неверную точку. Возвращает `ErrInvalidArgument` при выходе широты за `[-90, 90]` или долготы за `[-180, 180]`.
+
+### `RouteOptions.Normalize`
+
+Возвращает копию параметров и подставляет `TravelModeAuto`, если режим не указан. Остальные поля не меняет.
+
+### `RouteOptions.Validate`
+
+Разрешает только поддерживаемые режимы движения и пустое значение. Затем проверяет каждое заданное ограничение транспорта: нулевые и отрицательные значения запрещены.
+
+### `BuildRouteInput.Validate`
+
+Отклоняет отсутствующий запрос, проверяет исходную и конечную координаты, каждую промежуточную точку и параметры маршрута. Возвращает первую найденную ошибку.
+
+### `BuildMatrixInput.Validate`
+
+Требует хотя бы одну исходную и одну конечную точку. Каждая сторона ограничена 100 точками. Затем проверяет все координаты и параметры.
+
+### `CreateRouteInput.Validate`
+
+Отклоняет отсутствующий запрос, проверяет `TicketID` и `BrigadeID` как UUID, затем использует `BuildRouteInput.Validate` для остальных полей.
+
+### `Service.BuildRoute`
+
+1. Проверяет `BuildRouteInput`.
+2. Подставляет режим `auto`, если он пуст.
+3. Вызывает `RoutingEngine.BuildRoute`.
+4. При ошибке пишет предупреждение и возвращает исходную ошибку.
+5. При успехе возвращает `CalculatedRoute` без сохранения.
+
+### `Service.BuildMatrix`
+
+Проверяет запрос, нормализует режим и вызывает `RoutingEngine.BuildMatrix`. Возвращает список `MatrixCell` без сохранения.
+
+### `Service.RankCandidates`
+
+1. Требует непустой список бригад и корректное место назначения.
+2. Проверяет непустой `BrigadeID` и координату каждой бригады.
+3. Строит матрицу от всех бригад к одной точке заявки.
+4. Переносит из соответствующей ячейки расстояние, время и доступность.
+5. Стабильно сортирует: доступные маршруты раньше недоступных, затем меньшее время, затем меньшее расстояние.
+6. Применяет положительный `Limit` и присваивает места начиная с единицы.
+
+### `Service.CreateRoute`
+
+1. Проверяет запрос.
+2. Ищет открытый маршрут, если хранилище реализует `GetOpenRouteByTicket`.
+3. Для той же бригады возвращает существующий маршрут; для другой возвращает `ErrConflict`.
+4. Запоминает начало и вызывает `BuildRoute`.
+5. При ошибке формирует `CalculationFailure` для сущности `ticket`; ошибка расчета объединяется с возможной ошибкой записи события.
+6. При успехе создает UUID, устанавливает `PLANNED`, версию `1`, временные отметки и `CalculationSuccess=true`.
+7. Копирует промежуточные точки в отдельный срез и вызывает `RouteRepository.CreateRoute`.
+
+### `Service.GetRoute`
+
+Проверяет `id` как UUID и вызывает `RouteRepository.GetRoute`. Неверный формат не передается базе данных.
+
+### `Service.RecalculateRoute`
+
+1. Проверяет запрос и текущую координату.
+2. Загружает маршрут через `GetRoute`.
+3. Строит новый путь от текущей позиции до прежнего назначения с прежними промежуточными точками и параметрами.
+4. При ошибке формирует `CalculationFailure` для сущности `route`.
+5. При успехе заменяет начало и расчет, увеличивает `Revision`, обновляет временные показатели и вызывает `UpdateCalculation`.
+
+### `Service.SetRouteStatus`
+
+Проверяет UUID, загружает маршрут и проверяет переход через `canTransition`. Недопустимый переход возвращает `ErrConflict`; допустимый передается `UpdateStatus`.
+
+### `canTransition`
+
+Возвращает `true` только для четырех разрешенных переходов состояния, перечисленных в общем описании.
+
+### `Service.ListRoutes`
+
+При отсутствии запроса создает пустой фильтр. Неположительный `Limit` заменяет на `50`. Значение больше `500` и отрицательный `Offset` отклоняет. Затем вызывает хранилище.
+
+### `Service.recordCalculationFailure`
+
+Проверяет, реализует ли хранилище дополнительный метод `RecordCalculationFailure`. Если нет, завершает работу без ошибки; если да, передает ему сведения о сбое.
+
+### `routingEngineName`
+
+Получает имя через необязательный метод `Name`, убирает пробелы и переводит его в нижний регистр. Для отсутствующего или пустого имени возвращает `unknown`.
+
+### `routingFailureCode`
+
+Возвращает `ENGINE_TIMEOUT` для превышения срока, `REQUEST_CANCELED` для отмены, `INVALID_REQUEST` для неверных данных и `ENGINE_ERROR` для остальных ошибок.
+
+## Структура БД
+
+### Таблица `routes`
+
+Хранит последнюю версию маршрута. Частичный уникальный индекс разрешает только один маршрут `PLANNED` или `ACTIVE` на заявку.
+
+| Поле | Тип PostgreSQL | Содержание и назначение |
+|---|---|---|
+| `id` | `uuid` | Первичный ключ; по умолчанию `gen_random_uuid()`. |
+| `ticket_id` | `uuid` | Идентификатор заявки. |
+| `brigade_id` | `uuid` | Идентификатор назначенной бригады. |
+| `status` | `text` | Состояние из четырех допустимых значений. |
+| `origin` | `jsonb` | Исходная координата. |
+| `destination` | `jsonb` | Конечная координата. |
+| `waypoints` | `jsonb` | Промежуточные точки; по умолчанию пустой массив. |
+| `options` | `jsonb` | Параметры расчета. |
+| `calculation` | `jsonb` | Последний успешный результат. |
+| `revision` | `integer` | Версия, по умолчанию `1`; должна быть больше нуля. |
+| `created_at` | `timestamptz` | Время создания. |
+| `updated_at` | `timestamptz` | Время изменения. |
+
+Индексы ускоряют поиск по `ticket_id`, `brigade_id` и `status` с сортировкой по времени. `routes_one_open_route_per_ticket_idx` обеспечивает единственность открытого маршрута.
+
+### Таблица `outbox_events`
+
+Хранит события для надежной публикации в Kafka.
+
+| Поле | Тип PostgreSQL | Содержание и назначение |
+|---|---|---|
+| `id` | `uuid` | Первичный ключ события. |
+| `aggregate_type` | `text` | Вид сущности; по умолчанию `route`. |
+| `aggregate_id` | `uuid` | Идентификатор сущности. |
+| `event_type` | `text` | Тип события. |
+| `payload` | `jsonb` | Полезная нагрузка. |
+| `status` | `text` | Состояние публикации; начальное значение `PENDING`. |
+| `attempts` | `integer` | Число попыток отправки. |
+| `next_attempt_at` | `timestamptz` | Время следующей разрешенной попытки. |
+| `locked_at` | `timestamptz` | Время захвата обработчиком. |
+| `sent_at` | `timestamptz` | Время успешной публикации. |
+| `last_error` | `text` | Последняя ошибка отправки. |
+| `created_at` | `timestamptz` | Время создания. |
+
+### Таблица `ticket_inbox_events`
+
+Хранит обработанные события заявок и предотвращает повторное применение сообщения Kafka.
+
+| Поле | Тип PostgreSQL | Содержание и назначение |
+|---|---|---|
+| `event_id` | `uuid` | Первичный ключ и идентификатор события. |
+| `event_type` | `text` | Тип события заявки. |
+| `topic` | `text` | Раздел Kafka, из которого пришло сообщение. |
+| `partition_id` | `integer` | Номер раздела Kafka. |
+| `message_offset` | `bigint` | Позиция сообщения в разделе. |
+| `payload` | `jsonb` | Полученные данные события. |
+| `processed_at` | `timestamptz` | Время фиксации обработки. |
