@@ -18,7 +18,15 @@ type IdempotencyRecord struct {
 	Error       sql.NullString
 }
 
-func beginIdempotency(ctx context.Context, q DBTX, actorKey, operation, key, requestHash string, ttl time.Duration) (*IdempotencyRecord, bool, error) {
+func beginIdempotency(
+	ctx context.Context,
+	q DBTX,
+	actorKey string,
+	operation string,
+	key string,
+	requestHash string,
+	ttl time.Duration,
+) (*IdempotencyRecord, bool, error) {
 	record := &IdempotencyRecord{}
 	err := q.QueryRow(ctx, `
 		INSERT INTO idempotency_keys (actor_key, operation, idempotency_key, request_hash, expires_at)
@@ -44,7 +52,15 @@ func beginIdempotency(ctx context.Context, q DBTX, actorKey, operation, key, req
 	return record, false, nil
 }
 
-func completeIdempotency(ctx context.Context, q DBTX, actorKey, operation, key string, response []byte, resourceID any) error {
+func completeIdempotency(
+	ctx context.Context,
+	q DBTX,
+	actorKey string,
+	operation string,
+	key string,
+	response []byte,
+	resourceID any,
+) error {
 	result, err := q.Exec(ctx, `
 		UPDATE idempotency_keys SET status = 'COMPLETED', response = $4, error = NULL,
 			resource_type = $5, resource_id = $6, updated_at = now()
@@ -59,7 +75,15 @@ func completeIdempotency(ctx context.Context, q DBTX, actorKey, operation, key s
 	return nil
 }
 
-func (r *Repo) RunIdempotentTx(ctx context.Context, actorKey, operation, key, requestHash string, ttl time.Duration, fn func(context.Context) (any, any, error)) (any, *IdempotencyRecord, bool, error) {
+func (r *Repo) RunIdempotentTx(
+	ctx context.Context,
+	actorKey string,
+	operation string,
+	key string,
+	requestHash string,
+	ttl time.Duration,
+	fn func(context.Context) (any, any, error),
+) (any, *IdempotencyRecord, bool, error) {
 	tx, err := r.writePool.Begin(ctx)
 	if err != nil {
 		return nil, nil, false, fmt.Errorf("repository: RunIdempotentTx(): begin: %w", err)
@@ -86,7 +110,14 @@ func (r *Repo) RunIdempotentTx(ctx context.Context, actorKey, operation, key, re
 	return result, record, true, nil
 }
 
-func (r *Repo) BeginIdempotency(ctx context.Context, actorKey, operation, key, requestHash string, ttl time.Duration) (*IdempotencyRecord, bool, error) {
+func (r *Repo) BeginIdempotency(
+	ctx context.Context,
+	actorKey string,
+	operation string,
+	key string,
+	requestHash string,
+	ttl time.Duration,
+) (*IdempotencyRecord, bool, error) {
 	if r.writePool == nil {
 		return nil, false, fmt.Errorf("repository: BeginIdempotency(): root db is unavailable")
 	}

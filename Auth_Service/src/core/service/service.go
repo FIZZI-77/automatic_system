@@ -40,18 +40,39 @@ type Service struct {
 	MailService
 }
 
-func NewService(repo *repository.Repository, privateKey *rsa.PrivateKey, keyID string, mailService MailService, profileProvisioner ProfileProvisioner, logger *zap.Logger) *Service {
+func NewService(
+	repo *repository.Repository,
+	privateKey *rsa.PrivateKey,
+	keyID string,
+	mailService MailService,
+	profileProvisioner ProfileProvisioner,
+	logger *zap.Logger,
+) *Service {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
 
 	return &Service{
-		AuthService: NewAuthServiceStruct(repo, privateKey, keyID, mailService, profileProvisioner, logger),
+		AuthService: NewAuthServiceStruct(
+			repo,
+			privateKey,
+			keyID,
+			mailService,
+			profileProvisioner,
+			logger,
+		),
 		MailService: mailService,
 	}
 }
 
 // NewAuthService is kept as a compatibility alias for existing callers.
-func NewAuthService(repo *repository.Repo, privateKey *rsa.PrivateKey, keyID string, mailService MailService, profileProvisioner ProfileProvisioner, logger *zap.Logger) *Service {
+func NewAuthService(
+	repo *repository.Repo,
+	privateKey *rsa.PrivateKey,
+	keyID string,
+	mailService MailService,
+	profileProvisioner ProfileProvisioner,
+	logger *zap.Logger,
+) *Service {
 	return NewService(repo, privateKey, keyID, mailService, profileProvisioner, logger)
 }

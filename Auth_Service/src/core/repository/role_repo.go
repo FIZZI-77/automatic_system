@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+
 	"github.com/google/uuid"
 )
 
@@ -16,7 +17,11 @@ func NewRoleRepoStruct(writeDB DBTX, readDB ...DBTX) *RoleRepoStruct {
 	if len(readDB) > 0 && readDB[0] != nil {
 		reader = readDB[0]
 	}
-	return &RoleRepoStruct{writeDB: writeDB, readDB: reader}
+
+	return &RoleRepoStruct{
+		writeDB: writeDB,
+		readDB:  reader,
+	}
 }
 
 func (r *RoleRepoStruct) GetRolesByUserID(ctx context.Context, userID uuid.UUID) ([]string, error) {

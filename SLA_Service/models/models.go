@@ -50,14 +50,17 @@ const (
 )
 
 type Rule struct {
-	ID                           uuid.UUID
-	Name                         string
-	DepartmentID, CategoryID     *uuid.UUID
-	Priority                     *Priority
-	ResponseTime, ResolutionTime time.Duration
-	WarningPercent               int32
-	Active                       bool
-	CreatedAt, UpdatedAt         time.Time
+	ID             uuid.UUID
+	Name           string
+	DepartmentID   *uuid.UUID
+	CategoryID     *uuid.UUID
+	Priority       *Priority
+	ResponseTime   time.Duration
+	ResolutionTime time.Duration
+	WarningPercent int32
+	Active         bool
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 func (r *Rule) Validate() error {
@@ -71,37 +74,56 @@ func (r *Rule) Validate() error {
 }
 
 type TicketSLA struct {
-	ID, TicketID, RuleID, DepartmentID, CategoryID                                   uuid.UUID
-	Priority                                                                         Priority
-	Status                                                                           Status
-	ResponseDeadline, ResolutionDeadline                                             time.Time
-	RespondedAt, CompletedAt                                                         *time.Time
-	ResponseBreached, ResolutionBreached, ResponseWarningSent, ResolutionWarningSent bool
-	Version                                                                          int32
-	CreatedAt, UpdatedAt                                                             time.Time
+	ID                    uuid.UUID
+	TicketID              uuid.UUID
+	RuleID                uuid.UUID
+	DepartmentID          uuid.UUID
+	CategoryID            uuid.UUID
+	Priority              Priority
+	Status                Status
+	ResponseDeadline      time.Time
+	ResolutionDeadline    time.Time
+	RespondedAt           *time.Time
+	CompletedAt           *time.Time
+	ResponseBreached      bool
+	ResolutionBreached    bool
+	ResponseWarningSent   bool
+	ResolutionWarningSent bool
+	Version               int32
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
 }
 type History struct {
-	ID, TicketSLAID, TicketID uuid.UUID
-	EventType                 EventType
-	OccurredAt                time.Time
-	Details                   string
+	ID          uuid.UUID
+	TicketSLAID uuid.UUID
+	TicketID    uuid.UUID
+	EventType   EventType
+	OccurredAt  time.Time
+	Details     string
 }
 type TicketEvent struct {
-	EventID, EventType                 string
-	TicketID, DepartmentID, CategoryID uuid.UUID
-	Priority                           Priority
-	Status                             string
-	CreatedAt, UpdatedAt               time.Time
+	EventID      string
+	EventType    string
+	TicketID     uuid.UUID
+	DepartmentID uuid.UUID
+	CategoryID   uuid.UUID
+	Priority     Priority
+	Status       string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
 type RuleFilter struct {
-	DepartmentID, CategoryID *uuid.UUID
-	Priority                 *Priority
-	Active                   *bool
-	Limit, Offset            int32
+	DepartmentID *uuid.UUID
+	CategoryID   *uuid.UUID
+	Priority     *Priority
+	Active       *bool
+	Limit        int32
+	Offset       int32
 }
 type SLAFilter struct {
-	DepartmentID  *uuid.UUID
-	Status        *Status
-	Breached      *bool
-	Limit, Offset int32
+	DepartmentID *uuid.UUID
+	Status       *Status
+	Breached     *bool
+	Limit        int32
+	Offset       int32
 }

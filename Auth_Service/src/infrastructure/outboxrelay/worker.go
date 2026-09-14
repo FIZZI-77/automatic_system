@@ -1,7 +1,6 @@
 package outboxrelay
 
 import (
-	"auth/pkg/telemetry"
 	"context"
 	"encoding/json"
 	"errors"
@@ -10,6 +9,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"auth/pkg/telemetry"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -84,10 +85,18 @@ func New(db *pgxpool.Pool, cfg Config, logger *zap.Logger) (*Worker, error) {
 		RequiredAcks: kafka.RequireAll,
 		Async:        false,
 	}
-	return &Worker{db: db, writer: writer, cfg: cfg, logger: logger}, nil
+
+	return &Worker{
+		db:     db,
+		writer: writer,
+		cfg:    cfg,
+		logger: logger,
+	}, nil
 }
 
-func (w *Worker) Close() error { return w.writer.Close() }
+func (w *Worker) Close() error {
+	return w.writer.Close()
+}
 
 func (w *Worker) Run(ctx context.Context) error {
 	w.logger.Info("outbox relay started", zap.String("topic", w.cfg.Topic), zap.Int("workers", w.cfg.WorkerCount))
@@ -141,9 +150,18 @@ func (w *Worker) processBatch(ctx context.Context) (err error) {
 			Key:   []byte(item.AggregateID.String()),
 			Value: item.Payload,
 			Headers: []kafka.Header{
-				{Key: "event_id", Value: []byte(item.ID.String())},
-				{Key: "event_type", Value: []byte(item.EventType)},
-				{Key: "aggregate_type", Value: []byte(item.AggregateType)},
+				{
+					Key:   "event_id",
+					Value: []byte(item.ID.String()),
+				},
+				{
+					Key:   "event_type",
+					Value: []byte(item.EventType),
+				},
+				{
+					Key:   "aggregate_type",
+					Value: []byte(item.AggregateType),
+				},
 			},
 			Time: time.Now().UTC(),
 		})
