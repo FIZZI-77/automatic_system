@@ -36,16 +36,19 @@ type document struct {
 func main() {
 	check := flag.Bool("check", false, "fail if the checked-in specification is stale")
 	flag.Parse()
+
 	root := "."
 	if len(flag.Args()) != 0 {
 		root = flag.Arg(0)
 	}
+
 	output := filepath.Join(root, "src", "core", "handlers", "openapi.json")
 	data, err := generate(root)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+
 	if *check {
 		current, err := os.ReadFile(output)
 		if err != nil || !bytes.Equal(current, data) {
@@ -54,6 +57,7 @@ func main() {
 		}
 		return
 	}
+
 	if err := os.WriteFile(output, data, 0644); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -66,14 +70,17 @@ func generate(root string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	handlers, err := parser.ParseDir(fset, filepath.Join(root, "src/core/handlers"), nil, 0)
 	if err != nil {
 		return nil, err
 	}
+
 	models, err := parser.ParseDir(fset, filepath.Join(root, "models"), nil, 0)
 	if err != nil {
 		return nil, err
 	}
+
 	schemas := make(map[string]any)
 	for _, file := range models["models"].Files {
 		for _, decl := range file.Decls {
@@ -87,6 +94,7 @@ func generate(root string) ([]byte, error) {
 			}
 		}
 	}
+
 	methods := make(map[string]*ast.FuncDecl)
 	for _, file := range handlers["handlers"].Files {
 		for _, decl := range file.Decls {
@@ -98,6 +106,7 @@ func generate(root string) ([]byte, error) {
 			}
 		}
 	}
+
 	doc := document{
 		OpenAPI: "3.0.3",
 		Info: map[string]string{
@@ -107,11 +116,19 @@ func generate(root string) ([]byte, error) {
 		},
 		Paths: make(map[string]map[string]any),
 		Components: map[string]any{
-			"securitySchemes": map[string]any{"BearerAuth": map[string]string{"type": "http", "scheme": "bearer", "bearerFormat": "JWT"}},
-			"schemas":         schemas,
+			"securitySchemes": map[string]any{
+				"BearerAuth": map[string]string{
+					"type":         "http",
+					"scheme":       "bearer",
+					"bearerFormat": "JWT",
+				},
+			},
+			"schemas": schemas,
 		},
 	}
+
 	groups := map[string]string{"router": ""}
+
 	ast.Inspect(router, func(node ast.Node) bool {
 		switch n := node.(type) {
 		case *ast.AssignStmt:
@@ -135,26 +152,44 @@ func generate(root string) ([]byte, error) {
 			if (method != "GET" && method != "POST") || len(n.Args) != 2 {
 				break
 			}
+
 			sel := n.Fun.(*ast.SelectorExpr)
 			group, ok := sel.X.(*ast.Ident)
 			if !ok {
 				break
 			}
+
 			prefix, ok := groups[group.Name]
 			if !ok {
 				break
 			}
+
 			path := prefix + literal(n.Args[0])
 			if path == "" {
 				break
 			}
-			op := operation{Tags: []string{strings.Trim(prefix, "/")}, Responses: map[string]interface{}{"200": map[string]any{"description": "Успешный ответ"}}}
+
+			op := operation{
+				Tags: []string{strings.Trim(prefix, "/")},
+				Responses: map[string]interface{}{
+					"200": map[string]any{
+						"description": "Успешный ответ",
+					},
+				},
+			}
+
 			if op.Tags[0] == "" {
 				op.Tags[0] = "system"
 			}
+
 			if group.Name != "router" && group.Name != "publicAuth" {
-				op.Security = []map[string][]string{{"BearerAuth": {}}}
+				op.Security = []map[string][]string{
+					{
+						"BearerAuth": {},
+					},
+				}
 			}
+
 			if handler, ok := n.Args[1].(*ast.SelectorExpr); ok {
 				op.Summary = handler.Sel.Name
 				op.OperationID = group.Name + "." + handler.Sel.Name
@@ -165,16 +200,20 @@ func generate(root string) ([]byte, error) {
 				op.Summary = strings.Trim(path, "/")
 				op.OperationID = strings.ToLower(method) + "." + strings.Trim(path, "/")
 			}
+
 			if doc.Paths[path] == nil {
 				doc.Paths[path] = make(map[string]any)
 			}
+
 			doc.Paths[path][strings.ToLower(method)] = op
 		}
 		return true
 	})
+
 	if len(doc.Paths) < 100 {
 		return nil, fmt.Errorf("only %d routes discovered: check router parser", len(doc.Paths))
 	}
+
 	data, err := json.MarshalIndent(doc, "", "  ")
 	return append(data, '\n'), err
 }
@@ -182,6 +221,7 @@ func generate(root string) ([]byte, error) {
 func fillOperation(op *operation, fn *ast.FuncDecl) {
 	locals := make(map[string]string)
 	request := ""
+
 	ast.Inspect(fn.Body, func(node ast.Node) bool {
 		switch n := node.(type) {
 		case *ast.ValueSpec:
@@ -204,10 +244,12 @@ func fillOperation(op *operation, fn *ast.FuncDecl) {
 				if unary, ok := arg.(*ast.UnaryExpr); ok {
 					arg = unary.X
 				}
+
 				if name, ok := arg.(*ast.Ident); ok {
 					request = locals[name.Name]
 				}
 			}
+
 			responseCall := selector(n.Fun) == "JSON" && len(n.Args) == 2
 			proxyCall := len(n.Args) == 4 && isResponseHelper(identifier(n.Fun))
 			if responseCall || proxyCall {
@@ -217,10 +259,12 @@ func fillOperation(op *operation, fn *ast.FuncDecl) {
 					statusArg = n.Args[1]
 					responseArg = n.Args[3]
 				}
+
 				status := identifier(statusArg)
 				if sel, ok := statusArg.(*ast.SelectorExpr); ok {
 					status = sel.Sel.Name
 				}
+
 				code := ""
 				switch status {
 				case "StatusOK":
@@ -233,14 +277,21 @@ func fillOperation(op *operation, fn *ast.FuncDecl) {
 				if code != "" {
 					response := map[string]any{"description": "Успешный ответ"}
 					typ := modelValue(responseArg)
+
 					if typ == "" {
 						if name, ok := responseArg.(*ast.Ident); ok {
 							typ = locals[name.Name]
 						}
 					}
+
 					if typ != "" {
-						response["content"] = map[string]any{"application/json": map[string]any{"schema": ref(typ)}}
+						response["content"] = map[string]any{
+							"application/json": map[string]any{
+								"schema": ref(typ),
+							},
+						}
 					}
+
 					op.Responses[code] = response
 					if code == "201" {
 						delete(op.Responses, "200")
@@ -250,8 +301,16 @@ func fillOperation(op *operation, fn *ast.FuncDecl) {
 		}
 		return true
 	})
+
 	if request != "" {
-		op.RequestBody = map[string]any{"required": fn.Name.Name != "SendVerificationEmail", "content": map[string]any{"application/json": map[string]any{"schema": ref(request)}}}
+		op.RequestBody = map[string]any{
+			"required": fn.Name.Name != "SendVerificationEmail",
+			"content": map[string]any{
+				"application/json": map[string]any{
+					"schema": ref(request),
+				},
+			},
+		}
 	}
 }
 
@@ -269,13 +328,23 @@ func schema(expr ast.Expr) any {
 	case *ast.StarExpr:
 		return schema(n.X)
 	case *ast.ArrayType:
-		return map[string]any{"type": "array", "items": schema(n.Elt)}
+		return map[string]any{
+			"type":  "array",
+			"items": schema(n.Elt),
+		}
 	case *ast.MapType:
-		return map[string]any{"type": "object", "additionalProperties": schema(n.Value)}
+		return map[string]any{
+			"type":                 "object",
+			"additionalProperties": schema(n.Value),
+		}
 	case *ast.SelectorExpr:
 		if identifier(n.X) == "time" && n.Sel.Name == "Time" {
-			return map[string]string{"type": "string", "format": "date-time"}
+			return map[string]string{
+				"type":   "string",
+				"format": "date-time",
+			}
 		}
+
 		return map[string]string{"type": "object"}
 	case *ast.Ident:
 		switch n.Name {
@@ -295,6 +364,7 @@ func schema(expr ast.Expr) any {
 	case *ast.StructType:
 		properties := make(map[string]any)
 		var required []string
+
 		for _, field := range n.Fields.List {
 			if len(field.Names) == 0 || field.Tag == nil {
 				continue
@@ -307,19 +377,27 @@ func schema(expr ast.Expr) any {
 			if jsonName == "-" || jsonName == "" {
 				continue
 			}
+
 			properties[jsonName] = schema(field.Type)
 			binding := reflect.StructTag(tag).Get("binding")
+
 			for _, rule := range strings.Split(binding, ",") {
 				if rule == "required" {
 					required = append(required, jsonName)
 				}
 			}
 		}
-		result := map[string]any{"type": "object", "properties": properties}
+
+		result := map[string]any{
+			"type":       "object",
+			"properties": properties,
+		}
+
 		if len(required) > 0 {
 			sort.Strings(required)
 			result["required"] = required
 		}
+
 		return result
 	default:
 		return map[string]string{}

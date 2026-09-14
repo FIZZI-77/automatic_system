@@ -12,11 +12,13 @@ import (
 func TestApplyWorkloadBalance(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name                   string
-		active                 []uint64
-		average, deviation, cv float64
-		gini                   float64
-		max                    uint64
+		name      string
+		active    []uint64
+		average   float64
+		deviation float64
+		cv        float64
+		gini      float64
+		max       uint64
 	}{
 		{name: "empty"},
 		{name: "all idle", active: []uint64{0, 0}},
@@ -334,8 +336,10 @@ func TestRoutingPayloadFields(t *testing.T) {
 func TestEventEntityIDUsesTopicAggregate(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name, topic, want string
-		payload           map[string]any
+		name    string
+		topic   string
+		want    string
+		payload map[string]any
 	}{
 		{name: "brigade does not collapse into department", topic: "brigades.events.v1", payload: map[string]any{"department_id": "department-1", "brigade_id": "brigade-1"}, want: "brigade-1"},
 		{name: "dispatch operation", topic: "dispatch.events.v1", payload: map[string]any{"ticket_id": "ticket-1", "operation_id": "operation-1"}, want: "operation-1"},

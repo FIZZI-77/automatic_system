@@ -1,18 +1,20 @@
 package service
 
 import (
-	"auth/pkg"
 	"context"
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"go.uber.org/zap"
 	"mime"
 	"net"
 	"net/smtp"
 	"net/url"
 	"strings"
 	"time"
+
+	"auth/pkg"
+
+	"go.uber.org/zap"
 )
 
 type SMTPMailConfig struct {
@@ -51,7 +53,10 @@ func NewSMTPMailService(cfg SMTPMailConfig, logger *zap.Logger) (*SMTPMailServic
 		cfg.Timeout = 10 * time.Second
 	}
 
-	return &SMTPMailService{cfg: cfg, logger: logger}, nil
+	return &SMTPMailService{
+		cfg:    cfg,
+		logger: logger,
+	}, nil
 }
 
 func (s *SMTPMailService) SendVerificationEmail(ctx context.Context, toEmail string, token string) error {

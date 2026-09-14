@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"gateway/src/core/middleware"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -9,7 +10,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"net/http"
 )
 
 func handleGRPCError(c *gin.Context, err error) {
@@ -108,14 +108,15 @@ func NewHandler(
 }
 
 func (h *Handler) InitRouters() *gin.Engine {
-
 	router := gin.New()
 	allowedOrigins := map[string]struct{}{}
+
 	for _, origin := range strings.Split(envOrDefault("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"), ",") {
 		if value := strings.TrimSpace(origin); value != "" {
 			allowedOrigins[value] = struct{}{}
 		}
 	}
+
 	router.Use(func(c *gin.Context) {
 		origin := c.GetHeader("Origin")
 		if _, allowed := allowedOrigins[origin]; allowed {
@@ -126,10 +127,12 @@ func (h *Handler) InitRouters() *gin.Engine {
 			c.Header("Access-Control-Expose-Headers", "X-Request-ID, X-RateLimit-Limit, X-RateLimit-Remaining")
 			c.Header("Vary", "Origin")
 		}
+
 		if c.Request.Method == http.MethodOptions {
 			c.AbortWithStatus(http.StatusNoContent)
 			return
 		}
+
 		c.Next()
 	})
 
