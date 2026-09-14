@@ -126,7 +126,10 @@ func main() {
 		),
 	)
 
-	repo := repository.NewRepository(repository.DBPools{Write: writeDB, Read: readDB})
+	repo := repository.NewRepository(repository.DBPools{
+		Write: writeDB,
+		Read:  readDB,
+	})
 	mailService, err := service.NewSMTPMailService(service.SMTPMailConfig{
 		Host:            os.Getenv("SMTP_HOST"),
 		Port:            mustInt(os.Getenv("SMTP_PORT")),

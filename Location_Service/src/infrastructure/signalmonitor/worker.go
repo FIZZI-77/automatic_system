@@ -16,8 +16,10 @@ type Detector interface {
 	) (*models.DetectLostSignalsResult, error)
 }
 type Config struct {
-	Interval, StaleAfter, OfflineAfter time.Duration
-	BatchSize                          int32
+	Interval     time.Duration
+	StaleAfter   time.Duration
+	OfflineAfter time.Duration
+	BatchSize    int32
 }
 type Worker struct {
 	detector Detector
@@ -41,11 +43,14 @@ func New(detector Detector, cfg Config, logger *zap.Logger) *Worker {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
+
 	return &Worker{detector: detector, cfg: cfg, log: logger}
 }
+
 func (w *Worker) Run(ctx context.Context) {
 	ticker := time.NewTicker(w.cfg.Interval)
 	defer ticker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():

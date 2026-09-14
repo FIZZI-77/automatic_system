@@ -71,8 +71,4 @@
 <rect x="1002" y="785" width="534" height="57" rx="3" fill="#f3f6fa" stroke="#f3f6fa"/>
 <text x="1018" y="811" fill="#172235" font-size="17" font-weight="600" text-anchor="start">Analytics</text>
 <text x="1018" y="832" fill="#2764a5" font-size="14" font-weight="400" text-anchor="start">12 тем по конфигурации</text>
-<rect x="40" y="892" width="1520" height="118" rx="6" fill="#fff2d9" stroke="#edcf9a"/>
-<text x="64" y="927" fill="#a56818" font-size="14" font-weight="700" text-anchor="start">ТЕМЫ БЕЗ НАЙДЕННОГО ИЗДАТЕЛЯ</text>
-<text x="64" y="960" fill="#172235" font-size="19" font-weight="600" text-anchor="start">files.events.v1 у Notification  ·  notifications.events.v1 у Audit и Analytics</text>
-<text x="64" y="989" fill="#566579" font-size="14" font-weight="400" text-anchor="start">Это настроенные подписки, а не подтвержденные потоки публикации. Точный состав тем и ссылки на код есть в текстовой карте.</text>
 </svg>

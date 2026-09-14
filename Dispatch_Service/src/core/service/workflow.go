@@ -31,54 +31,93 @@ func (s *Service) Preview(ctx context.Context, in *models.RecommendInput) ([]mod
 		return nil, fmt.Errorf("%w: limit must not exceed 100", models.ErrInvalidArgument)
 	}
 	ctx = forwardMetadata(ctx)
+
 	ticket, err := s.getNewTicket(ctx, in.TicketID)
 	if err != nil {
 		return nil, err
 	}
+
 	available, err := s.deps.Brigades.GetAvailableBrigades(ctx, &brigadev1.GetAvailableBrigadesRequest{
-		DepartmentId: ticket.GetDepartmentId(), Longitude: &ticket.Longitude, Latitude: &ticket.Latitude,
-		RequiredSkillIds: uuidStrings(in.RequiredSkillIDs), Limit: max(in.Limit*3, 20),
+		DepartmentId:     ticket.GetDepartmentId(),
+		Longitude:        &ticket.Longitude,
+		Latitude:         &ticket.Latitude,
+		RequiredSkillIds: uuidStrings(in.RequiredSkillIDs),
+		Limit:            max(in.Limit*3, 20),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("get available brigades: %w", err)
 	}
+
 	ids := make([]string, 0, len(available.GetBrigades()))
 	for _, brigade := range available.GetBrigades() {
 		ids = append(ids, brigade.GetId())
 	}
+
 	if len(ids) == 0 {
 		return []models.Candidate{}, nil
 	}
-	locations, err := s.deps.Location.GetCurrentLocations(ctx, &locationv1.GetCurrentLocationsRequest{BrigadeIds: ids, AllowStale: false})
+
+	locations, err := s.deps.Location.GetCurrentLocations(ctx, &locationv1.GetCurrentLocationsRequest{
+		BrigadeIds: ids,
+		AllowStale: false,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("get brigade locations: %w", err)
 	}
+
 	candidates := make([]*routingv1.Candidate, 0, len(ids))
 	for _, id := range ids {
 		current := locations.GetLocations()[id]
 		if current == nil || current.GetPosition() == nil {
 			continue
 		}
-		candidates = append(candidates, &routingv1.Candidate{BrigadeId: id, Location: &routingv1.Point{Latitude: current.GetPosition().GetLatitude(), Longitude: current.GetPosition().GetLongitude()}})
+
+		candidates = append(candidates, &routingv1.Candidate{
+			BrigadeId: id,
+			Location: &routingv1.Point{
+				Latitude:  current.GetPosition().GetLatitude(),
+				Longitude: current.GetPosition().GetLongitude(),
+			},
+		})
 	}
+
 	if len(candidates) == 0 {
 		return []models.Candidate{}, nil
 	}
+
 	ranked, err := s.deps.Routing.RankCandidates(ctx, &routingv1.RankCandidatesRequest{
-		Destination: &routingv1.Point{Latitude: ticket.GetLatitude(), Longitude: ticket.GetLongitude()}, Candidates: candidates,
-		Options: &routingv1.RouteOptions{TravelMode: routingv1.TravelMode_TRAVEL_MODE_AUTO}, Limit: in.Limit,
+		Destination: &routingv1.Point{
+			Latitude:  ticket.GetLatitude(),
+			Longitude: ticket.GetLongitude(),
+		},
+		Candidates: candidates,
+		Options: &routingv1.RouteOptions{
+			TravelMode: routingv1.TravelMode_TRAVEL_MODE_AUTO,
+		},
+		Limit: in.Limit,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("rank candidates: %w", err)
 	}
+
 	result := make([]models.Candidate, 0, len(ranked.GetCandidates()))
 	for _, item := range ranked.GetCandidates() {
 		id, parseErr := uuid.Parse(item.GetBrigadeId())
 		if parseErr != nil || item.GetLocation() == nil {
 			continue
 		}
-		result = append(result, models.Candidate{BrigadeID: id, Rank: item.GetRank(), DistanceMeters: item.GetDistanceMeters(), ETASeconds: item.GetEtaSeconds(), Reachable: item.GetReachable(), Latitude: item.GetLocation().GetLatitude(), Longitude: item.GetLocation().GetLongitude()})
+
+		result = append(result, models.Candidate{
+			BrigadeID:      id,
+			Rank:           item.GetRank(),
+			DistanceMeters: item.GetDistanceMeters(),
+			ETASeconds:     item.GetEtaSeconds(),
+			Reachable:      item.GetReachable(),
+			Latitude:       item.GetLocation().GetLatitude(),
+			Longitude:      item.GetLocation().GetLongitude(),
+		})
 	}
+
 	return result, nil
 }
 
@@ -163,14 +202,22 @@ func (s *Service) resumeAutomatic(ctx context.Context, op *models.Operation, in 
 	case models.StatusAssigned, models.StatusFailed, models.StatusCancelled, models.StatusExpired:
 		return op, nil
 	case models.StatusReserved:
-		return s.Confirm(ctx, &models.ConfirmInput{ID: op.ID, ConfirmedBy: in.RequestedBy, ExpectedVersion: op.Version})
+		return s.Confirm(ctx, &models.ConfirmInput{
+			ID:              op.ID,
+			ConfirmedBy:     in.RequestedBy,
+			ExpectedVersion: op.Version,
+		})
 	case models.StatusConfirming:
 		return s.finishConfirm(ctx, op, in.RequestedBy)
 	case models.StatusPending:
 	default:
 		return nil, fmt.Errorf("%w: unsupported automatic dispatch status %s", models.ErrConflict, op.Status)
 	}
-	candidates, err := s.Preview(ctx, &models.RecommendInput{TicketID: in.TicketID, RequiredSkillIDs: in.RequiredSkillIDs, Limit: in.CandidateLimit})
+	candidates, err := s.Preview(ctx, &models.RecommendInput{
+		TicketID:         in.TicketID,
+		RequiredSkillIDs: in.RequiredSkillIDs,
+		Limit:            in.CandidateLimit,
+	})
 	if err != nil {
 		_, _ = s.repo.SetFailed(ctx, op.ID, "CANDIDATE_RANKING", "CANDIDATE_RANKING_FAILED", err.Error(), op.Version)
 		return nil, err
@@ -199,7 +246,11 @@ func (s *Service) resumeAutomatic(ctx context.Context, op *models.Operation, in 
 			lastErr = reserveErr
 			continue
 		}
-		return s.Confirm(ctx, &models.ConfirmInput{ID: reserved.ID, ConfirmedBy: in.RequestedBy, ExpectedVersion: reserved.Version})
+		return s.Confirm(ctx, &models.ConfirmInput{
+			ID:              reserved.ID,
+			ConfirmedBy:     in.RequestedBy,
+			ExpectedVersion: reserved.Version,
+		})
 	}
 	_, _ = s.repo.SetFailed(ctx, op.ID, "RESERVATION", "RESERVATION_FAILED", lastErr.Error(), op.Version)
 	return nil, fmt.Errorf("auto dispatch: %w", lastErr)
@@ -221,7 +272,10 @@ func (s *Service) Confirm(ctx context.Context, in *models.ConfirmInput) (*models
 	if err != nil {
 		return s.failAndRelease(ctx, op, in.ConfirmedBy, err)
 	}
-	location, err := s.deps.Location.GetCurrentLocation(ctx, &locationv1.GetCurrentLocationRequest{SubjectType: locationv1.SubjectType_SUBJECT_TYPE_BRIGADE, SubjectId: op.BrigadeID.String()})
+	location, err := s.deps.Location.GetCurrentLocation(ctx, &locationv1.GetCurrentLocationRequest{
+		SubjectType: locationv1.SubjectType_SUBJECT_TYPE_BRIGADE,
+		SubjectId:   op.BrigadeID.String(),
+	})
 	if err != nil || location.GetLocation() == nil || location.GetLocation().GetPosition() == nil {
 		if err == nil {
 			err = errors.New("brigade location unavailable")
@@ -230,10 +284,19 @@ func (s *Service) Confirm(ctx context.Context, in *models.ConfirmInput) (*models
 	}
 	position := location.GetLocation().GetPosition()
 	route, err := s.deps.Routing.CreateRoute(ctx, &routingv1.CreateRouteRequest{
-		TicketId: op.TicketID.String(), BrigadeId: op.BrigadeID.String(),
-		Origin:      &routingv1.Point{Latitude: position.GetLatitude(), Longitude: position.GetLongitude()},
-		Destination: &routingv1.Point{Latitude: ticket.GetLatitude(), Longitude: ticket.GetLongitude()},
-		Options:     &routingv1.RouteOptions{TravelMode: routingv1.TravelMode_TRAVEL_MODE_AUTO},
+		TicketId:  op.TicketID.String(),
+		BrigadeId: op.BrigadeID.String(),
+		Origin: &routingv1.Point{
+			Latitude:  position.GetLatitude(),
+			Longitude: position.GetLongitude(),
+		},
+		Destination: &routingv1.Point{
+			Latitude:  ticket.GetLatitude(),
+			Longitude: ticket.GetLongitude(),
+		},
+		Options: &routingv1.RouteOptions{
+			TravelMode: routingv1.TravelMode_TRAVEL_MODE_AUTO,
+		},
 	})
 	if err != nil || route.GetRoute() == nil {
 		if err == nil {
@@ -259,7 +322,10 @@ func (s *Service) finishConfirm(ctx context.Context, op *models.Operation, actor
 		return nil, fmt.Errorf("%w: confirming dispatch misses brigade or route", models.ErrConflict)
 	}
 	_, err := s.deps.Tickets.AssignBrigade(ctx, &ticketv1.AssignBrigadeRequest{
-		TicketId: op.TicketID.String(), BrigadeId: op.BrigadeID.String(), AssignedBy: actor.String(), Comment: "assigned by dispatch",
+		TicketId:   op.TicketID.String(),
+		BrigadeId:  op.BrigadeID.String(),
+		AssignedBy: actor.String(),
+		Comment:    "assigned by dispatch",
 	})
 	if err != nil {
 		ticketResponse, getErr := s.deps.Tickets.GetTicket(ctx, &ticketv1.GetTicketRequest{TicketId: op.TicketID.String()})
@@ -319,14 +385,25 @@ func (s *Service) reserveExisting(ctx context.Context, op *models.Operation, bri
 	if err != nil {
 		return nil, err
 	}
-	check, err := s.deps.Brigades.CheckBrigadeCanHandleTicket(ctx, &brigadev1.CheckBrigadeCanHandleTicketRequest{BrigadeId: brigadeID.String(), DepartmentId: ticket.GetDepartmentId(), Longitude: ticket.GetLongitude(), Latitude: ticket.GetLatitude(), RequiredSkillIds: uuidStrings(skills)})
+	check, err := s.deps.Brigades.CheckBrigadeCanHandleTicket(ctx, &brigadev1.CheckBrigadeCanHandleTicketRequest{
+		BrigadeId:        brigadeID.String(),
+		DepartmentId:     ticket.GetDepartmentId(),
+		Longitude:        ticket.GetLongitude(),
+		Latitude:         ticket.GetLatitude(),
+		RequiredSkillIds: uuidStrings(skills),
+	})
 	if err != nil {
 		return nil, fmt.Errorf("check brigade: %w", err)
 	}
 	if !check.GetCanHandle() {
 		return nil, fmt.Errorf("%w: brigade cannot handle ticket: %v", models.ErrConflict, check.GetReasons())
 	}
-	_, err = s.deps.Brigades.SetBrigadeStatus(ctx, &brigadev1.SetBrigadeStatusRequest{BrigadeId: brigadeID.String(), Status: brigadev1.BrigadeStatus_BRIGADE_STATUS_BUSY, Reason: "dispatch reservation", ChangedByUserId: actor.String()})
+	_, err = s.deps.Brigades.SetBrigadeStatus(ctx, &brigadev1.SetBrigadeStatusRequest{
+		BrigadeId:       brigadeID.String(),
+		Status:          brigadev1.BrigadeStatus_BRIGADE_STATUS_BUSY,
+		Reason:          "dispatch reservation",
+		ChangedByUserId: actor.String(),
+	})
 	if err != nil {
 		return nil, fmt.Errorf("reserve brigade: %w", err)
 	}
@@ -415,14 +492,22 @@ func operationInput(ticket *ticketv1.Ticket, ticketID, requestedBy uuid.UUID, mo
 }
 
 func (s *Service) release(ctx context.Context, id, actor uuid.UUID) {
-	_, err := s.deps.Brigades.SetBrigadeStatus(ctx, &brigadev1.SetBrigadeStatusRequest{BrigadeId: id.String(), Status: brigadev1.BrigadeStatus_BRIGADE_STATUS_AVAILABLE, Reason: "dispatch reservation released", ChangedByUserId: actor.String()})
+	_, err := s.deps.Brigades.SetBrigadeStatus(ctx, &brigadev1.SetBrigadeStatusRequest{
+		BrigadeId:       id.String(),
+		Status:          brigadev1.BrigadeStatus_BRIGADE_STATUS_AVAILABLE,
+		Reason:          "dispatch reservation released",
+		ChangedByUserId: actor.String(),
+	})
 	if err != nil {
 		s.log.Error("release brigade", zap.Error(err), zap.String("brigade_id", id.String()))
 	}
 }
 
 func (s *Service) cancelRoute(ctx context.Context, id string) {
-	_, err := s.deps.Routing.SetRouteStatus(ctx, &routingv1.SetRouteStatusRequest{Id: id, Status: routingv1.RouteStatus_ROUTE_STATUS_CANCELLED})
+	_, err := s.deps.Routing.SetRouteStatus(ctx, &routingv1.SetRouteStatusRequest{
+		Id:     id,
+		Status: routingv1.RouteStatus_ROUTE_STATUS_CANCELLED,
+	})
 	if err != nil {
 		s.log.Error("cancel route", zap.Error(err), zap.String("route_id", id))
 	}

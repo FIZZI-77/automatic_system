@@ -30,22 +30,27 @@ var ErrForbidden = errors.New("permission denied")
 var ErrInvalidState = errors.New("invalid report state")
 
 type Filter struct {
-	From, To                           *time.Time
-	DepartmentID, CategoryID, Priority *string
+	From         *time.Time
+	To           *time.Time
+	DepartmentID *string
+	CategoryID   *string
+	Priority     *string
 }
 type Report struct {
-	ID, RequestedBy      uuid.UUID
-	Name                 string
-	Type                 Type
-	Format               Format
-	Status               Status
-	Filter               Filter
-	ActorRoles           []string
-	FileID               *uuid.UUID
-	Error                *string
-	Attempts             int32
-	CreatedAt, UpdatedAt time.Time
-	CompletedAt          *time.Time
+	ID          uuid.UUID
+	RequestedBy uuid.UUID
+	Name        string
+	Type        Type
+	Format      Format
+	Status      Status
+	Filter      Filter
+	ActorRoles  []string
+	FileID      *uuid.UUID
+	Error       *string
+	Attempts    int32
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	CompletedAt *time.Time
 }
 type CreateInput struct {
 	RequestedBy uuid.UUID
@@ -56,13 +61,15 @@ type CreateInput struct {
 	ActorRoles  []string
 }
 type ListFilter struct {
-	RequestedBy   *uuid.UUID
-	Status        *Status
-	Limit, Offset int32
+	RequestedBy *uuid.UUID
+	Status      *Status
+	Limit       int32
+	Offset      int32
 }
 type Artifact struct {
-	Name, ContentType string
-	Data              []byte
+	Name        string
+	ContentType string
+	Data        []byte
 }
 
 // CompletionReport is the immutable snapshot used to build the final act for

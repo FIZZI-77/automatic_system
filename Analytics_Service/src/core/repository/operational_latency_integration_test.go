@@ -92,7 +92,11 @@ func TestDispatchFailureSummaryInClickHouse(t *testing.T) {
 	ctx := context.Background()
 	db, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{address},
-		Auth: clickhouse.Auth{Database: "analytics", Username: "analytics", Password: os.Getenv("CLICKHOUSE_TEST_PASSWORD")},
+		Auth: clickhouse.Auth{
+			Database: "analytics",
+			Username: "analytics",
+			Password: os.Getenv("CLICKHOUSE_TEST_PASSWORD"),
+		},
 	})
 	if err != nil {
 		t.Fatalf("clickhouse.Open() error = %v", err)
@@ -414,8 +418,9 @@ func TestDispatchEffectivenessInClickHouse(t *testing.T) {
 	departmentID := uuid.NewString()
 	start := time.Now().UTC().Add(-time.Minute).Truncate(time.Millisecond)
 	operations := []struct {
-		mode, terminal string
-		delay          time.Duration
+		mode     string
+		terminal string
+		delay    time.Duration
 	}{
 		{mode: "AUTOMATIC", terminal: "ASSIGNED", delay: 4 * time.Second},
 		{mode: "AUTOMATIC", terminal: "FAILED", delay: 7 * time.Second},

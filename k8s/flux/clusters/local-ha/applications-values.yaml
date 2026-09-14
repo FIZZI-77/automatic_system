@@ -2,22 +2,22 @@ globalImage:
   registry: ghcr.io/fizzi-77
   tag: sha-7e50eb65738b
   tags:
-    analytics: sha-e461d2c3fcef
-    api-gateway: sha-e461d2c3fcef
-    asset: sha-e461d2c3fcef
-    audit: sha-e461d2c3fcef
-    auth: sha-e461d2c3fcef
+    analytics: sha-fbfb89c85537
+    api-gateway: sha-fbfb89c85537
+    asset: sha-fbfb89c85537
+    audit: sha-fbfb89c85537
+    auth: sha-fbfb89c85537
     brigade: sha-e461d2c3fcef
     department: sha-e461d2c3fcef
-    dispatch: sha-e461d2c3fcef
+    dispatch: sha-fbfb89c85537
     file: sha-e461d2c3fcef
     frontend: sha-a56e87d30ce1
-    location: sha-e461d2c3fcef
-    notification: sha-e461d2c3fcef
+    location: sha-fbfb89c85537
+    notification: sha-fbfb89c85537
     profile: sha-e461d2c3fcef
-    report: sha-e461d2c3fcef
+    report: sha-fbfb89c85537
     routing: sha-e461d2c3fcef
-    sla: sha-e461d2c3fcef
+    sla: sha-fbfb89c85537
     ticket: sha-e461d2c3fcef
   pullPolicy: Always
 

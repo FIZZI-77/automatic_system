@@ -36,8 +36,10 @@ type Filter struct {
 }
 
 type Event struct {
-	ID, Type, Topic string
-	Payload         map[string]any
-	Headers         map[string]string
-	Timestamp       time.Time
+	ID        string
+	Type      string
+	Topic     string
+	Payload   map[string]any
+	Headers   map[string]string
+	Timestamp time.Time
 }

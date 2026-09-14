@@ -5,17 +5,20 @@ import (
 	_ "embed"
 	"encoding/csv"
 	"fmt"
-	"github.com/jung-kurt/gofpdf"
-	"github.com/xuri/excelize/v2"
 	"image"
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
-	"report/models"
 	"strings"
+
+	"report/models"
+
+	"github.com/jung-kurt/gofpdf"
+	"github.com/xuri/excelize/v2"
 )
 
-type Generator struct{}
+type Generator struct {
+}
 
 //go:embed fonts/DejaVuSans.ttf
 var regularFont []byte
@@ -23,7 +26,10 @@ var regularFont []byte
 //go:embed fonts/DejaVuSans-Bold.ttf
 var boldFont []byte
 
-func New() *Generator { return &Generator{} }
+func New() *Generator {
+	return &Generator{}
+}
+
 func (g *Generator) Generate(format models.Format, name string, rows [][]string) (models.Artifact, error) {
 	switch format {
 	case models.FormatCSV:
@@ -36,6 +42,7 @@ func (g *Generator) Generate(format models.Format, name string, rows [][]string)
 		return models.Artifact{}, fmt.Errorf("unsupported format %s", format)
 	}
 }
+
 func safe(v string) string {
 	v = strings.TrimSpace(v)
 	if v == "" {
@@ -48,6 +55,7 @@ func safe(v string) string {
 		return r
 	}, v)
 }
+
 func csvFile(name string, rows [][]string) (models.Artifact, error) {
 	var b bytes.Buffer
 	w := csv.NewWriter(&b)
@@ -55,8 +63,14 @@ func csvFile(name string, rows [][]string) (models.Artifact, error) {
 	if e == nil {
 		e = w.Error()
 	}
-	return models.Artifact{Name: safe(name) + ".csv", ContentType: "text/csv", Data: b.Bytes()}, e
+
+	return models.Artifact{
+		Name:        safe(name) + ".csv",
+		ContentType: "text/csv",
+		Data:        b.Bytes(),
+	}, e
 }
+
 func xlsxFile(name string, rows [][]string) (models.Artifact, error) {
 	f := excelize.NewFile()
 	defer f.Close()
@@ -70,8 +84,14 @@ func xlsxFile(name string, rows [][]string) (models.Artifact, error) {
 	if e != nil {
 		return models.Artifact{}, e
 	}
-	return models.Artifact{Name: safe(name) + ".xlsx", ContentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", Data: b.Bytes()}, nil
+
+	return models.Artifact{
+		Name:        safe(name) + ".xlsx",
+		ContentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+		Data:        b.Bytes(),
+	}, nil
 }
+
 func pdfFile(name string, rows [][]string) (models.Artifact, error) {
 	p := gofpdf.New("L", "mm", "A4", "")
 	p.AddPage()
@@ -88,7 +108,12 @@ func pdfFile(name string, rows [][]string) (models.Artifact, error) {
 	}
 	var b bytes.Buffer
 	e := p.Output(&b)
-	return models.Artifact{Name: safe(name) + ".pdf", ContentType: "application/pdf", Data: b.Bytes()}, e
+
+	return models.Artifact{
+		Name:        safe(name) + ".pdf",
+		ContentType: "application/pdf",
+		Data:        b.Bytes(),
+	}, e
 }
 
 // GenerateCompletion creates the concise work-completion act used by Ticket
@@ -159,7 +184,10 @@ func (g *Generator) GenerateCompletion(v models.CompletionReport, images []model
 		p.SetTextColor(31, 72, 60)
 		p.Cell(0, 8, fmt.Sprintf("Фотоматериал %d: %s", index+1, fallback(item.Name, "фото")))
 		p.Ln(12)
-		options := gofpdf.ImageOptions{ImageType: kind, ReadDpi: true}
+		options := gofpdf.ImageOptions{
+			ImageType: kind,
+			ReadDpi:   true,
+		}
 		name := fmt.Sprintf("completion-image-%d", index)
 		p.RegisterImageOptionsReader(name, options, bytes.NewReader(item.Data))
 		maxW, maxH := 170.0, 235.0
@@ -175,7 +203,12 @@ func (g *Generator) GenerateCompletion(v models.CompletionReport, images []model
 	if err := p.Output(&out); err != nil {
 		return models.Artifact{}, err
 	}
-	return models.Artifact{Name: "ticket-" + safe(v.Ticket.ID) + "-completion.pdf", ContentType: "application/pdf", Data: out.Bytes()}, nil
+
+	return models.Artifact{
+		Name:        "ticket-" + safe(v.Ticket.ID) + "-completion.pdf",
+		ContentType: "application/pdf",
+		Data:        out.Bytes(),
+	}, nil
 }
 
 func fallback(values ...string) string {
@@ -189,13 +222,20 @@ func fallback(values ...string) string {
 
 func imageInfo(item models.EmbeddedImage) (string, int, int, bool) {
 	contentType := strings.ToLower(strings.TrimSpace(item.ContentType))
-	kind := map[string]string{"image/jpeg": "JPG", "image/jpg": "JPG", "image/png": "PNG", "image/gif": "GIF"}[contentType]
+	kind := map[string]string{
+		"image/jpeg": "JPG",
+		"image/jpg":  "JPG",
+		"image/png":  "PNG",
+		"image/gif":  "GIF",
+	}[contentType]
 	if kind == "" {
 		return "", 0, 0, false
 	}
+
 	config, _, err := image.DecodeConfig(bytes.NewReader(item.Data))
 	if err != nil || config.Width <= 0 || config.Height <= 0 {
 		return "", 0, 0, false
 	}
+
 	return kind, config.Width, config.Height, true
 }

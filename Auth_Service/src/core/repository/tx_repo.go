@@ -1,9 +1,10 @@
 package repository
 
 import (
-	"auth/models"
 	"context"
 	"fmt"
+
+	"auth/models"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -18,8 +19,13 @@ type authTx struct {
 	ctx context.Context
 }
 
-func (t authTx) Commit() error   { return t.Tx.Commit(t.ctx) }
-func (t authTx) Rollback() error { return t.Tx.Rollback(t.ctx) }
+func (t authTx) Commit() error {
+	return t.Tx.Commit(t.ctx)
+}
+
+func (t authTx) Rollback() error {
+	return t.Tx.Rollback(t.ctx)
+}
 
 func NewTXRepoStruct(writeDB DBTX) *TXRepoStruct {
 	return &TXRepoStruct{writeDB: writeDB}
@@ -34,7 +40,10 @@ func (t *TXRepoStruct) ChangePassword(ctx context.Context, userID uuid.UUID, pas
 	if err != nil {
 		return 0, fmt.Errorf("tx_repo: ChangePassword() :cant begin transaction: %w", err)
 	}
-	tx := authTx{Tx: pgxTx, ctx: ctx}
+	tx := authTx{
+		Tx:  pgxTx,
+		ctx: ctx,
+	}
 
 	const updatePassword = `UPDATE users SET password_hash=$1 WHERE id = $2;`
 
@@ -136,7 +145,10 @@ func (t *TXRepoStruct) Logout(ctx context.Context, sessionID uuid.UUID) error {
 	if err != nil {
 		return fmt.Errorf("tx_repo: logout() :cant begin transaction: %w", err)
 	}
-	tx := authTx{Tx: pgxTx, ctx: ctx}
+	tx := authTx{
+		Tx:  pgxTx,
+		ctx: ctx,
+	}
 
 	const revokeSessionQuery = `UPDATE sessions SET is_revoked = TRUE, revoked_at = now() WHERE id = $1 AND is_revoked = FALSE`
 
@@ -181,7 +193,10 @@ func (t *TXRepoStruct) LogoutAll(ctx context.Context, userID uuid.UUID) (int64, 
 	if err != nil {
 		return 0, fmt.Errorf("tx_repo: LogoutAll() :cant begin transaction: %w", err)
 	}
-	tx := authTx{Tx: pgxTx, ctx: ctx}
+	tx := authTx{
+		Tx:  pgxTx,
+		ctx: ctx,
+	}
 	const revokeSessionsQuery = `UPDATE sessions SET is_revoked = TRUE, revoked_at = now() WHERE user_id = $1 AND is_revoked = FALSE`
 
 	result, err := tx.Exec(ctx, revokeSessionsQuery, userID)
@@ -231,7 +246,10 @@ func (t *TXRepoStruct) ResetPassword(ctx context.Context, userID uuid.UUID, pass
 	if err != nil {
 		return 0, fmt.Errorf("tx_repo: ResetPassword(): cant begin transaction: %w", err)
 	}
-	tx := authTx{Tx: pgxTx, ctx: ctx}
+	tx := authTx{
+		Tx:  pgxTx,
+		ctx: ctx,
+	}
 
 	const updatePasswordQuery = `
 		UPDATE users
@@ -308,7 +326,10 @@ func (t *TXRepoStruct) ResetPasswordWithToken(ctx context.Context, userID uuid.U
 	if err != nil {
 		return 0, fmt.Errorf("tx_repo: ResetPasswordWithToken(): cant begin transaction: %w", err)
 	}
-	tx := authTx{Tx: pgxTx, ctx: ctx}
+	tx := authTx{
+		Tx:  pgxTx,
+		ctx: ctx,
+	}
 	defer tx.Rollback()
 
 	const markTokenUsedQuery = `
@@ -393,7 +414,10 @@ func (t *TXRepoStruct) VerifyEmail(ctx context.Context, userID uuid.UUID, tokenI
 	if err != nil {
 		return fmt.Errorf("tx_repo: VerifyEmail(): cant begin transaction: %w", err)
 	}
-	tx := authTx{Tx: pgxTx, ctx: ctx}
+	tx := authTx{
+		Tx:  pgxTx,
+		ctx: ctx,
+	}
 	defer tx.Rollback()
 
 	const markTokenUsedQuery = `

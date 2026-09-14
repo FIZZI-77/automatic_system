@@ -35,17 +35,21 @@ func registerAPIDocs(router *gin.Engine) {
 	if os.Getenv("SWAGGER_ENABLED") != "true" {
 		return
 	}
+
 	router.GET("/swagger/", func(c *gin.Context) {
 		c.Header("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self' data:")
 		c.Header("Referrer-Policy", "no-referrer")
 		c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(swaggerPage))
 	})
+
 	router.GET("/swagger/openapi.json", func(c *gin.Context) {
 		c.Data(http.StatusOK, "application/json", openAPISpec)
 	})
+
 	router.GET("/swagger/init.js", func(c *gin.Context) {
 		c.Data(http.StatusOK, "application/javascript", []byte(swaggerInit))
 	})
+
 	for _, asset := range []struct {
 		name        string
 		contentType string
