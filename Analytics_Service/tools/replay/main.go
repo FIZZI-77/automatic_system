@@ -17,7 +17,9 @@ import (
 var versionPattern = regexp.MustCompile(`^v[1-9][0-9]*$`)
 
 type counts struct {
-	Events, Eligible, Unknown uint64
+	Events   uint64
+	Eligible uint64
+	Unknown  uint64
 }
 
 func main() {
@@ -37,7 +39,11 @@ func run(parent context.Context, args []string) error {
 	database := env("CLICKHOUSE_DATABASE", "analytics")
 	db, err := clickhouse.Open(&clickhouse.Options{
 		Addr: strings.Split(address, ","),
-		Auth: clickhouse.Auth{Database: database, Username: env("CLICKHOUSE_USER", "default"), Password: os.Getenv("CLICKHOUSE_PASSWORD")},
+		Auth: clickhouse.Auth{
+			Database: database,
+			Username: env("CLICKHOUSE_USER", "default"),
+			Password: os.Getenv("CLICKHOUSE_PASSWORD"),
+		},
 	})
 	if err != nil {
 		return fmt.Errorf("open ClickHouse: %w", err)
@@ -58,35 +64,45 @@ func replay(ctx context.Context, db driver.Conn, database, version string) error
 	if err := db.Exec(ctx, "DROP TABLE IF EXISTS "+target); err != nil {
 		return fmt.Errorf("drop stale replay table: %w", err)
 	}
+
 	if err := db.Exec(ctx, "CREATE TABLE "+target+" AS "+current); err != nil {
 		return fmt.Errorf("create replay table: %w", err)
 	}
+
 	if err := db.Exec(ctx, "INSERT INTO "+target+" SELECT * FROM "+source); err != nil {
 		return fmt.Errorf("populate replay table: %w", err)
 	}
+
 	if err := db.Exec(ctx, "OPTIMIZE TABLE "+target+" FINAL"); err != nil {
 		return fmt.Errorf("deduplicate replay table: %w", err)
 	}
+
 	sourceCounts, err := tableCounts(ctx, db, source)
 	if err != nil {
 		return fmt.Errorf("count source: %w", err)
 	}
+
 	targetCounts, err := tableCounts(ctx, db, target)
 	if err != nil {
 		return fmt.Errorf("count replay: %w", err)
 	}
+
 	if err = reconcileCounts("replay", sourceCounts, targetCounts); err != nil {
 		return err
 	}
+
 	view := database + ".domain_events_projection_v1_mv"
 	createView := "CREATE MATERIALIZED VIEW " + view + " TO " + current + " AS SELECT * FROM " + source
+
 	if err = db.Exec(ctx, "DROP VIEW IF EXISTS "+view); err != nil {
 		return fmt.Errorf("pause projection materialized view: %w", err)
 	}
+
 	if err = db.Exec(ctx, "EXCHANGE TABLES "+current+" AND "+target); err != nil {
 		_ = db.Exec(ctx, createView)
 		return fmt.Errorf("atomically switch replay table: %w", err)
 	}
+
 	if err = db.Exec(ctx, createView); err != nil {
 		rollbackErr := db.Exec(ctx, "EXCHANGE TABLES "+current+" AND "+target)
 		restoreErr := db.Exec(ctx, createView)
@@ -96,23 +112,28 @@ func replay(ctx context.Context, db driver.Conn, database, version string) error
 			wrapOptional("restore original projection view", restoreErr),
 		)
 	}
+
 	// Reinsert the raw source after restoring the view to cover events accepted
 	// during the short view replacement window. ReplacingMergeTree deduplicates
 	// them by (topic,event_id,version).
 	if err = db.Exec(ctx, "INSERT INTO "+current+" SELECT * FROM "+source); err != nil {
 		return fmt.Errorf("catch up replay projection: %w", err)
 	}
+
 	if err = db.Exec(ctx, "OPTIMIZE TABLE "+current+" FINAL"); err != nil {
 		return fmt.Errorf("deduplicate switched projection: %w", err)
 	}
+
 	finalSourceCounts, err := tableCounts(ctx, db, source)
 	if err != nil {
 		return fmt.Errorf("recount source after switch: %w", err)
 	}
+
 	finalCounts, err := tableCounts(ctx, db, current)
 	if err != nil {
 		return fmt.Errorf("count switched projection: %w", err)
 	}
+
 	return reconcileCounts("post-switch", finalSourceCounts, finalCounts)
 }
 

@@ -1,10 +1,12 @@
 package repository
 
 import (
-	"auth/models"
 	"context"
 	"errors"
 	"fmt"
+
+	"auth/models"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/sirupsen/logrus"
@@ -20,7 +22,11 @@ func NewSessionRepoStruct(writeDB DBTX, readDB ...DBTX) *SessionRepoStruct {
 	if len(readDB) > 0 && readDB[0] != nil {
 		reader = readDB[0]
 	}
-	return &SessionRepoStruct{writeDB: writeDB, readDB: reader}
+
+	return &SessionRepoStruct{
+		writeDB: writeDB,
+		readDB:  reader,
+	}
 }
 
 func (s *SessionRepoStruct) CreateSession(ctx context.Context, session *models.Session) (uuid.UUID, error) {

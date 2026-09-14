@@ -1,10 +1,12 @@
 package repository
 
 import (
-	"auth/models"
 	"context"
 	"errors"
 	"fmt"
+
+	"auth/models"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/sirupsen/logrus"
@@ -28,7 +30,11 @@ func NewUserRepoStruct(writeDB DBTX, readDB ...DBTX) *UserRepoStruct {
 	if len(readDB) > 0 && readDB[0] != nil {
 		reader = readDB[0]
 	}
-	return &UserRepoStruct{writeDB: writeDB, readDB: reader}
+
+	return &UserRepoStruct{
+		writeDB: writeDB,
+		readDB:  reader,
+	}
 }
 
 func (u *UserRepoStruct) CreateUser(ctx context.Context, user *models.User) (uuid.UUID, error) {

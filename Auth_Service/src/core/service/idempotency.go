@@ -16,7 +16,13 @@ import (
 
 const idempotencyTTL = 24 * time.Hour
 
-func (a *AuthServiceStruct) withIdempotency(ctx context.Context, operation string, actorKey string, request any, fn func(context.Context) (any, uuid.UUID, error)) (any, error) {
+func (a *AuthServiceStruct) withIdempotency(
+	ctx context.Context,
+	operation string,
+	actorKey string,
+	request any,
+	fn func(context.Context) (any, uuid.UUID, error),
+) (any, error) {
 	key, ok := pkg.IdempotencyKeyFromContext(ctx)
 	if !ok {
 		result, _, err := fn(ctx)
@@ -62,7 +68,13 @@ func (a *AuthServiceStruct) withIdempotency(ctx context.Context, operation strin
 
 // withExternalSideEffectIdempotency keeps SMTP outside a database transaction.
 // It is used until email delivery is moved to a persistent email outbox.
-func (a *AuthServiceStruct) withExternalSideEffectIdempotency(ctx context.Context, operation string, actorKey string, request any, fn func(context.Context) (any, uuid.UUID, error)) (any, error) {
+func (a *AuthServiceStruct) withExternalSideEffectIdempotency(
+	ctx context.Context,
+	operation string,
+	actorKey string,
+	request any,
+	fn func(context.Context) (any, uuid.UUID, error),
+) (any, error) {
 	key, ok := pkg.IdempotencyKeyFromContext(ctx)
 	if !ok {
 		result, _, err := fn(ctx)

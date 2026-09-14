@@ -86,7 +86,10 @@ func NewRepository(pools DBPools) *Repository {
 
 // NewRepo is kept as a compatibility alias for existing callers.
 func NewRepo(db *pgxpool.Pool) *Repo {
-	return NewRepository(DBPools{Write: db, Read: db})
+	return NewRepository(DBPools{
+		Write: db,
+		Read:  db,
+	})
 }
 
 func newRepoWithExecutor(exec DBTX) *Repo {

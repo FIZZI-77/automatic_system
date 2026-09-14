@@ -13,18 +13,35 @@ import (
 func TestOperationEventPayloadContracts(t *testing.T) {
 	t.Parallel()
 	now := time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC)
-	brigadeID, routeID := uuid.New(), uuid.New()
-	departmentID, categoryID := uuid.New(), uuid.New()
-	failureCode, failureStage, failureReason := "NO_ROUTE", "ROUTING", "route unavailable"
+	brigadeID := uuid.New()
+	routeID := uuid.New()
+	departmentID := uuid.New()
+	categoryID := uuid.New()
+	failureCode := "NO_ROUTE"
+	failureStage := "ROUTING"
+	failureReason := "route unavailable"
+
 	operation := &models.Operation{
-		ID: uuid.New(), TicketID: uuid.New(), DepartmentID: &departmentID, CategoryID: &categoryID,
-		Priority: "EMERGENCY", BrigadeID: &brigadeID, RouteID: &routeID,
-		Mode: models.ModeAutomatic, Status: models.StatusFailed,
-		FailureCode: &failureCode, FailureStage: &failureStage, FailureReason: &failureReason,
-		CreatedAt: now.Add(-time.Minute), UpdatedAt: now, ExpiresAt: now.Add(time.Minute),
+		ID:            uuid.New(),
+		TicketID:      uuid.New(),
+		DepartmentID:  &departmentID,
+		CategoryID:    &categoryID,
+		Priority:      "EMERGENCY",
+		BrigadeID:     &brigadeID,
+		RouteID:       &routeID,
+		Mode:          models.ModeAutomatic,
+		Status:        models.StatusFailed,
+		FailureCode:   &failureCode,
+		FailureStage:  &failureStage,
+		FailureReason: &failureReason,
+		CreatedAt:     now.Add(-time.Minute),
+		UpdatedAt:     now,
+		ExpiresAt:     now.Add(time.Minute),
 	}
+
 	tests := []struct {
-		eventType, timestamp string
+		eventType string
+		timestamp string
 	}{
 		{eventType: "dispatch.requested"},
 		{eventType: "dispatch.reserved", timestamp: "reserved_at"},
@@ -51,10 +68,17 @@ func TestOperationEventPayloadContracts(t *testing.T) {
 func TestCandidateEventPayloadContract(t *testing.T) {
 	t.Parallel()
 	now := time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC)
-	departmentID, categoryID := uuid.New(), uuid.New()
+	departmentID := uuid.New()
+	categoryID := uuid.New()
+
 	operation := &models.Operation{
-		ID: uuid.New(), TicketID: uuid.New(), DepartmentID: &departmentID, CategoryID: &categoryID,
-		Priority: "HIGH", Mode: models.ModeAutomatic, CreatedAt: now.Add(-time.Minute),
+		ID:           uuid.New(),
+		TicketID:     uuid.New(),
+		DepartmentID: &departmentID,
+		CategoryID:   &categoryID,
+		Priority:     "HIGH",
+		Mode:         models.ModeAutomatic,
+		CreatedAt:    now.Add(-time.Minute),
 	}
 	eventID := uuid.New()
 	payload := candidateEventPayload(context.Background(), eventID, operation, 5, 3, now)

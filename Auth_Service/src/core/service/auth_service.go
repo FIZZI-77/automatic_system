@@ -1,9 +1,6 @@
 package service
 
 import (
-	"auth/models"
-	"auth/pkg"
-	"auth/src/core/repository"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
@@ -13,12 +10,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
+
+	"auth/models"
+	"auth/pkg"
+	"auth/src/core/repository"
+
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
-	"time"
 )
 
 const ttl = time.Minute * 15
@@ -35,9 +37,22 @@ type AuthServiceStruct struct {
 	logger      *zap.Logger
 }
 
-func NewAuthServiceStruct(repo *repository.Repo, privateKey *rsa.PrivateKey, keyID string, mailService MailService, profiles ProfileProvisioner, logger *zap.Logger) *AuthServiceStruct {
-	return &AuthServiceStruct{repo: repo, privateKey: privateKey, keyID: keyID, mailService: mailService, profiles: profiles, logger: logger}
-
+func NewAuthServiceStruct(
+	repo *repository.Repo,
+	privateKey *rsa.PrivateKey,
+	keyID string,
+	mailService MailService,
+	profiles ProfileProvisioner,
+	logger *zap.Logger,
+) *AuthServiceStruct {
+	return &AuthServiceStruct{
+		repo:        repo,
+		privateKey:  privateKey,
+		keyID:       keyID,
+		mailService: mailService,
+		profiles:    profiles,
+		logger:      logger,
+	}
 }
 
 func (a *AuthServiceStruct) Register(ctx context.Context, in models.RegisterInput) (*models.RegisterResult, error) {

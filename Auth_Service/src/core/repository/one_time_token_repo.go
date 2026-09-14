@@ -1,10 +1,12 @@
 package repository
 
 import (
-	"auth/models"
 	"context"
 	"errors"
 	"fmt"
+
+	"auth/models"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/sirupsen/logrus"
@@ -20,7 +22,11 @@ func NewOneTimeTokenRepoStruct(writeDB DBTX, readDB ...DBTX) *OneTimeTokenRepoSt
 	if len(readDB) > 0 && readDB[0] != nil {
 		reader = readDB[0]
 	}
-	return &OneTimeTokenRepoStruct{writeDB: writeDB, readDB: reader}
+
+	return &OneTimeTokenRepoStruct{
+		writeDB: writeDB,
+		readDB:  reader,
+	}
 }
 
 func (r *OneTimeTokenRepoStruct) CreateOneTimeToken(ctx context.Context, token *models.OneTimeToken) error {

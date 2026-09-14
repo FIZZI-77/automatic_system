@@ -12,6 +12,7 @@ data:
   JWT_AUDIENCE: "api-gateway"
   JWT_ISSUER: "auth-jwt"
   JWT_PUBLIC_KEY_PATH: "/app/keys/public.pem"
+  SWAGGER_ENABLED: "true"
   NOTIFICATION_LIVE_PREFIX: 'notifications:user:'
   NOTIFICATION_SERVICE_ADDR: "notification-service:50061"
   PROFILE_SERVICE_ADDR: "profile-service:50055"

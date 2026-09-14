@@ -4,17 +4,24 @@ import (
 	"asset/models"
 	"context"
 	"errors"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"time"
 )
 
 type RiskFacts struct {
-	InstallationYear, ServiceLifeYears                                                          *int32
-	Criticality                                                                                 float64
-	Incidents90, Incidents365, Repeat90, SLAIncidents90, DaysSinceRepair, DaysInspectionOverdue int
-	LastCondition                                                                               *float64
+	InstallationYear      *int32
+	ServiceLifeYears      *int32
+	Criticality           float64
+	Incidents90           int
+	Incidents365          int
+	Repeat90              int
+	SLAIncidents90        int
+	DaysSinceRepair       int
+	DaysInspectionOverdue int
+	LastCondition         *float64
 }
 type AssetRepository interface {
 	Create(context.Context, models.CreateInput) (*models.Asset, error)
