@@ -30,6 +30,7 @@ type RouteRepository interface {
 	UpdateStatus(
 		ctx context.Context,
 		id string,
+		expectedStatus models.RouteStatus,
 		status models.RouteStatus,
 	) (*models.Route, error)
 	ListRoutes(

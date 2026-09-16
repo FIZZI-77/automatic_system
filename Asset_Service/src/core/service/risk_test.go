@@ -39,3 +39,20 @@ func TestRiskRepeatedFailures(t *testing.T) {
 		t.Fatal("prediction must be explainable")
 	}
 }
+
+func TestRiskFutureInstallationYearCannotLowerScore(t *testing.T) {
+	year, life := int32(2030), int32(20)
+	r := &riskRepo{facts: repository.RiskFacts{
+		InstallationYear: &year,
+		ServiceLifeYears: &life,
+		Criticality:      0.5,
+	}}
+	s := &AssetServiceStruct{repo: r}
+	p, err := s.calculate(context.Background(), uuid.New(), time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Score != 10 {
+		t.Fatalf("future installation year changed score: got %v, want 10", p.Score)
+	}
+}

@@ -13,6 +13,8 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"testing"
 	"time"
 )
@@ -190,6 +192,7 @@ type mockMailService struct {
 
 type mockProfileProvisioner struct {
 	createFunc func(ctx context.Context, userID uuid.UUID, fullName string) error
+	existsFunc func(ctx context.Context, userID uuid.UUID) (bool, error)
 }
 
 func (m mockProfileProvisioner) CreateUserProfile(ctx context.Context, userID uuid.UUID, fullName string) error {
@@ -197,6 +200,13 @@ func (m mockProfileProvisioner) CreateUserProfile(ctx context.Context, userID uu
 		return nil
 	}
 	return m.createFunc(ctx, userID, fullName)
+}
+
+func (m mockProfileProvisioner) UserProfileExists(ctx context.Context, userID uuid.UUID) (bool, error) {
+	if m.existsFunc == nil {
+		return false, nil
+	}
+	return m.existsFunc(ctx, userID)
 }
 
 func (m *mockMailService) SendVerificationEmail(ctx context.Context, toEmail string, token string) error {
@@ -317,7 +327,7 @@ func TestAuthService_Register_Success(t *testing.T) {
 
 func TestAuthService_Register_ProfileFailureCompensatesUser(t *testing.T) {
 	userID := uuid.New()
-	profileErr := errors.New("profile unavailable")
+	profileErr := status.Error(codes.InvalidArgument, "profile rejected")
 	compensated := false
 
 	userRepo := &mockUserRepo{
@@ -355,6 +365,59 @@ func TestAuthService_Register_ProfileFailureCompensatesUser(t *testing.T) {
 	}
 	if !compensated {
 		t.Fatal("expected auth user registration to be compensated")
+	}
+}
+
+func TestAuthService_Register_AmbiguousProfileFailureKeepsUser(t *testing.T) {
+	userID := uuid.New()
+	compensated := false
+	userRepo := &mockUserRepo{
+		getUserByEmailFunc: func(context.Context, string) (*models.User, error) { return nil, sql.ErrNoRows },
+		createUserFunc:     func(context.Context, *models.User) (uuid.UUID, error) { return userID, nil },
+		deleteUserFunc: func(context.Context, uuid.UUID) error {
+			compensated = true
+			return nil
+		},
+	}
+	svc := newTestService(&repository.Repo{UserRepository: userRepo}, &mockMailService{}, t)
+	svc.profiles = mockProfileProvisioner{createFunc: func(context.Context, uuid.UUID, string) error {
+		return status.Error(codes.DeadlineExceeded, "response lost")
+	}}
+	result, err := svc.Register(context.Background(), models.RegisterInput{Email: "ambiguous@example.com", Password: "password123", Username: "ambiguous"})
+	if result != nil || status.Code(err) != codes.DeadlineExceeded {
+		t.Fatalf("expected ambiguous provisioning error, result=%+v err=%v", result, err)
+	}
+	if compensated {
+		t.Fatal("ambiguous profile outcome must not delete auth user")
+	}
+}
+
+func TestAuthService_Register_LostCreateResponseKeepsConsistentUser(t *testing.T) {
+	userID := uuid.New()
+	profileExists := false
+	compensated := false
+	userRepo := &mockUserRepo{
+		getUserByEmailFunc: func(context.Context, string) (*models.User, error) { return nil, sql.ErrNoRows },
+		createUserFunc:     func(context.Context, *models.User) (uuid.UUID, error) { return userID, nil },
+		deleteUserFunc: func(context.Context, uuid.UUID) error {
+			compensated = true
+			return nil
+		},
+	}
+	svc := newTestService(&repository.Repo{UserRepository: userRepo}, &mockMailService{}, t)
+	svc.profiles = mockProfileProvisioner{
+		createFunc: func(context.Context, uuid.UUID, string) error {
+			profileExists = true
+			return context.DeadlineExceeded
+		},
+		existsFunc: func(context.Context, uuid.UUID) (bool, error) { return profileExists, nil },
+	}
+	result, err := svc.Register(context.Background(), models.RegisterInput{Email: "lost-response@example.com", Password: "password123", Username: "lostresponse"})
+	if err != nil || result == nil || result.UserID != userID.String() {
+		t.Fatalf("registration should reconcile committed profile: result=%+v err=%v", result, err)
+	}
+	if compensated {
+		t.Fatal("auth user was deleted after profile commit")
 	}
 }
 

@@ -30,7 +30,7 @@ func (s *Service) SetRouteStatus(
 			target,
 		)
 	}
-	return s.repo.UpdateStatus(ctx, id, target)
+	return s.repo.UpdateStatus(ctx, id, route.Status, target)
 }
 
 func canTransition(

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"gateway/models"
 	notificationv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/notification/v1"
 	"github.com/gin-gonic/gin"
@@ -9,6 +10,12 @@ import (
 	"net/http"
 	"strings"
 	"time"
+)
+
+const (
+	webSocketPongWait   = 60 * time.Second
+	webSocketPingPeriod = 30 * time.Second
+	webSocketWriteWait  = 10 * time.Second
 )
 
 type NotificationHandler struct {
@@ -113,15 +120,46 @@ func (h *NotificationHandler) WebSocket(c *gin.Context) {
 		return
 	}
 	defer conn.Close()
-	sub := h.redis.Subscribe(c.Request.Context(), h.prefix+c.GetString("user_id"))
+	ctx, cancel := context.WithCancel(c.Request.Context())
+	defer cancel()
+	sub := h.redis.Subscribe(ctx, h.prefix+c.GetString("user_id"))
 	defer sub.Close()
-	_ = conn.SetReadDeadline(time.Now().Add(24 * time.Hour))
+	if e = conn.SetReadDeadline(time.Now().Add(webSocketPongWait)); e != nil {
+		return
+	}
+	conn.SetPongHandler(func(string) error {
+		return conn.SetReadDeadline(time.Now().Add(webSocketPongWait))
+	})
+	readDone := make(chan struct{})
+	go func() {
+		defer close(readDone)
+		for {
+			if _, _, readErr := conn.ReadMessage(); readErr != nil {
+				cancel()
+				return
+			}
+		}
+	}()
+	ping := time.NewTicker(webSocketPingPeriod)
+	defer ping.Stop()
 	for {
 		select {
-		case <-c.Request.Context().Done():
+		case <-ctx.Done():
 			return
+		case <-readDone:
+			return
+		case <-ping.C:
+			if e = conn.SetWriteDeadline(time.Now().Add(webSocketWriteWait)); e != nil {
+				return
+			}
+			if e = conn.WriteMessage(websocket.PingMessage, nil); e != nil {
+				return
+			}
 		case msg, ok := <-sub.Channel():
 			if !ok {
+				return
+			}
+			if e = conn.SetWriteDeadline(time.Now().Add(webSocketWriteWait)); e != nil {
 				return
 			}
 			if e = conn.WriteMessage(websocket.TextMessage, []byte(msg.Payload)); e != nil {

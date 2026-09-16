@@ -48,6 +48,10 @@ func (fakeProfileProvisioner) CreateUserProfile(context.Context, uuid.UUID, stri
 	return nil
 }
 
+func (fakeProfileProvisioner) UserProfileExists(context.Context, uuid.UUID) (bool, error) {
+	return false, nil
+}
+
 func (m *fakeMailService) SendVerificationEmail(_ context.Context, toEmail string, token string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()

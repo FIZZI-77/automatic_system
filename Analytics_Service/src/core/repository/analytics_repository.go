@@ -504,12 +504,12 @@ func (r *AnalyticsRepoStruct) brigadePerformanceGroups(ctx context.Context, filt
 		SELECT ranked.*,ifNull(sla.breaches,0) breaches FROM ranked LEFT JOIN sla USING(ticket_id)
 	)
 	SELECT toString(` + expression + `) key,count(),
-		countIf(completed_at>execution_started_at),
-		ifNotFinite(avgIf(dateDiff('millisecond',execution_started_at,completed_at)/1000.0,completed_at>execution_started_at),0),
-		ifNotFinite(quantileExactIf(0.5)(dateDiff('millisecond',execution_started_at,completed_at)/1000.0,completed_at>execution_started_at),0),
-		ifNotFinite(quantileExactIf(0.9)(dateDiff('millisecond',execution_started_at,completed_at)/1000.0,completed_at>execution_started_at),0),
-		ifNotFinite(quantileExactIf(0.95)(dateDiff('millisecond',execution_started_at,completed_at)/1000.0,completed_at>execution_started_at),0),
-		ifNotFinite(quantileExactIf(0.99)(dateDiff('millisecond',execution_started_at,completed_at)/1000.0,completed_at>execution_started_at),0),
+		countIf(execution_started_at>toDateTime64(0,3) AND completed_at>execution_started_at),
+		ifNotFinite(avgIf(dateDiff('millisecond',execution_started_at,completed_at)/1000.0,execution_started_at>toDateTime64(0,3) AND completed_at>execution_started_at),0),
+		ifNotFinite(quantileExactIf(0.5)(dateDiff('millisecond',execution_started_at,completed_at)/1000.0,execution_started_at>toDateTime64(0,3) AND completed_at>execution_started_at),0),
+		ifNotFinite(quantileExactIf(0.9)(dateDiff('millisecond',execution_started_at,completed_at)/1000.0,execution_started_at>toDateTime64(0,3) AND completed_at>execution_started_at),0),
+		ifNotFinite(quantileExactIf(0.95)(dateDiff('millisecond',execution_started_at,completed_at)/1000.0,execution_started_at>toDateTime64(0,3) AND completed_at>execution_started_at),0),
+		ifNotFinite(quantileExactIf(0.99)(dateDiff('millisecond',execution_started_at,completed_at)/1000.0,execution_started_at>toDateTime64(0,3) AND completed_at>execution_started_at),0),
 		countIf(breaches>0),countIf(asset_id!='' AND asset_sequence>1)
 	FROM enriched GROUP BY ` + expression + ` HAVING key!='' ORDER BY key`
 	rows, err := r.db.Query(ctx, query, args...)
@@ -1358,7 +1358,7 @@ func scanLatency(row rowScanner) (models.LatencyDistribution, error) {
 
 func (r *AnalyticsRepoStruct) Overview(ctx context.Context, f models.Filter) (models.Overview, error) {
 	where, args := buildFilter(f, "occurred_at")
-	query := `WITH events AS (SELECT * FROM domain_events_projection_v1 FINAL WHERE projection_eligible AND topic='tickets.events.v1' AND ` + where + `), tickets AS (SELECT ticket_id,minIf(occurred_at,event_type='ticket.created') created_at,minIf(occurred_at,event_type IN ('ticket.assigned','ticket.status_changed') AND status IN ('ASSIGNED','IN_PROGRESS')) response_at,minIf(occurred_at,event_type='ticket.completed') completed_at,argMax(status,occurred_at) current_status FROM events WHERE ticket_id!='' GROUP BY ticket_id) SELECT countIf(created_at>toDateTime64(0,3)),countIf(completed_at>toDateTime64(0,3)),countIf(current_status='CANCELED'),countIf(current_status NOT IN ('DONE','CANCELED')),if(count()=0,0,countIf(completed_at>toDateTime64(0,3))/count()*100),ifNotFinite(avgIf(dateDiff('second',created_at,response_at),response_at>created_at),0),ifNotFinite(avgIf(dateDiff('second',created_at,completed_at),completed_at>created_at),0) FROM tickets`
+	query := `WITH events AS (SELECT * FROM domain_events_projection_v1 FINAL WHERE projection_eligible AND topic='tickets.events.v1' AND ` + where + `), tickets AS (SELECT ticket_id,minIf(occurred_at,event_type='ticket.created') created_at,minIf(occurred_at,event_type IN ('ticket.assigned','ticket.status_changed') AND status IN ('ASSIGNED','IN_PROGRESS')) response_at,minIf(occurred_at,event_type='ticket.completed') completed_at,argMax(status,occurred_at) current_status FROM events WHERE ticket_id!='' GROUP BY ticket_id) SELECT countIf(created_at>toDateTime64(0,3)),countIf(completed_at>toDateTime64(0,3)),countIf(current_status='CANCELED'),countIf(current_status NOT IN ('DONE','CANCELED')),if(count()=0,0,countIf(completed_at>toDateTime64(0,3))/count()*100),ifNotFinite(avgIf(dateDiff('second',created_at,response_at),created_at>toDateTime64(0,3) AND response_at>created_at),0),ifNotFinite(avgIf(dateDiff('second',created_at,completed_at),created_at>toDateTime64(0,3) AND completed_at>created_at),0) FROM tickets`
 	var v models.Overview
 	err := r.db.QueryRow(ctx, query, args...).Scan(&v.Created, &v.Completed, &v.Canceled, &v.Active, &v.CompletionRate, &v.AvgResponseSeconds, &v.AvgResolutionSeconds)
 	return v, err

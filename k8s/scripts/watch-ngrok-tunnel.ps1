@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [string]$Namespace = "automatic-system",
-    [int]$PollSeconds = 5
+    [int]$PollSeconds = 5,
+    [switch]$RunOnce
 )
 
 $ErrorActionPreference = "Stop"
@@ -42,9 +43,29 @@ function Get-PublicUrl {
 function Set-FrontendBaseUrl {
     param([Parameter(Mandatory = $true)][string]$PublicUrl)
 
-    $config = & kubectl -n $Namespace get configmap auth-service-config -o json | ConvertFrom-Json
+    $deploymentName = (& kubectl -n $Namespace get service auth-service -o jsonpath='{.spec.selector.app}').Trim()
     if ($LASTEXITCODE -ne 0) {
-        throw "Unable to read auth-service-config."
+        throw "Unable to resolve the active Auth Service deployment."
+    }
+    if (-not $deploymentName) {
+        $deploymentName = "auth-service"
+    }
+
+    $deployment = & kubectl -n $Namespace get deployment $deploymentName -o json | ConvertFrom-Json
+    if ($LASTEXITCODE -ne 0) {
+        throw "Unable to read deployment $deploymentName."
+    }
+    $configName = $deployment.spec.template.spec.containers[0].envFrom |
+        ForEach-Object { $_.configMapRef.name } |
+        Where-Object { $_ -like "auth-service-config*" } |
+        Select-Object -First 1
+    if (-not $configName) {
+        throw "Auth Service ConfigMap is not referenced by deployment $deploymentName."
+    }
+
+    $config = & kubectl -n $Namespace get configmap $configName -o json | ConvertFrom-Json
+    if ($LASTEXITCODE -ne 0) {
+        throw "Unable to read $configName."
     }
 
     if ($config.data.FRONTEND_BASE_URL -eq $PublicUrl) {
@@ -56,14 +77,14 @@ function Set-FrontendBaseUrl {
 
     try {
         [IO.File]::WriteAllText($patchFile, $patch, [Text.UTF8Encoding]::new($false))
-        Invoke-Kubectl -n $Namespace patch configmap auth-service-config --type merge --patch-file $patchFile | Out-Null
+        Invoke-Kubectl -n $Namespace patch configmap $configName --type merge --patch-file $patchFile | Out-Null
     }
     finally {
         Remove-Item -LiteralPath $patchFile -Force -ErrorAction SilentlyContinue
     }
 
-    Invoke-Kubectl -n $Namespace rollout restart deployment/auth-service | Out-Null
-    Invoke-Kubectl -n $Namespace rollout status deployment/auth-service --timeout=180s | Out-Null
+    Invoke-Kubectl -n $Namespace rollout restart "deployment/$deploymentName" | Out-Null
+    Invoke-Kubectl -n $Namespace rollout status "deployment/$deploymentName" --timeout=180s | Out-Null
     Write-Host "Auth Service now uses $PublicUrl"
 }
 
@@ -73,11 +94,19 @@ try {
 
     while ($true) {
         $publicUrl = Get-PublicUrl
+        if (-not $publicUrl -and $RunOnce) {
+            throw "ngrok public URL was not found in deployment logs."
+        }
+
         if ($publicUrl -and $publicUrl -ne $lastUrl) {
             Set-FrontendBaseUrl -PublicUrl $publicUrl
             [IO.File]::WriteAllText($urlFile, $publicUrl, [Text.UTF8Encoding]::new($false))
             $lastUrl = $publicUrl
             Write-Host "ngrok URL: $publicUrl"
+        }
+
+        if ($RunOnce) {
+            break
         }
 
         Start-Sleep -Seconds $PollSeconds

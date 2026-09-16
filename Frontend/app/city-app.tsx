@@ -1,19 +1,21 @@
 "use client";
 /* eslint-disable jsx-a11y/anchor-is-valid, jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-autofocus, jsx-a11y/label-has-associated-control */
 
-import { FormEvent, useEffect, useState } from "react";
-import { api, config, CurrentUser, loadSession, normalizeRole, Position, Role, saveSession, Session, Ticket } from "./api";
+import { FormEvent, useEffect, useRef, useState } from "react";
+import { api, config, CurrentUser, loadSession, normalizeRole, Position, Role, saveSession, SESSION_EXPIRED_EVENT, Session, Ticket } from "./api";
 import { CityMap } from "./city-map";
 import { BrigadeZones, type BrigadeZoneRecord } from "./brigade-zones";
 import "./workspace-pages.css";
 import { ManagementPage } from "./management-page";
 import { AnalyticsPage } from "./analytics-page";
 import { BrigadesPage } from "./brigades-page";
-import { brigadeDisplayName, defaultBrigades, loadBrigades, publishBrigades, vehicleDisplayName, type BrigadeRecord } from "./brigade-store";
+import { brigadeDisplayName, defaultBrigades, publishBrigades, vehicleDisplayName, type BrigadeRecord } from "./brigade-store";
 import { TicketWorkspace } from "./ticket-workspace";
 import { AuditPage, CreateTicketPage, NotificationsPage, ProfilePage, ReportsPage, SLAPage } from "./service-pages";
 import { AssetsPage, OperationsPage, QualificationsPage, ServiceCatalogPage } from "./admin-modules";
 import { CertificationsPage } from "./certifications-page";
+
+type AuthMode = "login" | "register" | "forgot" | "reset" | "verify";
 
 const roleNames: Record<Role, string> = { user: "Житель", worker: "Работник", dispatcher: "Диспетчер", admin: "Администратор" };
 const statusNames: Record<string, string> = { NEW: "Новая", ASSIGNED: "Назначена", IN_PROGRESS: "В работе", DONE: "Завершена", CANCELED: "Отменена" };
@@ -33,7 +35,9 @@ const demoVehicles: Position[] = [
   { vehicle_id: "v-07-2", brigade_id: "b-07", latitude: 55.77043, longitude: 37.61586, speed_kmh: 17, heading: 210, recorded_at: Date.now()/1000 },
 ];
 const operationalStatuses=new Set(["ACTIVE","AVAILABLE","BUSY","ON_ROUTE","ON_SITE"]);
-function operationalVehicles(vehicles:Position[]){const active=new Set(loadBrigades().filter(brigade=>operationalStatuses.has(brigade.status)).map(brigade=>brigade.id)),freshAfter=Date.now()/1000-120;return vehicles.filter(vehicle=>active.has(vehicle.brigade_id)&&Number(vehicle.recorded_at)>=freshAfter)}
+const vehicleFreshnessSeconds=120;
+function hasFreshPosition(vehicle:Position){return Number(vehicle.recorded_at)>=Date.now()/1000-vehicleFreshnessSeconds}
+function operationalVehicles(vehicles:Position[],brigades:BrigadeRecord[]){const active=new Set(brigades.filter(brigade=>operationalStatuses.has(brigade.status)).map(brigade=>brigade.id));return vehicles.filter(vehicle=>active.has(vehicle.brigade_id))}
 function pluralRu(value:number,one:string,few:string,many:string){const mod100=value%100,mod10=value%10;return mod100>=11&&mod100<=14?many:mod10===1?one:mod10>=2&&mod10<=4?few:many}
 
 const navByRole: Record<Role, { icon: string; label: string; id: string }[]> = {
@@ -43,21 +47,30 @@ const navByRole: Record<Role, { icon: string; label: string; id: string }[]> = {
   admin: [{icon:"⌂",label:"Показатели",id:"overview"},{icon:"◎",label:"Заявки",id:"tickets"},{icon:"♜",label:"Структура",id:"brigades"},{icon:"▦",label:"Аналитика",id:"analytics"},{icon:"▥",label:"SLA",id:"sla"},{icon:"▧",label:"Инфраструктура",id:"assets"},{icon:"⌘",label:"Регламенты",id:"catalog"},{icon:"✦",label:"Квалификации",id:"qualifications"},{icon:"◆",label:"Удостоверения",id:"certifications"},{icon:"⇄",label:"Операции",id:"operations"},{icon:"▤",label:"Отчёты",id:"reports"},{icon:"≡",label:"Аудит",id:"audit"},{icon:"⚙",label:"Управление",id:"admin"}],
 };
 
-export function CityApp() {
+export function CityApp({ initialAuthMode, initialToken }: { initialAuthMode?: AuthMode; initialToken?: string } = {}) {
   const [session, setSession] = useState<Session | null>(null);
   const [hydrated, setHydrated] = useState(false);
-  const [showLogin, setShowLogin] = useState(false);
-  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [showLogin, setShowLogin] = useState(Boolean(initialAuthMode));
+  const [authMode, setAuthMode] = useState<AuthMode>(initialAuthMode || "login");
   const [demoRole, setDemoRole] = useState<Role>("dispatcher");
   useEffect(() => {
+    const handleSessionExpired = () => {
+      setAuthMode("login");
+      setShowLogin(true);
+      setSession(null);
+    };
     const timer = window.setTimeout(() => {
       setSession(loadSession());
       setHydrated(true);
     }, 0);
-    return () => window.clearTimeout(timer);
+    window.addEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+    };
   }, []);
   if (!session && !showLogin) return <Landing interactive={hydrated} onLogin={() => { setAuthMode("login"); setShowLogin(true); }} onRegister={() => { setAuthMode("register"); setShowLogin(true); }} onDemo={(role) => { setDemoRole(role); setSession({ accessToken: "demo", refreshToken: "", expiresAt: 0, user: { user_id: "demo", email: "demo@city.local", roles: [role], permissions: [], is_active: true, email_verified: true } }); }} />;
-  if (!session) return <AuthScreen initialMode={authMode} onBack={() => setShowLogin(false)} onSuccess={(next) => { saveSession(next); setSession(next); }} />;
+  if (!session) return <AuthScreen initialMode={authMode} initialToken={initialToken} onBack={() => setShowLogin(false)} onSuccess={(next) => { saveSession(next); setSession(next); }} />;
   const role = session.accessToken === "demo" ? normalizeRole([demoRole]) : normalizeRole(session.user?.roles);
   return <DashboardV2 session={session} role={role} setDemoRole={setDemoRole} onExit={() => { if(session.accessToken!=="demo")void api(config.endpoints.logout,{},"POST",session.accessToken).catch(()=>undefined);saveSession(null);setSession(null);setShowLogin(false); }} />;
 }
@@ -74,8 +87,27 @@ function Landing({ interactive, onLogin, onRegister, onDemo }: { interactive: bo
   </main>;
 }
 
-function AuthScreen({ initialMode, onBack, onSuccess }: { initialMode: "login" | "register"; onBack: () => void; onSuccess: (s: Session) => void }) {
-  const [email, setEmail] = useState(""); const [password, setPassword] = useState(""); const [passwordRepeat, setPasswordRepeat] = useState(""); const [username, setUsername] = useState(""); const [error, setError] = useState(""); const [message, setMessage] = useState(""); const [loading, setLoading] = useState(false); const [mode,setMode]=useState<"login"|"register"|"forgot"|"reset"|"verify">(initialMode); const [token,setToken]=useState("");
+function AuthScreen({ initialMode, initialToken, onBack, onSuccess }: { initialMode: AuthMode; initialToken?: string; onBack: () => void; onSuccess: (s: Session) => void }) {
+  const [email, setEmail] = useState(""); const [password, setPassword] = useState(""); const [passwordRepeat, setPasswordRepeat] = useState(""); const [username, setUsername] = useState(""); const [error, setError] = useState(""); const [message, setMessage] = useState(""); const [loading, setLoading] = useState(false); const [mode,setMode]=useState<AuthMode>(initialMode); const [token,setToken]=useState(initialToken || "");
+  const autoVerifyStarted = useRef(false);
+  useEffect(() => {
+    if (!initialToken || !["reset", "verify"].includes(initialMode)) return;
+    window.history.replaceState(null, "", "/");
+  }, [initialMode, initialToken]);
+  useEffect(() => {
+    if (initialMode !== "verify" || !initialToken || autoVerifyStarted.current) return;
+    autoVerifyStarted.current = true;
+    setLoading(true);
+    setError("");
+    void api(config.endpoints.verifyEmail, { token: initialToken })
+      .then(() => {
+        setMessage("Email подтверждён. Теперь можно войти.");
+        setMode("login");
+        setToken("");
+      })
+      .catch((requestError) => setError(requestError instanceof Error ? requestError.message : "Не удалось подтвердить email"))
+      .finally(() => setLoading(false));
+  }, [initialMode, initialToken]);
   async function submit(e: FormEvent) { e.preventDefault(); setLoading(true); setError(""); try { const login = await api<{access_token:string;refresh_token:string;access_expires_at_unix:number}>(config.endpoints.login,{email,password,client_id:"city-web"}); const user = await api<CurrentUser>(config.endpoints.me,undefined,"GET",login.access_token); onSuccess({ accessToken:login.access_token,refreshToken:login.refresh_token,expiresAt:login.access_expires_at_unix,user }); } catch (e) { setError(e instanceof Error ? e.message : "Не удалось войти"); } finally { setLoading(false); } }
   async function register(e: FormEvent) { e.preventDefault(); setError(""); setMessage(""); if(password!==passwordRepeat){setError("Пароли не совпадают");return} setLoading(true); try { await api(config.endpoints.register,{email,password,username}); setMessage("Аккаунт создан. Теперь войдите с указанными данными."); setMode("login"); setPassword(""); setPasswordRepeat(""); } catch(e) { setError(e instanceof Error?e.message:"Не удалось зарегистрироваться"); } finally { setLoading(false); } }
   async function recover(e:FormEvent){e.preventDefault();setLoading(true);setError("");try{if(mode==="forgot"){await api(config.endpoints.requestPasswordReset,{email});setMode("reset")}else if(mode==="reset"){await api(config.endpoints.resetPassword,{token,new_password:password});setMode("login");setToken("");setPassword("")}else if(mode==="verify"){await api(config.endpoints.verifyEmail,{token});setMode("login");setToken("")}}catch(e){setError(e instanceof Error?e.message:"Операция не выполнена")}finally{setLoading(false)}}
@@ -117,6 +149,7 @@ function DashboardV2({ session, role, setDemoRole, onExit }: {session:Session;ro
   const [accountName,setAccountName]=useState(session.accessToken==="demo"?`Демо: ${roleNames[role]}`:(session.user?.email?.split("@")[0]||"Профиль"));
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [vehicles, setVehicles] = useState<Position[]>([]);
+  const [loadedBrigades, setLoadedBrigades] = useState<BrigadeRecord[]>([]);
   const [selected, setSelected] = useState<string>();
   const [notice, setNotice] = useState("");
   const [zones, setZones] = useState<BrigadeZoneRecord[]>([]);
@@ -150,14 +183,11 @@ function DashboardV2({ session, role, setDemoRole, onExit }: {session:Session;ro
         if (demo) {
           const demoBrigades=departmentId?defaultBrigades.filter(item=>item.department_id===departmentId):defaultBrigades;
           const brigadeIds=new Set(demoBrigades.map(item=>item.id));
-          publishBrigades(demoBrigades);
-          setTickets(departmentId?demoTickets.filter(item=>item.department_id===departmentId):demoTickets);
-          setVehicles(departmentId?demoVehicles.filter(item=>brigadeIds.has(item.brigade_id)):demoVehicles);
-          setOverviewMetrics({avg_response_seconds:1080}); setSlaMetrics({breach_rate:6,response_warnings:2,resolution_warnings:0}); return;
+          if(active){publishBrigades(demoBrigades);setLoadedBrigades(demoBrigades);setTickets(departmentId?demoTickets.filter(item=>item.department_id===departmentId):demoTickets);setVehicles(departmentId?demoVehicles.filter(item=>brigadeIds.has(item.brigade_id)):demoVehicles);setOverviewMetrics({avg_response_seconds:1080});setSlaMetrics({breach_rate:6,response_warnings:2,resolution_warnings:0})}return;
         }
         if(role==="user"){
           const ticketResult=await api<{tickets:Ticket[]}>(config.endpoints.ticketsList,{limit:100,offset:0,sort_by:"created_at",sort_order:"desc"},"POST",session.accessToken);
-          publishBrigades([]);if(active){setTickets(ticketResult.tickets||[]);setVehicles([]);setZones([]);setOverviewMetrics({avg_response_seconds:0});setSlaMetrics({breach_rate:0,response_warnings:0,resolution_warnings:0})}return;
+          if(active){publishBrigades([]);setLoadedBrigades([]);setTickets(ticketResult.tickets||[]);setVehicles([]);setZones([]);setOverviewMetrics({avg_response_seconds:0});setSlaMetrics({breach_rate:0,response_warnings:0,resolution_warnings:0})}return;
         }
         if(role==="worker"){
           const [ticketResult,brigadeResult]=await Promise.all([api<{tickets:Ticket[]}>(config.endpoints.ticketsList,{limit:100,offset:0,sort_by:"created_at",sort_order:"desc"},"POST",session.accessToken),api<{brigade:BrigadeRecord}>(config.endpoints.brigadeByUser,{user_id:session.user?.user_id,only_active:true},"POST",session.accessToken).catch(()=>undefined)]);
@@ -178,7 +208,7 @@ function DashboardV2({ session, role, setDemoRole, onExit }: {session:Session;ro
             .filter(ticket=>ticket.brigade_id===brigadeResult?.brigade?.id&&Number(ticket.assigned_at)>Number(ticket.created_at))
             .map(ticket=>Number(ticket.assigned_at)-Number(ticket.created_at));
           const avgResponseSeconds=responseTimes.length?responseTimes.reduce((sum,value)=>sum+value,0)/responseTimes.length:0;
-          publishBrigades(ownBrigades);if(active){setTickets(workerTickets);setVehicles(ownVehicles);setZones([]);setOverviewMetrics({avg_response_seconds:avgResponseSeconds});setSlaMetrics({breach_rate:0,response_warnings:0,resolution_warnings:0})}return;
+          if(active){publishBrigades(ownBrigades);setLoadedBrigades(ownBrigades);setTickets(workerTickets);setVehicles(ownVehicles);setZones([]);setOverviewMetrics({avg_response_seconds:avgResponseSeconds});setSlaMetrics({breach_rate:0,response_warnings:0,resolution_warnings:0})}return;
         }
         const departmentFilter=departmentId?{department_id:departmentId}:{};
         const [ticketResult, brigadeResult, analyticsResult, slaResult] = await Promise.all([
@@ -188,7 +218,6 @@ function DashboardV2({ session, role, setDemoRole, onExit }: {session:Session;ro
           api<{breach_rate:number;response_warnings:number;resolution_warnings:number}>(config.endpoints.analyticsSlaSummary, { filter:departmentFilter }, "POST", session.accessToken),
         ]);
         const brigades = (brigadeResult.brigades || []).filter(item=>!departmentId||item.department_id===departmentId);
-        publishBrigades(brigades);
         let positions: Position[] = [];
         if (brigades.length) {
           const historyTo=new Date(),historyFrom=new Date(historyTo.getTime()-7*24*60*60*1000);
@@ -210,7 +239,7 @@ function DashboardV2({ session, role, setDemoRole, onExit }: {session:Session;ro
             return [{ id: zone.id, brigade_id: zone.brigade_id, name: zone.name, priority: zone.priority, points: ring.slice(0, -1).map(([lon, lat]:[number,number]) => [lat, lon] as [number,number]) }];
           } catch { return []; }
         });
-        if (active) { setTickets((ticketResult.tickets || []).filter(item=>!departmentId||item.department_id===departmentId)); setVehicles(positions); setZones(loadedZones); setOverviewMetrics(analyticsResult); setSlaMetrics(slaResult); }
+        if (active) { publishBrigades(brigades); setLoadedBrigades(brigades); setTickets((ticketResult.tickets || []).filter(item=>!departmentId||item.department_id===departmentId)); setVehicles(positions); setZones(loadedZones); setOverviewMetrics(analyticsResult); setSlaMetrics(slaResult); }
       } catch (error) { if (active) setNotice(error instanceof Error ? error.message : "Ошибка загрузки"); }
     })();
     return () => { active = false; };
@@ -236,8 +265,9 @@ function DashboardV2({ session, role, setDemoRole, onExit }: {session:Session;ro
     return () => window.clearTimeout(timeout);
   }, [notice]);
   const activeTickets = tickets.filter(ticket => !["DONE", "CANCELED"].includes(ticket.status));
-  const onlineVehicles = operationalVehicles(vehicles);
-  const activeBrigades = loadBrigades().filter(brigade=>operationalStatuses.has(brigade.status));
+  const mapVehicles = operationalVehicles(vehicles,loadedBrigades);
+  const onlineVehicles = mapVehicles.filter(hasFreshPosition);
+  const activeBrigades = loadedBrigades.filter(brigade=>operationalStatuses.has(brigade.status));
   const scopedSession:Session=dispatcherDepartmentId&&session.user?{...session,user:{...session.user,department_id:dispatcherDepartmentId}}:session;
   const navigation = [...navByRole[role], ...(role === "dispatcher" ? [managementNavigation] : []), ...(["dispatcher", "admin"].includes(role) ? [extraNavigation] : [])];
   const normalizedSearch=searchQuery.trim().toLocaleLowerCase("ru-RU");
@@ -253,7 +283,7 @@ function DashboardV2({ session, role, setDemoRole, onExit }: {session:Session;ro
       {notice && <div className="notice app-toast" role="status" aria-live="polite"><span>{notice}</span><button aria-label="Закрыть уведомление" onClick={() => setNotice("")}>×</button></div>}
       {section === "admin" || section === "management" ? <ManagementPage session={scopedSession} role={role} onNotice={setNotice}/> : section === "zones" ? <BrigadeZones vehicles={vehicles} session={scopedSession} role={role} zones={zones} onSaved={zone => setZones(current => [...current.filter(item => item.id !== zone.id), zone])} onDeleted={id=>setZones(current=>current.filter(item=>item.id!==id))} onNotice={setNotice}/> : section === "overview" || section === "map" ? <>
         {section === "overview" && <section className="kpis"><article><span>Активные заявки</span><b>{activeTickets.length}</b><small>По данным Ticket Service</small></article><article><span>Бригады на линии</span><b>{activeBrigades.length}</b><small>{onlineVehicles.length} {pluralRu(onlineVehicles.length,"машина","машины","машин")} {onlineVehicles.length===1?"передаёт":"передают"} координаты</small></article><article><span>Среднее время реакции</span><b>{Math.round((Number(overviewMetrics.avg_response_seconds)||0)/60)} <em>мин</em></b><small>{role==="worker"?"От создания до назначения заявок бригады":"По событиям Analytics Service"}</small></article><article><span>В рамках SLA</span><b>{Math.max(0,Math.round(100-(Number(slaMetrics.breach_rate)||0)))}<em>%</em></b><small>{(Number(slaMetrics.response_warnings)||0)+(Number(slaMetrics.resolution_warnings)||0)} требуют внимания</small></article></section>}
-        <section className="dashboard-grid"><div className="map-card"><div className="card-head"><div><h2>Инфраструктурная карта Москвы</h2><p>Открытые городские данные, заявки, маршруты и машины</p></div></div><CityMap tickets={activeTickets} vehicles={onlineVehicles} selected={selected} session={scopedSession} onSelect={setSelected} onNotice={setNotice}/></div><div className="feed-card"><div className="card-head"><div><h2>Оперативная лента</h2><p>{activeTickets.length} {pluralRu(activeTickets.length,"инцидент","инцидента","инцидентов")} · {onlineVehicles.length} {pluralRu(onlineVehicles.length,"машина","машины","машин")}</p></div></div><TicketCards tickets={activeTickets} selected={selected} onSelect={setSelected}/><VehicleGroups vehicles={onlineVehicles} tickets={activeTickets} selected={selected} onSelect={setSelected}/></div></section>
+        <section className="dashboard-grid"><div className="map-card"><div className="card-head"><div><h2>Инфраструктурная карта Москвы</h2><p>Открытые городские данные, заявки, маршруты и машины</p></div></div><CityMap tickets={activeTickets} vehicles={mapVehicles} selected={selected} session={scopedSession} onSelect={setSelected} onNotice={setNotice}/></div><div className="feed-card"><div className="card-head"><div><h2>Оперативная лента</h2><p>{activeTickets.length} {pluralRu(activeTickets.length,"инцидент","инцидента","инцидентов")} · {mapVehicles.length} {pluralRu(mapVehicles.length,"машина","машины","машин")} на карте</p></div></div><TicketCards tickets={activeTickets} selected={selected} onSelect={setSelected}/><VehicleGroups vehicles={mapVehicles} brigades={loadedBrigades} tickets={activeTickets} selected={selected} onSelect={setSelected}/></div></section>
       </> : <SectionPage section={section} tickets={tickets} vehicles={vehicles} zones={zones} session={scopedSession} role={role} onTicketUpdate={ticket=>setTickets(current=>current.map(item=>item.id===ticket.id?ticket:item))} onTicketCreated={ticket=>setTickets(current=>[ticket,...current])} onNotice={setNotice} onOpenMap={id => { setSelected(id); setSection("map"); }} onOpenZones={() => setSection("zones")}/>} 
     </main></div>;
 }
@@ -262,8 +292,9 @@ function TicketCards({ tickets, selected, onSelect }: { tickets: Ticket[]; selec
   return <div className="ticket-list">{tickets.slice(0,6).map(ticket => <button key={ticket.id} className={selected === ticket.id ? "selected" : ""} onClick={() => onSelect(ticket.id)}><span className={`priority ${ticket.priority.toLowerCase()}`}/><div><b>{ticket.title}</b><em className={`status ${ticket.status.toLowerCase()}`}>{statusNames[ticket.status] || ticket.status}</em></div></button>)}</div>;
 }
 
-function vehicleState(vehicle:Position,tickets:Ticket[]){
-  const brigade=loadBrigades().find(item=>item.id===vehicle.brigade_id),job=tickets.find(ticket=>ticket.brigade_id===vehicle.brigade_id&&["ASSIGNED","IN_PROGRESS"].includes(ticket.status));
+function vehicleState(vehicle:Position,brigades:BrigadeRecord[],tickets:Ticket[]){
+  if(!hasFreshPosition(vehicle))return "Последняя позиция";
+  const brigade=brigades.find(item=>item.id===vehicle.brigade_id),job=tickets.find(ticket=>ticket.brigade_id===vehicle.brigade_id&&["ASSIGNED","IN_PROGRESS"].includes(ticket.status));
   if(brigade?.status==="ON_ROUTE"||(job&&Number(vehicle.speed_kmh)>3))return "В пути";
   if(brigade?.status==="ON_SITE")return "На месте";
   if(brigade?.status==="AVAILABLE")return "Свободна";
@@ -271,9 +302,9 @@ function vehicleState(vehicle:Position,tickets:Ticket[]){
   return "На линии";
 }
 
-function VehicleGroups({vehicles,tickets,selected,onSelect}:{vehicles:Position[];tickets:Ticket[];selected?:string;onSelect:(id:string)=>void}){
+function VehicleGroups({vehicles,brigades,tickets,selected,onSelect}:{vehicles:Position[];brigades:BrigadeRecord[];tickets:Ticket[];selected?:string;onSelect:(id:string)=>void}){
   const groups=Array.from(new Set(vehicles.map(vehicle=>vehicle.brigade_id))).map(brigadeId=>({brigadeId,vehicles:vehicles.filter(vehicle=>vehicle.brigade_id===brigadeId)}));
-  return <div className="vehicle-list"><div className="list-caption">Машины по бригадам</div>{groups.map(group=>{const active=group.vehicles.some(vehicle=>vehicle.vehicle_id===selected);return <button key={group.brigadeId} className={active?"selected":""} onClick={()=>onSelect(group.vehicles[0].vehicle_id)}><i>▲</i><div><b>{brigadeDisplayName(group.brigadeId)}</b>{group.vehicles.map(vehicle=><span className="vehicle-feed-row" key={vehicle.vehicle_id}><small>{vehicleDisplayName(vehicle.vehicle_id)}</small><em>{vehicleState(vehicle,tickets)}</em></span>)}</div><span>⌖</span></button>})}</div>
+  return <div className="vehicle-list"><div className="list-caption">Машины по бригадам</div>{groups.map(group=>{const active=group.vehicles.some(vehicle=>vehicle.vehicle_id===selected),brigadeName=brigades.find(brigade=>brigade.id===group.brigadeId)?.name||brigadeDisplayName(group.brigadeId);return <button key={group.brigadeId} className={active?"selected":""} onClick={()=>onSelect(group.vehicles[0].vehicle_id)}><i>▲</i><div><b>{brigadeName}</b>{group.vehicles.map(vehicle=><span className="vehicle-feed-row" key={vehicle.vehicle_id}><small>{vehicleDisplayName(vehicle.vehicle_id)}</small><em>{vehicleState(vehicle,brigades,tickets)}</em></span>)}</div><span>⌖</span></button>})}</div>
 }
 
 function SectionPage({ section, tickets, vehicles, zones, session, role, onTicketUpdate, onTicketCreated, onNotice, onOpenMap, onOpenZones }: { section: string; tickets: Ticket[]; vehicles: Position[]; zones: BrigadeZoneRecord[]; session:Session; role:Role; onTicketUpdate:(ticket:Ticket)=>void; onTicketCreated:(ticket:Ticket)=>void; onNotice:(text:string)=>void; onOpenMap: (id: string) => void; onOpenZones: () => void }) {

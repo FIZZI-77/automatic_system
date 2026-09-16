@@ -47,7 +47,7 @@ func (s *Service) Consume(c context.Context, e models.TicketEvent) error {
 		return fmt.Errorf("%w: invalid ticket event", models.ErrInvalidArgument)
 	}
 	var rule *models.Rule
-	if e.EventType == "ticket.created" || e.EventType == "ticket.updated" {
+	if e.DepartmentID != uuid.Nil && e.CategoryID != uuid.Nil && e.Priority.Valid() {
 		var err error
 		rule, err = s.repo.MatchRule(c, e.DepartmentID, e.CategoryID, e.Priority)
 		if err != nil {

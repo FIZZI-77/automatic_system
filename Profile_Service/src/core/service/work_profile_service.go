@@ -251,22 +251,6 @@ func (s *WorkProfileServiceStruct) SetWorkProfileStatus(ctx context.Context, in 
 		return nil, validationError(method, err)
 	}
 
-	current, err := s.repo.GetWorkProfileByID(ctx, &models.GetWorkProfileByIDInput{ID: in.ID})
-	if err != nil {
-		logOperationFailed(logger, method, start, err, fields...)
-		return nil, wrapServiceError(method, err)
-	}
-	if !isAdmin(in.ActorRoles) {
-		if !isSelf(in.ActorUserID, current.Details.UserProfile.UserID) {
-			logPermissionDenied(logger, method, start, fields...)
-			return nil, permissionDenied(method)
-		}
-		if !isWorkerStatusTransitionAllowed(current.Details.WorkProfile.Status, in.Status) {
-			logOperationFailed(logger, method, start, models.ErrInvalidStatus, fields...)
-			return nil, wrapServiceError(method, models.ErrInvalidStatus)
-		}
-	}
-
 	result, err := runCommand(ctx, s.repo, method, in.ActorUserID, in, func(ctx context.Context) (*models.SetWorkProfileStatusResult, uuid.UUID, error) {
 		result, err := s.repo.SetWorkProfileStatus(ctx, in)
 		if err != nil {

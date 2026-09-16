@@ -34,6 +34,8 @@ const assetTypes:Record<LayerId,string>={districts:"ADMINISTRATIVE_AREA",roads:"
 const assetStatusLabels=["Неизвестно","Запланирован","Установлен","Активен","Повреждён","На ремонте","Требует замены","Заменён","Выведен из эксплуатации"];
 const riskLabels=["Неизвестно","Низкий","Средний","Высокий","Критический"];
 function enumText(value:string|number|undefined,labels:string[]){return typeof value==="number"?labels[value]||String(value):value||"Не указано"}
+function hasFreshPosition(position:Position){return Number(position.recorded_at)>=Date.now()/1000-120}
+function positionTitle(position:Position){const recordedAt=new Date(Number(position.recorded_at)*1000);return hasFreshPosition(position)?"Передаёт координаты":`Последняя позиция: ${recordedAt.toLocaleString("ru-RU")}`}
 
 function decodePolyline6(encoded: string): RoutePoint[] {
   const points: RoutePoint[] = []; let index = 0; let latitude = 0; let longitude = 0;
@@ -164,7 +166,7 @@ export function CityMap({ tickets, vehicles, selected, session, onSelect, onNoti
       });
       if (route.length > 1) L.polyline(route, { className: "assigned-route", color: "#547b68", weight: 5, opacity: .95 }).addTo(map);
       tickets.forEach(ticket => { const icon = L.divIcon({ className: "leaflet-div-icon-clean", html: `<span class="leaflet-incident ${selected === ticket.id ? "selected" : ""} ${ticket.priority.toLowerCase()}">!</span>`, iconSize: [34, 34], iconAnchor: [17, 17] }); L.marker([ticket.latitude, ticket.longitude], { icon, title: `${ticket.title} — ${ticket.address}`, zIndexOffset: selected === ticket.id ? 1000 : 0 }).on("click", () => onSelect(ticket.id)).addTo(map); });
-      vehicles.forEach(vehicle => { const active = selected === vehicle.vehicle_id || selected === vehicle.brigade_id; const icon = L.divIcon({ className: "leaflet-div-icon-clean", html: `<span class="leaflet-vehicle ${active ? "selected" : ""}" style="transform:rotate(${vehicle.heading}deg)">▲</span>`, iconSize: [38, 30], iconAnchor: [19, 15] }); L.marker([vehicle.latitude, vehicle.longitude], { icon, title: `${vehicleDisplayName(vehicle.vehicle_id)} · ${brigadeDisplayName(vehicle.brigade_id)}`, zIndexOffset: active ? 1200 : 500 }).on("click", () => onSelect(vehicle.vehicle_id)).addTo(map); });
+      vehicles.forEach(vehicle => { const active = selected === vehicle.vehicle_id || selected === vehicle.brigade_id; const stale = !hasFreshPosition(vehicle); const icon = L.divIcon({ className: "leaflet-div-icon-clean", html: `<span class="leaflet-vehicle ${active ? "selected" : ""} ${stale ? "stale" : ""}" style="transform:rotate(${vehicle.heading}deg)">▲</span>`, iconSize: [38, 30], iconAnchor: [19, 15] }); L.marker([vehicle.latitude, vehicle.longitude], { icon, title: `${vehicleDisplayName(vehicle.vehicle_id)} · ${brigadeDisplayName(vehicle.brigade_id)} · ${positionTitle(vehicle)}`, zIndexOffset: active ? 1200 : 500 }).on("click", () => onSelect(vehicle.vehicle_id)).addTo(map); });
       invalidateTimer = window.setTimeout(() => {
         if (!disposed) map.invalidateSize();
       }, 50);

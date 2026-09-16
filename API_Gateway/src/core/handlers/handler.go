@@ -109,6 +109,7 @@ func NewHandler(
 
 func (h *Handler) InitRouters() *gin.Engine {
 	router := gin.New()
+	configureTrustedProxies(router)
 	allowedOrigins := map[string]struct{}{}
 
 	for _, origin := range strings.Split(envOrDefault("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"), ",") {
@@ -513,6 +514,20 @@ func (h *Handler) InitRouters() *gin.Engine {
 	}
 
 	return router
+}
+
+func configureTrustedProxies(router *gin.Engine) {
+	raw := envOrDefault("TRUSTED_PROXIES", "127.0.0.0/8")
+	proxies := make([]string, 0)
+	for _, proxy := range strings.Split(raw, ",") {
+		if value := strings.TrimSpace(proxy); value != "" {
+			proxies = append(proxies, value)
+		}
+	}
+
+	if err := router.SetTrustedProxies(proxies); err != nil {
+		panic("configure trusted proxies: " + err.Error())
+	}
 }
 
 func envOrDefault(key, fallback string) string {

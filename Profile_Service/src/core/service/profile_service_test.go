@@ -430,6 +430,9 @@ func TestWorkProfileService_SetWorkProfileStatus_WorkerTransitionRules(t *testin
 			}, nil
 		},
 		setWorkProfileStatusFunc: func(ctx context.Context, in *models.SetWorkProfileStatusInput) (*models.SetWorkProfileStatusResult, error) {
+			if in.Status == models.WorkProfileStatusSuspended {
+				return nil, models.ErrInvalidStatus
+			}
 			setCalled = true
 			if in.Status != models.WorkProfileStatusOnShift {
 				t.Fatalf("expected status ON_SHIFT, got %s", in.Status)
