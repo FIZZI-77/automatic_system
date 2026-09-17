@@ -1,4 +1,9 @@
 grpc_port: 50065
 kafka_brokers: ["kafka-1:9092","kafka-2:9092","kafka-3:9092"]
 kafka_asset_topic: "assets.events.v1"
+ticket_service_addr: "ticket-service:50052"
+critical_risk_ticket_group_id: "asset-critical-ticket-v1"
+critical_risk_ticket_category_id: ""
+critical_risk_ticket_requester_id: ""
+critical_risk_ticket_actor_roles: "dispatcher"
 log_level: "info"

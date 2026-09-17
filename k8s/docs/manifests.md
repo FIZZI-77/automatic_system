@@ -186,7 +186,7 @@ SQL-миграции приложений создаются актуальны�
 
 | Каталог | Назначение |
 |---|---|
-| `ngrok` | Туннель к Istio ingress; токен создается вне Git. |
+| `tailscale-funnel` | Документация публичного HTTPS-туннеля Tailscale к локальному Istio ingress без покупки домена. |
 | `optional/transponders` | Автоматический Simulator и сценарий отмены/ошибок. |
 | `load-testing/k6-job.yaml` | k6 внутри кластера и его NetworkPolicy. |
 | `mesh/scenarios/api-gateway-canary.yaml` | Ручной учебный сценарий 90/10, не входящий в обычную установку. |

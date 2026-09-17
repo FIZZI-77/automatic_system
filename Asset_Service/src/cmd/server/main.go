@@ -7,11 +7,14 @@ import (
 	"asset/src/core/handler"
 	"asset/src/core/repository"
 	"asset/src/core/service"
+	"asset/src/infrastructure/criticalticket"
 	"asset/src/infrastructure/outboxrelay"
 	"context"
 	assetv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/asset/v1"
+	ticketv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/ticket/v1"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health"
 	healthv1 "google.golang.org/grpc/health/grpc_health_v1"
 	"log"
@@ -57,6 +60,7 @@ func main() {
 		w := outboxrelay.New(db, brokers, env("KAFKA_ASSET_TOPIC", "assets.events.v1"), l)
 		defer w.Close()
 		go w.Run(ctx)
+		startCriticalTicketWorker(ctx, brokers, l)
 	}
 	lis, e := net.Listen("tcp", ":"+env("GRPC_PORT", "50065"))
 	if e != nil {
@@ -99,4 +103,44 @@ func split(v string) []string {
 		}
 	}
 	return o
+}
+
+func startCriticalTicketWorker(ctx context.Context, brokers []string, logger *zap.Logger) {
+	categoryID := env("CRITICAL_RISK_TICKET_CATEGORY_ID", "")
+	requesterID := env("CRITICAL_RISK_TICKET_REQUESTER_ID", "")
+	if categoryID == "" || requesterID == "" {
+		logger.Info("critical risk ticket worker disabled")
+		return
+	}
+
+	conn, err := grpc.NewClient(env("TICKET_SERVICE_ADDR", "ticket-service:50052"), grpc.WithTransportCredentials(insecure.NewCredentials()), telemetry.GRPCClientOption())
+	if err != nil {
+		logger.Error("critical risk ticket worker disabled", zap.Error(err))
+		return
+	}
+
+	worker, err := criticalticket.New(criticalticket.Config{
+		Brokers:     brokers,
+		Topic:       env("KAFKA_ASSET_TOPIC", "assets.events.v1"),
+		GroupID:     env("CRITICAL_RISK_TICKET_GROUP_ID", "asset-critical-ticket-v1"),
+		CategoryID:  categoryID,
+		RequesterID: requesterID,
+		ActorRoles:  env("CRITICAL_RISK_TICKET_ACTOR_ROLES", "dispatcher"),
+	}, ticketv1.NewTicketServiceClient(conn), logger)
+	if err != nil {
+		logger.Error("critical risk ticket worker disabled", zap.Error(err))
+		_ = conn.Close()
+		return
+	}
+
+	go func() {
+		<-ctx.Done()
+		_ = worker.Close()
+		_ = conn.Close()
+	}()
+	go func() {
+		if err := worker.Run(ctx); err != nil && ctx.Err() == nil {
+			logger.Error("critical risk ticket worker stopped", zap.Error(err))
+		}
+	}()
 }

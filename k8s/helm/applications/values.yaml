@@ -250,6 +250,12 @@ applications:
       repository: automatic-system/asset
       tag: dev
       pullPolicy: IfNotPresent
+    criticalRiskTicket:
+      enabled: false
+      categoryId: ""
+      requesterId: ""
+      actorRoles: dispatcher
+      groupId: asset-critical-ticket-v1
   sla:
     replicaCount: 2
     image:
