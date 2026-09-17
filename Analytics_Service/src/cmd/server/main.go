@@ -44,7 +44,18 @@ func main() {
 		log.Fatal(e)
 	}
 	defer logger.Sync()
-	db, e := clickhouse.Open(&clickhouse.Options{Addr: split(required("CLICKHOUSE_ADDR")), Auth: clickhouse.Auth{Database: env("CLICKHOUSE_DATABASE", "analytics"), Username: env("CLICKHOUSE_USER", "default"), Password: os.Getenv("CLICKHOUSE_PASSWORD")}})
+	db, e := clickhouse.Open(&clickhouse.Options{
+		Addr: split(required("CLICKHOUSE_ADDR")),
+		Auth: clickhouse.Auth{
+			Database: env("CLICKHOUSE_DATABASE", "analytics"),
+			Username: env("CLICKHOUSE_USER", "default"),
+			Password: os.Getenv("CLICKHOUSE_PASSWORD"),
+		},
+		Settings: clickhouse.Settings{
+			"max_threads": 1,
+		},
+		MaxOpenConns: 4,
+	})
 	if e != nil {
 		logger.Fatal("clickhouse failed", zap.Error(e))
 	}

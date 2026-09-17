@@ -13,6 +13,7 @@ import (
 func (r *RouteRepo) UpdateStatus(
 	ctx context.Context,
 	id string,
+	expectedStatus models.RouteStatus,
 	status models.RouteStatus,
 ) (*models.Route, error) {
 	tx, err := r.writePool.Begin(ctx)
@@ -23,7 +24,7 @@ func (r *RouteRepo) UpdateStatus(
 
 	const query = `UPDATE routes
  SET status = $2, updated_at = now()
- WHERE id = $1
+ WHERE id = $1 AND status = $3
  RETURNING
   id,
   ticket_id,
@@ -38,9 +39,9 @@ func (r *RouteRepo) UpdateStatus(
   created_at,
   updated_at`
 
-	route, err := scanRoute(tx.QueryRow(ctx, query, id, status))
+	route, err := scanRoute(tx.QueryRow(ctx, query, id, status, expectedStatus))
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, models.ErrNotFound
+		return nil, fmt.Errorf("%w: route status changed concurrently", models.ErrConflict)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("repository: update route status: %w", err)

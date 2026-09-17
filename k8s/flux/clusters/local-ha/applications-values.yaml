@@ -14,7 +14,7 @@ globalImage:
     frontend: sha-a56e87d30ce1
     location: sha-51f459b97f9c
     notification: sha-51f459b97f9c
-    profile: sha-e461d2c3fcef
+    profile: sha-2f192325a837
     report: sha-51f459b97f9c
     routing: sha-e461d2c3fcef
     sla: sha-51f459b97f9c

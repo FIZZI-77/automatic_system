@@ -20,6 +20,7 @@ type Worker struct {
 	logger  *zap.Logger
 	topic   string
 	group   string
+	writer  *kafka.Writer
 }
 
 type EventConsumer interface {
@@ -34,6 +35,7 @@ func New(brokers []string, topic, group string, service EventConsumer, logger *z
 		logger:  logger,
 		topic:   topic,
 		group:   group,
+		writer:  &kafka.Writer{Addr: kafka.TCP(brokers...), RequiredAcks: kafka.RequireAll},
 	}
 }
 
@@ -57,7 +59,12 @@ func (w *Worker) Run(ctx context.Context) error {
 		if err = json.Unmarshal(message.Value, &payload); err != nil {
 			telemetry.End(span, err)
 			w.logger.Error("invalid event", zap.String("topic", w.topic), zap.Error(err))
-			_ = w.reader.CommitMessages(ctx, message)
+			if err = w.publishDLQ(messageCtx, message, err); err != nil {
+				return err
+			}
+			if err = w.reader.CommitMessages(ctx, message); err != nil {
+				return err
+			}
 			continue
 		}
 		headers := make(map[string]string, len(message.Headers))
@@ -72,11 +79,13 @@ func (w *Worker) Run(ctx context.Context) error {
 		if action == "" {
 			action = "unknown." + strconv.FormatInt(message.Offset, 10)
 		}
-		err = w.service.Consume(messageCtx, models.Event{ID: id, Type: action, Topic: w.topic, Payload: payload, Headers: headers, Timestamp: message.Time})
+		event := models.Event{ID: id, Type: action, Topic: w.topic, Payload: payload, Headers: headers, Timestamp: message.Time}
+		err = retryCurrent(messageCtx, func() error { return w.service.Consume(messageCtx, event) }, func(attempt int, retryErr error) {
+			w.logger.Error("event processing failed; retrying current offset", zap.String("topic", w.topic), zap.Int("attempt", attempt), zap.Int64("offset", message.Offset), zap.Error(retryErr))
+		})
 		if err != nil {
 			telemetry.End(span, err)
-			w.logger.Error("event processing failed", zap.String("topic", w.topic), zap.Error(err))
-			continue
+			return nil
 		}
 		if err = w.reader.CommitMessages(ctx, message); err != nil {
 			telemetry.End(span, err)
@@ -87,7 +96,44 @@ func (w *Worker) Run(ctx context.Context) error {
 }
 
 func (w *Worker) Close() error {
-	return w.reader.Close()
+	return errors.Join(w.reader.Close(), w.writer.Close())
+}
+
+func (w *Worker) publishDLQ(ctx context.Context, message kafka.Message, processErr error) error {
+	return telemetry.WriteKafka(ctx, w.writer, dlqMessage(w.topic, message, processErr))
+}
+
+func dlqMessage(topic string, message kafka.Message, processErr error) kafka.Message {
+	errorText := processErr.Error()
+	if len(errorText) > 1000 {
+		errorText = errorText[:1000]
+	}
+	headers := append([]kafka.Header{}, message.Headers...)
+	headers = append(headers,
+		kafka.Header{Key: "x-error", Value: []byte(errorText)},
+		kafka.Header{Key: "x-original-topic", Value: []byte(message.Topic)},
+		kafka.Header{Key: "x-original-partition", Value: []byte(strconv.Itoa(message.Partition))},
+		kafka.Header{Key: "x-original-offset", Value: []byte(strconv.FormatInt(message.Offset, 10))},
+	)
+	return kafka.Message{Topic: topic + ".dlq", Key: message.Key, Value: message.Value, Headers: headers, Time: time.Now().UTC()}
+}
+
+func retryCurrent(ctx context.Context, process func() error, onError func(int, error)) error {
+	for attempt := 1; ; attempt++ {
+		if err := process(); err == nil {
+			return nil
+		} else {
+			onError(attempt, err)
+		}
+		delay := time.Duration(1<<min(attempt-1, 5)) * time.Second
+		timer := time.NewTimer(delay)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
+	}
 }
 func first(values ...string) string {
 	for _, item := range values {

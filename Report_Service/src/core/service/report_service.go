@@ -98,12 +98,12 @@ func (s *ReportServiceStruct) ProcessNext(c context.Context) (bool, error) {
 			var file uuid.UUID
 			file, e = s.files.Upload(c, x.ID, x.RequestedBy, x.ActorRoles, artifact)
 			if e == nil {
-				e = s.repo.Complete(c, x.ID, file)
+				e = s.repo.Complete(c, x.ID, file, x.Attempts)
 			}
 		}
 	}
 	if e != nil {
-		if failErr := s.repo.Fail(c, x.ID, e.Error()); failErr != nil {
+		if failErr := s.repo.Fail(c, x.ID, x.Attempts, e.Error()); failErr != nil {
 			s.log().Error("report failure state update failed", zap.String("report_id", x.ID.String()), zap.Error(failErr))
 		}
 		s.log().Error("report generation failed", zap.String("report_id", x.ID.String()), zap.Error(e))

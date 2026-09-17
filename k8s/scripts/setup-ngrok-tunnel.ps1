@@ -10,6 +10,7 @@ $repositoryRoot = Resolve-Path (Join-Path $PSScriptRoot "../..")
 $runtimeDirectory = Join-Path $repositoryRoot ".runtime"
 $urlFile = Join-Path $runtimeDirectory "ngrok-url.txt"
 $urlPattern = 'https://[a-z0-9.-]+\.ngrok(?:-free)?\.(?:app|dev)'
+$watcherPath = Join-Path $PSScriptRoot "watch-ngrok-tunnel.ps1"
 
 function Invoke-Kubectl {
     param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments)
@@ -62,7 +63,6 @@ function Get-PublicUrl {
 }
 
 function Start-Watcher {
-    $watcherPath = Join-Path $PSScriptRoot "watch-ngrok-tunnel.ps1"
     Start-Process powershell.exe `
         -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $watcherPath, "-Namespace", $Namespace) `
         -WindowStyle Hidden | Out-Null
@@ -99,6 +99,10 @@ if (-not $publicUrl) {
 
 New-Item -ItemType Directory -Force -Path $runtimeDirectory | Out-Null
 [IO.File]::WriteAllText($urlFile, $publicUrl, [Text.UTF8Encoding]::new($false))
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $watcherPath -Namespace $Namespace -RunOnce
+if ($LASTEXITCODE -ne 0) {
+    throw "Unable to synchronize Auth Service with the ngrok URL."
+}
 Start-Watcher
 
 Write-Host "ngrok URL: $publicUrl"

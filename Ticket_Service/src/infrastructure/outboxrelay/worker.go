@@ -153,7 +153,7 @@ func (w *Worker) processBatch(ctx context.Context) (err error) {
 			}
 			continue
 		}
-		if err = w.markSent(ctx, item.ID); err != nil {
+		if err = w.markSent(ctx, item); err != nil {
 			return err
 		}
 	}
@@ -170,13 +170,21 @@ func (w *Worker) claim(ctx context.Context) (event, error) {
 	var item event
 	err = tx.QueryRow(ctx, `
 		SELECT id, aggregate_type, aggregate_id, event_type, payload, attempts
-		FROM outbox_events
+		FROM outbox_events AS current
 		WHERE (
-			(status IN ('PENDING', 'FAILED') AND next_attempt_at <= now())
-			OR (status = 'PROCESSING' AND locked_at < now() - make_interval(secs => $1))
+			(current.status IN ('PENDING', 'FAILED') AND current.next_attempt_at <= now())
+			OR (current.status = 'PROCESSING' AND current.locked_at < now() - make_interval(secs => $1))
 		)
-		AND attempts < $2
-		ORDER BY created_at
+		AND current.attempts < $2
+		AND NOT EXISTS (
+			SELECT 1
+			FROM outbox_events AS earlier
+			WHERE earlier.aggregate_type = current.aggregate_type
+				AND earlier.aggregate_id = current.aggregate_id
+				AND (earlier.created_at, earlier.id) < (current.created_at, current.id)
+				AND earlier.status <> 'SENT'
+		)
+		ORDER BY current.created_at, current.id
 		FOR UPDATE SKIP LOCKED
 		LIMIT 1`,
 		w.cfg.LockTimeout.Seconds(), w.cfg.MaxAttempts,
@@ -198,11 +206,14 @@ func (w *Worker) claim(ctx context.Context) (event, error) {
 	return item, nil
 }
 
-func (w *Worker) markSent(ctx context.Context, id uuid.UUID) error {
-	_, err := w.db.Exec(ctx, `
+func (w *Worker) markSent(ctx context.Context, item event) error {
+	tag, err := w.db.Exec(ctx, `
 		UPDATE outbox_events
 		SET status = 'SENT', sent_at = now(), locked_at = NULL, last_error = NULL
-		WHERE id = $1`, id)
+		WHERE id = $1 AND status = 'PROCESSING' AND attempts = $2`, item.ID, item.Attempts)
+	if err == nil && tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
 	return err
 }
 
@@ -215,7 +226,7 @@ func (w *Worker) markFailed(ctx context.Context, item event, publishErr error) e
 	_, err := w.db.Exec(ctx, `
 		UPDATE outbox_events
 		SET status = $2, last_error = $3, next_attempt_at = now() + make_interval(secs => $4), locked_at = NULL
-		WHERE id = $1`, item.ID, status, truncate(publishErr.Error(), 2000), delay.Seconds())
+		WHERE id = $1 AND status = 'PROCESSING' AND attempts = $5`, item.ID, status, truncate(publishErr.Error(), 2000), delay.Seconds(), item.Attempts)
 	return err
 }
 

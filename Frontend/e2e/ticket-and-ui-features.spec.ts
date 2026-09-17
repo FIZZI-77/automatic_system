@@ -26,6 +26,9 @@ test.describe("Заявки и пользовательские функции",
     await loginThroughUi(page, "user");
     await page.locator("aside nav").getByText("Сообщить", { exact: true }).click();
     await expect(page.getByRole("heading", { name: "Сообщить о проблеме" })).toBeVisible();
+    await expect(page.getByLabel("Департамент").locator("option")).not.toHaveCount(0);
+    await expect(page.getByLabel("Категория").locator("option")).not.toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Создать заявку" })).toBeEnabled();
     const title = `E2E: повреждение покрытия ${Date.now()}`;
     await page.getByLabel("Заголовок").fill(title);
     await page.getByLabel("Описание").fill("Проверка полного сценария создания обращения через браузер.");
@@ -103,6 +106,23 @@ test.describe("Заявки и пользовательские функции",
     await expect(page.locator(".layers-window")).toHaveCount(0);
     await expect(page.locator(".assigned-route")).toBeVisible();
     await expect(page.locator(".map-legend")).toContainText("Назначенный маршрут");
+  });
+
+  test("карта сохраняет последнюю позицию машины после окончания онлайн-интервала", async ({ page }) => {
+    await page.clock.install({ time: new Date("2026-09-16T09:00:00Z") });
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+    await page.getByRole("button", { name: "Открыть демо" }).click();
+    await expect(page.locator(".leaflet-vehicle")).not.toHaveCount(0);
+
+    await page.clock.fastForward("03:00");
+    await page.getByRole("button", { name: "Работник", exact: true }).click();
+    await page.getByRole("button", { name: "Диспетчер", exact: true }).click();
+
+    await expect(page.locator(".leaflet-vehicle.stale")).not.toHaveCount(0);
+    await expect(page.getByText("Последняя позиция", { exact: true }).first()).toBeVisible();
+    const vehicleNames = await page.locator(".vehicle-feed-row small").allTextContents();
+    expect(new Set(vehicleNames).size).toBe(vehicleNames.length);
   });
 
   test("профиль открывает отдельное окно смены пароля с подтверждением", async ({ page }) => {

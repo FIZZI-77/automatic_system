@@ -22,16 +22,6 @@ func (s *ReportService) Create(ctx context.Context, in *models.CreateWorkReportI
 	if err := in.Validate(); err != nil {
 		return nil, fmt.Errorf("%w: %v", models.ErrValidation, err)
 	}
-	ticket, err := s.tickets.GetTicketByID(ctx, in.TicketID)
-	if err != nil {
-		return nil, err
-	}
-	if ticket.Status != models.TicketStatusInProgress && ticket.Status != models.TicketStatusAssigned {
-		return nil, fmt.Errorf("%w: report can only be added to an active ticket", models.ErrInvalidStatusTransition)
-	}
-	if !hasPrivilegedRole(in.ActorRoles) && (!hasRole(in.ActorRoles, "worker") || in.ActorBrigadeID == nil || ticket.BrigadeID == nil || *ticket.BrigadeID != *in.ActorBrigadeID) {
-		return nil, models.ErrPermissionDenied
-	}
 	return s.reports.Create(ctx, in)
 }
 func (s *ReportService) List(ctx context.Context, ticketID, actor uuid.UUID, actorBrigadeID *uuid.UUID, roles []string) ([]*models.WorkReport, error) {

@@ -81,8 +81,12 @@ func (h *Handler) UpdatePreferences(c context.Context, q *notificationv1.UpdateP
 	if q.SmsEnabled != nil {
 		v.SMS = q.GetSmsEnabled()
 	}
-	v.EmailAddress = q.Email
-	v.Phone = q.Phone
+	if q.Email != nil {
+		v.EmailAddress = q.Email
+	}
+	if q.Phone != nil {
+		v.Phone = q.Phone
+	}
 	v, e = h.s.SavePreferences(c, v)
 	return &notificationv1.PreferencesResponse{Preferences: preferences(v)}, mapped(e)
 }

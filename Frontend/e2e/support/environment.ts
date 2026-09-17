@@ -37,7 +37,7 @@ export async function waitForUrl(url: string, timeoutMs = 120_000) {
 
 export function seedDemoData() {
   if (process.env.E2E_SKIP_SEED === "1") return;
-  const shell = process.platform === "win32" ? "powershell.exe" : "pwsh";
+  const shell = process.platform === "win32" ? "pwsh.exe" : "pwsh";
   execFileSync(shell, [
     "-NoProfile",
     "-ExecutionPolicy", "Bypass",

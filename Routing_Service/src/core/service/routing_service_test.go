@@ -29,8 +29,9 @@ func (s *engineStub) BuildMatrix(
 }
 
 type repoStub struct {
-	route   *models.Route
-	failure *models.CalculationFailure
+	route          *models.Route
+	failure        *models.CalculationFailure
+	expectedStatus models.RouteStatus
 }
 
 func (s *repoStub) RecordCalculationFailure(_ context.Context, failure models.CalculationFailure) error {
@@ -64,10 +65,24 @@ func (s *repoStub) UpdateCalculation(
 func (s *repoStub) UpdateStatus(
 	_ context.Context,
 	_ string,
+	expectedStatus models.RouteStatus,
 	status models.RouteStatus,
 ) (*models.Route, error) {
+	s.expectedStatus = expectedStatus
 	s.route.Status = status
 	return s.route, nil
+}
+
+func TestSetRouteStatusUsesStateReadBeforeUpdate(t *testing.T) {
+	repo := &repoStub{route: &models.Route{ID: "14c39ee8-0104-4b07-9a97-f0b62b35e844", Status: models.RouteStatusActive}}
+	value := New(repo, &engineStub{}, nil)
+	updated, err := value.SetRouteStatus(context.Background(), repo.route.ID, models.RouteStatusCompleted)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if repo.expectedStatus != models.RouteStatusActive || updated.Status != models.RouteStatusCompleted {
+		t.Fatalf("compare-and-set statuses: expected=%s updated=%s", repo.expectedStatus, updated.Status)
+	}
 }
 
 func (s *repoStub) ListRoutes(

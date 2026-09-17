@@ -35,9 +35,11 @@ func (w *Worker) Run(ctx context.Context) error {
 			if s == nil {
 				s = sender.Disabled{Channel: d.Channel}
 			}
-			provider, e := s.Send(ctx, d, n)
+			sendCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+			provider, e := s.Send(sendCtx, d, n)
+			cancel()
 			if e == nil {
-				e = w.repo.DeliverySent(ctx, d.ID, provider)
+				e = w.repo.DeliverySent(ctx, d.ID, d.Attempts, provider)
 			} else {
 				if errors.Is(e, sender.ErrPermanent) && d.Channel == "PUSH" {
 					_ = w.repo.DeactivateToken(ctx, d.Recipient)
