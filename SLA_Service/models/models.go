@@ -81,6 +81,7 @@ type TicketSLA struct {
 	CategoryID            uuid.UUID
 	Priority              Priority
 	Status                Status
+	TicketCreatedAt       time.Time
 	ResponseDeadline      time.Time
 	ResolutionDeadline    time.Time
 	RespondedAt           *time.Time

@@ -24,6 +24,13 @@ Canary Flagger и необязательные HPA/PDB. Хранилища да�
 и мигратора. Общий HPA по умолчанию выключен. Dispatch имеет собственные
 настройки `dispatch.autoscaling` и `dispatch.podDisruptionBudget`.
 
+Asset Service может создавать заявку в Ticket Service при переходе прогноза
+поломки объекта в `CRITICAL`. По умолчанию это выключено:
+`applications.asset.criticalRiskTicket.enabled=false`. Для включения нужно
+задать существующую категорию заявки и системного requester-а:
+`applications.asset.criticalRiskTicket.categoryId` и
+`applications.asset.criticalRiskTicket.requesterId`.
+
 ## Миграции
 
 Задания Goose и подготовки ClickHouse выполняются до смены Deployment.

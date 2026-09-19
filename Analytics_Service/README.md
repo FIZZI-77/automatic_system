@@ -1,4 +1,4 @@
-# Analytics Service
+# Сервис аналитики (Analytics Service)
 
 ## Общее описание и общий принцип работы
 

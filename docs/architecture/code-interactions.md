@@ -23,6 +23,7 @@
 | Profile | Auth, Department | [Проверки учетной записи и подразделения](../../Profile_Service/src/cmd/server/main.go). |
 | Brigade | Profile, Department | [Инициализация клиентов](../../Brigade_Service/src/cmd/server/main.go). |
 | Dispatch | Ticket, Brigade, Location, Routing | [Инициализация клиентов](../../Dispatch_Service/src/cmd/server/main.go). |
+| Asset | Ticket при включенном worker критического риска | [Инициализация клиента](../../Asset_Service/src/cmd/server/main.go) и [создание заявки](../../Asset_Service/src/infrastructure/criticalticket/worker.go). Worker не запускается без `CRITICAL_RISK_TICKET_CATEGORY_ID` и `CRITICAL_RISK_TICKET_REQUESTER_ID`. |
 | Report | Analytics, File | [Инициализация клиентов](../../Report_Service/src/cmd/server/main.go). |
 | Transponder Simulator | Location по HTTP | [Передача координат](../../Transponder_Simulator/internal/simulator/sender.go); [HTTP-сервер Location](../../Location_Service/src/cmd/server/main.go). |
 
@@ -76,6 +77,7 @@ gRPC-клиентов Department или Brigade. Эти связи в старо
 | Читатель | Темы | Основание |
 |---|---|---|
 | Brigade | `profiles.events.v1`, `routing.events.v1`, `tickets.events.v1` | [Запуск трех читателей](../../Brigade_Service/src/cmd/server/main.go). |
+| Asset | `assets.events.v1` | [Читатель критического риска](../../Asset_Service/src/infrastructure/criticalticket/worker.go), включается настройками `applications.asset.criticalRiskTicket`. |
 | Ticket | `routing.events.v1`, `reports.events.v1` | [Запуск двух читателей](../../Ticket_Service/src/cmd/server/main.go). |
 | Dispatch, Routing, SLA, Report | `tickets.events.v1` | [Dispatch](../../Dispatch_Service/src/cmd/server/ticket_consumer.go), [Routing](../../Routing_Service/src/cmd/server/ticket_consumer.go), [SLA](../../SLA_Service/src/cmd/server/main.go), [Report](../../Report_Service/src/cmd/server/main.go). |
 | Notification | `tickets`, `sla`, `dispatch`, `departments`, `brigades`, `locations`, `routing`, `files`, `reports` с суффиксом `.events.v1` | [Код читателя](../../Notification_Service/src/cmd/server/main.go), [настройка Kubernetes](../../k8s/helm/applications/templates/services/notification.yaml). |

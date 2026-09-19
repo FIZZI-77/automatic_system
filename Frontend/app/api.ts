@@ -266,6 +266,7 @@ export const config = {
 };
 
 const SESSION_KEY = "city-services-session";
+export const SESSION_EXPIRED_EVENT = "city-session-expired";
 
 export function loadSession(): Session | null {
   if (typeof window === "undefined") return null;
@@ -304,7 +305,12 @@ const errorMessagesByCode: Record<string, string> = {
 };
 
 function userErrorMessage(status: number, payload: ApiErrorPayload, path: string): string {
-  if (status === 401) return path === config.endpoints.login ? "Неверная электронная почта или пароль" : "Сессия истекла. Войдите снова";
+  if (status === 401) {
+    if (path === config.endpoints.login) return "Неверная электронная почта или пароль";
+    if (path === config.endpoints.verifyEmail) return "Токен подтверждения недействителен или истёк";
+    if (path === config.endpoints.resetPassword) return "Токен сброса пароля недействителен или истёк";
+    return "Сессия истекла. Войдите снова";
+  }
   if (payload.code && errorMessagesByCode[payload.code]) return errorMessagesByCode[payload.code];
   if (status === 400 || status === 422) return "Проверьте введённые данные";
   if (status === 403) return "Недостаточно прав для выполнения действия";
@@ -347,6 +353,10 @@ export async function api<T>(path: string, body?: unknown, method = "POST", toke
   }
   const payload = await response.json().catch(() => ({})) as ApiErrorPayload;
   if (!response.ok) {
+    if (response.status === 401 && effectiveToken && path !== config.endpoints.login) {
+      saveSession(null);
+      if (typeof window !== "undefined") window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+    }
     throw new ApiError(
       userErrorMessage(response.status, payload, path),
       response.status,

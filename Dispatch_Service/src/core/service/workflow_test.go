@@ -47,3 +47,15 @@ func TestUUIDStrings(t *testing.T) {
 		t.Fatalf("unexpected UUID mapping: %v", result)
 	}
 }
+
+func TestCompensationContextUsesOriginalDispatcherDepartment(t *testing.T) {
+	actor, department := uuid.New(), uuid.New()
+	ctx := compensationContext(context.Background(), &models.Operation{
+		RequestedBy:  actor,
+		DepartmentID: &department,
+	})
+	md, ok := metadata.FromOutgoingContext(ctx)
+	if !ok || md.Get("x-actor-user-id")[0] != actor.String() || md.Get("x-actor-roles")[0] != "dispatcher" || md.Get("x-actor-department-id")[0] != department.String() {
+		t.Fatalf("unexpected compensation metadata: %v", md)
+	}
+}

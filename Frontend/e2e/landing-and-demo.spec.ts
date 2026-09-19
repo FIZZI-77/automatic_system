@@ -25,6 +25,33 @@ test.describe("Лендинг и демонстрационный режим", (
     await expect(page.getByText("Пароли не совпадают")).toBeVisible();
   });
 
+  test("ссылки из писем открывают формы с токеном", async ({ page }) => {
+    await page.goto("/verify-email?token=verify-token-123");
+    await expect(page.getByRole("heading", { name: "Подтверждение email" })).toBeVisible();
+    await expect(page.getByLabel("Токен")).toHaveValue("verify-token-123");
+    await expect(page).toHaveURL(/\/$/);
+
+    await page.goto("/reset-password?token=reset-token-456");
+    await expect(page.getByRole("heading", { name: "Новый пароль" })).toBeVisible();
+    await expect(page.getByLabel("Токен")).toHaveValue("reset-token-456");
+    await expect(page).toHaveURL(/\/$/);
+  });
+
+  test("невалидная ссылка подтверждения не считается истёкшей сессией", async ({ page }) => {
+    await page.route("**/auth/verify-email", route => route.fulfill({
+      status: 401,
+      contentType: "application/json",
+      body: JSON.stringify({ code: "UNAUTHENTICATED" }),
+    }));
+    await page.goto("/verify-email?token=invalid-email-token");
+    await page.waitForLoadState("networkidle");
+    await page.getByRole("button", { name: "Подтвердить" }).click();
+
+    await expect(page.getByText("Токен подтверждения недействителен или истёк")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Подтверждение email" })).toBeVisible();
+    await expect(page).toHaveURL(/\/$/);
+  });
+
   test("переключение ролей меняет меню и рабочее пространство", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("button", { name: "Открыть демо" }).click();

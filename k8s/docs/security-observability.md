@@ -2,8 +2,8 @@
 
 ## Секреты
 
-Манифесты не содержат закрытые ключи JWT, пароли баз данных, токен ngrok и
-учетную запись Firebase. Секреты создаются отдельно от отслеживаемых файлов.
+Манифесты не содержат закрытые ключи JWT, пароли баз данных и учетную запись
+Firebase. Секреты создаются отдельно от отслеживаемых файлов.
 
 | Секрет | Потребители | Источник |
 |---|---|---|
@@ -11,7 +11,6 @@
 | `jwt-private-key` | Auth Service | `keys/private.pem`. |
 | `jwt-public-key` | API Gateway и проверяющие токен сервисы | `keys/public.pem`. |
 | `firebase-fcm` | Notification Service | внешний файл учетной записи, ключ `service-account.json`. |
-| секрет ngrok | Deployment ngrok | создается `setup-ngrok-tunnel.ps1`. |
 | TLS-секрет Istio ingress | входной шлюз | создается `setup-ingress.ps1`. |
 
 Правила работы:
@@ -92,7 +91,7 @@ ClickHouse и Valhalla используют собственные проток�
 | Ресурс | Назначение |
 |---|---|
 | `Gateway/automatic-system` | Локальный TLS-вход для `city.localhost` и `api.city.localhost`. |
-| `Gateway/automatic-system-public` | Публичная HTTP-точка, используемая ngrok. |
+| `Gateway/automatic-system-public` | Публичная HTTP-точка за TLS-терминацией Tailscale Funnel. |
 | `VirtualService/frontend` | Передача пользовательских страниц во Frontend. |
 | `VirtualService/api-gateway` | Передача API в API Gateway по h2c. |
 | `VirtualService/public-entrypoint` | Разделение публичных путей Frontend и API. |
@@ -217,4 +216,3 @@ kubectl exec -n istio-system deployment/kiali -- `
 `*-canary`, созданные Flagger, оцениваются в контексте активного или
 завершенного анализа; простое наличие имени в списке Kiali не доказывает
 ошибку трафика.
-

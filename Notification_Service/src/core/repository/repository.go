@@ -24,7 +24,7 @@ func New(db *pgxpool.Pool) *Repository {
 
 func (r *Repository) List(ctx context.Context, user uuid.UUID, unread *bool, limit, offset int32) ([]*models.Notification, int64, int64, error) {
 	limit = bounded(limit)
-	rows, e := r.db.Query(ctx, `SELECT id,event_id,user_id,event_type,title,body,data,read,read_at,created_at,count(*) OVER(),count(*) FILTER(WHERE NOT read) OVER() FROM notifications WHERE user_id=$1 AND ($2::bool IS NULL OR read<>$2) ORDER BY created_at DESC LIMIT $3 OFFSET $4`, user, unread, limit, offset)
+	rows, e := r.db.Query(ctx, `SELECT id,event_id,user_id,event_type,title,body,data,read,read_at,created_at,count(*) OVER(),count(*) FILTER(WHERE NOT read) OVER() FROM notifications WHERE user_id=$1 AND (COALESCE($2::bool,FALSE)=FALSE OR NOT read) ORDER BY created_at DESC LIMIT $3 OFFSET $4`, user, unread, limit, offset)
 	if e != nil {
 		return nil, 0, 0, e
 	}
@@ -174,22 +174,24 @@ func (r *Repository) Dispatch(ctx context.Context, e models.Event, recipients []
 			return nil, err
 		}
 
-		created = append(created, v)
-
 		if pref.InApp {
-			_, err = tx.Exec(ctx, `INSERT INTO deliveries(notification_id,channel,recipient) VALUES($1,'IN_APP',$2) ON CONFLICT DO NOTHING`, v.ID, user.String())
+			_, err = tx.Exec(ctx, `INSERT INTO deliveries(notification_id,channel,recipient,title,body) VALUES($1,'IN_APP',$2,$3,$4) ON CONFLICT DO NOTHING`, v.ID, user.String(), title, body)
+			created = append(created, v)
 		}
 
 		if err == nil && pref.Email && pref.EmailAddress != nil {
-			_, err = tx.Exec(ctx, `INSERT INTO deliveries(notification_id,channel,recipient) VALUES($1,'EMAIL',$2) ON CONFLICT DO NOTHING`, v.ID, *pref.EmailAddress)
+			emailTitle, emailBody := renderTemplate(ctx, tx, e.Type, "EMAIL", e.Payload)
+			_, err = tx.Exec(ctx, `INSERT INTO deliveries(notification_id,channel,recipient,title,body) VALUES($1,'EMAIL',$2,$3,$4) ON CONFLICT DO NOTHING`, v.ID, *pref.EmailAddress, emailTitle, emailBody)
 		}
 
 		if err == nil && pref.SMS && pref.Phone != nil {
-			_, err = tx.Exec(ctx, `INSERT INTO deliveries(notification_id,channel,recipient) VALUES($1,'SMS',$2) ON CONFLICT DO NOTHING`, v.ID, *pref.Phone)
+			smsTitle, smsBody := renderTemplate(ctx, tx, e.Type, "SMS", e.Payload)
+			_, err = tx.Exec(ctx, `INSERT INTO deliveries(notification_id,channel,recipient,title,body) VALUES($1,'SMS',$2,$3,$4) ON CONFLICT DO NOTHING`, v.ID, *pref.Phone, smsTitle, smsBody)
 		}
 
 		if err == nil && pref.Push {
-			_, err = tx.Exec(ctx, `INSERT INTO deliveries(notification_id,channel,recipient) SELECT $1,'PUSH',token FROM devices WHERE user_id=$2 AND active ON CONFLICT DO NOTHING`, v.ID, user)
+			pushTitle, pushBody := renderTemplate(ctx, tx, e.Type, "PUSH", e.Payload)
+			_, err = tx.Exec(ctx, `INSERT INTO deliveries(notification_id,channel,recipient,title,body) SELECT $1,'PUSH',token,$3,$4 FROM devices WHERE user_id=$2 AND active ON CONFLICT DO NOTHING`, v.ID, user, pushTitle, pushBody)
 		}
 
 		if err != nil {
@@ -270,27 +272,34 @@ func (r *Repository) ClaimDelivery(ctx context.Context) (*models.Delivery, *mode
 	}
 	defer tx.Rollback(ctx)
 	d := new(models.Delivery)
-	e = tx.QueryRow(ctx, `SELECT id,notification_id,channel,recipient,status,provider_id,attempts,next_attempt_at,last_error,created_at,updated_at FROM deliveries WHERE (status IN('PENDING','FAILED') AND next_attempt_at<=now() OR status='PROCESSING' AND locked_at < now()-interval '5 minutes') AND attempts<8 ORDER BY next_attempt_at FOR UPDATE SKIP LOCKED LIMIT 1`).Scan(&d.ID, &d.NotificationID, &d.Channel, &d.Recipient, &d.Status, &d.ProviderID, &d.Attempts, &d.NextAttemptAt, &d.LastError, &d.CreatedAt, &d.UpdatedAt)
+	e = tx.QueryRow(ctx, `SELECT id,notification_id,channel,recipient,title,body,status,provider_id,attempts,next_attempt_at,last_error,created_at,updated_at FROM deliveries WHERE (status IN('PENDING','FAILED') AND next_attempt_at<=now() OR status='PROCESSING' AND locked_at < now()-interval '5 minutes') AND attempts<8 ORDER BY next_attempt_at FOR UPDATE SKIP LOCKED LIMIT 1`).Scan(&d.ID, &d.NotificationID, &d.Channel, &d.Recipient, &d.Title, &d.Body, &d.Status, &d.ProviderID, &d.Attempts, &d.NextAttemptAt, &d.LastError, &d.CreatedAt, &d.UpdatedAt)
 	if e != nil {
 		return nil, nil, e
 	}
-
 	_, e = tx.Exec(ctx, `UPDATE deliveries SET status='PROCESSING',attempts=attempts+1,locked_at=now(),updated_at=now() WHERE id=$1`, d.ID)
 	if e != nil {
 		return nil, nil, e
 	}
-
 	n, e := scanNotification(tx.QueryRow(ctx, `SELECT id,event_id,user_id,event_type,title,body,data,read,read_at,created_at FROM notifications WHERE id=$1`, d.NotificationID))
 	if e != nil {
 		return nil, nil, e
+	}
+	if d.Title != "" {
+		n.Title = d.Title
+	}
+	if d.Body != "" {
+		n.Body = d.Body
 	}
 
 	d.Attempts++
 	return d, n, tx.Commit(ctx)
 }
 
-func (r *Repository) DeliverySent(ctx context.Context, id uuid.UUID, provider string) error {
-	_, e := r.db.Exec(ctx, `UPDATE deliveries SET status='SENT',provider_id=NULLIF($2,''),last_error=NULL,locked_at=NULL,updated_at=now() WHERE id=$1`, id, provider)
+func (r *Repository) DeliverySent(ctx context.Context, id uuid.UUID, attempt int32, provider string) error {
+	tag, e := r.db.Exec(ctx, `UPDATE deliveries SET status='SENT',provider_id=NULLIF($3,''),last_error=NULL,locked_at=NULL,updated_at=now() WHERE id=$1 AND status='PROCESSING' AND attempts=$2`, id, attempt, provider)
+	if e == nil && tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
 	return e
 }
 
@@ -301,7 +310,10 @@ func (r *Repository) DeliveryFailed(ctx context.Context, d *models.Delivery, rea
 	}
 
 	delay := time.Duration(1<<min(d.Attempts, 8)) * time.Second
-	_, e := r.db.Exec(ctx, `UPDATE deliveries SET status=$2,last_error=$3,next_attempt_at=now()+make_interval(secs=>$4),locked_at=NULL,updated_at=now() WHERE id=$1`, d.ID, status, truncate(reason, 2000), delay.Seconds())
+	tag, e := r.db.Exec(ctx, `UPDATE deliveries SET status=$3,last_error=$4,next_attempt_at=now()+make_interval(secs=>$5),locked_at=NULL,updated_at=now() WHERE id=$1 AND status='PROCESSING' AND attempts=$2`, d.ID, d.Attempts, status, truncate(reason, 2000), delay.Seconds())
+	if e == nil && tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
 	return e
 }
 

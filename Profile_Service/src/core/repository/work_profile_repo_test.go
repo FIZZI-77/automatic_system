@@ -68,9 +68,11 @@ func TestWorkProfileRepository_CreateGetListUpdateStatusAndResolve(t *testing.T)
 	}
 
 	statusResult, err := repo.SetWorkProfileStatus(ctx, &models.SetWorkProfileStatusInput{
-		ID:     created.WorkProfile.ID,
-		Status: models.WorkProfileStatusOnShift,
-		Reason: "start shift",
+		ID:          created.WorkProfile.ID,
+		Status:      models.WorkProfileStatusOnShift,
+		Reason:      "start shift",
+		ActorUserID: &userProfile.UserID,
+		ActorRoles:  []string{"worker"},
 	})
 	if err != nil {
 		t.Fatalf("set work profile status failed: %v", err)

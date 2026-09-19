@@ -24,6 +24,7 @@ data:
   REPORT_SERVICE_ADDR: "report-service:50064"
   SLA_SERVICE_ADDR: "sla-service:50060"
   TICKET_SERVICE_ADDR: "ticket-service:50052"
+  TRUSTED_PROXIES: {{ .Values.apiGateway.trustedProxies | quote }}
 kind: ConfigMap
 metadata:
   labels:

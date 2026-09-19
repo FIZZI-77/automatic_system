@@ -17,8 +17,8 @@ type ReportRepository interface {
 	Cancel(context.Context, uuid.UUID) (*models.Report, error)
 	Retry(context.Context, uuid.UUID) (*models.Report, error)
 	Claim(context.Context) (*models.Report, error)
-	Complete(context.Context, uuid.UUID, uuid.UUID) error
-	Fail(context.Context, uuid.UUID, string) error
+	Complete(context.Context, uuid.UUID, uuid.UUID, int32) error
+	Fail(context.Context, uuid.UUID, int32, string) error
 }
 type Repository struct{ ReportRepository }
 

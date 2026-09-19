@@ -21,6 +21,8 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const ttl = time.Minute * 15
@@ -73,13 +75,6 @@ func (a *AuthServiceStruct) Register(ctx context.Context, in models.RegisterInpu
 
 	idempotentResult, err := a.withExternalSideEffectIdempotency(ctx, "Register", in.Email, in, func(ctx context.Context) (any, uuid.UUID, error) {
 		existingUser, err := a.repo.GetUserByEmail(ctx, in.Email)
-
-		if err == nil && existingUser != nil {
-			logger.Warn("registration failed - user already exists",
-				zap.String("email", in.Email),
-			)
-			return nil, uuid.Nil, fmt.Errorf("jwt: Register(): %w", models.ErrUserAlreadyExists)
-		}
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			logger.Error("failed to check existing user",
 				zap.String("email", in.Email),
@@ -88,54 +83,66 @@ func (a *AuthServiceStruct) Register(ctx context.Context, in models.RegisterInpu
 			return nil, uuid.Nil, err
 		}
 
-		passwordHash, err := bcrypt.GenerateFromPassword([]byte(in.Password), bcrypt.DefaultCost)
-		if err != nil {
-			logger.Error("failed to generate password hash", zap.Error(err))
-			return nil, uuid.Nil, fmt.Errorf("jwt: Register(): cant hash password: %w", err)
+		user := existingUser
+		createdUser := false
+		resumingProvisioning := user != nil
+		if resumingProvisioning && (user.Username != in.Username || bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(in.Password)) != nil) {
+			return nil, uuid.Nil, fmt.Errorf("jwt: Register(): %w", models.ErrUserAlreadyExists)
 		}
-
-		user := &models.User{
-			Username:      in.Username,
-			Email:         in.Email,
-			PasswordHash:  string(passwordHash),
-			IsActive:      true,
-			EmailVerified: false,
-		}
-
-		id, err := a.repo.CreateUser(ctx, user)
-
-		if err != nil {
-			logger.Error("failed to create user in database",
-				zap.String("email", in.Email),
-				zap.Error(err),
-			)
-			return nil, uuid.Nil, err
-		}
-
-		if a.profiles == nil {
-			err = errors.New("profile provisioner is not configured")
-		} else {
-			err = a.profiles.CreateUserProfile(ctx, id, in.Username)
-		}
-		if err != nil {
-			compensationCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
-			defer cancel()
-			if compensationErr := a.repo.DeleteUserRegistration(compensationCtx, id); compensationErr != nil {
-				logger.Error("failed to compensate user registration",
-					zap.String("user_id", id.String()),
-					zap.Error(compensationErr),
-				)
-				return nil, uuid.Nil, errors.Join(
-					fmt.Errorf("create user profile: %w", err),
-					fmt.Errorf("compensate user registration: %w", compensationErr),
-				)
+		if user == nil {
+			passwordHash, hashErr := bcrypt.GenerateFromPassword([]byte(in.Password), bcrypt.DefaultCost)
+			if hashErr != nil {
+				logger.Error("failed to generate password hash", zap.Error(hashErr))
+				return nil, uuid.Nil, fmt.Errorf("jwt: Register(): cant hash password: %w", hashErr)
 			}
+			user = &models.User{Username: in.Username, Email: in.Email, PasswordHash: string(passwordHash), IsActive: true, EmailVerified: false}
+			id, createErr := a.repo.CreateUser(ctx, user)
+			if createErr != nil {
+				return nil, uuid.Nil, createErr
+			}
+			user.ID = id
+			createdUser = true
+		}
+		id := user.ID
+		if a.profiles == nil {
+			return nil, uuid.Nil, errors.New("profile provisioner is not configured")
+		}
+		profileExists, verifyErr := a.profiles.UserProfileExists(ctx, id)
+		if verifyErr != nil {
+			return nil, uuid.Nil, fmt.Errorf("verify user profile before provisioning: %w", verifyErr)
+		}
+		if profileExists && resumingProvisioning {
+			return nil, uuid.Nil, fmt.Errorf("jwt: Register(): %w", models.ErrUserAlreadyExists)
+		}
+		if !profileExists {
+			err = a.profiles.CreateUserProfile(ctx, id, in.Username)
+		} else {
+			err = nil
+		}
 
-			logger.Warn("user registration compensated after profile creation failed",
-				zap.String("user_id", id.String()),
-				zap.Error(err),
-			)
-			return nil, uuid.Nil, fmt.Errorf("create user profile: %w", err)
+		if err != nil {
+			verifyCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+			profileExists, verifyErr = a.profiles.UserProfileExists(verifyCtx, id)
+			cancel()
+			if profileExists {
+				err = nil
+			} else if verifyErr != nil || !createdUser || !definitiveProfileFailure(err) {
+				return nil, uuid.Nil, errors.Join(fmt.Errorf("create user profile: %w", err), verifyErr)
+			} else {
+				compensationCtx, compensationCancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer compensationCancel()
+				if compensationErr := a.repo.DeleteUserRegistration(compensationCtx, id); compensationErr != nil {
+					logger.Error("failed to compensate user registration",
+						zap.String("user_id", id.String()),
+						zap.Error(compensationErr),
+					)
+					return nil, uuid.Nil, errors.Join(
+						fmt.Errorf("create user profile: %w", err),
+						fmt.Errorf("compensate user registration: %w", compensationErr),
+					)
+				}
+				return nil, uuid.Nil, fmt.Errorf("create user profile: %w", err)
+			}
 		}
 
 		result := &models.RegisterResult{
@@ -156,6 +163,15 @@ func (a *AuthServiceStruct) Register(ctx context.Context, in models.RegisterInpu
 	}
 
 	return cachedResult[models.RegisterResult](idempotentResult)
+}
+
+func definitiveProfileFailure(err error) bool {
+	switch status.Code(err) {
+	case codes.InvalidArgument, codes.PermissionDenied, codes.Unauthenticated, codes.FailedPrecondition:
+		return true
+	default:
+		return false
+	}
 }
 
 func (a *AuthServiceStruct) Login(ctx context.Context, in models.LoginInput) (*models.LoginResult, error) {

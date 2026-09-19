@@ -32,11 +32,20 @@ func (r *repoMock) Claim(context.Context) (*models.Report, error) {
 	}
 	return nil, errors.New("empty")
 }
-func (r *repoMock) Complete(context.Context, uuid.UUID, uuid.UUID) error {
+func (r *repoMock) Complete(_ context.Context, _ uuid.UUID, _ uuid.UUID, attempt int32) error {
+	if attempt != r.item.Attempts {
+		return errors.New("wrong attempt")
+	}
 	r.completed = true
 	return nil
 }
-func (r *repoMock) Fail(context.Context, uuid.UUID, string) error { r.failed = true; return nil }
+func (r *repoMock) Fail(_ context.Context, _ uuid.UUID, attempt int32, _ string) error {
+	if attempt != r.item.Attempts {
+		return errors.New("wrong attempt")
+	}
+	r.failed = true
+	return nil
+}
 
 type sourceMock struct{}
 
@@ -59,7 +68,7 @@ func (filesMock) Download(context.Context, uuid.UUID, uuid.UUID, []string) (stri
 	return "url", time.Now(), nil
 }
 func TestProcessNextCompletesReport(t *testing.T) {
-	r := &repoMock{item: &models.Report{ID: uuid.New(), RequestedBy: uuid.New(), Name: "Report", Type: models.TypeTicketOverview, Format: models.FormatCSV, Status: models.StatusProcessing}}
+	r := &repoMock{item: &models.Report{ID: uuid.New(), RequestedBy: uuid.New(), Name: "Report", Type: models.TypeTicketOverview, Format: models.FormatCSV, Status: models.StatusProcessing, Attempts: 2}}
 	s := NewService(r, sourceMock{}, filesMock{}, genMock{}, nil)
 	ok, e := s.ProcessNext(context.Background())
 	if e != nil || !ok || !r.completed || r.failed {

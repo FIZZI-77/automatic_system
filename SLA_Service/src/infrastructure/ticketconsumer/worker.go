@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,6 +23,8 @@ type Worker struct {
 	s      *service.Service
 	log    *zap.Logger
 	group  string
+	topic  string
+	writer *kafka.Writer
 }
 
 func New(brokers []string, topic, group string, s *service.Service, l *zap.Logger) *Worker {
@@ -36,11 +40,16 @@ func New(brokers []string, topic, group string, s *service.Service, l *zap.Logge
 		s:     s,
 		log:   l,
 		group: group,
+		topic: topic,
+		writer: &kafka.Writer{
+			Addr:         kafka.TCP(brokers...),
+			RequiredAcks: kafka.RequireAll,
+		},
 	}
 }
 
 func (w *Worker) Close() error {
-	return w.reader.Close()
+	return errors.Join(w.reader.Close(), w.writer.Close())
 }
 
 type payload struct {
@@ -76,7 +85,12 @@ func (w *Worker) Run(ctx context.Context) error {
 		if e = json.Unmarshal(m.Value, &p); e != nil {
 			telemetry.End(span, e)
 			w.log.Error("invalid ticket event", zap.Error(e))
-			_ = w.reader.CommitMessages(ctx, m)
+			if e = w.publishDLQ(messageCtx, m, e); e != nil {
+				return e
+			}
+			if e = w.reader.CommitMessages(ctx, m); e != nil {
+				return e
+			}
 			continue
 		}
 		if p.EventID == "" {
@@ -93,13 +107,19 @@ func (w *Worker) Run(ctx context.Context) error {
 		did, e2 := uuid.Parse(p.DepartmentID)
 		cid, e3 := uuid.Parse(p.CategoryID)
 		if e1 != nil || e2 != nil || e3 != nil {
-			telemetry.End(span, errors.Join(e1, e2, e3))
+			identifierErr := fmt.Errorf("invalid ticket event identifiers: %w", errors.Join(e1, e2, e3))
+			telemetry.End(span, identifierErr)
 			w.log.Error("invalid ticket event identifiers")
-			_ = w.reader.CommitMessages(ctx, m)
+			if e = w.publishDLQ(messageCtx, m, identifierErr); e != nil {
+				return e
+			}
+			if e = w.reader.CommitMessages(ctx, m); e != nil {
+				return e
+			}
 			continue
 		}
 
-		e = w.s.Consume(messageCtx, models.TicketEvent{
+		event := models.TicketEvent{
 			EventID:      p.EventID,
 			EventType:    p.EventType,
 			TicketID:     tid,
@@ -109,11 +129,13 @@ func (w *Worker) Run(ctx context.Context) error {
 			Status:       p.Status,
 			CreatedAt:    p.CreatedAt,
 			UpdatedAt:    p.UpdatedAt,
+		}
+		e = retryCurrent(messageCtx, func() error { return w.s.Consume(messageCtx, event) }, func(attempt int, retryErr error) {
+			w.log.Error("ticket event processing failed; retrying current offset", zap.Int("attempt", attempt), zap.Int64("offset", m.Offset), zap.Error(retryErr))
 		})
 		if e != nil {
 			telemetry.End(span, e)
-			w.log.Error("ticket event processing failed", zap.Error(e))
-			continue
+			return nil
 		}
 
 		if e = w.reader.CommitMessages(ctx, m); e != nil {
@@ -125,9 +147,46 @@ func (w *Worker) Run(ctx context.Context) error {
 	}
 }
 
+func (w *Worker) publishDLQ(ctx context.Context, message kafka.Message, processErr error) error {
+	return telemetry.WriteKafka(ctx, w.writer, dlqMessage(w.topic, message, processErr))
+}
+
+func dlqMessage(topic string, message kafka.Message, processErr error) kafka.Message {
+	errorText := processErr.Error()
+	if len(errorText) > 1000 {
+		errorText = errorText[:1000]
+	}
+	headers := append([]kafka.Header{}, message.Headers...)
+	headers = append(headers,
+		kafka.Header{Key: "x-error", Value: []byte(errorText)},
+		kafka.Header{Key: "x-original-topic", Value: []byte(message.Topic)},
+		kafka.Header{Key: "x-original-partition", Value: []byte(strconv.Itoa(message.Partition))},
+		kafka.Header{Key: "x-original-offset", Value: []byte(strconv.FormatInt(message.Offset, 10))},
+	)
+	return kafka.Message{Topic: topic + ".dlq", Key: message.Key, Value: message.Value, Headers: headers, Time: time.Now().UTC()}
+}
+
+func retryCurrent(ctx context.Context, process func() error, onError func(int, error)) error {
+	for attempt := 1; ; attempt++ {
+		if err := process(); err == nil {
+			return nil
+		} else {
+			onError(attempt, err)
+		}
+		delay := time.Duration(1<<min(attempt-1, 5)) * time.Second
+		timer := time.NewTimer(delay)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
+	}
+}
+
 func header(m kafka.Message, key string) string {
 	for _, h := range m.Headers {
-		if h.Key == key {
+		if strings.EqualFold(h.Key, key) {
 			return string(h.Value)
 		}
 	}

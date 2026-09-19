@@ -220,20 +220,7 @@ func (r *Repository) Expire(ctx context.Context, limit int) ([]*models.Operation
 	if limit <= 0 {
 		limit = 100
 	}
-	tx, err := r.writeDB.Begin(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("begin expire dispatch operations: %w", err)
-	}
-	defer tx.Rollback(ctx)
-	rows, err := tx.Query(ctx, `WITH claimed AS (
-		SELECT id FROM dispatch_operations
-		WHERE status IN ('PENDING','RESERVED','CONFIRMING') AND expires_at<=now()
-		ORDER BY expires_at, id FOR UPDATE SKIP LOCKED LIMIT $1
-	)
-	UPDATE dispatch_operations AS operation
-	SET status='EXPIRED',failure_code='RESERVATION_EXPIRED',failure_stage='RESERVATION',failure_reason='dispatch operation expired',version=operation.version+1,updated_at=now()
-	FROM claimed WHERE operation.id=claimed.id
-	RETURNING operation.id,operation.ticket_id,operation.department_id,operation.category_id,operation.priority,operation.brigade_id,operation.route_id,operation.mode,operation.status,operation.version,operation.requested_by,operation.failure_code,operation.failure_stage,operation.failure_reason,operation.expires_at,operation.created_at,operation.updated_at`, limit)
+	rows, err := r.writeDB.Query(ctx, baseSelect+` WHERE status IN ('PENDING','RESERVED','CONFIRMING') AND expires_at<=now() ORDER BY expires_at,id LIMIT $1`, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -248,15 +235,6 @@ func (r *Repository) Expire(ctx context.Context, limit int) ([]*models.Operation
 	}
 	if err = rows.Err(); err != nil {
 		return nil, err
-	}
-	rows.Close()
-	for _, item := range result {
-		if err = appendOperationEvent(ctx, tx, "dispatch.expired", item, nil); err != nil {
-			return nil, err
-		}
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("commit expired dispatch operations: %w", err)
 	}
 	return result, nil
 }

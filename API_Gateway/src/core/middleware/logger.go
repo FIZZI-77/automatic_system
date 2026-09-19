@@ -4,6 +4,8 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"gateway/pkg/telemetry"
@@ -15,8 +17,7 @@ import (
 func RequestLogger() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
-		path := c.Request.URL.Path
-		rawQuery := c.Request.URL.RawQuery
+		path := safeRequestPath(c.Request.URL)
 
 		c.Next()
 		duration := time.Since(start)
@@ -31,10 +32,6 @@ func RequestLogger() gin.HandlerFunc {
 			c.Writer.Status(),
 			duration,
 		)
-
-		if rawQuery != "" {
-			path += "?" + rawQuery
-		}
 
 		requestID, _ := requestid.FromContext(c.Request.Context())
 		attributes := []any{
@@ -65,4 +62,22 @@ func RequestLogger() gin.HandlerFunc {
 			slog.InfoContext(c.Request.Context(), "http request completed", attributes...)
 		}
 	}
+}
+
+func safeRequestPath(requestURL *url.URL) string {
+	if requestURL == nil {
+		return ""
+	}
+
+	query := requestURL.Query()
+	for key := range query {
+		switch strings.ToLower(key) {
+		case "access_token", "token", "refresh_token", "authorization", "api_key", "apikey", "key", "signature":
+			query.Set(key, "[REDACTED]")
+		}
+	}
+	if encoded := query.Encode(); encoded != "" {
+		return requestURL.Path + "?" + encoded
+	}
+	return requestURL.Path
 }
