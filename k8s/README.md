@@ -51,7 +51,7 @@
 | `github-runner` | Права самостоятельного исполнителя GitHub Actions. |
 | `base/observability` | Prometheus, Grafana, OpenTelemetry Collector, Jaeger и системные метрики. |
 | `base/logging` | Elasticsearch, Kibana и Filebeat. |
-| `ngrok` | Необязательная публикация входного шлюза через ngrok. |
+| `tailscale-funnel` | Необязательная публикация входного шлюза через стабильный HTTPS-адрес Tailscale. |
 | `optional/transponders` | Необязательные имитаторы координат бригад. |
 | `load-testing` | Задание k6 и сетевые разрешения для испытаний внутри кластера. |
 | `build` | Dockerfile вспомогательных образов. |

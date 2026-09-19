@@ -1,3 +1,5 @@
 # Valhalla
 
-Route and matrix capacity must be measured through the current Routing contracts. Record Routing pod CPU separately from Valhalla CPU/network to identify the limiting side.
+Производительность построения маршрутов и матриц необходимо измерять через
+актуальные контракты Routing. Чтобы определить ограничивающую сторону,
+фиксируйте потребление CPU подом Routing отдельно от CPU и сети Valhalla.

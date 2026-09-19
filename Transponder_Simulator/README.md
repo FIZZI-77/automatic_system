@@ -1,4 +1,4 @@
-# Transponder Simulator
+# Симулятор транспондера (Transponder Simulator)
 
 ## Общее описание и общий принцип работы
 

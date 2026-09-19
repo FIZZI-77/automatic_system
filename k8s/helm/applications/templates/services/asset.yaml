@@ -1,4 +1,23 @@
 apiVersion: v1
+data:
+  CRITICAL_RISK_TICKET_ACTOR_ROLES: {{ (index .Values.applications "asset").criticalRiskTicket.actorRoles | quote }}
+  CRITICAL_RISK_TICKET_CATEGORY_ID: {{ ternary (index .Values.applications "asset").criticalRiskTicket.categoryId "" (index .Values.applications "asset").criticalRiskTicket.enabled | quote }}
+  CRITICAL_RISK_TICKET_GROUP_ID: {{ (index .Values.applications "asset").criticalRiskTicket.groupId | quote }}
+  CRITICAL_RISK_TICKET_REQUESTER_ID: {{ ternary (index .Values.applications "asset").criticalRiskTicket.requesterId "" (index .Values.applications "asset").criticalRiskTicket.enabled | quote }}
+  KAFKA_ASSET_TOPIC: "assets.events.v1"
+  KAFKA_BROKERS: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
+  TICKET_SERVICE_ADDR: "ticket-service:50052"
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: asset-service
+    app.kubernetes.io/part-of: automatic-system
+  name: asset-service-config
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
 kind: Service
 metadata:
   labels:
@@ -65,6 +84,8 @@ spec:
         envFrom:
         - configMapRef:
             name: telemetry-config
+        - configMapRef:
+            name: asset-service-config
         image: '{{ include "applications.image" (dict "root" $ "name" "asset") }}'
         imagePullPolicy: {{ default (index .Values.applications "asset").image.pullPolicy .Values.globalImage.pullPolicy }}
         livenessProbe:

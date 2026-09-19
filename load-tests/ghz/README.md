@@ -1,5 +1,13 @@
-# ghz scenarios
+# Сценарии ghz
 
-The current public load surface is API Gateway HTTP. Direct gRPC tests require service addresses and auth metadata for the selected environment. Contract method names must be generated from the current `automatic-system-contracts` checkout; static guessed call templates are deliberately not included.
+Текущая публичная точка приложения нагрузки — HTTP-интерфейс API Gateway. Для
+прямых gRPC-тестов нужны адреса сервисов и метаданные авторизации выбранного
+окружения. Имена методов контрактов необходимо получать из текущей рабочей
+копии `automatic-system-contracts`; статические шаблоны вызовов, основанные на
+предположениях, намеренно не добавлены.
 
-Use `ghz --proto <current.proto> --call <verified.package.Service.Method> ...` and preserve `ghz.json` under the run directory. The capacity analyzer accepts the raw artifact once a parser for that concrete result is selected.
+Используйте команду
+`ghz --proto <current.proto> --call <verified.package.Service.Method> ...` и
+сохраняйте `ghz.json` в каталоге прогона. Анализатор производительности
+принимает исходный артефакт после выбора парсера для конкретного формата
+результата.
