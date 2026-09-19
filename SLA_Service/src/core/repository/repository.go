@@ -88,11 +88,11 @@ func (r *Repository) GetTicketSLA(ctx context.Context, id uuid.UUID) (*models.Ti
 	return scanSLA(r.db.QueryRow(ctx, slaSelect+` WHERE ticket_id=$1`, id))
 }
 
-const slaSelect = `SELECT id,ticket_id,rule_id,department_id,category_id,priority,status,response_deadline,resolution_deadline,responded_at,completed_at,response_breached,resolution_breached,response_warning_sent,resolution_warning_sent,version,created_at,updated_at FROM ticket_slas`
+const slaSelect = `SELECT id,ticket_id,rule_id,department_id,category_id,priority,status,ticket_created_at,response_deadline,resolution_deadline,responded_at,completed_at,response_breached,resolution_breached,response_warning_sent,resolution_warning_sent,version,created_at,updated_at FROM ticket_slas`
 
 func scanSLA(row pgx.Row) (*models.TicketSLA, error) {
 	v := new(models.TicketSLA)
-	e := row.Scan(&v.ID, &v.TicketID, &v.RuleID, &v.DepartmentID, &v.CategoryID, &v.Priority, &v.Status, &v.ResponseDeadline, &v.ResolutionDeadline, &v.RespondedAt, &v.CompletedAt, &v.ResponseBreached, &v.ResolutionBreached, &v.ResponseWarningSent, &v.ResolutionWarningSent, &v.Version, &v.CreatedAt, &v.UpdatedAt)
+	e := row.Scan(&v.ID, &v.TicketID, &v.RuleID, &v.DepartmentID, &v.CategoryID, &v.Priority, &v.Status, &v.TicketCreatedAt, &v.ResponseDeadline, &v.ResolutionDeadline, &v.RespondedAt, &v.CompletedAt, &v.ResponseBreached, &v.ResolutionBreached, &v.ResponseWarningSent, &v.ResolutionWarningSent, &v.Version, &v.CreatedAt, &v.UpdatedAt)
 	return v, mapErr(e)
 }
 
@@ -109,7 +109,7 @@ func (r *Repository) ListSLAs(ctx context.Context, f models.SLAFilter) ([]*model
 	var total int64
 	for rows.Next() {
 		v := new(models.TicketSLA)
-		e = rows.Scan(&v.ID, &v.TicketID, &v.RuleID, &v.DepartmentID, &v.CategoryID, &v.Priority, &v.Status, &v.ResponseDeadline, &v.ResolutionDeadline, &v.RespondedAt, &v.CompletedAt, &v.ResponseBreached, &v.ResolutionBreached, &v.ResponseWarningSent, &v.ResolutionWarningSent, &v.Version, &v.CreatedAt, &v.UpdatedAt, &total)
+		e = rows.Scan(&v.ID, &v.TicketID, &v.RuleID, &v.DepartmentID, &v.CategoryID, &v.Priority, &v.Status, &v.TicketCreatedAt, &v.ResponseDeadline, &v.ResolutionDeadline, &v.RespondedAt, &v.CompletedAt, &v.ResponseBreached, &v.ResolutionBreached, &v.ResponseWarningSent, &v.ResolutionWarningSent, &v.Version, &v.CreatedAt, &v.UpdatedAt, &total)
 		if e != nil {
 			return nil, 0, e
 		}
@@ -139,6 +139,13 @@ func (r *Repository) ApplyEvent(ctx context.Context, ev models.TicketEvent, rule
 			return tx.Commit(ctx)
 		}
 
+		ticketCreatedAt := ev.CreatedAt
+		if ticketCreatedAt.IsZero() {
+			ticketCreatedAt = ev.UpdatedAt
+		}
+		if ticketCreatedAt.IsZero() {
+			ticketCreatedAt = time.Now().UTC()
+		}
 		v = &models.TicketSLA{
 			ID:                 uuid.New(),
 			TicketID:           ev.TicketID,
@@ -147,14 +154,18 @@ func (r *Repository) ApplyEvent(ctx context.Context, ev models.TicketEvent, rule
 			CategoryID:         ev.CategoryID,
 			Priority:           ev.Priority,
 			Status:             models.StatusActive,
-			ResponseDeadline:   ev.CreatedAt.Add(rule.ResponseTime),
-			ResolutionDeadline: ev.CreatedAt.Add(rule.ResolutionTime),
+			TicketCreatedAt:    ticketCreatedAt,
+			ResponseDeadline:   ticketCreatedAt.Add(rule.ResponseTime),
+			ResolutionDeadline: ticketCreatedAt.Add(rule.ResolutionTime),
 			Version:            1,
 		}
 
-		_, e = tx.Exec(ctx, `INSERT INTO ticket_slas(id,ticket_id,rule_id,department_id,category_id,priority,status,response_deadline,resolution_deadline,version) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, v.ID, v.TicketID, v.RuleID, v.DepartmentID, v.CategoryID, v.Priority, v.Status, v.ResponseDeadline, v.ResolutionDeadline, v.Version)
+		_, e = tx.Exec(ctx, `INSERT INTO ticket_slas(id,ticket_id,rule_id,department_id,category_id,priority,status,ticket_created_at,response_deadline,resolution_deadline,version) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, v.ID, v.TicketID, v.RuleID, v.DepartmentID, v.CategoryID, v.Priority, v.Status, v.TicketCreatedAt, v.ResponseDeadline, v.ResolutionDeadline, v.Version)
 		if e == nil {
 			e = history(ctx, tx, v, models.EventCreated, "ticket SLA created")
+		}
+		if e == nil && ev.EventType != "ticket.created" {
+			e = transition(ctx, tx, v, ev, rule)
 		}
 	} else if e == nil {
 		e = transition(ctx, tx, v, ev, rule)
@@ -198,8 +209,8 @@ func transition(ctx context.Context, tx pgx.Tx, v *models.TicketSLA, ev models.T
 		if rule != nil && rule.ID != v.RuleID {
 			v.RuleID = rule.ID
 			v.Priority = ev.Priority
-			v.ResponseDeadline = v.CreatedAt.Add(rule.ResponseTime)
-			v.ResolutionDeadline = v.CreatedAt.Add(rule.ResolutionTime)
+			v.ResponseDeadline = v.TicketCreatedAt.Add(rule.ResponseTime)
+			v.ResolutionDeadline = v.TicketCreatedAt.Add(rule.ResolutionTime)
 			kind = models.EventRecalculated
 			details = "SLA rule changed"
 		}
@@ -245,7 +256,7 @@ func (r *Repository) CheckDeadlines(ctx context.Context, now time.Time) error {
 			v.ResponseBreached = true
 			changed = true
 			e = history(ctx, tx, v, models.EventResponseBreached, "response deadline breached")
-		} else if v.RespondedAt == nil && !v.ResponseWarningSent && warningReached(v.CreatedAt, v.ResponseDeadline, rule.WarningPercent, now) {
+		} else if v.RespondedAt == nil && !v.ResponseWarningSent && warningReached(v.TicketCreatedAt, v.ResponseDeadline, rule.WarningPercent, now) {
 			v.ResponseWarningSent = true
 			changed = true
 			e = history(ctx, tx, v, models.EventResponseWarning, "response deadline approaching")
@@ -258,7 +269,7 @@ func (r *Repository) CheckDeadlines(ctx context.Context, now time.Time) error {
 			v.ResolutionBreached = true
 			changed = true
 			e = history(ctx, tx, v, models.EventResolutionBreached, "resolution deadline breached")
-		} else if !v.ResolutionWarningSent && warningReached(v.CreatedAt, v.ResolutionDeadline, rule.WarningPercent, now) {
+		} else if !v.ResolutionWarningSent && warningReached(v.TicketCreatedAt, v.ResolutionDeadline, rule.WarningPercent, now) {
 			v.ResolutionWarningSent = true
 			changed = true
 			e = history(ctx, tx, v, models.EventResolutionWarning, "resolution deadline approaching")

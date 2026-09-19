@@ -173,13 +173,18 @@ func (w *Worker) apply(ctx context.Context, message kafka.Message) error {
 	if event.UpdatedAt.IsZero() {
 		return errors.New("routing event misses updated_at")
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO brigade_route_projection(brigade_id,route_id,ticket_id,route_status,revision,source_updated_at,updated_at)
+	tag, err := tx.Exec(ctx, `INSERT INTO brigade_route_projection(brigade_id,route_id,ticket_id,route_status,revision,source_updated_at,updated_at)
 		VALUES($1,$2,$3,$4,$5,$6,now())
 		ON CONFLICT(brigade_id) DO UPDATE SET route_id=EXCLUDED.route_id,ticket_id=EXCLUDED.ticket_id,
 			route_status=EXCLUDED.route_status,revision=EXCLUDED.revision,source_updated_at=EXCLUDED.source_updated_at,updated_at=now()
-		WHERE brigade_route_projection.source_updated_at <= EXCLUDED.source_updated_at`, brigadeID, routeID, ticketID, event.Status, event.Revision, event.UpdatedAt)
+		WHERE brigade_route_projection.source_updated_at < EXCLUDED.source_updated_at
+			OR (brigade_route_projection.source_updated_at = EXCLUDED.source_updated_at
+				AND brigade_route_projection.revision <= EXCLUDED.revision)`, brigadeID, routeID, ticketID, event.Status, event.Revision, event.UpdatedAt)
 	if err != nil {
 		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return tx.Commit(ctx)
 	}
 
 	target := ""

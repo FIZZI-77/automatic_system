@@ -5,8 +5,20 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"time"
 )
+
+type CriticalRiskTicketPayload struct {
+	AssetID      uuid.UUID         `json:"asset_id"`
+	DepartmentID uuid.UUID         `json:"department_id"`
+	Name         string            `json:"name"`
+	Type         string            `json:"type"`
+	Address      string            `json:"address"`
+	Latitude     float64           `json:"latitude"`
+	Longitude    float64           `json:"longitude"`
+	Prediction   models.Prediction `json:"prediction"`
+}
 
 func (r *AssetRepoStruct) CreatePlan(c context.Context, v models.Plan) (*models.Plan, error) {
 	e := r.db.QueryRow(c, `INSERT INTO maintenance_plans(asset_id,kind,interval_days,next_due_at)VALUES($1,$2,$3,$4)ON CONFLICT(asset_id,kind)DO UPDATE SET interval_days=$3,next_due_at=$4,active=true RETURNING id,active,last_completed_at`, v.AssetID, v.Kind, v.IntervalDays, v.NextDueAt).Scan(&v.ID, &v.Active, &v.LastCompletedAt)
@@ -53,6 +65,12 @@ func (r *AssetRepoStruct) SavePrediction(c context.Context, p models.Prediction)
 		return e
 	}
 	defer tx.Rollback(c)
+
+	payload, e := r.criticalRiskPayload(c, tx, p)
+	if e != nil {
+		return e
+	}
+
 	_, e = tx.Exec(c, `INSERT INTO failure_predictions(asset_id,risk_score,risk_level,failure_probability_90d,factors,recommended_action,calculated_at)VALUES($1,$2,$3,$4,$5,$6,$7)`, p.AssetID, p.Score, p.Level, p.Probability, raw, p.Action, p.CalculatedAt)
 	if e == nil {
 		_, e = tx.Exec(c, "UPDATE assets SET risk_score=$2,risk_level=$3,updated_at=now()WHERE id=$1", p.AssetID, p.Score, p.Level)
@@ -60,10 +78,31 @@ func (r *AssetRepoStruct) SavePrediction(c context.Context, p models.Prediction)
 	if e == nil {
 		e = emit(c, tx, p.AssetID, "asset.RISK_UPDATED", p)
 	}
+	if e == nil && payload != nil {
+		e = emit(c, tx, p.AssetID, "asset.RISK_BECAME_CRITICAL", payload)
+	}
 	if e == nil {
 		e = tx.Commit(c)
 	}
 	return e
+}
+
+func (r *AssetRepoStruct) criticalRiskPayload(c context.Context, tx pgx.Tx, p models.Prediction) (*CriticalRiskTicketPayload, error) {
+	if p.Level != models.RiskCritical {
+		return nil, nil
+	}
+
+	var old models.RiskLevel
+	payload := CriticalRiskTicketPayload{Prediction: p}
+	e := tx.QueryRow(c, `SELECT risk_level,id,department_id,name,type,address,ST_Y(ST_PointOnSurface(geometry)),ST_X(ST_PointOnSurface(geometry)) FROM assets WHERE id=$1 FOR UPDATE`, p.AssetID).Scan(&old, &payload.AssetID, &payload.DepartmentID, &payload.Name, &payload.Type, &payload.Address, &payload.Latitude, &payload.Longitude)
+	if e != nil {
+		return nil, e
+	}
+	if old == models.RiskCritical {
+		return nil, nil
+	}
+
+	return &payload, nil
 }
 func (r *AssetRepoStruct) GetPrediction(c context.Context, id uuid.UUID) (*models.Prediction, error) {
 	var p models.Prediction

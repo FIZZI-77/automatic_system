@@ -105,25 +105,7 @@ func (s *Service) Link(ctx context.Context, id, actor uuid.UUID, privileged bool
 	if f.OwnerUserID != actor && !privileged {
 		return nil, models.ErrPermissionDenied
 	}
-	folder := strings.Map(func(value rune) rune {
-		if value >= 'a' && value <= 'z' || value >= 'A' && value <= 'Z' || value >= '0' && value <= '9' || value == '-' || value == '_' {
-			return value
-		}
-		return '-'
-	}, strings.ToLower(strings.TrimSpace(in.ResourceType)))
-	targetKey := fmt.Sprintf("%s/%s/%s-%s", folder, in.ResourceID, f.ID, f.Name)
-	if f.ObjectKey == targetKey {
-		return s.repo.Link(ctx, id, in, targetKey)
-	}
-	if err := s.store.Move(ctx, f.ObjectKey, targetKey); err != nil {
-		return nil, err
-	}
-	linked, err := s.repo.Link(ctx, id, in, targetKey)
-	if err != nil {
-		_ = s.store.Move(ctx, targetKey, f.ObjectKey)
-		return nil, err
-	}
-	return linked, nil
+	return s.repo.Link(ctx, id, in)
 }
 func (s *Service) Download(ctx context.Context, id, actor uuid.UUID, privileged bool) (*models.PresignedFile, error) {
 	f, err := s.repo.Get(ctx, id)
@@ -132,6 +114,9 @@ func (s *Service) Download(ctx context.Context, id, actor uuid.UUID, privileged 
 	}
 	if f.OwnerUserID != actor && !privileged {
 		return nil, models.ErrPermissionDenied
+	}
+	if !downloadable(f.Status) {
+		return nil, models.ErrValidation
 	}
 	u, err := s.store.DownloadURL(ctx, f.ObjectKey, f.Name, s.ttl)
 	if err != nil {
@@ -142,6 +127,10 @@ func (s *Service) Download(ctx context.Context, id, actor uuid.UUID, privileged 
 		URL:       u,
 		ExpiresAt: time.Now().Add(s.ttl),
 	}, nil
+}
+
+func downloadable(status models.Status) bool {
+	return status == models.StatusUploaded || status == models.StatusLinked
 }
 func (s *Service) Delete(ctx context.Context, id, actor uuid.UUID, privileged bool) error {
 	f, err := s.repo.Get(ctx, id)

@@ -113,13 +113,13 @@ func (r *ReportRepoStruct) Claim(c context.Context) (*models.Report, error) {
 	}
 	return x, e
 }
-func (r *ReportRepoStruct) Complete(c context.Context, id, file uuid.UUID) error {
+func (r *ReportRepoStruct) Complete(c context.Context, id, file uuid.UUID, attempt int32) error {
 	tx, e := r.db.Begin(c)
 	if e != nil {
 		return e
 	}
 	defer tx.Rollback(c)
-	x, e := scan(tx.QueryRow(c, `UPDATE reports SET status='COMPLETED',file_id=$2,error=NULL,completed_at=now(),updated_at=now() WHERE id=$1 AND status='PROCESSING' RETURNING `+columns, id, file))
+	x, e := scan(tx.QueryRow(c, `UPDATE reports SET status='COMPLETED',file_id=$2,error=NULL,completed_at=now(),updated_at=now() WHERE id=$1 AND status='PROCESSING' AND attempts=$3 RETURNING `+columns, id, file, attempt))
 	if e == nil {
 		e = event(c, tx, x, "report.COMPLETED")
 	}
@@ -128,13 +128,13 @@ func (r *ReportRepoStruct) Complete(c context.Context, id, file uuid.UUID) error
 	}
 	return e
 }
-func (r *ReportRepoStruct) Fail(c context.Context, id uuid.UUID, msg string) error {
+func (r *ReportRepoStruct) Fail(c context.Context, id uuid.UUID, attempt int32, msg string) error {
 	tx, e := r.db.Begin(c)
 	if e != nil {
 		return e
 	}
 	defer tx.Rollback(c)
-	x, e := scan(tx.QueryRow(c, `UPDATE reports SET status='FAILED',error=$2,updated_at=now() WHERE id=$1 AND status='PROCESSING' RETURNING `+columns, id, msg))
+	x, e := scan(tx.QueryRow(c, `UPDATE reports SET status='FAILED',error=$3,updated_at=now() WHERE id=$1 AND status='PROCESSING' AND attempts=$2 RETURNING `+columns, id, attempt, msg))
 	if e == nil {
 		e = event(c, tx, x, "report.FAILED")
 	}

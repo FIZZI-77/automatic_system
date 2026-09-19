@@ -1,3 +1,6 @@
 # ClickHouse
 
-Analytics bulk seed is a controlled test-environment operation. Dataset sizes and query windows must be recorded in run metadata; no benchmark value is shipped as a result.
+Массовое заполнение Analytics выполняется только как контролируемая операция в
+тестовом окружении. Размеры наборов данных и интервалы запросов необходимо
+фиксировать в метаданных прогона; репозиторий не содержит готовых результатов
+измерений.

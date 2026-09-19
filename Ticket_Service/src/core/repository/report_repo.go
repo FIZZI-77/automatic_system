@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -71,6 +72,20 @@ func (r *ReportRepository) Create(ctx context.Context, in *models.CreateWorkRepo
 			return nil, err
 		}
 	}
+	var ticketStatus models.TicketStatus
+	var assignedBrigadeID *uuid.UUID
+	if err = tx.QueryRow(ctx, `SELECT status,brigade_id FROM tickets WHERE id=$1 FOR UPDATE`, in.TicketID).Scan(&ticketStatus, &assignedBrigadeID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, models.ErrNotFound
+		}
+		return nil, fmt.Errorf("lock report ticket: %w", err)
+	}
+	if ticketStatus != models.TicketStatusAssigned && ticketStatus != models.TicketStatusInProgress {
+		return nil, fmt.Errorf("%w: report can only be added to an active ticket", models.ErrInvalidStatusTransition)
+	}
+	if !canCreateWorkReport(in, assignedBrigadeID) {
+		return nil, models.ErrPermissionDenied
+	}
 	report = &models.WorkReport{
 		ID:           uuid.New(),
 		TicketID:     in.TicketID,
@@ -133,6 +148,24 @@ func (r *ReportRepository) Create(ctx context.Context, in *models.CreateWorkRepo
 		return nil, err
 	}
 	return report, nil
+}
+
+func canCreateWorkReport(in *models.CreateWorkReportInput, assignedBrigadeID *uuid.UUID) bool {
+	for _, role := range in.ActorRoles {
+		normalized := strings.ToLower(strings.TrimSpace(role))
+		if normalized == "admin" || normalized == "dispatcher" {
+			return true
+		}
+	}
+	if in.ActorBrigadeID == nil || assignedBrigadeID == nil || *in.ActorBrigadeID != *assignedBrigadeID {
+		return false
+	}
+	for _, role := range in.ActorRoles {
+		if strings.EqualFold(strings.TrimSpace(role), "worker") {
+			return true
+		}
+	}
+	return false
 }
 
 func (r *ReportRepository) List(ctx context.Context, ticketID uuid.UUID) ([]*models.WorkReport, error) {

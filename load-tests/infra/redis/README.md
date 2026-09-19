@@ -1,3 +1,6 @@
 # Redis
 
-Use the deployed redis-exporter. Record CPU, memory, commands/sec and latency for Location runs. Stateful capacity is measured and is never extrapolated linearly from CPU count.
+Используйте развёрнутый `redis-exporter`. Для прогонов Location фиксируйте CPU,
+память, количество команд в секунду и задержку. Производительность компонента
+с состоянием измеряется напрямую и никогда не экстраполируется линейно по
+количеству процессоров.

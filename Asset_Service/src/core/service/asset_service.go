@@ -26,6 +26,9 @@ func (s *AssetServiceStruct) Create(c context.Context, v models.CreateInput, p b
 	if v.Criticality < 0 || v.Criticality > 1 {
 		return nil, errors.New("criticality must be between 0 and 1")
 	}
+	if v.InstallationYear != nil && *v.InstallationYear > int32(time.Now().UTC().Year()) {
+		return nil, errors.New("installation year must not be in the future")
+	}
 	x, e := s.repo.Create(c, v)
 	if e == nil {
 		s.logger().Info("asset created", zap.String("asset_id", x.ID.String()), zap.String("type", x.Type))
@@ -155,7 +158,7 @@ func (s *AssetServiceStruct) calculate(c context.Context, id uuid.UUID, now time
 	score := f.Criticality * 20
 	factors := []string{}
 	if f.InstallationYear != nil && f.ServiceLifeYears != nil && *f.ServiceLifeYears > 0 {
-		age := now.Year() - int(*f.InstallationYear)
+		age := max(0, now.Year()-int(*f.InstallationYear))
 		ratio := float64(age) / float64(*f.ServiceLifeYears)
 		score += math.Min(25, ratio*25)
 		if ratio >= .8 {
@@ -176,7 +179,7 @@ func (s *AssetServiceStruct) calculate(c context.Context, id uuid.UUID, now time
 			factors = append(factors, "poor latest inspection condition")
 		}
 	}
-	score = math.Min(100, math.Round(score*10)/10)
+	score = math.Max(0, math.Min(100, math.Round(score*10)/10))
 	level := models.RiskLow
 	action := "normal scheduled maintenance"
 	switch {

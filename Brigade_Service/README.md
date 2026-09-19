@@ -1,4 +1,4 @@
-# Brigade Service
+# Сервис бригад (Brigade Service)
 
 ## Общее описание и общий принцип работы
 

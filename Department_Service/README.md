@@ -1,4 +1,4 @@
-# Department Service
+# Сервис подразделений (Department Service)
 
 ## Общее описание и общий принцип работы
 

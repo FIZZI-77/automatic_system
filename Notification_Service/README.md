@@ -1,4 +1,4 @@
-# Notification Service
+# Сервис уведомлений (Notification Service)
 
 ## Общее описание и общий принцип работы
 

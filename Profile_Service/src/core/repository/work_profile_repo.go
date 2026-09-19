@@ -326,7 +326,13 @@ func (w *WorkProfileRepoStruct) SetWorkProfileStatus(ctx context.Context, in *mo
 	if err != nil {
 		return nil, mapDatabaseError("SetWorkProfileStatus(): get profile", err)
 	}
+	if !canSetWorkProfileStatus(current, in) {
+		return nil, models.ErrPermissionDenied
+	}
 	fromStatus := current.WorkProfile.Status
+	if !hasAdminRole(in.ActorRoles) && !workerStatusTransitionAllowed(fromStatus, in.Status) {
+		return nil, models.ErrInvalidStatus
+	}
 	if fromStatus == in.Status {
 		if err = tx.Commit(ctx); err != nil {
 			return nil, fmt.Errorf("repository: SetWorkProfileStatus(): commit no-op: %w", err)
@@ -362,6 +368,35 @@ func (w *WorkProfileRepoStruct) SetWorkProfileStatus(ctx context.Context, in *mo
 		return nil, fmt.Errorf("repository: SetWorkProfileStatus(): commit: %w", err)
 	}
 	return &models.SetWorkProfileStatusResult{Details: details}, nil
+}
+
+func canSetWorkProfileStatus(current *models.WorkProfileDetails, in *models.SetWorkProfileStatusInput) bool {
+	if hasAdminRole(in.ActorRoles) {
+		return true
+	}
+	return in.ActorUserID != nil && current != nil && current.UserProfile != nil && *in.ActorUserID == current.UserProfile.UserID
+}
+
+func hasAdminRole(roles []string) bool {
+	for _, role := range roles {
+		if strings.EqualFold(strings.TrimSpace(role), "admin") {
+			return true
+		}
+	}
+	return false
+}
+
+func workerStatusTransitionAllowed(from, to models.WorkProfileStatus) bool {
+	switch from {
+	case models.WorkProfileStatusActive:
+		return to == models.WorkProfileStatusOnShift
+	case models.WorkProfileStatusOnShift:
+		return to == models.WorkProfileStatusOffShift
+	case models.WorkProfileStatusOffShift:
+		return to == models.WorkProfileStatusOnShift
+	default:
+		return false
+	}
 }
 
 func (w *WorkProfileRepoStruct) GetWorkProfileStatusHistory(ctx context.Context, in *models.GetWorkProfileStatusHistoryInput) (*models.GetWorkProfileStatusHistoryResult, error) {

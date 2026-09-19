@@ -34,6 +34,7 @@ type MailService interface {
 
 type ProfileProvisioner interface {
 	CreateUserProfile(ctx context.Context, userID uuid.UUID, fullName string) error
+	UserProfileExists(ctx context.Context, userID uuid.UUID) (bool, error)
 }
 type Service struct {
 	AuthService

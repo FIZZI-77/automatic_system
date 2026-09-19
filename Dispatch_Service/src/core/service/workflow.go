@@ -202,7 +202,7 @@ func (s *Service) resumeAutomatic(ctx context.Context, op *models.Operation, in 
 	case models.StatusAssigned, models.StatusFailed, models.StatusCancelled, models.StatusExpired:
 		return op, nil
 	case models.StatusReserved:
-		return s.Confirm(ctx, &models.ConfirmInput{
+		return s.confirm(ctx, &models.ConfirmInput{
 			ID:              op.ID,
 			ConfirmedBy:     in.RequestedBy,
 			ExpectedVersion: op.Version,
@@ -246,7 +246,7 @@ func (s *Service) resumeAutomatic(ctx context.Context, op *models.Operation, in 
 			lastErr = reserveErr
 			continue
 		}
-		return s.Confirm(ctx, &models.ConfirmInput{
+		return s.confirm(ctx, &models.ConfirmInput{
 			ID:              reserved.ID,
 			ConfirmedBy:     in.RequestedBy,
 			ExpectedVersion: reserved.Version,
@@ -260,6 +260,22 @@ func (s *Service) Confirm(ctx context.Context, in *models.ConfirmInput) (*models
 	if in == nil || in.ID == uuid.Nil || in.ConfirmedBy == uuid.Nil || in.ExpectedVersion <= 0 {
 		return nil, fmt.Errorf("%w: confirm input", models.ErrInvalidArgument)
 	}
+	releaseLock, acquired, err := s.repo.TryOperationLock(ctx, in.ID)
+	if err != nil {
+		return nil, err
+	}
+	if !acquired {
+		return nil, models.ErrConflict
+	}
+	defer func() {
+		if releaseErr := releaseLock(); releaseErr != nil {
+			s.log.Error("release dispatch confirmation lock", zap.Error(releaseErr), zap.String("operation_id", in.ID.String()))
+		}
+	}()
+	return s.confirm(ctx, in)
+}
+
+func (s *Service) confirm(ctx context.Context, in *models.ConfirmInput) (*models.Operation, error) {
 	ctx = forwardMetadata(ctx)
 	op, err := s.repo.Get(ctx, in.ID)
 	if err != nil {
@@ -375,7 +391,7 @@ func (s *Service) Cancel(ctx context.Context, in *models.CancelInput) (*models.O
 		return nil, err
 	}
 	if op.BrigadeID != nil {
-		s.release(forwardMetadata(ctx), *op.BrigadeID, in.CancelledBy)
+		_ = s.release(forwardMetadata(ctx), *op.BrigadeID, in.CancelledBy)
 	}
 	return cancelled, nil
 }
@@ -398,6 +414,10 @@ func (s *Service) reserveExisting(ctx context.Context, op *models.Operation, bri
 	if !check.GetCanHandle() {
 		return nil, fmt.Errorf("%w: brigade cannot handle ticket: %v", models.ErrConflict, check.GetReasons())
 	}
+	reserved, err := s.repo.SetReserved(ctx, op.ID, brigadeID, op.Version)
+	if err != nil {
+		return nil, err
+	}
 	_, err = s.deps.Brigades.SetBrigadeStatus(ctx, &brigadev1.SetBrigadeStatusRequest{
 		BrigadeId:       brigadeID.String(),
 		Status:          brigadev1.BrigadeStatus_BRIGADE_STATUS_BUSY,
@@ -405,12 +425,9 @@ func (s *Service) reserveExisting(ctx context.Context, op *models.Operation, bri
 		ChangedByUserId: actor.String(),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("reserve brigade: %w", err)
-	}
-	reserved, err := s.repo.SetReserved(ctx, op.ID, brigadeID, op.Version)
-	if err != nil {
-		s.release(ctx, brigadeID, actor)
-		return nil, err
+		_, transitionErr := s.repo.SetFailed(ctx, reserved.ID, "RESERVATION", "BRIGADE_RESERVATION_FAILED", err.Error(), reserved.Version)
+		releaseErr := s.release(ctx, brigadeID, actor)
+		return nil, errors.Join(fmt.Errorf("reserve brigade: %w", err), transitionErr, releaseErr)
 	}
 	return reserved, nil
 }
@@ -438,7 +455,9 @@ func (s *Service) failAndRelease(ctx context.Context, op *models.Operation, acto
 		return nil, errors.Join(cause, transitionErr)
 	}
 	if failed.BrigadeID != nil {
-		s.release(ctx, *failed.BrigadeID, actor)
+		if releaseErr := s.release(ctx, *failed.BrigadeID, actor); releaseErr != nil {
+			return nil, errors.Join(cause, releaseErr)
+		}
 	}
 	return nil, cause
 }
@@ -491,7 +510,7 @@ func operationInput(ticket *ticketv1.Ticket, ticketID, requestedBy uuid.UUID, mo
 	}, nil
 }
 
-func (s *Service) release(ctx context.Context, id, actor uuid.UUID) {
+func (s *Service) release(ctx context.Context, id, actor uuid.UUID) error {
 	_, err := s.deps.Brigades.SetBrigadeStatus(ctx, &brigadev1.SetBrigadeStatusRequest{
 		BrigadeId:       id.String(),
 		Status:          brigadev1.BrigadeStatus_BRIGADE_STATUS_AVAILABLE,
@@ -501,6 +520,18 @@ func (s *Service) release(ctx context.Context, id, actor uuid.UUID) {
 	if err != nil {
 		s.log.Error("release brigade", zap.Error(err), zap.String("brigade_id", id.String()))
 	}
+	return err
+}
+
+func compensationContext(ctx context.Context, operation *models.Operation) context.Context {
+	values := []string{
+		"x-actor-user-id", operation.RequestedBy.String(),
+		"x-actor-roles", "dispatcher",
+	}
+	if operation.DepartmentID != nil {
+		values = append(values, "x-actor-department-id", operation.DepartmentID.String())
+	}
+	return metadata.NewOutgoingContext(ctx, metadata.Pairs(values...))
 }
 
 func (s *Service) cancelRoute(ctx context.Context, id string) {

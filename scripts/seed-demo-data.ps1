@@ -83,17 +83,31 @@ $accounts = @(
     @{ Email = "demo.user@city.local"; Username = "demo_user"; Role = "user" }
 )
 
+function Register-DemoAccount {
+    param([hashtable]$Account)
+
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        try {
+            Invoke-RestMethod -Uri "$BaseUrl/auth/register" -Method Post -ContentType "application/json" -Body (@{
+                email = $Account.Email
+                password = $Password
+                username = $Account.Username
+            } | ConvertTo-Json) | Out-Null
+            return
+        }
+        catch {
+            $statusCode = if ($_.Exception.Response) { $_.Exception.Response.StatusCode.value__ } else { 0 }
+            if ($statusCode -eq 409) { return }
+
+            $transient = $statusCode -eq 0 -or $statusCode -in 502, 503, 504
+            if (-not $transient -or $attempt -eq 3) { throw }
+            Start-Sleep -Seconds $attempt
+        }
+    }
+}
+
 foreach ($account in $accounts) {
-    try {
-        Invoke-RestMethod -Uri "$BaseUrl/auth/register" -Method Post -ContentType "application/json" -Body (@{
-            email = $account.Email
-            password = $Password
-            username = $account.Username
-        } | ConvertTo-Json) | Out-Null
-    }
-    catch {
-        if ($_.Exception.Response.StatusCode.value__ -ne 409) { throw }
-    }
+    Register-DemoAccount $account
 }
 
 $roleValues = ($accounts | ForEach-Object { "('$($_.Email)','$($_.Role)')" }) -join ",`n"
@@ -185,15 +199,18 @@ INSERT INTO tickets(id,department_id,user_id,brigade_id,title,description,catego
 ('$ticketNew','$depRoads','$residentId',NULL,'Повреждён дорожный знак','Знак наклонён после сильного ветра, требуется восстановление.','$catRoad','MEDIUM','NEW','Тверская улица, 12',55.7622,37.6070,now()-interval '35 minutes',now()-interval '35 minutes',NULL,NULL,NULL),
 ('$ticketAssigned','$depRoads','$residentId','$brigadeRoad','Не работает освещение','Не горят три фонаря вдоль пешеходной зоны.','$catLight','HIGH','ASSIGNED','Страстной бульвар, 6',55.7650,37.6076,now()-interval '2 hours',now()-interval '25 minutes',now()-interval '25 minutes',NULL,NULL),
 ('$ticketProgress','$depUtilities','$residentId','$brigadeUtility','Повреждение водопровода','Сильная течь у проезжей части.','$catWater','EMERGENCY','IN_PROGRESS','Большая Дмитровка, 18',55.7611,37.6136,now()-interval '3 hours',now()-interval '18 minutes',now()-interval '45 minutes',NULL,NULL),
-('$ticketDone','$depRoads','$residentId','$brigadeRoad','Яма на дороге устранена','Восстановлено асфальтовое покрытие во дворе.','$catRoad','HIGH','DONE','Петровка, 22',55.7665,37.6178,now()-interval '14 hours',now()-interval '2 hours',now()-interval '12 hours',now()-interval '2 hours',NULL),
+('$ticketDone','$depRoads','$residentId','$brigadeRoad','Яма на дороге устранена','Восстановлено асфальтовое покрытие во дворе.','$catRoad','HIGH','DONE','Петровка, 22',55.7665,37.6178,now()-interval '4 hours',now()-interval '2 hours',now()-interval '3 hours 45 minutes',now()-interval '2 hours',NULL),
 ('$ticketEmergency','$depUtilities','$residentId',NULL,'Открытый люк','Крышка люка отсутствует рядом с остановкой.','$catWater','EMERGENCY','NEW','Пречистенка, 31',55.7417,37.5905,now()-interval '12 minutes',now()-interval '12 minutes',NULL,NULL,NULL),
 ('$ticketCanceled','$depRoads','$residentId',NULL,'Ветка на проезжей части','Объект уже убран другой службой.','$catRoad','LOW','CANCELED','Чистопрудный бульвар, 9',55.7631,37.6385,now()-interval '10 hours',now()-interval '3 hours',NULL,NULL,now()-interval '3 hours')
-ON CONFLICT (department_id,id) DO UPDATE SET brigade_id=EXCLUDED.brigade_id,title=EXCLUDED.title,description=EXCLUDED.description,priority=EXCLUDED.priority,status=EXCLUDED.status,address=EXCLUDED.address,latitude=EXCLUDED.latitude,longitude=EXCLUDED.longitude,updated_at=EXCLUDED.updated_at,assigned_at=EXCLUDED.assigned_at,completed_at=EXCLUDED.completed_at,canceled_at=EXCLUDED.canceled_at;
+ON CONFLICT (department_id,id) DO UPDATE SET user_id=EXCLUDED.user_id,brigade_id=EXCLUDED.brigade_id,title=EXCLUDED.title,description=EXCLUDED.description,category_id=EXCLUDED.category_id,priority=EXCLUDED.priority,status=EXCLUDED.status,address=EXCLUDED.address,latitude=EXCLUDED.latitude,longitude=EXCLUDED.longitude,created_at=EXCLUDED.created_at,updated_at=EXCLUDED.updated_at,assigned_at=EXCLUDED.assigned_at,completed_at=EXCLUDED.completed_at,canceled_at=EXCLUDED.canceled_at;
 INSERT INTO ticket_status_history(id,department_id,ticket_id,old_status,new_status,changed_by,comment,created_at) VALUES
 ('61000000-0000-4000-8000-000000000001','$depUtilities','$ticketProgress','NEW','ASSIGNED','$dispatcherId','Назначена аварийная бригада',now()-interval '45 minutes'),
 ('61000000-0000-4000-8000-000000000002','$depUtilities','$ticketProgress','ASSIGNED','IN_PROGRESS','$worker2Id','Бригада прибыла на место',now()-interval '18 minutes'),
-('61000000-0000-4000-8000-000000000003','$depRoads','$ticketDone','IN_PROGRESS','DONE','$worker1Id','Покрытие восстановлено и проверено',now()-interval '1 day')
-ON CONFLICT (department_id,id) DO NOTHING;
+('61000000-0000-4000-8000-000000000003','$depRoads','$ticketDone','IN_PROGRESS','DONE','$worker1Id','Покрытие восстановлено и проверено',now()-interval '2 hours')
+ON CONFLICT (department_id,id) DO UPDATE SET old_status=EXCLUDED.old_status,new_status=EXCLUDED.new_status,changed_by=EXCLUDED.changed_by,comment=EXCLUDED.comment,created_at=EXCLUDED.created_at;
+DELETE FROM ticket_status_history
+WHERE ticket_id IN ('$ticketNew','$ticketAssigned','$ticketProgress','$ticketDone','$ticketEmergency','$ticketCanceled')
+  AND new_status='ARCHIVED';
 INSERT INTO ticket_reports(id,department_id,ticket_id,author_user_id,description,created_at,updated_at) VALUES
 ('62000000-0000-4000-8000-000000000001','$depRoads','$ticketDone','$worker1Id','Повреждённый участок очищен, основание уплотнено, уложен новый асфальт. Состав: Алексей Смирнов, Ирина Волкова.',now()-interval '1 day',now()-interval '1 day')
 ON CONFLICT (department_id,id) DO UPDATE SET description=EXCLUDED.description,updated_at=EXCLUDED.updated_at;
@@ -304,15 +321,15 @@ INSERT INTO sla_rules(id,name,department_id,category_id,priority,response_second
 ('90000000-0000-4000-8000-000000000002','Дорожные повреждения высокого приоритета','$depRoads','$catRoad','HIGH',1800,14400,80,TRUE),
 ('90000000-0000-4000-8000-000000000003','Освещение высокого приоритета','$depRoads','$catLight','HIGH',1200,10800,75,TRUE)
 ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name,response_seconds=EXCLUDED.response_seconds,resolution_seconds=EXCLUDED.resolution_seconds,warning_percent=EXCLUDED.warning_percent,active=TRUE,updated_at=now();
-INSERT INTO ticket_slas(id,ticket_id,rule_id,department_id,category_id,priority,status,response_deadline,resolution_deadline,responded_at,completed_at,response_breached,resolution_breached,response_warning_sent,resolution_warning_sent) VALUES
-('91000000-0000-4000-8000-000000000001','$ticketProgress','90000000-0000-4000-8000-000000000001','$depUtilities','$catWater','EMERGENCY','ACTIVE',now()-interval '2 hours 50 minutes',now()+interval '4 hours',now()-interval '2 hours 45 minutes',NULL,FALSE,FALSE,TRUE,FALSE),
-('91000000-0000-4000-8000-000000000002','$ticketAssigned','90000000-0000-4000-8000-000000000003','$depRoads','$catLight','HIGH','ACTIVE',now()-interval '1 hour 40 minutes',now()+interval '1 hour',now()-interval '25 minutes',NULL,TRUE,FALSE,TRUE,TRUE),
-('91000000-0000-4000-8000-000000000003','$ticketDone','90000000-0000-4000-8000-000000000002','$depRoads','$catRoad','HIGH','COMPLETED',now()-interval '47 hours',now()-interval '28 hours',now()-interval '46 hours',now()-interval '1 day',FALSE,FALSE,TRUE,TRUE)
-ON CONFLICT (id) DO UPDATE SET status=EXCLUDED.status,response_deadline=EXCLUDED.response_deadline,resolution_deadline=EXCLUDED.resolution_deadline,responded_at=EXCLUDED.responded_at,completed_at=EXCLUDED.completed_at,response_breached=EXCLUDED.response_breached,resolution_breached=EXCLUDED.resolution_breached,updated_at=now();
+INSERT INTO ticket_slas(id,ticket_id,rule_id,department_id,category_id,priority,status,response_deadline,resolution_deadline,responded_at,completed_at,response_breached,resolution_breached,response_warning_sent,resolution_warning_sent,created_at,updated_at) VALUES
+('91000000-0000-4000-8000-000000000001','$ticketProgress','90000000-0000-4000-8000-000000000001','$depUtilities','$catWater','EMERGENCY','ACTIVE',now()-interval '2 hours 50 minutes',now()+interval '4 hours',now()-interval '2 hours 45 minutes',NULL,FALSE,FALSE,TRUE,FALSE,now()-interval '3 hours',now()),
+('91000000-0000-4000-8000-000000000002','$ticketAssigned','90000000-0000-4000-8000-000000000003','$depRoads','$catLight','HIGH','ACTIVE',now()-interval '1 hour 40 minutes',now()+interval '1 hour',now()-interval '25 minutes',NULL,TRUE,FALSE,TRUE,TRUE,now()-interval '2 hours',now()),
+('91000000-0000-4000-8000-000000000003','$ticketDone','90000000-0000-4000-8000-000000000002','$depRoads','$catRoad','HIGH','COMPLETED',now()-interval '3 hours 30 minutes',now(),now()-interval '3 hours 45 minutes',now()-interval '2 hours',FALSE,FALSE,FALSE,FALSE,now()-interval '4 hours',now()-interval '2 hours')
+ON CONFLICT (id) DO UPDATE SET status=EXCLUDED.status,response_deadline=EXCLUDED.response_deadline,resolution_deadline=EXCLUDED.resolution_deadline,responded_at=EXCLUDED.responded_at,completed_at=EXCLUDED.completed_at,response_breached=EXCLUDED.response_breached,resolution_breached=EXCLUDED.resolution_breached,response_warning_sent=EXCLUDED.response_warning_sent,resolution_warning_sent=EXCLUDED.resolution_warning_sent,created_at=EXCLUDED.created_at,updated_at=EXCLUDED.updated_at;
 INSERT INTO sla_history(id,ticket_sla_id,ticket_id,event_type,details,occurred_at) VALUES
 ('92000000-0000-4000-8000-000000000001','91000000-0000-4000-8000-000000000002','$ticketAssigned','RESPONSE_BREACHED','Бригада назначена позже нормы реакции',now()-interval '25 minutes'),
-('92000000-0000-4000-8000-000000000002','91000000-0000-4000-8000-000000000003','$ticketDone','COMPLETED','Заявка выполнена в пределах срока решения',now()-interval '1 day')
-ON CONFLICT (id) DO NOTHING;
+('92000000-0000-4000-8000-000000000002','91000000-0000-4000-8000-000000000003','$ticketDone','COMPLETED','Заявка выполнена в пределах срока решения',now()-interval '2 hours')
+ON CONFLICT (id) DO UPDATE SET event_type=EXCLUDED.event_type,details=EXCLUDED.details,occurred_at=EXCLUDED.occurred_at;
 "@
 
 Invoke-SeedSql "postgres-notification" "notification" "notification" @"
@@ -394,27 +411,21 @@ INSERT INTO position_history(id,event_id,device_id,vehicle_id,brigade_id,sequenc
 
 $clickhouseSql = @"
 INSERT INTO analytics.domain_events(topic,event_id,event_type,entity_id,ticket_id,department_id,category_id,brigade_id,user_id,priority,status,latitude,longitude,payload,occurred_at,version) VALUES
-('tickets.events.v1','demo-analytics-created-1','ticket.created','$ticketProgress','$ticketProgress','$depUtilities','$catWater','$brigadeUtility','$residentId','EMERGENCY','IN_PROGRESS',55.7611,37.6136,'{}',now64(3)-INTERVAL 3 HOUR,1),
-('tickets.events.v1','demo-analytics-created-2','ticket.created','$ticketAssigned','$ticketAssigned','$depRoads','$catLight','$brigadeRoad','$residentId','HIGH','ASSIGNED',55.7650,37.6076,'{}',now64(3)-INTERVAL 2 HOUR,1),
-('tickets.events.v1','demo-analytics-created-3','ticket.created','$ticketNew','$ticketNew','$depRoads','$catRoad','','$residentId','MEDIUM','NEW',55.7622,37.6070,'{}',now64(3)-INTERVAL 35 MINUTE,1),
-('tickets.events.v1','demo-analytics-done-1','ticket.completed','$ticketDone','$ticketDone','$depRoads','$catRoad','$brigadeRoad','$residentId','HIGH','DONE',55.7665,37.6178,'{}',now64(3)-INTERVAL 1 DAY,2);
+('tickets.events.v1','demo-analytics-created-1','ticket.created','$ticketProgress','$ticketProgress','$depUtilities','$catWater','$brigadeUtility','$residentId','EMERGENCY','IN_PROGRESS',55.7611,37.6136,'{}',now64(3)-INTERVAL 3 HOUR,toUInt64(toUnixTimestamp64Milli(now64(3)))),
+('tickets.events.v1','demo-analytics-created-2','ticket.created','$ticketAssigned','$ticketAssigned','$depRoads','$catLight','$brigadeRoad','$residentId','HIGH','ASSIGNED',55.7650,37.6076,'{}',now64(3)-INTERVAL 2 HOUR,toUInt64(toUnixTimestamp64Milli(now64(3)))),
+('tickets.events.v1','demo-analytics-created-3','ticket.created','$ticketNew','$ticketNew','$depRoads','$catRoad','','$residentId','MEDIUM','NEW',55.7622,37.6070,'{}',now64(3)-INTERVAL 35 MINUTE,toUInt64(toUnixTimestamp64Milli(now64(3)))),
+('tickets.events.v1','demo-analytics-done-created','ticket.created','$ticketDone','$ticketDone','$depRoads','$catRoad','$brigadeRoad','$residentId','HIGH','NEW',55.7665,37.6178,'{}',now64(3)-INTERVAL 4 HOUR,toUInt64(toUnixTimestamp64Milli(now64(3)))),
+('tickets.events.v1','demo-analytics-done-assigned','ticket.assigned','$ticketDone','$ticketDone','$depRoads','$catRoad','$brigadeRoad','$residentId','HIGH','ASSIGNED',55.7665,37.6178,'{}',now64(3)-INTERVAL 225 MINUTE,toUInt64(toUnixTimestamp64Milli(now64(3)))),
+('tickets.events.v1','demo-analytics-done-started','ticket.status_changed','$ticketDone','$ticketDone','$depRoads','$catRoad','$brigadeRoad','$residentId','HIGH','IN_PROGRESS',55.7665,37.6178,'{}',now64(3)-INTERVAL 210 MINUTE,toUInt64(toUnixTimestamp64Milli(now64(3)))),
+('tickets.events.v1','demo-analytics-done-1','ticket.completed','$ticketDone','$ticketDone','$depRoads','$catRoad','$brigadeRoad','$residentId','HIGH','DONE',55.7665,37.6178,'{}',now64(3)-INTERVAL 2 HOUR,toUInt64(toUnixTimestamp64Milli(now64(3))));
 "@
 if ($Target -eq "Kubernetes") {
-    $analyticsSeedCount = kubectl exec -n $Namespace clickhouse-0 -- clickhouse-client --query "SELECT count() FROM analytics.domain_events WHERE event_id LIKE 'demo-analytics-%'"
+    $clickhouseSql | kubectl exec -i -n $Namespace clickhouse-0 -- clickhouse-client --multiquery
 }
 else {
-    $analyticsSeedCount = docker compose exec -T clickhouse clickhouse-client --query "SELECT count() FROM analytics.domain_events WHERE event_id LIKE 'demo-analytics-%'"
+    $clickhouseSql | docker compose exec -T clickhouse clickhouse-client --multiquery
 }
-if ($LASTEXITCODE -ne 0) { throw "Could not inspect ClickHouse seed" }
-if ([int]$analyticsSeedCount -eq 0) {
-    if ($Target -eq "Kubernetes") {
-        $clickhouseSql | kubectl exec -i -n $Namespace clickhouse-0 -- clickhouse-client --multiquery
-    }
-    else {
-        $clickhouseSql | docker compose exec -T clickhouse clickhouse-client --multiquery
-    }
-    if ($LASTEXITCODE -ne 0) { throw "Seed failed for ClickHouse" }
-}
+if ($LASTEXITCODE -ne 0) { throw "Seed failed for ClickHouse" }
 
 Write-Host "Demo data seeded successfully."
 Write-Host "Admin:      demo.admin@city.local / $Password"

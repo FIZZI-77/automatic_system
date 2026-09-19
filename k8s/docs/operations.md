@@ -18,8 +18,7 @@
 | `generate-grafana-dashboards.ps1` | Формирование проектных панелей Grafana. |
 | `import-grafana-community-dashboards.ps1` | Обновление выбранных общественных панелей. |
 | `setup-kibana-dashboards.ps1` | Создание объектов просмотра и панелей Kibana. |
-| `setup-ngrok-tunnel.ps1` | Создание секрета и запуск ngrok. |
-| `watch-ngrok-tunnel.ps1` | Наблюдение за состоянием туннеля. |
+| `setup-tailscale-funnel.ps1` | Публикация Istio ingress через Tailscale Funnel и синхронизация Auth Service. |
 | `apply-transponders.ps1` | Запуск необязательных имитаторов координат. |
 | `run-local-ha-e2e.ps1` | Заполнение демонстрационных данных и Playwright E2E через port-forward. |
 | `run-local-ha-chaos.ps1` | Проверка поведения локального HA при отказах. |
@@ -190,7 +189,7 @@ kubectl get peerauthentication,destinationrule,virtualservice,gateway `
 
 Port-forward к API Gateway проверяет Gateway, JWT и внутренние сервисы, но
 обходит Istio ingress. Для проверки Istio нужно отдельно использовать
-`city.localhost`, `api.city.localhost` или действующий ngrok URL.
+`city.localhost`, `api.city.localhost` или действующий Tailscale Funnel URL.
 
 ## Безопасное восстановление локального кластера
 

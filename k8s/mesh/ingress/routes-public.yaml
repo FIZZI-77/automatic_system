@@ -5,7 +5,7 @@ metadata:
   namespace: automatic-system
 spec:
   hosts:
-    - tunnel.automatic-system.internal
+    - fizzi.tail2c9430.ts.net
   gateways:
     - automatic-system-public
   http:

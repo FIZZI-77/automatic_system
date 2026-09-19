@@ -52,6 +52,8 @@ type Delivery struct {
 	NotificationID uuid.UUID
 	Channel        string
 	Recipient      string
+	Title          string
+	Body           string
 	Status         string
 	ProviderID     *string
 	LastError      *string

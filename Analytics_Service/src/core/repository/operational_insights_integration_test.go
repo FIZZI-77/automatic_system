@@ -55,6 +55,8 @@ func TestOperationalInsightsInClickHouse(t *testing.T) {
 		analyticsEvent(shiftID, "BrigadeShiftStarted", start, map[string]any{"shift_id": shiftID, "brigade_id": brigadeID, "department_id": departmentID}),
 		analyticsEvent(shiftID, "BrigadeShiftEnded", start.Add(15*time.Minute), map[string]any{"shift_id": shiftID, "brigade_id": brigadeID, "department_id": departmentID}),
 	}
+	orphanCompletion := analyticsEvent(uuid.NewString(), "ticket.completed", start.Add(11*time.Minute), map[string]any{"ticket_id": uuid.NewString(), "department_id": departmentID, "brigade_id": brigadeID, "status": "DONE"})
+	events = append(events, orphanCompletion)
 	positionEvent := models.Event{
 		ID: uuid.NewString(), Type: "VehiclePositionUpdated", Topic: "locations.events.v1",
 		Payload:   map[string]any{"brigade_id": brigadeID, "speed_kmh": "12.5", "accuracy_meters": "8", "occurred_at": start.Add(2 * time.Minute).Format(time.RFC3339Nano)},
@@ -98,20 +100,20 @@ func TestOperationalInsightsInClickHouse(t *testing.T) {
 	if insights.Routing.ETASampleCount != 1 || insights.Routing.ETAMeanAbsoluteErrorSeconds != 140 || insights.Routing.ETABiasSeconds != -140 || insights.Routing.ETAWithinFiveMinutesRate != 100 {
 		t.Errorf("Routing ETA = %+v, want one sample with -140 second error within five minutes", insights.Routing)
 	}
-	if insights.CapacityForecast.ObservedDays != 1 || insights.CapacityForecast.ForecastNextDay != 3 {
-		t.Errorf("CapacityForecast = %+v, want one observed day and forecast 3", insights.CapacityForecast)
+	if insights.CapacityForecast.ObservedDays != 1 || insights.CapacityForecast.ForecastNextDay != 3 || insights.CapacityForecast.RequiredBrigades != 1 {
+		t.Errorf("CapacityForecast = %+v, want one observed day, forecast 3 and one required brigade", insights.CapacityForecast)
 	}
 	performance, err := repository.BrigadePerformance(ctx, models.Filter{From: &from, To: &to, DepartmentID: &departmentID})
 	if err != nil {
 		t.Fatalf("BrigadePerformance() error = %v", err)
 	}
-	if performance.Completed != 2 || performance.ExecutionTime.AverageSeconds != 330 || performance.RepeatedAssetTickets != 1 {
-		t.Errorf("BrigadePerformance() = %+v, want completed=2 average=330 repeated=1", performance)
+	if performance.Completed != 3 || performance.ExecutionTime.SampleCount != 2 || performance.ExecutionTime.AverageSeconds != 330 || performance.RepeatedAssetTickets != 1 {
+		t.Errorf("BrigadePerformance() = %+v, want completed=3 sampled=2 average=330 repeated=1", performance)
 	}
-	if performance.SLABreaches != 1 || performance.SLABreachRate != 50 || !performance.ShiftMetricsAvailable {
-		t.Errorf("BrigadePerformance SLA/shift = %+v, want one breach, 50%% and shift metrics", performance)
+	if performance.SLABreaches != 1 || math.Abs(performance.SLABreachRate-100.0/3.0) > 0.001 || !performance.ShiftMetricsAvailable {
+		t.Errorf("BrigadePerformance SLA/shift = %+v, want one breach, 33.33%% and shift metrics", performance)
 	}
-	if performance.ShiftCount != 1 || math.Abs(performance.ShiftHours-0.25) > 0.001 || performance.CompletedPerShift != 2 || math.Abs(performance.UtilizationRate-73.333333) > 0.001 {
-		t.Errorf("BrigadePerformance shifts = %+v, want one 15-minute shift, 2 completed/shift and 73.33%% utilization", performance)
+	if performance.ShiftCount != 1 || math.Abs(performance.ShiftHours-0.25) > 0.001 || performance.CompletedPerShift != 3 || math.Abs(performance.UtilizationRate-73.333333) > 0.001 {
+		t.Errorf("BrigadePerformance shifts = %+v, want one 15-minute shift, 3 completed/shift and 73.33%% utilization", performance)
 	}
 }

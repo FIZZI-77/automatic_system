@@ -1,3 +1,6 @@
 # PostgreSQL / PgBouncer
 
-Collect exporter metrics for query latency, active/waiting connections, locks, cache hit, WAL and disk IO. Direct destructive SQL seeding is intentionally absent until a dedicated test database and cleanup ownership are configured.
+Собирайте из экспортера метрики задержки запросов, активных и ожидающих
+соединений, блокировок, попаданий в кеш, WAL и дискового ввода-вывода. Прямое
+деструктивное заполнение через SQL намеренно отсутствует, пока не настроены
+выделенная тестовая база данных и ответственный процесс очистки.
