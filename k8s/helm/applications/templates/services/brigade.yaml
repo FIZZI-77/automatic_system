@@ -57,7 +57,7 @@ metadata:
 spec:
   minReadySeconds: 3
   {{- if not .Values.applicationAutoscaling.enabled }}
-  replicas: {{ (index .Values.applications "brigade").replicaCount }}
+  replicas: {{ include "applications.replicas" (dict "root" $ "deployment" "brigade-service" "replicaCount" (index .Values.applications "brigade").replicaCount) }}
   {{- end }}
   revisionHistoryLimit: 3
   selector:

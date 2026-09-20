@@ -66,7 +66,7 @@ metadata:
 spec:
   minReadySeconds: 3
   {{- if not .Values.applicationAutoscaling.enabled }}
-  replicas: {{ (index .Values.applications "report").replicaCount }}
+  replicas: {{ include "applications.replicas" (dict "root" $ "deployment" "report-service" "replicaCount" (index .Values.applications "report").replicaCount) }}
   {{- end }}
   revisionHistoryLimit: 3
   selector:

@@ -61,7 +61,7 @@ metadata:
 spec:
   minReadySeconds: 3
   {{- if not .Values.applicationAutoscaling.enabled }}
-  replicas: {{ (index .Values.applications "ticket").replicaCount }}
+  replicas: {{ include "applications.replicas" (dict "root" $ "deployment" "ticket-service" "replicaCount" (index .Values.applications "ticket").replicaCount) }}
   {{- end }}
   revisionHistoryLimit: 3
   selector:
