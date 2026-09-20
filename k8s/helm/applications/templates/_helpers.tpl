@@ -10,6 +10,18 @@
 {{- end -}}
 {{- end -}}
 
+{{- define "applications.replicas" -}}
+{{- $root := .root -}}
+{{- $replicas := .replicaCount -}}
+{{- if and $root.Values.canary.enabled $root.Release.IsUpgrade -}}
+{{- $deployment := lookup "apps/v1" "Deployment" $root.Release.Namespace .deployment -}}
+{{- if $deployment -}}
+{{- $replicas = dig "spec" "replicas" $replicas $deployment -}}
+{{- end -}}
+{{- end -}}
+{{- $replicas -}}
+{{- end -}}
+
 {{- define "applications.dispatchLabels" -}}
 app.kubernetes.io/name: dispatch-service
 app.kubernetes.io/instance: {{ .Release.Name }}
