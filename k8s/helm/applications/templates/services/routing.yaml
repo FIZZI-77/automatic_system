@@ -50,7 +50,7 @@ metadata:
 spec:
   minReadySeconds: 3
   {{- if not .Values.applicationAutoscaling.enabled }}
-  replicas: {{ (index .Values.applications "routing").replicaCount }}
+  replicas: {{ include "applications.replicas" (dict "root" $ "deployment" "routing-service" "replicaCount" (index .Values.applications "routing").replicaCount) }}
   {{- end }}
   revisionHistoryLimit: 3
   selector:
