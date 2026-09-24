@@ -15,9 +15,9 @@ spec:
             prefix: /observe
       route:
         - destination:
-            host: observability-gateway.automatic-system.svc.cluster.local
+            host: istio-observability-listener.istio-system.svc.cluster.local
             port:
-              number: 8080
+              number: 8082
     - name: api-gateway
       match:
         - uri:

@@ -1,17 +1,15 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: automatic-system-mesh-ingress
+  name: automatic-system-observability-auth
   namespace: flux-system
 spec:
-  dependsOn:
-    - name: automatic-system-observability-auth
   interval: 10m
-  path: ./k8s/mesh/ingress
+  path: ./k8s/mesh/observability-auth
   prune: true
   sourceRef:
     kind: GitRepository
     name: automatic-system
-  targetNamespace: automatic-system
+  targetNamespace: istio-system
   timeout: 5m
   wait: true

@@ -6,8 +6,7 @@ resources:
   - routes.yaml
   - gateway-public.yaml
   - routes-public.yaml
+  - observability-routes.yaml
   - destination-rules.yaml
   - network-policy.yaml
   - public-port-authentication.yaml
-  - observability-gateway.yaml
-  - observability-network-policy.yaml

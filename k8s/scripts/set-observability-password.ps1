@@ -3,7 +3,7 @@ param(
     [Parameter(Mandatory = $true)]
     [ValidatePattern('^[a-zA-Z0-9_.-]+$')]
     [string]$Username,
-    [string]$Namespace = "automatic-system"
+    [string]$Namespace = "istio-system"
 )
 
 $ErrorActionPreference = "Stop"
@@ -16,15 +16,14 @@ try {
     if ([string]::IsNullOrEmpty($password)) {
         throw "Password cannot be empty."
     }
-    $output = $password | & docker run --rm -i httpd:2.4-alpine htpasswd -niB -C 12 $Username
-    $entry = $output | Where-Object { $_ -match '^([^:]+):\$2[aby]\$' } | Select-Object -First 1
-    if ($LASTEXITCODE -ne 0 -or -not $entry) {
-        throw "Unable to generate the bcrypt password entry. Check Docker Desktop."
-    }
 
-    [IO.File]::WriteAllText($secretFile, ($entry.Trim() + "`n"), [Text.UTF8Encoding]::new($false))
+    $passwordBytes = [Text.Encoding]::UTF8.GetBytes($password)
+    $passwordHash = [Security.Cryptography.SHA1]::HashData($passwordBytes)
+    $entry = "$Username`:{SHA}$([Convert]::ToBase64String($passwordHash))"
+    [IO.File]::WriteAllText($secretFile, ($entry + "`n"), [Text.UTF8Encoding]::new($false))
+
     $manifest = & kubectl -n $Namespace create secret generic observability-basic-auth `
-        "--from-file=htpasswd=$secretFile" --dry-run=client -o yaml
+        "--from-file=users=$secretFile" --dry-run=client -o yaml
     if ($LASTEXITCODE -ne 0) {
         throw "Unable to prepare the Kubernetes Secret."
     }
@@ -34,20 +33,21 @@ try {
         throw "Unable to save the Kubernetes Secret."
     }
 
-    $gateway = & kubectl -n $Namespace get deployment observability-gateway --ignore-not-found -o name
+    $gateway = & kubectl -n $Namespace get deployment istio-ingressgateway --ignore-not-found -o name
     if ($LASTEXITCODE -ne 0) {
-        throw "Secret was saved, but the gateway deployment could not be checked."
+        throw "Secret was saved, but the ingress gateway deployment could not be checked."
     }
     if ($gateway) {
-        & kubectl -n $Namespace rollout restart deployment/observability-gateway | Out-Null
+        & kubectl -n $Namespace rollout restart deployment/istio-ingressgateway | Out-Null
         if ($LASTEXITCODE -ne 0) {
-            throw "Secret was saved, but the gateway rollout could not be started."
+            throw "Secret was saved, but the ingress gateway rollout could not be started."
         }
     }
     Write-Host "Observability password updated for $Username."
 }
 finally {
     $password = $null
+    if ($passwordBytes) { [Array]::Clear($passwordBytes, 0, $passwordBytes.Length) }
     [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($passwordPointer)
     Remove-Item -LiteralPath $secretFile -Force -ErrorAction SilentlyContinue
 }

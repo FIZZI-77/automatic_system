@@ -12,7 +12,7 @@ Firebase. Секреты создаются отдельно от отслежи
 | `jwt-public-key` | API Gateway и проверяющие токен сервисы | `keys/public.pem`. |
 | `firebase-fcm` | Notification Service | внешний файл учетной записи, ключ `service-account.json`. |
 | TLS-секрет Istio ingress | входной шлюз | создается `setup-ingress.ps1`. |
-| `observability-basic-auth` | общий вход в пять интерфейсов наблюдаемости | создается `set-observability-password.ps1`; содержит bcrypt-хеш, не пароль. |
+| `observability-basic-auth` в `istio-system` | общий вход в пять интерфейсов наблюдаемости | создается `set-observability-password.ps1`; содержит SHA-хеш, не пароль. |
 
 Правила работы:
 
@@ -96,7 +96,8 @@ ClickHouse и Valhalla используют собственные проток�
 | `VirtualService/frontend` | Передача пользовательских страниц во Frontend. |
 | `VirtualService/api-gateway` | Передача API в API Gateway по h2c. |
 | `VirtualService/public-entrypoint` | Разделение публичных путей Frontend и API. |
-| `Deployment/observability-gateway` | Проверка HTTP Basic Auth и передача пяти UI по префиксам `/observe/*`. |
+| `Gateway/automatic-system-observability` | Выделенный внутренний listener Istio на порту 8082. |
+| `EnvoyFilter/observability-basic-auth` | Проверка HTTP Basic Auth только на listener 8082. |
 | `DestinationRule/ingress-api-gateway-websocket` | Параметры длительных WebSocket-соединений. |
 
 Локальный сертификат действует два года. Ротация:
@@ -107,12 +108,13 @@ ClickHouse и Valhalla используют собственные проток�
 
 ### Постоянный вход в observability
 
-Istio направляет `/observe/*` в отдельный шлюз Nginx. Шлюз запрашивает
-логин и пароль через стандартное окно браузера, сверяет bcrypt-хеш из
-Kubernetes Secret и только затем передает запрос нужному интерфейсу.
+Публичный listener Istio передает `/observe/*` на отдельный внутренний listener
+того же ingressgateway. Фильтр Envoy запрашивает логин и пароль через стандартное
+окно браузера, сверяет SHA-хеш из Kubernetes Secret и затем передает запрос
+нужному интерфейсу. Фильтр не установлен на публичном listener API и frontend.
 Самостоятельная регистрация здесь не предусмотрена: доступ выдается
 владельцем кластера. Пароль пересылается только через HTTPS Tailscale Funnel;
-Nginx удаляет заголовок `Authorization` перед передачей в UI.
+маршруты Istio удаляют заголовок `Authorization` перед передачей в UI.
 
 После запуска кластера создайте или замените общую учетную запись:
 
@@ -121,8 +123,9 @@ Nginx удаляет заголовок `Authorization` перед переда�
 ```
 
 Сценарий запрашивает пароль скрытым вводом, создает Secret
-`observability-basic-auth` и перезапускает шлюз, если он уже установлен.
-Далее примените или согласуйте `k8s/mesh/ingress` и конфигурации Grafana,
+`observability-basic-auth` в `istio-system` и перезапускает ingressgateway.
+Пока Secret не создан, observability listener не открывает интерфейсы.
+Далее примените или согласуйте `k8s/mesh/observability-auth`, `k8s/mesh/ingress` и конфигурации Grafana,
 Prometheus, Jaeger и Kibana. Для обновления конфигурации Kiali повторно
 запустите `k8s/scripts/install-mesh.ps1`. Flux увидит новые манифесты только
 после их публикации в Git. Для текущего публичного хоста вход:

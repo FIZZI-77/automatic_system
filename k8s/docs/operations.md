@@ -14,7 +14,7 @@
 | `install-mesh.ps1` | Установка Istio, Kiali, базовых политик и входного шлюза. |
 | `setup-ingress.ps1` | Создание локального сертификата и применение маршрутов Istio. |
 | `install-flux.ps1` | Установка Flux и, при параметре, источника `deploy/local`. |
-| `open-observability.ps1` | Фоновые port-forward Grafana, Jaeger, Prometheus, Kibana и Kiali. |
+| `open-observability.ps1` | Открытие постоянного защищенного URL observability. |
 | `generate-grafana-dashboards.ps1` | Формирование проектных панелей Grafana. |
 | `import-grafana-community-dashboards.ps1` | Обновление выбранных общественных панелей. |
 | `setup-kibana-dashboards.ps1` | Создание объектов просмотра и панелей Kibana. |
