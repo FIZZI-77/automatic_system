@@ -149,201 +149,623 @@
 
 ## Функции
 
-### `NewService`
+Имя функции открывает её реализацию в ветке `test`; структуры параметров и результатов описаны в конце README.
+
+### func [NewService](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/service.go#L75)
+
+```go
+func NewService(repo *repository.Repo, departmentClient departmentv1.DepartmentServiceClient, logger *zap.Logger) *Service
+```
+
+Типы: [Service](#type-service).
 
 Вызывает `NewServiceWithProfile` без клиента профилей.
 
-### `NewServiceWithProfile`
+### func [NewServiceWithProfile](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/service.go#L79)
+
+```go
+func NewServiceWithProfile(repo *repository.Repo, departmentClient departmentv1.DepartmentServiceClient, profileClient profilev1.ProfileServiceClient, logger *zap.Logger) *Service
+```
+
+Типы: [Service](#type-service).
 
 Подставляет журнал без вывода при `nil` и собирает единый `Service` из служб бригад, участников, навыков, расписания и зон. При наличии клиента профилей участники создаются через строгую проверку профиля.
 
-### `NewBrigadeService`, `NewMemberServiceStruct`, `NewMemberServiceStructWithProfile`
+### func [NewBrigadeService](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/brigade_service.go#L32)
+
+```go
+func NewBrigadeService(repo *repository.Repo, departmentClient departmentv1.DepartmentServiceClient, log *zap.Logger) *BrigadeServiceStruct
+```
+
+Типы: [BrigadeServiceStruct](#type-brigadeservicestruct).
+
+Структуры: [BrigadeServiceStruct](#type-brigadeservicestruct).
 
 Создают службы и сохраняют зависимости. Вариант `WithProfile` устанавливает `requireProfile=true`, поэтому отсутствие клиента считается недоступностью зависимости.
 
-### `NewSkillServiceStruct`, `NewScheduleServiceStruct`, `NewZoneServiceStruct`
+### func [NewMemberServiceStruct](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/member_service.go#L24)
+
+```go
+func NewMemberServiceStruct(repo *repository.Repo, log *zap.Logger) *MemberServiceStruct
+```
+
+Типы: [MemberServiceStruct](#type-memberservicestruct).
+
+Структуры: [MemberServiceStruct](#type-memberservicestruct).
+
+Создают службы и сохраняют зависимости. Вариант `WithProfile` устанавливает `requireProfile=true`, поэтому отсутствие клиента считается недоступностью зависимости.
+
+### func [NewMemberServiceStructWithProfile](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/member_service.go#L28)
+
+```go
+func NewMemberServiceStructWithProfile(repo *repository.Repo, profileClient profilev1.ProfileServiceClient, log *zap.Logger) *MemberServiceStruct
+```
+
+Типы: [MemberServiceStruct](#type-memberservicestruct).
+
+Структуры: [MemberServiceStruct](#type-memberservicestruct).
+
+Создают службы и сохраняют зависимости. Вариант `WithProfile` устанавливает `requireProfile=true`, поэтому отсутствие клиента считается недоступностью зависимости.
+
+### func [NewSkillServiceStruct](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/skill_service.go#L20)
+
+```go
+func NewSkillServiceStruct(repo *repository.Repo, log *zap.Logger) *SkillServiceStruct
+```
+
+Типы: [SkillServiceStruct](#type-skillservicestruct).
+
+Структуры: [SkillServiceStruct](#type-skillservicestruct).
 
 Создают специализированные службы поверх общего хранилища и журнала.
 
-### `BrigadeServiceStruct.CreateBrigade`
+### func [NewScheduleServiceStruct](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/schedule_service.go#L20)
 
-Проверяет вход, права и подразделение. До записи трижды обращается к `Department Service` с тайм-аутом две секунды, растущей задержкой и случайной добавкой; продолжает только для активного подразделения. Затем создает бригаду, историю и событие через хранилище.
+```go
+func NewScheduleServiceStruct(repo *repository.Repo, log *zap.Logger) *ScheduleServiceStruct
+```
 
-### `BrigadeServiceStruct.getDepartmentByIDWithRetry`
+Типы: [ScheduleServiceStruct](#type-scheduleservicestruct).
 
-Повторяет только ошибки `Unavailable`, `DeadlineExceeded`, `ResourceExhausted`; учитывает отмену контекста. После последней попытки преобразует ошибку через `mapDepartmentServiceError`.
+Структуры: [ScheduleServiceStruct](#type-scheduleservicestruct).
 
-### `mapDepartmentServiceError`
+Создают специализированные службы поверх общего хранилища и журнала.
+
+### func [NewZoneServiceStruct](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/zone_service.go#L20)
+
+```go
+func NewZoneServiceStruct(repo *repository.Repo, log *zap.Logger) *ZoneServiceStruct
+```
+
+Типы: [ZoneServiceStruct](#type-zoneservicestruct).
+
+Структуры: [ZoneServiceStruct](#type-zoneservicestruct).
+
+Создают специализированные службы поверх общего хранилища и журнала.
+
+### func [mapDepartmentServiceError](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/brigade_service.go#L158)
+
+```go
+func mapDepartmentServiceError(err error) error
+```
 
 Преобразует отсутствие подразделения в `ErrNotFound`, временную недоступность и нехватку ресурсов — в `ErrDependencyUnavailable`, остальные ошибки оставляет без изменения.
 
-### `isRetryableDepartmentError`
+### func [isRetryableDepartmentError](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/brigade_service.go#L173)
+
+```go
+func isRetryableDepartmentError(err error) bool
+```
 
 Возвращает `true` только для трех временных кодов gRPC, перечисленных выше.
 
-### `BrigadeServiceStruct.GetBrigadeByID`
+### func [checkPermissionAndDepartmentForAdminAndDispatcher](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/brigade_service.go#L622)
 
-Проверяет UUID, загружает бригаду и применяет правило администратора/диспетчера. Если оно не выполнено, разрешает чтение работнику, который активно состоит именно в этой бригаде.
-
-### `BrigadeServiceStruct.ListBrigades`
-
-Разрешает запрос только `admin` или `dispatcher`. Для диспетчера принудительно заменяет фильтр подразделения на его `ActorDepartmentID`, затем передает нормализованные фильтры хранилищу.
-
-### `BrigadeServiceStruct.UpdateBrigade`
-
-Проверяет запрос, загружает текущую бригаду для определения подразделения, проверяет права и выполняет частичное обновление. Конфликт активного названия возвращается как `ErrAlreadyExists`.
-
-### `BrigadeServiceStruct.DeactivateBrigade`
-
-Проверяет бригаду и права, подставляет `ActorUserID` в `ChangedByUserID`, если автор не указан, и переводит бригаду в неактивное состояние с причиной.
-
-### `BrigadeServiceStruct.ArchiveBrigade`
-
-Работает аналогично деактивации, но переводит запись в `ARCHIVED` и фиксирует время архивирования.
-
-### `BrigadeServiceStruct.SetBrigadeStatus`
-
-Проверяет вход, загружает бригаду, проверяет права и готовность через `checkStatusReadiness`, подставляет автора и передает переход хранилищу. В журнал пишутся длительности этапов.
-
-### `BrigadeServiceStruct.GetBrigadeStatusHistory`
-
-Проверяет страницу и доступ к подразделению, затем возвращает историю переходов бригады.
-
-### `BrigadeServiceStruct.GetAvailableBrigades`
-
-Проверяет подразделение, парность координат, требуемые навыки и роли, страницу, затем выбирает готовые бригады с учетом указанных условий.
-
-### `BrigadeServiceStruct.CheckBrigadeCanHandleTicket`
-
-Передает проверенный идентификатор бригады, подразделение, точку и требования хранилищу. Возвращает `CanHandle` и конкретные причины отказа.
-
-### `checkPermissionAndDepartmentForAdminAndDispatcher`
+```go
+func checkPermissionAndDepartmentForAdminAndDispatcher(log *zap.Logger, start time.Time, actorRoles []string, actorDepartmentID *uuid.UUID, departmentID uuid.UUID) error
+```
 
 Администратору разрешает действие сразу. Диспетчеру требует непустой `ActorDepartmentID`, совпадающий с подразделением объекта. Остальным возвращает `ErrPermissionDenied`.
 
-### `BrigadeServiceStruct.checkStatusReadiness`
+### func [brigadeStatusRequiresActiveMember](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/member_service.go#L503)
 
-Для `ACTIVE` требует готовность состава. Для `AVAILABLE` дополнительно запрещает исходные `INACTIVE` и `ARCHIVED` и требует полную готовность. Наличие причин превращает результат в `ErrBrigadeUnavailable`.
-
-### `MemberServiceStruct.AddBrigadeMember`
-
-Проверяет вход, бригаду и права. При включенной связи с профилями проверяет разрешение на вступление, заменяет идентификаторы каноническими и загружает действующие навыки. Затем запрещает второе активное членство пользователя, подставляет автора и сохраняет участника, историю, навыки и событие.
-
-### `MemberServiceStruct.RemoveBrigadeMember`
-
-Проверяет права и через `checkCanRemoveMember` не дает удалить последнего активного участника рабочей бригады. Затем деактивирует участника, фиксирует выход, историю и событие.
-
-### `MemberServiceStruct.ChangeBrigadeMemberRole`
-
-Проверяет бригаду, права и новую роль, подставляет автора и сохраняет изменение вместе с прежней и новой ролью в истории.
-
-### `MemberServiceStruct.SetBrigadeMemberAvailability`
-
-Проверяет состояние `AVAILABLE`/`UNAVAILABLE`, бригаду и права, подставляет автора, изменяет личную доступность и записывает отдельную историю с причиной.
-
-### `MemberServiceStruct.ListBrigadeMembers`
-
-Администратор и диспетчер читают состав по общему правилу. Работник также может читать состав собственной активной бригады. Поддерживаются фильтры активности, роли и доступности.
-
-### `MemberServiceStruct.GetBrigadeMemberHistory`
-
-После проверки бригады и прав возвращает историю вступления, выхода и смены роли, при необходимости только для одного участника.
-
-### `MemberServiceStruct.GetBrigadeMemberStatusHistory`
-
-Возвращает историю личной доступности участника с теми же правилами доступа и постраничным выводом.
-
-### `MemberServiceStruct.GetBrigadeByUserID`
-
-Проверяет `UserID` и возвращает бригаду вместе с записью участника; `OnlyActive` ограничивает поиск действующим членством.
-
-### `MemberServiceStruct.getBrigadeForMemberOperation`
-
-Загружает бригаду, оборачивает ошибку и запрещает любые операции над архивной бригадой.
-
-### `MemberServiceStruct.checkCanRemoveMember`
-
-Для рабочего состояния загружает до двух активных участников. Если удаляемая запись — единственный активный участник, возвращает `ErrBrigadeUnavailable`.
-
-### `brigadeStatusRequiresActiveMember`
+```go
+func brigadeStatusRequiresActiveMember(status models.BrigadeStatus) bool
+```
 
 Требует активного участника для `ACTIVE`, `AVAILABLE`, `BUSY`, `ON_ROUTE`, `ON_SITE`, `OFFLINE`; для `INACTIVE` и `ARCHIVED` не требует.
 
-### `SkillServiceStruct.CreateSkill`
+### func [checkAdminRole](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/skill_service.go#L293)
 
-Требует роль `admin`, проверяет код, название и описание, затем создает навык.
-
-### `SkillServiceStruct.UpdateSkill`
-
-Требует `admin`, хотя бы одно изменяемое поле и корректные значения; затем обновляет навык.
-
-### `SkillServiceStruct.DeactivateSkill`
-
-Требует `admin` и переводит навык в неактивное состояние без физического удаления.
-
-### `SkillServiceStruct.ListSkills`
-
-Разрешен `admin` и `dispatcher`; применяет фильтр активности, текстовый поиск и страницу.
-
-### `SkillServiceStruct.AddBrigadeSkill`
-
-Проверяет неархивную бригаду и доступ к ее подразделению, затем добавляет или восстанавливает связь навыка.
-
-### `SkillServiceStruct.RemoveBrigadeSkill`
-
-Проверяет те же условия и деактивирует связь навыка с бригадой.
-
-### `SkillServiceStruct.ListBrigadeSkills`
-
-Проверяет бригаду и права, затем возвращает ее навыки с необязательным фильтром активности.
-
-### `SkillServiceStruct.getBrigadeForSkillOperation`
-
-Загружает бригаду и запрещает работу с навыками архивной бригады.
-
-### `checkAdminRole`, `checkAdminOrDispatcherRole`
+```go
+func checkAdminRole(log *zap.Logger, start time.Time, actorRoles []string) error
+```
 
 Первая функция разрешает только `admin`; вторая — `admin` или `dispatcher`. При отказе пишут предупреждение и возвращают `ErrPermissionDenied`.
 
-### `ScheduleServiceStruct.SetBrigadeSchedule`
+### func [checkAdminOrDispatcherRole](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/skill_service.go#L308)
+
+```go
+func checkAdminOrDispatcherRole(log *zap.Logger, start time.Time, actorRoles []string) error
+```
+
+Первая функция разрешает только `admin`; вторая — `admin` или `dispatcher`. При отказе пишут предупреждение и возвращают `ErrPermissionDenied`.
+
+### func (*BrigadeServiceStruct) [CreateBrigade](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/brigade_service.go#L40)
+
+```go
+func (b *BrigadeServiceStruct) CreateBrigade(ctx context.Context, in *models.CreateBrigadeInput) (*models.CreateBrigadeResult, error)
+```
+
+Типы: [BrigadeServiceStruct](#type-brigadeservicestruct), [CreateBrigadeInput](#type-createbrigadeinput), [CreateBrigadeResult](#type-createbrigaderesult).
+
+Проверяет вход, права и подразделение. До записи трижды обращается к `Department Service` с тайм-аутом две секунды, растущей задержкой и случайной добавкой; продолжает только для активного подразделения. Затем создает бригаду, историю и событие через хранилище.
+
+
+### func (*BrigadeServiceStruct) [getDepartmentByIDWithRetry](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/brigade_service.go#L114)
+
+```go
+func (b *BrigadeServiceStruct) getDepartmentByIDWithRetry(ctx context.Context, log *zap.Logger, departmentID uuid.UUID) (*departmentv1.GetDepartmentByIDResponse, error)
+```
+
+Типы: [BrigadeServiceStruct](#type-brigadeservicestruct).
+
+Повторяет только ошибки `Unavailable`, `DeadlineExceeded`, `ResourceExhausted`; учитывает отмену контекста. После последней попытки преобразует ошибку через `mapDepartmentServiceError`.
+
+
+### func (*BrigadeServiceStruct) [GetBrigadeByID](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/brigade_service.go#L182)
+
+```go
+func (b *BrigadeServiceStruct) GetBrigadeByID(ctx context.Context, in *models.GetBrigadeByIDInput) (*models.GetBrigadeByIDResult, error)
+```
+
+Типы: [BrigadeServiceStruct](#type-brigadeservicestruct), [GetBrigadeByIDInput](#type-getbrigadebyidinput), [GetBrigadeByIDResult](#type-getbrigadebyidresult).
+
+Проверяет UUID, загружает бригаду и применяет правило администратора/диспетчера. Если оно не выполнено, разрешает чтение работнику, который активно состоит именно в этой бригаде.
+
+
+### func (*BrigadeServiceStruct) [ListBrigades](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/brigade_service.go#L228)
+
+```go
+func (b *BrigadeServiceStruct) ListBrigades(ctx context.Context, in *models.ListBrigadesInput) (*models.ListBrigadesResult, error)
+```
+
+Типы: [BrigadeServiceStruct](#type-brigadeservicestruct), [ListBrigadesInput](#type-listbrigadesinput), [ListBrigadesResult](#type-listbrigadesresult).
+
+Разрешает запрос только `admin` или `dispatcher`. Для диспетчера принудительно заменяет фильтр подразделения на его `ActorDepartmentID`, затем передает нормализованные фильтры хранилищу.
+
+
+### func (*BrigadeServiceStruct) [UpdateBrigade](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/brigade_service.go#L293)
+
+```go
+func (b *BrigadeServiceStruct) UpdateBrigade(ctx context.Context, in *models.UpdateBrigadeInput) (*models.UpdateBrigadeResult, error)
+```
+
+Типы: [BrigadeServiceStruct](#type-brigadeservicestruct), [UpdateBrigadeInput](#type-updatebrigadeinput), [UpdateBrigadeResult](#type-updatebrigaderesult).
+
+Проверяет запрос, загружает текущую бригаду для определения подразделения, проверяет права и выполняет частичное обновление. Конфликт активного названия возвращается как `ErrAlreadyExists`.
+
+
+### func (*BrigadeServiceStruct) [DeactivateBrigade](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/brigade_service.go#L345)
+
+```go
+func (b *BrigadeServiceStruct) DeactivateBrigade(ctx context.Context, in *models.DeactivateBrigadeInput) (*models.DeactivateBrigadeResult, error)
+```
+
+Типы: [BrigadeServiceStruct](#type-brigadeservicestruct), [DeactivateBrigadeInput](#type-deactivatebrigadeinput), [DeactivateBrigadeResult](#type-deactivatebrigaderesult).
+
+Проверяет бригаду и права, подставляет `ActorUserID` в `ChangedByUserID`, если автор не указан, и переводит бригаду в неактивное состояние с причиной.
+
+
+### func (*BrigadeServiceStruct) [ArchiveBrigade](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/brigade_service.go#L393)
+
+```go
+func (b *BrigadeServiceStruct) ArchiveBrigade(ctx context.Context, in *models.ArchiveBrigadeInput) (*models.ArchiveBrigadeResult, error)
+```
+
+Типы: [ArchiveBrigadeInput](#type-archivebrigadeinput), [ArchiveBrigadeResult](#type-archivebrigaderesult), [BrigadeServiceStruct](#type-brigadeservicestruct).
+
+Работает аналогично деактивации, но переводит запись в `ARCHIVED` и фиксирует время архивирования.
+
+
+### func (*BrigadeServiceStruct) [SetBrigadeStatus](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/brigade_service.go#L441)
+
+```go
+func (b *BrigadeServiceStruct) SetBrigadeStatus(ctx context.Context, in *models.SetBrigadeStatusInput) (*models.SetBrigadeStatusResult, error)
+```
+
+Типы: [BrigadeServiceStruct](#type-brigadeservicestruct), [SetBrigadeStatusInput](#type-setbrigadestatusinput), [SetBrigadeStatusResult](#type-setbrigadestatusresult).
+
+Проверяет вход, загружает бригаду, проверяет права и готовность через `checkStatusReadiness`, подставляет автора и передает переход хранилищу. В журнал пишутся длительности этапов.
+
+
+### func (*BrigadeServiceStruct) [GetBrigadeStatusHistory](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/brigade_service.go#L513)
+
+```go
+func (b *BrigadeServiceStruct) GetBrigadeStatusHistory(ctx context.Context, in *models.GetBrigadeStatusHistoryInput) (*models.GetBrigadeStatusHistoryResult, error)
+```
+
+Типы: [BrigadeServiceStruct](#type-brigadeservicestruct), [GetBrigadeStatusHistoryInput](#type-getbrigadestatushistoryinput), [GetBrigadeStatusHistoryResult](#type-getbrigadestatushistoryresult).
+
+Проверяет страницу и доступ к подразделению, затем возвращает историю переходов бригады.
+
+
+### func (*BrigadeServiceStruct) [GetAvailableBrigades](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/brigade_service.go#L557)
+
+```go
+func (b *BrigadeServiceStruct) GetAvailableBrigades(ctx context.Context, in *models.GetAvailableBrigadesInput) (*models.GetAvailableBrigadesResult, error)
+```
+
+Типы: [BrigadeServiceStruct](#type-brigadeservicestruct), [GetAvailableBrigadesInput](#type-getavailablebrigadesinput), [GetAvailableBrigadesResult](#type-getavailablebrigadesresult).
+
+Проверяет подразделение, парность координат, требуемые навыки и роли, страницу, затем выбирает готовые бригады с учетом указанных условий.
+
+
+### func (*BrigadeServiceStruct) [CheckBrigadeCanHandleTicket](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/brigade_service.go#L594)
+
+```go
+func (b *BrigadeServiceStruct) CheckBrigadeCanHandleTicket(ctx context.Context, in *models.CheckBrigadeCanHandleTicketInput) (*models.CheckBrigadeCanHandleTicketResult, error)
+```
+
+Типы: [BrigadeServiceStruct](#type-brigadeservicestruct), [CheckBrigadeCanHandleTicketInput](#type-checkbrigadecanhandleticketinput), [CheckBrigadeCanHandleTicketResult](#type-checkbrigadecanhandleticketresult).
+
+Передает проверенный идентификатор бригады, подразделение, точку и требования хранилищу. Возвращает `CanHandle` и конкретные причины отказа.
+
+
+### func (*BrigadeServiceStruct) [checkStatusReadiness](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/brigade_service.go#L674)
+
+```go
+func (b *BrigadeServiceStruct) checkStatusReadiness(ctx context.Context, log *zap.Logger, start time.Time, brigade *models.Brigade, targetStatus models.BrigadeStatus) error
+```
+
+Типы: [Brigade](#type-brigade), [BrigadeServiceStruct](#type-brigadeservicestruct).
+
+Для `ACTIVE` требует готовность состава. Для `AVAILABLE` дополнительно запрещает исходные `INACTIVE` и `ARCHIVED` и требует полную готовность. Наличие причин превращает результат в `ErrBrigadeUnavailable`.
+
+
+### func (*MemberServiceStruct) [AddBrigadeMember](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/member_service.go#L37)
+
+```go
+func (m *MemberServiceStruct) AddBrigadeMember(ctx context.Context, in *models.AddBrigadeMemberInput) (*models.AddBrigadeMemberResult, error)
+```
+
+Типы: [AddBrigadeMemberInput](#type-addbrigadememberinput), [AddBrigadeMemberResult](#type-addbrigadememberresult), [MemberServiceStruct](#type-memberservicestruct).
+
+Проверяет вход, бригаду и права. При включенной связи с профилями проверяет разрешение на вступление, заменяет идентификаторы каноническими и загружает действующие навыки. Затем запрещает второе активное членство пользователя, подставляет автора и сохраняет участника, историю, навыки и событие.
+
+
+### func (*MemberServiceStruct) [RemoveBrigadeMember](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/member_service.go#L157)
+
+```go
+func (m *MemberServiceStruct) RemoveBrigadeMember(ctx context.Context, in *models.RemoveBrigadeMemberInput) (*models.RemoveBrigadeMemberResult, error)
+```
+
+Типы: [MemberServiceStruct](#type-memberservicestruct), [RemoveBrigadeMemberInput](#type-removebrigadememberinput), [RemoveBrigadeMemberResult](#type-removebrigadememberresult).
+
+Проверяет права и через `checkCanRemoveMember` не дает удалить последнего активного участника рабочей бригады. Затем деактивирует участника, фиксирует выход, историю и событие.
+
+
+### func (*MemberServiceStruct) [ChangeBrigadeMemberRole](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/member_service.go#L202)
+
+```go
+func (m *MemberServiceStruct) ChangeBrigadeMemberRole(ctx context.Context, in *models.ChangeBrigadeMemberRoleInput) (*models.ChangeBrigadeMemberRoleResult, error)
+```
+
+Типы: [ChangeBrigadeMemberRoleInput](#type-changebrigadememberroleinput), [ChangeBrigadeMemberRoleResult](#type-changebrigadememberroleresult), [MemberServiceStruct](#type-memberservicestruct).
+
+Проверяет бригаду, права и новую роль, подставляет автора и сохраняет изменение вместе с прежней и новой ролью в истории.
+
+
+### func (*MemberServiceStruct) [SetBrigadeMemberAvailability](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/member_service.go#L244)
+
+```go
+func (m *MemberServiceStruct) SetBrigadeMemberAvailability(ctx context.Context, in *models.SetBrigadeMemberAvailabilityInput) (*models.SetBrigadeMemberAvailabilityResult, error)
+```
+
+Типы: [MemberServiceStruct](#type-memberservicestruct), [SetBrigadeMemberAvailabilityInput](#type-setbrigadememberavailabilityinput), [SetBrigadeMemberAvailabilityResult](#type-setbrigadememberavailabilityresult).
+
+Проверяет состояние `AVAILABLE`/`UNAVAILABLE`, бригаду и права, подставляет автора, изменяет личную доступность и записывает отдельную историю с причиной.
+
+
+### func (*MemberServiceStruct) [ListBrigadeMembers](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/member_service.go#L286)
+
+```go
+func (m *MemberServiceStruct) ListBrigadeMembers(ctx context.Context, in *models.ListBrigadeMembersInput) (*models.ListBrigadeMembersResult, error)
+```
+
+Типы: [ListBrigadeMembersInput](#type-listbrigademembersinput), [ListBrigadeMembersResult](#type-listbrigademembersresult), [MemberServiceStruct](#type-memberservicestruct).
+
+Администратор и диспетчер читают состав по общему правилу. Работник также может читать состав собственной активной бригады. Поддерживаются фильтры активности, роли и доступности.
+
+
+### func (*MemberServiceStruct) [GetBrigadeMemberHistory](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/member_service.go#L330)
+
+```go
+func (m *MemberServiceStruct) GetBrigadeMemberHistory(ctx context.Context, in *models.GetBrigadeMemberHistoryInput) (*models.GetBrigadeMemberHistoryResult, error)
+```
+
+Типы: [GetBrigadeMemberHistoryInput](#type-getbrigadememberhistoryinput), [GetBrigadeMemberHistoryResult](#type-getbrigadememberhistoryresult), [MemberServiceStruct](#type-memberservicestruct).
+
+После проверки бригады и прав возвращает историю вступления, выхода и смены роли, при необходимости только для одного участника.
+
+
+### func (*MemberServiceStruct) [GetBrigadeMemberStatusHistory](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/member_service.go#L366)
+
+```go
+func (m *MemberServiceStruct) GetBrigadeMemberStatusHistory(ctx context.Context, in *models.GetBrigadeMemberStatusHistoryInput) (*models.GetBrigadeMemberStatusHistoryResult, error)
+```
+
+Типы: [GetBrigadeMemberStatusHistoryInput](#type-getbrigadememberstatushistoryinput), [GetBrigadeMemberStatusHistoryResult](#type-getbrigadememberstatushistoryresult), [MemberServiceStruct](#type-memberservicestruct).
+
+Возвращает историю личной доступности участника с теми же правилами доступа и постраничным выводом.
+
+
+### func (*MemberServiceStruct) [GetBrigadeByUserID](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/member_service.go#L402)
+
+```go
+func (m *MemberServiceStruct) GetBrigadeByUserID(ctx context.Context, in *models.GetBrigadeByUserIDInput) (*models.GetBrigadeByUserIDResult, error)
+```
+
+Типы: [GetBrigadeByUserIDInput](#type-getbrigadebyuseridinput), [GetBrigadeByUserIDResult](#type-getbrigadebyuseridresult), [MemberServiceStruct](#type-memberservicestruct).
+
+Проверяет `UserID` и возвращает бригаду вместе с записью участника; `OnlyActive` ограничивает поиск действующим членством.
+
+
+### func (*MemberServiceStruct) [getBrigadeForMemberOperation](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/member_service.go#L429)
+
+```go
+func (m *MemberServiceStruct) getBrigadeForMemberOperation(
+    ctx context.Context,
+    log *zap.Logger,
+    start time.Time,
+    brigadeID uuid.UUID,
+    actorUserID *uuid.UUID,
+    actorDepartmentID *uuid.UUID,
+    actorRoles []string,
+    operation string,
+) (*models.Brigade, error)
+```
+
+Типы: [Brigade](#type-brigade), [MemberServiceStruct](#type-memberservicestruct).
+
+Загружает бригаду, оборачивает ошибку и запрещает любые операции над архивной бригадой.
+
+
+### func (*MemberServiceStruct) [checkCanRemoveMember](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/member_service.go#L472)
+
+```go
+func (m *MemberServiceStruct) checkCanRemoveMember(ctx context.Context, log *zap.Logger, start time.Time, brigade *models.Brigade, in *models.RemoveBrigadeMemberInput) error
+```
+
+Типы: [Brigade](#type-brigade), [MemberServiceStruct](#type-memberservicestruct), [RemoveBrigadeMemberInput](#type-removebrigadememberinput).
+
+Для рабочего состояния загружает до двух активных участников. Если удаляемая запись — единственный активный участник, возвращает `ErrBrigadeUnavailable`.
+
+
+### func (*SkillServiceStruct) [CreateSkill](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/skill_service.go#L27)
+
+```go
+func (s *SkillServiceStruct) CreateSkill(ctx context.Context, in *models.CreateSkillInput) (*models.CreateSkillResult, error)
+```
+
+Типы: [CreateSkillInput](#type-createskillinput), [CreateSkillResult](#type-createskillresult), [SkillServiceStruct](#type-skillservicestruct).
+
+Требует роль `admin`, проверяет код, название и описание, затем создает навык.
+
+
+### func (*SkillServiceStruct) [UpdateSkill](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/skill_service.go#L58)
+
+```go
+func (s *SkillServiceStruct) UpdateSkill(ctx context.Context, in *models.UpdateSkillInput) (*models.UpdateSkillResult, error)
+```
+
+Типы: [SkillServiceStruct](#type-skillservicestruct), [UpdateSkillInput](#type-updateskillinput), [UpdateSkillResult](#type-updateskillresult).
+
+Требует `admin`, хотя бы одно изменяемое поле и корректные значения; затем обновляет навык.
+
+
+### func (*SkillServiceStruct) [DeactivateSkill](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/skill_service.go#L89)
+
+```go
+func (s *SkillServiceStruct) DeactivateSkill(ctx context.Context, in *models.DeactivateSkillInput) (*models.DeactivateSkillResult, error)
+```
+
+Типы: [DeactivateSkillInput](#type-deactivateskillinput), [DeactivateSkillResult](#type-deactivateskillresult), [SkillServiceStruct](#type-skillservicestruct).
+
+Требует `admin` и переводит навык в неактивное состояние без физического удаления.
+
+
+### func (*SkillServiceStruct) [ListSkills](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/skill_service.go#L120)
+
+```go
+func (s *SkillServiceStruct) ListSkills(ctx context.Context, in *models.ListSkillsInput) (*models.ListSkillsResult, error)
+```
+
+Типы: [ListSkillsInput](#type-listskillsinput), [ListSkillsResult](#type-listskillsresult), [SkillServiceStruct](#type-skillservicestruct).
+
+Разрешен `admin` и `dispatcher`; применяет фильтр активности, текстовый поиск и страницу.
+
+
+### func (*SkillServiceStruct) [AddBrigadeSkill](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/skill_service.go#L150)
+
+```go
+func (s *SkillServiceStruct) AddBrigadeSkill(ctx context.Context, in *models.AddBrigadeSkillInput) (*models.AddBrigadeSkillResult, error)
+```
+
+Типы: [AddBrigadeSkillInput](#type-addbrigadeskillinput), [AddBrigadeSkillResult](#type-addbrigadeskillresult), [SkillServiceStruct](#type-skillservicestruct).
+
+Проверяет неархивную бригаду и доступ к ее подразделению, затем добавляет или восстанавливает связь навыка.
+
+
+### func (*SkillServiceStruct) [RemoveBrigadeSkill](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/skill_service.go#L187)
+
+```go
+func (s *SkillServiceStruct) RemoveBrigadeSkill(ctx context.Context, in *models.RemoveBrigadeSkillInput) (*models.RemoveBrigadeSkillResult, error)
+```
+
+Типы: [RemoveBrigadeSkillInput](#type-removebrigadeskillinput), [RemoveBrigadeSkillResult](#type-removebrigadeskillresult), [SkillServiceStruct](#type-skillservicestruct).
+
+Проверяет те же условия и деактивирует связь навыка с бригадой.
+
+
+### func (*SkillServiceStruct) [ListBrigadeSkills](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/skill_service.go#L224)
+
+```go
+func (s *SkillServiceStruct) ListBrigadeSkills(ctx context.Context, in *models.ListBrigadeSkillsInput) (*models.ListBrigadeSkillsResult, error)
+```
+
+Типы: [ListBrigadeSkillsInput](#type-listbrigadeskillsinput), [ListBrigadeSkillsResult](#type-listbrigadeskillsresult), [SkillServiceStruct](#type-skillservicestruct).
+
+Проверяет бригаду и права, затем возвращает ее навыки с необязательным фильтром активности.
+
+
+### func (*SkillServiceStruct) [getBrigadeForSkillOperation](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/skill_service.go#L260)
+
+```go
+func (s *SkillServiceStruct) getBrigadeForSkillOperation(
+    ctx context.Context,
+    log *zap.Logger,
+    start time.Time,
+    brigadeID uuid.UUID,
+    actorUserID *uuid.UUID,
+    actorDepartmentID *uuid.UUID,
+    actorRoles []string,
+    operation string,
+) (*models.Brigade, error)
+```
+
+Типы: [Brigade](#type-brigade), [SkillServiceStruct](#type-skillservicestruct).
+
+Загружает бригаду и запрещает работу с навыками архивной бригады.
+
+
+### func (*ScheduleServiceStruct) [SetBrigadeSchedule](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/schedule_service.go#L27)
+
+```go
+func (s *ScheduleServiceStruct) SetBrigadeSchedule(ctx context.Context, in *models.SetBrigadeScheduleInput) (*models.SetBrigadeScheduleResult, error)
+```
+
+Типы: [ScheduleServiceStruct](#type-scheduleservicestruct), [SetBrigadeScheduleInput](#type-setbrigadescheduleinput), [SetBrigadeScheduleResult](#type-setbrigadescheduleresult).
 
 Проверяет каждый день, время, часовой пояс и период действия, затем проверяет неархивную бригаду и права. Хранилище заменяет расписание набором переданных строк.
 
-### `ScheduleServiceStruct.ListBrigadeSchedule`
+
+### func (*ScheduleServiceStruct) [ListBrigadeSchedule](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/schedule_service.go#L63)
+
+```go
+func (s *ScheduleServiceStruct) ListBrigadeSchedule(ctx context.Context, in *models.ListBrigadeScheduleInput) (*models.ListBrigadeScheduleResult, error)
+```
+
+Типы: [ListBrigadeScheduleInput](#type-listbrigadescheduleinput), [ListBrigadeScheduleResult](#type-listbrigadescheduleresult), [ScheduleServiceStruct](#type-scheduleservicestruct).
 
 Администратор и диспетчер читают расписание по общему правилу; участник может прочитать расписание своей активной бригады. Поддерживается фильтр активности.
 
-### `ScheduleServiceStruct.getBrigadeForScheduleOperation`
+
+### func (*ScheduleServiceStruct) [getBrigadeForScheduleOperation](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/schedule_service.go#L107)
+
+```go
+func (s *ScheduleServiceStruct) getBrigadeForScheduleOperation(
+    ctx context.Context,
+    log *zap.Logger,
+    start time.Time,
+    brigadeID uuid.UUID,
+    actorUserID *uuid.UUID,
+    actorDepartmentID *uuid.UUID,
+    actorRoles []string,
+    operation string,
+) (*models.Brigade, error)
+```
+
+Типы: [Brigade](#type-brigade), [ScheduleServiceStruct](#type-scheduleservicestruct).
 
 Загружает бригаду и запрещает расписание архивной бригады.
 
-### `ZoneServiceStruct.CreateBrigadeZone`
+
+### func (*ZoneServiceStruct) [CreateBrigadeZone](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/zone_service.go#L27)
+
+```go
+func (z *ZoneServiceStruct) CreateBrigadeZone(ctx context.Context, in *models.CreateBrigadeZoneInput) (*models.CreateBrigadeZoneResult, error)
+```
+
+Типы: [CreateBrigadeZoneInput](#type-createbrigadezoneinput), [CreateBrigadeZoneResult](#type-createbrigadezoneresult), [ZoneServiceStruct](#type-zoneservicestruct).
 
 Проверяет UUID, название, GeoJSON, координатную структуру и приоритет. Требует совпадения подразделения зоны и бригады, затем проверяет права и сохраняет географию.
 
-### `ZoneServiceStruct.UpdateBrigadeZone`
+
+### func (*ZoneServiceStruct) [UpdateBrigadeZone](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/zone_service.go#L75)
+
+```go
+func (z *ZoneServiceStruct) UpdateBrigadeZone(ctx context.Context, in *models.UpdateBrigadeZoneInput) (*models.UpdateBrigadeZoneResult, error)
+```
+
+Типы: [UpdateBrigadeZoneInput](#type-updatebrigadezoneinput), [UpdateBrigadeZoneResult](#type-updatebrigadezoneresult), [ZoneServiceStruct](#type-zoneservicestruct).
 
 Загружает зону, по ней определяет бригаду и подразделение, проверяет права и частично обновляет поля.
 
-### `ZoneServiceStruct.DeleteBrigadeZone`
+
+### func (*ZoneServiceStruct) [DeleteBrigadeZone](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/zone_service.go#L116)
+
+```go
+func (z *ZoneServiceStruct) DeleteBrigadeZone(ctx context.Context, in *models.DeleteBrigadeZoneInput) (*models.DeleteBrigadeZoneResult, error)
+```
+
+Типы: [DeleteBrigadeZoneInput](#type-deletebrigadezoneinput), [DeleteBrigadeZoneResult](#type-deletebrigadezoneresult), [ZoneServiceStruct](#type-zoneservicestruct).
 
 Загружает зону и бригаду, проверяет доступ и удаляет зону через хранилище.
 
-### `ZoneServiceStruct.ListBrigadeZones`
+
+### func (*ZoneServiceStruct) [ListBrigadeZones](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/zone_service.go#L157)
+
+```go
+func (z *ZoneServiceStruct) ListBrigadeZones(ctx context.Context, in *models.ListBrigadeZonesInput) (*models.ListBrigadeZonesResult, error)
+```
+
+Типы: [ListBrigadeZonesInput](#type-listbrigadezonesinput), [ListBrigadeZonesResult](#type-listbrigadezonesresult), [ZoneServiceStruct](#type-zoneservicestruct).
 
 Проверяет неархивную бригаду и доступ, затем возвращает ее зоны с фильтром активности.
 
-### `ZoneServiceStruct.CheckBrigadeCoversPoint`
+
+### func (*ZoneServiceStruct) [CheckBrigadeCoversPoint](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/zone_service.go#L193)
+
+```go
+func (z *ZoneServiceStruct) CheckBrigadeCoversPoint(ctx context.Context, in *models.CheckBrigadeCoversPointInput) (*models.CheckBrigadeCoversPointResult, error)
+```
+
+Типы: [CheckBrigadeCoversPointInput](#type-checkbrigadecoverspointinput), [CheckBrigadeCoversPointResult](#type-checkbrigadecoverspointresult), [ZoneServiceStruct](#type-zoneservicestruct).
 
 Проверяет координаты и возвращает признак попадания точки хотя бы в одну действующую зону и список совпавших зон.
 
-### `ZoneServiceStruct.FindBrigadesByPoint`
+
+### func (*ZoneServiceStruct) [FindBrigadesByPoint](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/zone_service.go#L221)
+
+```go
+func (z *ZoneServiceStruct) FindBrigadesByPoint(ctx context.Context, in *models.FindBrigadesByPointInput) (*models.FindBrigadesByPointResult, error)
+```
+
+Типы: [FindBrigadesByPointInput](#type-findbrigadesbypointinput), [FindBrigadesByPointResult](#type-findbrigadesbypointresult), [ZoneServiceStruct](#type-zoneservicestruct).
 
 Проверяет точку, подразделение, роли, навыки и страницу. Хранилище ищет бригады по пространственному пересечению и может оставить только доступные.
 
-### `ZoneServiceStruct.getBrigadeForZoneOperation`
+
+### func (*ZoneServiceStruct) [getBrigadeForZoneOperation](https://github.com/FIZZI-77/automatic_system/blob/test/Brigade_Service/src/core/service/zone_service.go#L248)
+
+```go
+func (z *ZoneServiceStruct) getBrigadeForZoneOperation(
+    ctx context.Context,
+    log *zap.Logger,
+    start time.Time,
+    brigadeID uuid.UUID,
+    actorUserID *uuid.UUID,
+    actorDepartmentID *uuid.UUID,
+    actorRoles []string,
+    operation string,
+) (*models.Brigade, error)
+```
+
+Типы: [Brigade](#type-brigade), [ZoneServiceStruct](#type-zoneservicestruct).
 
 Загружает бригаду для операции с зоной и запрещает архивную запись.
+
 
 ## Структура БД
 
@@ -551,3 +973,830 @@
 | `created_at`, `updated_at` | `timestamptz` | Создание и изменение. |
 
 Частичный уникальный индекс допускает только одну незавершенную смену для бригады.
+
+## Структуры параметров и результатов
+
+### type AddBrigadeMemberInput
+
+```go
+type AddBrigadeMemberInput struct {
+	BrigadeID         uuid.UUID
+	UserID            uuid.UUID
+	ProfileID         *uuid.UUID
+	Role              BrigadeMemberRole
+	ChangedByUserID   *uuid.UUID
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+	RequestID         *string
+	TraceID           *string
+	InitialSkills     []BrigadeMemberSkillSeed
+}
+```
+
+### type AddBrigadeMemberResult
+
+```go
+type AddBrigadeMemberResult struct {
+	Member *BrigadeMember
+}
+```
+
+### type AddBrigadeSkillInput
+
+```go
+type AddBrigadeSkillInput struct {
+	BrigadeID         uuid.UUID
+	SkillID           uuid.UUID
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+	RequestID         *string
+	TraceID           *string
+}
+```
+
+### type AddBrigadeSkillResult
+
+```go
+type AddBrigadeSkillResult struct {
+	BrigadeSkill *BrigadeSkill
+}
+```
+
+### type ArchiveBrigadeInput
+
+```go
+type ArchiveBrigadeInput struct {
+	ID                uuid.UUID
+	Reason            string
+	ChangedByUserID   *uuid.UUID
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+	RequestID         *string
+	TraceID           *string
+}
+```
+
+### type ArchiveBrigadeResult
+
+```go
+type ArchiveBrigadeResult struct {
+	Brigade *Brigade
+}
+```
+
+### type Brigade
+
+```go
+type Brigade struct {
+	ID             uuid.UUID     `json:"id"`
+	DepartmentID   uuid.UUID     `json:"department_id"`
+	Name           string        `json:"name"`
+	Description    string        `json:"description"`
+	Status         BrigadeStatus `json:"status"`
+	Specialization *string       `json:"specialization,omitempty"`
+	CreatedAt      time.Time     `json:"created_at"`
+	UpdatedAt      time.Time     `json:"updated_at"`
+	DeactivatedAt  *time.Time    `json:"deactivated_at,omitempty"`
+	ArchivedAt     *time.Time    `json:"archived_at,omitempty"`
+}
+```
+
+### type BrigadeServiceStruct
+
+```go
+type BrigadeServiceStruct struct {
+	repo             *repository.Repo
+	departmentClient departmentv1.DepartmentServiceClient
+	log              *zap.Logger
+}
+```
+
+### type ChangeBrigadeMemberRoleInput
+
+```go
+type ChangeBrigadeMemberRoleInput struct {
+	BrigadeID         uuid.UUID
+	MemberID          uuid.UUID
+	Role              BrigadeMemberRole
+	ChangedByUserID   *uuid.UUID
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+	RequestID         *string
+	TraceID           *string
+}
+```
+
+### type ChangeBrigadeMemberRoleResult
+
+```go
+type ChangeBrigadeMemberRoleResult struct {
+	Member *BrigadeMember
+}
+```
+
+### type CheckBrigadeCanHandleTicketInput
+
+```go
+type CheckBrigadeCanHandleTicketInput struct {
+	BrigadeID        uuid.UUID
+	DepartmentID     uuid.UUID
+	Longitude        float64
+	Latitude         float64
+	RequiredSkillIDs []uuid.UUID
+	RequiredRoles    []BrigadeMemberRole
+}
+```
+
+### type CheckBrigadeCanHandleTicketResult
+
+```go
+type CheckBrigadeCanHandleTicketResult struct {
+	CanHandle bool
+	Reasons   []string
+}
+```
+
+### type CheckBrigadeCoversPointInput
+
+```go
+type CheckBrigadeCoversPointInput struct {
+	BrigadeID uuid.UUID
+	Longitude float64
+	Latitude  float64
+}
+```
+
+### type CheckBrigadeCoversPointResult
+
+```go
+type CheckBrigadeCoversPointResult struct {
+	Covers       bool
+	MatchedZones []*BrigadeZone
+}
+```
+
+### type CreateBrigadeInput
+
+```go
+type CreateBrigadeInput struct {
+	DepartmentID      uuid.UUID
+	Name              string
+	Description       string
+	Specialization    *string
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+	RequestID         *string
+	TraceID           *string
+}
+```
+
+### type CreateBrigadeResult
+
+```go
+type CreateBrigadeResult struct {
+	Brigade *Brigade
+}
+```
+
+### type CreateBrigadeZoneInput
+
+```go
+type CreateBrigadeZoneInput struct {
+	BrigadeID         uuid.UUID
+	DepartmentID      uuid.UUID
+	Name              string
+	GeoJSON           string
+	Priority          int32
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+	RequestID         *string
+	TraceID           *string
+}
+```
+
+### type CreateBrigadeZoneResult
+
+```go
+type CreateBrigadeZoneResult struct {
+	Zone *BrigadeZone
+}
+```
+
+### type CreateSkillInput
+
+```go
+type CreateSkillInput struct {
+	Code        string
+	Name        string
+	Description string
+	ActorUserID *uuid.UUID
+	ActorRoles  []string
+	RequestID   *string
+	TraceID     *string
+}
+```
+
+### type CreateSkillResult
+
+```go
+type CreateSkillResult struct {
+	Skill *Skill
+}
+```
+
+### type DeactivateBrigadeInput
+
+```go
+type DeactivateBrigadeInput struct {
+	ID                uuid.UUID
+	Reason            string
+	ChangedByUserID   *uuid.UUID
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+	RequestID         *string
+	TraceID           *string
+}
+```
+
+### type DeactivateBrigadeResult
+
+```go
+type DeactivateBrigadeResult struct {
+	Brigade *Brigade
+}
+```
+
+### type DeactivateSkillInput
+
+```go
+type DeactivateSkillInput struct {
+	ID          uuid.UUID
+	ActorUserID *uuid.UUID
+	ActorRoles  []string
+	RequestID   *string
+	TraceID     *string
+}
+```
+
+### type DeactivateSkillResult
+
+```go
+type DeactivateSkillResult struct {
+	Skill *Skill
+}
+```
+
+### type DeleteBrigadeZoneInput
+
+```go
+type DeleteBrigadeZoneInput struct {
+	ID                uuid.UUID
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+	RequestID         *string
+	TraceID           *string
+}
+```
+
+### type DeleteBrigadeZoneResult
+
+```go
+type DeleteBrigadeZoneResult struct {
+	Zone *BrigadeZone
+}
+```
+
+### type FindBrigadesByPointInput
+
+```go
+type FindBrigadesByPointInput struct {
+	DepartmentID     uuid.UUID
+	Longitude        float64
+	Latitude         float64
+	OnlyAvailable    bool
+	RequiredSkillIDs []uuid.UUID
+	RequiredRoles    []BrigadeMemberRole
+	Limit            int32
+	Offset           int32
+}
+```
+
+### type FindBrigadesByPointResult
+
+```go
+type FindBrigadesByPointResult struct {
+	Brigades []*Brigade
+	Total    int64
+}
+```
+
+### type GetAvailableBrigadesInput
+
+```go
+type GetAvailableBrigadesInput struct {
+	DepartmentID     uuid.UUID
+	Longitude        *float64
+	Latitude         *float64
+	RequiredSkillIDs []uuid.UUID
+	RequiredRoles    []BrigadeMemberRole
+	Limit            int32
+	Offset           int32
+}
+```
+
+### type GetAvailableBrigadesResult
+
+```go
+type GetAvailableBrigadesResult struct {
+	Brigades []*Brigade
+	Total    int64
+}
+```
+
+### type GetBrigadeByIDInput
+
+```go
+type GetBrigadeByIDInput struct {
+	ID                uuid.UUID
+	ActorUserID       *uuid.UUID // only for service
+	ActorDepartmentID *uuid.UUID // only for service
+	ActorRoles        []string   // only for service
+}
+```
+
+### type GetBrigadeByIDResult
+
+```go
+type GetBrigadeByIDResult struct {
+	Brigade *Brigade
+}
+```
+
+### type GetBrigadeByUserIDInput
+
+```go
+type GetBrigadeByUserIDInput struct {
+	UserID     uuid.UUID
+	OnlyActive bool
+}
+```
+
+### type GetBrigadeByUserIDResult
+
+```go
+type GetBrigadeByUserIDResult struct {
+	Brigade *Brigade
+	Member  *BrigadeMember
+}
+```
+
+### type GetBrigadeMemberHistoryInput
+
+```go
+type GetBrigadeMemberHistoryInput struct {
+	BrigadeID         uuid.UUID
+	MemberID          *uuid.UUID
+	Limit             int32
+	Offset            int32
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+}
+```
+
+### type GetBrigadeMemberHistoryResult
+
+```go
+type GetBrigadeMemberHistoryResult struct {
+	History []*BrigadeMemberHistory
+	Total   int64
+}
+```
+
+### type GetBrigadeMemberStatusHistoryInput
+
+```go
+type GetBrigadeMemberStatusHistoryInput struct {
+	BrigadeID         uuid.UUID
+	MemberID          *uuid.UUID
+	Limit             int32
+	Offset            int32
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+}
+```
+
+### type GetBrigadeMemberStatusHistoryResult
+
+```go
+type GetBrigadeMemberStatusHistoryResult struct {
+	History []*BrigadeMemberStatusHistory
+	Total   int64
+}
+```
+
+### type GetBrigadeStatusHistoryInput
+
+```go
+type GetBrigadeStatusHistoryInput struct {
+	BrigadeID         uuid.UUID
+	Limit             int32
+	Offset            int32
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+}
+```
+
+### type GetBrigadeStatusHistoryResult
+
+```go
+type GetBrigadeStatusHistoryResult struct {
+	History []*BrigadeStatusHistory
+	Total   int64
+}
+```
+
+### type ListBrigadeMembersInput
+
+```go
+type ListBrigadeMembersInput struct {
+	BrigadeID          uuid.UUID
+	Active             *bool
+	Role               *BrigadeMemberRole
+	AvailabilityStatus *BrigadeMemberAvailabilityStatus
+	Limit              int32
+	Offset             int32
+	ActorUserID        *uuid.UUID
+	ActorDepartmentID  *uuid.UUID
+	ActorRoles         []string
+}
+```
+
+### type ListBrigadeMembersResult
+
+```go
+type ListBrigadeMembersResult struct {
+	Members []*BrigadeMember
+	Total   int64
+}
+```
+
+### type ListBrigadeScheduleInput
+
+```go
+type ListBrigadeScheduleInput struct {
+	BrigadeID         uuid.UUID
+	Active            *bool
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+}
+```
+
+### type ListBrigadeScheduleResult
+
+```go
+type ListBrigadeScheduleResult struct {
+	Schedule []*BrigadeSchedule
+}
+```
+
+### type ListBrigadeSkillsInput
+
+```go
+type ListBrigadeSkillsInput struct {
+	BrigadeID         uuid.UUID
+	Active            *bool
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+}
+```
+
+### type ListBrigadeSkillsResult
+
+```go
+type ListBrigadeSkillsResult struct {
+	Skills []*BrigadeSkill
+}
+```
+
+### type ListBrigadeZonesInput
+
+```go
+type ListBrigadeZonesInput struct {
+	BrigadeID         uuid.UUID
+	Active            *bool
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+}
+```
+
+### type ListBrigadeZonesResult
+
+```go
+type ListBrigadeZonesResult struct {
+	Zones []*BrigadeZone
+}
+```
+
+### type ListBrigadesInput
+
+```go
+type ListBrigadesInput struct {
+	DepartmentID      *uuid.UUID
+	Status            *BrigadeStatus
+	Specialization    *string
+	CreatedFrom       *time.Time
+	CreatedTo         *time.Time
+	SortBy            BrigadeSortBy
+	SortOrder         SortOrder
+	Limit             int32
+	Offset            int32
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+}
+```
+
+### type ListBrigadesResult
+
+```go
+type ListBrigadesResult struct {
+	Brigades []*Brigade
+	Total    int64
+}
+```
+
+### type ListSkillsInput
+
+```go
+type ListSkillsInput struct {
+	Active      *bool
+	Query       *string
+	Limit       int32
+	Offset      int32
+	ActorUserID *uuid.UUID
+	ActorRoles  []string
+}
+```
+
+### type ListSkillsResult
+
+```go
+type ListSkillsResult struct {
+	Skills []*Skill
+	Total  int64
+}
+```
+
+### type MemberServiceStruct
+
+```go
+type MemberServiceStruct struct {
+	repo           *repository.Repo
+	log            *zap.Logger
+	profileClient  profilev1.ProfileServiceClient
+	requireProfile bool
+}
+```
+
+### type RemoveBrigadeMemberInput
+
+```go
+type RemoveBrigadeMemberInput struct {
+	BrigadeID         uuid.UUID
+	MemberID          uuid.UUID
+	Reason            string
+	ChangedByUserID   *uuid.UUID
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+	RequestID         *string
+	TraceID           *string
+}
+```
+
+### type RemoveBrigadeMemberResult
+
+```go
+type RemoveBrigadeMemberResult struct {
+	Member *BrigadeMember
+}
+```
+
+### type RemoveBrigadeSkillInput
+
+```go
+type RemoveBrigadeSkillInput struct {
+	BrigadeID         uuid.UUID
+	SkillID           uuid.UUID
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+	RequestID         *string
+	TraceID           *string
+}
+```
+
+### type RemoveBrigadeSkillResult
+
+```go
+type RemoveBrigadeSkillResult struct {
+	BrigadeSkill *BrigadeSkill
+}
+```
+
+### type ScheduleServiceStruct
+
+```go
+type ScheduleServiceStruct struct {
+	repo *repository.Repo
+	log  *zap.Logger
+}
+```
+
+### type Service
+
+```go
+type Service struct {
+	BrigadeService
+	MemberService
+	SkillService
+	ScheduleService
+	ZoneService
+}
+```
+
+### type SetBrigadeMemberAvailabilityInput
+
+```go
+type SetBrigadeMemberAvailabilityInput struct {
+	BrigadeID         uuid.UUID
+	MemberID          uuid.UUID
+	Status            BrigadeMemberAvailabilityStatus
+	Reason            string
+	ChangedByUserID   *uuid.UUID
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+	RequestID         *string
+	TraceID           *string
+}
+```
+
+### type SetBrigadeMemberAvailabilityResult
+
+```go
+type SetBrigadeMemberAvailabilityResult struct {
+	Member *BrigadeMember
+}
+```
+
+### type SetBrigadeScheduleInput
+
+```go
+type SetBrigadeScheduleInput struct {
+	BrigadeID         uuid.UUID
+	Items             []*BrigadeScheduleItem
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+	RequestID         *string
+	TraceID           *string
+}
+```
+
+### type SetBrigadeScheduleResult
+
+```go
+type SetBrigadeScheduleResult struct {
+	Schedule []*BrigadeSchedule
+}
+```
+
+### type SetBrigadeStatusInput
+
+```go
+type SetBrigadeStatusInput struct {
+	BrigadeID         uuid.UUID
+	Status            BrigadeStatus
+	Reason            string
+	ChangedByUserID   *uuid.UUID
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+	RequestID         *string
+	TraceID           *string
+}
+```
+
+### type SetBrigadeStatusResult
+
+```go
+type SetBrigadeStatusResult struct {
+	Brigade *Brigade
+}
+```
+
+### type SkillServiceStruct
+
+```go
+type SkillServiceStruct struct {
+	repo *repository.Repo
+	log  *zap.Logger
+}
+```
+
+### type UpdateBrigadeInput
+
+```go
+type UpdateBrigadeInput struct {
+	ID                uuid.UUID
+	Name              *string
+	Description       *string
+	Specialization    *string
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+	RequestID         *string
+	TraceID           *string
+}
+```
+
+### type UpdateBrigadeResult
+
+```go
+type UpdateBrigadeResult struct {
+	Brigade *Brigade
+}
+```
+
+### type UpdateBrigadeZoneInput
+
+```go
+type UpdateBrigadeZoneInput struct {
+	ID                uuid.UUID
+	Name              *string
+	GeoJSON           *string
+	Priority          *int32
+	Active            *bool
+	ActorUserID       *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+	RequestID         *string
+	TraceID           *string
+}
+```
+
+### type UpdateBrigadeZoneResult
+
+```go
+type UpdateBrigadeZoneResult struct {
+	Zone *BrigadeZone
+}
+```
+
+### type UpdateSkillInput
+
+```go
+type UpdateSkillInput struct {
+	ID          uuid.UUID
+	Code        *string
+	Name        *string
+	Description *string
+	Active      *bool
+	ActorUserID *uuid.UUID
+	ActorRoles  []string
+	RequestID   *string
+	TraceID     *string
+}
+```
+
+### type UpdateSkillResult
+
+```go
+type UpdateSkillResult struct {
+	Skill *Skill
+}
+```
+
+### type ZoneServiceStruct
+
+```go
+type ZoneServiceStruct struct {
+	repo *repository.Repo
+	log  *zap.Logger
+}
+```

@@ -1,0 +1,144 @@
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: automatic-system-observability
+  namespace: automatic-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 8082
+        name: http-observe
+        protocol: HTTP
+      hosts:
+        - fizzi.tail2c9430.ts.net
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: observability-entrypoint
+  namespace: automatic-system
+spec:
+  hosts:
+    - fizzi.tail2c9430.ts.net
+  gateways:
+    - automatic-system-observability
+  http:
+    - name: observe-root
+      match:
+        - uri:
+            exact: /observe
+        - uri:
+            exact: /observe/
+      redirect:
+        uri: /observe/grafana/
+        scheme: https
+    - name: grafana-trailing-slash
+      match:
+        - uri:
+            exact: /observe/grafana
+      redirect:
+        uri: /observe/grafana/
+        scheme: https
+    - name: prometheus-trailing-slash
+      match:
+        - uri:
+            exact: /observe/prometheus
+      redirect:
+        uri: /observe/prometheus/
+        scheme: https
+    - name: jaeger-trailing-slash
+      match:
+        - uri:
+            exact: /observe/jaeger
+      redirect:
+        uri: /observe/jaeger/
+        scheme: https
+    - name: kibana-trailing-slash
+      match:
+        - uri:
+            exact: /observe/kibana
+      redirect:
+        uri: /observe/kibana/
+        scheme: https
+    - name: kiali-trailing-slash
+      match:
+        - uri:
+            exact: /observe/kiali
+      redirect:
+        uri: /observe/kiali/
+        scheme: https
+    - name: grafana
+      match:
+        - uri:
+            prefix: /observe/grafana/
+      headers:
+        request:
+          remove:
+            - authorization
+      route:
+        - destination:
+            host: grafana.automatic-system.svc.cluster.local
+            port:
+              number: 3000
+    - name: prometheus
+      match:
+        - uri:
+            prefix: /observe/prometheus/
+      rewrite:
+        uri: /
+      headers:
+        request:
+          remove:
+            - authorization
+      route:
+        - destination:
+            host: prometheus.automatic-system.svc.cluster.local
+            port:
+              number: 9090
+    - name: jaeger
+      match:
+        - uri:
+            prefix: /observe/jaeger/
+      headers:
+        request:
+          remove:
+            - authorization
+      route:
+        - destination:
+            host: jaeger.automatic-system.svc.cluster.local
+            port:
+              number: 16686
+    - name: kibana
+      match:
+        - uri:
+            prefix: /observe/kibana/
+      headers:
+        request:
+          remove:
+            - authorization
+      route:
+        - destination:
+            host: kibana.automatic-system.svc.cluster.local
+            port:
+              number: 5601
+    - name: kiali
+      match:
+        - uri:
+            prefix: /observe/kiali/
+      headers:
+        request:
+          remove:
+            - authorization
+      route:
+        - destination:
+            host: kiali.istio-system.svc.cluster.local
+            port:
+              number: 20001
+    - name: unknown-observability-path
+      match:
+        - uri:
+            prefix: /observe/
+      directResponse:
+        status: 404

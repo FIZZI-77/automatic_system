@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$KibanaURL = "http://localhost:5601",
+    [string]$KibanaURL = "http://localhost:5601/observe/kibana",
     [string]$DataViewID = "automatic-system-logs",
     [string]$IndexPattern = "logs-automatic-system-*"
 )

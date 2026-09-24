@@ -98,4 +98,4 @@ kubectl rollout restart deployment -n automatic-system `
 kubectl rollout status deployment/kiali -n istio-system --timeout=180s
 
 Write-Host "Istio and Kiali are ready."
-Write-Host "Run: kubectl port-forward -n istio-system svc/kiali 20001:20001"
+Write-Host "Protected Kiali URL: https://fizzi.tail2c9430.ts.net/observe/kiali/"

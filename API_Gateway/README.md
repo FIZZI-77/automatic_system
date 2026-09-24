@@ -137,73 +137,317 @@
 
 ## Функции
 
-### `NewHandler`
+Имя функции открывает её реализацию в ветке `test`; структуры параметров и результатов описаны в конце README.
+
+### func [NewHandler](https://github.com/FIZZI-77/automatic_system/blob/test/API_Gateway/src/core/handlers/handler.go#L70)
+
+```go
+func NewHandler(
+    authHandler *AuthHandler,
+    ticketHandler *TicketHandler,
+    departmentHandler *DepartmentHandler,
+    brigadeHandler *BrigadeHandler,
+    profileHandler *ProfileHandler,
+    locationHandler *LocationHandler,
+    routingHandler *RoutingHandler,
+    dispatchHandler *DispatchHandler,
+    fileHandler *FileHandler,
+    slaHandler *SLAHandler,
+    notificationHandler *NotificationHandler,
+    auditHandler *AuditHandler,
+    analyticsHandler *AnalyticsHandler,
+    reportHandler *ReportHandler,
+    assetHandler *AssetHandler,
+    authMiddleware *middleware.AuthMiddleware,
+    rateLimiter *middleware.RedisRateLimiter,
+) *Handler
+```
+
+Типы: [AnalyticsHandler](#type-analyticshandler), [AssetHandler](#type-assethandler), [AuditHandler](#type-audithandler), [AuthHandler](#type-authhandler), [AuthMiddleware](#type-authmiddleware), [BrigadeHandler](#type-brigadehandler), [DepartmentHandler](#type-departmenthandler), [DispatchHandler](#type-dispatchhandler), [FileHandler](#type-filehandler), [Handler](#type-handler), [LocationHandler](#type-locationhandler), [NotificationHandler](#type-notificationhandler), [ProfileHandler](#type-profilehandler), [RedisRateLimiter](#type-redisratelimiter), [ReportHandler](#type-reporthandler), [RoutingHandler](#type-routinghandler), [SLAHandler](#type-slahandler), [TicketHandler](#type-tickethandler).
+
+Структуры: [AuthHandler](#type-authhandler), [TicketHandler](#type-tickethandler), [DepartmentHandler](#type-departmenthandler), [BrigadeHandler](#type-brigadehandler), [ProfileHandler](#type-profilehandler), [LocationHandler](#type-locationhandler), [RoutingHandler](#type-routinghandler), [DispatchHandler](#type-dispatchhandler), [FileHandler](#type-filehandler), [SLAHandler](#type-slahandler), [NotificationHandler](#type-notificationhandler), [AuditHandler](#type-audithandler), [AnalyticsHandler](#type-analyticshandler), [ReportHandler](#type-reporthandler), [AssetHandler](#type-assethandler), [AuthMiddleware](#type-authmiddleware), [RedisRateLimiter](#type-redisratelimiter), [Handler](#type-handler).
 
 Принимает обработчики всех внутренних сервисов, `AuthMiddleware` и `RedisRateLimiter`, сохраняет их в общем `Handler`.
 
-### `Handler.InitRouters`
+### func [handleGRPCError](https://github.com/FIZZI-77/automatic_system/blob/test/API_Gateway/src/core/handlers/handler.go#L15)
 
-Создает `gin.Engine`, настраивает CORS из `CORS_ALLOWED_ORIGINS`, обработку `OPTIONS`, общие промежуточные обработчики, проверки `/health`, `/livez`, `/readyz`, публичные и защищенные группы маршрутов. На защищенные группы устанавливает JWT; WebSocket использует отдельную проверку токена.
-
-### `handleGRPCError`
+```go
+func handleGRPCError(c *gin.Context, err error)
+```
 
 Преобразует `InvalidArgument` в 400, `Unauthenticated` в 401, `PermissionDenied` в 403, `NotFound` в 404, `AlreadyExists`/`Aborted`/`FailedPrecondition` в 409, `Canceled` в 408, `DeadlineExceeded` в 504, `Unavailable` в 503, остальные ошибки в 500.
 
-### `writeAPIError`
+### func [writeAPIError](https://github.com/FIZZI-77/automatic_system/blob/test/API_Gateway/src/core/handlers/handler.go#L46)
+
+```go
+func writeAPIError(c *gin.Context, statusCode int, code, message string)
+```
 
 Возвращает JSON с полями `code` и `error` и переданным HTTP-кодом.
 
-### `NewAuthMiddleware`
+### func [NewAuthMiddleware](https://github.com/FIZZI-77/automatic_system/blob/test/API_Gateway/src/core/middleware/auth.go#L27)
+
+```go
+func NewAuthMiddleware(publicKeyPath string, issuer string, audience string) (*AuthMiddleware, error)
+```
+
+Типы: [AuthMiddleware](#type-authmiddleware).
+
+Структуры: [AuthMiddleware](#type-authmiddleware).
 
 Читает открытый ключ, проверяет его пригодность и сохраняет ожидаемые `issuer` и `audience`.
 
-### `AuthMiddleware.Handle`
+### func [extractBearerToken](https://github.com/FIZZI-77/automatic_system/blob/test/API_Gateway/src/core/middleware/auth.go#L111)
 
-Извлекает Bearer-токен, проверяет JWT и помещает `user_id`, роли и остальные подтвержденные признаки в `gin.Context`. При любой ошибке завершает запрос с 401.
-
-### `AuthMiddleware.HandleWebSocket`
-
-Выполняет ту же проверку для соединения WebSocket с учетом поддерживаемого способа передачи токена.
-
-### `extractBearerToken`
+```go
+func extractBearerToken(header string) (string, error)
+```
 
 Требует заголовок вида `Bearer <token>`, обрезает пробелы и возвращает только токен.
 
-### `RequestID`, `requestid.New`, `requestid.WithContext`, `requestid.FromContext`, `requestid.UnaryClientInterceptor`
+### func [RequestID](https://github.com/FIZZI-77/automatic_system/blob/test/API_Gateway/src/core/middleware/request_id.go#L11)
+
+```go
+func RequestID() gin.HandlerFunc
+```
 
 Принимают корректный `X-Request-ID` либо создают новый, кладут его в HTTP- и Go-контекст и передают как метаданные gRPC.
 
-### `IdempotencyKey`, `idempotency.WithContext`, `idempotency.FromContext`, `idempotency.UnaryClientInterceptor`
+### func [IdempotencyKey](https://github.com/FIZZI-77/automatic_system/blob/test/API_Gateway/src/core/middleware/idempotency.go#L11)
+
+```go
+func IdempotencyKey() gin.HandlerFunc
+```
 
 Проверяют и переносят ключ идемпотентности из HTTP-заголовка во внутренний вызов.
 
-### `RequestLogger`
+### func [RequestLogger](https://github.com/FIZZI-77/automatic_system/blob/test/API_Gateway/src/core/middleware/logger.go#L17)
+
+```go
+func RequestLogger() gin.HandlerFunc
+```
 
 Записывает метод, путь, код, длительность, адрес клиента и идентификатор запроса после завершения обработки.
 
-### `NewRedisRateLimiter`
+### func [NewRedisRateLimiter](https://github.com/FIZZI-77/automatic_system/blob/test/API_Gateway/src/core/middleware/rate_limit.go#L55)
+
+```go
+func NewRedisRateLimiter(client redis.UniversalClient, prefix string, bypassLoadTests bool) *RedisRateLimiter
+```
+
+Типы: [RedisRateLimiter](#type-redisratelimiter).
+
+Структуры: [RedisRateLimiter](#type-redisratelimiter).
 
 Создает распределенный ограничитель на Redis, нормализует префикс и сохраняет настройку обхода для нагрузочных проверок.
 
-### `RedisRateLimiter.Middleware`
+### func [redisInt](https://github.com/FIZZI-77/automatic_system/blob/test/API_Gateway/src/core/middleware/rate_limit.go#L141)
 
-Нормализует правило, вычисляет ключ клиента, вызывает `allow`, выставляет заголовки лимита и при превышении возвращает 429. Ошибка Redis обрабатывается согласно реализованной политике шлюза.
-
-### `RedisRateLimiter.allow`
-
-Атомарно выполняет Lua-сценарий Redis, возвращая разрешение, оставшийся запас и время до восстановления.
-
-### `RateLimitConfig.normalize`, `redisInt`
+```go
+func redisInt(value any) (int64, error)
+```
 
 Подставляют безопасные значения правила и преобразуют числовой ответ Redis в `int64`.
 
-### `retry.UnaryClientInterceptor`
+### func (*Handler) [InitRouters](https://github.com/FIZZI-77/automatic_system/blob/test/API_Gateway/src/core/handlers/handler.go#L110)
+
+```go
+func (h *Handler) InitRouters() *gin.Engine
+```
+
+Типы: [Handler](#type-handler).
+
+Создает `gin.Engine`, настраивает CORS из `CORS_ALLOWED_ORIGINS`, обработку `OPTIONS`, общие промежуточные обработчики, проверки `/health`, `/livez`, `/readyz`, публичные и защищенные группы маршрутов. На защищенные группы устанавливает JWT; WebSocket использует отдельную проверку токена.
+
+
+### func (*AuthMiddleware) [Handle](https://github.com/FIZZI-77/automatic_system/blob/test/API_Gateway/src/core/middleware/auth.go#L45)
+
+```go
+func (m *AuthMiddleware) Handle() gin.HandlerFunc
+```
+
+Типы: [AuthMiddleware](#type-authmiddleware).
+
+Извлекает Bearer-токен, проверяет JWT и помещает `user_id`, роли и остальные подтвержденные признаки в `gin.Context`. При любой ошибке завершает запрос с 401.
+
+
+### func (*AuthMiddleware) [HandleWebSocket](https://github.com/FIZZI-77/automatic_system/blob/test/API_Gateway/src/core/middleware/auth.go#L100)
+
+```go
+func (m *AuthMiddleware) HandleWebSocket() gin.HandlerFunc
+```
+
+Типы: [AuthMiddleware](#type-authmiddleware).
+
+Выполняет ту же проверку для соединения WebSocket с учетом поддерживаемого способа передачи токена.
+
+
+### func [New](https://github.com/FIZZI-77/automatic_system/blob/test/API_Gateway/src/core/requestid/requestid.go#L21)
+
+```go
+func New() string
+```
+
+Принимают корректный `X-Request-ID` либо создают новый, кладут его в HTTP- и Go-контекст и передают как метаданные gRPC.
+
+
+### func [WithContext](https://github.com/FIZZI-77/automatic_system/blob/test/API_Gateway/src/core/requestid/requestid.go#L30)
+
+```go
+func WithContext(ctx context.Context, requestID string) context.Context
+```
+
+Принимают корректный `X-Request-ID` либо создают новый, кладут его в HTTP- и Go-контекст и передают как метаданные gRPC.
+
+
+### func [FromContext](https://github.com/FIZZI-77/automatic_system/blob/test/API_Gateway/src/core/requestid/requestid.go#L39)
+
+```go
+func FromContext(ctx context.Context) (string, bool)
+```
+
+Принимают корректный `X-Request-ID` либо создают новый, кладут его в HTTP- и Go-контекст и передают как метаданные gRPC.
+
+
+### func [UnaryClientInterceptor](https://github.com/FIZZI-77/automatic_system/blob/test/API_Gateway/src/core/requestid/requestid.go#L48)
+
+```go
+func UnaryClientInterceptor(
+    ctx context.Context,
+    method string,
+    req interface{},
+    reply interface{},
+    cc *grpc.ClientConn,
+    invoker grpc.UnaryInvoker,
+    opts ...grpc.CallOption,
+) error
+```
+
+Принимают корректный `X-Request-ID` либо создают новый, кладут его в HTTP- и Go-контекст и передают как метаданные gRPC.
+
+
+### func [WithContext](https://github.com/FIZZI-77/automatic_system/blob/test/API_Gateway/src/core/idempotency/idempotency.go#L18)
+
+```go
+func WithContext(ctx context.Context, key string) context.Context
+```
+
+Проверяют и переносят ключ идемпотентности из HTTP-заголовка во внутренний вызов.
+
+
+### func [FromContext](https://github.com/FIZZI-77/automatic_system/blob/test/API_Gateway/src/core/idempotency/idempotency.go#L27)
+
+```go
+func FromContext(ctx context.Context) (string, bool)
+```
+
+Проверяют и переносят ключ идемпотентности из HTTP-заголовка во внутренний вызов.
+
+
+### func [UnaryClientInterceptor](https://github.com/FIZZI-77/automatic_system/blob/test/API_Gateway/src/core/idempotency/idempotency.go#L36)
+
+```go
+func UnaryClientInterceptor(
+    ctx context.Context,
+    method string,
+    req interface{},
+    reply interface{},
+    cc *grpc.ClientConn,
+    invoker grpc.UnaryInvoker,
+    opts ...grpc.CallOption,
+) error
+```
+
+Проверяют и переносят ключ идемпотентности из HTTP-заголовка во внутренний вызов.
+
+
+### func (*RedisRateLimiter) [Middleware](https://github.com/FIZZI-77/automatic_system/blob/test/API_Gateway/src/core/middleware/rate_limit.go#L64)
+
+```go
+func (l *RedisRateLimiter) Middleware(config RateLimitConfig) gin.HandlerFunc
+```
+
+Типы: [RateLimitConfig](#type-ratelimitconfig), [RedisRateLimiter](#type-redisratelimiter).
+
+Нормализует правило, вычисляет ключ клиента, вызывает `allow`, выставляет заголовки лимита и при превышении возвращает 429. Ошибка Redis обрабатывается согласно реализованной политике шлюза.
+
+
+### func (*RedisRateLimiter) [allow](https://github.com/FIZZI-77/automatic_system/blob/test/API_Gateway/src/core/middleware/rate_limit.go#L97)
+
+```go
+func (l *RedisRateLimiter) allow(ctx context.Context, key string, config RateLimitConfig) (bool, int, time.Duration, error)
+```
+
+Типы: [RateLimitConfig](#type-ratelimitconfig), [RedisRateLimiter](#type-redisratelimiter).
+
+Атомарно выполняет Lua-сценарий Redis, возвращая разрешение, оставшийся запас и время до восстановления.
+
+
+### func (*RateLimitConfig) [normalize](https://github.com/FIZZI-77/automatic_system/blob/test/API_Gateway/src/core/middleware/rate_limit.go#L126)
+
+```go
+func (c *RateLimitConfig) normalize()
+```
+
+Типы: [RateLimitConfig](#type-ratelimitconfig).
+
+Подставляют безопасные значения правила и преобразуют числовой ответ Redis в `int64`.
+
+
+### func [UnaryClientInterceptor](https://github.com/FIZZI-77/automatic_system/blob/test/API_Gateway/src/core/retry/retry.go#L17)
+
+```go
+func UnaryClientInterceptor(
+    ctx context.Context,
+    method string,
+    req interface{},
+    reply interface{},
+    cc *grpc.ClientConn,
+    invoker grpc.UnaryInvoker,
+    opts ...grpc.CallOption,
+) error
+```
 
 Повторяет только безопасные читающие операции и изменяющие операции с ключом идемпотентности. Учитывает контекст, задержки и только временные коды gRPC.
 
-### `retry.shouldRetry`, `retry.isReadOnlyMethod`, `retry.isIdempotentMutation`, `retry.isRetryable`
+
+### func [shouldRetry](https://github.com/FIZZI-77/automatic_system/blob/test/API_Gateway/src/core/retry/retry.go#L52)
+
+```go
+func shouldRetry(ctx context.Context, method string) bool
+```
 
 Определяют допустимость повтора по методу, наличию ключа и коду ошибки.
+
+
+### func [isReadOnlyMethod](https://github.com/FIZZI-77/automatic_system/blob/test/API_Gateway/src/core/retry/retry.go#L61)
+
+```go
+func isReadOnlyMethod(method string) bool
+```
+
+Определяют допустимость повтора по методу, наличию ключа и коду ошибки.
+
+
+### func [isIdempotentMutation](https://github.com/FIZZI-77/automatic_system/blob/test/API_Gateway/src/core/retry/retry.go#L69)
+
+```go
+func isIdempotentMutation(method string) bool
+```
+
+Определяют допустимость повтора по методу, наличию ключа и коду ошибки.
+
+
+### func [isRetryable](https://github.com/FIZZI-77/automatic_system/blob/test/API_Gateway/src/core/retry/retry.go#L94)
+
+```go
+func isRetryable(err error) bool
+```
+
+Определяют допустимость повтора по методу, наличию ключа и коду ошибки.
+
+
+## Группы обработчиков
 
 ### Обработчики авторизации
 
@@ -236,3 +480,191 @@
 ## Структура БД
 
 `API Gateway` не содержит SQL-миграций и не подключается к собственной базе данных. Redis используется только для распределенного ограничения частоты, а предметные и идемпотентные записи принадлежат внутренним сервисам.
+
+## Структуры параметров и результатов
+
+### type AnalyticsHandler
+
+```go
+type AnalyticsHandler struct {
+	client analyticsv1.AnalyticsServiceClient
+}
+```
+
+### type AssetHandler
+
+```go
+type AssetHandler struct {
+	c assetv1.AssetServiceClient
+}
+```
+
+### type AuditHandler
+
+```go
+type AuditHandler struct {
+	client auditv1.AuditServiceClient
+}
+```
+
+### type AuthHandler
+
+```go
+type AuthHandler struct {
+	authClient v1.AuthServiceClient
+}
+```
+
+### type AuthMiddleware
+
+```go
+type AuthMiddleware struct {
+	publicKey *rsa.PublicKey
+	issuer    string
+	audience  string
+}
+```
+
+### type BrigadeHandler
+
+```go
+type BrigadeHandler struct {
+	brigadeClient brigadev1.BrigadeServiceClient
+}
+```
+
+### type DepartmentHandler
+
+```go
+type DepartmentHandler struct {
+	departmentClient departmentv1.DepartmentServiceClient
+}
+```
+
+### type DispatchHandler
+
+```go
+type DispatchHandler struct {
+	client dispatchv1.DispatchServiceClient
+}
+```
+
+### type FileHandler
+
+```go
+type FileHandler struct{ client filev1.FileServiceClient }
+```
+
+### type Handler
+
+```go
+type Handler struct {
+	authHandler         *AuthHandler
+	ticketHandler       *TicketHandler
+	departmentHandler   *DepartmentHandler
+	brigadeHandler      *BrigadeHandler
+	profileHandler      *ProfileHandler
+	locationHandler     *LocationHandler
+	routingHandler      *RoutingHandler
+	dispatchHandler     *DispatchHandler
+	fileHandler         *FileHandler
+	slaHandler          *SLAHandler
+	notificationHandler *NotificationHandler
+	auditHandler        *AuditHandler
+	analyticsHandler    *AnalyticsHandler
+	reportHandler       *ReportHandler
+	assetHandler        *AssetHandler
+	authMiddleware      *middleware.AuthMiddleware
+	rateLimiter         *middleware.RedisRateLimiter
+}
+```
+
+### type LocationHandler
+
+```go
+type LocationHandler struct {
+	client locationv1.LocationServiceClient
+}
+```
+
+### type NotificationHandler
+
+```go
+type NotificationHandler struct {
+	client   notificationv1.NotificationServiceClient
+	redis    *redis.Client
+	prefix   string
+	upgrader websocket.Upgrader
+}
+```
+
+### type ProfileHandler
+
+```go
+type ProfileHandler struct {
+	profileClient profilev1.ProfileServiceClient
+}
+```
+
+### type RateLimitConfig
+
+```go
+type RateLimitConfig struct {
+	Name     string
+	Limit    int
+	Burst    int
+	Window   time.Duration
+	KeyFunc  func(*gin.Context) string
+	SkipFunc func(*gin.Context) bool
+}
+```
+
+### type RedisRateLimiter
+
+```go
+type RedisRateLimiter struct {
+	client          redis.UniversalClient
+	script          *redis.Script
+	prefix          string
+	bypassLoadTests bool
+}
+```
+
+### type ReportHandler
+
+```go
+type ReportHandler struct {
+	client        reportv1.ReportServiceClient
+	tickets       ticketv1.TicketServiceClient
+	brigades      brigadev1.BrigadeServiceClient
+	profiles      profilev1.ProfileServiceClient
+	internalURL   string
+	internalToken string
+	httpClient    *http.Client
+}
+```
+
+### type RoutingHandler
+
+```go
+type RoutingHandler struct {
+	client routingv1.RoutingServiceClient
+}
+```
+
+### type SLAHandler
+
+```go
+type SLAHandler struct {
+	client slav1.SLAServiceClient
+}
+```
+
+### type TicketHandler
+
+```go
+type TicketHandler struct {
+	ticketClient  ticketv1.TicketServiceClient
+	brigadeClient brigadev1.BrigadeServiceClient
+}
+```

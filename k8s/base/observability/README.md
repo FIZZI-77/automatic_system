@@ -24,15 +24,16 @@ control-plane. Отдельного `etcd exporter` нет. Метрики Go-с
 действительно передает полный путь ошибки: это проверяется по его коду,
 журналу и трассировке.
 
-Локальный доступ:
+Постоянный доступ к веб-интерфейсам через Istio и Tailscale Funnel:
 
 ```powershell
 .\k8s\scripts\open-observability.ps1
 ```
 
-По умолчанию Grafana открывается на `localhost:3001`, Jaeger на
-`localhost:16686`, Prometheus на `localhost:9090`. Сценарий также
-открывает Kibana и Kiali.
+Сценарий открывает `https://fizzi.tail2c9430.ts.net/observe/` со ссылками
+на Grafana, Prometheus, Jaeger, Kibana и Kiali. Все пути требуют общий
+логин и пароль. Подробности настройки — в
+[`security-observability.md`](../../docs/security-observability.md).
 
 Для производственного хранения нельзя полагаться только на готовность
 Deployment: проверьте тип тома и срок хранения каждого компонента в
