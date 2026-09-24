@@ -1,8 +1,6 @@
 apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
-  annotations:
-    kustomize.toolkit.fluxcd.io/reconcile: disabled
   name: public-entrypoint
   namespace: automatic-system
 spec:
@@ -11,6 +9,15 @@ spec:
   gateways:
     - automatic-system-public
   http:
+    - name: observability
+      match:
+        - uri:
+            prefix: /observe
+      route:
+        - destination:
+            host: observability-gateway.automatic-system.svc.cluster.local
+            port:
+              number: 8080
     - name: api-gateway
       match:
         - uri:

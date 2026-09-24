@@ -56,6 +56,12 @@ spec:
             - name: GF_AUTH_ANONYMOUS_ORG_ROLE
               value: Viewer
 
+            - name: GF_SERVER_ROOT_URL
+              value: https://fizzi.tail2c9430.ts.net/observe/grafana/
+
+            - name: GF_SERVER_SERVE_FROM_SUB_PATH
+              value: "true"
+
             - name: GF_USERS_DEFAULT_THEME
               value: dark
 
@@ -103,11 +109,11 @@ spec:
               containerPort: 3000
           readinessProbe:
             httpGet:
-              path: /api/health
+              path: /observe/grafana/api/health
               port: http
           livenessProbe:
             httpGet:
-              path: /api/health
+              path: /observe/grafana/api/health
               port: http
           resources:
             requests:

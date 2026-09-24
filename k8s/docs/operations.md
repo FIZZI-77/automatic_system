@@ -156,15 +156,15 @@ kubectl get peerauthentication,destinationrule,virtualservice,gateway `
 .\k8s\scripts\open-observability.ps1
 ```
 
-Адреса по умолчанию:
+Адреса по умолчанию после настройки пароля и публикации через Funnel:
 
 | Система | Адрес |
 |---|---|
-| Grafana | `http://localhost:3001` |
-| Jaeger | `http://localhost:16686` |
-| Prometheus | `http://localhost:9090` |
-| Kibana | `http://localhost:5601` |
-| Kiali | `http://localhost:20001` |
+| Grafana | `https://fizzi.tail2c9430.ts.net/observe/grafana/` |
+| Jaeger | `https://fizzi.tail2c9430.ts.net/observe/jaeger/` |
+| Prometheus | `https://fizzi.tail2c9430.ts.net/observe/prometheus/` |
+| Kibana | `https://fizzi.tail2c9430.ts.net/observe/kibana/` |
+| Kiali | `https://fizzi.tail2c9430.ts.net/observe/kiali/` |
 
 Отсутствие данных проверяется от источника к панели:
 

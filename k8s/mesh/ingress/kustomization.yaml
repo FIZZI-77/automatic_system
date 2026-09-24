@@ -9,3 +9,5 @@ resources:
   - destination-rules.yaml
   - network-policy.yaml
   - public-port-authentication.yaml
+  - observability-gateway.yaml
+  - observability-network-policy.yaml

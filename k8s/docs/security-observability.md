@@ -12,6 +12,7 @@ Firebase. Секреты создаются отдельно от отслежи
 | `jwt-public-key` | API Gateway и проверяющие токен сервисы | `keys/public.pem`. |
 | `firebase-fcm` | Notification Service | внешний файл учетной записи, ключ `service-account.json`. |
 | TLS-секрет Istio ingress | входной шлюз | создается `setup-ingress.ps1`. |
+| `observability-basic-auth` | общий вход в пять интерфейсов наблюдаемости | создается `set-observability-password.ps1`; содержит bcrypt-хеш, не пароль. |
 
 Правила работы:
 
@@ -95,6 +96,7 @@ ClickHouse и Valhalla используют собственные проток�
 | `VirtualService/frontend` | Передача пользовательских страниц во Frontend. |
 | `VirtualService/api-gateway` | Передача API в API Gateway по h2c. |
 | `VirtualService/public-entrypoint` | Разделение публичных путей Frontend и API. |
+| `Deployment/observability-gateway` | Проверка HTTP Basic Auth и передача пяти UI по префиксам `/observe/*`. |
 | `DestinationRule/ingress-api-gateway-websocket` | Параметры длительных WebSocket-соединений. |
 
 Локальный сертификат действует два года. Ротация:
@@ -102,6 +104,35 @@ ClickHouse и Valhalla используют собственные проток�
 ```powershell
 .\k8s\scripts\setup-ingress.ps1 -RotateCertificate
 ```
+
+### Постоянный вход в observability
+
+Istio направляет `/observe/*` в отдельный шлюз Nginx. Шлюз запрашивает
+логин и пароль через стандартное окно браузера, сверяет bcrypt-хеш из
+Kubernetes Secret и только затем передает запрос нужному интерфейсу.
+Самостоятельная регистрация здесь не предусмотрена: доступ выдается
+владельцем кластера. Пароль пересылается только через HTTPS Tailscale Funnel;
+Nginx удаляет заголовок `Authorization` перед передачей в UI.
+
+После запуска кластера создайте или замените общую учетную запись:
+
+```powershell
+.\k8s\scripts\set-observability-password.ps1 -Username operator
+```
+
+Сценарий запрашивает пароль скрытым вводом, создает Secret
+`observability-basic-auth` и перезапускает шлюз, если он уже установлен.
+Далее примените или согласуйте `k8s/mesh/ingress` и конфигурации Grafana,
+Prometheus, Jaeger и Kibana. Для обновления конфигурации Kiali повторно
+запустите `k8s/scripts/install-mesh.ps1`. Flux увидит новые манифесты только
+после их публикации в Git. Для текущего публичного хоста вход:
+`https://fizzi.tail2c9430.ts.net/observe/`.
+
+Проверка после публикации: запрос без учетных данных к каждому из пяти путей
+должен вернуть `401` и `WWW-Authenticate`; с верными данными каждый UI должен
+загрузить страницу и свои ресурсы. Запрос с неверным паролем также должен
+вернуть `401`. При отсутствии Secret шлюз не запускается и вход остается
+закрытым. После перезапуска пода Secret и маршруты сохраняются в Kubernetes.
 
 ## AuthorizationPolicy
 
@@ -130,13 +161,9 @@ Prometheus собирает:
 других процессов, сначала проверяются метки цели `job`, `instance` и
 `pod` в Prometheus, а затем переменные панели.
 
-Проверка цели:
-
-```powershell
-kubectl port-forward -n automatic-system service/prometheus 9090:9090
-```
-
-Откройте `http://localhost:9090/targets`. Состояние DOWN требует проверки
+Проверка цели: откройте
+`https://fizzi.tail2c9430.ts.net/observe/prometheus/targets` после входа.
+Состояние DOWN требует проверки
 адреса, порта, NetworkPolicy, mTLS и фактической выдачи `/metrics`.
 
 ## Grafana
