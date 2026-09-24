@@ -30,6 +30,8 @@ metadata:
     app.kubernetes.io/part-of: automatic-system
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: grafana
