@@ -173,6 +173,10 @@ function Adapt-EtcdTargets {
         'etcd_debugging_mvcc_db_total_size_in_bytes',
         'etcd_mvcc_db_total_size_in_bytes'
       )
+      $target.expr = $target.expr.Replace(
+        'process_resident_memory_bytes',
+        'etcd_process_resident_memory_bytes'
+      )
     }
     if ($panel.PSObject.Properties['panels']) {
       Adapt-EtcdTargets -Panels $panel.panels

@@ -1084,7 +1084,7 @@
             "uid": "elasticsearch",
             "type": "elasticsearch"
           },
-          "query": "kubernetes.namespace: flagger-system",
+          "query": "(kubernetes.namespace: flagger-system) AND NOT log.file.path:*istio-proxy*",
           "metrics": [
             {
               "type": "logs",
