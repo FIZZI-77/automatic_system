@@ -2,7 +2,8 @@
 param(
     [string]$KibanaURL = "http://localhost:5601/observe/kibana",
     [string]$DataViewID = "automatic-system-logs",
-    [string]$IndexPattern = "logs-automatic-system-*"
+    [string]$IndexPattern = "logs-automatic-system-*",
+    [string]$OutputDirectory = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -50,6 +51,12 @@ $workloads = @(
     @{ ID = "mailhog"; Title = "MailHog"; Group = "Infrastructure"; Query = 'kubernetes.pod.name: mailhog-*' },
     @{ ID = "database-jobs"; Title = "Database Migrations / Backups"; Group = "Infrastructure"; Query = '(kubernetes.pod.name: migrator-* OR kubernetes.pod.name: postgres-*-backup*)' },
     @{ ID = "kubernetes-network"; Title = "Kubernetes Network"; Group = "Infrastructure"; Query = '(kubernetes.pod.name: kindnet-* OR kubernetes.pod.name: kube-proxy-*)' }
+)
+
+$workloads += @(
+    @{ ID = "all-logs"; Title = "All Kubernetes Logs"; Group = "Overview"; Query = 'kubernetes.pod.name: *' },
+    @{ ID = "application-logs"; Title = "Application Namespace Logs"; Group = "Overview"; Query = 'kubernetes.namespace: automatic-system' },
+    @{ ID = "etcd"; Title = "etcd Control Plane"; Group = "Overview"; Query = 'log.file.path: /var/log/pods/kube-system_etcd-*' }
 )
 
 function Ensure-DataView {
@@ -193,8 +200,6 @@ function New-DashboardObject {
     }
 }
 
-Ensure-DataView
-
 $objects = [System.Collections.Generic.List[object]]::new()
 foreach ($workload in $workloads) {
     $baseQuery = $workload.Query
@@ -223,6 +228,32 @@ foreach ($workload in $workloads) {
 }
 
 $body = $objects | ConvertTo-Json -Depth 20
+
+if ($OutputDirectory) {
+    New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
+    $dataView = @{
+        data_view = @{
+            id            = $DataViewID
+            title         = $IndexPattern
+            name          = "Automatic System Logs"
+            timeFieldName = "@timestamp"
+            allowNoIndex  = $true
+        }
+    } | ConvertTo-Json -Depth 6 -Compress
+    [System.IO.File]::WriteAllText((Join-Path $OutputDirectory "data-view.json"), $dataView)
+
+    $batchSize = 60
+    $batchCount = [math]::Ceiling($objects.Count / $batchSize)
+    for ($batch = 0; $batch -lt $batchCount; $batch++) {
+        $items = @($objects | Select-Object -Skip ($batch * $batchSize) -First $batchSize)
+        $json = ConvertTo-Json -InputObject $items -Depth 20 -Compress
+        [System.IO.File]::WriteAllText((Join-Path $OutputDirectory "objects-$batch.json"), $json)
+    }
+    Write-Host "Generated $($workloads.Count) dashboards in $batchCount saved object batches."
+    return
+}
+
+Ensure-DataView
 $result = Invoke-RestMethod `
     -Uri "$KibanaURL/api/saved_objects/_bulk_create?overwrite=true" `
     -Method Post `

@@ -1,0 +1,1 @@
+{"data_view":{"title":"logs-automatic-system-*","id":"automatic-system-logs","name":"Automatic System Logs","timeFieldName":"@timestamp","allowNoIndex":true}}
