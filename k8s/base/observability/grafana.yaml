@@ -53,9 +53,18 @@ spec:
           image: grafana/grafana:13.1.0
           env:
             - name: GF_AUTH_ANONYMOUS_ENABLED
+              value: "false"
+
+            - name: GF_AUTH_PROXY_ENABLED
               value: "true"
 
-            - name: GF_AUTH_ANONYMOUS_ORG_ROLE
+            - name: GF_AUTH_PROXY_HEADER_NAME
+              value: X-WEBAUTH-USER
+
+            - name: GF_AUTH_PROXY_AUTO_SIGN_UP
+              value: "true"
+
+            - name: GF_USERS_AUTO_ASSIGN_ORG_ROLE
               value: Viewer
 
             - name: GF_SERVER_ROOT_URL

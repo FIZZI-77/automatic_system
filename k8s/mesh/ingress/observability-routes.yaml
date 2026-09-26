@@ -77,6 +77,8 @@ spec:
         request:
           remove:
             - authorization
+          set:
+            x-webauth-user: observability-viewer
       route:
         - destination:
             host: grafana.automatic-system.svc.cluster.local
