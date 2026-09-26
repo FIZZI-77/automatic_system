@@ -9,6 +9,35 @@ param(
 $ErrorActionPreference = "Stop"
 $headers = @{ "kbn-xsrf" = "automatic-system-dashboard-setup" }
 
+function ConvertTo-SortedValue {
+    param($Value)
+
+    if ($Value -is [System.Collections.IDictionary]) {
+        $sorted = [ordered]@{}
+        foreach ($key in @($Value.Keys | Sort-Object)) {
+            $sorted[$key] = ConvertTo-SortedValue $Value[$key]
+        }
+        return $sorted
+    }
+
+    if ($Value -is [System.Collections.IEnumerable] -and $Value -isnot [string]) {
+        $items = [System.Collections.Generic.List[object]]::new()
+        foreach ($item in $Value) {
+            $items.Add((ConvertTo-SortedValue $item))
+        }
+        return ,$items.ToArray()
+    }
+
+    return $Value
+}
+
+function ConvertTo-StableJson {
+    param($Value, [int]$Depth = 20)
+
+    $sorted = ConvertTo-SortedValue $Value
+    return ConvertTo-Json -InputObject $sorted -Depth $Depth -Compress
+}
+
 $workloads = @(
     @{ ID = "frontend"; Title = "Frontend"; Group = "Service"; Query = 'kubernetes.pod.name: frontend-*' },
     @{ ID = "api-gateway"; Title = "API Gateway"; Group = "Service"; Query = 'kubernetes.pod.name: api-gateway-*' },
@@ -105,7 +134,8 @@ function New-SearchObject {
         query        = @{ language = "kuery"; query = $Query }
         filter       = @()
         indexRefName = "kibanaSavedObjectMeta.searchSourceJSON.index"
-    } | ConvertTo-Json -Depth 8 -Compress
+    }
+    $searchSource = ConvertTo-StableJson $searchSource 8
 
     return @{
         type       = "search"
@@ -159,7 +189,8 @@ function New-DashboardObject {
             type = "search"; panelIndex = "5"; panelRefName = "panel_5"; title = "Trace-correlated events"
             gridData = @{ x = 0; y = 36; w = 48; h = 14; i = "5" }; embeddableConfig = @{}
         }
-    ) | ConvertTo-Json -Depth 8 -Compress
+    )
+    $panels = ConvertTo-StableJson $panels 8
 
     $options = @{
         hidePanelTitles = $false
@@ -167,12 +198,14 @@ function New-DashboardObject {
         syncColors       = $true
         syncCursor       = $true
         syncTooltips     = $true
-    } | ConvertTo-Json -Compress
+    }
+    $options = ConvertTo-StableJson $options
 
     $searchSource = @{
         query  = @{ language = "kuery"; query = "" }
         filter = @()
-    } | ConvertTo-Json -Depth 5 -Compress
+    }
+    $searchSource = ConvertTo-StableJson $searchSource 5
 
     return @{
         type       = "dashboard"
@@ -239,14 +272,15 @@ if ($OutputDirectory) {
             timeFieldName = "@timestamp"
             allowNoIndex  = $true
         }
-    } | ConvertTo-Json -Depth 6 -Compress
+    }
+    $dataView = ConvertTo-StableJson $dataView 6
     [System.IO.File]::WriteAllText((Join-Path $OutputDirectory "data-view.json"), $dataView)
 
     $batchSize = 60
     $batchCount = [math]::Ceiling($objects.Count / $batchSize)
     for ($batch = 0; $batch -lt $batchCount; $batch++) {
         $items = @($objects | Select-Object -Skip ($batch * $batchSize) -First $batchSize)
-        $json = ConvertTo-Json -InputObject $items -Depth 20 -Compress
+        $json = ConvertTo-StableJson $items 20
         [System.IO.File]::WriteAllText((Join-Path $OutputDirectory "objects-$batch.json"), $json)
     }
     Write-Host "Generated $($workloads.Count) dashboards in $batchCount saved object batches."
