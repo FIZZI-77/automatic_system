@@ -166,6 +166,13 @@ kubectl get peerauthentication,destinationrule,virtualservice,gateway `
 | Kibana | `https://fizzi.tail2c9430.ts.net/observe/kibana/` |
 | Kiali | `https://fizzi.tail2c9430.ts.net/observe/kiali/` |
 
+Kibana хранит панели в системном индексе Elasticsearch. CronJob
+`kibana-dashboards` в `automatic-system` каждые 15 минут восстанавливает
+управляемые панели и data view `logs-automatic-system-*`, если индекс был
+пересоздан. Для обновления набора сначала выполните
+`.\k8s\scripts\setup-kibana-dashboards.ps1 -OutputDirectory k8s/base/logging/kibana-dashboards`,
+затем примените GitOps-изменения. Созданные вручную панели не затрагиваются.
+
 Отсутствие данных проверяется от источника к панели:
 
 1. приложение действительно обрабатывает трафик;
