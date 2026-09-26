@@ -1833,7 +1833,7 @@
               "type": "logs"
             }
           ],
-          "query": "kubernetes.pod.name: worker-1-ticket-citus-0",
+          "query": "(kubernetes.pod.name: worker-1-ticket-citus-0) AND NOT log.file.path:*istio-proxy*",
           "datasource": {
             "type": "elasticsearch",
             "uid": "elasticsearch"

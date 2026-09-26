@@ -9,6 +9,7 @@ resources:
   - otel-collector.yaml
   - jaeger.yaml
   - prometheus.yaml
+  - prometheus-data.yaml
   - grafana.yaml
   - kube-state-metrics.yaml
   - node-exporter.yaml
