@@ -338,16 +338,29 @@ foreach ($dashboard in $dashboards) {
     )
     $scopeVariable = $model.templating.list[0]
     $scopeVariable.query.query = 'label_values(patroni_version{job="patroni"}, scope)'
+    $scopeVariable.definition = $scopeVariable.query.query
     $scopeVariable.current = [pscustomobject]@{
       selected = $true
       text = 'postgres-platform'
       value = 'postgres-platform'
     }
+    $model.annotations.list = @(
+      $model.annotations.list | Where-Object { $_.name -ne 'PMM Annotations' }
+    )
     foreach ($panel in $model.panels) {
+      if ($panel.type -eq 'text' -and $panel.options.content) {
+        $panel.options.content = $panel.options.content.Replace(
+          'Data for <span style=''color:#e68a00''>$service_name</span> with <span style=''color:#e68a00''>$interval</span> resolution',
+          'Patroni cluster: <span style=''color:#e68a00''>$scope_name</span>'
+        )
+      }
       foreach ($target in @($panel.targets)) {
         if ($target.expr) {
           $target.expr = $target.expr.Replace('service_name=~"$service_name",', 'job="patroni",')
           $target.expr = $target.expr.Replace('{scope=~"$scope_name"}', '{job="patroni",scope=~"$scope_name"}')
+        }
+        if ($target.interval -eq '$interval') {
+          $target.interval = ''
         }
       }
     }

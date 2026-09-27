@@ -12,6 +12,27 @@ filebeat.inputs:
           negate: false
           match: after
     prospector.scanner.fingerprint.enabled: true
+    prospector.scanner.exclude_files:
+      - '^/var/log/pods/automatic-system_minio-[^/]+/minio/'
+    file_identity.fingerprint: ~
+  - type: filestream
+    id: minio-container-logs-service-tagged
+    compression: auto
+    paths:
+      - /var/log/pods/automatic-system_minio-*_*/minio/*.log*
+    fields_under_root: true
+    fields:
+      service:
+        name: minio
+    parsers:
+      - container: ~
+      - multiline:
+          type: pattern
+          pattern: '^[[:space:]]'
+          negate: false
+          match: after
+    prospector.scanner.fingerprint.enabled: true
+    prospector.scanner.fingerprint.length: 256
     file_identity.fingerprint: ~
 
 processors:
@@ -86,6 +107,18 @@ processors:
           - equals:
               log.level: info
           - or:
+              - and:
+                  - equals:
+                      message: gRPC request completed
+                  - regexp:
+                      grpc_method: '^/grpc\.health\.v1\.Health/(?:Check|Watch)$'
+                  - equals:
+                      code: OK
+              - and:
+                  - regexp:
+                      kubernetes.pod.name: '^brigade-service-primary-'
+                  - regexp:
+                      message: '^\[[^]]+\] "- - -" 0 - - - .* outbound\|9092\|\|kafka-[0-9]+\.automatic-system\.svc\.cluster\.local'
               - regexp:
                   message: '(?i)"POST /opentelemetry\.proto\.collector\.(?:trace|metrics|logs)\.v1\.[^/]+/Export HTTP/2" 2\d\d '
               - and:

@@ -74,6 +74,8 @@ data:
     ALTER TABLE ticket_report_files ADD CONSTRAINT ticket_report_files_report_fkey
       FOREIGN KEY (department_id, report_id) REFERENCES ticket_reports(department_id, id) ON DELETE CASCADE;
 
+  sync-metadata.sql: |
+    \set ON_ERROR_STOP on
     -- Keep coordinator node-address changes (for example after Patroni
     -- failover or Pod IP rotation) synchronized to worker metadata. Without
     -- this, worker-side monitoring queries can keep calling stale Pod IPs.
