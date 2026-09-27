@@ -27,6 +27,7 @@ Kafka. Данные разделены по предметным областя�
 - [Путь заявки](#путь-заявки)
 - [Документация сервисов](#документация-сервисов)
 - [Инфраструктура и разработка](#инфраструктура-и-разработка)
+- [Наблюдаемость и Swagger](#наблюдаемость-и-swagger)
 - [Стек проекта](#стек-проекта)
 
 ## Как устроена система
@@ -163,6 +164,51 @@ README сервисов построены вокруг общего принц�
 проверки отказоустойчивой топологии обратитесь к
 [инструкции для `local-ha`](k8s/docs/deployment.md#контур-local-ha).
 Запуск веб-интерфейса описан отдельно в [Frontend README](Frontend/README.md).
+
+## Наблюдаемость и Swagger
+
+После запуска локального Kubernetes и публикации входного Istio Gateway через
+Tailscale Funnel интерфейсы наблюдаемости доступны по одному адресу без
+`kubectl port-forward`:
+
+| Интерфейс | Адрес |
+|---|---|
+| Grafana | [Панели и метрики](https://fizzi.tail2c9430.ts.net/observe/grafana/) |
+| Prometheus | [Запросы и цели сбора](https://fizzi.tail2c9430.ts.net/observe/prometheus/) |
+| Jaeger | [Трассировки](https://fizzi.tail2c9430.ts.net/observe/jaeger/) |
+| Kibana | [Поиск логов и панели](https://fizzi.tail2c9430.ts.net/observe/kibana/) |
+| Kiali | [Состояние Istio](https://fizzi.tail2c9430.ts.net/observe/kiali/) |
+
+Пути `/observe/*` защищены общей учетной записью HTTP Basic Auth в фильтре
+Envoy на отдельном listener Istio. Это не самостоятельная регистрация:
+владелец кластера задает логин и пароль через
+`.\k8s\scripts\set-observability-password.ps1 -Username admin`; пароль
+вводится скрыто. Кластер, Istio ingress и Tailscale Funnel должны работать.
+Порядок настройки и проверки описан в
+[документации безопасности](k8s/docs/security-observability.md#постоянный-вход-в-observability).
+
+Grafana содержит проектные панели и Community PostgreSQL Patroni Dashboard.
+Kibana использует индекс `logs-automatic-system-*`; управляемые панели
+восстанавливает CronJob `kibana-dashboards`. Filebeat собирает журналы
+контейнеров, включая короткие файлы MinIO: в Kibana их можно найти по
+`service.name: minio`, выбрав интервал с событиями (например, последние
+24 часа). При текущей конфигурации MinIO не пишет постоянный поток штатных
+запросов. Успешные пробы HTTP и gRPC Health и штатные TCP-соединения Brigade
+с Kafka отфильтровываются при сборе; ошибочные проверки и соединения
+сохраняются. Фильтр не удаляет уже
+проиндексированные записи. Подробности и диагностика находятся в
+[инструкции по эксплуатации](k8s/docs/operations.md#наблюдаемость).
+
+В исходном коде API Gateway регистрирует Swagger UI на `/swagger/`, а OpenAPI
+спецификацию на `/swagger/openapi.json` при `SWAGGER_ENABLED=true`. В Helm для
+Gateway флаг включен, но публичный Funnel не направляет `/swagger/` в Gateway.
+На 27.09.2026 проверка запущенного Gateway через его Kubernetes Service дала
+`404` на обоих путях даже при `SWAGGER_ENABLED=true`; рабочего публичного
+адреса Swagger сейчас нет. После исправления развертывания маршрут можно
+проверить локально командой
+`kubectl -n automatic-system port-forward service/api-gateway 18081:8081` и
+открыть `http://localhost:18081/swagger/`. Генерация спецификации описана в
+[документации API Gateway](API_Gateway/DEVELOPER.md#openapi-и-swagger-ui).
 
 ## Стек проекта
 
