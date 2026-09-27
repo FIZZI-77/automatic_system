@@ -65,7 +65,7 @@ $workloads = @(
     @{ ID = "redis-location"; Title = "Redis Location / Sentinel"; Group = "Infrastructure"; Query = 'kubernetes.pod.name: redis-location-*' },
     @{ ID = "redis-gateway"; Title = "Redis Gateway"; Group = "Infrastructure"; Query = 'kubernetes.pod.name: redis-gateway-*' },
     @{ ID = "redis-notification"; Title = "Redis Notification"; Group = "Infrastructure"; Query = 'kubernetes.pod.name: redis-notification-*' },
-    @{ ID = "minio"; Title = "MinIO"; Group = "Infrastructure"; Query = 'kubernetes.pod.name: minio-*' },
+    @{ ID = "minio"; Title = "MinIO"; Group = "Infrastructure"; Query = '(service.name: minio OR kubernetes.pod.name: minio-*)' },
     @{ ID = "clickhouse"; Title = "ClickHouse"; Group = "Infrastructure"; Query = 'kubernetes.pod.name: clickhouse-*' },
     @{ ID = "valhalla"; Title = "Valhalla"; Group = "Infrastructure"; Query = 'kubernetes.pod.name: valhalla-*' },
     @{ ID = "elasticsearch"; Title = "Elasticsearch"; Group = "Infrastructure"; Query = 'kubernetes.pod.name: elasticsearch-*' },
