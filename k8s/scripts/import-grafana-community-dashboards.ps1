@@ -8,6 +8,7 @@ $dashboardDirectory = Join-Path $repoRoot "k8s\base\observability\dashboards\com
 
 $dashboards = @(
   @{ ID = 9628; Revision = 8; File = "postgresql-database.json"; UID = "community-postgresql"; Title = "Community / PostgreSQL Database" },
+  @{ ID = 18870; Revision = 1; File = "postgresql-patroni.json"; UID = "community-postgresql-patroni"; Title = "Community / PostgreSQL Patroni" },
   @{ ID = 763; Revision = 6; File = "redis-exporter.json"; UID = "community-redis"; Title = "Community / Redis Exporter" },
   @{ ID = 24565; Revision = 1; File = "kafka-exporter.json"; UID = "community-kafka"; Title = "Community / Kafka Exporter" },
   @{ ID = 24155; Revision = 6; File = "kubernetes-overview.json"; UID = "community-kubernetes"; Title = "Community / Kubernetes Overview" },
@@ -218,6 +219,7 @@ foreach ($dashboard in $dashboards) {
   }
   $raw = Get-DashboardContent -Uri $uri
   $raw = $raw.Replace('${DS_PROMETHEUS}', 'prometheus')
+  $raw = $raw.Replace('${DS_METRICS}', 'prometheus')
   $raw = $raw.Replace('${DS_PROM}', 'prometheus')
   $raw = $raw.Replace('${DS_THEMIS}', 'prometheus')
   $raw = $raw.Replace('${VAR_PROMETHEUS}', 'prometheus')
@@ -329,6 +331,26 @@ foreach ($dashboard in $dashboards) {
     Remove-UnsupportedTargets -Panels $model.panels -MetricPatterns @(
       'pg_postmaster_start_time_seconds'
     )
+  }
+  if ($dashboard.ID -eq 18870) {
+    $model.templating.list = @(
+      $model.templating.list | Where-Object { $_.name -eq 'scope_name' }
+    )
+    $scopeVariable = $model.templating.list[0]
+    $scopeVariable.query.query = 'label_values(patroni_version{job="patroni"}, scope)'
+    $scopeVariable.current = [pscustomobject]@{
+      selected = $true
+      text = 'postgres-platform'
+      value = 'postgres-platform'
+    }
+    foreach ($panel in $model.panels) {
+      foreach ($target in @($panel.targets)) {
+        if ($target.expr) {
+          $target.expr = $target.expr.Replace('service_name=~"$service_name",', 'job="patroni",')
+          $target.expr = $target.expr.Replace('{scope=~"$scope_name"}', '{job="patroni",scope=~"$scope_name"}')
+        }
+      }
+    }
   }
   if ($model.PSObject.Properties['id']) {
     $model.id = $null
