@@ -32,6 +32,40 @@ func TestGenerateFromGatewayCode(t *testing.T) {
 	if route["requestBody"] == nil {
 		t.Fatal("routing/build request schema is missing")
 	}
+	withoutBody := map[string]bool{
+		"/analytics/projections/health":  true,
+		"/auth/logout":                   true,
+		"/auth/logout-all":               true,
+		"/notifications/preferences/get": true,
+		"/notifications/read-all":        true,
+	}
+	for path, methods := range doc.Paths {
+		post, ok := methods["post"]
+		if !ok {
+			continue
+		}
+		operation := post.(map[string]any)
+		if (operation["requestBody"] == nil) != withoutBody[path] {
+			t.Errorf("%s has incorrect JSON request body", path)
+		}
+	}
+	sla := doc.Paths["/sla/rules/create"]["post"].(map[string]any)
+	requestBody := sla["requestBody"].(map[string]any)
+	content := requestBody["content"].(map[string]any)["application/json"].(map[string]any)
+	if content["schema"].(map[string]any)["$ref"] != "#/components/schemas/CreateSLARuleRequest" {
+		t.Fatal("SLA creation must use its request model")
+	}
+	schema := doc.Components["schemas"].(map[string]any)["CreateSLARuleRequest"].(map[string]any)
+	properties := schema["properties"].(map[string]any)
+	responseTime := properties["response_time_seconds"].(map[string]any)
+	if responseTime["minimum"] != float64(0) || responseTime["exclusiveMinimum"] != true {
+		t.Fatal("SLA response time must be greater than zero")
+	}
+	ticket := doc.Components["schemas"].(map[string]any)["CreateTicketRequest"].(map[string]any)
+	priority := ticket["properties"].(map[string]any)["priority"].(map[string]any)
+	if len(priority["enum"].([]any)) != 4 {
+		t.Fatal("ticket priority choices are missing")
+	}
 	for name, value := range doc.Components["schemas"].(map[string]any) {
 		checkRefs(t, name, value, doc.Components["schemas"].(map[string]any))
 	}

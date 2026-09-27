@@ -4327,6 +4327,16 @@
             "BearerAuth": []
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TicketIDRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "Успешный ответ"
@@ -4346,8 +4356,18 @@
             "BearerAuth": []
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSLARuleRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
-          "200": {
+          "201": {
             "description": "Успешный ответ"
           }
         }
@@ -4365,6 +4385,16 @@
             "BearerAuth": []
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SLAIDRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "Успешный ответ"
@@ -4384,6 +4414,16 @@
             "BearerAuth": []
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SLAIDRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "Успешный ответ"
@@ -4403,6 +4443,16 @@
             "BearerAuth": []
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListSLARulesRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "Успешный ответ"
@@ -4422,6 +4472,16 @@
             "BearerAuth": []
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSLARuleRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "Успешный ответ"
@@ -4441,6 +4501,16 @@
             "BearerAuth": []
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TicketIDRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "Успешный ответ"
@@ -4460,6 +4530,16 @@
             "BearerAuth": []
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListTicketSLAsRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "Успешный ответ"
@@ -5961,18 +6041,28 @@
       "AddBrigadeMemberRequest": {
         "properties": {
           "brigade_id": {
+            "format": "uuid",
             "type": "string"
           },
           "changed_by_user_id": {
+            "format": "uuid",
             "type": "string"
           },
           "profile_id": {
+            "format": "uuid",
             "type": "string"
           },
           "role": {
+            "enum": [
+              "lead",
+              "driver",
+              "technician",
+              "trainee"
+            ],
             "type": "string"
           },
           "user_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -5986,12 +6076,20 @@
       "AnalyticsBreakdownRequest": {
         "properties": {
           "dimension": {
+            "enum": [
+              "department",
+              "category",
+              "priority",
+              "status"
+            ],
             "type": "string"
           },
           "filter": {
             "$ref": "#/components/schemas/AnalyticsFilter"
           },
           "limit": {
+            "maximum": 100,
+            "minimum": 1,
             "type": "integer"
           }
         },
@@ -6003,15 +6101,24 @@
       "AnalyticsFilter": {
         "properties": {
           "assignment_mode": {
+            "enum": [
+              "MANUAL",
+              "AUTOMATIC",
+              "manual",
+              "automatic"
+            ],
             "type": "string"
           },
           "brigade_id": {
+            "format": "uuid",
             "type": "string"
           },
           "category_id": {
+            "format": "uuid",
             "type": "string"
           },
           "department_id": {
+            "format": "uuid",
             "type": "string"
           },
           "failure_code": {
@@ -6059,6 +6166,7 @@
       "AssetIDRequest": {
         "properties": {
           "asset_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -6070,6 +6178,7 @@
       "AssetIncidentRequest": {
         "properties": {
           "asset_id": {
+            "format": "uuid",
             "type": "string"
           },
           "description": {
@@ -6100,9 +6209,12 @@
       "AssetInspectionRequest": {
         "properties": {
           "asset_id": {
+            "format": "uuid",
             "type": "string"
           },
           "condition_score": {
+            "maximum": 1,
+            "minimum": 0,
             "type": "number"
           },
           "defect_found": {
@@ -6130,6 +6242,7 @@
       "AssetRepairRequest": {
         "properties": {
           "asset_id": {
+            "format": "uuid",
             "type": "string"
           },
           "brigade_id": {
@@ -6163,15 +6276,18 @@
       "AssignBrigadeRequest": {
         "properties": {
           "assigned_by": {
+            "format": "uuid",
             "type": "string"
           },
           "brigade_id": {
+            "format": "uuid",
             "type": "string"
           },
           "comment": {
             "type": "string"
           },
           "ticket_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -6192,18 +6308,23 @@
       "AutoDispatchRequest": {
         "properties": {
           "candidate_limit": {
+            "maximum": 100,
+            "minimum": 1,
             "type": "integer"
           },
           "requested_by": {
+            "format": "uuid",
             "type": "string"
           },
           "required_skill_ids": {
             "items": {
+              "format": "uuid",
               "type": "string"
             },
             "type": "array"
           },
           "ticket_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -6217,8 +6338,10 @@
         "properties": {
           "work_profile_ids": {
             "items": {
+              "format": "uuid",
               "type": "string"
             },
+            "minItems": 1,
             "type": "array"
           }
         },
@@ -6361,15 +6484,20 @@
       "BrigadeMemberHistoryRequest": {
         "properties": {
           "brigade_id": {
+            "format": "uuid",
             "type": "string"
           },
           "limit": {
+            "maximum": 100,
+            "minimum": 1,
             "type": "integer"
           },
           "member_id": {
+            "format": "uuid",
             "type": "string"
           },
           "offset": {
+            "minimum": 0,
             "type": "integer"
           }
         },
@@ -6395,12 +6523,15 @@
       "BrigadeMemberMutationRequest": {
         "properties": {
           "brigade_id": {
+            "format": "uuid",
             "type": "string"
           },
           "changed_by_user_id": {
+            "format": "uuid",
             "type": "string"
           },
           "member_id": {
+            "format": "uuid",
             "type": "string"
           },
           "reason": {
@@ -6476,12 +6607,16 @@
       "BrigadePageRequest": {
         "properties": {
           "brigade_id": {
+            "format": "uuid",
             "type": "string"
           },
           "limit": {
+            "maximum": 100,
+            "minimum": 1,
             "type": "integer"
           },
           "offset": {
+            "minimum": 0,
             "type": "integer"
           }
         },
@@ -6493,9 +6628,11 @@
       "BrigadeReasonRequest": {
         "properties": {
           "changed_by_user_id": {
+            "format": "uuid",
             "type": "string"
           },
           "id": {
+            "format": "uuid",
             "type": "string"
           },
           "reason": {
@@ -6557,6 +6694,8 @@
       "BrigadeScheduleItem": {
         "properties": {
           "day_of_week": {
+            "maximum": 7,
+            "minimum": 1,
             "type": "integer"
           },
           "ends_at": {
@@ -6620,9 +6759,11 @@
       "BrigadeSkillRequest": {
         "properties": {
           "brigade_id": {
+            "format": "uuid",
             "type": "string"
           },
           "skill_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -6738,12 +6879,16 @@
             "items": {
               "$ref": "#/components/schemas/RoutingPoint"
             },
+            "maxItems": 100,
+            "minItems": 1,
             "type": "array"
           },
           "targets": {
             "items": {
               "$ref": "#/components/schemas/RoutingPoint"
             },
+            "maxItems": 100,
+            "minItems": 1,
             "type": "array"
           }
         },
@@ -6783,15 +6928,19 @@
       "CancelDispatchRequest": {
         "properties": {
           "cancelled_by": {
+            "format": "uuid",
             "type": "string"
           },
           "expected_version": {
+            "minimum": 1,
             "type": "integer"
           },
           "id": {
+            "format": "uuid",
             "type": "string"
           },
           "reason": {
+            "maxLength": 1000,
             "type": "string"
           }
         },
@@ -6805,12 +6954,14 @@
       "CancelTicketRequest": {
         "properties": {
           "canceled_by": {
+            "format": "uuid",
             "type": "string"
           },
           "reason": {
             "type": "string"
           },
           "ticket_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -6831,6 +6982,7 @@
       "CertificationIDRequest": {
         "properties": {
           "id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -6911,12 +7063,15 @@
       "CertificationTypeSkillRequest": {
         "properties": {
           "certification_type_id": {
+            "format": "uuid",
             "type": "string"
           },
           "proficiency_level": {
+            "maxLength": 100,
             "type": "string"
           },
           "skill_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -6937,6 +7092,7 @@
       "ChangeAssetStatusRequest": {
         "properties": {
           "asset_id": {
+            "format": "uuid",
             "type": "string"
           },
           "reason": {
@@ -6955,15 +7111,24 @@
       "ChangeBrigadeMemberRoleRequest": {
         "properties": {
           "brigade_id": {
+            "format": "uuid",
             "type": "string"
           },
           "changed_by_user_id": {
+            "format": "uuid",
             "type": "string"
           },
           "member_id": {
+            "format": "uuid",
             "type": "string"
           },
           "role": {
+            "enum": [
+              "lead",
+              "driver",
+              "technician",
+              "trainee"
+            ],
             "type": "string"
           }
         },
@@ -6977,6 +7142,7 @@
       "ChangePasswordRequest": {
         "properties": {
           "new_password": {
+            "minLength": 8,
             "type": "string"
           },
           "old_password": {
@@ -7006,15 +7172,24 @@
       "ChangeTicketStatusRequest": {
         "properties": {
           "changed_by": {
+            "format": "uuid",
             "type": "string"
           },
           "comment": {
             "type": "string"
           },
           "new_status": {
+            "enum": [
+              "new",
+              "assigned",
+              "in_progress",
+              "done",
+              "canceled"
+            ],
             "type": "string"
           },
           "ticket_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -7035,12 +7210,15 @@
       "ChangeWorkProfileDepartmentRequest": {
         "properties": {
           "department_id": {
+            "format": "uuid",
             "type": "string"
           },
           "id": {
+            "format": "uuid",
             "type": "string"
           },
           "reason": {
+            "maxLength": 1000,
             "type": "string"
           }
         },
@@ -7054,9 +7232,11 @@
       "CheckBrigadeCanHandleTicketRequest": {
         "properties": {
           "brigade_id": {
+            "format": "uuid",
             "type": "string"
           },
           "department_id": {
+            "format": "uuid",
             "type": "string"
           },
           "latitude": {
@@ -7067,12 +7247,19 @@
           },
           "required_roles": {
             "items": {
+              "enum": [
+                "lead",
+                "driver",
+                "technician",
+                "trainee"
+              ],
               "type": "string"
             },
             "type": "array"
           },
           "required_skill_ids": {
             "items": {
+              "format": "uuid",
               "type": "string"
             },
             "type": "array"
@@ -7103,6 +7290,7 @@
       "CheckBrigadeCoversPointRequest": {
         "properties": {
           "brigade_id": {
+            "format": "uuid",
             "type": "string"
           },
           "latitude": {
@@ -7136,16 +7324,22 @@
       "CheckPointInZonesRequest": {
         "properties": {
           "department_id": {
+            "format": "uuid",
             "type": "string"
           },
           "latitude": {
+            "maximum": 90,
+            "minimum": -90,
             "type": "number"
           },
           "longitude": {
+            "maximum": 180,
+            "minimum": -180,
             "type": "number"
           },
           "zone_ids": {
             "items": {
+              "format": "uuid",
               "type": "string"
             },
             "type": "array"
@@ -7156,12 +7350,15 @@
       "CheckProfileCanJoinBrigadeRequest": {
         "properties": {
           "brigade_department_id": {
+            "format": "uuid",
             "type": "string"
           },
           "user_id": {
+            "format": "uuid",
             "type": "string"
           },
           "work_profile_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -7197,11 +7394,14 @@
         "properties": {
           "required_skill_ids": {
             "items": {
+              "format": "uuid",
               "type": "string"
             },
+            "minItems": 1,
             "type": "array"
           },
           "work_profile_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -7231,9 +7431,11 @@
             "type": "string"
           },
           "completed_by": {
+            "format": "uuid",
             "type": "string"
           },
           "ticket_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -7253,12 +7455,15 @@
       "ConfirmDispatchRequest": {
         "properties": {
           "confirmed_by": {
+            "format": "uuid",
             "type": "string"
           },
           "expected_version": {
+            "minimum": 1,
             "type": "integer"
           },
           "id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -7278,9 +7483,12 @@
             "type": "string"
           },
           "criticality": {
+            "maximum": 1,
+            "minimum": 0,
             "type": "number"
           },
           "department_id": {
+            "format": "uuid",
             "type": "string"
           },
           "district": {
@@ -7340,15 +7548,20 @@
       "CreateBrigadeRequest": {
         "properties": {
           "department_id": {
+            "format": "uuid",
             "type": "string"
           },
           "description": {
+            "maxLength": 1000,
             "type": "string"
           },
           "name": {
+            "maxLength": 255,
+            "minLength": 2,
             "type": "string"
           },
           "specialization": {
+            "maxLength": 100,
             "type": "string"
           }
         },
@@ -7361,15 +7574,19 @@
       "CreateBrigadeZoneRequest": {
         "properties": {
           "brigade_id": {
+            "format": "uuid",
             "type": "string"
           },
           "department_id": {
+            "format": "uuid",
             "type": "string"
           },
           "geo_json": {
             "type": "string"
           },
           "name": {
+            "maxLength": 255,
+            "minLength": 2,
             "type": "string"
           },
           "priority": {
@@ -7413,15 +7630,21 @@
       "CreateCertificationTypeRequest": {
         "properties": {
           "code": {
+            "maxLength": 100,
+            "minLength": 2,
             "type": "string"
           },
           "default_validity_days": {
+            "minimum": 1,
             "type": "integer"
           },
           "description": {
+            "maxLength": 1000,
             "type": "string"
           },
           "name": {
+            "maxLength": 255,
+            "minLength": 2,
             "type": "string"
           },
           "requires_file": {
@@ -7437,9 +7660,12 @@
       "CreateDepartmentRequest": {
         "properties": {
           "description": {
+            "maxLength": 1000,
             "type": "string"
           },
           "name": {
+            "maxLength": 255,
+            "minLength": 2,
             "type": "string"
           }
         },
@@ -7462,12 +7688,16 @@
             "type": "string"
           },
           "content_type": {
+            "maxLength": 127,
             "type": "string"
           },
           "name": {
+            "maxLength": 255,
             "type": "string"
           },
           "size": {
+            "exclusiveMinimum": true,
+            "minimum": 0,
             "type": "integer"
           }
         },
@@ -7481,12 +7711,14 @@
       "CreateGeoZoneRequest": {
         "properties": {
           "department_id": {
+            "format": "uuid",
             "type": "string"
           },
           "geo_json": {
             "type": "string"
           },
           "name": {
+            "maxLength": 255,
             "type": "string"
           }
         },
@@ -7503,12 +7735,25 @@
             "$ref": "#/components/schemas/AnalyticsFilter"
           },
           "format": {
+            "enum": [
+              "pdf",
+              "xlsx",
+              "csv"
+            ],
             "type": "string"
           },
           "name": {
+            "maxLength": 160,
+            "minLength": 3,
             "type": "string"
           },
           "type": {
+            "enum": [
+              "ticket_overview",
+              "sla_summary",
+              "ticket_breakdown",
+              "daily_tickets"
+            ],
             "type": "string"
           }
         },
@@ -7522,6 +7767,7 @@
       "CreateRoutingRouteRequest": {
         "properties": {
           "brigade_id": {
+            "format": "uuid",
             "type": "string"
           },
           "destination": {
@@ -7534,6 +7780,7 @@
             "$ref": "#/components/schemas/RoutingPoint"
           },
           "ticket_id": {
+            "format": "uuid",
             "type": "string"
           },
           "waypoints": {
@@ -7566,12 +7813,18 @@
             "type": "string"
           },
           "resolution_time_seconds": {
+            "exclusiveMinimum": true,
+            "minimum": 0,
             "type": "integer"
           },
           "response_time_seconds": {
+            "exclusiveMinimum": true,
+            "minimum": 0,
             "type": "integer"
           },
           "warning_percent": {
+            "maximum": 99,
+            "minimum": 1,
             "type": "integer"
           }
         },
@@ -7586,12 +7839,17 @@
       "CreateSkillRequest": {
         "properties": {
           "code": {
+            "maxLength": 100,
+            "minLength": 2,
             "type": "string"
           },
           "description": {
+            "maxLength": 1000,
             "type": "string"
           },
           "name": {
+            "maxLength": 255,
+            "minLength": 2,
             "type": "string"
           }
         },
@@ -7607,12 +7865,15 @@
             "type": "string"
           },
           "asset_id": {
+            "format": "uuid",
             "type": "string"
           },
           "category_id": {
+            "format": "uuid",
             "type": "string"
           },
           "department_id": {
+            "format": "uuid",
             "type": "string"
           },
           "description": {
@@ -7625,12 +7886,19 @@
             "type": "number"
           },
           "priority": {
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH",
+              "EMERGENCY"
+            ],
             "type": "string"
           },
           "title": {
             "type": "string"
           },
           "user_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -7657,18 +7925,28 @@
       "CreateUserProfileRequest": {
         "properties": {
           "avatar_file_id": {
+            "format": "uuid",
             "type": "string"
           },
           "full_name": {
+            "maxLength": 255,
+            "minLength": 2,
             "type": "string"
           },
           "phone": {
+            "maxLength": 32,
             "type": "string"
           },
           "preferred_contact_method": {
+            "enum": [
+              "email",
+              "phone",
+              "push"
+            ],
             "type": "string"
           },
           "user_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -7682,15 +7960,20 @@
       "CreateWorkProfileRequest": {
         "properties": {
           "department_id": {
+            "format": "uuid",
             "type": "string"
           },
           "employee_number": {
+            "maxLength": 64,
             "type": "string"
           },
           "position": {
+            "maxLength": 255,
+            "minLength": 2,
             "type": "string"
           },
           "user_profile_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -7704,15 +7987,19 @@
       "CreateWorkReportRequest": {
         "properties": {
           "description": {
+            "maxLength": 4000,
             "type": "string"
           },
           "file_ids": {
             "items": {
+              "format": "uuid",
               "type": "string"
             },
+            "maxItems": 20,
             "type": "array"
           },
           "ticket_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -7739,9 +8026,11 @@
       "DeactivateWorkProfileRequest": {
         "properties": {
           "id": {
+            "format": "uuid",
             "type": "string"
           },
           "reason": {
+            "maxLength": 1000,
             "type": "string"
           }
         },
@@ -7754,6 +8043,7 @@
       "DeleteCategoryRequest": {
         "properties": {
           "category_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -7773,6 +8063,7 @@
       "DeleteDepartmentRequest": {
         "properties": {
           "id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -7792,6 +8083,7 @@
       "DeleteDeviceRequest": {
         "properties": {
           "device_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -7803,6 +8095,7 @@
       "DeleteGeoZoneRequest": {
         "properties": {
           "id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -7843,6 +8136,7 @@
       "DueMaintenanceRequest": {
         "properties": {
           "department_id": {
+            "format": "uuid",
             "type": "string"
           },
           "due_before": {
@@ -7886,6 +8180,8 @@
       "ExpireWorkProfileCertificationsRequest": {
         "properties": {
           "limit": {
+            "maximum": 500,
+            "minimum": 1,
             "type": "integer"
           }
         },
@@ -7951,6 +8247,7 @@
       "FileIDRequest": {
         "properties": {
           "file_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -7962,18 +8259,22 @@
       "FindBrigadesByPointRequest": {
         "properties": {
           "department_id": {
+            "format": "uuid",
             "type": "string"
           },
           "latitude": {
             "type": "number"
           },
           "limit": {
+            "maximum": 100,
+            "minimum": 1,
             "type": "integer"
           },
           "longitude": {
             "type": "number"
           },
           "offset": {
+            "minimum": 0,
             "type": "integer"
           },
           "only_available": {
@@ -7981,12 +8282,19 @@
           },
           "required_roles": {
             "items": {
+              "enum": [
+                "lead",
+                "driver",
+                "technician",
+                "trainee"
+              ],
               "type": "string"
             },
             "type": "array"
           },
           "required_skill_ids": {
             "items": {
+              "format": "uuid",
               "type": "string"
             },
             "type": "array"
@@ -8003,26 +8311,36 @@
         "properties": {
           "brigade_ids": {
             "items": {
+              "format": "uuid",
               "type": "string"
             },
             "type": "array"
           },
           "freshness_window_seconds": {
+            "minimum": 0,
             "type": "integer"
           },
           "latitude": {
+            "maximum": 90,
+            "minimum": -90,
             "type": "number"
           },
           "limit": {
+            "maximum": 1000,
+            "minimum": 1,
             "type": "integer"
           },
           "longitude": {
+            "maximum": 180,
+            "minimum": -180,
             "type": "number"
           },
           "only_fresh": {
             "type": "boolean"
           },
           "radius_meters": {
+            "exclusiveMinimum": true,
+            "minimum": 0,
             "type": "number"
           }
         },
@@ -8060,6 +8378,7 @@
       "GetAuditEntryRequest": {
         "properties": {
           "id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -8071,28 +8390,39 @@
       "GetAvailableBrigadesRequest": {
         "properties": {
           "department_id": {
+            "format": "uuid",
             "type": "string"
           },
           "latitude": {
             "type": "number"
           },
           "limit": {
+            "maximum": 100,
+            "minimum": 1,
             "type": "integer"
           },
           "longitude": {
             "type": "number"
           },
           "offset": {
+            "minimum": 0,
             "type": "integer"
           },
           "required_roles": {
             "items": {
+              "enum": [
+                "lead",
+                "driver",
+                "technician",
+                "trainee"
+              ],
               "type": "string"
             },
             "type": "array"
           },
           "required_skill_ids": {
             "items": {
+              "format": "uuid",
               "type": "string"
             },
             "type": "array"
@@ -8106,6 +8436,7 @@
       "GetBrigadeByIDRequest": {
         "properties": {
           "id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -8120,6 +8451,7 @@
             "type": "boolean"
           },
           "user_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -8142,6 +8474,7 @@
       "GetCategoryRequest": {
         "properties": {
           "category_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -8164,6 +8497,14 @@
             "type": "string"
           },
           "subject_type": {
+            "enum": [
+              "brigade",
+              "vehicle",
+              "device",
+              "BRIGADE",
+              "VEHICLE",
+              "DEVICE"
+            ],
             "type": "string"
           }
         },
@@ -8180,8 +8521,10 @@
           },
           "brigade_ids": {
             "items": {
+              "format": "uuid",
               "type": "string"
             },
+            "minItems": 1,
             "type": "array"
           }
         },
@@ -8193,6 +8536,7 @@
       "GetDepartmentByIDRequest": {
         "properties": {
           "id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -8212,6 +8556,7 @@
       "GetDispatchRequest": {
         "properties": {
           "id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -8223,6 +8568,7 @@
       "GetReportRequest": {
         "properties": {
           "report_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -8234,6 +8580,7 @@
       "GetRoutingRouteRequest": {
         "properties": {
           "id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -8245,6 +8592,7 @@
       "GetTicketRequest": {
         "properties": {
           "ticket_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -8264,12 +8612,16 @@
       "GetTicketStatusHistoryRequest": {
         "properties": {
           "limit": {
+            "maximum": 100,
+            "minimum": 1,
             "type": "integer"
           },
           "offset": {
+            "minimum": 0,
             "type": "integer"
           },
           "ticket_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -8295,6 +8647,7 @@
       "GetUserProfileByIDRequest": {
         "properties": {
           "id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -8306,6 +8659,7 @@
       "GetUserProfileByUserIDRequest": {
         "properties": {
           "user_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -8317,6 +8671,7 @@
       "GetWorkProfileByIDRequest": {
         "properties": {
           "id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -8328,6 +8683,7 @@
       "GetWorkProfileByUserIDRequest": {
         "properties": {
           "user_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -8339,18 +8695,22 @@
       "GrantManualWorkProfileSkillRequest": {
         "properties": {
           "proficiency_level": {
+            "maxLength": 100,
             "type": "string"
           },
           "reason": {
+            "maxLength": 1000,
             "type": "string"
           },
           "skill_id": {
+            "format": "uuid",
             "type": "string"
           },
           "valid_until": {
             "type": "string"
           },
           "work_profile_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -8364,6 +8724,7 @@
       "IDRequest": {
         "properties": {
           "id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -8375,12 +8736,15 @@
       "LinkFileRequest": {
         "properties": {
           "file_id": {
+            "format": "uuid",
             "type": "string"
           },
           "resource_id": {
+            "format": "uuid",
             "type": "string"
           },
           "resource_type": {
+            "maxLength": 64,
             "type": "string"
           }
         },
@@ -8423,6 +8787,7 @@
             "type": "string"
           },
           "actor_id": {
+            "format": "uuid",
             "type": "string"
           },
           "entity_id": {
@@ -8436,9 +8801,12 @@
             "type": "string"
           },
           "limit": {
+            "maximum": 100,
+            "minimum": 1,
             "type": "integer"
           },
           "offset": {
+            "minimum": 0,
             "type": "integer"
           },
           "request_id": {
@@ -8463,18 +8831,32 @@
             "type": "boolean"
           },
           "availability_status": {
+            "enum": [
+              "available",
+              "unavailable"
+            ],
             "type": "string"
           },
           "brigade_id": {
+            "format": "uuid",
             "type": "string"
           },
           "limit": {
+            "maximum": 100,
+            "minimum": 1,
             "type": "integer"
           },
           "offset": {
+            "minimum": 0,
             "type": "integer"
           },
           "role": {
+            "enum": [
+              "lead",
+              "driver",
+              "technician",
+              "trainee"
+            ],
             "type": "string"
           }
         },
@@ -8503,6 +8885,7 @@
             "type": "boolean"
           },
           "brigade_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -8517,6 +8900,7 @@
             "type": "boolean"
           },
           "brigade_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -8542,6 +8926,7 @@
             "type": "boolean"
           },
           "brigade_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -8570,24 +8955,49 @@
             "type": "string"
           },
           "department_id": {
+            "format": "uuid",
             "type": "string"
           },
           "limit": {
+            "maximum": 100,
+            "minimum": 1,
             "type": "integer"
           },
           "offset": {
+            "minimum": 0,
             "type": "integer"
           },
           "sort_by": {
+            "enum": [
+              "created_at",
+              "updated_at",
+              "name",
+              "status"
+            ],
             "type": "string"
           },
           "sort_order": {
+            "enum": [
+              "asc",
+              "desc"
+            ],
             "type": "string"
           },
           "specialization": {
+            "maxLength": 100,
             "type": "string"
           },
           "status": {
+            "enum": [
+              "active",
+              "inactive",
+              "available",
+              "busy",
+              "on_route",
+              "on_site",
+              "offline",
+              "archived"
+            ],
             "type": "string"
           }
         },
@@ -8610,9 +9020,12 @@
       "ListCategoriesRequest": {
         "properties": {
           "limit": {
+            "maximum": 100,
+            "minimum": 1,
             "type": "integer"
           },
           "offset": {
+            "minimum": 0,
             "type": "integer"
           },
           "only_active": {
@@ -8641,6 +9054,7 @@
             "type": "boolean"
           },
           "certification_type_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -8666,12 +9080,16 @@
             "type": "boolean"
           },
           "limit": {
+            "maximum": 100,
+            "minimum": 1,
             "type": "integer"
           },
           "offset": {
+            "minimum": 0,
             "type": "integer"
           },
           "query": {
+            "maxLength": 255,
             "type": "string"
           }
         },
@@ -8717,18 +9135,36 @@
             "type": "string"
           },
           "limit": {
+            "maximum": 100,
+            "minimum": 1,
             "type": "integer"
           },
           "offset": {
+            "minimum": 0,
             "type": "integer"
           },
           "sort_by": {
+            "enum": [
+              "created_at",
+              "updated_at",
+              "name",
+              "status"
+            ],
             "type": "string"
           },
           "sort_order": {
+            "enum": [
+              "asc",
+              "desc"
+            ],
             "type": "string"
           },
           "status": {
+            "enum": [
+              "active",
+              "inactive",
+              "archived"
+            ],
             "type": "string"
           }
         },
@@ -8751,18 +9187,32 @@
       "ListDispatchesRequest": {
         "properties": {
           "brigade_id": {
+            "format": "uuid",
             "type": "string"
           },
           "limit": {
+            "maximum": 200,
+            "minimum": 1,
             "type": "integer"
           },
           "offset": {
+            "minimum": 0,
             "type": "integer"
           },
           "status": {
+            "enum": [
+              "PENDING",
+              "RESERVED",
+              "CONFIRMING",
+              "ASSIGNED",
+              "FAILED",
+              "CANCELLED",
+              "EXPIRED"
+            ],
             "type": "string"
           },
           "ticket_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -8771,6 +9221,7 @@
       "ListEffectiveWorkProfileSkillsRequest": {
         "properties": {
           "work_profile_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -8796,12 +9247,16 @@
             "type": "boolean"
           },
           "department_id": {
+            "format": "uuid",
             "type": "string"
           },
           "limit": {
+            "maximum": 1000,
+            "minimum": 1,
             "type": "integer"
           },
           "offset": {
+            "minimum": 0,
             "type": "integer"
           }
         },
@@ -8827,18 +9282,28 @@
       "ListPositionHistoryRequest": {
         "properties": {
           "brigade_id": {
+            "format": "uuid",
             "type": "string"
           },
           "from": {
             "type": "string"
           },
           "limit": {
+            "maximum": 1000,
+            "minimum": 1,
             "type": "integer"
           },
           "offset": {
+            "minimum": 0,
             "type": "integer"
           },
           "order": {
+            "enum": [
+              "asc",
+              "desc",
+              "ASC",
+              "DESC"
+            ],
             "type": "string"
           },
           "to": {
@@ -8855,12 +9320,22 @@
       "ListReportsRequest": {
         "properties": {
           "limit": {
+            "maximum": 100,
+            "minimum": 1,
             "type": "integer"
           },
           "offset": {
+            "minimum": 0,
             "type": "integer"
           },
           "status": {
+            "enum": [
+              "pending",
+              "processing",
+              "completed",
+              "failed",
+              "canceled"
+            ],
             "type": "string"
           }
         },
@@ -8869,9 +9344,11 @@
       "ListResourceFilesRequest": {
         "properties": {
           "resource_id": {
+            "format": "uuid",
             "type": "string"
           },
           "resource_type": {
+            "maxLength": 64,
             "type": "string"
           }
         },
@@ -8884,18 +9361,29 @@
       "ListRoutingRoutesRequest": {
         "properties": {
           "brigade_id": {
+            "format": "uuid",
             "type": "string"
           },
           "limit": {
+            "maximum": 500,
+            "minimum": 1,
             "type": "integer"
           },
           "offset": {
+            "minimum": 0,
             "type": "integer"
           },
           "status": {
+            "enum": [
+              "PLANNED",
+              "ACTIVE",
+              "COMPLETED",
+              "CANCELLED"
+            ],
             "type": "string"
           },
           "ticket_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -8930,9 +9418,12 @@
             "type": "boolean"
           },
           "limit": {
+            "maximum": 100,
+            "minimum": 1,
             "type": "integer"
           },
           "offset": {
+            "minimum": 0,
             "type": "integer"
           },
           "query": {
@@ -8958,9 +9449,11 @@
       "ListTicketRequest": {
         "properties": {
           "brigade_id": {
+            "format": "uuid",
             "type": "string"
           },
           "category_id": {
+            "format": "uuid",
             "type": "string"
           },
           "created_from": {
@@ -8970,27 +9463,55 @@
             "type": "string"
           },
           "department_id": {
+            "format": "uuid",
             "type": "string"
           },
           "limit": {
+            "maximum": 100,
+            "minimum": 1,
             "type": "integer"
           },
           "offset": {
+            "minimum": 0,
             "type": "integer"
           },
           "priority": {
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH",
+              "EMERGENCY"
+            ],
             "type": "string"
           },
           "sort_by": {
+            "enum": [
+              "created_at",
+              "updated_at",
+              "priority",
+              "status"
+            ],
             "type": "string"
           },
           "sort_order": {
+            "enum": [
+              "asc",
+              "desc"
+            ],
             "type": "string"
           },
           "status": {
+            "enum": [
+              "NEW",
+              "ASSIGNED",
+              "IN_PROGRESS",
+              "DONE",
+              "CANCELED"
+            ],
             "type": "string"
           },
           "user_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -9033,18 +9554,31 @@
       "ListUserProfilesRequest": {
         "properties": {
           "limit": {
+            "maximum": 100,
+            "minimum": 1,
             "type": "integer"
           },
           "offset": {
+            "minimum": 0,
             "type": "integer"
           },
           "query": {
+            "maxLength": 255,
             "type": "string"
           },
           "sort_by": {
+            "enum": [
+              "created_at",
+              "updated_at",
+              "full_name"
+            ],
             "type": "string"
           },
           "sort_order": {
+            "enum": [
+              "asc",
+              "desc"
+            ],
             "type": "string"
           }
         },
@@ -9067,18 +9601,30 @@
       "ListWorkProfileCertificationsRequest": {
         "properties": {
           "certification_type_id": {
+            "format": "uuid",
             "type": "string"
           },
           "limit": {
+            "maximum": 100,
+            "minimum": 1,
             "type": "integer"
           },
           "offset": {
+            "minimum": 0,
             "type": "integer"
           },
           "status": {
+            "enum": [
+              "pending",
+              "verified",
+              "rejected",
+              "expired",
+              "revoked"
+            ],
             "type": "string"
           },
           "work_profile_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -9104,24 +9650,48 @@
       "ListWorkProfilesRequest": {
         "properties": {
           "department_id": {
+            "format": "uuid",
             "type": "string"
           },
           "limit": {
+            "maximum": 100,
+            "minimum": 1,
             "type": "integer"
           },
           "offset": {
+            "minimum": 0,
             "type": "integer"
           },
           "query": {
+            "maxLength": 255,
             "type": "string"
           },
           "sort_by": {
+            "enum": [
+              "created_at",
+              "updated_at",
+              "full_name",
+              "position",
+              "status",
+              "employee_number"
+            ],
             "type": "string"
           },
           "sort_order": {
+            "enum": [
+              "asc",
+              "desc"
+            ],
             "type": "string"
           },
           "status": {
+            "enum": [
+              "active",
+              "inactive",
+              "on_shift",
+              "off_shift",
+              "suspended"
+            ],
             "type": "string"
           }
         },
@@ -9144,6 +9714,7 @@
       "ListWorkReportsRequest": {
         "properties": {
           "ticket_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -9158,6 +9729,7 @@
             "type": "string"
           },
           "email": {
+            "format": "email",
             "type": "string"
           },
           "password": {
@@ -9215,9 +9787,12 @@
       "MaintenancePlanRequest": {
         "properties": {
           "asset_id": {
+            "format": "uuid",
             "type": "string"
           },
           "interval_days": {
+            "exclusiveMinimum": true,
+            "minimum": 0,
             "type": "integer"
           },
           "kind": {
@@ -9277,6 +9852,8 @@
             "type": "number"
           },
           "radius_meters": {
+            "exclusiveMinimum": true,
+            "minimum": 0,
             "type": "number"
           },
           "type": {
@@ -9305,6 +9882,7 @@
       "NotificationIDRequest": {
         "properties": {
           "notification_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -9356,6 +9934,17 @@
             "$ref": "#/components/schemas/AnalyticsFilter"
           },
           "group_by": {
+            "enum": [
+              "department",
+              "category",
+              "priority",
+              "assignment_mode",
+              "brigade",
+              "engine",
+              "travel_mode",
+              "success",
+              "failure_code"
+            ],
             "type": "string"
           }
         },
@@ -9417,15 +10006,19 @@
       "PreviewDispatchRequest": {
         "properties": {
           "limit": {
+            "maximum": 100,
+            "minimum": 1,
             "type": "integer"
           },
           "required_skill_ids": {
             "items": {
+              "format": "uuid",
               "type": "string"
             },
             "type": "array"
           },
           "ticket_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -9440,12 +10033,15 @@
             "items": {
               "$ref": "#/components/schemas/RoutingCandidate"
             },
+            "minItems": 1,
             "type": "array"
           },
           "destination": {
             "$ref": "#/components/schemas/RoutingPoint"
           },
           "limit": {
+            "maximum": 100,
+            "minimum": 1,
             "type": "integer"
           },
           "options": {
@@ -9461,6 +10057,7 @@
       "RecalculateAssetRisksRequest": {
         "properties": {
           "department_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -9472,6 +10069,7 @@
             "$ref": "#/components/schemas/RoutingPoint"
           },
           "id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -9484,45 +10082,62 @@
       "RecordPositionRequest": {
         "properties": {
           "accuracy_meters": {
+            "minimum": 0,
             "type": "number"
           },
           "altitude_meters": {
             "type": "number"
           },
           "brigade_id": {
+            "format": "uuid",
             "type": "string"
           },
           "device_id": {
+            "maxLength": 128,
             "type": "string"
           },
           "event_id": {
+            "format": "uuid",
             "type": "string"
           },
           "event_version": {
+            "enum": [
+              1
+            ],
             "type": "integer"
           },
           "heading": {
+            "exclusiveMaximum": true,
+            "maximum": 360,
+            "minimum": 0,
             "type": "number"
           },
           "latitude": {
+            "maximum": 90,
+            "minimum": -90,
             "type": "number"
           },
           "longitude": {
+            "maximum": 180,
+            "minimum": -180,
             "type": "number"
           },
           "occurred_at": {
             "type": "string"
           },
           "sequence": {
+            "minimum": 1,
             "type": "integer"
           },
           "simulated": {
             "type": "boolean"
           },
           "speed_kmh": {
+            "minimum": 0,
             "type": "number"
           },
           "vehicle_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -9592,12 +10207,16 @@
       "RegisterRequest": {
         "properties": {
           "email": {
+            "format": "email",
             "type": "string"
           },
           "password": {
+            "minLength": 8,
             "type": "string"
           },
           "username": {
+            "maxLength": 50,
+            "minLength": 3,
             "type": "string"
           }
         },
@@ -9625,9 +10244,11 @@
       "RejectWorkProfileCertificationRequest": {
         "properties": {
           "id": {
+            "format": "uuid",
             "type": "string"
           },
           "rejection_reason": {
+            "maxLength": 1000,
             "type": "string"
           }
         },
@@ -9648,6 +10269,7 @@
       "RequestPasswordResetRequest": {
         "properties": {
           "email": {
+            "format": "email",
             "type": "string"
           }
         },
@@ -9670,21 +10292,27 @@
       "ReserveBrigadeRequest": {
         "properties": {
           "brigade_id": {
+            "format": "uuid",
             "type": "string"
           },
           "requested_by": {
+            "format": "uuid",
             "type": "string"
           },
           "required_skill_ids": {
             "items": {
+              "format": "uuid",
               "type": "string"
             },
             "type": "array"
           },
           "reservation_ttl_seconds": {
+            "maximum": 900,
+            "minimum": 15,
             "type": "integer"
           },
           "ticket_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -9698,6 +10326,7 @@
       "ResetPasswordRequest": {
         "properties": {
           "new_password": {
+            "minLength": 8,
             "type": "string"
           },
           "token": {
@@ -9724,6 +10353,8 @@
       "ResolveAssetRequest": {
         "properties": {
           "identifier": {
+            "maxLength": 255,
+            "minLength": 1,
             "type": "string"
           }
         },
@@ -9735,6 +10366,7 @@
       "ResolveWorkingDepartmentRequest": {
         "properties": {
           "user_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -9769,9 +10401,11 @@
       "RevokeWorkProfileCertificationRequest": {
         "properties": {
           "id": {
+            "format": "uuid",
             "type": "string"
           },
           "reason": {
+            "maxLength": 1000,
             "type": "string"
           }
         },
@@ -9798,9 +10432,11 @@
       "RevokeWorkProfileSkillGrantRequest": {
         "properties": {
           "id": {
+            "format": "uuid",
             "type": "string"
           },
           "reason": {
+            "maxLength": 1000,
             "type": "string"
           }
         },
@@ -9813,6 +10449,7 @@
       "RoutingCandidate": {
         "properties": {
           "brigade_id": {
+            "format": "uuid",
             "type": "string"
           },
           "location": {
@@ -9834,6 +10471,12 @@
             "type": "string"
           },
           "travel_mode": {
+            "enum": [
+              "auto",
+              "truck",
+              "bicycle",
+              "pedestrian"
+            ],
             "type": "string"
           },
           "vehicle": {
@@ -9845,9 +10488,13 @@
       "RoutingPoint": {
         "properties": {
           "latitude": {
+            "maximum": 90,
+            "minimum": -90,
             "type": "number"
           },
           "longitude": {
+            "maximum": 180,
+            "minimum": -180,
             "type": "number"
           }
         },
@@ -9856,21 +10503,31 @@
       "RoutingVehicleConstraints": {
         "properties": {
           "axle_load_tons": {
+            "exclusiveMinimum": true,
+            "minimum": 0,
             "type": "number"
           },
           "hazardous_materials": {
             "type": "boolean"
           },
           "height_meters": {
+            "exclusiveMinimum": true,
+            "minimum": 0,
             "type": "number"
           },
           "length_meters": {
+            "exclusiveMinimum": true,
+            "minimum": 0,
             "type": "number"
           },
           "weight_tons": {
+            "exclusiveMinimum": true,
+            "minimum": 0,
             "type": "number"
           },
           "width_meters": {
+            "exclusiveMinimum": true,
+            "minimum": 0,
             "type": "number"
           }
         },
@@ -9879,6 +10536,7 @@
       "SLAIDRequest": {
         "properties": {
           "id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -9890,6 +10548,7 @@
       "SendVerificationEmailRequest": {
         "properties": {
           "email": {
+            "format": "email",
             "type": "string"
           }
         },
@@ -9909,18 +10568,25 @@
       "SetBrigadeMemberAvailabilityRequest": {
         "properties": {
           "brigade_id": {
+            "format": "uuid",
             "type": "string"
           },
           "changed_by_user_id": {
+            "format": "uuid",
             "type": "string"
           },
           "member_id": {
+            "format": "uuid",
             "type": "string"
           },
           "reason": {
             "type": "string"
           },
           "status": {
+            "enum": [
+              "available",
+              "unavailable"
+            ],
             "type": "string"
           }
         },
@@ -9934,12 +10600,14 @@
       "SetBrigadeScheduleRequest": {
         "properties": {
           "brigade_id": {
+            "format": "uuid",
             "type": "string"
           },
           "items": {
             "items": {
               "$ref": "#/components/schemas/BrigadeScheduleItem"
             },
+            "minItems": 1,
             "type": "array"
           }
         },
@@ -9952,15 +10620,27 @@
       "SetBrigadeStatusRequest": {
         "properties": {
           "brigade_id": {
+            "format": "uuid",
             "type": "string"
           },
           "changed_by_user_id": {
+            "format": "uuid",
             "type": "string"
           },
           "reason": {
             "type": "string"
           },
           "status": {
+            "enum": [
+              "active",
+              "inactive",
+              "available",
+              "busy",
+              "on_route",
+              "on_site",
+              "offline",
+              "archived"
+            ],
             "type": "string"
           }
         },
@@ -9973,9 +10653,15 @@
       "SetRoutingRouteStatusRequest": {
         "properties": {
           "id": {
+            "format": "uuid",
             "type": "string"
           },
           "status": {
+            "enum": [
+              "ACTIVE",
+              "COMPLETED",
+              "CANCELLED"
+            ],
             "type": "string"
           }
         },
@@ -9988,12 +10674,21 @@
       "SetWorkProfileStatusRequest": {
         "properties": {
           "id": {
+            "format": "uuid",
             "type": "string"
           },
           "reason": {
+            "maxLength": 1000,
             "type": "string"
           },
           "status": {
+            "enum": [
+              "active",
+              "inactive",
+              "on_shift",
+              "off_shift",
+              "suspended"
+            ],
             "type": "string"
           }
         },
@@ -10128,6 +10823,7 @@
       "TicketIDRequest": {
         "properties": {
           "ticket_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -10177,12 +10873,15 @@
             "type": "string"
           },
           "asset_id": {
+            "format": "uuid",
             "type": "string"
           },
           "contractor": {
             "type": "string"
           },
           "criticality": {
+            "maximum": 1,
+            "minimum": 0,
             "type": "number"
           },
           "geometry_geo_json": {
@@ -10200,15 +10899,20 @@
       "UpdateBrigadeRequest": {
         "properties": {
           "description": {
+            "maxLength": 1000,
             "type": "string"
           },
           "id": {
+            "format": "uuid",
             "type": "string"
           },
           "name": {
+            "maxLength": 255,
+            "minLength": 2,
             "type": "string"
           },
           "specialization": {
+            "maxLength": 100,
             "type": "string"
           }
         },
@@ -10226,9 +10930,12 @@
             "type": "string"
           },
           "id": {
+            "format": "uuid",
             "type": "string"
           },
           "name": {
+            "maxLength": 255,
+            "minLength": 2,
             "type": "string"
           },
           "priority": {
@@ -10243,15 +10950,19 @@
       "UpdateCategoryRequest": {
         "properties": {
           "category_id": {
+            "format": "uuid",
             "type": "string"
           },
           "description": {
+            "maxLength": 500,
             "type": "string"
           },
           "is_active": {
             "type": "boolean"
           },
           "name": {
+            "maxLength": 255,
+            "minLength": 2,
             "type": "string"
           }
         },
@@ -10280,18 +10991,25 @@
             "type": "boolean"
           },
           "code": {
+            "maxLength": 100,
+            "minLength": 2,
             "type": "string"
           },
           "default_validity_days": {
+            "minimum": 1,
             "type": "integer"
           },
           "description": {
+            "maxLength": 1000,
             "type": "string"
           },
           "id": {
+            "format": "uuid",
             "type": "string"
           },
           "name": {
+            "maxLength": 255,
+            "minLength": 2,
             "type": "string"
           },
           "requires_file": {
@@ -10306,15 +11024,24 @@
       "UpdateDepartmentRequest": {
         "properties": {
           "description": {
+            "maxLength": 1000,
             "type": "string"
           },
           "id": {
+            "format": "uuid",
             "type": "string"
           },
           "name": {
+            "maxLength": 255,
+            "minLength": 2,
             "type": "string"
           },
           "status": {
+            "enum": [
+              "active",
+              "inactive",
+              "archived"
+            ],
             "type": "string"
           }
         },
@@ -10340,9 +11067,11 @@
             "type": "string"
           },
           "id": {
+            "format": "uuid",
             "type": "string"
           },
           "name": {
+            "maxLength": 255,
             "type": "string"
           }
         },
@@ -10363,6 +11092,7 @@
             "type": "string"
           },
           "id": {
+            "format": "uuid",
             "type": "string"
           },
           "name": {
@@ -10392,15 +11122,21 @@
             "type": "boolean"
           },
           "code": {
+            "maxLength": 100,
+            "minLength": 2,
             "type": "string"
           },
           "description": {
+            "maxLength": 1000,
             "type": "string"
           },
           "id": {
+            "format": "uuid",
             "type": "string"
           },
           "name": {
+            "maxLength": 255,
+            "minLength": 2,
             "type": "string"
           }
         },
@@ -10415,9 +11151,11 @@
             "type": "string"
           },
           "asset_id": {
+            "format": "uuid",
             "type": "string"
           },
           "category_id": {
+            "format": "uuid",
             "type": "string"
           },
           "description": {
@@ -10430,15 +11168,23 @@
             "type": "number"
           },
           "priority": {
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH",
+              "EMERGENCY"
+            ],
             "type": "string"
           },
           "ticket_id": {
+            "format": "uuid",
             "type": "string"
           },
           "title": {
             "type": "string"
           },
           "updated_by": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -10458,6 +11204,7 @@
       "UpdateUserProfileRequest": {
         "properties": {
           "avatar_file_id": {
+            "format": "uuid",
             "type": "string"
           },
           "clear_avatar_file_id": {
@@ -10467,15 +11214,24 @@
             "type": "boolean"
           },
           "full_name": {
+            "maxLength": 255,
+            "minLength": 2,
             "type": "string"
           },
           "id": {
+            "format": "uuid",
             "type": "string"
           },
           "phone": {
+            "maxLength": 32,
             "type": "string"
           },
           "preferred_contact_method": {
+            "enum": [
+              "email",
+              "phone",
+              "push"
+            ],
             "type": "string"
           }
         },
@@ -10490,12 +11246,16 @@
             "type": "boolean"
           },
           "employee_number": {
+            "maxLength": 64,
             "type": "string"
           },
           "id": {
+            "format": "uuid",
             "type": "string"
           },
           "position": {
+            "maxLength": 255,
+            "minLength": 2,
             "type": "string"
           }
         },
@@ -10507,12 +11267,15 @@
       "UploadWorkProfileCertificationRequest": {
         "properties": {
           "certificate_file_id": {
+            "format": "uuid",
             "type": "string"
           },
           "certificate_number": {
+            "maxLength": 100,
             "type": "string"
           },
           "certification_type_id": {
+            "format": "uuid",
             "type": "string"
           },
           "expires_at": {
@@ -10522,9 +11285,11 @@
             "type": "string"
           },
           "issuer": {
+            "maxLength": 255,
             "type": "string"
           },
           "work_profile_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -10839,12 +11604,16 @@
       "WorkProfileStatusHistoryRequest": {
         "properties": {
           "limit": {
+            "maximum": 100,
+            "minimum": 1,
             "type": "integer"
           },
           "offset": {
+            "minimum": 0,
             "type": "integer"
           },
           "work_profile_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
