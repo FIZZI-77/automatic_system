@@ -61,35 +61,79 @@ Kafka. Он сохраняет исходные данные события вм
 
 ## Функции
 
-### `NewAuditServiceStruct`
+Имя функции открывает её реализацию в ветке `test`; структуры параметров и результатов описаны в конце README.
+
+### func [NewAuditServiceStruct](https://github.com/FIZZI-77/automatic_system/blob/test/Audit_Service/src/core/service/audit_service.go#L15)
+
+```go
+func NewAuditServiceStruct(repo *repository.Repository) *AuditServiceStruct
+```
+
+Типы: [AuditServiceStruct](#type-auditservicestruct), [Repository](#type-repository).
+
+Структуры: [AuditServiceStruct](#type-auditservicestruct).
 
 Принимает общий `repository.Repository` и сохраняет отдельно интерфейсы записи
 и чтения. Проверок соединения и запросов к базе конструктор не выполняет.
 
-### `Consume`
+### func (*AuditServiceStruct) [Consume](https://github.com/FIZZI-77/automatic_system/blob/test/Audit_Service/src/core/service/audit_service.go#L21)
+
+```go
+func (s *AuditServiceStruct) Consume(c context.Context, e models.Event) error
+```
+
+Типы: [AuditServiceStruct](#type-auditservicestruct), [Event](#type-event).
+
+Структуры: [Event](#type-event).
 
 Принимает `models.Event` и передает его в `EntryWriterRepository.Store`.
 Нормализация полей, преобразование содержимого и устранение повтора выполняются
 репозиторием и ограничением базы. Возвращает ошибку записи без изменения.
 
-### `Get`
+### func (*AuditServiceStruct) [Get](https://github.com/FIZZI-77/automatic_system/blob/test/Audit_Service/src/core/service/audit_service.go#L24)
+
+```go
+func (s *AuditServiceStruct) Get(c context.Context, id uuid.UUID) (*models.Entry, error)
+```
+
+Типы: [AuditServiceStruct](#type-auditservicestruct), [Entry](#type-entry).
+
+Структуры: [Entry](#type-entry).
 
 Принимает идентификатор `uuid.UUID`, вызывает `EntryReaderRepository.Get` и
 возвращает найденную `Entry`. Отсутствующая запись представляется ошибкой
 репозитория.
 
-### `List`
+### func (*AuditServiceStruct) [List](https://github.com/FIZZI-77/automatic_system/blob/test/Audit_Service/src/core/service/audit_service.go#L27)
+
+```go
+func (s *AuditServiceStruct) List(c context.Context, f models.Filter) ([]*models.Entry, int64, error)
+```
+
+Типы: [AuditServiceStruct](#type-auditservicestruct), [Entry](#type-entry), [Filter](#type-filter).
+
+Структуры: [Filter](#type-filter), [Entry](#type-entry).
 
 Принимает `models.Filter`, передает его репозиторию чтения и возвращает список
 указателей на записи, общее число подходящих строк и ошибку. `Limit` и
 `Offset` влияют на страницу, но не на общий счетчик.
 
-### `NewService`
+### func [NewService](https://github.com/FIZZI-77/automatic_system/blob/test/Audit_Service/src/core/service/service.go#L17)
+
+```go
+func NewService(repo *repository.Repository) *Service
+```
+
+Типы: [Repository](#type-repository), [Service](#type-service).
 
 Создает оболочку `Service` и встраивает в нее реализацию
 `AuditService`.
 
-### `IsNotFound`
+### func [IsNotFound](https://github.com/FIZZI-77/automatic_system/blob/test/Audit_Service/src/core/service/service.go#L20)
+
+```go
+func IsNotFound(err error) bool
+```
 
 Передает ошибку в `repository.IsNotFound`. Нужна вызывающему коду, чтобы
 распознать отсутствие записи, не связываясь с внутренним типом ошибки
@@ -119,3 +163,79 @@ Kafka. Он сохраняет исходные данные события вм
 Функция `audit_entries_immutable()` и триггер
 `audit_entries_no_update` отклоняют любые `UPDATE` и `DELETE`, поэтому
 исправление истории выполняется только добавлением нового события.
+
+## Структуры параметров и результатов
+
+### type AuditServiceStruct
+
+```go
+type AuditServiceStruct struct {
+	writer repository.EntryWriterRepository
+	reader repository.EntryReaderRepository
+}
+```
+
+### type Entry
+
+```go
+type Entry struct {
+	ID         uuid.UUID
+	EventID    string
+	Topic      string
+	Action     string
+	ActorID    *uuid.UUID
+	EntityType *string
+	EntityID   *string
+	RequestID  *string
+	TraceID    *string
+	Data       map[string]any
+	OccurredAt time.Time
+	RecordedAt time.Time
+}
+```
+
+### type Event
+
+```go
+type Event struct {
+	ID        string
+	Type      string
+	Topic     string
+	Payload   map[string]any
+	Headers   map[string]string
+	Timestamp time.Time
+}
+```
+
+### type Filter
+
+```go
+type Filter struct {
+	ActorID    *uuid.UUID
+	Action     *string
+	EntityType *string
+	EntityID   *string
+	RequestID  *string
+	TraceID    *string
+	Topic      *string
+	From       *time.Time
+	To         *time.Time
+	Limit      int32
+	Offset     int32
+}
+```
+
+### type Repository
+
+```go
+type Repository struct {
+	EntryWriterRepository
+	EntryReaderRepository
+}
+```
+
+### type Service
+
+```go
+type Service struct{ AuditService }
+```

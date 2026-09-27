@@ -55,48 +55,128 @@
 
 ## Функции
 
-### `New`
+Имя функции открывает её реализацию в ветке `test`; структуры параметров и результатов описаны в конце README.
+
+### func [New](https://github.com/FIZZI-77/automatic_system/blob/test/SLA_Service/src/core/service/service.go#L14)
+
+```go
+func New(r *repository.Repository) *Service
+```
+
+Типы: [Repository](#type-repository), [Service](#type-service).
 
 Создает `Service` с общим репозиторием. Обращений к базе не выполняет.
 
-### `CreateRule`
+### func (*Service) [CreateRule](https://github.com/FIZZI-77/automatic_system/blob/test/SLA_Service/src/core/service/service.go#L15)
+
+```go
+func (s *Service) CreateRule(c context.Context, v *models.Rule) (*models.Rule, error)
+```
+
+Типы: [Rule](#type-rule), [Service](#type-service).
+
+Структуры: [Rule](#type-rule).
 
 Проверяет правило через `Validate` и передает его в
 `repo.CreateRule`. Ошибка проверки предотвращает запись.
 
-### `GetRule`
+### func (*Service) [GetRule](https://github.com/FIZZI-77/automatic_system/blob/test/SLA_Service/src/core/service/service.go#L21)
+
+```go
+func (s *Service) GetRule(c context.Context, id uuid.UUID) (*models.Rule, error)
+```
+
+Типы: [Rule](#type-rule), [Service](#type-service).
+
+Структуры: [Rule](#type-rule).
 
 Возвращает правило по UUID напрямую из репозитория.
 
-### `UpdateRule`
+### func (*Service) [UpdateRule](https://github.com/FIZZI-77/automatic_system/blob/test/SLA_Service/src/core/service/service.go#L24)
+
+```go
+func (s *Service) UpdateRule(c context.Context, v *models.Rule) (*models.Rule, error)
+```
+
+Типы: [Rule](#type-rule), [Service](#type-service).
+
+Структуры: [Rule](#type-rule).
 
 Повторно проверяет все значения правила и только после этого вызывает
 `repo.UpdateRule`.
 
-### `DeleteRule`
+### func (*Service) [DeleteRule](https://github.com/FIZZI-77/automatic_system/blob/test/SLA_Service/src/core/service/service.go#L30)
+
+```go
+func (s *Service) DeleteRule(c context.Context, id uuid.UUID) (*models.Rule, error)
+```
+
+Типы: [Rule](#type-rule), [Service](#type-service).
+
+Структуры: [Rule](#type-rule).
 
 Передает UUID в репозиторий. Фактический способ удаления определяется
 репозиторием; прикладной слой возвращает полученное правило или ошибку.
 
-### `ListRules`
+### func (*Service) [ListRules](https://github.com/FIZZI-77/automatic_system/blob/test/SLA_Service/src/core/service/service.go#L33)
+
+```go
+func (s *Service) ListRules(c context.Context, f models.RuleFilter) ([]*models.Rule, int64, error)
+```
+
+Типы: [Rule](#type-rule), [RuleFilter](#type-rulefilter), [Service](#type-service).
+
+Структуры: [RuleFilter](#type-rulefilter), [Rule](#type-rule).
 
 Передает `RuleFilter` в репозиторий и возвращает страницу правил вместе с
 общим количеством.
 
-### `GetTicketSLA`
+### func (*Service) [GetTicketSLA](https://github.com/FIZZI-77/automatic_system/blob/test/SLA_Service/src/core/service/service.go#L36)
+
+```go
+func (s *Service) GetTicketSLA(c context.Context, id uuid.UUID) (*models.TicketSLA, error)
+```
+
+Типы: [Service](#type-service), [TicketSLA](#type-ticketsla).
+
+Структуры: [TicketSLA](#type-ticketsla).
 
 Загружает текущее состояние сроков одной заявки.
 
-### `ListSLAs`
+### func (*Service) [ListSLAs](https://github.com/FIZZI-77/automatic_system/blob/test/SLA_Service/src/core/service/service.go#L39)
+
+```go
+func (s *Service) ListSLAs(c context.Context, f models.SLAFilter) ([]*models.TicketSLA, int64, error)
+```
+
+Типы: [SLAFilter](#type-slafilter), [Service](#type-service), [TicketSLA](#type-ticketsla).
+
+Структуры: [SLAFilter](#type-slafilter), [TicketSLA](#type-ticketsla).
 
 Возвращает страницу состояний по `SLAFilter` и общий счетчик.
 
-### `ListHistory`
+### func (*Service) [ListHistory](https://github.com/FIZZI-77/automatic_system/blob/test/SLA_Service/src/core/service/service.go#L42)
+
+```go
+func (s *Service) ListHistory(c context.Context, id uuid.UUID, l, o int32) ([]*models.History, int64, error)
+```
+
+Типы: [History](#type-history), [Service](#type-service).
+
+Структуры: [History](#type-history).
 
 Принимает UUID заявки либо состояния, `l` и `o` для страницы и возвращает
 историю с общим количеством без дополнительной обработки.
 
-### `Consume`
+### func (*Service) [Consume](https://github.com/FIZZI-77/automatic_system/blob/test/SLA_Service/src/core/service/service.go#L45)
+
+```go
+func (s *Service) Consume(c context.Context, e models.TicketEvent) error
+```
+
+Типы: [Service](#type-service), [TicketEvent](#type-ticketevent).
+
+Структуры: [TicketEvent](#type-ticketevent).
 
 1. Требует непустой `EventID` и ненулевой `TicketID`.
 2. Для `ticket.created` и `ticket.updated` подбирает правило по
@@ -106,7 +186,13 @@
    который атомарно ведет входящие события, состояние, историю и исходящие
    сообщения.
 
-### `CheckDeadlines`
+### func (*Service) [CheckDeadlines](https://github.com/FIZZI-77/automatic_system/blob/test/SLA_Service/src/core/service/service.go#L59)
+
+```go
+func (s *Service) CheckDeadlines(c context.Context, now time.Time) error
+```
+
+Типы: [Service](#type-service).
 
 Передает контрольное время в `repo.CheckDeadlines`. Репозиторий находит
 активные сроки, создает предупреждения и нарушения, не обрабатывая одну запись
@@ -187,3 +273,117 @@
 | `last_error` | `text` | Последняя ошибка. |
 | `sent_at` | `timestamptz` | Время публикации. |
 | `created_at` | `timestamptz` | Время создания. |
+
+## Структуры параметров и результатов
+
+### type History
+
+```go
+type History struct {
+	ID          uuid.UUID
+	TicketSLAID uuid.UUID
+	TicketID    uuid.UUID
+	EventType   EventType
+	OccurredAt  time.Time
+	Details     string
+}
+```
+
+### type Repository
+
+```go
+type Repository struct {
+	db *pgxpool.Pool
+}
+```
+
+### type Rule
+
+```go
+type Rule struct {
+	ID             uuid.UUID
+	Name           string
+	DepartmentID   *uuid.UUID
+	CategoryID     *uuid.UUID
+	Priority       *Priority
+	ResponseTime   time.Duration
+	ResolutionTime time.Duration
+	WarningPercent int32
+	Active         bool
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+```
+
+### type RuleFilter
+
+```go
+type RuleFilter struct {
+	DepartmentID *uuid.UUID
+	CategoryID   *uuid.UUID
+	Priority     *Priority
+	Active       *bool
+	Limit        int32
+	Offset       int32
+}
+```
+
+### type SLAFilter
+
+```go
+type SLAFilter struct {
+	DepartmentID *uuid.UUID
+	Status       *Status
+	Breached     *bool
+	Limit        int32
+	Offset       int32
+}
+```
+
+### type Service
+
+```go
+type Service struct{ repo *repository.Repository }
+```
+
+### type TicketEvent
+
+```go
+type TicketEvent struct {
+	EventID      string
+	EventType    string
+	TicketID     uuid.UUID
+	DepartmentID uuid.UUID
+	CategoryID   uuid.UUID
+	Priority     Priority
+	Status       string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+```
+
+### type TicketSLA
+
+```go
+type TicketSLA struct {
+	ID                    uuid.UUID
+	TicketID              uuid.UUID
+	RuleID                uuid.UUID
+	DepartmentID          uuid.UUID
+	CategoryID            uuid.UUID
+	Priority              Priority
+	Status                Status
+	TicketCreatedAt       time.Time
+	ResponseDeadline      time.Time
+	ResolutionDeadline    time.Time
+	RespondedAt           *time.Time
+	CompletedAt           *time.Time
+	ResponseBreached      bool
+	ResolutionBreached    bool
+	ResponseWarningSent   bool
+	ResolutionWarningSent bool
+	Version               int32
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
+}
+```

@@ -80,7 +80,7 @@ metadata:
 spec:
   minReadySeconds: 3
   {{- if not .Values.applicationAutoscaling.enabled }}
-  replicas: {{ (index .Values.applications "location").replicaCount }}
+  replicas: {{ include "applications.replicas" (dict "root" $ "deployment" "location-service" "replicaCount" (index .Values.applications "location").replicaCount) }}
   {{- end }}
   revisionHistoryLimit: 3
   selector:

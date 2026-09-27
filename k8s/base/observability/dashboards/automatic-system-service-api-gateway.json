@@ -1239,7 +1239,7 @@
               "type": "logs"
             }
           ],
-          "query": "kubernetes.pod.name: api-gateway-*",
+          "query": "(kubernetes.pod.name: api-gateway-*) AND NOT log.file.path:*istio-proxy*",
           "datasource": {
             "type": "elasticsearch",
             "uid": "elasticsearch"

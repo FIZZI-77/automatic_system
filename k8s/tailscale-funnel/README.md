@@ -15,6 +15,11 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\k8s\scripts\setup-tail
 `.runtime/tailscale-funnel-url.txt` и синхронизирует `FRONTEND_BASE_URL` в
 Auth Service.
 
+Выделенные `Gateway/automatic-system-public` и
+`VirtualService/public-entrypoint` исключены из Flux reconciliation: их точный
+`*.ts.net` host принадлежит локальной рабочей машине и применяется setup-скриптом.
+Остальные ресурсы Istio продолжают управляться через Flux.
+
 Проверка состояния и отключение:
 
 ```powershell

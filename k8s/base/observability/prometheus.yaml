@@ -10,6 +10,8 @@ metadata:
     app.kubernetes.io/part-of: automatic-system
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: prometheus
@@ -34,6 +36,8 @@ spec:
             - --storage.tsdb.path=/prometheus
             - --storage.tsdb.retention.time=7d
             - --enable-feature=exemplar-storage
+            - --web.external-url=https://fizzi.tail2c9430.ts.net/observe/prometheus/
+            - --web.route-prefix=/
           ports:
             - name: http
               containerPort: 9090
@@ -74,7 +78,8 @@ spec:
           configMap:
             name: prometheus-slo-rules
         - name: data
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: prometheus-data
       securityContext:
         runAsNonRoot: true
         runAsUser: 65534

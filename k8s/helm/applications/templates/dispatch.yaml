@@ -33,7 +33,7 @@ metadata:
     {{- include "applications.dispatchLabels" . | nindent 4 }}
 spec:
   {{- if not .Values.dispatch.autoscaling.enabled }}
-  replicas: {{ .Values.dispatch.replicaCount }}
+  replicas: {{ include "applications.replicas" (dict "root" $ "deployment" "dispatch-service" "replicaCount" .Values.dispatch.replicaCount) }}
   {{- end }}
   revisionHistoryLimit: 3
   minReadySeconds: 3

@@ -187,15 +187,123 @@ sequenceDiagram
 
 ## Функции
 
-### `NewService`
+Имя функции открывает её реализацию в ветке `test`; структуры параметров и результатов описаны в конце README.
+
+### func [NewService](https://github.com/FIZZI-77/automatic_system/blob/test/Ticket_Service/src/core/service/service.go#L40)
+
+```go
+func NewService(repo *repository.Repository, logger *zap.Logger) *Service
+```
+
+Типы: [Repository](#type-repository), [Service](#type-service).
 
 При отсутствии журнала подставляет `zap.NewNop()`, создает службы заявок и категорий с общим хранилищем и добавляет `ReportService`. Возвращает единый `Service`.
 
-### `NewTicketServiceStruct`, `NewCategoryServiceStruct`, `NewReportService`
+### func [NewTicketServiceStruct](https://github.com/FIZZI-77/automatic_system/blob/test/Ticket_Service/src/core/service/ticket_service.go#L21)
+
+```go
+func NewTicketServiceStruct(repo *repository.Repository, logger *zap.Logger) *TicketServiceStruct
+```
+
+Типы: [Repository](#type-repository), [TicketServiceStruct](#type-ticketservicestruct).
+
+Структуры: [TicketServiceStruct](#type-ticketservicestruct).
 
 Создают соответствующую службу и сохраняют необходимые зависимости. `NewReportService` отдельно получает интерфейс заявок и создает хранилище отчетов поверх общего `Repository`.
 
-### `TicketServiceStruct.CreateTicket`
+### func [NewCategoryServiceStruct](https://github.com/FIZZI-77/automatic_system/blob/test/Ticket_Service/src/core/service/category_service.go#L21)
+
+```go
+func NewCategoryServiceStruct(repo *repository.Repository, logger *zap.Logger) *CategoryServiceStruct
+```
+
+Типы: [CategoryServiceStruct](#type-categoryservicestruct), [Repository](#type-repository).
+
+Структуры: [CategoryServiceStruct](#type-categoryservicestruct).
+
+Создают соответствующую службу и сохраняют необходимые зависимости. `NewReportService` отдельно получает интерфейс заявок и создает хранилище отчетов поверх общего `Repository`.
+
+### func [NewReportService](https://github.com/FIZZI-77/automatic_system/blob/test/Ticket_Service/src/core/service/report_service.go#L17)
+
+```go
+func NewReportService(repo *repository.Repository) *ReportService
+```
+
+Типы: [ReportService](#type-reportservice), [Repository](#type-repository).
+
+Структуры: [ReportService](#type-reportservice).
+
+Создают соответствующую службу и сохраняют необходимые зависимости. `NewReportService` отдельно получает интерфейс заявок и создает хранилище отчетов поверх общего `Repository`.
+
+### func [hasRole](https://github.com/FIZZI-77/automatic_system/blob/test/Ticket_Service/src/core/service/ticket_service.go#L190)
+
+```go
+func hasRole(roles []string, expected string) bool
+```
+
+`hasRole` ищет точное значение роли. `hasPrivilegedRole` распознает `admin` и `dispatcher`. `canReadTicket` разрешает чтение привилегированным ролям, владельцу заявки и работнику той бригады, которая назначена на заявку.
+
+### func [hasPrivilegedRole](https://github.com/FIZZI-77/automatic_system/blob/test/Ticket_Service/src/core/service/ticket_service.go#L555)
+
+```go
+func hasPrivilegedRole(roles []string) bool
+```
+
+`hasRole` ищет точное значение роли. `hasPrivilegedRole` распознает `admin` и `dispatcher`. `canReadTicket` разрешает чтение привилегированным ролям, владельцу заявки и работнику той бригады, которая назначена на заявку.
+
+### func [canReadTicket](https://github.com/FIZZI-77/automatic_system/blob/test/Ticket_Service/src/core/service/ticket_service.go#L539)
+
+```go
+func canReadTicket(ticket *models.Ticket, actorUserID, actorBrigadeID *uuid.UUID, actorRoles []string) bool
+```
+
+Типы: [Ticket](#type-ticket).
+
+Структуры: [Ticket](#type-ticket).
+
+`hasRole` ищет точное значение роли. `hasPrivilegedRole` распознает `admin` и `dispatcher`. `canReadTicket` разрешает чтение привилегированным ролям, владельцу заявки и работнику той бригады, которая назначена на заявку.
+
+### func [withIdempotency](https://github.com/FIZZI-77/automatic_system/blob/test/Ticket_Service/src/core/service/idempotency.go#L19)
+
+```go
+func withIdempotency(repo *repository.Repository, ctx context.Context, operation string, actorKey string, request any, fn func(context.Context) (any, uuid.UUID, error)) (any, error)
+```
+
+Типы: [Repository](#type-repository).
+
+Если ключа в контексте нет, немедленно выполняет функцию. Иначе сериализует запрос, вычисляет SHA-256 и пытается получить запись на 24 часа. Новый ключ выполняет функцию в транзакции. Для существующего ключа проверяет совпадение хеша и в зависимости от состояния возвращает сохраненный ответ, `ErrIdempotencyInProgress` или `ErrIdempotencyFailed`.
+
+### func [cachedResult](https://github.com/FIZZI-77/automatic_system/blob/test/Ticket_Service/src/core/service/idempotency.go#L71)
+
+```go
+func cachedResult[T any](result any) (*T, error)
+```
+
+Возвращает указатель непосредственно, если тип уже совпадает. Сохраненный ответ вида `map[string]any` преобразует в требуемый тип через JSON.
+
+### func [hashRequest](https://github.com/FIZZI-77/automatic_system/blob/test/Ticket_Service/src/core/service/idempotency.go#L89)
+
+```go
+func hashRequest(request any) (string, error)
+```
+
+Сериализует запрос в JSON и возвращает шестнадцатеричную строку SHA-256. Ошибка сериализации оборачивается контекстом операции.
+
+### func [idempotencyActor](https://github.com/FIZZI-77/automatic_system/blob/test/Ticket_Service/src/core/service/idempotency.go#L99)
+
+```go
+func idempotencyActor(actor *uuid.UUID, fallback uuid.UUID) string
+```
+
+Возвращает переданный идентификатор исполнителя, затем запасной UUID, а при отсутствии обоих — пустую строку.
+
+### func (*TicketServiceStruct) [CreateTicket](https://github.com/FIZZI-77/automatic_system/blob/test/Ticket_Service/src/core/service/ticket_service.go#L25)
+
+```go
+func (s *TicketServiceStruct) CreateTicket(ctx context.Context, in *models.CreateTicketInput) (*models.CreateTicketResult, error)
+```
+
+Типы: [CreateTicketInput](#type-createticketinput), [CreateTicketResult](#type-createticketresult), [TicketServiceStruct](#type-ticketservicestruct).
 
 1. Проверяет обязательные UUID, заголовок до 255 символов, описание до 3000, приоритет, адрес до 500 и координаты.
 2. Для непривилегированного исполнителя требует, чтобы `ActorUserID` совпадал с `UserID` создаваемой заявки.
@@ -203,63 +311,157 @@ sequenceDiagram
 4. Хранилище проверяет активность категории, создает заявку `NEW`, первую запись истории и событие `ticket.created` в одной транзакции.
 5. Возвращает созданную заявку или ранее сохраненный ответ для повторного ключа.
 
-### `TicketServiceStruct.GetTicket`
+
+### func (*TicketServiceStruct) [GetTicket](https://github.com/FIZZI-77/automatic_system/blob/test/Ticket_Service/src/core/service/ticket_service.go#L82)
+
+```go
+func (s *TicketServiceStruct) GetTicket(ctx context.Context, in *models.GetTicketInput) (*models.GetTicketResult, error)
+```
+
+Типы: [GetTicketInput](#type-getticketinput), [GetTicketResult](#type-getticketresult), [TicketServiceStruct](#type-ticketservicestruct).
 
 Проверяет UUID, загружает заявку и вызывает `canReadTicket`. Доступ получает владелец, привилегированная роль или работник назначенной бригады.
 
-### `TicketServiceStruct.ListTickets`
+
+### func (*TicketServiceStruct) [ListTickets](https://github.com/FIZZI-77/automatic_system/blob/test/Ticket_Service/src/core/service/ticket_service.go#L124)
+
+```go
+func (s *TicketServiceStruct) ListTickets(ctx context.Context, in *models.ListTicketsInput) (*models.ListTicketsResult, error)
+```
+
+Типы: [ListTicketsInput](#type-listticketsinput), [ListTicketsResult](#type-listticketsresult), [TicketServiceStruct](#type-ticketservicestruct).
 
 До проверки фильтра ограничивает область видимости: работнику принудительно оставляет только его бригаду, обычному пользователю — только его `UserID`; привилегированные роли сохраняют переданные фильтры. Затем подставляет сортировку `created_at desc`, нормализует страницу до диапазона 1–100 записей и запрашивает список с общим количеством.
 
-### `TicketServiceStruct.UpdateTicket`
+
+### func (*TicketServiceStruct) [UpdateTicket](https://github.com/FIZZI-77/automatic_system/blob/test/Ticket_Service/src/core/service/ticket_service.go#L199)
+
+```go
+func (s *TicketServiceStruct) UpdateTicket(ctx context.Context, in *models.UpdateTicketInput) (*models.UpdateTicketResult, error)
+```
+
+Типы: [TicketServiceStruct](#type-ticketservicestruct), [UpdateTicketInput](#type-updateticketinput), [UpdateTicketResult](#type-updateticketresult).
 
 Проверяет UUID, переданные текстовые поля, перечисления, парность координат и обязательный `UpdatedBy`. Затем выполняет частичное обновление через идемпотентную транзакцию и возвращает актуальную заявку. Проверка допустимости конкретного изменения и запись события находятся в хранилище.
 
-### `TicketServiceStruct.ChangeTicketStatus`
+
+### func (*TicketServiceStruct) [ChangeTicketStatus](https://github.com/FIZZI-77/automatic_system/blob/test/Ticket_Service/src/core/service/ticket_service.go#L253)
+
+```go
+func (s *TicketServiceStruct) ChangeTicketStatus(ctx context.Context, in *models.ChangeTicketStatusInput) (*models.ChangeTicketStatusResult, error)
+```
+
+Типы: [ChangeTicketStatusInput](#type-changeticketstatusinput), [ChangeTicketStatusResult](#type-changeticketstatusresult), [TicketServiceStruct](#type-ticketservicestruct).
 
 Проверяет запрос. Непривилегированный исполнитель должен быть `worker`, может выбрать только `IN_PROGRESS` и обязан принадлежать назначенной бригаде. Операция выполняется идемпотентно; хранилище блокирует запись, проверяет переход, добавляет историю и событие.
 
-### `TicketServiceStruct.AssignBrigade`
+
+### func (*TicketServiceStruct) [AssignBrigade](https://github.com/FIZZI-77/automatic_system/blob/test/Ticket_Service/src/core/service/ticket_service.go#L316)
+
+```go
+func (s *TicketServiceStruct) AssignBrigade(ctx context.Context, in *models.AssignBrigadeInput) (*models.AssignBrigadeResult, error)
+```
+
+Типы: [AssignBrigadeInput](#type-assignbrigadeinput), [AssignBrigadeResult](#type-assignbrigaderesult), [TicketServiceStruct](#type-ticketservicestruct).
 
 Разрешена только `admin` или `dispatcher`. Проверяет UUID и комментарий, затем идемпотентно назначает бригаду. Хранилище использует транзакционную блокировку по бригаде и не допускает одновременно две заявки `ASSIGNED`/`IN_PROGRESS` для одной бригады; состояние заявки становится `ASSIGNED`.
 
-### `TicketServiceStruct.CancelTicket`
+
+### func (*TicketServiceStruct) [CancelTicket](https://github.com/FIZZI-77/automatic_system/blob/test/Ticket_Service/src/core/service/ticket_service.go#L370)
+
+```go
+func (s *TicketServiceStruct) CancelTicket(ctx context.Context, in *models.CancelTicketInput) (*models.CancelTicketResult, error)
+```
+
+Типы: [CancelTicketInput](#type-cancelticketinput), [CancelTicketResult](#type-cancelticketresult), [TicketServiceStruct](#type-ticketservicestruct).
 
 Загружает заявку после проверки входа. Непривилегированный пользователь может отменить только собственную заявку. В транзакции проверяется допустимость перехода, устанавливается `CANCELED`, сохраняются время, причина в истории и событие `ticket.canceled`.
 
-### `TicketServiceStruct.CompleteTicket`
+
+### func (*TicketServiceStruct) [CompleteTicket](https://github.com/FIZZI-77/automatic_system/blob/test/Ticket_Service/src/core/service/ticket_service.go#L427)
+
+```go
+func (s *TicketServiceStruct) CompleteTicket(ctx context.Context, in *models.CompleteTicketInput) (*models.CompleteTicketResult, error)
+```
+
+Типы: [CompleteTicketInput](#type-completeticketinput), [CompleteTicketResult](#type-completeticketresult), [TicketServiceStruct](#type-ticketservicestruct).
 
 Привилегированная роль может завершить заявку напрямую. Иначе исполнитель должен иметь роль `worker` и принадлежать назначенной бригаде. Идемпотентная операция переводит заявку из `IN_PROGRESS` в `DONE`, устанавливает время, добавляет историю и событие `ticket.completed`.
 
-### `TicketServiceStruct.GetTicketStatusHistory`
+
+### func (*TicketServiceStruct) [GetTicketStatusHistory](https://github.com/FIZZI-77/automatic_system/blob/test/Ticket_Service/src/core/service/ticket_service.go#L488)
+
+```go
+func (s *TicketServiceStruct) GetTicketStatusHistory(ctx context.Context, in *models.GetTicketStatusHistoryInput) (*models.GetTicketStatusHistoryResult, error)
+```
+
+Типы: [GetTicketStatusHistoryInput](#type-getticketstatushistoryinput), [GetTicketStatusHistoryResult](#type-getticketstatushistoryresult), [TicketServiceStruct](#type-ticketservicestruct).
 
 Проверяет заявку и параметры страницы, загружает заявку для проверки доступа, затем возвращает историю в прямом хронологическом порядке и полное количество записей.
 
-### `hasRole`, `hasPrivilegedRole`, `canReadTicket`
 
-`hasRole` ищет точное значение роли. `hasPrivilegedRole` распознает `admin` и `dispatcher`. `canReadTicket` разрешает чтение привилегированным ролям, владельцу заявки и работнику той бригады, которая назначена на заявку.
+### func (*CategoryServiceStruct) [CreateCategory](https://github.com/FIZZI-77/automatic_system/blob/test/Ticket_Service/src/core/service/category_service.go#L28)
 
-### `CategoryServiceStruct.CreateCategory`
+```go
+func (s *CategoryServiceStruct) CreateCategory(ctx context.Context, in *models.CreateCategoryInput) (*models.CreateCategoryResult, error)
+```
+
+Типы: [CategoryServiceStruct](#type-categoryservicestruct), [CreateCategoryInput](#type-createcategoryinput), [CreateCategoryResult](#type-createcategoryresult).
 
 Проверяет код, название и описание, требует привилегированную роль и идемпотентно создает категорию. Код содержит только строчные латинские буквы, цифры, `_` или `-`.
 
-### `CategoryServiceStruct.GetCategory`
+
+### func (*CategoryServiceStruct) [GetCategory](https://github.com/FIZZI-77/automatic_system/blob/test/Ticket_Service/src/core/service/category_service.go#L80)
+
+```go
+func (s *CategoryServiceStruct) GetCategory(ctx context.Context, in *models.GetCategoryInput) (*models.GetCategoryResult, error)
+```
+
+Типы: [CategoryServiceStruct](#type-categoryservicestruct), [GetCategoryInput](#type-getcategoryinput), [GetCategoryResult](#type-getcategoryresult).
 
 Проверяет `CategoryID`, загружает категорию и возвращает ее. Дополнительного ограничения по роли нет.
 
-### `CategoryServiceStruct.ListCategories`
+
+### func (*CategoryServiceStruct) [ListCategories](https://github.com/FIZZI-77/automatic_system/blob/test/Ticket_Service/src/core/service/category_service.go#L118)
+
+```go
+func (s *CategoryServiceStruct) ListCategories(ctx context.Context, in *models.ListCategoriesInput) (*models.ListCategoriesResult, error)
+```
+
+Типы: [CategoryServiceStruct](#type-categoryservicestruct), [ListCategoriesInput](#type-listcategoriesinput), [ListCategoriesResult](#type-listcategoriesresult).
 
 Нормализует страницу, при необходимости оставляет только активные категории и возвращает список с общим количеством.
 
-### `CategoryServiceStruct.UpdateCategory`
+
+### func (*CategoryServiceStruct) [UpdateCategory](https://github.com/FIZZI-77/automatic_system/blob/test/Ticket_Service/src/core/service/category_service.go#L157)
+
+```go
+func (s *CategoryServiceStruct) UpdateCategory(ctx context.Context, in *models.UpdateCategoryInput) (*models.UpdateCategoryResult, error)
+```
+
+Типы: [CategoryServiceStruct](#type-categoryservicestruct), [UpdateCategoryInput](#type-updatecategoryinput), [UpdateCategoryResult](#type-updatecategoryresult).
 
 Требует хотя бы одно из полей `Name`, `Description`, `IsActive`, проверяет значения и привилегированную роль. Изменение выполняется идемпотентно.
 
-### `CategoryServiceStruct.DeleteCategory`
+
+### func (*CategoryServiceStruct) [DeleteCategory](https://github.com/FIZZI-77/automatic_system/blob/test/Ticket_Service/src/core/service/category_service.go#L215)
+
+```go
+func (s *CategoryServiceStruct) DeleteCategory(ctx context.Context, in *models.DeleteCategoryInput) (*models.DeleteCategoryResult, error)
+```
+
+Типы: [CategoryServiceStruct](#type-categoryservicestruct), [DeleteCategoryInput](#type-deletecategoryinput), [DeleteCategoryResult](#type-deletecategoryresult).
 
 Проверяет UUID и привилегированную роль, затем идемпотентно вызывает удаление. Хранилище возвращает удаленную категорию или ошибку, если операция невозможна.
 
-### `ReportService.Create`
+
+### func (*ReportService) [Create](https://github.com/FIZZI-77/automatic_system/blob/test/Ticket_Service/src/core/service/report_service.go#L21)
+
+```go
+func (s *ReportService) Create(ctx context.Context, in *models.CreateWorkReportInput) (*models.WorkReport, error)
+```
+
+Типы: [CreateWorkReportInput](#type-createworkreportinput), [ReportService](#type-reportservice), [WorkReport](#type-workreport).
 
 1. Убирает пробелы по краям описания, проверяет длину, UUID и до 20 уникальных файлов.
 2. Загружает заявку и разрешает отчет только для `ASSIGNED` или `IN_PROGRESS`.
@@ -268,29 +470,41 @@ sequenceDiagram
 5. Обычный отчет создает событие `ticket.report.created`.
 6. При наличии `Completion` отчет получает состояние `PENDING`, срок десять минут и событие `ticket.completion_report.requested.v1` со снимком заявки и бригады.
 
-### `ReportService.List`
+
+### func (*ReportService) [List](https://github.com/FIZZI-77/automatic_system/blob/test/Ticket_Service/src/core/service/report_service.go#L27)
+
+```go
+func (s *ReportService) List(ctx context.Context, ticketID, actor uuid.UUID, actorBrigadeID *uuid.UUID, roles []string) ([]*models.WorkReport, error)
+```
+
+Типы: [ReportService](#type-reportservice), [WorkReport](#type-workreport).
 
 Загружает заявку, проверяет доступ через `canReadTicket` и возвращает отчеты в порядке от новых к старым вместе с идентификаторами файлов.
 
-### `withIdempotency`
 
-Если ключа в контексте нет, немедленно выполняет функцию. Иначе сериализует запрос, вычисляет SHA-256 и пытается получить запись на 24 часа. Новый ключ выполняет функцию в транзакции. Для существующего ключа проверяет совпадение хеша и в зависимости от состояния возвращает сохраненный ответ, `ErrIdempotencyInProgress` или `ErrIdempotencyFailed`.
+### func (*TicketServiceStruct) [withIdempotency](https://github.com/FIZZI-77/automatic_system/blob/test/Ticket_Service/src/core/service/idempotency.go#L63)
 
-### `TicketServiceStruct.withIdempotency`, `CategoryServiceStruct.withIdempotency`
+```go
+func (s *TicketServiceStruct) withIdempotency(ctx context.Context, operation string, actorKey string, request any, fn func(context.Context) (any, uuid.UUID, error)) (any, error)
+```
+
+Типы: [TicketServiceStruct](#type-ticketservicestruct).
 
 Передают общее хранилище и параметры в `withIdempotency`.
 
-### `cachedResult`
 
-Возвращает указатель непосредственно, если тип уже совпадает. Сохраненный ответ вида `map[string]any` преобразует в требуемый тип через JSON.
+### func (*CategoryServiceStruct) [withIdempotency](https://github.com/FIZZI-77/automatic_system/blob/test/Ticket_Service/src/core/service/idempotency.go#L67)
 
-### `hashRequest`
+```go
+func (s *CategoryServiceStruct) withIdempotency(ctx context.Context, operation string, actorKey string, request any, fn func(context.Context) (any, uuid.UUID, error)) (any, error)
+```
 
-Сериализует запрос в JSON и возвращает шестнадцатеричную строку SHA-256. Ошибка сериализации оборачивается контекстом операции.
+Типы: [CategoryServiceStruct](#type-categoryservicestruct).
 
-### `idempotencyActor`
+Передают общее хранилище и параметры в `withIdempotency`.
 
-Возвращает переданный идентификатор исполнителя, затем запасной UUID, а при отсутствии обоих — пустую строку.
+
+## Группы обработчиков
 
 ### Проверки входных данных
 
@@ -433,3 +647,423 @@ sequenceDiagram
 |---|---|---|
 | `event_id` | `uuid` | Первичный ключ уже обработанного события итогового отчета. |
 | `received_at` | `timestamptz` | Время получения события. |
+
+## Структуры параметров и результатов
+
+### type AssignBrigadeInput
+
+```go
+type AssignBrigadeInput struct {
+	TicketID   uuid.UUID
+	BrigadeID  uuid.UUID
+	AssignedBy uuid.UUID
+	Comment    *string
+	ActorRoles []string
+}
+```
+
+### type AssignBrigadeResult
+
+```go
+type AssignBrigadeResult struct {
+	Ticket *Ticket
+}
+```
+
+### type CancelTicketInput
+
+```go
+type CancelTicketInput struct {
+	TicketID   uuid.UUID
+	CanceledBy uuid.UUID
+	Reason     string
+	ActorRoles []string
+}
+```
+
+### type CancelTicketResult
+
+```go
+type CancelTicketResult struct {
+	Ticket *Ticket
+}
+```
+
+### type CategoryServiceStruct
+
+```go
+type CategoryServiceStruct struct {
+	repo   *repository.Repository
+	logger *zap.Logger
+}
+```
+
+### type ChangeTicketStatusInput
+
+```go
+type ChangeTicketStatusInput struct {
+	TicketID       uuid.UUID
+	NewStatus      TicketStatus
+	ChangedBy      uuid.UUID
+	Comment        *string
+	ActorBrigadeID *uuid.UUID
+	ActorRoles     []string
+}
+```
+
+### type ChangeTicketStatusResult
+
+```go
+type ChangeTicketStatusResult struct {
+	Ticket *Ticket
+}
+```
+
+### type CompleteTicketInput
+
+```go
+type CompleteTicketInput struct {
+	TicketID       uuid.UUID
+	CompletedBy    uuid.UUID
+	Comment        *string
+	ActorBrigadeID *uuid.UUID
+	ActorRoles     []string
+}
+```
+
+### type CompleteTicketResult
+
+```go
+type CompleteTicketResult struct {
+	Ticket *Ticket
+}
+```
+
+### type CreateCategoryInput
+
+```go
+type CreateCategoryInput struct {
+	Code        string
+	Name        string
+	Description *string
+	ActorRoles  []string
+}
+```
+
+### type CreateCategoryResult
+
+```go
+type CreateCategoryResult struct {
+	Category *TicketCategory
+}
+```
+
+### type CreateTicketInput
+
+```go
+type CreateTicketInput struct {
+	DepartmentID uuid.UUID
+	CategoryID   uuid.UUID
+	UserID       uuid.UUID
+
+	Title       string
+	Description string
+	Priority    TicketPriority
+
+	Address   string
+	Latitude  float64
+	Longitude float64
+	AssetID   *uuid.UUID
+
+	ActorUserID *uuid.UUID
+	ActorRoles  []string
+}
+```
+
+### type CreateTicketResult
+
+```go
+type CreateTicketResult struct {
+	Ticket *Ticket
+}
+```
+
+### type CreateWorkReportInput
+
+```go
+type CreateWorkReportInput struct {
+	TicketID       uuid.UUID
+	AuthorUserID   uuid.UUID
+	Description    string
+	FileIDs        []uuid.UUID
+	ActorBrigadeID *uuid.UUID
+	ActorRoles     []string
+	IdempotencyKey string
+	Completion     *CompletionReportInput
+}
+```
+
+### type DeleteCategoryInput
+
+```go
+type DeleteCategoryInput struct {
+	CategoryID uuid.UUID
+	ActorRoles []string
+}
+```
+
+### type DeleteCategoryResult
+
+```go
+type DeleteCategoryResult struct {
+	Category *TicketCategory
+}
+```
+
+### type GetCategoryInput
+
+```go
+type GetCategoryInput struct {
+	CategoryID uuid.UUID
+}
+```
+
+### type GetCategoryResult
+
+```go
+type GetCategoryResult struct {
+	Category *TicketCategory
+}
+```
+
+### type GetTicketInput
+
+```go
+type GetTicketInput struct {
+	TicketID       uuid.UUID
+	ActorUserID    *uuid.UUID
+	ActorBrigadeID *uuid.UUID
+	ActorRoles     []string
+}
+```
+
+### type GetTicketResult
+
+```go
+type GetTicketResult struct {
+	Ticket *Ticket
+}
+```
+
+### type GetTicketStatusHistoryInput
+
+```go
+type GetTicketStatusHistoryInput struct {
+	TicketID       uuid.UUID
+	Limit          int32
+	Offset         int32
+	ActorUserID    *uuid.UUID
+	ActorBrigadeID *uuid.UUID
+	ActorRoles     []string
+}
+```
+
+### type GetTicketStatusHistoryResult
+
+```go
+type GetTicketStatusHistoryResult struct {
+	History []*TicketStatusHistory
+	Total   int64
+}
+```
+
+### type ListCategoriesInput
+
+```go
+type ListCategoriesInput struct {
+	OnlyActive bool
+	Limit      int32
+	Offset     int32
+}
+```
+
+### type ListCategoriesResult
+
+```go
+type ListCategoriesResult struct {
+	Categories []*TicketCategory
+	Total      int64
+}
+```
+
+### type ListTicketsInput
+
+```go
+type ListTicketsInput struct {
+	DepartmentID *uuid.UUID
+	UserID       *uuid.UUID
+	BrigadeID    *uuid.UUID
+	CategoryID   *uuid.UUID
+
+	Status   *TicketStatus
+	Priority *TicketPriority
+
+	CreatedFrom *time.Time
+	CreatedTo   *time.Time
+
+	SortBy    TicketSortBy
+	SortOrder SortOrder
+
+	Limit  int32
+	Offset int32
+
+	ActorUserID    *uuid.UUID
+	ActorBrigadeID *uuid.UUID
+	ActorRoles     []string
+}
+```
+
+### type ListTicketsResult
+
+```go
+type ListTicketsResult struct {
+	Tickets []*Ticket
+	Total   int64
+}
+```
+
+### type ReportService
+
+```go
+type ReportService struct {
+	tickets repository.TicketRepository
+	reports *repository.ReportRepository
+}
+```
+
+### type Repository
+
+```go
+type Repository struct {
+	writePool *pgxpool.Pool
+	readPool  *pgxpool.Pool
+	TicketRepository
+	CategoryRepository
+}
+```
+
+### type Service
+
+```go
+type Service struct {
+	TicketService
+	CategoryService
+	Reports *ReportService
+}
+```
+
+### type Ticket
+
+```go
+type Ticket struct {
+	ID           uuid.UUID `json:"id"`
+	DepartmentID uuid.UUID `json:"department_id"`
+	CategoryID   uuid.UUID `json:"category_id"`
+
+	UserID    uuid.UUID  `json:"user_id"`
+	BrigadeID *uuid.UUID `json:"brigade_id,omitempty"`
+	AssetID   *uuid.UUID `json:"asset_id,omitempty"`
+
+	Title       string         `json:"title"`
+	Description string         `json:"description"`
+	Status      TicketStatus   `json:"status"`
+	Priority    TicketPriority `json:"priority"`
+
+	Address   string  `json:"address"`
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	AssignedAt  *time.Time `json:"assigned_at,omitempty"`
+	CompletedAt *time.Time `json:"completed_at,omitempty"`
+	CanceledAt  *time.Time `json:"canceled_at,omitempty"`
+}
+```
+
+### type TicketServiceStruct
+
+```go
+type TicketServiceStruct struct {
+	repo   *repository.Repository
+	logger *zap.Logger
+}
+```
+
+### type UpdateCategoryInput
+
+```go
+type UpdateCategoryInput struct {
+	CategoryID uuid.UUID
+
+	Name        *string
+	Description *string
+	IsActive    *bool
+	ActorRoles  []string
+}
+```
+
+### type UpdateCategoryResult
+
+```go
+type UpdateCategoryResult struct {
+	Category *TicketCategory
+}
+```
+
+### type UpdateTicketInput
+
+```go
+type UpdateTicketInput struct {
+	TicketID uuid.UUID
+
+	Title       *string
+	Description *string
+	CategoryID  *uuid.UUID
+	Priority    *TicketPriority
+
+	Address   *string
+	Latitude  *float64
+	Longitude *float64
+	AssetID   *uuid.UUID
+
+	UpdatedBy      *uuid.UUID
+	ActorBrigadeID *uuid.UUID
+	ActorRoles     []string
+}
+```
+
+### type UpdateTicketResult
+
+```go
+type UpdateTicketResult struct {
+	Ticket *Ticket
+}
+```
+
+### type WorkReport
+
+```go
+type WorkReport struct {
+	ID               uuid.UUID   `json:"id"`
+	TicketID         uuid.UUID   `json:"ticket_id"`
+	AuthorUserID     uuid.UUID   `json:"author_user_id"`
+	Description      string      `json:"description"`
+	FileIDs          []uuid.UUID `json:"file_ids"`
+	CreatedAt        time.Time   `json:"created_at"`
+	UpdatedAt        time.Time   `json:"updated_at"`
+	CompletionStatus string      `json:"completion_status"`
+	CompletionFileID *uuid.UUID  `json:"completion_file_id,omitempty"`
+	CompletionError  string      `json:"completion_error,omitempty"`
+}
+```

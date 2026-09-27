@@ -43,6 +43,14 @@ coverage.html
 .codex-protoc/
 .codex-test-results/
 .contract-staging/
+/test-results/
+/load-tests/results/
+/load-tests/reports/*
+!/load-tests/reports/.gitkeep
+/load-tests/result.txt
+/*-patch.json
+/kafka-exporter-probes.json
+/helm-applications-v*-backup.yaml
 
 # Generated output
 output/

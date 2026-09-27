@@ -23,7 +23,7 @@ metadata:
   name: frontend
   namespace: {{ .Release.Namespace }}
 spec:
-  replicas: {{ (index .Values.applications "frontend").replicaCount }}
+  replicas: {{ include "applications.replicas" (dict "root" $ "deployment" "frontend" "replicaCount" (index .Values.applications "frontend").replicaCount) }}
   selector:
     matchLabels:
       app: frontend

@@ -57,70 +57,127 @@ UUID.
 
 ## Функции
 
-### `NewDepartmentServiceStruct`
+Имя функции открывает её реализацию в ветке `test`; структуры параметров и результатов описаны в конце README.
 
-Создает реализацию с общим репозиторием и журналом. Значения не проверяет.
+### func [NewDepartmentServiceStruct](https://github.com/FIZZI-77/automatic_system/blob/test/Department_Service/src/core/service/department_service.go#L21)
 
-### `CreateDepartment`
+```go
+func NewDepartmentServiceStruct(repo *repository.Repository, logger *zap.Logger) *DepartmentServiceStruct
+```
 
-1. Проверяет входную модель.
-2. Требует роль `admin` или `dispatcher`.
-3. Запускает `CreateDepartment` репозитория внутри `withIdempotency`.
-4. Сохраняет идентификатор результата для записи идемпотентности.
-5. Приводит как новый, так и восстановленный из JSON результат к
-   `CreateDepartmentResult`.
-6. Записывает идентификатор, имя и длительность в журнал.
+Типы: [DepartmentServiceStruct](#type-departmentservicestruct), [Repository](#type-repository).
 
-### `GetDepartmentByID`
+Создаёт сервис с переданными репозиторием и журналом. Конструктор не проверяет `nil` и не открывает соединений; фактические вызовы методов требуют готовых зависимостей. `NewService` ниже создаёт `zap.NewNop()` при отсутствии журнала.
 
-Проверяет ненулевой UUID, загружает подразделение, оборачивает ошибку контекстом
-метода и возвращает `GetDepartmentByIDResult`.
+### func (*DepartmentServiceStruct) [CreateDepartment](https://github.com/FIZZI-77/automatic_system/blob/test/Department_Service/src/core/service/department_service.go#L25)
 
-### `ListDepartments`
+```go
+func (s *DepartmentServiceStruct) CreateDepartment(ctx context.Context, in *models.CreateDepartmentInput) (*models.CreateDepartmentResult, error)
+```
 
-Проверяет и одновременно нормализует фильтр, передает его репозиторию и
-возвращает страницу и общий счетчик. В журнале фиксируются количество и
-длительность.
+Типы: [CreateDepartmentInput](#type-createdepartmentinput), [CreateDepartmentResult](#type-createdepartmentresult), [DepartmentServiceStruct](#type-departmentservicestruct).
 
-### `UpdateDepartment`
+Вход: [CreateDepartmentInput](#type-createdepartmentinput). Результат: [CreateDepartmentResult](#type-createdepartmentresult) → [Department](#type-department).
 
-Проверяет вход, право и наличие хотя бы одного нового значения. Изменение
-выполняется через общий механизм идемпотентности. Возвращает полную запись после
-обновления.
+Создаёт запись подразделения. Сначала добавляет `request_id` из контекста к журналу и проверяет вход: название непустое и не длиннее 255 байт, описание пустое либо не длиннее 1000 байт. Затем проверяет точное наличие роли `admin` или `dispatcher`. Ошибки этих двух проверок возвращаются как `ErrValidation` и `ErrPermissionDenied` до обращения к БД.
 
-### `DeleteDepartment`
+Операция передаётся в `withIdempotency` с именем `CreateDepartment` и пустым `actorKey`. Репозиторий вставляет запись и outbox-событие в транзакции; уникальность `name` обеспечивает БД. При повторе с тем же ключом и содержимым сервис восстанавливает результат из JSON через `cachedResult`. Ошибки оборачиваются контекстом метода; успешный ответ содержит полную `Department`. Журнал фиксирует ID, имя и длительность.
 
-Проверяет UUID и право, затем выполняет репозиторную операцию через
-идемпотентную транзакцию. Метод возвращает состояние записи после операции; по
-коду прикладного слоя физическое удаление не предполагается и определяется
-репозиторием.
+### func (*DepartmentServiceStruct) [GetDepartmentByID](https://github.com/FIZZI-77/automatic_system/blob/test/Department_Service/src/core/service/department_service.go#L79)
 
-### `hasPrivilegedRole`
+```go
+func (s *DepartmentServiceStruct) GetDepartmentByID(ctx context.Context, in *models.GetDepartmentByIDInput) (*models.GetDepartmentByIDResult, error)
+```
 
-Последовательно просматривает роли и возвращает `true` только для точного
-значения `admin` или `dispatcher`.
+Типы: [DepartmentServiceStruct](#type-departmentservicestruct), [GetDepartmentByIDInput](#type-getdepartmentbyidinput), [GetDepartmentByIDResult](#type-getdepartmentbyidresult).
 
-### `withIdempotency`
+Вход: [GetDepartmentByIDInput](#type-getdepartmentbyidinput). Результат: [GetDepartmentByIDResult](#type-getdepartmentbyidresult) → [Department](#type-department).
 
-Без ключа сразу выполняет переданную функцию. С ключом вычисляет хеш JSON и
-вызывает `RunIdempotentTx` со сроком 24 часа. Для существующей записи сверяет
-хеш: `COMPLETED` возвращает сохраненный ответ, `PROCESSING` дает
-`ErrIdempotencyInProgress`, `FAILED` — `ErrIdempotencyFailed`, другой
-запрос с тем же ключом — `ErrIdempotencyConflict`.
+Проверяет, что UUID не нулевой, затем вызывает чтение репозитория по ID. Возвращает найденную запись без проверки привилегированной роли и без идемпотентности, поскольку метод не меняет состояние. Ошибка репозитория сохраняется через `%w`, поэтому вызывающий код может распознать `NotFound`; журнал содержит ID и длительность.
 
-### `cachedResult`
+### func (*DepartmentServiceStruct) [ListDepartments](https://github.com/FIZZI-77/automatic_system/blob/test/Department_Service/src/core/service/department_service.go#L115)
 
-Возвращает указатель нужного типа напрямую либо преобразует восстановленный
-универсальный JSON-объект через сериализацию и разбор.
+```go
+func (s *DepartmentServiceStruct) ListDepartments(ctx context.Context, in *models.ListDepartmentsInput) (*models.ListDepartmentsResult, error)
+```
 
-### `hashRequest`
+Типы: [DepartmentServiceStruct](#type-departmentservicestruct), [ListDepartmentsInput](#type-listdepartmentsinput), [ListDepartmentsResult](#type-listdepartmentsresult).
 
-Сериализует запрос, вычисляет `SHA-256` и возвращает шестнадцатеричный хеш.
+Вход: [ListDepartmentsInput](#type-listdepartmentsinput). Результат: [ListDepartmentsResult](#type-listdepartmentsresult) → [Department](#type-department).
 
-### `NewService`
+`Validate` проверяет фильтр `Status`, границы периода создания и сортировку; выставляет `created_at desc`, если порядок не задан, нормализует `Limit` до 20 по умолчанию и до 100 максимум, отрицательный `Offset` заменяет на 0. Репозиторий выполняет выборку страницы и подсчёт `Total`. Возвращаются массив `Departments` и общее число записей независимо от размера страницы; журнал фиксирует число записей и длительность.
+
+### func (*DepartmentServiceStruct) [UpdateDepartment](https://github.com/FIZZI-77/automatic_system/blob/test/Department_Service/src/core/service/department_service.go#L150)
+
+```go
+func (s *DepartmentServiceStruct) UpdateDepartment(ctx context.Context, in *models.UpdateDepartmentInput) (*models.UpdateDepartmentResult, error)
+```
+
+Типы: [DepartmentServiceStruct](#type-departmentservicestruct), [UpdateDepartmentInput](#type-updatedepartmentinput), [UpdateDepartmentResult](#type-updatedepartmentresult).
+
+Вход: [UpdateDepartmentInput](#type-updatedepartmentinput). Результат: [UpdateDepartmentResult](#type-updatedepartmentresult) → [Department](#type-department).
+
+Проверяет ненулевой ID, корректность переданных `Name`, `Description`, `Status` и наличие хотя бы одного изменяемого поля. После проверки роли `admin` или `dispatcher` вызывает репозиторий внутри механизма идемпотентности. Репозиторий меняет только переданные поля, обновляет `updated_at`, возвращает запись и сохраняет outbox-событие в той же транзакции. Повтор завершённой операции восстанавливает полный ответ; ошибки оборачиваются, в журнал попадают ID, итоговый статус и длительность.
+
+### func (*DepartmentServiceStruct) [DeleteDepartment](https://github.com/FIZZI-77/automatic_system/blob/test/Department_Service/src/core/service/department_service.go#L204)
+
+```go
+func (s *DepartmentServiceStruct) DeleteDepartment(ctx context.Context, in *models.DeleteDepartmentInput) (*models.DeleteDepartmentResult, error)
+```
+
+Типы: [DeleteDepartmentInput](#type-deletedepartmentinput), [DeleteDepartmentResult](#type-deletedepartmentresult), [DepartmentServiceStruct](#type-departmentservicestruct).
+
+Вход: [DeleteDepartmentInput](#type-deletedepartmentinput). Результат: [DeleteDepartmentResult](#type-deletedepartmentresult) → [Department](#type-department).
+
+Проверяет ненулевой ID и роль `admin` или `dispatcher`, после чего выполняет операцию через `withIdempotency`. В репозитории это `UPDATE departments SET status = ARCHIVED, updated_at = now() WHERE id = ... RETURNING ...`, а затем запись `department.archived` в outbox той же транзакции. Метод возвращает архивированную запись; строка физически остаётся в БД. Повтор с тем же ключом возвращает сохранённый результат.
+
+### func [hasPrivilegedRole](https://github.com/FIZZI-77/automatic_system/blob/test/Department_Service/src/core/service/department_service.go#L258)
+
+```go
+func hasPrivilegedRole(roles []string) bool
+```
+
+Последовательно проверяет элементы среза на точное совпадение с `admin` или `dispatcher`. Возвращает `true` при первом совпадении, иначе `false`; регистр и пробелы не нормализует.
+
+### func (*DepartmentServiceStruct) [withIdempotency](https://github.com/FIZZI-77/automatic_system/blob/test/Department_Service/src/core/service/idempotency.go#L19)
+
+```go
+func (s *DepartmentServiceStruct) withIdempotency(ctx context.Context, operation string, actorKey string, request any, fn func(context.Context) (any, uuid.UUID, error)) (any, error)
+```
+
+Типы: [DepartmentServiceStruct](#type-departmentservicestruct).
+
+Извлекает ключ из контекста. Если ключа нет, вызывает `fn` непосредственно. Иначе сериализует запрос в JSON, считает SHA-256 и передаёт ключ, хеш, имя операции и срок 24 часа в `RunIdempotentTx`. При новом ключе функция выполняется внутри транзакции, в которой репозиторий сохраняет доменное изменение, outbox и результат идемпотентности.
+
+Если ключ уже занят, сначала сравнивается `RequestHash`. Другой запрос с тем же ключом даёт `ErrIdempotencyConflict`; `COMPLETED` декодирует сохранённый JSON-ответ; `PROCESSING` и `FAILED` возвращают соответствующие ошибки. Неизвестный статус и сбой декодирования не маскируются успешным ответом. В текущих вызовах `actorKey` — пустая строка.
+
+### func [cachedResult](https://github.com/FIZZI-77/automatic_system/blob/test/Department_Service/src/core/service/idempotency.go#L63)
+
+```go
+func cachedResult[T any](result any) (*T, error)
+```
+
+Возвращает уже типизированный указатель напрямую. Сохранённый ответ, декодированный как универсальный JSON-объект, сериализует и декодирует в `T`, чтобы новые и повторные вызовы имели одинаковый тип результата. Ошибку преобразования возвращает вызывающему методу.
+
+### func [hashRequest](https://github.com/FIZZI-77/automatic_system/blob/test/Department_Service/src/core/service/idempotency.go#L81)
+
+```go
+func hashRequest(request any) (string, error)
+```
+
+Сериализует входной запрос через `json.Marshal`, считает SHA-256 полученных байтов и выдаёт хеш в шестнадцатеричном виде. Невозможность сериализации возвращает как ошибку идемпотентности, не вызывая предметную операцию.
+
+### func [NewService](https://github.com/FIZZI-77/automatic_system/blob/test/Department_Service/src/core/service/service.go#L24)
+
+```go
+func NewService(repo *repository.Repository, logger *zap.Logger) *Service
+```
+
+Типы: [Repository](#type-repository), [Service](#type-service).
 
 Подставляет `zap.NewNop()` вместо отсутствующего журнала и создает оболочку
 `Service` с `DepartmentServiceStruct`.
+
 
 ## Структура БД
 
@@ -174,3 +231,139 @@ UUID.
 
 Сочетание `actor_key`, `operation`, `idempotency_key` уникально; индексы
 созданы по сроку и состоянию.
+
+## Структуры параметров и результатов
+
+### type CreateDepartmentInput
+
+```go
+type CreateDepartmentInput struct {
+	Name        string
+	Description string
+	ActorRoles  []string
+}
+```
+
+### type CreateDepartmentResult
+
+```go
+type CreateDepartmentResult struct {
+	Department *Department
+}
+```
+
+### type DeleteDepartmentInput
+
+```go
+type DeleteDepartmentInput struct {
+	ID         uuid.UUID
+	ActorRoles []string
+}
+```
+
+### type DeleteDepartmentResult
+
+```go
+type DeleteDepartmentResult struct {
+	Department *Department
+}
+```
+
+### type Department
+
+```go
+type Department struct {
+	ID          uuid.UUID
+	Name        string
+	Description string
+	Status      DepartmentStatus
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+```
+
+### type DepartmentServiceStruct
+
+```go
+type DepartmentServiceStruct struct {
+	repo   *repository.Repository
+	logger *zap.Logger
+}
+```
+
+### type GetDepartmentByIDInput
+
+```go
+type GetDepartmentByIDInput struct {
+	ID uuid.UUID
+}
+```
+
+### type GetDepartmentByIDResult
+
+```go
+type GetDepartmentByIDResult struct {
+	Department *Department
+}
+```
+
+### type ListDepartmentsInput
+
+```go
+type ListDepartmentsInput struct {
+	Status      *DepartmentStatus
+	CreatedFrom *time.Time
+	CreatedTo   *time.Time
+	SortBy      DepartmentSortBy
+	SortOrder   SortOrder
+	Limit       int32
+	Offset      int32
+}
+```
+
+### type ListDepartmentsResult
+
+```go
+type ListDepartmentsResult struct {
+	Departments []*Department
+	Total       int64
+}
+```
+
+### type Repository
+
+```go
+type Repository struct {
+	writePool *pgxpool.Pool
+	readPool  *pgxpool.Pool
+	DepartmentRepository
+}
+```
+
+### type Service
+
+```go
+type Service struct {
+	DepartmentService
+}
+```
+
+### type UpdateDepartmentInput
+
+```go
+type UpdateDepartmentInput struct {
+	ID          uuid.UUID
+	Name        *string
+	Description *string
+	Status      *DepartmentStatus
+	ActorRoles  []string
+}
+```
+
+### type UpdateDepartmentResult
+
+```go
+type UpdateDepartmentResult struct {
+	Department *Department
+}
+```

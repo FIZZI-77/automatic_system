@@ -96,6 +96,29 @@ func generate(root string) ([]byte, error) {
 	}
 
 	methods := make(map[string]*ast.FuncDecl)
+	handlerTypes := make(map[string]string)
+	for _, decl := range router.Decls {
+		gen, ok := decl.(*ast.GenDecl)
+		if !ok || gen.Tok != token.TYPE {
+			continue
+		}
+		for _, spec := range gen.Specs {
+			typ := spec.(*ast.TypeSpec)
+			if typ.Name.Name != "Handler" {
+				continue
+			}
+			fields := typ.Type.(*ast.StructType).Fields.List
+			for _, field := range fields {
+				fieldType := field.Type
+				if pointer, ok := fieldType.(*ast.StarExpr); ok {
+					fieldType = pointer.X
+				}
+				for _, name := range field.Names {
+					handlerTypes[name.Name] = identifier(fieldType)
+				}
+			}
+		}
+	}
 	for _, file := range handlers["handlers"].Files {
 		for _, decl := range file.Decls {
 			fn, ok := decl.(*ast.FuncDecl)
@@ -193,7 +216,7 @@ func generate(root string) ([]byte, error) {
 			if handler, ok := n.Args[1].(*ast.SelectorExpr); ok {
 				op.Summary = handler.Sel.Name
 				op.OperationID = group.Name + "." + handler.Sel.Name
-				if fn := methods[routeHandlerName(handler.X)+"."+handler.Sel.Name]; fn != nil {
+				if fn := methods[routeHandlerName(handler.X, handlerTypes)+"."+handler.Sel.Name]; fn != nil {
 					fillOperation(&op, fn)
 				}
 			} else {
@@ -339,25 +362,25 @@ func schema(expr ast.Expr) any {
 		}
 	case *ast.SelectorExpr:
 		if identifier(n.X) == "time" && n.Sel.Name == "Time" {
-			return map[string]string{
+			return map[string]any{
 				"type":   "string",
 				"format": "date-time",
 			}
 		}
 
-		return map[string]string{"type": "object"}
+		return map[string]any{"type": "object"}
 	case *ast.Ident:
 		switch n.Name {
 		case "string":
-			return map[string]string{"type": "string"}
+			return map[string]any{"type": "string"}
 		case "bool":
-			return map[string]string{"type": "boolean"}
+			return map[string]any{"type": "boolean"}
 		case "float32", "float64":
-			return map[string]string{"type": "number"}
+			return map[string]any{"type": "number"}
 		case "int", "int32", "int64", "uint", "uint32", "uint64":
-			return map[string]string{"type": "integer"}
+			return map[string]any{"type": "integer"}
 		case "any":
-			return map[string]string{}
+			return map[string]any{}
 		default:
 			return ref(n.Name)
 		}
@@ -378,8 +401,8 @@ func schema(expr ast.Expr) any {
 				continue
 			}
 
-			properties[jsonName] = schema(field.Type)
 			binding := reflect.StructTag(tag).Get("binding")
+			properties[jsonName] = fieldSchema(field.Type, binding)
 
 			for _, rule := range strings.Split(binding, ",") {
 				if rule == "required" {
@@ -400,12 +423,12 @@ func schema(expr ast.Expr) any {
 
 		return result
 	default:
-		return map[string]string{}
+		return map[string]any{}
 	}
 }
 
-func ref(name string) map[string]string {
-	return map[string]string{"$ref": "#/components/schemas/" + name}
+func ref(name string) map[string]any {
+	return map[string]any{"$ref": "#/components/schemas/" + name}
 }
 
 func modelName(expr ast.Expr) string {
@@ -426,12 +449,77 @@ func receiverName(fn *ast.FuncDecl) string {
 	return identifier(typ)
 }
 
-func routeHandlerName(expr ast.Expr) string {
+func routeHandlerName(expr ast.Expr, handlerTypes map[string]string) string {
 	field, ok := expr.(*ast.SelectorExpr)
 	if !ok || identifier(field.X) != "h" || field.Sel.Name == "" {
 		return ""
 	}
-	return strings.ToUpper(field.Sel.Name[:1]) + field.Sel.Name[1:]
+	return handlerTypes[field.Sel.Name]
+}
+
+func fieldSchema(typ ast.Expr, binding string) map[string]any {
+	result := make(map[string]any)
+	for key, value := range schema(typ).(map[string]any) {
+		result[key] = value
+	}
+
+	current := result
+	for _, rule := range strings.Split(binding, ",") {
+		if rule == "dive" {
+			items, ok := result["items"].(map[string]any)
+			if !ok {
+				break
+			}
+			current = items
+			continue
+		}
+
+		name, value, hasValue := strings.Cut(rule, "=")
+		switch name {
+		case "uuid", "email":
+			if current["type"] == "string" {
+				current["format"] = name
+			}
+		case "oneof":
+			if hasValue {
+				current["enum"] = strings.Fields(value)
+			}
+		case "eq", "min", "max", "gt", "gte", "lt", "lte":
+			if !hasValue {
+				continue
+			}
+			number, err := strconv.ParseFloat(value, 64)
+			if err != nil {
+				continue
+			}
+			switch current["type"] {
+			case "string":
+				if name == "min" || name == "max" {
+					current[name+"Length"] = number
+				}
+			case "array":
+				if name == "min" || name == "max" {
+					current[name+"Items"] = number
+				}
+			case "integer", "number":
+				switch name {
+				case "eq":
+					current["enum"] = []float64{number}
+				case "min", "gte":
+					current["minimum"] = number
+				case "max", "lte":
+					current["maximum"] = number
+				case "gt":
+					current["minimum"] = number
+					current["exclusiveMinimum"] = true
+				case "lt":
+					current["maximum"] = number
+					current["exclusiveMaximum"] = true
+				}
+			}
+		}
+	}
+	return result
 }
 
 func modelValue(expr ast.Expr) string {

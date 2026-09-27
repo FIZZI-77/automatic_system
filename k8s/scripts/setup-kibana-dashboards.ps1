@@ -1,12 +1,42 @@
 [CmdletBinding()]
 param(
-    [string]$KibanaURL = "http://localhost:5601",
+    [string]$KibanaURL = "http://localhost:5601/observe/kibana",
     [string]$DataViewID = "automatic-system-logs",
-    [string]$IndexPattern = "logs-automatic-system-*"
+    [string]$IndexPattern = "logs-automatic-system-*",
+    [string]$OutputDirectory = ""
 )
 
 $ErrorActionPreference = "Stop"
 $headers = @{ "kbn-xsrf" = "automatic-system-dashboard-setup" }
+
+function ConvertTo-SortedValue {
+    param($Value)
+
+    if ($Value -is [System.Collections.IDictionary]) {
+        $sorted = [ordered]@{}
+        foreach ($key in @($Value.Keys | Sort-Object)) {
+            $sorted[$key] = ConvertTo-SortedValue $Value[$key]
+        }
+        return $sorted
+    }
+
+    if ($Value -is [System.Collections.IEnumerable] -and $Value -isnot [string]) {
+        $items = [System.Collections.Generic.List[object]]::new()
+        foreach ($item in $Value) {
+            $items.Add((ConvertTo-SortedValue $item))
+        }
+        return ,$items.ToArray()
+    }
+
+    return $Value
+}
+
+function ConvertTo-StableJson {
+    param($Value, [int]$Depth = 20)
+
+    $sorted = ConvertTo-SortedValue $Value
+    return ConvertTo-Json -InputObject $sorted -Depth $Depth -Compress
+}
 
 $workloads = @(
     @{ ID = "frontend"; Title = "Frontend"; Group = "Service"; Query = 'kubernetes.pod.name: frontend-*' },
@@ -35,7 +65,7 @@ $workloads = @(
     @{ ID = "redis-location"; Title = "Redis Location / Sentinel"; Group = "Infrastructure"; Query = 'kubernetes.pod.name: redis-location-*' },
     @{ ID = "redis-gateway"; Title = "Redis Gateway"; Group = "Infrastructure"; Query = 'kubernetes.pod.name: redis-gateway-*' },
     @{ ID = "redis-notification"; Title = "Redis Notification"; Group = "Infrastructure"; Query = 'kubernetes.pod.name: redis-notification-*' },
-    @{ ID = "minio"; Title = "MinIO"; Group = "Infrastructure"; Query = 'kubernetes.pod.name: minio-*' },
+    @{ ID = "minio"; Title = "MinIO"; Group = "Infrastructure"; Query = '(service.name: minio OR kubernetes.pod.name: minio-*)' },
     @{ ID = "clickhouse"; Title = "ClickHouse"; Group = "Infrastructure"; Query = 'kubernetes.pod.name: clickhouse-*' },
     @{ ID = "valhalla"; Title = "Valhalla"; Group = "Infrastructure"; Query = 'kubernetes.pod.name: valhalla-*' },
     @{ ID = "elasticsearch"; Title = "Elasticsearch"; Group = "Infrastructure"; Query = 'kubernetes.pod.name: elasticsearch-*' },
@@ -50,6 +80,12 @@ $workloads = @(
     @{ ID = "mailhog"; Title = "MailHog"; Group = "Infrastructure"; Query = 'kubernetes.pod.name: mailhog-*' },
     @{ ID = "database-jobs"; Title = "Database Migrations / Backups"; Group = "Infrastructure"; Query = '(kubernetes.pod.name: migrator-* OR kubernetes.pod.name: postgres-*-backup*)' },
     @{ ID = "kubernetes-network"; Title = "Kubernetes Network"; Group = "Infrastructure"; Query = '(kubernetes.pod.name: kindnet-* OR kubernetes.pod.name: kube-proxy-*)' }
+)
+
+$workloads += @(
+    @{ ID = "all-logs"; Title = "All Kubernetes Logs"; Group = "Overview"; Query = 'kubernetes.pod.name: *' },
+    @{ ID = "application-logs"; Title = "Application Namespace Logs"; Group = "Overview"; Query = 'kubernetes.namespace: automatic-system' },
+    @{ ID = "etcd"; Title = "etcd Control Plane"; Group = "Overview"; Query = 'log.file.path: /var/log/pods/kube-system_etcd-*' }
 )
 
 function Ensure-DataView {
@@ -98,7 +134,8 @@ function New-SearchObject {
         query        = @{ language = "kuery"; query = $Query }
         filter       = @()
         indexRefName = "kibanaSavedObjectMeta.searchSourceJSON.index"
-    } | ConvertTo-Json -Depth 8 -Compress
+    }
+    $searchSource = ConvertTo-StableJson $searchSource 8
 
     return @{
         type       = "search"
@@ -152,7 +189,8 @@ function New-DashboardObject {
             type = "search"; panelIndex = "5"; panelRefName = "panel_5"; title = "Trace-correlated events"
             gridData = @{ x = 0; y = 36; w = 48; h = 14; i = "5" }; embeddableConfig = @{}
         }
-    ) | ConvertTo-Json -Depth 8 -Compress
+    )
+    $panels = ConvertTo-StableJson $panels 8
 
     $options = @{
         hidePanelTitles = $false
@@ -160,12 +198,14 @@ function New-DashboardObject {
         syncColors       = $true
         syncCursor       = $true
         syncTooltips     = $true
-    } | ConvertTo-Json -Compress
+    }
+    $options = ConvertTo-StableJson $options
 
     $searchSource = @{
         query  = @{ language = "kuery"; query = "" }
         filter = @()
-    } | ConvertTo-Json -Depth 5 -Compress
+    }
+    $searchSource = ConvertTo-StableJson $searchSource 5
 
     return @{
         type       = "dashboard"
@@ -192,8 +232,6 @@ function New-DashboardObject {
         )
     }
 }
-
-Ensure-DataView
 
 $objects = [System.Collections.Generic.List[object]]::new()
 foreach ($workload in $workloads) {
@@ -223,6 +261,33 @@ foreach ($workload in $workloads) {
 }
 
 $body = $objects | ConvertTo-Json -Depth 20
+
+if ($OutputDirectory) {
+    New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
+    $dataView = @{
+        data_view = @{
+            id            = $DataViewID
+            title         = $IndexPattern
+            name          = "Automatic System Logs"
+            timeFieldName = "@timestamp"
+            allowNoIndex  = $true
+        }
+    }
+    $dataView = ConvertTo-StableJson $dataView 6
+    [System.IO.File]::WriteAllText((Join-Path $OutputDirectory "data-view.json"), $dataView)
+
+    $batchSize = 60
+    $batchCount = [math]::Ceiling($objects.Count / $batchSize)
+    for ($batch = 0; $batch -lt $batchCount; $batch++) {
+        $items = @($objects | Select-Object -Skip ($batch * $batchSize) -First $batchSize)
+        $json = ConvertTo-StableJson $items 20
+        [System.IO.File]::WriteAllText((Join-Path $OutputDirectory "objects-$batch.json"), $json)
+    }
+    Write-Host "Generated $($workloads.Count) dashboards in $batchCount saved object batches."
+    return
+}
+
+Ensure-DataView
 $result = Invoke-RestMethod `
     -Uri "$KibanaURL/api/saved_objects/_bulk_create?overwrite=true" `
     -Method Post `

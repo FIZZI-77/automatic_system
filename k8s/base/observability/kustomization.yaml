@@ -9,6 +9,7 @@ resources:
   - otel-collector.yaml
   - jaeger.yaml
   - prometheus.yaml
+  - prometheus-data.yaml
   - grafana.yaml
   - kube-state-metrics.yaml
   - node-exporter.yaml
@@ -143,6 +144,9 @@ configMapGenerator:
   - name: grafana-dashboard-community-postgresql
     files:
       - dashboards/community/postgresql-database.json
+  - name: grafana-dashboard-community-postgresql-patroni
+    files:
+      - dashboards/community/postgresql-patroni.json
   - name: grafana-dashboard-community-redis
     files:
       - dashboards/community/redis-exporter.json

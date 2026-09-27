@@ -74,44 +74,100 @@ flowchart LR
 
 ## Функции
 
-### `Create`
+Имя функции открывает её реализацию в ветке `test`; структуры параметров и результатов описаны в конце README.
+
+### func (*ReportServiceStruct) [Create](https://github.com/FIZZI-77/automatic_system/blob/test/Report_Service/src/core/service/report_service.go#L23)
+
+```go
+func (s *ReportServiceStruct) Create(c context.Context, v models.CreateInput) (*models.Report, error)
+```
+
+Типы: [CreateInput](#type-createinput), [Report](#type-report), [ReportServiceStruct](#type-reportservicestruct).
+
+Структуры: [CreateInput](#type-createinput), [Report](#type-report).
 
 Проверяет `CreateInput`, создает через репозиторий задание `PENDING` и при
 успехе записывает идентификатор, вид и формат в журнал. Возвращает созданный
 `Report`.
 
-### `Get`
+### func (*ReportServiceStruct) [Get](https://github.com/FIZZI-77/automatic_system/blob/test/Report_Service/src/core/service/report_service.go#L33)
+
+```go
+func (s *ReportServiceStruct) Get(c context.Context, id, actor uuid.UUID, privileged bool) (*models.Report, error)
+```
+
+Типы: [Report](#type-report), [ReportServiceStruct](#type-reportservicestruct).
+
+Структуры: [Report](#type-report).
 
 Загружает отчет. Если вызывающий не является владельцем и не имеет
 привилегированного признака, возвращает `ErrForbidden`. Ошибка репозитория
 возвращается без преобразования.
 
-### `List`
+### func (*ReportServiceStruct) [List](https://github.com/FIZZI-77/automatic_system/blob/test/Report_Service/src/core/service/report_service.go#L40)
+
+```go
+func (s *ReportServiceStruct) List(c context.Context, actor uuid.UUID, privileged bool, status *models.Status, limit, offset int32) ([]*models.Report, int64, error)
+```
+
+Типы: [Report](#type-report), [ReportServiceStruct](#type-reportservicestruct).
+
+Структуры: [Report](#type-report).
 
 Нормализует размер страницы: значение не больше нуля заменяет на 20, больше
 100 — на 100. Для непривилегированного пользователя добавляет ограничение по
 `RequestedBy`; привилегированный пользователь может видеть все задания.
 Возвращает страницу, общий счетчик и ошибку.
 
-### `Cancel`
+### func (*ReportServiceStruct) [Cancel](https://github.com/FIZZI-77/automatic_system/blob/test/Report_Service/src/core/service/report_service.go#L53)
+
+```go
+func (s *ReportServiceStruct) Cancel(c context.Context, id, actor uuid.UUID, p bool) (*models.Report, error)
+```
+
+Типы: [Report](#type-report), [ReportServiceStruct](#type-reportservicestruct).
+
+Структуры: [Report](#type-report).
 
 Сначала вызывает `Get`, тем самым проверяя существование и права. Затем
 репозиторий отменяет только допустимое состояние. Если условное обновление не
 нашло строку, метод возвращает `ErrInvalidState`.
 
-### `Retry`
+### func (*ReportServiceStruct) [Retry](https://github.com/FIZZI-77/automatic_system/blob/test/Report_Service/src/core/service/report_service.go#L63)
+
+```go
+func (s *ReportServiceStruct) Retry(c context.Context, id, actor uuid.UUID, p bool) (*models.Report, error)
+```
+
+Типы: [Report](#type-report), [ReportServiceStruct](#type-reportservicestruct).
+
+Структуры: [Report](#type-report).
 
 Проверяет доступ через `Get`, после чего просит репозиторий вернуть допустимое
 ошибочное задание в очередь. Отсутствие строки для условного перехода
 преобразуется в `ErrInvalidState`.
 
-### `Download`
+### func (*ReportServiceStruct) [Download](https://github.com/FIZZI-77/automatic_system/blob/test/Report_Service/src/core/service/report_service.go#L73)
+
+```go
+func (s *ReportServiceStruct) Download(c context.Context, id, actor uuid.UUID, roles []string, p bool) (models.Download, error)
+```
+
+Типы: [Download](#type-download), [ReportServiceStruct](#type-reportservicestruct).
+
+Структуры: [Download](#type-download).
 
 Проверяет права через `Get`, требует `StatusCompleted` и непустой `FileID`.
 Передает идентификаторы файла и пользователя вместе с ролями в
 `FileStorage.Download`. Возвращает отчет, ссылку и срок ее действия.
 
-### `ProcessNext`
+### func (*ReportServiceStruct) [ProcessNext](https://github.com/FIZZI-77/automatic_system/blob/test/Report_Service/src/core/service/report_service.go#L84)
+
+```go
+func (s *ReportServiceStruct) ProcessNext(c context.Context) (bool, error)
+```
+
+Типы: [ReportServiceStruct](#type-reportservicestruct).
 
 1. Вызывает `repo.Claim`. Отсутствие ожидающего задания возвращает
    `(false, nil)`.
@@ -124,12 +180,26 @@ flowchart LR
 7. Возвращает `true`, если задание было захвачено, даже когда обработка
    завершилась ошибкой.
 
-### `log`
+### func (*ReportServiceStruct) [log](https://github.com/FIZZI-77/automatic_system/blob/test/Report_Service/src/core/service/report_service.go#L115)
+
+```go
+func (s *ReportServiceStruct) log() *zap.Logger
+```
+
+Типы: [ReportServiceStruct](#type-reportservicestruct).
 
 Возвращает настроенный журнал. Если он отсутствует, возвращает
 `zap.NewNop()`, поэтому вызовы журналирования безопасны.
 
-### `NewService`
+### func [NewService](https://github.com/FIZZI-77/automatic_system/blob/test/Report_Service/src/core/service/service.go#L39)
+
+```go
+func NewService(repo repository.ReportRepository, source AnalyticsSource, files FileStorage, generator Generator, logger *zap.Logger) *Service
+```
+
+Типы: [AnalyticsSource](#type-analyticssource), [FileStorage](#type-filestorage), [Generator](#type-generator), [ReportRepository](#type-reportrepository), [Service](#type-service).
+
+Структуры: [ReportRepository](#type-reportrepository), [AnalyticsSource](#type-analyticssource), [FileStorage](#type-filestorage), [Generator](#type-generator).
 
 Принимает репозиторий, источник аналитики, файловое хранилище, генератор и
 журнал. Создает одну `ReportServiceStruct` и встраивает ее одновременно как
@@ -175,3 +245,109 @@ flowchart LR
 | `created_at` | `TIMESTAMPTZ` | Время создания. |
 
 Частичный индекс выбирает `PENDING` и `FAILED` по времени следующей попытки.
+
+## Структуры параметров и результатов
+
+### type AnalyticsSource
+
+```go
+type AnalyticsSource interface {
+	Build(context.Context, models.Type, models.Filter, []string) ([][]string, error)
+}
+```
+
+### type CreateInput
+
+```go
+type CreateInput struct {
+	RequestedBy uuid.UUID
+	Name        string
+	Type        Type
+	Format      Format
+	Filter      Filter
+	ActorRoles  []string
+}
+```
+
+### type Download
+
+```go
+type Download struct {
+	Report    *Report
+	URL       string
+	ExpiresAt time.Time
+}
+```
+
+### type FileStorage
+
+```go
+type FileStorage interface {
+	Upload(context.Context, uuid.UUID, uuid.UUID, []string, models.Artifact) (uuid.UUID, error)
+	Download(context.Context, uuid.UUID, uuid.UUID, []string) (string, time.Time, error)
+}
+```
+
+### type Generator
+
+```go
+type Generator struct {
+}
+```
+
+### type Report
+
+```go
+type Report struct {
+	ID          uuid.UUID
+	RequestedBy uuid.UUID
+	Name        string
+	Type        Type
+	Format      Format
+	Status      Status
+	Filter      Filter
+	ActorRoles  []string
+	FileID      *uuid.UUID
+	Error       *string
+	Attempts    int32
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	CompletedAt *time.Time
+}
+```
+
+### type ReportRepository
+
+```go
+type ReportRepository interface {
+	Create(context.Context, models.CreateInput) (*models.Report, error)
+	Get(context.Context, uuid.UUID) (*models.Report, error)
+	List(context.Context, models.ListFilter) ([]*models.Report, int64, error)
+	Cancel(context.Context, uuid.UUID) (*models.Report, error)
+	Retry(context.Context, uuid.UUID) (*models.Report, error)
+	Claim(context.Context) (*models.Report, error)
+	Complete(context.Context, uuid.UUID, uuid.UUID, int32) error
+	Fail(context.Context, uuid.UUID, int32, string) error
+}
+```
+
+### type ReportServiceStruct
+
+```go
+type ReportServiceStruct struct {
+	repo      repository.ReportRepository
+	source    AnalyticsSource
+	files     FileStorage
+	generator Generator
+	logger    *zap.Logger
+}
+```
+
+### type Service
+
+```go
+type Service struct {
+	ReportService
+	JobProcessor
+}
+```

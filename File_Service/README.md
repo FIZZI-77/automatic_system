@@ -75,12 +75,30 @@ PNG, GIF, WebP, PDF, CSV и XLSX. Kafka и таблица исходящих с�
 
 ## Функции
 
-### `New`
+Имя функции открывает её реализацию в ветке `test`; структуры параметров и результатов описаны в конце README.
+
+### func [New](https://github.com/FIZZI-77/automatic_system/blob/test/File_Service/src/core/service/service.go#L31)
+
+```go
+func New(repo *repository.Repository, store *storage.S3, ttl time.Duration, logger *zap.Logger) *Service
+```
+
+Типы: [Repository](#type-repository), [S3](#type-s3), [Service](#type-service).
+
+Структуры: [S3](#type-s3).
 
 Сохраняет репозиторий, клиент S3, срок действия ссылок и журнал в `Service`.
 Проверку доступности зависимостей не выполняет.
 
-### `Create`
+### func (*Service) [Create](https://github.com/FIZZI-77/automatic_system/blob/test/File_Service/src/core/service/service.go#L40)
+
+```go
+func (s *Service) Create(ctx context.Context, in models.CreateInput) (*models.PresignedFile, error)
+```
+
+Типы: [CreateInput](#type-createinput), [PresignedFile](#type-presignedfile), [Service](#type-service).
+
+Структуры: [CreateInput](#type-createinput), [PresignedFile](#type-presignedfile).
 
 1. Оставляет от имени только базовую часть пути, удаляет пробелы.
 2. Нормализует тип содержимого в нижний регистр.
@@ -93,7 +111,15 @@ PNG, GIF, WebP, PDF, CSV и XLSX. Kafka и таблица исходящих с�
 
 Если получение ссылки не удалось, созданная строка метаданных остается в базе.
 
-### `Confirm`
+### func (*Service) [Confirm](https://github.com/FIZZI-77/automatic_system/blob/test/File_Service/src/core/service/service.go#L67)
+
+```go
+func (s *Service) Confirm(ctx context.Context, id, actor uuid.UUID, privileged bool) (*models.File, error)
+```
+
+Типы: [File](#type-file), [Service](#type-service).
+
+Структуры: [File](#type-file).
 
 Загружает файл и разрешает действие владельцу либо привилегированному
 пользователю. Через `Stat` получает фактический размер и тип. При несовпадении
@@ -101,7 +127,15 @@ PNG, GIF, WebP, PDF, CSV и XLSX. Kafka и таблица исходящих с�
 попытки и возвращает ошибку несоответствия. При совпадении переводит запись в
 `UPLOADED`.
 
-### `Link`
+### func (*Service) [Link](https://github.com/FIZZI-77/automatic_system/blob/test/File_Service/src/core/service/service.go#L97)
+
+```go
+func (s *Service) Link(ctx context.Context, id, actor uuid.UUID, privileged bool, in models.LinkInput) (*models.File, error)
+```
+
+Типы: [File](#type-file), [LinkInput](#type-linkinput), [Service](#type-service).
+
+Структуры: [LinkInput](#type-linkinput), [File](#type-file).
 
 Проверяет вид и UUID ресурса и права на файл. Нормализует вид ресурса для имени
 каталога: оставляет латинские буквы, цифры, `-` и `_`, остальные символы
@@ -110,24 +144,50 @@ PNG, GIF, WebP, PDF, CSV и XLSX. Kafka и таблица исходящих с�
 метаданные. Если обновление базы не удалось, пытается переместить объект
 обратно. Если ключ уже совпадает, повторное перемещение не выполняется.
 
-### `Download`
+### func (*Service) [Download](https://github.com/FIZZI-77/automatic_system/blob/test/File_Service/src/core/service/service.go#L110)
+
+```go
+func (s *Service) Download(ctx context.Context, id, actor uuid.UUID, privileged bool) (*models.PresignedFile, error)
+```
+
+Типы: [PresignedFile](#type-presignedfile), [Service](#type-service).
+
+Структуры: [PresignedFile](#type-presignedfile).
 
 Проверяет существование файла и права владельца, получает подписанную ссылку
 скачивания и возвращает ее вместе с метаданными и сроком действия.
 
-### `Delete`
+### func (*Service) [Delete](https://github.com/FIZZI-77/automatic_system/blob/test/File_Service/src/core/service/service.go#L135)
+
+```go
+func (s *Service) Delete(ctx context.Context, id, actor uuid.UUID, privileged bool) error
+```
+
+Типы: [Service](#type-service).
 
 Проверяет права, сначала удаляет объект из S3, затем переводит запись базы в
 состояние удаления через репозиторий. Ошибка хранилища останавливает операцию.
 
-### `List`
+### func (*Service) [List](https://github.com/FIZZI-77/automatic_system/blob/test/File_Service/src/core/service/service.go#L148)
+
+```go
+func (s *Service) List(ctx context.Context, typ string, id, actor uuid.UUID, privileged bool) ([]*models.File, error)
+```
+
+Типы: [File](#type-file), [Service](#type-service).
+
+Структуры: [File](#type-file).
 
 Читает файлы, связанные с видом `typ` и идентификатором `id`.
 Привилегированному пользователю возвращает список сразу. Для обычного
 пользователя проверяет владельца каждого файла и отклоняет весь ответ, если
 найден хотя бы один чужой файл.
 
-### `IsNotFound`
+### func [IsNotFound](https://github.com/FIZZI-77/automatic_system/blob/test/File_Service/src/core/service/service.go#L164)
+
+```go
+func IsNotFound(err error) bool
+```
 
 Возвращает результат `errors.Is(err, pgx.ErrNoRows)`, позволяя обработчику
 преобразовать отсутствие строки в транспортную ошибку «не найдено».
@@ -155,3 +215,85 @@ PNG, GIF, WebP, PDF, CSV и XLSX. Kafka и таблица исходящих с�
 Ограничение требует, чтобы `resource_type` и `resource_id` либо оба были
 заданы, либо оба отсутствовали. Частичные индексы ускоряют список владельца для
 неудаленных файлов и список связанных файлов со статусом `LINKED`.
+
+## Структуры параметров и результатов
+
+### type CreateInput
+
+```go
+type CreateInput struct {
+	OwnerUserID uuid.UUID `json:"owner_user_id"`
+	Name        string    `json:"name"`
+	ContentType string    `json:"content_type"`
+	Size        int64     `json:"size"`
+	Checksum    string    `json:"checksum"`
+}
+```
+
+### type File
+
+```go
+type File struct {
+	ID           uuid.UUID  `json:"id"`
+	OwnerUserID  uuid.UUID  `json:"owner_user_id"`
+	ResourceType *string    `json:"resource_type,omitempty"`
+	ResourceID   *uuid.UUID `json:"resource_id,omitempty"`
+	Name         string     `json:"name"`
+	ContentType  string     `json:"content_type"`
+	Size         int64      `json:"size"`
+	Checksum     string     `json:"checksum"`
+	ObjectKey    string     `json:"-"`
+	Status       Status     `json:"status"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
+}
+```
+
+### type LinkInput
+
+```go
+type LinkInput struct {
+	ResourceType string    `json:"resource_type"`
+	ResourceID   uuid.UUID `json:"resource_id"`
+}
+```
+
+### type PresignedFile
+
+```go
+type PresignedFile struct {
+	File      *File     `json:"file"`
+	URL       string    `json:"url"`
+	ExpiresAt time.Time `json:"expires_at"`
+}
+```
+
+### type Repository
+
+```go
+type Repository struct {
+	writeDB *pgxpool.Pool
+	readDB  *pgxpool.Pool
+}
+```
+
+### type S3
+
+```go
+type S3 struct {
+	client  *s3.Client
+	presign *s3.PresignClient
+	bucket  string
+}
+```
+
+### type Service
+
+```go
+type Service struct {
+	repo   *repository.Repository
+	store  *storage.S3
+	ttl    time.Duration
+	logger *zap.Logger
+}
+```

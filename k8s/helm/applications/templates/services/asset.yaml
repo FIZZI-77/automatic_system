@@ -48,7 +48,7 @@ metadata:
 spec:
   minReadySeconds: 3
   {{- if not .Values.applicationAutoscaling.enabled }}
-  replicas: {{ (index .Values.applications "asset").replicaCount }}
+  replicas: {{ include "applications.replicas" (dict "root" $ "deployment" "asset-service" "replicaCount" (index .Values.applications "asset").replicaCount) }}
   {{- end }}
   revisionHistoryLimit: 3
   selector:

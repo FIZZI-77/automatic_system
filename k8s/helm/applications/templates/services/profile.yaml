@@ -52,7 +52,7 @@ metadata:
 spec:
   minReadySeconds: 3
   {{- if not .Values.applicationAutoscaling.enabled }}
-  replicas: {{ (index .Values.applications "profile").replicaCount }}
+  replicas: {{ include "applications.replicas" (dict "root" $ "deployment" "profile-service" "replicaCount" (index .Values.applications "profile").replicaCount) }}
   {{- end }}
   revisionHistoryLimit: 3
   selector:

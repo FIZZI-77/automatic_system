@@ -53,7 +53,7 @@ metadata:
 spec:
   minReadySeconds: 3
   {{- if not .Values.applicationAutoscaling.enabled }}
-  replicas: {{ (index .Values.applications "notification").replicaCount }}
+  replicas: {{ include "applications.replicas" (dict "root" $ "deployment" "notification-service" "replicaCount" (index .Values.applications "notification").replicaCount) }}
   {{- end }}
   revisionHistoryLimit: 3
   selector:

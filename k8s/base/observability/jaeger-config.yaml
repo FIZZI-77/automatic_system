@@ -20,6 +20,7 @@ extensions:
           normalize_calls: true
           normalize_duration: true
   jaeger_query:
+    base_path: /observe/jaeger
     storage:
       traces: primary_store
       metrics: prometheus_store
