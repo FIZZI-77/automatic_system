@@ -87,16 +87,17 @@ processors:
               log.level: info
           - or:
               - regexp:
-                  message: '(?i)"(?:GET|HEAD) /metrics(?:\?|\s)'
-              - regexp:
                   message: '(?i)"POST /opentelemetry\.proto\.collector\.(?:trace|metrics|logs)\.v1\.[^/]+/Export HTTP/2" 2\d\d '
               - and:
                   - equals:
                       message: http request completed
                   - regexp:
-                      path: '^/(?:livez|readyz|metrics)$'
+                      path: '^/(?:health|healthz|livez|readyz|metrics)/?$'
                   - range:
+                      status.gte: 200
                       status.lt: 400
+              - regexp:
+                  message: '(?i)"(?:GET|HEAD) /(?:health|healthz|livez|readyz|metrics)/?(?:\?[^ ]*)? HTTP/[12](?:\.[0-9])?" [23][0-9][0-9] '
               - and:
                   - regexp:
                       kubernetes.pod.name: '^filebeat-'

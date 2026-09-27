@@ -192,6 +192,8 @@ spec:
               - configMap:
                   name: grafana-dashboard-community-postgresql
               - configMap:
+                  name: grafana-dashboard-community-postgresql-patroni
+              - configMap:
                   name: grafana-dashboard-community-redis
               - configMap:
                   name: grafana-dashboard-community-kafka
