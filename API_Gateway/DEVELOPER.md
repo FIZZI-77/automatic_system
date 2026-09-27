@@ -154,7 +154,7 @@ Gateway обычно получает через env:
 2. Добавить handler и mapper.
 3. Зарегистрировать routes.
 4. Пробросить request id, idempotency key и actor context.
-5. Обновить документацию и postman/openapi коллекции, если они ведутся.
+5. Обновить документацию и сгенерированную спецификацию OpenAPI (`go run ./tools/openapi`).
 
 ## Правила код-дизайна
 
