@@ -27,6 +27,7 @@ Kafka. Данные разделены по предметным областя�
 - [Путь заявки](#путь-заявки)
 - [Документация сервисов](#документация-сервисов)
 - [Инфраструктура и разработка](#инфраструктура-и-разработка)
+- [Наблюдаемость и Swagger](#наблюдаемость-и-swagger)
 - [Стек проекта](#стек-проекта)
 
 ## Как устроена система
@@ -90,7 +91,8 @@ Kafka. Данные разделены по предметным областя�
 Он не означает, что любой внешний источник данных, канал доставки или контур
 развертывания доступен без отдельной настройки и проверки. Подробное
 сопоставление экранов и серверных операций находится в
-[карте возможностей](docs/frontend-backend-coverage.md).
+[документации Frontend](Frontend/README.md) и
+[API Gateway](API_Gateway/README.md).
 
 ## Путь заявки
 
@@ -115,8 +117,9 @@ Kafka. Данные разделены по предметным областя�
    они не подменяют источник истины о состоянии заявки.
 
 Конкретные переходы состояний, проверки прав и обработка ошибок описаны в
-README соответствующих сервисов. Сопоставление экранов и операций шлюза есть в
-[карте веб-интерфейса и серверных возможностей](docs/frontend-backend-coverage.md).
+README соответствующих сервисов. Маршруты шлюза описаны в
+[API Gateway](API_Gateway/README.md), а пользовательские сценарии — в
+[документации Frontend](Frontend/README.md).
 
 ## Документация сервисов
 
@@ -163,6 +166,51 @@ README сервисов построены вокруг общего принц�
 проверки отказоустойчивой топологии обратитесь к
 [инструкции для `local-ha`](k8s/docs/deployment.md#контур-local-ha).
 Запуск веб-интерфейса описан отдельно в [Frontend README](Frontend/README.md).
+
+## Наблюдаемость и Swagger
+
+После запуска локального Kubernetes и публикации входного Istio Gateway через
+Tailscale Funnel интерфейсы наблюдаемости доступны по одному адресу без
+`kubectl port-forward`:
+
+| Интерфейс | Адрес |
+|---|---|
+| Grafana | [Панели и метрики](https://fizzi.tail2c9430.ts.net/observe/grafana/) |
+| Prometheus | [Запросы и цели сбора](https://fizzi.tail2c9430.ts.net/observe/prometheus/) |
+| Jaeger | [Трассировки](https://fizzi.tail2c9430.ts.net/observe/jaeger/) |
+| Kibana | [Поиск логов и панели](https://fizzi.tail2c9430.ts.net/observe/kibana/) |
+| Kiali | [Состояние Istio](https://fizzi.tail2c9430.ts.net/observe/kiali/) |
+
+Пути `/observe/*` защищены общей учетной записью HTTP Basic Auth в фильтре
+Envoy на отдельном listener Istio. Это не самостоятельная регистрация:
+владелец кластера задает логин и пароль через
+`.\k8s\scripts\set-observability-password.ps1 -Username admin`; пароль
+вводится скрыто. Кластер, Istio ingress и Tailscale Funnel должны работать.
+Порядок настройки и проверки описан в
+[документации безопасности](k8s/docs/security-observability.md#постоянный-вход-в-observability).
+
+Grafana содержит проектные панели и Community PostgreSQL Patroni Dashboard.
+Kibana использует индекс `logs-automatic-system-*`; управляемые панели
+восстанавливает CronJob `kibana-dashboards`. Filebeat собирает журналы
+контейнеров, включая короткие файлы MinIO: в Kibana их можно найти по
+`service.name: minio`, выбрав интервал с событиями (например, последние
+24 часа). При текущей конфигурации MinIO не пишет постоянный поток штатных
+запросов. Успешные пробы HTTP и gRPC Health и штатные TCP-соединения Brigade
+с Kafka отфильтровываются при сборе; ошибочные проверки и соединения
+сохраняются. Фильтр не удаляет уже
+проиндексированные записи. Подробности и диагностика находятся в
+[инструкции по эксплуатации](k8s/docs/operations.md#наблюдаемость).
+
+API Gateway открывает Swagger UI на
+[https://api.city.localhost/swagger/](https://api.city.localhost/swagger/), а
+OpenAPI-спецификацию на
+[https://api.city.localhost/swagger/openapi.json](https://api.city.localhost/swagger/openapi.json).
+Для локального адреса нужен запущенный Kubernetes с Istio ingress и настройка
+`k8s/scripts/setup-ingress.ps1`; отдельный `port-forward` не требуется.
+Маршрут `api.city.localhost` определён в `VirtualService/api-gateway-local`,
+а Swagger включается настройкой `SWAGGER_ENABLED=true` в API Gateway.
+Публичный Funnel не направляет `/swagger/` в Gateway. Генерация спецификации
+описана в [документации API Gateway](API_Gateway/DEVELOPER.md#openapi-и-swagger-ui).
 
 ## Стек проекта
 

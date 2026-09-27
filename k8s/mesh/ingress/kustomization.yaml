@@ -4,6 +4,7 @@ namespace: automatic-system
 resources:
   - gateway.yaml
   - routes.yaml
+  - api-gateway-local.yaml
   - gateway-public.yaml
   - routes-public.yaml
   - observability-routes.yaml
