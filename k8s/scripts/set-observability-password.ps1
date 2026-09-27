@@ -18,7 +18,13 @@ try {
     }
 
     $passwordBytes = [Text.Encoding]::UTF8.GetBytes($password)
-    $passwordHash = [Security.Cryptography.SHA1]::HashData($passwordBytes)
+    $sha1 = [Security.Cryptography.SHA1]::Create()
+    try {
+        $passwordHash = $sha1.ComputeHash($passwordBytes)
+    }
+    finally {
+        $sha1.Dispose()
+    }
     $entry = "$Username`:{SHA}$([Convert]::ToBase64String($passwordHash))"
     [IO.File]::WriteAllText($secretFile, ($entry + "`n"), [Text.UTF8Encoding]::new($false))
 
