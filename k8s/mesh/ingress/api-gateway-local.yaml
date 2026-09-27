@@ -1,0 +1,17 @@
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: api-gateway-local
+  namespace: automatic-system
+spec:
+  hosts:
+    - api.city.localhost
+  gateways:
+    - automatic-system
+  http:
+    - timeout: 30s
+      route:
+        - destination:
+            host: api-gateway.automatic-system.svc.cluster.local
+            port:
+              number: 8081

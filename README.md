@@ -199,16 +199,16 @@ Kibana использует индекс `logs-automatic-system-*`; управл
 проиндексированные записи. Подробности и диагностика находятся в
 [инструкции по эксплуатации](k8s/docs/operations.md#наблюдаемость).
 
-В исходном коде API Gateway регистрирует Swagger UI на `/swagger/`, а OpenAPI
-спецификацию на `/swagger/openapi.json` при `SWAGGER_ENABLED=true`. В Helm для
-Gateway флаг включен, но публичный Funnel не направляет `/swagger/` в Gateway.
-На 27.09.2026 проверка запущенного Gateway через его Kubernetes Service дала
-`404` на обоих путях даже при `SWAGGER_ENABLED=true`; рабочего публичного
-адреса Swagger сейчас нет. После исправления развертывания маршрут можно
-проверить локально командой
-`kubectl -n automatic-system port-forward service/api-gateway 18081:8081` и
-открыть `http://localhost:18081/swagger/`. Генерация спецификации описана в
-[документации API Gateway](API_Gateway/DEVELOPER.md#openapi-и-swagger-ui).
+API Gateway открывает Swagger UI на
+[https://api.city.localhost/swagger/](https://api.city.localhost/swagger/), а
+OpenAPI-спецификацию на
+[https://api.city.localhost/swagger/openapi.json](https://api.city.localhost/swagger/openapi.json).
+Для локального адреса нужен запущенный Kubernetes с Istio ingress и настройка
+`k8s/scripts/setup-ingress.ps1`; отдельный `port-forward` не требуется.
+Маршрут `api.city.localhost` определён в `VirtualService/api-gateway-local`,
+а Swagger включается настройкой `SWAGGER_ENABLED=true` в API Gateway.
+Публичный Funnel не направляет `/swagger/` в Gateway. Генерация спецификации
+описана в [документации API Gateway](API_Gateway/DEVELOPER.md#openapi-и-swagger-ui).
 
 ## Стек проекта
 
