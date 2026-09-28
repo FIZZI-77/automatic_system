@@ -537,7 +537,7 @@ export function ReportsPage({session,tickets,role,onNotice}:{session:Session;tic
   const demo=session.accessToken==="demo";
   const scopeDepartment=role==="dispatcher"?session.user?.department_id||"":"";
   const [items,setItems]=useState<GeneratedReport[]>([]),[busy,setBusy]=useState(false),[statusFilter,setStatusFilter]=useState("");
-  const [mode,setMode]=useState<"full"|"ticket">("full"),[files,setFiles]=useState<File[]>([]);
+  const [mode,setMode]=useState<"full"|"ticket">(role==="worker"?"ticket":"full"),[files,setFiles]=useState<File[]>([]);
   const [departments,setDepartments]=useState<Department[]>([]),[categories,setCategories]=useState<Category[]>([]);
   const [ticketArtifacts,setTicketArtifacts]=useState<Array<{file_id:string;name:string;ticket_id:string;ticket_title:string}>>([]);
   const activeTickets=tickets.filter(ticket=>["ASSIGNED","IN_PROGRESS"].includes(ticket.status));
@@ -547,8 +547,9 @@ export function ReportsPage({session,tickets,role,onNotice}:{session:Session;tic
     try{const result=await api<{reports:GeneratedReport[]}>(config.endpoints.reportsList,{limit:100,offset:0,...(statusFilter?{status:statusFilter.toLowerCase()}:{})},"POST",session.accessToken);setItems(result.reports||[])}
     catch(error){onNotice(error instanceof Error?error.message:"Не удалось загрузить отчёты")}
   }
-  useEffect(()=>{void load()},[demo,session.accessToken,statusFilter]);
+  useEffect(()=>{if(role!=="worker")void load()},[demo,role,session.accessToken,statusFilter]);
   useEffect(()=>{
+    if(role==="worker")return;
     if(demo){setDepartments([{id:"dep-roads",name:"Дорожное хозяйство"},{id:"dep-utilities",name:"Городское хозяйство"}].filter(item=>!scopeDepartment||item.id===scopeDepartment));setCategories([{id:"cat-roads",name:"Дороги"},{id:"cat-light",name:"Освещение"}]);return}
     let active=true;
     Promise.all([
@@ -557,7 +558,7 @@ export function ReportsPage({session,tickets,role,onNotice}:{session:Session;tic
     ]).then(([departmentResult,categoryResult])=>{if(active){setDepartments((departmentResult.departments||[]).filter(item=>!scopeDepartment||item.id===scopeDepartment));setCategories(categoryResult.categories||[])}})
       .catch(error=>{if(active)onNotice(error instanceof Error?error.message:"Не удалось загрузить фильтры отчёта")});
     return()=>{active=false};
-  },[demo,onNotice,scopeDepartment,session.accessToken]);
+  },[demo,onNotice,role,scopeDepartment,session.accessToken]);
 
   async function createFull(event:FormEvent<HTMLFormElement>){
     event.preventDefault();const form=new FormData(event.currentTarget),from=String(form.get("from")||""),to=String(form.get("to")||"");
@@ -591,10 +592,9 @@ export function ReportsPage({session,tickets,role,onNotice}:{session:Session;tic
       if(demo){
         setTicketArtifacts(current=>[{file_id:"demo-ticket-report-"+Date.now(),name:"Отчёт "+ticket.id+".pdf",ticket_id:ticket.id,ticket_title:ticket.title},...current]);
       }else{
-        const generated=await api<{pdf_file_id:string;pdf_name:string}>(config.endpoints.completionReportsCreate,{ticket_id:ticket.id,description,file_ids:fileIds},"POST",session.accessToken);
-        setTicketArtifacts(current=>[{file_id:generated.pdf_file_id,name:generated.pdf_name,ticket_id:ticket.id,ticket_title:ticket.title},...current]);
+        await api(config.endpoints.completionReportsCreate,{ticket_id:ticket.id,description,file_ids:fileIds},"POST",session.accessToken);
       }
-      setFiles([]);formElement.reset();onNotice("PDF по заявке «"+ticket.title+"» сформирован");
+      setFiles([]);formElement.reset();onNotice(demo?"PDF по заявке «"+ticket.title+"» сформирован":"Акт по заявке «"+ticket.title+"» поставлен в очередь. PDF появится в карточке заявки после обработки");
     }catch(error){onNotice(error instanceof Error?error.message:"Не удалось сформировать отчёт по заявке")}finally{setBusy(false)}
   }
 
@@ -611,12 +611,12 @@ export function ReportsPage({session,tickets,role,onNotice}:{session:Session;tic
 
   const visibleItems=demo&&statusFilter?items.filter(item=>String(item.status).toUpperCase()===statusFilter):items;
   return <section className="content-page reports-page">
-    <div className="page-toolbar"><div><h2>Отчёты</h2><p>Полная аналитика или акт выполнения по конкретной заявке</p></div></div>
-    <div className="report-mode-tabs" role="tablist" aria-label="Режим формирования отчёта">
+    <div className="page-toolbar"><div><h2>Отчёты</h2><p>{role==="worker"?"Акт выполнения по назначенной заявке":"Полная аналитика или акт выполнения по конкретной заявке"}</p></div></div>
+    {role!=="worker"&&<div className="report-mode-tabs" role="tablist" aria-label="Режим формирования отчёта">
       <button className={mode==="full"?"active":""} onClick={()=>setMode("full")}>Полный отчёт</button>
       <button className={mode==="ticket"?"active":""} onClick={()=>setMode("ticket")}>По заявке</button>
-    </div>
-    {mode==="full"?<form className="report-builder" onSubmit={createFull}>
+    </div>}
+    {role!=="worker"&&mode==="full"?<form className="report-builder" onSubmit={createFull}>
       <div className="report-builder-head"><div><span className="eyebrow">Аналитика</span><h3>Полный аналитический отчёт</h3><p>Сводка по всем данным или по выбранным условиям.</p></div></div>
       <div className="report-fields">
         <label className="wide">Название<input name="name" required defaultValue="Полный отчёт по городским обращениям"/></label>
@@ -639,8 +639,8 @@ export function ReportsPage({session,tickets,role,onNotice}:{session:Session;tic
       <div className="report-submit"><small>Создание отчёта не завершает заявку автоматически.</small><button className="primary" disabled={busy||!activeTickets.length}>{busy?"Формируем PDF…":"Сформировать по заявке"}</button></div>
     </form>}
     {ticketArtifacts.length>0&&<div className="ticket-artifacts"><h3>Сформированные отчёты по заявкам</h3>{ticketArtifacts.map(item=><article key={item.file_id}><div><b>{item.ticket_title}</b><small>{item.name}</small></div><button onClick={()=>void downloadTicketArtifact(item.file_id)}>Скачать PDF</button></article>)}</div>}
-    <div className="report-history-head"><h3>Полные аналитические отчёты</h3><div className="service-filters compact"><label>Статус<select value={statusFilter} onChange={event=>setStatusFilter(event.target.value)}><option value="">Все</option><option>PENDING</option><option>PROCESSING</option><option>COMPLETED</option><option>FAILED</option><option>CANCELED</option></select></label><button onClick={()=>setStatusFilter("")}>Сбросить</button></div></div>
-    <div className="report-table">{visibleItems.map(item=><article key={item.id}><div><b>{item.name}</b><small>{String(item.type)} · {String(item.format)}</small></div><em>{String(item.status)}</em><div><button onClick={()=>action(item,"download")}>Скачать</button><button onClick={()=>action(item,"retry")}>Повторить</button><button onClick={()=>action(item,"cancel")}>Отменить</button></div></article>)}</div>
+    {role!=="worker"&&<><div className="report-history-head"><h3>Полные аналитические отчёты</h3><div className="service-filters compact"><label>Статус<select value={statusFilter} onChange={event=>setStatusFilter(event.target.value)}><option value="">Все</option><option>PENDING</option><option>PROCESSING</option><option>COMPLETED</option><option>FAILED</option><option>CANCELED</option></select></label><button onClick={()=>setStatusFilter("")}>Сбросить</button></div></div>
+    <div className="report-table">{visibleItems.map(item=><article key={item.id}><div><b>{item.name}</b><small>{String(item.type)} · {String(item.format)}</small></div><em>{String(item.status)}</em><div><button onClick={()=>action(item,"download")}>Скачать</button><button onClick={()=>action(item,"retry")}>Повторить</button><button onClick={()=>action(item,"cancel")}>Отменить</button></div></article>)}</div></>}
   </section>
 }
 

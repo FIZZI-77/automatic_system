@@ -3,7 +3,8 @@ param(
     [string]$Password = "CityDemo123!",
     [ValidateSet("Compose", "Kubernetes")]
     [string]$Target = "Compose",
-    [string]$Namespace = "automatic-system"
+    [string]$Namespace = "automatic-system",
+    [switch]$SkipRegister
 )
 
 $ErrorActionPreference = "Stop"
@@ -106,8 +107,10 @@ function Register-DemoAccount {
     }
 }
 
-foreach ($account in $accounts) {
-    Register-DemoAccount $account
+if (-not $SkipRegister) {
+    foreach ($account in $accounts) {
+        Register-DemoAccount $account
+    }
 }
 
 $roleValues = ($accounts | ForEach-Object { "('$($_.Email)','$($_.Role)')" }) -join ",`n"

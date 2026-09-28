@@ -72,9 +72,12 @@ func (r *ReportRepository) Create(ctx context.Context, in *models.CreateWorkRepo
 			return nil, err
 		}
 	}
-	var ticketStatus models.TicketStatus
-	var assignedBrigadeID *uuid.UUID
-	if err = tx.QueryRow(ctx, `SELECT status,brigade_id FROM tickets WHERE id=$1 FOR UPDATE`, in.TicketID).Scan(&ticketStatus, &assignedBrigadeID); err != nil {
+	var (
+		departmentID      uuid.UUID
+		ticketStatus      models.TicketStatus
+		assignedBrigadeID *uuid.UUID
+	)
+	if err = tx.QueryRow(ctx, `SELECT department_id,status,brigade_id FROM tickets WHERE id=$1 FOR UPDATE`, in.TicketID).Scan(&departmentID, &ticketStatus, &assignedBrigadeID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, models.ErrNotFound
 		}
@@ -97,6 +100,7 @@ func (r *ReportRepository) Create(ctx context.Context, in *models.CreateWorkRepo
 		ctx,
 		insertReportQuery,
 		report.ID,
+		departmentID,
 		report.TicketID,
 		report.AuthorUserID,
 		report.Description,
@@ -214,9 +218,7 @@ const insertReportQuery = `
 		description,
 		idempotency_key
 	)
-	SELECT $1, department_id, id, $3, $4, NULLIF($5, '')
-	FROM tickets
-	WHERE id = $2
+	VALUES ($1, $2, $3, $4, $5, NULLIF($6, ''))
 	RETURNING created_at, updated_at
 `
 

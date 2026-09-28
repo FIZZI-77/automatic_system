@@ -127,18 +127,15 @@ export function TicketWorkspace({tickets,session,role,onUpdate,onMap,onNotice}:{
         await api(config.endpoints.filesUploadConfirm,{file_id:created.file.id},"POST",session.accessToken);
         fileIds.push(created.file.id);
       }
-      let generatedName="";
       if(!demo){
-        const generated=await api<{work_report:WorkReport;pdf_file_id:string;pdf_name:string}>(config.endpoints.completionReportsCreate,{ticket_id:selected.id,description,file_ids:fileIds},"POST",session.accessToken);
-        generatedName=generated.pdf_name;
+        const generated=await api<{work_report:WorkReport;status:string}>(config.endpoints.completionReportsCreate,{ticket_id:selected.id,description,file_ids:fileIds},"POST",session.accessToken);
         setReports(current=>[generated.work_report,...current]);
-        setReportFiles(current=>({...current,[generated.work_report.id]:[{id:generated.pdf_file_id,name:generated.pdf_name,content_type:"application/pdf",size:0,status:"LINKED"}]}));
         const result=await api<{ticket:Ticket}>(config.endpoints.ticketsComplete,{ticket_id:selected.id,completed_by:session.user?.user_id,comment:description},"POST",session.accessToken);
         setSelected(result.ticket);onUpdate(result.ticket);
       }else{
         const updated={...selected,status:"DONE"};setSelected(updated);onUpdate(updated);
       }
-      setFiles([]);onNotice(`Отчёт сформирован${generatedName?`: ${generatedName}`:""}. Заявка завершена`);
+      setFiles([]);onNotice(demo?"Отчёт сформирован. Заявка завершена":"Заявка завершена. Акт поставлен в очередь, PDF появится после обработки");
     }catch(error){onNotice(error instanceof Error?error.message:"Не удалось завершить заявку")}finally{setBusy(false)}
   }
 
