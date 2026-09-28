@@ -154,8 +154,8 @@ function DashboardV2({ session, role, setDemoRole, onExit }: {session:Session;ro
   const [notice, setNotice] = useState("");
   const [zones, setZones] = useState<BrigadeZoneRecord[]>([]);
   const [dispatcherDepartmentId,setDispatcherDepartmentId]=useState(role==="dispatcher"?(session.user?.department_id||(session.accessToken==="demo"?"dep-roads":"")):"");
-  const [overviewMetrics,setOverviewMetrics]=useState<{avg_response_seconds:number}>({avg_response_seconds:0});
-  const [slaMetrics,setSlaMetrics]=useState<{breach_rate:number;response_warnings:number;resolution_warnings:number}>({breach_rate:0,response_warnings:0,resolution_warnings:0});
+  const [overviewMetrics,setOverviewMetrics]=useState<{avg_response_seconds:number}|null>(null);
+  const [slaMetrics,setSlaMetrics]=useState<{breach_rate:number;response_warnings:number;resolution_warnings:number}|null>(null);
   const demo = session.accessToken === "demo";
   useEffect(() => {
     const requestedSection = new URLSearchParams(window.location.search).get("section");
@@ -187,7 +187,7 @@ function DashboardV2({ session, role, setDemoRole, onExit }: {session:Session;ro
         }
         if(role==="user"){
           const ticketResult=await api<{tickets:Ticket[]}>(config.endpoints.ticketsList,{limit:100,offset:0,sort_by:"created_at",sort_order:"desc"},"POST",session.accessToken);
-          if(active){publishBrigades([]);setLoadedBrigades([]);setTickets(ticketResult.tickets||[]);setVehicles([]);setZones([]);setOverviewMetrics({avg_response_seconds:0});setSlaMetrics({breach_rate:0,response_warnings:0,resolution_warnings:0})}return;
+          if(active){publishBrigades([]);setLoadedBrigades([]);setTickets(ticketResult.tickets||[]);setVehicles([]);setZones([]);setOverviewMetrics(null);setSlaMetrics(null)}return;
         }
         if(role==="worker"){
           const [ticketResult,brigadeResult]=await Promise.all([api<{tickets:Ticket[]}>(config.endpoints.ticketsList,{limit:100,offset:0,sort_by:"created_at",sort_order:"desc"},"POST",session.accessToken),api<{brigade:BrigadeRecord}>(config.endpoints.brigadeByUser,{user_id:session.user?.user_id,only_active:true},"POST",session.accessToken).catch(()=>undefined)]);
@@ -208,21 +208,21 @@ function DashboardV2({ session, role, setDemoRole, onExit }: {session:Session;ro
             .filter(ticket=>ticket.brigade_id===brigadeResult?.brigade?.id&&Number(ticket.assigned_at)>Number(ticket.created_at))
             .map(ticket=>Number(ticket.assigned_at)-Number(ticket.created_at));
           const avgResponseSeconds=responseTimes.length?responseTimes.reduce((sum,value)=>sum+value,0)/responseTimes.length:0;
-          if(active){publishBrigades(ownBrigades);setLoadedBrigades(ownBrigades);setTickets(workerTickets);setVehicles(ownVehicles);setZones([]);setOverviewMetrics({avg_response_seconds:avgResponseSeconds});setSlaMetrics({breach_rate:0,response_warnings:0,resolution_warnings:0})}return;
+          if(active){publishBrigades(ownBrigades);setLoadedBrigades(ownBrigades);setTickets(workerTickets);setVehicles(ownVehicles);setZones([]);setOverviewMetrics({avg_response_seconds:avgResponseSeconds});setSlaMetrics(null)}return;
         }
         const departmentFilter=departmentId?{department_id:departmentId}:{};
         const [ticketResult, brigadeResult, analyticsResult, slaResult] = await Promise.all([
           api<{tickets:Ticket[]}>(config.endpoints.ticketsList, { limit: 100, offset: 0, sort_by: "created_at", sort_order: "desc",...departmentFilter }, "POST", session.accessToken),
-          api<{brigades:BrigadeRecord[]}>(config.endpoints.brigadesList, { limit: 100, offset: 0,...departmentFilter }, "POST", session.accessToken),
-          api<{avg_response_seconds:number}>(config.endpoints.analyticsOverview, { filter:departmentFilter }, "POST", session.accessToken),
-          api<{breach_rate:number;response_warnings:number;resolution_warnings:number}>(config.endpoints.analyticsSlaSummary, { filter:departmentFilter }, "POST", session.accessToken),
+          api<{brigades:BrigadeRecord[]}>(config.endpoints.brigadesList, { limit: 100, offset: 0,...departmentFilter }, "POST", session.accessToken).catch(() => ({brigades:[]})),
+          api<{avg_response_seconds:number}>(config.endpoints.analyticsOverview, { filter:departmentFilter }, "POST", session.accessToken).catch(() => null),
+          api<{breach_rate:number;response_warnings:number;resolution_warnings:number}>(config.endpoints.analyticsSlaSummary, { filter:departmentFilter }, "POST", session.accessToken).catch(() => null),
         ]);
         const brigades = (brigadeResult.brigades || []).filter(item=>!departmentId||item.department_id===departmentId);
         let positions: Position[] = [];
         if (brigades.length) {
           const historyTo=new Date(),historyFrom=new Date(historyTo.getTime()-7*24*60*60*1000);
           const [locationResult,historyResults] = await Promise.all([
-            api<{locations:Record<string,{position?:Position}>}>(config.endpoints.locationsBatch, { brigade_ids: brigades.map(item => item.id), allow_stale: true }, "POST", session.accessToken),
+            api<{locations:Record<string,{position?:Position}>}>(config.endpoints.locationsBatch, { brigade_ids: brigades.map(item => item.id), allow_stale: true }, "POST", session.accessToken).catch((): {locations:Record<string,{position?:Position}>} => ({locations:{}})),
             Promise.all(brigades.map(async brigade=>{try{const result=await api<{positions:Position[]}>(config.endpoints.locationsHistory,{brigade_id:brigade.id,from:historyFrom.toISOString(),to:historyTo.toISOString(),limit:1000,offset:0,order:"desc"},"POST",session.accessToken);return result.positions||[]}catch{return []}})),
           ]);
           const latestByVehicle=new Map<string,Position>();
@@ -230,8 +230,10 @@ function DashboardV2({ session, role, setDemoRole, onExit }: {session:Session;ro
           positions=Array.from(latestByVehicle.values());
         }
         const zoneResults = await Promise.all(brigades.map(async brigade => {
-          const result = await api<{zones:Array<{id:string;brigade_id:string;name:string;priority:number;geo_json:string}>}>(config.endpoints.brigadeZonesList, { brigade_id: brigade.id, active: true }, "POST", session.accessToken);
-          return result.zones || [];
+          try {
+            const result = await api<{zones:Array<{id:string;brigade_id:string;name:string;priority:number;geo_json:string}>}>(config.endpoints.brigadeZonesList, { brigade_id: brigade.id, active: true }, "POST", session.accessToken);
+            return result.zones || [];
+          } catch { return []; }
         }));
         const loadedZones = zoneResults.flat().flatMap(zone => {
           try {
@@ -282,7 +284,7 @@ function DashboardV2({ session, role, setDemoRole, onExit }: {session:Session;ro
       {demo && <div className="demo-bar"><span>Демонстрационный режим</span><div>{(["user", "worker", "dispatcher", "admin"] as Role[]).map(item => <button className={item === role ? "active" : ""} onClick={() => { setDemoRole(item); setSection("overview"); }} key={item}>{roleNames[item]}</button>)}</div></div>}
       {notice && <div className="notice app-toast" role="status" aria-live="polite"><span>{notice}</span><button aria-label="Закрыть уведомление" onClick={() => setNotice("")}>×</button></div>}
       {section === "admin" || section === "management" ? <ManagementPage session={scopedSession} role={role} onNotice={setNotice}/> : section === "zones" ? <BrigadeZones vehicles={vehicles} session={scopedSession} role={role} zones={zones} onSaved={zone => setZones(current => [...current.filter(item => item.id !== zone.id), zone])} onDeleted={id=>setZones(current=>current.filter(item=>item.id!==id))} onNotice={setNotice}/> : section === "overview" || section === "map" ? <>
-        {section === "overview" && <section className="kpis"><article><span>Активные заявки</span><b>{activeTickets.length}</b><small>По данным Ticket Service</small></article><article><span>Бригады на линии</span><b>{activeBrigades.length}</b><small>{onlineVehicles.length} {pluralRu(onlineVehicles.length,"машина","машины","машин")} {onlineVehicles.length===1?"передаёт":"передают"} координаты</small></article><article><span>Среднее время реакции</span><b>{Math.round((Number(overviewMetrics.avg_response_seconds)||0)/60)} <em>мин</em></b><small>{role==="worker"?"От создания до назначения заявок бригады":"По событиям Analytics Service"}</small></article><article><span>В рамках SLA</span><b>{Math.max(0,Math.round(100-(Number(slaMetrics.breach_rate)||0)))}<em>%</em></b><small>{(Number(slaMetrics.response_warnings)||0)+(Number(slaMetrics.resolution_warnings)||0)} требуют внимания</small></article></section>}
+        {section === "overview" && <section className="kpis"><article><span>Активные заявки</span><b>{activeTickets.length}</b><small>По данным Ticket Service</small></article><article><span>Бригады на линии</span><b>{activeBrigades.length}</b><small>{onlineVehicles.length} {pluralRu(onlineVehicles.length,"машина","машины","машин")} {onlineVehicles.length===1?"передаёт":"передают"} координаты</small></article><article><span>Среднее время реакции</span><b>{overviewMetrics?Math.round((Number(overviewMetrics.avg_response_seconds)||0)/60):"—"} {overviewMetrics&&<em>мин</em>}</b><small>{role==="worker"?"От создания до назначения заявок бригады":"По событиям Analytics Service"}</small></article><article><span>В рамках SLA</span><b>{slaMetrics?Math.max(0,Math.round(100-(Number(slaMetrics.breach_rate)||0))):"—"}{slaMetrics&&<em>%</em>}</b><small>{slaMetrics?`${(Number(slaMetrics.response_warnings)||0)+(Number(slaMetrics.resolution_warnings)||0)} требуют внимания`:role==="admin"||role==="dispatcher"?"Данные SLA недоступны":"Показатель недоступен для этой роли"}</small></article></section>}
         <section className="dashboard-grid"><div className="map-card"><div className="card-head"><div><h2>Инфраструктурная карта Москвы</h2><p>Открытые городские данные, заявки, маршруты и машины</p></div></div><CityMap tickets={activeTickets} vehicles={mapVehicles} selected={selected} session={scopedSession} onSelect={setSelected} onNotice={setNotice}/></div><div className="feed-card"><div className="card-head"><div><h2>Оперативная лента</h2><p>{activeTickets.length} {pluralRu(activeTickets.length,"инцидент","инцидента","инцидентов")} · {mapVehicles.length} {pluralRu(mapVehicles.length,"машина","машины","машин")} на карте</p></div></div><TicketCards tickets={activeTickets} selected={selected} onSelect={setSelected}/><VehicleGroups vehicles={mapVehicles} brigades={loadedBrigades} tickets={activeTickets} selected={selected} onSelect={setSelected}/></div></section>
       </> : <SectionPage section={section} tickets={tickets} vehicles={vehicles} zones={zones} session={scopedSession} role={role} onTicketUpdate={ticket=>setTickets(current=>current.map(item=>item.id===ticket.id?ticket:item))} onTicketCreated={ticket=>setTickets(current=>[ticket,...current])} onNotice={setNotice} onOpenMap={id => { setSelected(id); setSection("map"); }} onOpenZones={() => setSection("zones")}/>} 
     </main></div>;

@@ -11,14 +11,14 @@ globalImage:
     department: sha-745656a42688
     dispatch: sha-745656a42688
     file: sha-745656a42688
-    frontend: sha-745656a42688
+    frontend: sha-154567184268
     location: sha-745656a42688
     notification: sha-745656a42688
     profile: sha-745656a42688
     report: sha-745656a42688
     routing: sha-745656a42688
     sla: sha-745656a42688
-    ticket: sha-745656a42688
+    ticket: sha-154567184268
   pullPolicy: Always
 
 migrations:
