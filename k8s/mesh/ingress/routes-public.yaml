@@ -18,6 +18,25 @@ spec:
             host: istio-observability-listener.istio-system.svc.cluster.local
             port:
               number: 8082
+    - name: signed-file-objects
+      match:
+        - uri:
+            prefix: /city-files/
+          method:
+            exact: GET
+        - uri:
+            prefix: /city-files/
+          method:
+            exact: HEAD
+        - uri:
+            prefix: /city-files/
+          method:
+            exact: PUT
+      route:
+        - destination:
+            host: minio.automatic-system.svc.cluster.local
+            port:
+              number: 9000
     - name: api-gateway
       match:
         - uri:
