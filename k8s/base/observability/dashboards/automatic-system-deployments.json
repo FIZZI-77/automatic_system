@@ -33,10 +33,11 @@
             "uid": "prometheus",
             "type": "prometheus"
           },
-          "range": true,
+          "range": false,
+          "instant": true,
           "editorMode": "code",
           "refId": "A",
-          "expr": "sum(flagger_canary_status{namespace=\"$namespace\",name=~\"$canary\"} == 2) or vector(0)"
+          "expr": "count(flagger_canary_status{namespace=\"$namespace\",name=~\"$canary\"} == 2) or vector(0)"
         }
       ],
       "fieldConfig": {

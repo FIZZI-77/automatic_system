@@ -220,12 +220,12 @@ export function CityMap({ tickets, vehicles, brigades = [], selected, session, o
     if (!root.current) return;
     let disposed = false;
     let invalidateTimer: number | undefined;
-    let mapInstance: { remove: () => void } | undefined;
+    let mapInstance: import("leaflet").Map | undefined;
     const target = filteredTickets.find(ticket => ticket.id === selected) || filteredVehicles.find(vehicle => vehicle.vehicle_id === selected || vehicle.brigade_id === selected);
     import("leaflet").then(L => {
       if (disposed || !root.current) return;
       root.current.innerHTML = "";
-      const map = L.map(root.current, { zoomControl: true }).setView(target ? [target.latitude, target.longitude] : [55.751244, 37.618423], target ? 16 : 12);
+      const map = L.map(root.current, { zoomControl: true, zoomAnimation:false, fadeAnimation:false, markerZoomAnimation:false }).setView(target ? [target.latitude, target.longitude] : [55.751244, 37.618423], target ? 16 : 12);
       mapInstance = map;
       map.on("click", () => {
         setSelectedInfrastructure(undefined);
@@ -251,7 +251,7 @@ export function CityMap({ tickets, vehicles, brigades = [], selected, session, o
       });
       if (route.length > 1) {
         const routeLayer=L.polyline(route, { className: "assigned-route", color: "#547b68", weight: 5, opacity: .95 }).addTo(map);
-        map.fitBounds(routeLayer.getBounds(),{padding:[42,42],maxZoom:16});
+        map.fitBounds(routeLayer.getBounds(),{padding:[42,42],maxZoom:16,animate:false});
       }
       filteredTickets.forEach(ticket => { const icon = L.divIcon({ className: "leaflet-div-icon-clean", html: `<span class="leaflet-incident ${selected === ticket.id ? "selected" : ""} ${ticket.priority.toLowerCase()}">!</span>`, iconSize: [34, 34], iconAnchor: [17, 17] }); L.marker([ticket.latitude, ticket.longitude], { icon, title: `${ticket.title} — ${ticket.address}`, zIndexOffset: selected === ticket.id ? 1000 : 0 }).on("click", () => selectTicket(ticket.id)).addTo(map); });
       filteredVehicles.forEach(vehicle => { const active = selected === vehicle.vehicle_id || selected === vehicle.brigade_id; const stale = !hasFreshPosition(vehicle); const icon = L.divIcon({ className: "leaflet-div-icon-clean", html: `<span class="leaflet-vehicle ${active ? "selected" : ""} ${stale ? "stale" : ""}" style="transform:rotate(${vehicle.heading}deg)">▲</span>`, iconSize: [38, 30], iconAnchor: [19, 15] }); L.marker([vehicle.latitude, vehicle.longitude], { icon, title: `${vehicleDisplayName(vehicle.vehicle_id)} · ${brigadeDisplayName(vehicle.brigade_id)} · ${positionTitle(vehicle)}`, zIndexOffset: active ? 1200 : 500 }).on("click", () => selectBrigade(vehicle.brigade_id)).addTo(map); });
@@ -262,6 +262,8 @@ export function CityMap({ tickets, vehicles, brigades = [], selected, session, o
     return () => {
       disposed = true;
       if (invalidateTimer !== undefined) window.clearTimeout(invalidateTimer);
+      mapInstance?.stop();
+      mapInstance?.off();
       mapInstance?.remove();
     };
   }, [filteredTickets, filteredVehicles, selected, session, route, infrastructure, layers, base]);
