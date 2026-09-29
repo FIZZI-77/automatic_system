@@ -23,10 +23,17 @@ const defaultLocation: TicketLocation = {
 
 export function TicketLocationPicker({ value, onChange }: Props) {
   const mapRoot = useRef<HTMLDivElement>(null);
+  const selectedLocation = useRef(value);
+  const changeLocation = useRef(onChange);
   const [mode, setMode] = useState<"address" | "map">("address");
   const [query, setQuery] = useState(value?.address || "");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [searching, setSearching] = useState(false);
+
+  useEffect(() => {
+    selectedLocation.current = value;
+    changeLocation.current = onChange;
+  }, [value, onChange]);
 
   useEffect(() => {
     if (mode !== "address" || query.trim().length < 3 || query === value?.address) {
@@ -63,14 +70,16 @@ export function TicketLocationPicker({ value, onChange }: Props) {
     void import("leaflet").then((leaflet) => {
       if (disposed || !mapRoot.current) return;
 
-      const location = value || defaultLocation;
+      const location = selectedLocation.current || defaultLocation;
       map = leaflet.map(mapRoot.current).setView([location.latitude, location.longitude], 13);
       leaflet.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: "© OpenStreetMap contributors",
         maxZoom: 19,
       }).addTo(map);
 
-      const marker = leaflet.marker([location.latitude, location.longitude]).addTo(map);
+      const marker = leaflet.marker([location.latitude, location.longitude], {
+        icon: leaflet.divIcon({ className: "ticket-location-marker", html: "<span></span>", iconSize: [26, 34], iconAnchor: [13, 34] }),
+      }).addTo(map);
       map.on("click", (event: import("leaflet").LeafletMouseEvent) => {
         marker.setLatLng(event.latlng);
         const next = {
@@ -79,7 +88,7 @@ export function TicketLocationPicker({ value, onChange }: Props) {
           longitude: event.latlng.lng,
         };
         setQuery(next.address);
-        onChange(next);
+        changeLocation.current(next);
       });
     });
 
@@ -87,7 +96,7 @@ export function TicketLocationPicker({ value, onChange }: Props) {
       disposed = true;
       map?.remove();
     };
-  }, [mode, onChange, value]);
+  }, [mode]);
 
   function select(suggestion: Suggestion) {
     const next = {

@@ -60,7 +60,7 @@ export function TicketAssetPicker({ ticket, session, demo, onUpdate, onNotice }:
   async function attach(asset: Asset) {
     setBusy(true);
     try {
-      let updated = { ...ticket, asset_id: asset.id };
+      let updated: Ticket = { ...ticket, asset_id: asset.id };
       if (!demo) {
         const result = await api<{ ticket: Ticket }>(config.endpoints.ticketsUpdate, { ticket_id: ticket.id, asset_id: asset.id, updated_by: session.user?.user_id }, "POST", session.accessToken);
         updated = result.ticket;
@@ -75,6 +75,7 @@ export function TicketAssetPicker({ ticket, session, demo, onUpdate, onNotice }:
   async function findByNumber() {
     const needle = query.trim().toLocaleLowerCase("ru-RU");
     if (!needle) return;
+    setAssets([]);
     setBusy(true);
     try {
       const result = await api<{ asset: Asset }>(config.endpoints.assetsResolve, { identifier: needle }, "POST", session.accessToken);
@@ -133,7 +134,7 @@ export function TicketAssetPicker({ ticket, session, demo, onUpdate, onNotice }:
       <button type="button" className={mode === "qr" ? "active" : ""} onClick={() => setMode("qr")}>QR-код</button>
     </div>
     {mode === "map" && <div><button className="asset-nearby-button" type="button" disabled={busy} onClick={findNearby}>Показать объекты рядом</button>{assets.length > 0 && <div className="asset-picker-map" ref={mapRoot}/>}</div>}
-    {mode === "number" && <div className="asset-number-search"><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Серийный или инвентарный номер"/><button type="button" disabled={busy} onClick={findByNumber}>Найти</button></div>}
+    {mode === "number" && <div className="asset-number-search"><input value={query} onChange={event => { setQuery(event.target.value); setAssets([]); }} placeholder="Серийный или инвентарный номер"/><button type="button" disabled={busy} onClick={findByNumber}>Найти</button></div>}
     {mode === "qr" && <div className="asset-qr"><video ref={videoRef} muted playsInline/><button type="button" disabled={busy} onClick={scanning ? stopQR : startQR}>{scanning ? "Остановить камеру" : "Сканировать QR"}</button></div>}
     {mode !== "map" && assets.length > 0 && <div className="asset-suggestions">{assets.map(asset => <button type="button" key={asset.id} disabled={busy} onClick={() => void attach(asset)}><b>{asset.name}</b><span>{asset.serial_number || asset.external_id || asset.id}</span></button>)}</div>}
   </section>;

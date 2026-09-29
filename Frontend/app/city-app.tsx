@@ -126,11 +126,11 @@ export function LegacyDashboard({ session, role, setDemoRole, onExit }: {session
       {demo&&<div className="demo-bar"><span>Демонстрационный режим</span><div>{(["user","worker","dispatcher","admin"] as Role[]).map(r=><button className={r===role?"active":""} onClick={()=>setDemoRole(r)} key={r}>{roleNames[r]}</button>)}</div></div>}
       {notice&&<div className="notice">{notice}<button onClick={()=>setNotice("")}>×</button></div>}
       <section className="kpis"><article><span>Активные заявки</span><b>{activeTickets.length}</b><small className="up">↑ 8% за сегодня</small></article><article><span>Бригады на линии</span><b>{vehicles.length||11}<em> / 14</em></b><small>3 свободны</small></article><article><span>Среднее время реакции</span><b>18 <em>мин</em></b><small className="up">↓ 4 мин к среднему</small></article><article><span>В рамках SLA</span><b>94<em>%</em></b><small>2 требуют внимания</small></article></section>
-      <section className="dashboard-grid"><div className="map-card"><div className="card-head"><div><h2>{section==="tickets"?"Инциденты":"Оперативная карта"}</h2><p>Заявки, маршруты и городские бригады</p></div><div className="segmented"><button className="active">Все</button><button>Заявки</button><button>Бригады</button></div></div><CityMap tickets={activeTickets} vehicles={vehicles} selected={selected} onSelect={setSelected}/></div>
+      <section className="dashboard-grid"><div className="map-card"><div className="card-head"><div><h2>{section==="tickets"?"Инциденты":"Оперативная карта"}</h2><p>Заявки, маршруты и городские бригады</p></div><div className="segmented"><button className="active">Все</button><button>Заявки</button><button>Бригады</button></div></div><CityMap tickets={activeTickets} vehicles={vehicles} brigades={defaultBrigades} selected={selected} onSelect={setSelected}/></div>
         <div className="feed-card">
           <div className="card-head"><div><h2>Требуют внимания</h2><p>{activeTickets.length} инцидентов · {vehicles.length} машин</p></div><button className="link" onClick={()=>setSection("tickets")}>Все →</button></div>
           <div className="ticket-list">{loading?<p>Загружаем данные…</p>:activeTickets.slice(0,4).map(t=><button key={t.id} className={selected===t.id?"selected":""} onClick={()=>setSelected(t.id)}><span className={`priority ${t.priority.toLowerCase()}`}/><div><b>{t.title}</b><small>{t.address}</small><div><em className={`status ${t.status.toLowerCase()}`}>{statusNames[t.status]||t.status}</em><time>{Math.max(1,Math.round((renderedAt-t.created_at)/60))} мин назад</time></div></div></button>)}</div>
-          <VehicleGroups vehicles={vehicles} tickets={activeTickets} selected={selected} onSelect={setSelected}/>
+          <VehicleGroups vehicles={vehicles} brigades={defaultBrigades} tickets={activeTickets} selected={selected} onSelect={setSelected}/>
           {selectedTicket&&<div className="quick-action"><div><span>Выбрана заявка</span><b>{selectedTicket.title}</b></div><button onClick={()=>setNotice(demo?"В демо действия не отправляются":"Команда подготовлена")}>{role==="dispatcher"?"Назначить бригаду":role==="worker"?"Начать работу":"Открыть"}</button></div>}
         </div>
       </section>
@@ -148,6 +148,7 @@ function DashboardV2({ session, role, setDemoRole, onExit }: {session:Session;ro
   const [searchQuery,setSearchQuery]=useState("");
   const [accountName,setAccountName]=useState(session.accessToken==="demo"?`Демо: ${roleNames[role]}`:(session.user?.email?.split("@")[0]||"Профиль"));
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const demoTicketsLoaded = useRef(false);
   const [vehicles, setVehicles] = useState<Position[]>([]);
   const [loadedBrigades, setLoadedBrigades] = useState<BrigadeRecord[]>([]);
   const [selected, setSelected] = useState<string>();
@@ -183,7 +184,7 @@ function DashboardV2({ session, role, setDemoRole, onExit }: {session:Session;ro
         if (demo) {
           const demoBrigades=departmentId?defaultBrigades.filter(item=>item.department_id===departmentId):defaultBrigades;
           const brigadeIds=new Set(demoBrigades.map(item=>item.id));
-          if(active){publishBrigades(demoBrigades);setLoadedBrigades(demoBrigades);setTickets(departmentId?demoTickets.filter(item=>item.department_id===departmentId):demoTickets);setVehicles(departmentId?demoVehicles.filter(item=>brigadeIds.has(item.brigade_id)):demoVehicles);setOverviewMetrics({avg_response_seconds:1080});setSlaMetrics({breach_rate:6,response_warnings:2,resolution_warnings:0})}return;
+          if(active){publishBrigades(demoBrigades);setLoadedBrigades(demoBrigades);if(!demoTicketsLoaded.current){setTickets(demoTickets);demoTicketsLoaded.current=true}setVehicles(departmentId?demoVehicles.filter(item=>brigadeIds.has(item.brigade_id)):demoVehicles);setOverviewMetrics({avg_response_seconds:1080});setSlaMetrics({breach_rate:6,response_warnings:2,resolution_warnings:0})}return;
         }
         if(role==="user"){
           const ticketResult=await api<{tickets:Ticket[]}>(config.endpoints.ticketsList,{limit:100,offset:0,sort_by:"created_at",sort_order:"desc"},"POST",session.accessToken);
@@ -247,6 +248,17 @@ function DashboardV2({ session, role, setDemoRole, onExit }: {session:Session;ro
     return () => { active = false; };
   }, [demo, role, session.accessToken, session.user?.department_id, session.user?.user_id]);
   useEffect(() => {
+    if (demo || section !== "tickets" || (role === "dispatcher" && !dispatcherDepartmentId)) return;
+    let active = true;
+    const departmentFilter = role === "dispatcher" ? { department_id: dispatcherDepartmentId } : {};
+    void api<{ tickets: Ticket[] }>(config.endpoints.ticketsList, {
+      limit: 100, offset: 0, sort_by: "created_at", sort_order: "desc", ...departmentFilter,
+    }, "POST", session.accessToken)
+      .then(result => { if (active) setTickets(result.tickets || []); })
+      .catch(error => { if (active) setNotice(error instanceof Error ? error.message : "Не удалось обновить заявки"); });
+    return () => { active = false; };
+  }, [demo, dispatcherDepartmentId, role, section, session.accessToken]);
+  useEffect(() => {
     if (demo) return;
     const separator = config.wsUrl.includes("?") ? "&" : "?";
     const socket = new WebSocket(`${config.wsUrl}${separator}access_token=${encodeURIComponent(session.accessToken)}`);
@@ -266,14 +278,15 @@ function DashboardV2({ session, role, setDemoRole, onExit }: {session:Session;ro
     const timeout = window.setTimeout(() => setNotice(""), 7000);
     return () => window.clearTimeout(timeout);
   }, [notice]);
-  const activeTickets = tickets.filter(ticket => !["DONE", "CANCELED"].includes(ticket.status));
+  const visibleTickets = demo && role === "dispatcher" ? tickets.filter(ticket => ticket.department_id === dispatcherDepartmentId) : tickets;
+  const activeTickets = visibleTickets.filter(ticket => !["DONE", "CANCELED"].includes(ticket.status));
   const mapVehicles = operationalVehicles(vehicles,loadedBrigades);
   const onlineVehicles = mapVehicles.filter(hasFreshPosition);
   const activeBrigades = loadedBrigades.filter(brigade=>operationalStatuses.has(brigade.status));
   const scopedSession:Session=dispatcherDepartmentId&&session.user?{...session,user:{...session.user,department_id:dispatcherDepartmentId}}:session;
   const navigation = [...navByRole[role], ...(role === "dispatcher" ? [managementNavigation] : []), ...(["dispatcher", "admin"].includes(role) ? [extraNavigation] : [])];
   const normalizedSearch=searchQuery.trim().toLocaleLowerCase("ru-RU");
-  const searchTickets=normalizedSearch?tickets.filter(ticket=>[ticket.id,ticket.title,ticket.address].some(value=>value.toLocaleLowerCase("ru-RU").includes(normalizedSearch))).slice(0,6):[];
+  const searchTickets=normalizedSearch?visibleTickets.filter(ticket=>[ticket.id,ticket.title,ticket.address].some(value=>value.toLocaleLowerCase("ru-RU").includes(normalizedSearch))).slice(0,6):[];
   const searchSections=normalizedSearch?navigation.filter(item=>item.label.toLocaleLowerCase("ru-RU").includes(normalizedSearch)).slice(0,5):[];
   const displayAccountName=demo?`Демо: ${roleNames[role]}`:accountName;
   const accountInitials=displayAccountName.split(/[\s._-]+/).filter(Boolean).map(part=>part[0]).join("").slice(0,2).toLocaleUpperCase("ru-RU")||"П";
@@ -285,8 +298,8 @@ function DashboardV2({ session, role, setDemoRole, onExit }: {session:Session;ro
       {notice && <div className="notice app-toast" role="status" aria-live="polite"><span>{notice}</span><button aria-label="Закрыть уведомление" onClick={() => setNotice("")}>×</button></div>}
       {section === "admin" || section === "management" ? <ManagementPage session={scopedSession} role={role} onNotice={setNotice}/> : section === "zones" ? <BrigadeZones vehicles={vehicles} session={scopedSession} role={role} zones={zones} onSaved={zone => setZones(current => [...current.filter(item => item.id !== zone.id), zone])} onDeleted={id=>setZones(current=>current.filter(item=>item.id!==id))} onNotice={setNotice}/> : section === "overview" || section === "map" ? <>
         {section === "overview" && <section className="kpis"><article><span>Активные заявки</span><b>{activeTickets.length}</b><small>По данным Ticket Service</small></article><article><span>Бригады на линии</span><b>{activeBrigades.length}</b><small>{onlineVehicles.length} {pluralRu(onlineVehicles.length,"машина","машины","машин")} {onlineVehicles.length===1?"передаёт":"передают"} координаты</small></article><article><span>Среднее время реакции</span><b>{overviewMetrics?Math.round((Number(overviewMetrics.avg_response_seconds)||0)/60):"—"} {overviewMetrics&&<em>мин</em>}</b><small>{role==="worker"?"От создания до назначения заявок бригады":"По событиям Analytics Service"}</small></article><article><span>В рамках SLA</span><b>{slaMetrics?Math.max(0,Math.round(100-(Number(slaMetrics.breach_rate)||0))):"—"}{slaMetrics&&<em>%</em>}</b><small>{slaMetrics?`${(Number(slaMetrics.response_warnings)||0)+(Number(slaMetrics.resolution_warnings)||0)} требуют внимания`:role==="admin"||role==="dispatcher"?"Данные SLA недоступны":"Показатель недоступен для этой роли"}</small></article></section>}
-        <section className="dashboard-grid"><div className="map-card"><div className="card-head"><div><h2>Инфраструктурная карта Москвы</h2><p>Открытые городские данные, заявки, маршруты и машины</p></div></div><CityMap tickets={activeTickets} vehicles={mapVehicles} selected={selected} session={scopedSession} onSelect={setSelected} onNotice={setNotice}/></div><div className="feed-card"><div className="card-head"><div><h2>Оперативная лента</h2><p>{activeTickets.length} {pluralRu(activeTickets.length,"инцидент","инцидента","инцидентов")} · {mapVehicles.length} {pluralRu(mapVehicles.length,"машина","машины","машин")} на карте</p></div></div><TicketCards tickets={activeTickets} selected={selected} onSelect={setSelected}/><VehicleGroups vehicles={mapVehicles} brigades={loadedBrigades} tickets={activeTickets} selected={selected} onSelect={setSelected}/></div></section>
-      </> : <SectionPage section={section} tickets={tickets} vehicles={vehicles} zones={zones} session={scopedSession} role={role} onTicketUpdate={ticket=>setTickets(current=>current.map(item=>item.id===ticket.id?ticket:item))} onTicketCreated={ticket=>setTickets(current=>[ticket,...current])} onNotice={setNotice} onOpenMap={id => { setSelected(id); setSection("map"); }} onOpenZones={() => setSection("zones")}/>} 
+        <section className="dashboard-grid"><div className="map-card"><div className="card-head"><div><h2>Инфраструктурная карта Москвы</h2><p>Открытые городские данные, заявки, маршруты и машины</p></div></div><CityMap tickets={activeTickets} vehicles={mapVehicles} brigades={loadedBrigades} selected={selected} session={scopedSession} onSelect={setSelected} onNotice={setNotice}/></div><div className="feed-card"><div className="card-head"><div><h2>Оперативная лента</h2><p>{activeTickets.length} {pluralRu(activeTickets.length,"инцидент","инцидента","инцидентов")} · {mapVehicles.length} {pluralRu(mapVehicles.length,"машина","машины","машин")} на карте</p></div></div><TicketCards tickets={activeTickets} selected={selected} onSelect={setSelected}/><VehicleGroups vehicles={mapVehicles} brigades={loadedBrigades} tickets={activeTickets} selected={selected} onSelect={setSelected}/></div></section>
+      </> : <SectionPage section={section} tickets={visibleTickets} vehicles={vehicles} zones={zones} session={scopedSession} role={role} onTicketUpdate={ticket=>setTickets(current=>current.map(item=>item.id===ticket.id?ticket:item))} onTicketCreated={ticket=>setTickets(current=>[ticket,...current])} onNotice={setNotice} onOpenMap={id => { setSelected(id); setSection("map"); }} onOpenZones={() => setSection("zones")}/>}
     </main></div>;
 }
 
@@ -306,7 +319,7 @@ function vehicleState(vehicle:Position,brigades:BrigadeRecord[],tickets:Ticket[]
 
 function VehicleGroups({vehicles,brigades,tickets,selected,onSelect}:{vehicles:Position[];brigades:BrigadeRecord[];tickets:Ticket[];selected?:string;onSelect:(id:string)=>void}){
   const groups=Array.from(new Set(vehicles.map(vehicle=>vehicle.brigade_id))).map(brigadeId=>({brigadeId,vehicles:vehicles.filter(vehicle=>vehicle.brigade_id===brigadeId)}));
-  return <div className="vehicle-list"><div className="list-caption">Машины по бригадам</div>{groups.map(group=>{const active=group.vehicles.some(vehicle=>vehicle.vehicle_id===selected),brigadeName=brigades.find(brigade=>brigade.id===group.brigadeId)?.name||brigadeDisplayName(group.brigadeId);return <button key={group.brigadeId} className={active?"selected":""} onClick={()=>onSelect(group.vehicles[0].vehicle_id)}><i>▲</i><div><b>{brigadeName}</b>{group.vehicles.map(vehicle=><span className="vehicle-feed-row" key={vehicle.vehicle_id}><small>{vehicleDisplayName(vehicle.vehicle_id)}</small><em>{vehicleState(vehicle,brigades,tickets)}</em></span>)}</div><span>⌖</span></button>})}</div>
+  return <div className="vehicle-list"><div className="list-caption">Машины по бригадам</div>{groups.map(group=>{const active=selected===group.brigadeId||group.vehicles.some(vehicle=>vehicle.vehicle_id===selected),brigadeName=brigades.find(brigade=>brigade.id===group.brigadeId)?.name||brigadeDisplayName(group.brigadeId);return <button key={group.brigadeId} className={active?"selected":""} onClick={()=>onSelect(group.brigadeId)}><i>▲</i><div><b>{brigadeName}</b>{group.vehicles.map(vehicle=><span className="vehicle-feed-row" key={vehicle.vehicle_id}><small>{vehicleDisplayName(vehicle.vehicle_id)}</small><em>{vehicleState(vehicle,brigades,tickets)}</em></span>)}</div><span>⌖</span></button>})}</div>
 }
 
 function SectionPage({ section, tickets, vehicles, zones, session, role, onTicketUpdate, onTicketCreated, onNotice, onOpenMap, onOpenZones }: { section: string; tickets: Ticket[]; vehicles: Position[]; zones: BrigadeZoneRecord[]; session:Session; role:Role; onTicketUpdate:(ticket:Ticket)=>void; onTicketCreated:(ticket:Ticket)=>void; onNotice:(text:string)=>void; onOpenMap: (id: string) => void; onOpenZones: () => void }) {

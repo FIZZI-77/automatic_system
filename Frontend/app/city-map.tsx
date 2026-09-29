@@ -3,14 +3,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "leaflet/dist/leaflet.css";
 import { ApiError, api, config, type Position, type Session, type Ticket } from "./api";
-import { brigadeDisplayName, vehicleDisplayName } from "./brigade-store";
+import { brigadeDisplayName, vehicleDisplayName, type BrigadeRecord } from "./brigade-store";
 
 type RoutePoint = [number, number];
 type LayerId = "districts" | "roads" | "stops" | "lighting" | "traffic" | "emergency" | "utilities" | "social" | "energy";
 type BaseId = "standard" | "humanitarian" | "topographic";
 type InfraFeature = { id: string; latitude?: number; longitude?: number; coordinates?: [number, number][]; category: LayerId; name: string; kind: string; address?:string; operator?:string; network?:string; ref?:string };
 type AssetPassport = { id:string; external_id?:string; department_id:string; type:string; name:string; address?:string; district?:string; municipality?:string; status?:string|number; risk_level?:string|number; risk_score?:number; criticality?:number; geometry_geo_json?:string; next_inspection_at?:string|number };
-type Props = { tickets: Ticket[]; vehicles: Position[]; selected?: string; session?:Session; onSelect: (id: string) => void; onNotice?:(message:string)=>void };
+type Department = { id:string; name:string };
+type Props = { tickets: Ticket[]; vehicles: Position[]; brigades?:BrigadeRecord[]; selected?: string; session?:Session; onSelect: (id: string) => void; onNotice?:(message:string)=>void };
+
+const demoDepartments:Department[]=[
+  {id:"dep-roads",name:"Дорожное хозяйство"},
+  {id:"dep-utilities",name:"Городские коммуникации"},
+];
 
 const layerMeta: Record<LayerId, { label: string; icon: string; color: string }> = {
   districts: { label: "Границы округов", icon: "О", color: "#8b78a8" },
@@ -51,9 +57,13 @@ function decodePolyline6(encoded: string): RoutePoint[] {
   return points;
 }
 
-export function CityMap({ tickets, vehicles, selected, session, onSelect, onNotice }: Props) {
+export function CityMap({ tickets, vehicles, brigades = [], selected, session, onSelect, onNotice }: Props) {
   const root = useRef<HTMLDivElement>(null);
   const [route, setRoute] = useState<RoutePoint[]>([]);
+  const [departments,setDepartments]=useState<Department[]>(demoDepartments);
+  const [departmentFilter,setDepartmentFilter]=useState("");
+  const [ticketFilter,setTicketFilter]=useState("");
+  const [brigadeFilter,setBrigadeFilter]=useState("");
   const [infrastructure, setInfrastructure] = useState<InfraFeature[]>([]);
   const [base, setBase] = useState<BaseId>("standard");
   const [layers, setLayers] = useState<LayerId[]>(["districts", "roads"]);
@@ -64,15 +74,90 @@ export function CityMap({ tickets, vehicles, selected, session, onSelect, onNoti
   const [passportBusy,setPassportBusy]=useState(false);
   const [passportError,setPassportError]=useState("");
 
+  const knownBrigades=useMemo(()=>{
+    const byId=new Map(brigades.map(brigade=>[brigade.id,brigade]));
+    tickets.forEach(ticket=>{if(ticket.brigade_id&&!byId.has(ticket.brigade_id))byId.set(ticket.brigade_id,{id:ticket.brigade_id,department_id:ticket.department_id,name:brigadeDisplayName(ticket.brigade_id),description:"",specialization:"",status:""})});
+    vehicles.forEach(vehicle=>{if(!byId.has(vehicle.brigade_id))byId.set(vehicle.brigade_id,{id:vehicle.brigade_id,department_id:vehicle.department_id||tickets.find(ticket=>ticket.brigade_id===vehicle.brigade_id)?.department_id||"",name:brigadeDisplayName(vehicle.brigade_id),description:"",specialization:"",status:""})});
+    return Array.from(byId.values());
+  },[brigades,tickets,vehicles]);
+  const departmentOptions=useMemo(()=>{
+    const byId=new Map(departments.map(department=>[department.id,department]));
+    tickets.forEach(ticket=>{if(!byId.has(ticket.department_id))byId.set(ticket.department_id,{id:ticket.department_id,name:`Департамент ${ticket.department_id.slice(0,8)}`})});
+    knownBrigades.forEach(brigade=>{if(brigade.department_id&&!byId.has(brigade.department_id))byId.set(brigade.department_id,{id:brigade.department_id,name:`Департамент ${brigade.department_id.slice(0,8)}`})});
+    return Array.from(byId.values()).sort((left,right)=>left.name.localeCompare(right.name,"ru"));
+  },[departments,knownBrigades,tickets]);
+  const departmentTickets=useMemo(()=>departmentFilter?tickets.filter(ticket=>ticket.department_id===departmentFilter):tickets,[departmentFilter,tickets]);
+  const departmentBrigades=useMemo(()=>departmentFilter?knownBrigades.filter(brigade=>brigade.department_id===departmentFilter):knownBrigades,[departmentFilter,knownBrigades]);
+  const filteredTickets=useMemo(()=>departmentTickets.filter(ticket=>(!ticketFilter||ticket.id===ticketFilter)&&(!brigadeFilter||ticket.brigade_id===brigadeFilter)),[brigadeFilter,departmentTickets,ticketFilter]);
+  const filteredVehicles=useMemo(()=>vehicles.filter(vehicle=>{
+    const departmentId=vehicle.department_id||knownBrigades.find(brigade=>brigade.id===vehicle.brigade_id)?.department_id;
+    if(departmentFilter&&departmentId!==departmentFilter)return false;
+    if(brigadeFilter&&vehicle.brigade_id!==brigadeFilter)return false;
+    if(ticketFilter&&vehicle.brigade_id!==tickets.find(ticket=>ticket.id===ticketFilter)?.brigade_id)return false;
+    return true;
+  }),[brigadeFilter,departmentFilter,knownBrigades,ticketFilter,tickets,vehicles]);
+
   const routePair = useMemo(() => {
     const assigned = tickets.filter(ticket => ["ASSIGNED", "IN_PROGRESS"].includes(ticket.status) && ticket.brigade_id);
-    const selectedTicket = assigned.find(ticket => ticket.id === selected);
+    const selectedTicket = assigned.find(ticket => ticket.id === (ticketFilter||selected));
     if (selectedTicket) return { destination: selectedTicket, origin: vehicles.find(vehicle => vehicle.brigade_id === selectedTicket.brigade_id) };
-    const selectedVehicle = vehicles.find(vehicle => vehicle.vehicle_id === selected || vehicle.brigade_id === selected);
+    const selectedVehicle = vehicles.find(vehicle => vehicle.vehicle_id === selected || vehicle.brigade_id === (brigadeFilter||selected));
     if (selectedVehicle) return { origin: selectedVehicle, destination: assigned.find(ticket => ticket.brigade_id === selectedVehicle.brigade_id) };
-    const destination = assigned[0];
-    return { destination, origin: destination ? vehicles.find(vehicle => vehicle.brigade_id === destination.brigade_id) : undefined };
-  }, [tickets, vehicles, selected]);
+    return {};
+  }, [brigadeFilter,selected,ticketFilter,tickets,vehicles]);
+  const routeHint=useMemo(()=>{
+    if(!ticketFilter&&!brigadeFilter&&!selected)return "Выберите заявку или бригаду, чтобы показать маршрут";
+    const selectedTicket=tickets.find(ticket=>ticket.id===(ticketFilter||selected));
+    if(selectedTicket&&!selectedTicket.brigade_id)return "У выбранной заявки пока нет назначенной бригады";
+    if(selectedTicket&&!routePair.origin)return "У назначенной бригады пока нет позиции машины";
+    if((brigadeFilter||selected)&&!routePair.destination)return "У выбранной бригады нет активной заявки с маршрутом";
+    return "";
+  },[brigadeFilter,routePair,selected,ticketFilter,tickets]);
+
+  useEffect(()=>{
+    if(!session||session.accessToken==="demo"){setDepartments(demoDepartments);return}
+    let active=true;
+    api<{departments:Department[]}>(config.endpoints.departmentsList,{limit:100,offset:0},"POST",session.accessToken)
+      .then(payload=>{if(active)setDepartments(payload.departments||[])})
+      .catch(()=>undefined);
+    return()=>{active=false};
+  },[session]);
+
+  useEffect(()=>{
+    if(!selected)return;
+    const ticket=tickets.find(item=>item.id===selected);
+    if(ticket){setDepartmentFilter(ticket.department_id);setTicketFilter(ticket.id);setBrigadeFilter("");return}
+    const vehicle=vehicles.find(item=>item.vehicle_id===selected||item.brigade_id===selected);
+    const brigadeId=vehicle?.brigade_id||knownBrigades.find(item=>item.id===selected)?.id;
+    if(!brigadeId)return;
+    const brigade=knownBrigades.find(item=>item.id===brigadeId);
+    if(brigade?.department_id)setDepartmentFilter(brigade.department_id);
+    setBrigadeFilter(brigadeId);
+    setTicketFilter("");
+  },[knownBrigades,selected,tickets,vehicles]);
+
+  function selectTicket(ticketId:string){
+    setTicketFilter(ticketId);
+    setBrigadeFilter("");
+    const ticket=tickets.find(item=>item.id===ticketId);
+    if(ticket)setDepartmentFilter(ticket.department_id);
+    onSelect(ticketId);
+  }
+
+  function selectBrigade(brigadeId:string){
+    setBrigadeFilter(brigadeId);
+    setTicketFilter("");
+    const brigade=knownBrigades.find(item=>item.id===brigadeId);
+    if(brigade?.department_id)setDepartmentFilter(brigade.department_id);
+    onSelect(brigadeId);
+  }
+
+  function resetFilters(){
+    setDepartmentFilter("");
+    setTicketFilter("");
+    setBrigadeFilter("");
+    onSelect("");
+  }
 
   useEffect(() => {
     const controller = new AbortController();
@@ -136,7 +221,7 @@ export function CityMap({ tickets, vehicles, selected, session, onSelect, onNoti
     let disposed = false;
     let invalidateTimer: number | undefined;
     let mapInstance: { remove: () => void } | undefined;
-    const target = tickets.find(ticket => ticket.id === selected) || vehicles.find(vehicle => vehicle.vehicle_id === selected || vehicle.brigade_id === selected);
+    const target = filteredTickets.find(ticket => ticket.id === selected) || filteredVehicles.find(vehicle => vehicle.vehicle_id === selected || vehicle.brigade_id === selected);
     import("leaflet").then(L => {
       if (disposed || !root.current) return;
       root.current.innerHTML = "";
@@ -164,9 +249,12 @@ export function CityMap({ tickets, vehicles, selected, session, onSelect, onNoti
           }).addTo(map);
         }
       });
-      if (route.length > 1) L.polyline(route, { className: "assigned-route", color: "#547b68", weight: 5, opacity: .95 }).addTo(map);
-      tickets.forEach(ticket => { const icon = L.divIcon({ className: "leaflet-div-icon-clean", html: `<span class="leaflet-incident ${selected === ticket.id ? "selected" : ""} ${ticket.priority.toLowerCase()}">!</span>`, iconSize: [34, 34], iconAnchor: [17, 17] }); L.marker([ticket.latitude, ticket.longitude], { icon, title: `${ticket.title} — ${ticket.address}`, zIndexOffset: selected === ticket.id ? 1000 : 0 }).on("click", () => onSelect(ticket.id)).addTo(map); });
-      vehicles.forEach(vehicle => { const active = selected === vehicle.vehicle_id || selected === vehicle.brigade_id; const stale = !hasFreshPosition(vehicle); const icon = L.divIcon({ className: "leaflet-div-icon-clean", html: `<span class="leaflet-vehicle ${active ? "selected" : ""} ${stale ? "stale" : ""}" style="transform:rotate(${vehicle.heading}deg)">▲</span>`, iconSize: [38, 30], iconAnchor: [19, 15] }); L.marker([vehicle.latitude, vehicle.longitude], { icon, title: `${vehicleDisplayName(vehicle.vehicle_id)} · ${brigadeDisplayName(vehicle.brigade_id)} · ${positionTitle(vehicle)}`, zIndexOffset: active ? 1200 : 500 }).on("click", () => onSelect(vehicle.vehicle_id)).addTo(map); });
+      if (route.length > 1) {
+        const routeLayer=L.polyline(route, { className: "assigned-route", color: "#547b68", weight: 5, opacity: .95 }).addTo(map);
+        map.fitBounds(routeLayer.getBounds(),{padding:[42,42],maxZoom:16});
+      }
+      filteredTickets.forEach(ticket => { const icon = L.divIcon({ className: "leaflet-div-icon-clean", html: `<span class="leaflet-incident ${selected === ticket.id ? "selected" : ""} ${ticket.priority.toLowerCase()}">!</span>`, iconSize: [34, 34], iconAnchor: [17, 17] }); L.marker([ticket.latitude, ticket.longitude], { icon, title: `${ticket.title} — ${ticket.address}`, zIndexOffset: selected === ticket.id ? 1000 : 0 }).on("click", () => selectTicket(ticket.id)).addTo(map); });
+      filteredVehicles.forEach(vehicle => { const active = selected === vehicle.vehicle_id || selected === vehicle.brigade_id; const stale = !hasFreshPosition(vehicle); const icon = L.divIcon({ className: "leaflet-div-icon-clean", html: `<span class="leaflet-vehicle ${active ? "selected" : ""} ${stale ? "stale" : ""}" style="transform:rotate(${vehicle.heading}deg)">▲</span>`, iconSize: [38, 30], iconAnchor: [19, 15] }); L.marker([vehicle.latitude, vehicle.longitude], { icon, title: `${vehicleDisplayName(vehicle.vehicle_id)} · ${brigadeDisplayName(vehicle.brigade_id)} · ${positionTitle(vehicle)}`, zIndexOffset: active ? 1200 : 500 }).on("click", () => selectBrigade(vehicle.brigade_id)).addTo(map); });
       invalidateTimer = window.setTimeout(() => {
         if (!disposed) map.invalidateSize();
       }, 50);
@@ -176,9 +264,9 @@ export function CityMap({ tickets, vehicles, selected, session, onSelect, onNoti
       if (invalidateTimer !== undefined) window.clearTimeout(invalidateTimer);
       mapInstance?.remove();
     };
-  }, [tickets, vehicles, selected, session, onSelect, route, infrastructure, layers, base]);
+  }, [filteredTickets, filteredVehicles, selected, session, route, infrastructure, layers, base]);
 
   const toggleLayer = (layer: LayerId) => setLayers(current => current.includes(layer) ? current.filter(item => item !== layer) : [...current, layer]);
   const canCreatePassport=Boolean(session&&session.user?.roles.some(role=>["admin","dispatcher","worker"].includes(role.toLowerCase())));
-  return <div className="map-shell yandex-map"><div ref={root} className="map-root"/>{error && <div className="map-load-error">{error}</div>}<button className="layers-trigger" onClick={() => setPanelOpen(value => !value)}>▦ Слои</button>{panelOpen && <div className="layers-window"><div className="layers-title"><div><b>Слои карты</b><span>Подложка и городские объекты</span></div><button onClick={() => setPanelOpen(false)}>×</button></div><fieldset><legend>Подложка</legend>{(Object.keys(bases) as BaseId[]).map(item => <label key={item}><input type="radio" name="base-map" checked={base === item} onChange={() => setBase(item)}/><span className={`base-preview ${item}`}/><b>{bases[item].label}</b></label>)}</fieldset><fieldset><legend>Инфраструктура</legend>{(Object.keys(layerMeta) as LayerId[]).map(item => <label key={item}><input type="checkbox" checked={layers.includes(item)} onChange={() => toggleLayer(item)}/><i style={{ background: layerMeta[item].color }}>{layerMeta[item].icon}</i><span>{layerMeta[item].label}</span></label>)}</fieldset><small>Открытые данные © OpenStreetMap</small></div>}{selectedInfrastructure&&<section className="infrastructure-card" aria-label="Карточка объекта инфраструктуры"><button className="infrastructure-card-close" aria-label="Закрыть карточку" onClick={()=>setSelectedInfrastructure(undefined)}>×</button><span className="eyebrow">{passport?"Паспорт объекта":"Данные OpenStreetMap"}</span><h3>{passport?.name||selectedInfrastructure.name}</h3><p>{layerMeta[selectedInfrastructure.category].label} · {selectedInfrastructure.kind}</p><dl><div><dt>Внешний ID</dt><dd>{selectedInfrastructure.id}</dd></div>{selectedInfrastructure.ref&&<div><dt>Номер</dt><dd>{selectedInfrastructure.ref}</dd></div>}{selectedInfrastructure.operator&&<div><dt>Оператор</dt><dd>{selectedInfrastructure.operator}</dd></div>}{selectedInfrastructure.network&&<div><dt>Сеть</dt><dd>{selectedInfrastructure.network}</dd></div>}<div><dt>Координаты</dt><dd>{selectedInfrastructure.latitude?.toFixed(6)}, {selectedInfrastructure.longitude?.toFixed(6)}</dd></div>{passport&&<><div><dt>ID паспорта</dt><dd>{passport.id}</dd></div><div><dt>Состояние</dt><dd>{enumText(passport.status,assetStatusLabels)}</dd></div><div><dt>Риск</dt><dd>{enumText(passport.risk_level,riskLabels)}</dd></div><div><dt>Критичность</dt><dd>{Math.round(Number(passport.criticality||0)*100)}%</dd></div></>}</dl>{passportBusy&&<p className="passport-state">Проверяем реестр…</p>}{passportError&&<p className="passport-error">{passportError}</p>}{!passport&&!passportBusy&&<><p className="passport-state">Паспорт для этого объекта ещё не создан.</p>{canCreatePassport?<button className="passport-create" onClick={()=>void createPassport()}>Создать паспорт объекта</button>:<small>Для создания паспорта нужны права сотрудника городской службы.</small>}</>}</section>}<div className="map-legend"><span><i className="dot incident"/> Инцидент</span><span><i className="dot vehicle"/> Машина</span>{route.length > 1 && <span><i className="line"/> Назначенный маршрут</span>}</div></div>;
+  return <div className="map-shell yandex-map"><div ref={root} className="map-root"/><div className="map-route-filters" aria-label="Фильтры карты"><label><span>Департамент</span><select aria-label="Фильтр по департаменту" value={departmentFilter} onChange={event=>{setDepartmentFilter(event.target.value);setTicketFilter("");setBrigadeFilter("");onSelect("")}}><option value="">Все департаменты</option>{departmentOptions.map(department=><option value={department.id} key={department.id}>{department.name}</option>)}</select></label><label><span>Заявка</span><select aria-label="Фильтр по заявке" value={ticketFilter} onChange={event=>event.target.value?selectTicket(event.target.value):(setTicketFilter(""),onSelect(""))}><option value="">Все заявки</option>{departmentTickets.map(ticket=><option value={ticket.id} key={ticket.id}>{ticket.id} · {ticket.title}</option>)}</select></label><label><span>Бригада</span><select aria-label="Фильтр по бригаде" value={brigadeFilter} onChange={event=>event.target.value?selectBrigade(event.target.value):(setBrigadeFilter(""),onSelect(""))}><option value="">Все бригады</option>{departmentBrigades.map(brigade=><option value={brigade.id} key={brigade.id}>{brigade.name}</option>)}</select></label>{(departmentFilter||ticketFilter||brigadeFilter)&&<button type="button" onClick={resetFilters}>Сбросить</button>}</div>{error && <div className="map-load-error">{error}</div>}{!error&&routeHint&&<div className="map-route-note">{routeHint}</div>}<button className="layers-trigger" onClick={() => setPanelOpen(value => !value)}>▦ Слои</button>{panelOpen && <div className="layers-window"><div className="layers-title"><div><b>Слои карты</b><span>Подложка и городские объекты</span></div><button onClick={() => setPanelOpen(false)}>×</button></div><fieldset><legend>Подложка</legend>{(Object.keys(bases) as BaseId[]).map(item => <label key={item}><input type="radio" name="base-map" checked={base === item} onChange={() => setBase(item)}/><span className={`base-preview ${item}`}/><b>{bases[item].label}</b></label>)}</fieldset><fieldset><legend>Инфраструктура</legend>{(Object.keys(layerMeta) as LayerId[]).map(item => <label key={item}><input type="checkbox" checked={layers.includes(item)} onChange={() => toggleLayer(item)}/><i style={{ background: layerMeta[item].color }}>{layerMeta[item].icon}</i><span>{layerMeta[item].label}</span></label>)}</fieldset><small>Открытые данные © OpenStreetMap</small></div>}{selectedInfrastructure&&<section className="infrastructure-card" aria-label="Карточка объекта инфраструктуры"><button className="infrastructure-card-close" aria-label="Закрыть карточку" onClick={()=>setSelectedInfrastructure(undefined)}>×</button><span className="eyebrow">{passport?"Паспорт объекта":"Данные OpenStreetMap"}</span><h3>{passport?.name||selectedInfrastructure.name}</h3><p>{layerMeta[selectedInfrastructure.category].label} · {selectedInfrastructure.kind}</p><dl><div><dt>Внешний ID</dt><dd>{selectedInfrastructure.id}</dd></div>{selectedInfrastructure.ref&&<div><dt>Номер</dt><dd>{selectedInfrastructure.ref}</dd></div>}{selectedInfrastructure.operator&&<div><dt>Оператор</dt><dd>{selectedInfrastructure.operator}</dd></div>}{selectedInfrastructure.network&&<div><dt>Сеть</dt><dd>{selectedInfrastructure.network}</dd></div>}<div><dt>Координаты</dt><dd>{selectedInfrastructure.latitude?.toFixed(6)}, {selectedInfrastructure.longitude?.toFixed(6)}</dd></div>{passport&&<><div><dt>ID паспорта</dt><dd>{passport.id}</dd></div><div><dt>Состояние</dt><dd>{enumText(passport.status,assetStatusLabels)}</dd></div><div><dt>Риск</dt><dd>{enumText(passport.risk_level,riskLabels)}</dd></div><div><dt>Критичность</dt><dd>{Math.round(Number(passport.criticality||0)*100)}%</dd></div></>}</dl>{passportBusy&&<p className="passport-state">Проверяем реестр…</p>}{passportError&&<p className="passport-error">{passportError}</p>}{!passport&&!passportBusy&&<><p className="passport-state">Паспорт для этого объекта ещё не создан.</p>{canCreatePassport?<button className="passport-create" onClick={()=>void createPassport()}>Создать паспорт объекта</button>:<small>Для создания паспорта нужны права сотрудника городской службы.</small>}</>}</section>}<div className="map-legend"><span><i className="dot incident"/> Инцидент</span><span><i className="dot vehicle"/> Машина</span>{route.length > 1 && <span><i className="line"/> Назначенный маршрут</span>}</div></div>;
 }
