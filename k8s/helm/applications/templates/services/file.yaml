@@ -5,7 +5,7 @@ data:
   S3_BUCKET: "city-files"
   S3_ENDPOINT: "http://minio:9000"
   S3_PATH_STYLE: "true"
-  S3_PUBLIC_ENDPOINT: "http://localhost:9000"
+  S3_PUBLIC_ENDPOINT: "https://fizzi.tail2c9430.ts.net"
   S3_REGION: "us-east-1"
 kind: ConfigMap
 metadata:

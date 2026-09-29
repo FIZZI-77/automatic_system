@@ -12,6 +12,7 @@ type WorkReport = { id:string; ticket_id:string; author_user_id:string; descript
 type StoredFile = { id:string; name:string; content_type:string; size:number; status:string };
 type DispatchCandidate = { brigade_id:string; rank:number; distance_meters:number; eta_seconds:number; reachable:boolean };
 type TicketHistory = { id:string; old_status?:string; new_status:string; changed_by?:string; comment?:string; created_at:number };
+type DemoTicket = Ticket & { demo_report_description?:string };
 
 export function TicketWorkspace({tickets,session,role,onUpdate,onMap,onNotice}:{tickets:Ticket[];session:Session;role:Role;onUpdate:(ticket:Ticket)=>void;onMap:(id:string)=>void;onNotice:(text:string)=>void}) {
   const [selected,setSelected]=useState<Ticket>();
@@ -47,9 +48,19 @@ export function TicketWorkspace({tickets,session,role,onUpdate,onMap,onNotice}:{
     });
   },[filters,tickets]);
 
+  async function openTicket(ticket:Ticket){
+    setSelected(ticket);
+    if(demo)return;
+    try{
+      const result=await api<{ticket:Ticket}>(config.endpoints.ticketsGet,{ticket_id:ticket.id},"POST",session.accessToken);
+      setSelected(current=>current?.id===ticket.id?result.ticket:current);
+      onUpdate(result.ticket);
+    }catch(error){onNotice(error instanceof Error?error.message:"Не удалось обновить заявку")}
+  }
+
   useEffect(()=>{
     if(!selected){setReports([]);setReportFiles({});setHistory([]);return;}
-    if(demo){setReports(selected.status==="DONE"?[{id:"demo-report",ticket_id:selected.id,author_user_id:"demo-worker",description:"Работы выполнены, объект проверен и передан диспетчеру.",file_ids:[],created_at:Date.now()/1000}]:[]);setHistory([{id:"demo-history",new_status:selected.status,comment:"Текущее состояние",created_at:selected.updated_at}]);return;}
+    if(demo){setReports(selected.status==="DONE"?[{id:"demo-report",ticket_id:selected.id,author_user_id:"demo-worker",description:(selected as DemoTicket).demo_report_description||"Работы выполнены, объект проверен и передан диспетчеру.",file_ids:[],created_at:Date.now()/1000}]:[]);setHistory([{id:"demo-history",new_status:selected.status,comment:"Текущее состояние",created_at:selected.updated_at}]);return;}
     let active=true;
     (async()=>{
       try{
@@ -87,7 +98,6 @@ export function TicketWorkspace({tickets,session,role,onUpdate,onMap,onNotice}:{
         updated=result.ticket;
       }
       setSelected(updated);onUpdate(updated);onNotice(`Статус заявки изменён: ${statusNames[updated.status]||updated.status}`);
-      if(updated.status==="IN_PROGRESS")onMap(updated.id);
     }catch(error){onNotice(error instanceof Error?error.message:"Не удалось изменить статус")}finally{setBusy(false)}
   }
 
@@ -100,7 +110,7 @@ export function TicketWorkspace({tickets,session,role,onUpdate,onMap,onNotice}:{
         const reserved=await api<{operation:{id:string;version:number}}>(config.endpoints.dispatchReserve,{ticket_id:selected.id,brigade_id:brigadeId,requested_by:session.user?.user_id,reservation_ttl_seconds:120},"POST",session.accessToken);
         await api(config.endpoints.dispatchConfirm,{id:reserved.operation.id,confirmed_by:session.user?.user_id,expected_version:reserved.operation.version},"POST",session.accessToken);
       }
-      setSelected(updated);onUpdate(updated);onNotice("Бригада назначена");onMap(updated.id);
+      setSelected(updated);onUpdate(updated);onNotice("Бригада назначена");
     }catch(error){onNotice(error instanceof Error?error.message:"Не удалось назначить бригаду")}finally{setBusy(false)}
   }
 
@@ -110,7 +120,7 @@ export function TicketWorkspace({tickets,session,role,onUpdate,onMap,onNotice}:{
     try{
       const result=await api<{operation:{brigade_id:string}}>(config.endpoints.dispatchAuto,{ticket_id:selected.id,requested_by:session.user?.user_id,candidate_limit:100},"POST",session.accessToken);
       const updated:Ticket={...selected,brigade_id:result.operation.brigade_id,status:"ASSIGNED"};
-      setSelected(updated);onUpdate(updated);onNotice("Dispatch Service автоматически назначил бригаду");onMap(updated.id);
+      setSelected(updated);onUpdate(updated);onNotice("Dispatch Service автоматически назначил бригаду");
     }catch(error){onNotice(error instanceof Error?error.message:"Не удалось выполнить автоназначение")}finally{setBusy(false)}
   }
 
@@ -133,9 +143,9 @@ export function TicketWorkspace({tickets,session,role,onUpdate,onMap,onNotice}:{
         const result=await api<{ticket:Ticket}>(config.endpoints.ticketsComplete,{ticket_id:selected.id,completed_by:session.user?.user_id,comment:description},"POST",session.accessToken);
         setSelected(result.ticket);onUpdate(result.ticket);
       }else{
-        const updated={...selected,status:"DONE"};setSelected(updated);onUpdate(updated);
+        const updated:DemoTicket={...selected,status:"DONE",demo_report_description:description};setSelected(updated);onUpdate(updated);
       }
-      setFiles([]);onNotice(demo?"Отчёт сформирован. Заявка завершена":"Заявка завершена. Акт поставлен в очередь, PDF появится после обработки");
+      setFiles([]);onNotice(demo?"Демо: заявка завершена. Фото и PDF не сохраняются":"Заявка завершена. Акт поставлен в очередь, PDF появится после обработки");
     }catch(error){onNotice(error instanceof Error?error.message:"Не удалось завершить заявку")}finally{setBusy(false)}
   }
 
@@ -175,7 +185,7 @@ export function TicketWorkspace({tickets,session,role,onUpdate,onMap,onNotice}:{
       <button type="button" onClick={()=>setFilters({query:"",status:"",priority:"",assignment:"",createdFrom:"",createdTo:"",sort:"created_desc"})}>Сбросить</button>
       <span className="filter-result-count">Найдено: <b>{visibleTickets.length}</b></span>
     </div>
-    <div className="work-ticket-list">{visibleTickets.map(ticket=><button key={ticket.id} className={selected?.id===ticket.id?"selected":""} onClick={()=>setSelected(ticket)}><span className={`priority ${ticket.priority.toLowerCase()}`}/><div><b>{ticket.title}</b><small>{ticket.address}</small></div><em className={`status ${ticket.status.toLowerCase()}`}>{statusNames[ticket.status]||ticket.status}</em></button>)}{!visibleTickets.length&&<p className="ticket-filter-empty">По выбранным фильтрам заявок нет.</p>}</div>
+    <div className="work-ticket-list">{visibleTickets.map(ticket=><button key={ticket.id} className={selected?.id===ticket.id?"selected":""} onClick={()=>void openTicket(ticket)}><span className={`priority ${ticket.priority.toLowerCase()}`}/><div><b>{ticket.title}</b><small>{ticket.address}</small></div><em className={`status ${ticket.status.toLowerCase()}`}>{statusNames[ticket.status]||ticket.status}</em></button>)}{!visibleTickets.length&&<p className="ticket-filter-empty">По выбранным фильтрам заявок нет.</p>}</div>
     {selected&&<div className="ticket-modal-backdrop" role="presentation" onMouseDown={event=>{if(event.currentTarget===event.target)setSelected(undefined)}}>
       <article className="ticket-modal" role="dialog" aria-modal="true" aria-label={`Заявка ${selected.id}`}>
         <button className="detail-close" onClick={()=>setSelected(undefined)} aria-label="Закрыть">×</button>
@@ -185,7 +195,7 @@ export function TicketWorkspace({tickets,session,role,onUpdate,onMap,onNotice}:{
         {selected.status==="ASSIGNED"&&["admin","dispatcher","worker"].includes(role)&&<button className="primary full-action" disabled={busy} onClick={()=>status("in_progress")}>Начать выполнение</button>}
         {role === "worker" && selected.status === "IN_PROGRESS" && <TicketAssetPicker ticket={selected} session={session} demo={demo} onUpdate={ticket=>{setSelected(ticket);onUpdate(ticket)}} onNotice={onNotice}/>}
         {!['DONE','CANCELED'].includes(selected.status)&&["admin","dispatcher","user"].includes(role)&&<form className="ticket-cancel-form" onSubmit={cancel}><label>Причина отмены<input name="reason" required minLength={3} placeholder="Укажите причину"/></label><button className="danger-action" disabled={busy}>Отменить заявку</button></form>}
-        {selected.status==="IN_PROGRESS"&&["admin","dispatcher","worker"].includes(role)&&<form className="completion-form" onSubmit={complete}><h3>Отчёт о выполнении</h3><label>Что выполнено<textarea name="description" required rows={4} placeholder="Опишите выполненные работы и результат"/></label><label className="file-drop">Фото и документы<input type="file" multiple accept="image/*,.pdf,.doc,.docx" onChange={event=>setFiles(Array.from(event.target.files||[]))}/><span>Выбрать файлы</span><small>Фотографии будут встроены в итоговый PDF</small></label>{files.length>0&&<ul className="report-files">{files.map(file=><li key={`${file.name}-${file.size}`}><div><b>{file.name}</b><small>{(file.size/1024/1024).toFixed(2)} МБ</small></div><button type="button" onClick={()=>setFiles(value=>value.filter(item=>item!==file))}>×</button></li>)}</ul>}<button className="primary" disabled={busy} type="submit">{busy?"Формируем отчёт…":"Сформировать PDF и завершить"}</button></form>}
+        {selected.status==="IN_PROGRESS"&&["admin","dispatcher","worker"].includes(role)&&<form className="completion-form" onSubmit={complete}><h3>Отчёт о выполнении</h3><label>Что выполнено<textarea name="description" required rows={4} placeholder="Опишите выполненные работы и результат"/></label>{demo?<p>В демо фото и PDF не сохраняются.</p>:<label className="file-drop">Фото и документы<input type="file" multiple accept="image/*,.pdf,.doc,.docx" onChange={event=>setFiles(Array.from(event.target.files||[]))}/><span>Выбрать файлы</span><small>Фотографии будут встроены в итоговый PDF</small></label>}{files.length>0&&<ul className="report-files">{files.map(file=><li key={`${file.name}-${file.size}`}><div><b>{file.name}</b><small>{(file.size/1024/1024).toFixed(2)} МБ</small></div><button type="button" onClick={()=>setFiles(value=>value.filter(item=>item!==file))}>×</button></li>)}</ul>}<button className="primary" disabled={busy} type="submit">{busy?"Формируем отчёт…":demo?"Завершить заявку (демо)":"Сформировать PDF и завершить"}</button></form>}
         {reports.length>0&&<section className="saved-reports"><h3>Сохранённые отчёты</h3>{reports.map(report=><article key={report.id}><div><b>{report.description}</b><small>Автор: {report.author_user_id}</small></div><div className="saved-report-files">{(reportFiles[report.id]||[]).map(file=><span key={file.id}><button onClick={()=>download(file)}>{file.content_type==="application/pdf"?"PDF":"Файл"} · {file.name}</button>{["admin","dispatcher"].includes(role)&&<button className="file-delete" onClick={()=>removeStoredFile(report.id,file)} aria-label={`Удалить ${file.name}`}>×</button>}</span>)}</div></article>)}</section>}
         {history.length>0&&<section className="ticket-history"><h3>История статусов</h3>{history.map(item=><div key={item.id}><i>●</i><span><b>{item.old_status?`${statusNames[item.old_status]||item.old_status} → `:""}{statusNames[item.new_status]||item.new_status}</b><small>{item.comment||"Без комментария"} · {item.changed_by||"Система"}</small></span><time>{new Date(item.created_at*1000).toLocaleString("ru-RU")}</time></div>)}</section>}
       </article>

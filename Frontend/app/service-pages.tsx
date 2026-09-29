@@ -24,6 +24,12 @@ type WorkerBrigade = { id:string; name:string; specialization?:string; status:st
 type WorkerMembership = { role:string; availability_status:string };
 type ScheduleItem = { day_of_week:number; starts_at:string; ends_at:string };
 type GeneratedReport = { id:string; name:string; type:string|number; format:string|number; status:string|number; error?:string; created_at?:string };
+const reportTypes = ["UNSPECIFIED", "TICKET_OVERVIEW", "SLA_SUMMARY", "TICKET_BREAKDOWN", "DAILY_TICKETS"];
+const reportFormats = ["UNSPECIFIED", "PDF", "XLSX", "CSV"];
+const reportStatuses = ["UNSPECIFIED", "PENDING", "PROCESSING", "COMPLETED", "FAILED", "CANCELED"];
+function reportEnum(value:string|number, labels:string[]):string {
+  return typeof value === "number" ? labels[value] || "UNSPECIFIED" : value;
+}
 type AuditEntry = { id:string; event_id:string; topic:string; action:string; actor_id?:string; entity_type?:string; entity_id?:string; occurred_at?:string|{seconds:number}; recorded_at?:string|{seconds:number}; data?:Record<string,unknown>; request_id?:string; trace_id?:string };
 
 const notificationCopy:Record<string,{title:string;body:string}>={
@@ -544,8 +550,8 @@ export function ReportsPage({session,tickets,role,onNotice}:{session:Session;tic
 
   async function load(){
     if(demo){setItems([{id:"demo-report",name:"Сводка обращений",type:"TICKET_OVERVIEW",format:"PDF",status:"COMPLETED"}]);return}
-    try{const result=await api<{reports:GeneratedReport[]}>(config.endpoints.reportsList,{limit:100,offset:0,...(statusFilter?{status:statusFilter.toLowerCase()}:{})},"POST",session.accessToken);setItems(result.reports||[])}
-    catch(error){onNotice(error instanceof Error?error.message:"Не удалось загрузить отчёты")}
+    try{const result=await api<{reports:GeneratedReport[]}>(config.endpoints.reportsList,{limit:100,offset:0,...(statusFilter?{status:statusFilter.toLowerCase()}:{})},"POST",session.accessToken);setItems((result.reports||[]).map(item=>({...item,type:reportEnum(item.type,reportTypes),format:reportEnum(item.format,reportFormats),status:reportEnum(item.status,reportStatuses)})))}
+    catch(error){setItems([]);onNotice(error instanceof Error?error.message:"Не удалось загрузить отчёты")}
   }
   useEffect(()=>{if(role!=="worker")void load()},[demo,role,session.accessToken,statusFilter]);
   useEffect(()=>{
@@ -640,7 +646,7 @@ export function ReportsPage({session,tickets,role,onNotice}:{session:Session;tic
     </form>}
     {ticketArtifacts.length>0&&<div className="ticket-artifacts"><h3>Сформированные отчёты по заявкам</h3>{ticketArtifacts.map(item=><article key={item.file_id}><div><b>{item.ticket_title}</b><small>{item.name}</small></div><button onClick={()=>void downloadTicketArtifact(item.file_id)}>Скачать PDF</button></article>)}</div>}
     {role!=="worker"&&<><div className="report-history-head"><h3>Полные аналитические отчёты</h3><div className="service-filters compact"><label>Статус<select value={statusFilter} onChange={event=>setStatusFilter(event.target.value)}><option value="">Все</option><option>PENDING</option><option>PROCESSING</option><option>COMPLETED</option><option>FAILED</option><option>CANCELED</option></select></label><button onClick={()=>setStatusFilter("")}>Сбросить</button></div></div>
-    <div className="report-table">{visibleItems.map(item=><article key={item.id}><div><b>{item.name}</b><small>{String(item.type)} · {String(item.format)}</small></div><em>{String(item.status)}</em><div><button onClick={()=>action(item,"download")}>Скачать</button><button onClick={()=>action(item,"retry")}>Повторить</button><button onClick={()=>action(item,"cancel")}>Отменить</button></div></article>)}</div></>}
+    <div className="report-table">{visibleItems.map(item=><article key={item.id}><div><b>{item.name}</b><small>{String(item.type)} · {String(item.format)}</small></div><em>{String(item.status)}</em><div>{item.status==="COMPLETED"&&<button onClick={()=>action(item,"download")}>Скачать</button>}{item.status==="FAILED"&&<button onClick={()=>action(item,"retry")}>Повторить</button>}{(item.status==="PENDING"||item.status==="FAILED")&&<button onClick={()=>action(item,"cancel")}>Отменить</button>}</div></article>)}</div></>}
   </section>
 }
 
