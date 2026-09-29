@@ -67,11 +67,12 @@ export function TicketLocationPicker({ value, onChange }: Props) {
 
     let disposed = false;
     let map: import("leaflet").Map | undefined;
+    let invalidateTimer: number | undefined;
     void import("leaflet").then((leaflet) => {
       if (disposed || !mapRoot.current) return;
 
       const location = selectedLocation.current || defaultLocation;
-      map = leaflet.map(mapRoot.current).setView([location.latitude, location.longitude], 13);
+      map = leaflet.map(mapRoot.current, { zoomAnimation:false, fadeAnimation:false, markerZoomAnimation:false }).setView([location.latitude, location.longitude], 13);
       leaflet.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: "© OpenStreetMap contributors",
         maxZoom: 19,
@@ -90,10 +91,14 @@ export function TicketLocationPicker({ value, onChange }: Props) {
         setQuery(next.address);
         changeLocation.current(next);
       });
+      invalidateTimer=window.setTimeout(()=>{if(!disposed)map?.invalidateSize()},50);
     });
 
     return () => {
       disposed = true;
+      if(invalidateTimer!==undefined)window.clearTimeout(invalidateTimer);
+      map?.stop();
+      map?.off();
       map?.remove();
     };
   }, [mode]);
