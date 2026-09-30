@@ -107,6 +107,35 @@
         }
       }
     },
+    "/analytics/departments/performance": {
+      "post": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "DepartmentPerformance",
+        "operationId": "privateAnalytics.DepartmentPerformance",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnalyticsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Успешный ответ"
+          }
+        }
+      }
+    },
     "/analytics/dispatch/effectiveness": {
       "post": {
         "tags": [
@@ -4907,6 +4936,64 @@
         }
       }
     },
+    "/tickets/feedback/get": {
+      "post": {
+        "tags": [
+          "tickets"
+        ],
+        "summary": "GetFeedback",
+        "operationId": "privateTickets.GetFeedback",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetTicketFeedbackRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Успешный ответ"
+          }
+        }
+      }
+    },
+    "/tickets/feedback/submit": {
+      "post": {
+        "tags": [
+          "tickets"
+        ],
+        "summary": "SubmitFeedback",
+        "operationId": "privateTickets.SubmitFeedback",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitTicketFeedbackRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Успешный ответ"
+          }
+        }
+      }
+    },
     "/tickets/get": {
       "post": {
         "tags": [
@@ -8589,6 +8676,18 @@
         ],
         "type": "object"
       },
+      "GetTicketFeedbackRequest": {
+        "properties": {
+          "ticket_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ticket_id"
+        ],
+        "type": "object"
+      },
       "GetTicketRequest": {
         "properties": {
           "ticket_id": {
@@ -10738,6 +10837,31 @@
       "SortOrder": {
         "type": "string"
       },
+      "SubmitTicketFeedbackRequest": {
+        "properties": {
+          "comment": {
+            "maxLength": 1000,
+            "type": "string"
+          },
+          "problem_resolved": {
+            "type": "boolean"
+          },
+          "rating": {
+            "maximum": 5,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "ticket_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rating",
+          "ticket_id"
+        ],
+        "type": "object"
+      },
       "Ticket": {
         "properties": {
           "address": {
@@ -10816,6 +10940,34 @@
           },
           "updated_at": {
             "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "TicketFeedback": {
+        "properties": {
+          "comment": {
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "problem_resolved": {
+            "type": "boolean"
+          },
+          "rating": {
+            "type": "integer"
+          },
+          "ticket_id": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "user_id": {
+            "type": "string"
           }
         },
         "type": "object"
