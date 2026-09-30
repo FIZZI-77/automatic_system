@@ -6,19 +6,19 @@ globalImage:
     api-gateway: sha-857b8cd1de7a
     asset: sha-745656a42688
     audit: sha-745656a42688
-    auth: sha-745656a42688
-    brigade: sha-745656a42688
-    department: sha-745656a42688
-    dispatch: sha-745656a42688
+    auth: sha-cc91d869c182
+    brigade: sha-cc91d869c182
+    department: sha-cc91d869c182
+    dispatch: sha-cc91d869c182
     file: sha-745656a42688
     frontend: sha-e0744e3a8c1d
-    location: sha-745656a42688
+    location: sha-cc91d869c182
     notification: sha-745656a42688
-    profile: sha-745656a42688
+    profile: sha-cc91d869c182
     report: sha-745656a42688
-    routing: sha-745656a42688
+    routing: sha-cc91d869c182
     sla: sha-745656a42688
-    ticket: sha-3016962d3546
+    ticket: sha-cc91d869c182
   pullPolicy: Always
 
 migrations:

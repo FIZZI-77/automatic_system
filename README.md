@@ -167,6 +167,48 @@ README сервисов построены вокруг общего принц�
 [инструкции для `local-ha`](k8s/docs/deployment.md#контур-local-ha).
 Запуск веб-интерфейса описан отдельно в [Frontend README](Frontend/README.md).
 
+### Запуск через Docker Compose
+
+Корневой [docker-compose.yml](docker-compose.yml) поднимает локальный контур
+приложения: frontend, API Gateway, все предметные сервисы, миграции,
+PostgreSQL/PostGIS, Kafka в режиме KRaft, Redis/Sentinel, ClickHouse, MinIO,
+Valhalla и MailHog. JWT-ключи создаются автоматически в именованном Docker
+volume. Отслеживаемые `.env.example` сервисов загружаются как базовая
+конфигурация; локальные `*/.env`, если они есть, переопределяют её.
+
+```powershell
+docker compose config --quiet
+docker compose up --build -d
+docker compose ps
+```
+
+После готовности контейнеров доступны:
+
+| Интерфейс | Адрес |
+|---|---|
+| Веб-приложение | [http://localhost:3000/](http://localhost:3000/) |
+| API Gateway | [http://localhost:8081/health](http://localhost:8081/health) |
+| Swagger UI | [http://localhost:8081/swagger/](http://localhost:8081/swagger/) |
+| MinIO Console | [http://localhost:9001/](http://localhost:9001/) |
+| MailHog | [http://localhost:8025/](http://localhost:8025/) |
+
+Значения портов и интеграций можно переопределить, скопировав
+`.env.example` в `.env`. Имитаторы транспондеров не создают фоновый шум при
+обычном запуске и включаются отдельным профилем:
+
+```powershell
+docker compose --profile simulation up --build -d
+```
+
+Первый запуск Valhalla загружает и строит дорожный граф, поэтому готовность
+Routing Service может занять больше времени. Остановка локального контура без
+удаления данных выполняется командой `docker compose down`; для удаления
+именованных volumes используется `docker compose down -v`.
+
+Compose предназначен для функциональной разработки на одной машине.
+Patroni/Citus/PgBouncer, Istio, Flux/Flagger и полный observability-контур
+проверяются в Kubernetes `local-ha`.
+
 ## Наблюдаемость и Swagger
 
 После запуска локального Kubernetes и публикации входного Istio Gateway через

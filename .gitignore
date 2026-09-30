@@ -6,6 +6,7 @@
 runtime.env
 firebase/
 .runtime/
+.codex-coredns-public.yaml
 
 # IDE
 .idea/
