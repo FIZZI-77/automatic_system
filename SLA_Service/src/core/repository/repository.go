@@ -302,11 +302,19 @@ func history(ctx context.Context, tx pgx.Tx, v *models.TicketSLA, k models.Event
 	}
 
 	payload := mustJSON(map[string]any{
-		"event_id":      id,
-		"event_type":    "sla." + string(k),
-		"ticket_id":     v.TicketID,
-		"ticket_sla_id": v.ID,
-		"occurred_at":   at,
+		"event_id":            id,
+		"event_type":          "sla." + string(k),
+		"ticket_id":           v.TicketID,
+		"ticket_sla_id":       v.ID,
+		"department_id":       v.DepartmentID,
+		"category_id":         v.CategoryID,
+		"response_deadline":   v.ResponseDeadline,
+		"resolution_deadline": v.ResolutionDeadline,
+		"responded_at":        v.RespondedAt,
+		"completed_at":        v.CompletedAt,
+		"response_breached":   v.ResponseBreached,
+		"resolution_breached": v.ResolutionBreached,
+		"occurred_at":         at,
 	})
 	_, e = tx.Exec(ctx, `INSERT INTO outbox_events(id,aggregate_type,aggregate_id,event_type,payload) VALUES($1,'ticket_sla',$2,$3,$4)`, id, v.ID, "sla."+string(k), payload)
 	return e

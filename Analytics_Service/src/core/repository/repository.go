@@ -54,6 +54,9 @@ type DispatchOperationsRepository interface {
 type BrigadePerformanceRepository interface {
 	BrigadePerformance(context.Context, models.Filter) (models.BrigadePerformance, error)
 }
+type DepartmentPerformanceRepository interface {
+	DepartmentPerformance(context.Context, models.Filter) (models.DepartmentPerformanceReport, error)
+}
 type Repository struct {
 	EventRepository
 	OverviewRepository
@@ -71,6 +74,7 @@ type Repository struct {
 	ProjectionHealthRepository
 	DispatchOperationsRepository
 	BrigadePerformanceRepository
+	DepartmentPerformanceRepository
 }
 
 func NewRepository(db driver.Conn) *Repository {
@@ -92,5 +96,6 @@ func NewRepository(db driver.Conn) *Repository {
 		ProjectionHealthRepository:      analytics,
 		DispatchOperationsRepository:    analytics,
 		BrigadePerformanceRepository:    analytics,
+		DepartmentPerformanceRepository: analytics,
 	}
 }

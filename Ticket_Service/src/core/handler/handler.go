@@ -38,6 +38,64 @@ type actorContext struct {
 	Roles     []string
 }
 
+func (t *TicketHandler) SubmitTicketFeedback(ctx context.Context, req *ticketv1.SubmitTicketFeedbackRequest) (*ticketv1.SubmitTicketFeedbackResponse, error) {
+	ticketID, err := uuid.Parse(req.GetTicketId())
+
+	if err != nil {
+		return nil, ticketStatusError("SubmitTicketFeedback", fmt.Errorf("%w: invalid ticket_id", models.ErrValidation))
+	}
+
+	actor := actorFromContext(ctx)
+
+	if actor.UserID == nil {
+		return nil, ticketStatusError("SubmitTicketFeedback", models.ErrPermissionDenied)
+	}
+
+	feedback, err := t.service.SubmitTicketFeedback(ctx, &models.SubmitTicketFeedbackInput{
+		TicketID: ticketID, UserID: *actor.UserID, Rating: req.GetRating(),
+		ProblemResolved: req.GetProblemResolved(), Comment: req.GetComment(),
+	})
+
+	if err != nil {
+		return nil, ticketStatusError("SubmitTicketFeedback", err)
+	}
+
+	return &ticketv1.SubmitTicketFeedbackResponse{Feedback: toProtoFeedback(feedback)}, nil
+}
+
+func (t *TicketHandler) GetTicketFeedback(ctx context.Context, req *ticketv1.GetTicketFeedbackRequest) (*ticketv1.GetTicketFeedbackResponse, error) {
+	ticketID, err := uuid.Parse(req.GetTicketId())
+
+	if err != nil {
+		return nil, ticketStatusError("GetTicketFeedback", fmt.Errorf("%w: invalid ticket_id", models.ErrValidation))
+	}
+
+	actor := actorFromContext(ctx)
+
+	if actor.UserID == nil {
+		return nil, ticketStatusError("GetTicketFeedback", models.ErrPermissionDenied)
+	}
+
+	privileged := containsRole(actor.Roles, "admin") || containsRole(actor.Roles, "dispatcher")
+	feedback, err := t.service.GetTicketFeedback(ctx, &models.GetTicketFeedbackInput{
+		TicketID: ticketID, ActorID: *actor.UserID, Privileged: privileged,
+	})
+
+	if err != nil {
+		return nil, ticketStatusError("GetTicketFeedback", err)
+	}
+
+	return &ticketv1.GetTicketFeedbackResponse{Feedback: toProtoFeedback(feedback)}, nil
+}
+
+func toProtoFeedback(value *models.TicketFeedback) *ticketv1.TicketFeedback {
+	return &ticketv1.TicketFeedback{
+		TicketId: value.TicketID.String(), UserId: value.UserID.String(), Rating: value.Rating,
+		ProblemResolved: value.ProblemResolved, Comment: value.Comment,
+		CreatedAt: ToProtoTimestamp(value.CreatedAt), UpdatedAt: ToProtoTimestamp(value.UpdatedAt),
+	}
+}
+
 func (t *TicketHandler) CreateWorkReport(ctx context.Context, req *ticketv1.CreateWorkReportRequest) (*ticketv1.CreateWorkReportResponse, error) {
 	ticketID, err := uuid.Parse(req.GetTicketId())
 	if err != nil {
@@ -74,7 +132,7 @@ func (t *TicketHandler) CreateWorkReport(ctx context.Context, req *ticketv1.Crea
 			completion.Brigade.Members = append(completion.Brigade.Members, models.CompletionBrigadeMemberInput{UserID: member.GetUserId(), FullName: member.GetFullName(), Role: member.GetRole()})
 		}
 	}
-	report, err := t.service.Reports.Create(ctx, &models.CreateWorkReportInput{TicketID: ticketID, AuthorUserID: authorID, Description: req.GetDescription(), FileIDs: fileIDs, ActorBrigadeID: actor.BrigadeID, ActorRoles: actor.Roles, IdempotencyKey: req.GetIdempotencyKey(), Completion: completion})
+	report, err := t.service.CreateWorkReport(ctx, &models.CreateWorkReportInput{TicketID: ticketID, AuthorUserID: authorID, Description: req.GetDescription(), FileIDs: fileIDs, ActorBrigadeID: actor.BrigadeID, ActorRoles: actor.Roles, IdempotencyKey: req.GetIdempotencyKey(), Completion: completion})
 	if err != nil {
 		return nil, ticketStatusError("CreateWorkReport", err)
 	}
@@ -90,7 +148,7 @@ func (t *TicketHandler) ListWorkReports(ctx context.Context, req *ticketv1.ListW
 	if actor.UserID == nil {
 		return nil, ticketStatusError("ListWorkReports", models.ErrPermissionDenied)
 	}
-	reports, err := t.service.Reports.List(ctx, ticketID, *actor.UserID, actor.BrigadeID, actor.Roles)
+	reports, err := t.service.ListWorkReports(ctx, ticketID, *actor.UserID, actor.BrigadeID, actor.Roles)
 	if err != nil {
 		return nil, ticketStatusError("ListWorkReports", err)
 	}

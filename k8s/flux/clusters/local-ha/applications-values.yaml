@@ -3,7 +3,7 @@ globalImage:
   tag: sha-7e50eb65738b
   tags:
     analytics: sha-745656a42688
-    api-gateway: sha-857b8cd1de7a
+    api-gateway: sha-354a538e6aa3
     asset: sha-745656a42688
     audit: sha-745656a42688
     auth: sha-cc91d869c182

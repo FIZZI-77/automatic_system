@@ -182,6 +182,25 @@ func TestTicketGRPCIntegration_TicketLifecycle(t *testing.T) {
 		t.Fatalf("expected DONE status, got %s", completeResp.GetTicket().GetStatus())
 	}
 
+	feedbackResp, err := grpcApp.client.SubmitTicketFeedback(userCtx, &ticketv1.SubmitTicketFeedbackRequest{
+		TicketId: ticketResp.GetTicket().GetId(), Rating: 5, ProblemResolved: true,
+	})
+	if err != nil || feedbackResp.GetFeedback().GetRating() != 5 {
+		t.Fatalf("grpc submit feedback failed: %v, %+v", err, feedbackResp)
+	}
+	feedbackGet, err := grpcApp.client.GetTicketFeedback(userCtx, &ticketv1.GetTicketFeedbackRequest{
+		TicketId: ticketResp.GetTicket().GetId(),
+	})
+	if err != nil || feedbackGet.GetFeedback().GetUserId() != userID.String() {
+		t.Fatalf("grpc get feedback failed: %v, %+v", err, feedbackGet)
+	}
+	_, err = grpcApp.client.SubmitTicketFeedback(adminCtx, &ticketv1.SubmitTicketFeedbackRequest{
+		TicketId: ticketResp.GetTicket().GetId(), Rating: 1,
+	})
+	if status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("expected owner-only feedback, got %v", err)
+	}
+
 	historyResp, err := grpcApp.client.GetTicketStatusHistory(userCtx, &ticketv1.GetTicketStatusHistoryRequest{
 		TicketId: ticketResp.GetTicket().GetId(),
 		Limit:    20,

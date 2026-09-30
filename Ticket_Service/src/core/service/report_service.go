@@ -9,22 +9,22 @@ import (
 	"ticket/src/core/repository"
 )
 
-type ReportService struct {
+type ReportServiceStruct struct {
 	tickets repository.TicketRepository
 	reports *repository.ReportRepository
 }
 
-func NewReportService(repo *repository.Repository) *ReportService {
-	return &ReportService{tickets: repo.TicketRepository, reports: repository.NewReportRepository(repo)}
+func NewReportService(repo *repository.Repository) *ReportServiceStruct {
+	return &ReportServiceStruct{tickets: repo.TicketRepository, reports: repository.NewReportRepository(repo)}
 }
 
-func (s *ReportService) Create(ctx context.Context, in *models.CreateWorkReportInput) (*models.WorkReport, error) {
+func (s *ReportServiceStruct) CreateWorkReport(ctx context.Context, in *models.CreateWorkReportInput) (*models.WorkReport, error) {
 	if err := in.Validate(); err != nil {
 		return nil, fmt.Errorf("%w: %v", models.ErrValidation, err)
 	}
 	return s.reports.Create(ctx, in)
 }
-func (s *ReportService) List(ctx context.Context, ticketID, actor uuid.UUID, actorBrigadeID *uuid.UUID, roles []string) ([]*models.WorkReport, error) {
+func (s *ReportServiceStruct) ListWorkReports(ctx context.Context, ticketID, actor uuid.UUID, actorBrigadeID *uuid.UUID, roles []string) ([]*models.WorkReport, error) {
 	ticket, err := s.tickets.GetTicketByID(ctx, ticketID)
 	if err != nil {
 		return nil, err

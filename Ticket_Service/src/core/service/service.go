@@ -6,6 +6,7 @@ import (
 	"ticket/models"
 	"ticket/src/core/repository"
 
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
@@ -19,6 +20,8 @@ type TicketService interface {
 	AssignBrigade(ctx context.Context, in *models.AssignBrigadeInput) (*models.AssignBrigadeResult, error)
 	CancelTicket(ctx context.Context, in *models.CancelTicketInput) (*models.CancelTicketResult, error)
 	CompleteTicket(ctx context.Context, in *models.CompleteTicketInput) (*models.CompleteTicketResult, error)
+	SubmitTicketFeedback(ctx context.Context, in *models.SubmitTicketFeedbackInput) (*models.TicketFeedback, error)
+	GetTicketFeedback(ctx context.Context, in *models.GetTicketFeedbackInput) (*models.TicketFeedback, error)
 
 	GetTicketStatusHistory(ctx context.Context, in *models.GetTicketStatusHistoryInput) (*models.GetTicketStatusHistoryResult, error)
 }
@@ -31,10 +34,15 @@ type CategoryService interface {
 	DeleteCategory(ctx context.Context, in *models.DeleteCategoryInput) (*models.DeleteCategoryResult, error)
 }
 
+type ReportService interface {
+	CreateWorkReport(ctx context.Context, in *models.CreateWorkReportInput) (*models.WorkReport, error)
+	ListWorkReports(ctx context.Context, ticketID, actorID uuid.UUID, brigadeID *uuid.UUID, roles []string) ([]*models.WorkReport, error)
+}
+
 type Service struct {
 	TicketService
 	CategoryService
-	Reports *ReportService
+	ReportService
 }
 
 func NewService(repo *repository.Repository, logger *zap.Logger) *Service {
@@ -45,6 +53,6 @@ func NewService(repo *repository.Repository, logger *zap.Logger) *Service {
 	return &Service{
 		TicketService:   NewTicketServiceStruct(repo, logger),
 		CategoryService: NewCategoryServiceStruct(repo, logger),
-		Reports:         NewReportService(repo),
+		ReportService:   NewReportService(repo),
 	}
 }

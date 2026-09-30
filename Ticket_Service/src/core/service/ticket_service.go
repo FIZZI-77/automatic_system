@@ -22,6 +22,14 @@ func NewTicketServiceStruct(repo *repository.Repository, logger *zap.Logger) *Ti
 	return &TicketServiceStruct{repo: repo, logger: logger}
 }
 
+func (s *TicketServiceStruct) SubmitTicketFeedback(ctx context.Context, in *models.SubmitTicketFeedbackInput) (*models.TicketFeedback, error) {
+	return s.repo.SubmitTicketFeedback(ctx, in)
+}
+
+func (s *TicketServiceStruct) GetTicketFeedback(ctx context.Context, in *models.GetTicketFeedbackInput) (*models.TicketFeedback, error) {
+	return s.repo.GetTicketFeedback(ctx, in)
+}
+
 func (s *TicketServiceStruct) CreateTicket(ctx context.Context, in *models.CreateTicketInput) (*models.CreateTicketResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()

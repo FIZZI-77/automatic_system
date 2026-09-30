@@ -222,6 +222,8 @@ func (h *Handler) InitRouters() *gin.Engine {
 		privateTickets.POST("/status-history", h.ticketHandler.GetTicketStatusHistory)
 		privateTickets.POST("/reports/create", h.ticketHandler.CreateWorkReport)
 		privateTickets.POST("/reports/list", h.ticketHandler.ListWorkReports)
+		privateTickets.POST("/feedback/submit", h.ticketHandler.SubmitFeedback)
+		privateTickets.POST("/feedback/get", h.ticketHandler.GetFeedback)
 	}
 
 	privateFiles := router.Group("/files")
@@ -285,6 +287,7 @@ func (h *Handler) InitRouters() *gin.Engine {
 		privateAnalytics.POST("/projections/health", h.analyticsHandler.ProjectionHealth)
 		privateAnalytics.POST("/dispatch/operations", h.analyticsHandler.DispatchOperations)
 		privateAnalytics.POST("/brigades/performance", h.analyticsHandler.BrigadePerformance)
+		privateAnalytics.POST("/departments/performance", h.analyticsHandler.DepartmentPerformance)
 	}
 	privateReports := router.Group("/reports")
 	privateReports.Use(h.authMiddleware.Handle())

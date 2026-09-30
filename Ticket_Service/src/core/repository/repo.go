@@ -18,6 +18,8 @@ type TicketRepository interface {
 	AssignBrigade(ctx context.Context, in *models.AssignBrigadeInput) (*models.Ticket, error)
 	CancelTicket(ctx context.Context, in *models.CancelTicketInput) (*models.Ticket, error)
 	CompleteTicket(ctx context.Context, in *models.CompleteTicketInput) (*models.Ticket, error)
+	SubmitTicketFeedback(ctx context.Context, in *models.SubmitTicketFeedbackInput) (*models.TicketFeedback, error)
+	GetTicketFeedback(ctx context.Context, in *models.GetTicketFeedbackInput) (*models.TicketFeedback, error)
 
 	GetTicketStatusHistory(ctx context.Context, in *models.GetTicketStatusHistoryInput) ([]*models.TicketStatusHistory, int64, error)
 }
