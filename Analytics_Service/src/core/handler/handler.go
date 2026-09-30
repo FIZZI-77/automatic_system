@@ -60,11 +60,14 @@ func (h *Handler) ListTicketBreakdown(c context.Context, q *analyticsv1.ListTick
 	if e := auth(c); e != nil {
 		return nil, e
 	}
+
 	d := strings.TrimPrefix(q.GetDimension().String(), "BREAKDOWN_DIMENSION_")
 	items, total, e := h.s.Breakdown(c, filter(q.GetFilter()), d, q.GetLimit())
+
 	if e != nil {
 		return nil, status.Error(codes.InvalidArgument, e.Error())
 	}
+
 	out := make([]*analyticsv1.TicketBreakdown, 0, len(items))
 	for _, v := range items {
 		out = append(out, &analyticsv1.TicketBreakdown{
@@ -73,16 +76,20 @@ func (h *Handler) ListTicketBreakdown(c context.Context, q *analyticsv1.ListTick
 			Percent: v.Percent,
 		})
 	}
+
 	return &analyticsv1.ListTicketBreakdownResponse{Items: out, Total: total}, nil
 }
 func (h *Handler) ListDailyTicketMetrics(c context.Context, q *analyticsv1.ListDailyTicketMetricsRequest) (*analyticsv1.ListDailyTicketMetricsResponse, error) {
 	if e := auth(c); e != nil {
 		return nil, e
 	}
+
 	items, e := h.s.Daily(c, filter(q.GetFilter()))
+
 	if e != nil {
 		return nil, internal(e)
 	}
+
 	out := make([]*analyticsv1.DailyTicketMetric, 0, len(items))
 	for _, v := range items {
 		out = append(out, &analyticsv1.DailyTicketMetric{
@@ -96,9 +103,11 @@ func (h *Handler) ListDailyTicketMetrics(c context.Context, q *analyticsv1.ListD
 	return &analyticsv1.ListDailyTicketMetricsResponse{Items: out}, nil
 }
 func filter(v *analyticsv1.AnalyticsFilter) models.Filter {
+
 	if v == nil {
 		return models.Filter{}
 	}
+
 	f := models.Filter{
 		DepartmentID:   v.DepartmentId,
 		CategoryID:     v.CategoryId,
@@ -108,14 +117,17 @@ func filter(v *analyticsv1.AnalyticsFilter) models.Filter {
 		FailureCode:    v.FailureCode,
 		Success:        v.Success,
 	}
+
 	if v.From != nil {
 		x := v.From.AsTime()
 		f.From = &x
 	}
+
 	if v.To != nil {
 		x := v.To.AsTime()
 		f.To = &x
 	}
+
 	return f
 }
 func auth(c context.Context) error {
@@ -150,9 +162,11 @@ func (h *Handler) GetAssetSummary(c context.Context, q *analyticsv1.GetAssetSumm
 	for _, x := range v.ByType {
 		out.ByType = append(out.ByType, assetBreakdown(x))
 	}
+
 	for _, x := range v.ByDistrict {
 		out.ByDistrict = append(out.ByDistrict, assetBreakdown(x))
 	}
+
 	return out, nil
 }
 
@@ -174,6 +188,7 @@ func (h *Handler) GetOperationalLatency(c context.Context, q *analyticsv1.GetOpe
 			RoutingCalculationTime: latencyDistribution(group.RoutingCalculationTime),
 		})
 	}
+
 	return &analyticsv1.GetOperationalLatencyResponse{
 		AssignmentTime:         latencyDistribution(value.AssignmentTime),
 		RoutingCalculationTime: latencyDistribution(value.RoutingCalculationTime),
@@ -185,10 +200,12 @@ func (h *Handler) GetDispatchFailureSummary(c context.Context, q *analyticsv1.Ge
 	if err := auth(c); err != nil {
 		return nil, err
 	}
+
 	value, err := h.s.DispatchFailures(c, filter(q.GetFilter()))
 	if err != nil {
 		return nil, internal(err)
 	}
+
 	return &analyticsv1.GetDispatchFailureSummaryResponse{
 		Requested: value.Requested, Failed: value.Failed, Expired: value.Expired,
 		Canceled: value.Canceled, FailureRate: value.FailureRate,
@@ -228,10 +245,12 @@ func (h *Handler) GetActiveWorkers(c context.Context, q *analyticsv1.GetActiveWo
 	if err := auth(c); err != nil {
 		return nil, err
 	}
+
 	value, err := h.s.ActiveWorkers(c, filter(q.GetFilter()))
 	if err != nil {
 		return nil, internal(err)
 	}
+
 	return &analyticsv1.GetActiveWorkersResponse{
 		ActiveMembers: value.ActiveMembers,
 		Available:     value.Available,
@@ -245,10 +264,13 @@ func (h *Handler) GetAssignmentFunnel(c context.Context, q *analyticsv1.GetAssig
 	if err := auth(c); err != nil {
 		return nil, err
 	}
+
 	value, err := h.s.AssignmentFunnel(c, filter(q.GetFilter()))
+
 	if err != nil {
 		return nil, internal(err)
 	}
+
 	stages := make([]*analyticsv1.AssignmentFunnelStage, 0, len(value.Stages))
 	for _, stage := range value.Stages {
 		stages = append(stages, &analyticsv1.AssignmentFunnelStage{
@@ -262,13 +284,17 @@ func (h *Handler) GetAssignmentFunnel(c context.Context, q *analyticsv1.GetAssig
 }
 
 func (h *Handler) GetDispatchEffectiveness(c context.Context, q *analyticsv1.GetDispatchEffectivenessRequest) (*analyticsv1.GetDispatchEffectivenessResponse, error) {
+
 	if err := auth(c); err != nil {
 		return nil, err
 	}
+
 	value, err := h.s.DispatchEffectiveness(c, filter(q.GetFilter()))
+
 	if err != nil {
 		return nil, internal(err)
 	}
+
 	return &analyticsv1.GetDispatchEffectivenessResponse{
 		Automatic:                   dispatchModeEffectiveness(value.Automatic),
 		Manual:                      dispatchModeEffectiveness(value.Manual),
@@ -277,17 +303,23 @@ func (h *Handler) GetDispatchEffectiveness(c context.Context, q *analyticsv1.Get
 }
 
 func (h *Handler) GetOperationalInsights(c context.Context, q *analyticsv1.GetOperationalInsightsRequest) (*analyticsv1.GetOperationalInsightsResponse, error) {
+
 	if err := auth(c); err != nil {
 		return nil, err
 	}
+
 	value, err := h.s.OperationalInsights(c, filter(q.GetFilter()))
+
 	if err != nil {
 		return nil, internal(err)
 	}
+
 	buckets := make([]*analyticsv1.QueueAgeBucket, 0, len(value.QueueAge.Buckets))
+
 	for _, bucket := range value.QueueAge.Buckets {
 		buckets = append(buckets, &analyticsv1.QueueAgeBucket{Range: bucket.Range, Count: bucket.Count})
 	}
+
 	return &analyticsv1.GetOperationalInsightsResponse{
 		DepartureTime: latencyDistribution(value.DepartureTime),
 		QueueAge: &analyticsv1.QueueAgeSummary{
@@ -319,17 +351,23 @@ func (h *Handler) GetOperationalInsights(c context.Context, q *analyticsv1.GetOp
 }
 
 func (h *Handler) GetProjectionHealth(c context.Context, _ *analyticsv1.GetProjectionHealthRequest) (*analyticsv1.GetProjectionHealthResponse, error) {
+
 	if err := auth(c); err != nil {
 		return nil, err
 	}
+
 	value, err := h.s.ProjectionHealth(c)
+
 	if err != nil {
 		return nil, internal(err)
 	}
+
 	topics := make([]*analyticsv1.ProjectionTopicHealth, 0, len(value.Topics))
+
 	for _, topic := range value.Topics {
 		topics = append(topics, projectionTopicHealth(topic))
 	}
+
 	return &analyticsv1.GetProjectionHealthResponse{
 		TotalEvents: value.TotalEvents, UnknownVersionEvents: value.UnknownVersionEvents,
 		ProjectionEligibleRate: value.ProjectionEligibleRate,
@@ -351,14 +389,18 @@ func projectionTopicHealth(value models.ProjectionTopicHealth) *analyticsv1.Proj
 }
 
 func (h *Handler) ListDispatchOperations(c context.Context, q *analyticsv1.ListDispatchOperationsRequest) (*analyticsv1.ListDispatchOperationsResponse, error) {
+
 	if err := auth(c); err != nil {
 		return nil, err
 	}
+
 	values, err := h.s.DispatchOperations(c, filter(q.GetFilter()), q.GetLimit())
+
 	if err != nil {
 		return nil, internal(err)
 	}
 	items := make([]*analyticsv1.DispatchOperationItem, 0, len(values))
+
 	for _, value := range values {
 		items = append(items, &analyticsv1.DispatchOperationItem{
 			OperationId: value.OperationID, TicketId: value.TicketID, DepartmentId: value.DepartmentID,
@@ -367,18 +409,24 @@ func (h *Handler) ListDispatchOperations(c context.Context, q *analyticsv1.ListD
 			TraceId: value.TraceID, RequestedAt: timestamppb.New(value.RequestedAt), UpdatedAt: timestamppb.New(value.UpdatedAt),
 		})
 	}
+
 	return &analyticsv1.ListDispatchOperationsResponse{Items: items}, nil
 }
 
 func (h *Handler) GetBrigadePerformance(c context.Context, q *analyticsv1.GetBrigadePerformanceRequest) (*analyticsv1.GetBrigadePerformanceResponse, error) {
+
 	if err := auth(c); err != nil {
 		return nil, err
 	}
+
 	value, err := h.s.BrigadePerformance(c, filter(q.GetFilter()))
+
 	if err != nil {
 		return nil, internal(err)
 	}
+
 	brigades := make([]*analyticsv1.BrigadePerformanceItem, 0, len(value.Brigades))
+
 	for _, brigade := range value.Brigades {
 		brigades = append(brigades, &analyticsv1.BrigadePerformanceItem{
 			BrigadeId: brigade.BrigadeID, Completed: brigade.Completed,
@@ -388,6 +436,7 @@ func (h *Handler) GetBrigadePerformance(c context.Context, q *analyticsv1.GetBri
 			CompletedPerShift: brigade.CompletedPerShift, UtilizationRate: brigade.UtilizationRate,
 			BusyHours: brigade.BusyHours, AverageParallelTasks: brigade.AverageParallelTasks,
 		})
+
 	}
 	return &analyticsv1.GetBrigadePerformanceResponse{
 		Completed: value.Completed, ExecutionTime: latencyDistribution(value.ExecutionTime),

@@ -164,11 +164,3 @@ func createTestCertificationType(t *testing.T, repo *Repository, requiresFile bo
 	}
 	return result.CertificationType
 }
-
-func stringPtr(value string) *string {
-	return &value
-}
-
-func boolPtr(value bool) *bool {
-	return &value
-}

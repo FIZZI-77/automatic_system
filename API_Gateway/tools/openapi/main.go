@@ -33,6 +33,10 @@ type document struct {
 	Components map[string]any            `json:"components"`
 }
 
+type parsedPackage struct {
+	Files map[string]*ast.File
+}
+
 func main() {
 	check := flag.Bool("check", false, "fail if the checked-in specification is stale")
 	flag.Parse()
@@ -71,12 +75,12 @@ func generate(root string) ([]byte, error) {
 		return nil, err
 	}
 
-	handlers, err := parser.ParseDir(fset, filepath.Join(root, "src/core/handlers"), nil, 0)
+	handlers, err := parseDir(fset, filepath.Join(root, "src/core/handlers"))
 	if err != nil {
 		return nil, err
 	}
 
-	models, err := parser.ParseDir(fset, filepath.Join(root, "models"), nil, 0)
+	models, err := parseDir(fset, filepath.Join(root, "models"))
 	if err != nil {
 		return nil, err
 	}
@@ -239,6 +243,39 @@ func generate(root string) ([]byte, error) {
 
 	data, err := json.MarshalIndent(doc, "", "  ")
 	return append(data, '\n'), err
+}
+
+func parseDir(fset *token.FileSet, path string) (map[string]*parsedPackage, error) {
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return nil, err
+	}
+
+	packages := make(map[string]*parsedPackage)
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") {
+			continue
+		}
+
+		filePath := filepath.Join(path, entry.Name())
+		file, err := parser.ParseFile(fset, filePath, nil, 0)
+		if err != nil {
+			return nil, err
+		}
+
+		name := file.Name.Name
+		pkg := packages[name]
+		if pkg == nil {
+			pkg = &parsedPackage{
+				Files: make(map[string]*ast.File),
+			}
+			packages[name] = pkg
+		}
+
+		pkg.Files[filePath] = file
+	}
+
+	return packages, nil
 }
 
 func fillOperation(op *operation, fn *ast.FuncDecl) {
