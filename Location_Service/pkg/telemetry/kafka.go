@@ -162,14 +162,6 @@ func (carrier kafkaHeaderMap) headers() []kafka.Header {
 	return headers
 }
 
-func kafkaHeaderMapFromCarrier(carrier propagation.TextMapCarrier) kafkaHeaderMap {
-	headers := make(kafkaHeaderMap, len(carrier.Keys()))
-	for _, key := range carrier.Keys() {
-		headers[key] = carrier.Get(key)
-	}
-	return headers
-}
-
 func newKafkaHeaderMap(headers []kafka.Header) kafkaHeaderMap {
 	carrier := make(kafkaHeaderMap, len(headers))
 	for _, header := range headers {

@@ -332,11 +332,3 @@ func (s *WorkProfileServiceStruct) ensureDepartmentActive(ctx context.Context, d
 	}
 	return nil
 }
-
-func isWorkerStatusTransitionAllowed(from models.WorkProfileStatus, to models.WorkProfileStatus) bool {
-	if from == to {
-		return true
-	}
-	return (from == models.WorkProfileStatusActive || from == models.WorkProfileStatusOffShift) && to == models.WorkProfileStatusOnShift ||
-		from == models.WorkProfileStatusOnShift && to == models.WorkProfileStatusOffShift
-}

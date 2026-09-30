@@ -197,28 +197,28 @@ func (s *SMTPMailService) buildMessage(to []string, subject string, textBody str
 
 	var sb strings.Builder
 
-	sb.WriteString(fmt.Sprintf("From: %s\r\n", fromHeader))
-	sb.WriteString(fmt.Sprintf("To: %s\r\n", strings.Join(to, ", ")))
-	sb.WriteString(fmt.Sprintf("Subject: %s\r\n", subjectHeader))
+	fmt.Fprintf(&sb, "From: %s\r\n", fromHeader)
+	fmt.Fprintf(&sb, "To: %s\r\n", strings.Join(to, ", "))
+	fmt.Fprintf(&sb, "Subject: %s\r\n", subjectHeader)
 	sb.WriteString("MIME-Version: 1.0\r\n")
-	sb.WriteString(fmt.Sprintf("Content-Type: multipart/alternative; boundary=%q\r\n", boundary))
+	fmt.Fprintf(&sb, "Content-Type: multipart/alternative; boundary=%q\r\n", boundary)
 	sb.WriteString("\r\n")
 
-	sb.WriteString(fmt.Sprintf("--%s\r\n", boundary))
+	fmt.Fprintf(&sb, "--%s\r\n", boundary)
 	sb.WriteString("Content-Type: text/plain; charset=UTF-8\r\n")
 	sb.WriteString("Content-Transfer-Encoding: 8bit\r\n")
 	sb.WriteString("\r\n")
 	sb.WriteString(textBody)
 	sb.WriteString("\r\n")
 
-	sb.WriteString(fmt.Sprintf("--%s\r\n", boundary))
+	fmt.Fprintf(&sb, "--%s\r\n", boundary)
 	sb.WriteString("Content-Type: text/html; charset=UTF-8\r\n")
 	sb.WriteString("Content-Transfer-Encoding: 8bit\r\n")
 	sb.WriteString("\r\n")
 	sb.WriteString(htmlBody)
 	sb.WriteString("\r\n")
 
-	sb.WriteString(fmt.Sprintf("--%s--\r\n", boundary))
+	fmt.Fprintf(&sb, "--%s--\r\n", boundary)
 
 	return []byte(sb.String()), nil
 }

@@ -236,7 +236,7 @@ func (s *Service) resumeAutomatic(ctx context.Context, op *models.Operation, in 
 		_, _ = s.repo.SetFailed(ctx, op.ID, "CANDIDATE_SELECTION", "NO_REACHABLE_BRIGADE", "no reachable brigade", op.Version)
 		return nil, fmt.Errorf("%w: no reachable brigade", models.ErrNotFound)
 	}
-	var lastErr error = errors.New("no reachable brigade")
+	lastErr := errors.New("no reachable brigade")
 	for _, candidate := range candidates {
 		if !candidate.Reachable {
 			continue

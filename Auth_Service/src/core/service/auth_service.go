@@ -116,23 +116,24 @@ func (a *AuthServiceStruct) Register(ctx context.Context, in models.RegisterInpu
 		}
 		if !profileExists {
 			err = a.profiles.CreateUserProfile(ctx, id, in.Username)
-		} else {
-			err = nil
 		}
 
 		if err != nil {
 			verifyCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 			profileExists, verifyErr = a.profiles.UserProfileExists(verifyCtx, id)
 			cancel()
-			if profileExists {
-				err = nil
-			} else if verifyErr != nil || !createdUser || !definitiveProfileFailure(err) {
-				return nil, uuid.Nil, errors.Join(fmt.Errorf("create user profile: %w", err), verifyErr)
-			} else {
+
+			if !profileExists {
+				if verifyErr != nil || !createdUser || !definitiveProfileFailure(err) {
+					return nil, uuid.Nil, errors.Join(fmt.Errorf("create user profile: %w", err), verifyErr)
+				}
+
 				compensationCtx, compensationCancel := context.WithTimeout(context.Background(), 5*time.Second)
 				defer compensationCancel()
+
 				if compensationErr := a.repo.DeleteUserRegistration(compensationCtx, id); compensationErr != nil {
-					logger.Error("failed to compensate user registration",
+					logger.Error(
+						"failed to compensate user registration",
 						zap.String("user_id", id.String()),
 						zap.Error(compensationErr),
 					)

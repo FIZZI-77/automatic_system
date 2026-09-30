@@ -178,26 +178,6 @@ func logOperationSuccess(logger *zap.Logger, method string, start time.Time, fie
 	logger.Info(method+" success", fields...)
 }
 
-func runLoggedQuery[T any](
-	ctx context.Context,
-	logger *zap.Logger,
-	method string,
-	fields []zap.Field,
-	query func() (*T, error),
-	successFields func(*T) []zap.Field,
-) (*T, error) {
-	operationLogger, start := startOperation(ctx, logger, method, fields...)
-
-	result, err := query()
-	if err != nil {
-		logOperationFailed(operationLogger, method, start, err, fields...)
-		return nil, wrapServiceError(method, err)
-	}
-
-	logOperationSuccess(operationLogger, method, start, successFields(result)...)
-	return result, nil
-}
-
 func runCommand[T any](
 	ctx context.Context,
 	repo *repository.Repository,
@@ -210,28 +190,5 @@ func runCommand[T any](
 	if err != nil {
 		return nil, wrapServiceError(method, err)
 	}
-	return result, nil
-}
-
-func runLoggedCommand[T any](
-	ctx context.Context,
-	logger *zap.Logger,
-	repo *repository.Repository,
-	method string,
-	actorUserID *uuid.UUID,
-	request any,
-	fields []zap.Field,
-	command func(context.Context) (*T, uuid.UUID, error),
-	successFields func(*T) []zap.Field,
-) (*T, error) {
-	operationLogger, start := startOperation(ctx, logger, method, fields...)
-
-	result, err := runCommand(ctx, repo, method, actorUserID, request, command)
-	if err != nil {
-		logOperationFailed(operationLogger, method, start, err, fields...)
-		return nil, err
-	}
-
-	logOperationSuccess(operationLogger, method, start, successFields(result)...)
 	return result, nil
 }

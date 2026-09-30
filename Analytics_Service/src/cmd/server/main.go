@@ -25,9 +25,11 @@ import (
 
 func main() {
 	telemetryProviders, err := telemetry.Init(context.Background(), "analytics-service")
+
 	if err != nil {
 		log.Fatalf("initialize OpenTelemetry: %v", err)
 	}
+
 	defer func() {
 		if shutdownErr := telemetryProviders.Close(); shutdownErr != nil {
 			log.Printf("shutdown OpenTelemetry: %v", shutdownErr)
@@ -37,13 +39,18 @@ func main() {
 	if e := appconfig.Load(); e != nil {
 		log.Fatalf("configuration error: %v", e)
 	}
+
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+
 	logger, e := pkg.NewLogger()
+
 	if e != nil {
 		log.Fatal(e)
 	}
+
 	defer logger.Sync()
+
 	db, e := clickhouse.Open(&clickhouse.Options{
 		Addr: split(required("CLICKHOUSE_ADDR")),
 		Auth: clickhouse.Auth{
@@ -56,35 +63,48 @@ func main() {
 		},
 		MaxOpenConns: 4,
 	})
+
 	if e != nil {
 		logger.Fatal("clickhouse failed", zap.Error(e))
 	}
 	defer db.Close()
+
 	if e = db.Ping(ctx); e != nil {
 		logger.Fatal("clickhouse unavailable", zap.Error(e))
 	}
+
 	repo := repository.NewRepository(db)
 	svc := service.NewService(repo, logger)
 	workers := []*eventconsumer.Worker{}
+
 	for _, topic := range split(required("KAFKA_TOPICS")) {
 		w := eventconsumer.New(split(required("KAFKA_BROKERS")), topic, env("KAFKA_GROUP", "analytics-service"), svc, logger)
 		workers = append(workers, w)
 		go run(ctx, "consumer "+topic, w.Run, logger)
 	}
+
 	defer func() {
 		for _, w := range workers {
 			_ = w.Close()
 		}
 	}()
+
 	lis, e := net.Listen("tcp", ":"+env("GRPC_PORT", "50063"))
+
 	if e != nil {
 		logger.Fatal("listen failed", zap.Error(e))
 	}
+
 	server := grpc.NewServer(telemetry.GRPCServerOption())
+
 	analyticsv1.RegisterAnalyticsServiceServer(server, handler.New(svc))
+
 	hs := health.NewServer()
+
 	healthv1.RegisterHealthServer(server, hs)
+
 	hs.SetServingStatus("", healthv1.HealthCheckResponse_SERVING)
+
 	go func() {
 		logger.Info("analytics gRPC started", zap.String("address", lis.Addr().String()))
 		if e := server.Serve(lis); e != nil && ctx.Err() == nil {
@@ -92,8 +112,11 @@ func main() {
 			stop()
 		}
 	}()
+
 	<-ctx.Done()
+
 	hs.Shutdown()
+
 	server.GracefulStop()
 }
 func run(c context.Context, n string, f func(context.Context) error, l *zap.Logger) {
@@ -109,13 +132,15 @@ func env(k, d string) string {
 }
 func required(k string) string {
 	v := strings.TrimSpace(os.Getenv(k))
+
 	if v == "" {
 		log.Fatalf("%s is required", k)
 	}
+
 	return v
 }
 func split(v string) []string {
-	out := []string{}
+	var out []string
 	for _, x := range strings.Split(v, ",") {
 		if x = strings.TrimSpace(x); x != "" {
 			out = append(out, x)

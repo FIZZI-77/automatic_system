@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"net"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -17,7 +16,6 @@ import (
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/test/bufconn"
 
 	"profile/src/core/repository"
 	"profile/src/core/service"
@@ -136,10 +134,4 @@ func waitForDB(t *testing.T, ctx context.Context, db *sql.DB) {
 
 func uniqueCode(prefix string) string {
 	return fmt.Sprintf("%s-%d", prefix, time.Now().UnixNano())
-}
-
-func grpcDialer(listener *bufconn.Listener) func(context.Context, string) (net.Conn, error) {
-	return func(ctx context.Context, s string) (net.Conn, error) {
-		return listener.Dial()
-	}
 }

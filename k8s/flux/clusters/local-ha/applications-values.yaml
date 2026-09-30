@@ -2,23 +2,23 @@ globalImage:
   registry: ghcr.io/fizzi-77
   tag: sha-7e50eb65738b
   tags:
-    analytics: sha-745656a42688
-    api-gateway: sha-354a538e6aa3
-    asset: sha-745656a42688
-    audit: sha-745656a42688
-    auth: sha-cc91d869c182
-    brigade: sha-cc91d869c182
-    department: sha-cc91d869c182
-    dispatch: sha-cc91d869c182
+    analytics: sha-460e7c81c5c2
+    api-gateway: sha-460e7c81c5c2
+    asset: sha-460e7c81c5c2
+    audit: sha-460e7c81c5c2
+    auth: sha-460e7c81c5c2
+    brigade: sha-460e7c81c5c2
+    department: sha-460e7c81c5c2
+    dispatch: sha-460e7c81c5c2
     file: sha-745656a42688
     frontend: sha-e0744e3a8c1d
-    location: sha-cc91d869c182
-    notification: sha-745656a42688
-    profile: sha-cc91d869c182
-    report: sha-745656a42688
-    routing: sha-cc91d869c182
-    sla: sha-745656a42688
-    ticket: sha-cc91d869c182
+    location: sha-460e7c81c5c2
+    notification: sha-460e7c81c5c2
+    profile: sha-460e7c81c5c2
+    report: sha-460e7c81c5c2
+    routing: sha-460e7c81c5c2
+    sla: sha-460e7c81c5c2
+    ticket: sha-460e7c81c5c2
   pullPolicy: Always
 
 migrations:

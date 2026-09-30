@@ -349,7 +349,7 @@ func main() {
 		log.Printf("location service address: %s", locationServiceAddr)
 		log.Printf("routing service address: %s", routingServiceAddr)
 
-		if err = server.ListenAndServe(); err != nil && !errors.Is(http.ErrServerClosed, err) {
+		if err = server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			serverErrCh <- err
 		}
 	}()
