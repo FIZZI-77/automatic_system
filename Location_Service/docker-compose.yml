@@ -1,10 +1,8 @@
 services:
   location-service:
     build:
-      context: ..
-      dockerfile: Location_Service/Dockerfile
-      additional_contexts:
-        service: .
+      context: .
+      dockerfile: Dockerfile
     environment:
       DATABASE_URL: postgres://location:location@postgres-location:5432/location?sslmode=disable
       REDIS_MASTER_NAME: location-master

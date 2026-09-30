@@ -1,4 +1,22 @@
 services:
+  jwt-keygen:
+    image: alpine/openssl:latest
+    container_name: jwt-keygen
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        if [ ! -s /keys/private.pem ]; then
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out /keys/private.pem
+          chmod 600 /keys/private.pem
+        fi
+        if [ ! -s /keys/public.pem ]; then
+          openssl pkey -in /keys/private.pem -pubout -out /keys/public.pem
+          chmod 644 /keys/public.pem
+        fi
+    volumes:
+      - jwt_keys:/keys
+    restart: "no"
+
   file-service:
     build:
       context: ./File_Service
@@ -72,8 +90,11 @@ services:
       dockerfile: API_Gateway/Dockerfile
     container_name: api-gateway
     env_file:
-      - ./API_Gateway/.env
+      - path: ./API_Gateway/.env.example
+      - path: ./API_Gateway/.env
+        required: false
     environment:
+      SWAGGER_ENABLED: "true"
       REDIS_ADDR: redis-gateway:6379
       REDIS_PASSWORD: ${GATEWAY_REDIS_PASSWORD:-}
       REDIS_DB: "0"
@@ -90,15 +111,12 @@ services:
       NOTIFICATION_LIVE_PREFIX: "notifications:user:"
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
     ports:
-      - "${API_GATEWAY_PORT}:8081"
+      - "${API_GATEWAY_PORT:-8081}:8081"
     volumes:
-      - type: bind
-        source: ./keys/public.pem
-        target: /app/keys/public.pem
-        read_only: true
-        bind:
-          create_host_path: false
+      - jwt_keys:/app/keys:ro
     depends_on:
+      jwt-keygen:
+        condition: service_completed_successfully
       auth-service:
         condition: service_started
       ticket-service:
@@ -119,6 +137,12 @@ services:
         condition: service_started
       asset-service:
         condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:8081/readyz"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 20s
     restart: unless-stopped
 
   auth-service:
@@ -127,17 +151,16 @@ services:
       dockerfile: Dockerfile
     container_name: auth-service
     env_file:
-      - ./Auth_Service/.env
+      - path: ./Auth_Service/.env.example
+      - path: ./Auth_Service/.env
+        required: false
     ports:
-      - "${AUTH_GRPC_PORT}:50051"
+      - "${AUTH_GRPC_PORT:-50051}:50051"
     volumes:
-      - type: bind
-        source: ./keys/private.pem
-        target: /app/keys/private.pem
-        read_only: true
-        bind:
-          create_host_path: false
+      - jwt_keys:/app/keys:ro
     depends_on:
+      jwt-keygen:
+        condition: service_completed_successfully
       migrator-auth:
         condition: service_completed_successfully
       kafka-init:
@@ -152,7 +175,9 @@ services:
       dockerfile: Dockerfile
     container_name: ticket-service
     env_file:
-      - ./Ticket_Service/.env
+      - path: ./Ticket_Service/.env.example
+      - path: ./Ticket_Service/.env
+        required: false
     environment:
       KAFKA_ROUTING_TOPIC: routing.events.v1
       KAFKA_REPORT_TOPIC: reports.events.v1
@@ -162,7 +187,7 @@ services:
       COMPLETION_SAGA_MAX_ATTEMPTS: "3"
       COMPLETION_SAGA_BATCH_SIZE: "50"
     ports:
-      - "${TICKET_GRPC_PORT}:50052"
+      - "${TICKET_GRPC_PORT:-50052}:50052"
     depends_on:
       migrator-ticket:
         condition: service_completed_successfully
@@ -176,9 +201,11 @@ services:
       dockerfile: Dockerfile
     container_name: department-service
     env_file:
-      - ./Department_Service/.env
+      - path: ./Department_Service/.env.example
+      - path: ./Department_Service/.env
+        required: false
     ports:
-      - "${DEPARTMENT_GRPC_PORT}:50053"
+      - "${DEPARTMENT_GRPC_PORT:-50053}:50053"
     depends_on:
       migrator-department:
         condition: service_completed_successfully
@@ -192,9 +219,11 @@ services:
       dockerfile: Dockerfile
     container_name: profile-service
     env_file:
-      - ./Profile_Service/.env
+      - path: ./Profile_Service/.env.example
+      - path: ./Profile_Service/.env
+        required: false
     ports:
-      - "${PROFILE_GRPC_PORT}:50055"
+      - "${PROFILE_GRPC_PORT:-50055}:50055"
     depends_on:
       migrator-profile:
         condition: service_completed_successfully
@@ -212,12 +241,14 @@ services:
       dockerfile: Dockerfile
     container_name: brigade-service
     env_file:
-      - ./Brigade_Service/.env
+      - path: ./Brigade_Service/.env.example
+      - path: ./Brigade_Service/.env
+        required: false
     environment:
       KAFKA_ROUTING_TOPIC: routing.events.v1
       KAFKA_TICKET_TOPIC: tickets.events.v1
     ports:
-      - "${BRIGADE_GRPC_PORT}:50054"
+      - "${BRIGADE_GRPC_PORT:-50054}:50054"
     depends_on:
       migrator-brigade:
         condition: service_completed_successfully
@@ -231,10 +262,8 @@ services:
 
   location-service:
     build:
-      context: .
-      dockerfile: Location_Service/Dockerfile
-      additional_contexts:
-        service: ./Location_Service
+      context: ./Location_Service
+      dockerfile: Dockerfile
     container_name: location-service
     environment:
       DATABASE_URL: postgres://location:location@postgres-location:5432/location?sslmode=disable
@@ -263,8 +292,8 @@ services:
       REDIS_EVENTS_GROUP: location-kafka-relay
       REDIS_EVENTS_CONSUMER: location-service
     ports:
-      - "${LOCATION_GRPC_PORT}:50056"
-      - "${LOCATION_HTTP_PORT}:8080"
+      - "${LOCATION_GRPC_PORT:-50056}:50056"
+      - "${LOCATION_HTTP_PORT:-8082}:8080"
     depends_on:
       migrator-location:
         condition: service_completed_successfully
@@ -279,6 +308,7 @@ services:
     restart: unless-stopped
 
   transponder-simulator:
+    profiles: ["simulation"]
     image: authomaticcityservices-transponder-simulator:latest
     build:
       context: ./Transponder_Simulator
@@ -330,6 +360,7 @@ services:
     restart: unless-stopped
 
   transponder-simulator-auto:
+    profiles: ["simulation"]
     image: authomaticcityservices-transponder-simulator:latest
     build:
       context: ./Transponder_Simulator
@@ -354,6 +385,7 @@ services:
     restart: unless-stopped
 
   transponder-simulator-cancel:
+    profiles: ["simulation"]
     image: authomaticcityservices-transponder-simulator:latest
     build:
       context: ./Transponder_Simulator
@@ -379,10 +411,8 @@ services:
 
   routing-service:
     build:
-      context: .
-      dockerfile: Routing_Service/Dockerfile
-      additional_contexts:
-        service: ./Routing_Service
+      context: ./Routing_Service
+      dockerfile: Dockerfile
     container_name: routing-service
     environment:
       DATABASE_URL: postgres://routing:routing@postgres-routing:5432/routing?sslmode=disable
@@ -396,7 +426,7 @@ services:
       SHUTDOWN_TIMEOUT: 20s
       LOG_LEVEL: info
     ports:
-      - "${ROUTING_GRPC_PORT}:50057"
+      - "${ROUTING_GRPC_PORT:-50057}:50057"
     depends_on:
       migrator-routing:
         condition: service_completed_successfully
@@ -417,7 +447,7 @@ services:
       GRPC_PORT: "50061"
       KAFKA_BROKERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
       KAFKA_GROUP: notification-service
-      KAFKA_TOPICS: tickets.events.v1,sla.events.v1,dispatch.events.v1,departments.events.v1,brigades.events.v1,locations.events.v1,routing.events.v1,files.events.v1,reports.events.v1
+      KAFKA_TOPICS: tickets.events.v1,sla.events.v1,dispatch.events.v1,departments.events.v1,brigades.events.v1,locations.events.v1,routing.events.v1,files.events.v1,reports.events.v1,assets.events.v1
       SMTP_ADDR: mailhog:1025
       SMTP_FROM: no-reply@automatic-system.local
       LIVE_CHANNEL_PREFIX: "notifications:user:"
@@ -634,7 +664,7 @@ services:
       AUTO_DISPATCH_CANDIDATE_LIMIT: "10"
       KAFKA_TICKET_MAX_ATTEMPTS: "5"
     ports:
-      - "${DISPATCH_GRPC_PORT}:50058"
+      - "${DISPATCH_GRPC_PORT:-50058}:50058"
     depends_on:
       migrator-dispatch:
         condition: service_completed_successfully
@@ -658,7 +688,7 @@ services:
       POSTGRES_PASSWORD: dispatch
       POSTGRES_DB: dispatch
     ports:
-      - "${DISPATCH_DB_PUBLISHED_PORT}:5432"
+      - "${DISPATCH_DB_PUBLISHED_PORT:-5439}:5432"
     volumes:
       - postgres_dispatch_data:/var/lib/postgresql/data
     healthcheck:
@@ -740,7 +770,7 @@ services:
       POSTGRES_PASSWORD: routing
       POSTGRES_DB: routing
     ports:
-      - "${ROUTING_DB_PUBLISHED_PORT}:5432"
+      - "${ROUTING_DB_PUBLISHED_PORT:-5438}:5432"
     volumes:
       - postgres_routing_data:/var/lib/postgresql/data
     healthcheck:
@@ -754,14 +784,14 @@ services:
     image: ghcr.io/nilsnolde/docker-valhalla/valhalla:latest
     container_name: valhalla
     environment:
-      tile_urls: ${VALHALLA_TILE_URL}
+      tile_urls: ${VALHALLA_TILE_URL:-https://download.geofabrik.de/russia/central-fed-district-latest.osm.pbf}
       serve_tiles: "True"
       build_elevation: "False"
       build_admins: "True"
       build_time_zones: "True"
       server_threads: "2"
     ports:
-      - "${VALHALLA_PORT}:8002"
+      - "${VALHALLA_PORT:-8002}:8002"
     volumes:
       - valhalla_data:/custom_files
     healthcheck:
@@ -776,9 +806,11 @@ services:
     image: postgres:16
     container_name: auth-postgres
     env_file:
-      - ./Auth_Service/.env
+      - path: ./Auth_Service/.env.example
+      - path: ./Auth_Service/.env
+        required: false
     ports:
-      - "${AUTH_DB_PUBLISHED_PORT}:5432"
+      - "${AUTH_DB_PUBLISHED_PORT:-5432}:5432"
     volumes:
       - postgres_auth_data:/var/lib/postgresql/data
     healthcheck:
@@ -792,9 +824,11 @@ services:
     image: postgres:16
     container_name: ticket-postgres
     env_file:
-      - ./Ticket_Service/.env
+      - path: ./Ticket_Service/.env.example
+      - path: ./Ticket_Service/.env
+        required: false
     ports:
-      - "${TICKET_DB_PUBLISHED_PORT}:5432"
+      - "${TICKET_DB_PUBLISHED_PORT:-5433}:5432"
     volumes:
       - postgres_ticket_data:/var/lib/postgresql/data
     healthcheck:
@@ -808,9 +842,11 @@ services:
     image: postgres:16
     container_name: department-postgres
     env_file:
-      - ./Department_Service/.env
+      - path: ./Department_Service/.env.example
+      - path: ./Department_Service/.env
+        required: false
     ports:
-      - "${DEPARTMENT_DB_PUBLISHED_PORT}:5432"
+      - "${DEPARTMENT_DB_PUBLISHED_PORT:-5434}:5432"
     volumes:
       - postgres_department_data:/var/lib/postgresql/data
     healthcheck:
@@ -824,9 +860,11 @@ services:
     image: postgis/postgis:16-3.4
     container_name: brigade-postgres
     env_file:
-      - ./Brigade_Service/.env
+      - path: ./Brigade_Service/.env.example
+      - path: ./Brigade_Service/.env
+        required: false
     ports:
-      - "${BRIGADE_DB_PUBLISHED_PORT}:5432"
+      - "${BRIGADE_DB_PUBLISHED_PORT:-5435}:5432"
     volumes:
       - postgres_brigade_data:/var/lib/postgresql/data
     healthcheck:
@@ -840,9 +878,11 @@ services:
     image: postgres:16
     container_name: profile-postgres
     env_file:
-      - ./Profile_Service/.env
+      - path: ./Profile_Service/.env.example
+      - path: ./Profile_Service/.env
+        required: false
     ports:
-      - "${PROFILE_DB_PUBLISHED_PORT}:5432"
+      - "${PROFILE_DB_PUBLISHED_PORT:-5436}:5432"
     volumes:
       - postgres_profile_data:/var/lib/postgresql/data
     healthcheck:
@@ -860,7 +900,7 @@ services:
       POSTGRES_PASSWORD: location
       POSTGRES_DB: location
     ports:
-      - "${LOCATION_DB_PUBLISHED_PORT}:5432"
+      - "${LOCATION_DB_PUBLISHED_PORT:-5437}:5432"
     volumes:
       - postgres_location_data:/var/lib/postgresql/data
     healthcheck:
@@ -875,7 +915,7 @@ services:
     container_name: location-redis-master
     command: ["redis-server", "--appendonly", "yes"]
     ports:
-      - "${LOCATION_REDIS_PUBLISHED_PORT}:6379"
+      - "${LOCATION_REDIS_PUBLISHED_PORT:-6380}:6379"
     volumes:
       - redis_location_master_data:/data
     healthcheck:
@@ -890,7 +930,7 @@ services:
     container_name: location-redis-replica-1
     command: ["redis-server", "--appendonly", "yes", "--replicaof", "redis-location-master", "6379"]
     ports:
-      - "${LOCATION_REDIS_REPLICA_1_PORT}:6379"
+      - "${LOCATION_REDIS_REPLICA_1_PORT:-6381}:6379"
     volumes:
       - redis_location_replica_1_data:/data
     depends_on:
@@ -908,7 +948,7 @@ services:
     container_name: location-redis-replica-2
     command: ["redis-server", "--appendonly", "yes", "--replicaof", "redis-location-master", "6379"]
     ports:
-      - "${LOCATION_REDIS_REPLICA_2_PORT}:6379"
+      - "${LOCATION_REDIS_REPLICA_2_PORT:-6382}:6379"
     volumes:
       - redis_location_replica_2_data:/data
     depends_on:
@@ -926,7 +966,7 @@ services:
     container_name: location-redis-sentinel-1
     command: ["sh", "-c", "cp /sentinel/sentinel.conf /data/sentinel.conf; exec redis-server /data/sentinel.conf --sentinel"]
     ports:
-      - "${LOCATION_REDIS_SENTINEL_1_PORT}:26379"
+      - "${LOCATION_REDIS_SENTINEL_1_PORT:-26379}:26379"
     volumes:
       - ./Location_Service/redis/sentinel.conf:/sentinel/sentinel.conf:ro
       - redis_location_sentinel_1_data:/data
@@ -947,7 +987,7 @@ services:
     container_name: location-redis-sentinel-2
     command: ["sh", "-c", "cp /sentinel/sentinel.conf /data/sentinel.conf; exec redis-server /data/sentinel.conf --sentinel"]
     ports:
-      - "${LOCATION_REDIS_SENTINEL_2_PORT}:26379"
+      - "${LOCATION_REDIS_SENTINEL_2_PORT:-26380}:26379"
     volumes:
       - ./Location_Service/redis/sentinel.conf:/sentinel/sentinel.conf:ro
       - redis_location_sentinel_2_data:/data
@@ -968,7 +1008,7 @@ services:
     container_name: location-redis-sentinel-3
     command: ["sh", "-c", "cp /sentinel/sentinel.conf /data/sentinel.conf; exec redis-server /data/sentinel.conf --sentinel"]
     ports:
-      - "${LOCATION_REDIS_SENTINEL_3_PORT}:26379"
+      - "${LOCATION_REDIS_SENTINEL_3_PORT:-26381}:26379"
     volumes:
       - ./Location_Service/redis/sentinel.conf:/sentinel/sentinel.conf:ro
       - redis_location_sentinel_3_data:/data
@@ -990,7 +1030,9 @@ services:
       dockerfile: Dockerfile
     container_name: auth-migrator
     env_file:
-      - ./Auth_Service/.env
+      - path: ./Auth_Service/.env.example
+      - path: ./Auth_Service/.env
+        required: false
     depends_on:
       postgres-auth:
         condition: service_healthy
@@ -1008,7 +1050,9 @@ services:
       dockerfile: Dockerfile
     container_name: ticket-migrator
     env_file:
-      - ./Ticket_Service/.env
+      - path: ./Ticket_Service/.env.example
+      - path: ./Ticket_Service/.env
+        required: false
     depends_on:
       postgres-ticket:
         condition: service_healthy
@@ -1026,7 +1070,9 @@ services:
       dockerfile: Dockerfile
     container_name: department-migrator
     env_file:
-      - ./Department_Service/.env
+      - path: ./Department_Service/.env.example
+      - path: ./Department_Service/.env
+        required: false
     depends_on:
       postgres-department:
         condition: service_healthy
@@ -1044,7 +1090,9 @@ services:
       dockerfile: Dockerfile
     container_name: brigade-migrator
     env_file:
-      - ./Brigade_Service/.env
+      - path: ./Brigade_Service/.env.example
+      - path: ./Brigade_Service/.env
+        required: false
     depends_on:
       postgres-brigade:
         condition: service_healthy
@@ -1062,7 +1110,9 @@ services:
       dockerfile: Dockerfile
     container_name: profile-migrator
     env_file:
-      - ./Profile_Service/.env
+      - path: ./Profile_Service/.env.example
+      - path: ./Profile_Service/.env
+        required: false
     depends_on:
       postgres-profile:
         condition: service_healthy
@@ -1168,7 +1218,7 @@ services:
       kafka-storage-init:
         condition: service_completed_successfully
     ports:
-      - "${KAFKA_EXTERNAL_PORT}:29092"
+      - "${KAFKA_EXTERNAL_PORT:-29092}:29092"
     volumes:
       - kafka_1_data:/tmp/kraft-combined-logs
     environment:
@@ -1176,7 +1226,7 @@ services:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_LISTENERS: CONTROLLER://:9093,PLAINTEXT://:9092,PLAINTEXT_HOST://:29092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-1:9092,PLAINTEXT_HOST://localhost:${KAFKA_EXTERNAL_PORT}
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-1:9092,PLAINTEXT_HOST://localhost:${KAFKA_EXTERNAL_PORT:-29092}
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
@@ -1301,6 +1351,7 @@ services:
           dispatch.events.v1
           routing.events.v1
           locations.events.v1
+          files.events.v1
           sla.events.v1
           notifications.events.v1
           reports.events.v1
@@ -1354,7 +1405,7 @@ services:
       OVERPASS_API_URL: ${OVERPASS_API_URL:-https://overpass-api.de/api/interpreter}
     depends_on:
       api-gateway:
-        condition: service_started
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:3000/"]
       interval: 10s
@@ -1367,11 +1418,12 @@ services:
     image: mailhog/mailhog:latest
     container_name: auth-mailhog
     ports:
-      - "${MAILHOG_SMTP_PORT}:1025"
-      - "${MAILHOG_UI_PORT}:8025"
+      - "${MAILHOG_SMTP_PORT:-1025}:1025"
+      - "${MAILHOG_UI_PORT:-8025}:8025"
     restart: unless-stopped
 
 volumes:
+  jwt_keys:
   gateway_redis_data:
   file-postgres-data:
   minio-data:
