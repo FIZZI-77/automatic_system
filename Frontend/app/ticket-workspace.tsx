@@ -2,7 +2,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { api, config, type Role, type Session, type Ticket } from "./api";
+import { ApiError, api, config, type Role, type Session, type Ticket } from "./api";
 import { loadBrigades } from "./brigade-store";
 import { TicketAssetPicker } from "./ticket-asset-picker";
 
@@ -13,6 +13,7 @@ type StoredFile = { id:string; name:string; content_type:string; size:number; st
 type DispatchCandidate = { brigade_id:string; rank:number; distance_meters:number; eta_seconds:number; reachable:boolean };
 type TicketHistory = { id:string; old_status?:string; new_status:string; changed_by?:string; comment?:string; created_at:number };
 type DemoTicket = Ticket & { demo_report_description?:string };
+type TicketFeedback = { ticket_id:string; user_id:string; rating:number; problem_resolved:boolean; comment:string; updated_at:string };
 
 export function TicketWorkspace({tickets,session,role,onUpdate,onMap,onNotice}:{tickets:Ticket[];session:Session;role:Role;onUpdate:(ticket:Ticket)=>void;onMap:(id:string)=>void;onNotice:(text:string)=>void}) {
   const [selected,setSelected]=useState<Ticket>();
@@ -22,6 +23,10 @@ export function TicketWorkspace({tickets,session,role,onUpdate,onMap,onNotice}:{
   const [busy,setBusy]=useState(false);
   const [candidates,setCandidates]=useState<DispatchCandidate[]>([]);
   const [history,setHistory]=useState<TicketHistory[]>([]);
+  const [feedback,setFeedback]=useState<TicketFeedback>();
+  const [rating,setRating]=useState(0);
+  const [problemResolved,setProblemResolved]=useState(true);
+  const [feedbackComment,setFeedbackComment]=useState("");
   const [editing,setEditing]=useState(false);
   const [filters,setFilters]=useState({query:"",status:"",priority:"",assignment:"",createdFrom:"",createdTo:"",sort:"created_desc"});
   const demo=session.accessToken==="demo";
@@ -78,6 +83,31 @@ export function TicketWorkspace({tickets,session,role,onUpdate,onMap,onNotice}:{
     })();
     return()=>{active=false};
   },[demo,onNotice,selected,session.accessToken]);
+
+  useEffect(()=>{
+    setFeedback(undefined);
+    setRating(0);
+    setProblemResolved(true);
+    setFeedbackComment("");
+    if(!selected||selected.status!=="DONE"||demo)return;
+    let active=true;
+    api<TicketFeedback>(config.endpoints.ticketFeedbackGet,{ticket_id:selected.id},"POST",session.accessToken)
+      .then(value=>{if(active){setFeedback(value);setRating(value.rating);setProblemResolved(value.problem_resolved);setFeedbackComment(value.comment)}})
+      .catch(error=>{if(active&&!(error instanceof ApiError&&error.status===404))onNotice(error instanceof Error?error.message:"Не удалось загрузить оценку")});
+    return()=>{active=false};
+  },[demo,onNotice,selected,session.accessToken]);
+
+  async function submitFeedback(event:FormEvent<HTMLFormElement>){
+    event.preventDefault();
+    if(!selected||rating<1||rating>5)return;
+    setBusy(true);
+    try{
+      if(demo){onNotice("В демо оценка не сохраняется");return}
+      const value=await api<TicketFeedback>(config.endpoints.ticketFeedbackSubmit,{ticket_id:selected.id,rating,problem_resolved:problemResolved,comment:feedbackComment.trim()},"POST",session.accessToken);
+      setFeedback(value);
+      onNotice("Оценка выполнения сохранена");
+    }catch(error){onNotice(error instanceof Error?error.message:"Не удалось сохранить оценку")}finally{setBusy(false)}
+  }
 
   useEffect(()=>{
     if(!selected||selected.status!=="NEW"||!["admin","dispatcher"].includes(role)||demo){setCandidates([]);return}
@@ -197,6 +227,8 @@ export function TicketWorkspace({tickets,session,role,onUpdate,onMap,onNotice}:{
         {!['DONE','CANCELED'].includes(selected.status)&&["admin","dispatcher","user"].includes(role)&&<form className="ticket-cancel-form" onSubmit={cancel}><label>Причина отмены<input name="reason" required minLength={3} placeholder="Укажите причину"/></label><button className="danger-action" disabled={busy}>Отменить заявку</button></form>}
         {selected.status==="IN_PROGRESS"&&["admin","dispatcher","worker"].includes(role)&&<form className="completion-form" onSubmit={complete}><h3>Отчёт о выполнении</h3><label>Что выполнено<textarea name="description" required rows={4} placeholder="Опишите выполненные работы и результат"/></label>{demo?<p>В демо фото и PDF не сохраняются.</p>:<label className="file-drop">Фото и документы<input type="file" multiple accept="image/*,.pdf,.doc,.docx" onChange={event=>setFiles(Array.from(event.target.files||[]))}/><span>Выбрать файлы</span><small>Фотографии будут встроены в итоговый PDF</small></label>}{files.length>0&&<ul className="report-files">{files.map(file=><li key={`${file.name}-${file.size}`}><div><b>{file.name}</b><small>{(file.size/1024/1024).toFixed(2)} МБ</small></div><button type="button" onClick={()=>setFiles(value=>value.filter(item=>item!==file))}>×</button></li>)}</ul>}<button className="primary" disabled={busy} type="submit">{busy?"Формируем отчёт…":demo?"Завершить заявку (демо)":"Сформировать PDF и завершить"}</button></form>}
         {reports.length>0&&<section className="saved-reports"><h3>Сохранённые отчёты</h3>{reports.map(report=><article key={report.id}><div><b>{report.description}</b><small>Автор: {report.author_user_id}</small></div><div className="saved-report-files">{(reportFiles[report.id]||[]).map(file=><span key={file.id}><button onClick={()=>download(file)}>{file.content_type==="application/pdf"?"PDF":"Файл"} · {file.name}</button>{["admin","dispatcher"].includes(role)&&<button className="file-delete" onClick={()=>removeStoredFile(report.id,file)} aria-label={`Удалить ${file.name}`}>×</button>}</span>)}</div></article>)}</section>}
+        {selected.status==="DONE"&&selected.user_id===session.user?.user_id&&<form className="ticket-feedback" onSubmit={submitFeedback}><h3>Оцените выполненную работу</h3><p>Ваша оценка поможет оценить качество работы департамента.</p><fieldset><legend>Общая оценка</legend>{[1,2,3,4,5].map(value=><button key={value} type="button" className={value<=rating?"selected":""} aria-label={`${value} из 5`} aria-pressed={rating===value} onClick={()=>setRating(value)}>★</button>)}</fieldset><label className="ticket-feedback-resolved"><input type="checkbox" checked={problemResolved} onChange={event=>setProblemResolved(event.target.checked)}/>Проблема решена</label><label>Комментарий (необязательно)<textarea value={feedbackComment} onChange={event=>setFeedbackComment(event.target.value)} maxLength={1000} rows={3} placeholder="Что понравилось или что можно улучшить?"/></label><button className="primary" disabled={busy||rating===0}>{feedback?"Обновить оценку":"Отправить оценку"}</button></form>}
+        {selected.status==="DONE"&&feedback&&selected.user_id!==session.user?.user_id&&<section className="ticket-feedback"><h3>Оценка заявителя</h3><p>{feedback.rating} из 5 · {feedback.problem_resolved?"Проблема решена":"Проблема не решена"}</p>{feedback.comment&&<p>{feedback.comment}</p>}</section>}
         {history.length>0&&<section className="ticket-history"><h3>История статусов</h3>{history.map(item=><div key={item.id}><i>●</i><span><b>{item.old_status?`${statusNames[item.old_status]||item.old_status} → `:""}{statusNames[item.new_status]||item.new_status}</b><small>{item.comment||"Без комментария"} · {item.changed_by||"Система"}</small></span><time>{new Date(item.created_at*1000).toLocaleString("ru-RU")}</time></div>)}</section>}
       </article>
     </div>}

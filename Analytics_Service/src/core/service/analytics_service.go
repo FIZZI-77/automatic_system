@@ -26,6 +26,7 @@ type AnalyticsServiceStruct struct {
 	health        repository.ProjectionHealthRepository
 	operations    repository.DispatchOperationsRepository
 	performance   repository.BrigadePerformanceRepository
+	departments   repository.DepartmentPerformanceRepository
 	logger        *zap.Logger
 }
 
@@ -50,8 +51,15 @@ func NewAnalyticsServiceStruct(repo *repository.Repository, logger *zap.Logger) 
 		health:        repo.ProjectionHealthRepository,
 		operations:    repo.DispatchOperationsRepository,
 		performance:   repo.BrigadePerformanceRepository,
+		departments:   repo.DepartmentPerformanceRepository,
 		logger:        logger,
 	}
+}
+func (s *AnalyticsServiceStruct) DepartmentPerformance(c context.Context, f models.Filter) (models.DepartmentPerformanceReport, error) {
+	start := time.Now()
+	value, err := s.departments.DepartmentPerformance(c, f)
+	s.logQuery("department performance", start, err, zap.Int("departments", len(value.Departments)))
+	return value, err
 }
 func (s *AnalyticsServiceStruct) BrigadePerformance(c context.Context, f models.Filter) (models.BrigadePerformance, error) {
 	start := time.Now()

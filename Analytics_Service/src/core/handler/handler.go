@@ -400,6 +400,53 @@ func (h *Handler) GetBrigadePerformance(c context.Context, q *analyticsv1.GetBri
 	}, nil
 }
 
+func (h *Handler) GetDepartmentPerformance(c context.Context, q *analyticsv1.GetDepartmentPerformanceRequest) (*analyticsv1.GetDepartmentPerformanceResponse, error) {
+	roles, _ := metadata.FromIncomingContext(c)
+	admin := false
+	for _, role := range strings.Split(strings.Join(roles.Get("x-actor-roles"), ","), ",") {
+		if strings.EqualFold(strings.TrimSpace(role), "admin") {
+			admin = true
+			break
+		}
+	}
+
+	if !admin {
+		return nil, status.Error(codes.PermissionDenied, "admin role required")
+	}
+
+	report, err := h.s.DepartmentPerformance(c, filter(q.GetFilter()))
+
+	if err != nil {
+		return nil, internal(err)
+	}
+
+	departments := make([]*analyticsv1.DepartmentPerformance, 0, len(report.Departments))
+	for _, value := range report.Departments {
+		departments = append(departments, departmentPerformance(value))
+	}
+
+	return &analyticsv1.GetDepartmentPerformanceResponse{
+		Departments:  departments,
+		Organization: departmentPerformance(report.Organization),
+	}, nil
+}
+
+func departmentPerformance(value models.DepartmentPerformance) *analyticsv1.DepartmentPerformance {
+	return &analyticsv1.DepartmentPerformance{
+		DepartmentId: value.DepartmentID, Created: value.Created, Completed: value.Completed,
+		Canceled: value.Canceled, Active: value.Active, CompletionRate: value.CompletionRate,
+		AverageResponseSeconds: value.AverageResponseSeconds, AverageResolutionSeconds: value.AverageResolutionSeconds,
+		ResponseSampleCount: value.ResponseSampleCount, ResolutionSampleCount: value.ResolutionSampleCount,
+		ResponseSlaSampleCount: value.ResponseSLASampleCount, ResponseSlaBreaches: value.ResponseSLABreaches,
+		AverageResponseSlaDeviationSeconds: value.AverageResponseSLADeviationSeconds,
+		ResolutionSlaSampleCount:           value.ResolutionSLASampleCount, ResolutionSlaBreaches: value.ResolutionSLABreaches,
+		AverageResolutionSlaDeviationSeconds: value.AverageResolutionSLADeviationSeconds,
+		FeedbackCount:                        value.FeedbackCount, AverageRating: value.AverageRating,
+		PositiveRatingRate: value.PositiveRatingRate, ResolvedFeedbackRate: value.ResolvedFeedbackRate,
+		FeedbackResponseRate: value.FeedbackResponseRate,
+	}
+}
+
 func activeWorkerGroups(values []models.ActiveWorkerGroup) []*analyticsv1.ActiveWorkerGroup {
 	result := make([]*analyticsv1.ActiveWorkerGroup, 0, len(values))
 	for _, value := range values {

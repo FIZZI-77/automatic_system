@@ -56,6 +56,14 @@ func (m *mockTicketRepo) CompleteTicket(ctx context.Context, in *models.Complete
 	return m.completeTicketFunc(ctx, in)
 }
 
+func (m *mockTicketRepo) SubmitTicketFeedback(context.Context, *models.SubmitTicketFeedbackInput) (*models.TicketFeedback, error) {
+	return nil, nil
+}
+
+func (m *mockTicketRepo) GetTicketFeedback(context.Context, *models.GetTicketFeedbackInput) (*models.TicketFeedback, error) {
+	return nil, nil
+}
+
 func (m *mockTicketRepo) GetTicketStatusHistory(ctx context.Context, in *models.GetTicketStatusHistoryInput) ([]*models.TicketStatusHistory, int64, error) {
 	return m.getTicketStatusHistoryFunc(ctx, in)
 }

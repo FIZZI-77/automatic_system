@@ -210,6 +210,21 @@ func (h *AnalyticsHandler) BrigadePerformance(c *gin.Context) {
 	dispatchResponse(c, http.StatusOK, err, response)
 }
 
+func (h *AnalyticsHandler) DepartmentPerformance(c *gin.Context) {
+	var request models.AnalyticsRequest
+
+	if !bindJSON(c, &request) {
+		return
+	}
+
+	response, err := h.client.GetDepartmentPerformance(
+		analyticsContext(c),
+		&analyticsv1.GetDepartmentPerformanceRequest{Filter: analyticsFilter(request.Filter)},
+	)
+
+	dispatchResponse(c, http.StatusOK, err, response)
+}
+
 func analyticsContext(c *gin.Context) context.Context {
 	return dispatchContext(c)
 }

@@ -24,6 +24,7 @@ type AnalyticsService interface {
 	ProjectionHealth(context.Context) (models.ProjectionHealth, error)
 	DispatchOperations(context.Context, models.Filter, uint32) ([]models.DispatchOperationItem, error)
 	BrigadePerformance(context.Context, models.Filter) (models.BrigadePerformance, error)
+	DepartmentPerformance(context.Context, models.Filter) (models.DepartmentPerformanceReport, error)
 }
 type Service struct{ AnalyticsService }
 
