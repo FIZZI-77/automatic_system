@@ -30,18 +30,23 @@ import (
 
 func main() {
 	telemetryProviders, err := telemetry.Init(context.Background(), "routing-service")
+
 	if err != nil {
 		log.Fatalf("initialize OpenTelemetry: %v", err)
 	}
+
 	defer func() {
+
 		if shutdownErr := telemetryProviders.Close(); shutdownErr != nil {
 			log.Printf("shutdown OpenTelemetry: %v", shutdownErr)
 		}
+
 	}()
 
 	if err := appconfig.Load(); err != nil {
 		panic("configuration error: " + err.Error())
 	}
+
 	ctx, stop := signal.NotifyContext(
 		context.Background(),
 		syscall.SIGINT,
@@ -50,35 +55,46 @@ func main() {
 	defer stop()
 
 	logger, err := pkg.NewLogger()
+
 	if err != nil {
 		panic(err)
 	}
+
 	defer logger.Sync()
 
 	dependencies := closer.New()
 	writeDB, err := telemetry.NewPostgresPool(ctx, requiredEnv("DATABASE_URL", logger))
+
 	if err != nil {
 		fatalWithCleanup(logger, dependencies, "connect postgres primary", err)
 	}
+
 	dependencies.Add("postgres primary", func() error {
 		writeDB.Close()
 		return nil
 	})
+
 	if err = writeDB.Ping(ctx); err != nil {
 		fatalWithCleanup(logger, dependencies, "ping postgres primary", err)
 	}
+
 	readDatabaseURL := strings.TrimSpace(os.Getenv("READ_DATABASE_URL"))
+
 	if readDatabaseURL == "" {
 		readDatabaseURL = requiredEnv("DATABASE_URL", logger)
 	}
+
 	readDB, err := telemetry.NewPostgresPool(ctx, readDatabaseURL)
+
 	if err != nil {
 		fatalWithCleanup(logger, dependencies, "connect postgres replica", err)
 	}
+
 	dependencies.Add("postgres replica", func() error {
 		readDB.Close()
 		return nil
 	})
+
 	if err = readDB.Ping(ctx); err != nil {
 		fatalWithCleanup(logger, dependencies, "ping postgres replica", err)
 	}
@@ -87,6 +103,7 @@ func main() {
 		BaseURL: requiredEnv("VALHALLA_URL", logger),
 		Timeout: envDuration("VALHALLA_TIMEOUT", 10*time.Second),
 	})
+
 	if err != nil {
 		fatalWithCleanup(logger, dependencies, "create Valhalla client", err)
 	}
@@ -110,6 +127,7 @@ func main() {
 		"tcp",
 		":"+env("GRPC_PORT", "50057"),
 	)
+
 	if err != nil {
 		fatalWithCleanup(logger, dependencies, "listen grpc", err)
 	}
@@ -130,9 +148,11 @@ func main() {
 			"routing gRPC started",
 			zap.String("address", listener.Addr().String()),
 		)
+
 		if serveErr := grpcServer.Serve(listener); serveErr != nil {
 			serverErr <- serveErr
 		}
+
 	}()
 
 	select {
@@ -177,49 +197,60 @@ func main() {
 	if closeErr := dependencies.Close(shutdownCtx); closeErr != nil {
 		logger.Error("close dependencies", zap.Error(closeErr))
 	}
+
 	logger.Info("routing service stopped")
 }
 
 func env(key, fallback string) string {
+
 	if value := strings.TrimSpace(os.Getenv(key)); value != "" {
 		return value
 	}
+
 	return fallback
 }
 
 func requiredEnv(key string, logger *zap.Logger) string {
 	value := strings.TrimSpace(os.Getenv(key))
+
 	if value == "" {
 		logger.Fatal(
 			"required environment variable is missing",
 			zap.String("key", key),
 		)
 	}
+
 	return value
 }
 
 func envDuration(key string, fallback time.Duration) time.Duration {
 	value, err := time.ParseDuration(os.Getenv(key))
+
 	if err != nil || value <= 0 {
 		return fallback
 	}
+
 	return value
 }
 
 func envInt(key string, fallback int) int {
 	value, err := strconv.Atoi(os.Getenv(key))
+
 	if err != nil || value <= 0 {
 		return fallback
 	}
+
 	return value
 }
 
 func split(value string) []string {
 	result := make([]string, 0)
 	for _, item := range strings.Split(value, ",") {
+
 		if item = strings.TrimSpace(item); item != "" {
 			result = append(result, item)
 		}
+
 	}
 	return result
 }
@@ -236,9 +267,11 @@ func fatalWithCleanup(
 		5*time.Second,
 	)
 	defer cancel()
+
 	if closeErr := dependencies.Close(ctx); closeErr != nil {
 		logger.Error("startup cleanup failed", zap.Error(closeErr))
 	}
+
 	_ = logger.Sync()
 	os.Exit(1)
 }

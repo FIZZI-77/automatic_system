@@ -22,13 +22,17 @@ func New(s service.AnalyticsService) *Handler {
 }
 
 func (h *Handler) GetTicketOverview(c context.Context, q *analyticsv1.GetTicketOverviewRequest) (*analyticsv1.GetTicketOverviewResponse, error) {
+
 	if e := auth(c); e != nil {
 		return nil, e
 	}
+
 	v, e := h.s.Overview(c, filter(q.GetFilter()))
+
 	if e != nil {
 		return nil, internal(e)
 	}
+
 	return &analyticsv1.GetTicketOverviewResponse{
 		Created:              v.Created,
 		Completed:            v.Completed,
@@ -40,13 +44,17 @@ func (h *Handler) GetTicketOverview(c context.Context, q *analyticsv1.GetTicketO
 	}, nil
 }
 func (h *Handler) GetSLASummary(c context.Context, q *analyticsv1.GetSLASummaryRequest) (*analyticsv1.GetSLASummaryResponse, error) {
+
 	if e := auth(c); e != nil {
 		return nil, e
 	}
+
 	v, e := h.s.SLA(c, filter(q.GetFilter()))
+
 	if e != nil {
 		return nil, internal(e)
 	}
+
 	return &analyticsv1.GetSLASummaryResponse{
 		ResponseWarnings:   v.ResponseWarnings,
 		ResponseBreaches:   v.ResponseBreaches,
@@ -57,6 +65,7 @@ func (h *Handler) GetSLASummary(c context.Context, q *analyticsv1.GetSLASummaryR
 	}, nil
 }
 func (h *Handler) ListTicketBreakdown(c context.Context, q *analyticsv1.ListTicketBreakdownRequest) (*analyticsv1.ListTicketBreakdownResponse, error) {
+
 	if e := auth(c); e != nil {
 		return nil, e
 	}
@@ -80,6 +89,7 @@ func (h *Handler) ListTicketBreakdown(c context.Context, q *analyticsv1.ListTick
 	return &analyticsv1.ListTicketBreakdownResponse{Items: out, Total: total}, nil
 }
 func (h *Handler) ListDailyTicketMetrics(c context.Context, q *analyticsv1.ListDailyTicketMetricsRequest) (*analyticsv1.ListDailyTicketMetricsResponse, error) {
+
 	if e := auth(c); e != nil {
 		return nil, e
 	}
@@ -133,9 +143,11 @@ func filter(v *analyticsv1.AnalyticsFilter) models.Filter {
 func auth(c context.Context) error {
 	m, _ := metadata.FromIncomingContext(c)
 	for _, r := range strings.Split(strings.Join(m.Get("x-actor-roles"), ","), ",") {
+
 		if x := strings.ToLower(strings.TrimSpace(r)); x == "admin" || x == "dispatcher" {
 			return nil
 		}
+
 	}
 	return status.Error(codes.PermissionDenied, "admin or dispatcher role required")
 }
@@ -144,13 +156,17 @@ func internal(error) error {
 }
 
 func (h *Handler) GetAssetSummary(c context.Context, q *analyticsv1.GetAssetSummaryRequest) (*analyticsv1.GetAssetSummaryResponse, error) {
+
 	if e := auth(c); e != nil {
 		return nil, e
 	}
+
 	v, e := h.s.AssetSummary(c, filter(q.Filter), q.AssetType, q.District)
+
 	if e != nil {
 		return nil, internal(e)
 	}
+
 	out := &analyticsv1.GetAssetSummaryResponse{
 		AssetsCreated:       v.Created,
 		Incidents:           v.Incidents,
@@ -171,14 +187,18 @@ func (h *Handler) GetAssetSummary(c context.Context, q *analyticsv1.GetAssetSumm
 }
 
 func (h *Handler) GetOperationalLatency(c context.Context, q *analyticsv1.GetOperationalLatencyRequest) (*analyticsv1.GetOperationalLatencyResponse, error) {
+
 	if err := auth(c); err != nil {
 		return nil, err
 	}
+
 	groupBy := strings.TrimPrefix(q.GetGroupBy().String(), "OPERATIONAL_LATENCY_DIMENSION_")
 	value, err := h.s.OperationalLatency(c, filter(q.GetFilter()), groupBy)
+
 	if err != nil {
 		return nil, internal(err)
 	}
+
 	groups := make([]*analyticsv1.OperationalLatencyGroup, 0, len(value.Groups))
 	for _, group := range value.Groups {
 		groups = append(groups, &analyticsv1.OperationalLatencyGroup{
@@ -197,11 +217,13 @@ func (h *Handler) GetOperationalLatency(c context.Context, q *analyticsv1.GetOpe
 }
 
 func (h *Handler) GetDispatchFailureSummary(c context.Context, q *analyticsv1.GetDispatchFailureSummaryRequest) (*analyticsv1.GetDispatchFailureSummaryResponse, error) {
+
 	if err := auth(c); err != nil {
 		return nil, err
 	}
 
 	value, err := h.s.DispatchFailures(c, filter(q.GetFilter()))
+
 	if err != nil {
 		return nil, internal(err)
 	}
@@ -218,13 +240,17 @@ func (h *Handler) GetDispatchFailureSummary(c context.Context, q *analyticsv1.Ge
 }
 
 func (h *Handler) GetBrigadeWorkload(c context.Context, q *analyticsv1.GetBrigadeWorkloadRequest) (*analyticsv1.GetBrigadeWorkloadResponse, error) {
+
 	if err := auth(c); err != nil {
 		return nil, err
 	}
+
 	value, err := h.s.BrigadeWorkload(c, filter(q.GetFilter()))
+
 	if err != nil {
 		return nil, internal(err)
 	}
+
 	brigades := make([]*analyticsv1.BrigadeWorkloadItem, 0, len(value.Brigades))
 	for _, item := range value.Brigades {
 		brigades = append(brigades, &analyticsv1.BrigadeWorkloadItem{
@@ -242,11 +268,13 @@ func (h *Handler) GetBrigadeWorkload(c context.Context, q *analyticsv1.GetBrigad
 }
 
 func (h *Handler) GetActiveWorkers(c context.Context, q *analyticsv1.GetActiveWorkersRequest) (*analyticsv1.GetActiveWorkersResponse, error) {
+
 	if err := auth(c); err != nil {
 		return nil, err
 	}
 
 	value, err := h.s.ActiveWorkers(c, filter(q.GetFilter()))
+
 	if err != nil {
 		return nil, internal(err)
 	}
@@ -261,6 +289,7 @@ func (h *Handler) GetActiveWorkers(c context.Context, q *analyticsv1.GetActiveWo
 }
 
 func (h *Handler) GetAssignmentFunnel(c context.Context, q *analyticsv1.GetAssignmentFunnelRequest) (*analyticsv1.GetAssignmentFunnelResponse, error) {
+
 	if err := auth(c); err != nil {
 		return nil, err
 	}
@@ -399,6 +428,7 @@ func (h *Handler) ListDispatchOperations(c context.Context, q *analyticsv1.ListD
 	if err != nil {
 		return nil, internal(err)
 	}
+
 	items := make([]*analyticsv1.DispatchOperationItem, 0, len(values))
 
 	for _, value := range values {
@@ -453,10 +483,12 @@ func (h *Handler) GetDepartmentPerformance(c context.Context, q *analyticsv1.Get
 	roles, _ := metadata.FromIncomingContext(c)
 	admin := false
 	for _, role := range strings.Split(strings.Join(roles.Get("x-actor-roles"), ","), ",") {
+
 		if strings.EqualFold(strings.TrimSpace(role), "admin") {
 			admin = true
 			break
 		}
+
 	}
 
 	if !admin {

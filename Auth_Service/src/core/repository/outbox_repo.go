@@ -17,6 +17,7 @@ func insertOutboxEvent(
 	payload any,
 ) error {
 	payloadBytes, err := json.Marshal(payload)
+
 	if err != nil {
 		return fmt.Errorf("outbox: marshal payload: %w", err)
 	}
@@ -44,6 +45,7 @@ func insertOutboxEvent(
 		eventType,
 		string(payloadBytes),
 	)
+
 	if err != nil {
 		return fmt.Errorf("outbox: insert event: %w", err)
 	}

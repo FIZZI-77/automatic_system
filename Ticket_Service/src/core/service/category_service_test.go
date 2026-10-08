@@ -50,6 +50,7 @@ func TestCategoryService_CreateCategory_Success(t *testing.T) {
 
 	categoryRepo := &mockCategoryRepo{
 		createCategoryFunc: func(ctx context.Context, in *models.CreateCategoryInput) (*models.TicketCategory, error) {
+
 			if in.Code != "water" {
 				t.Fatalf("expected code water, got %s", in.Code)
 			}
@@ -92,6 +93,7 @@ func TestCategoryService_CreateCategory_Success(t *testing.T) {
 	if result.Category.ID != categoryID {
 		t.Fatalf("expected category id %s, got %s", categoryID, result.Category.ID)
 	}
+
 }
 
 func TestCategoryService_UpdateCategory_PassesExplicitFalseIsActive(t *testing.T) {
@@ -100,6 +102,7 @@ func TestCategoryService_UpdateCategory_PassesExplicitFalseIsActive(t *testing.T
 
 	categoryRepo := &mockCategoryRepo{
 		updateCategoryFunc: func(ctx context.Context, in *models.UpdateCategoryInput) (*models.TicketCategory, error) {
+
 			if in.CategoryID != categoryID {
 				t.Fatalf("expected category id %s, got %s", categoryID, in.CategoryID)
 			}
@@ -140,6 +143,7 @@ func TestCategoryService_UpdateCategory_PassesExplicitFalseIsActive(t *testing.T
 	if result.Category.IsActive {
 		t.Fatal("expected category inactive")
 	}
+
 }
 
 func TestCategoryService_UpdateCategory_InvalidInputWrapsValidation(t *testing.T) {
@@ -160,6 +164,7 @@ func TestCategoryService_UpdateCategory_InvalidInputWrapsValidation(t *testing.T
 	if !errors.Is(err, models.ErrValidation) {
 		t.Fatalf("expected validation error, got %v", err)
 	}
+
 }
 
 func TestCategoryService_CreateCategory_PreservesAlreadyExistsError(t *testing.T) {
@@ -188,6 +193,7 @@ func TestCategoryService_CreateCategory_PreservesAlreadyExistsError(t *testing.T
 	if !errors.Is(err, models.ErrAlreadyExists) {
 		t.Fatalf("expected already exists error, got %v", err)
 	}
+
 }
 
 func TestCategoryService_ListCategories_NormalizesPagination(t *testing.T) {
@@ -195,6 +201,7 @@ func TestCategoryService_ListCategories_NormalizesPagination(t *testing.T) {
 
 	categoryRepo := &mockCategoryRepo{
 		listCategoriesFunc: func(ctx context.Context, in *models.ListCategoriesInput) ([]*models.TicketCategory, int64, error) {
+
 			if in.Limit != models.DefaultLimit {
 				t.Fatalf("expected default limit %d, got %d", models.DefaultLimit, in.Limit)
 			}
@@ -229,6 +236,7 @@ func TestCategoryService_ListCategories_NormalizesPagination(t *testing.T) {
 	if len(result.Categories) != 1 {
 		t.Fatalf("expected 1 category, got %d", len(result.Categories))
 	}
+
 }
 
 func TestCategoryService_DeleteCategory_Success(t *testing.T) {
@@ -236,6 +244,7 @@ func TestCategoryService_DeleteCategory_Success(t *testing.T) {
 
 	categoryRepo := &mockCategoryRepo{
 		deleteCategoryFunc: func(ctx context.Context, in *models.DeleteCategoryInput) (*models.TicketCategory, error) {
+
 			if in.CategoryID != categoryID {
 				t.Fatalf("expected category id %s, got %s", categoryID, in.CategoryID)
 			}
@@ -267,6 +276,7 @@ func TestCategoryService_DeleteCategory_Success(t *testing.T) {
 	if result.Category.IsActive {
 		t.Fatal("expected inactive category")
 	}
+
 }
 
 func TestCategoryService_MutationRequiresPrivilegedRole(t *testing.T) {
@@ -291,6 +301,7 @@ func TestCategoryService_MutationRequiresPrivilegedRole(t *testing.T) {
 		if !errors.Is(err, models.ErrPermissionDenied) {
 			t.Fatalf("expected permission denied, got %v", err)
 		}
+
 	})
 
 	t.Run("delete category denied without role", func(t *testing.T) {
@@ -312,5 +323,6 @@ func TestCategoryService_MutationRequiresPrivilegedRole(t *testing.T) {
 		if !errors.Is(err, models.ErrPermissionDenied) {
 			t.Fatalf("expected permission denied, got %v", err)
 		}
+
 	})
 }

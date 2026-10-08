@@ -64,12 +64,15 @@ type Rule struct {
 }
 
 func (r *Rule) Validate() error {
+
 	if strings.TrimSpace(r.Name) == "" || r.ResponseTime <= 0 || r.ResolutionTime <= 0 || r.ResponseTime > r.ResolutionTime || r.WarningPercent < 1 || r.WarningPercent > 99 {
 		return ErrInvalidArgument
 	}
+
 	if r.Priority != nil && !r.Priority.Valid() {
 		return ErrInvalidArgument
 	}
+
 	return nil
 }
 

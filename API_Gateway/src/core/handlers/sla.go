@@ -20,6 +20,7 @@ func NewSLAHandler(c slav1.SLAServiceClient) *SLAHandler {
 
 func (h *SLAHandler) CreateRule(c *gin.Context) {
 	var v models.CreateSLARuleRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
@@ -44,6 +45,7 @@ func (h *SLAHandler) CreateRule(c *gin.Context) {
 
 func (h *SLAHandler) UpdateRule(c *gin.Context) {
 	var v models.UpdateSLARuleRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
@@ -70,6 +72,7 @@ func (h *SLAHandler) UpdateRule(c *gin.Context) {
 
 func (h *SLAHandler) DeleteRule(c *gin.Context) {
 	var v models.SLAIDRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
@@ -82,6 +85,7 @@ func (h *SLAHandler) DeleteRule(c *gin.Context) {
 
 func (h *SLAHandler) GetRule(c *gin.Context) {
 	var v models.SLAIDRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
@@ -94,6 +98,7 @@ func (h *SLAHandler) GetRule(c *gin.Context) {
 
 func (h *SLAHandler) ListRules(c *gin.Context) {
 	var v models.ListSLARulesRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
@@ -117,6 +122,7 @@ func (h *SLAHandler) ListRules(c *gin.Context) {
 
 func (h *SLAHandler) GetTicketSLA(c *gin.Context) {
 	var v models.TicketIDRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
@@ -129,6 +135,7 @@ func (h *SLAHandler) GetTicketSLA(c *gin.Context) {
 
 func (h *SLAHandler) ListTicketSLAs(c *gin.Context) {
 	var v models.ListTicketSLAsRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
@@ -151,6 +158,7 @@ func (h *SLAHandler) ListTicketSLAs(c *gin.Context) {
 
 func (h *SLAHandler) ListHistory(c *gin.Context) {
 	var v models.TicketIDRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}

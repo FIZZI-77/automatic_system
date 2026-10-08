@@ -20,6 +20,7 @@ func NewDepartmentHandler(departmentClient departmentv1.DepartmentServiceClient)
 
 func (dh *DepartmentHandler) CreateDepartment(c *gin.Context) {
 	var req models.CreateDepartmentRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -32,6 +33,7 @@ func (dh *DepartmentHandler) CreateDepartment(c *gin.Context) {
 		Name:        req.Name,
 		Description: req.Description,
 	})
+
 	if err != nil {
 		handleGRPCError(c, err)
 		return
@@ -44,6 +46,7 @@ func (dh *DepartmentHandler) CreateDepartment(c *gin.Context) {
 
 func (dh *DepartmentHandler) GetDepartmentByID(c *gin.Context) {
 	var req models.GetDepartmentByIDRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -55,6 +58,7 @@ func (dh *DepartmentHandler) GetDepartmentByID(c *gin.Context) {
 	res, err := dh.departmentClient.GetDepartmentByID(ctx, &departmentv1.GetDepartmentByIDRequest{
 		Id: req.ID,
 	})
+
 	if err != nil {
 		handleGRPCError(c, err)
 		return
@@ -67,11 +71,13 @@ func (dh *DepartmentHandler) GetDepartmentByID(c *gin.Context) {
 
 func (dh *DepartmentHandler) ListDepartments(c *gin.Context) {
 	var req models.ListDepartmentsRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
 
 	protoReq, ok := buildListDepartmentsRequest(c, &req)
+
 	if !ok {
 		return
 	}
@@ -81,6 +87,7 @@ func (dh *DepartmentHandler) ListDepartments(c *gin.Context) {
 	ctx = ticketActorContext(ctx, c)
 
 	res, err := dh.departmentClient.ListDepartments(ctx, protoReq)
+
 	if err != nil {
 		handleGRPCError(c, err)
 		return
@@ -99,6 +106,7 @@ func (dh *DepartmentHandler) ListDepartments(c *gin.Context) {
 
 func (dh *DepartmentHandler) UpdateDepartment(c *gin.Context) {
 	var req models.UpdateDepartmentRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -108,6 +116,7 @@ func (dh *DepartmentHandler) UpdateDepartment(c *gin.Context) {
 	ctx = ticketActorContext(ctx, c)
 
 	res, err := dh.departmentClient.UpdateDepartment(ctx, buildUpdateDepartmentRequest(&req))
+
 	if err != nil {
 		handleGRPCError(c, err)
 		return
@@ -120,6 +129,7 @@ func (dh *DepartmentHandler) UpdateDepartment(c *gin.Context) {
 
 func (dh *DepartmentHandler) DeleteDepartment(c *gin.Context) {
 	var req models.DeleteDepartmentRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -131,6 +141,7 @@ func (dh *DepartmentHandler) DeleteDepartment(c *gin.Context) {
 	res, err := dh.departmentClient.DeleteDepartment(ctx, &departmentv1.DeleteDepartmentRequest{
 		Id: req.ID,
 	})
+
 	if err != nil {
 		handleGRPCError(c, err)
 		return
@@ -151,28 +162,36 @@ func buildListDepartmentsRequest(c *gin.Context, req *models.ListDepartmentsRequ
 		status := ToProtoDepartmentStatus(*req.Status)
 		protoReq.Status = &status
 	}
+
 	if req.SortBy != nil {
 		sortBy := ToProtoDepartmentSortBy(*req.SortBy)
 		protoReq.SortBy = &sortBy
 	}
+
 	if req.SortOrder != nil {
 		sortOrder := ToProtoDepartmentSortOrder(*req.SortOrder)
 		protoReq.SortOrder = &sortOrder
 	}
+
 	if req.CreatedFrom != nil {
 		createdFrom, err := ToProtoTimestamp(*req.CreatedFrom)
+
 		if err != nil {
 			c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "invalid created_from"})
 			return nil, false
 		}
+
 		protoReq.CreatedFrom = createdFrom
 	}
+
 	if req.CreatedTo != nil {
 		createdTo, err := ToProtoTimestamp(*req.CreatedTo)
+
 		if err != nil {
 			c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "invalid created_to"})
 			return nil, false
 		}
+
 		protoReq.CreatedTo = createdTo
 	}
 

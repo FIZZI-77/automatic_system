@@ -1,0 +1,94 @@
+- main [ref=e2]:
+  - navigation [ref=e3]:
+    - link "Г 〽 Город рядом" [ref=e4] [cursor=pointer]:
+      - /url: "#top"
+      - generic [ref=e5]: Г 〽
+      - text: Город рядом
+    - generic [ref=e6]:
+      - link "Как это работает" [ref=e7] [cursor=pointer]:
+        - /url: "#how"
+      - link "Возможности" [ref=e8] [cursor=pointer]:
+        - /url: "#services"
+      - button "Включить тёмную тему" [ref=e9] [cursor=pointer]:
+        - generic [aria-hidden] [ref=e10]: ◐
+        - generic [ref=e11]: Тёмная
+      - button "Войти" [disabled] [ref=e12] [cursor=pointer]
+      - button "Регистрация" [disabled] [ref=e13] [cursor=pointer]
+      - button "Открыть демо" [disabled] [ref=e14] [cursor=pointer]
+  - generic [ref=e15]:
+    - generic [ref=e16]:
+      - generic [ref=e17]: Единая цифровая городская служба
+      - heading [level=1] [ref=e18]:
+        - text: Город слышит.
+        - emphasis [ref=e19]: Службы действуют.
+      - paragraph [ref=e20]: Сообщайте о проблемах, следите за исполнением и наблюдайте, как город становится лучше — в одном понятном пространстве.
+      - generic [ref=e21]:
+        - button "Сообщить о проблеме →" [disabled] [ref=e22] [cursor=pointer]:
+          - text: Сообщить о проблеме
+          - generic [ref=e23]: →
+        - button "Посмотреть живую карту" [disabled] [ref=e24] [cursor=pointer]
+      - generic [ref=e25]:
+        - generic [ref=e26]: ● Сервисы на связи
+        - generic [ref=e27]: Среднее время реакции 18 мин
+    - generic [ref=e28]:
+      - generic [ref=e31]:
+        - generic [ref=e32]:
+          - generic [ref=e33]: Сейчас в городе
+          - generic [ref=e34]: ● LIVE
+        - generic [ref=e35]:
+          - button "!" [ref=e39] [cursor=pointer]
+          - button "•" [ref=e40] [cursor=pointer]
+          - button "▰" [ref=e41] [cursor=pointer]
+        - generic [ref=e43]:
+          - generic [ref=e44]:
+            - generic [ref=e45]: "24"
+            - generic [ref=e46]: активных заявки
+          - generic [ref=e47]:
+            - generic [ref=e48]: "11"
+            - generic [ref=e49]: бригад на линии
+          - generic [ref=e50]:
+            - generic [ref=e51]: 94%
+            - generic [ref=e52]: выполнено вовремя
+      - generic [ref=e53]:
+        - generic [ref=e54]: ✓
+        - generic [ref=e55]:
+          - generic [ref=e56]: Бригада назначена
+          - generic [ref=e57]: Прибудет через 12 минут
+  - generic [ref=e58]:
+    - generic [ref=e59]:
+      - text: "01"
+      - heading "Всё видно" [level=3] [ref=e60]
+      - paragraph [ref=e61]: Заявки, машины и маршруты на одной карте в реальном времени.
+    - generic [ref=e62]:
+      - text: "02"
+      - heading "Каждый на своём месте" [level=3] [ref=e63]
+      - paragraph [ref=e64]: Отдельные рабочие пространства для жителей, бригад и служб.
+    - generic [ref=e65]:
+      - text: "03"
+      - heading "Ничего не теряется" [level=3] [ref=e66]
+      - paragraph [ref=e67]: История действий, SLA и уведомления сопровождают заявку до результата.
+  - generic [ref=e68]:
+    - generic [ref=e69]: Просто для жителя. Точно для служб.
+    - heading "От сообщения до результата без лишних звонков" [level=2] [ref=e70]: От сообщения до результатабез лишних звонков
+    - generic [ref=e71]:
+      - article [ref=e72]:
+        - generic [ref=e73]: "1"
+        - heading "Отметьте проблему" [level=3] [ref=e74]
+        - paragraph [ref=e75]: Укажите точку на карте, добавьте описание и фотографию.
+      - article [ref=e76]:
+        - generic [ref=e77]: "2"
+        - heading "Мы найдём исполнителя" [level=3] [ref=e78]
+        - paragraph [ref=e79]: Диспетчер увидит ближайшую подходящую бригаду и маршрут.
+      - article [ref=e80]:
+        - generic [ref=e81]: "3"
+        - heading "Следите за ходом работ" [level=3] [ref=e82]
+        - paragraph [ref=e83]: Статусы и уведомления покажут, что происходит прямо сейчас.
+  - generic [ref=e84]:
+    - link "Г 〽 Город рядом" [ref=e85] [cursor=pointer]:
+      - /url: "#top"
+      - generic [ref=e86]: Г 〽
+      - text: Город рядом
+    - paragraph [ref=e87]: Цифровые городские службы — ближе, понятнее, быстрее.
+    - generic [ref=e88]:
+      - button "Зарегистрироваться" [disabled] [ref=e89] [cursor=pointer]
+      - button "Войти в систему" [disabled] [ref=e90] [cursor=pointer]

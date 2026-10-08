@@ -29,21 +29,29 @@ func (h *Handler) RecordPosition(
 	req *locationv1.RecordPositionRequest,
 ) (*locationv1.RecordPositionResponse, error) {
 	eventID, err := parseUUID(req.GetEventId(), "event_id")
+
 	if err != nil {
 		return nil, err
 	}
+
 	vehicleID, err := parseUUID(req.GetVehicleId(), "vehicle_id")
+
 	if err != nil {
 		return nil, err
 	}
+
 	brigadeID, err := parseUUID(req.GetBrigadeId(), "brigade_id")
+
 	if err != nil {
 		return nil, err
 	}
+
 	occurredAt, err := requiredTime(req.GetOccurredAt(), "occurred_at")
+
 	if err != nil {
 		return nil, err
 	}
+
 	result, callErr := h.service.RecordPosition(
 		ctx,
 		&models.RecordPositionInput{
@@ -63,9 +71,11 @@ func (h *Handler) RecordPosition(
 			Simulated:      req.GetSimulated(),
 		},
 	)
+
 	if callErr != nil {
 		return nil, toStatus(callErr)
 	}
+
 	return &locationv1.RecordPositionResponse{
 		Position:  positionToProto(result.Position),
 		Duplicate: result.Duplicate,
@@ -83,9 +93,11 @@ func (h *Handler) GetCurrentLocation(
 			SubjectID:   req.GetSubjectId(),
 		},
 	)
+
 	if err != nil {
 		return nil, toStatus(err)
 	}
+
 	return &locationv1.GetCurrentLocationResponse{
 		Location: currentLocationToProto(result.Location),
 	}, nil
@@ -96,16 +108,20 @@ func (h *Handler) GetCurrentLocations(
 	req *locationv1.GetCurrentLocationsRequest,
 ) (*locationv1.GetCurrentLocationsResponse, error) {
 	ids, err := parseUUIDs(req.GetBrigadeIds(), "brigade_ids")
+
 	if err != nil {
 		return nil, err
 	}
+
 	result, callErr := h.service.GetCurrentLocations(
 		ctx,
 		&models.GetCurrentLocationsInput{BrigadeIDs: ids, AllowStale: req.GetAllowStale()},
 	)
+
 	if callErr != nil {
 		return nil, toStatus(callErr)
 	}
+
 	response := &locationv1.GetCurrentLocationsResponse{
 		Locations:         make(map[string]*locationv1.CurrentLocation, len(result.Locations)),
 		MissingBrigadeIds: uuidStrings(result.Missing),
@@ -121,17 +137,23 @@ func (h *Handler) ListPositionHistory(
 	req *locationv1.ListPositionHistoryRequest,
 ) (*locationv1.ListPositionHistoryResponse, error) {
 	brigadeID, err := parseUUID(req.GetBrigadeId(), "brigade_id")
+
 	if err != nil {
 		return nil, err
 	}
+
 	from, err := requiredTime(req.GetFrom(), "from")
+
 	if err != nil {
 		return nil, err
 	}
+
 	to, err := requiredTime(req.GetTo(), "to")
+
 	if err != nil {
 		return nil, err
 	}
+
 	result, callErr := h.service.ListPositionHistory(
 		ctx,
 		&models.ListPositionHistoryInput{
@@ -143,9 +165,11 @@ func (h *Handler) ListPositionHistory(
 			Order:     sortOrderFromProto(req.GetOrder()),
 		},
 	)
+
 	if callErr != nil {
 		return nil, toStatus(callErr)
 	}
+
 	response := &locationv1.ListPositionHistoryResponse{
 		Positions: make([]*locationv1.Position, 0, len(result.Positions)),
 		Total:     result.Total,
@@ -161,9 +185,11 @@ func (h *Handler) FindNearbyBrigades(
 	req *locationv1.FindNearbyBrigadesRequest,
 ) (*locationv1.FindNearbyBrigadesResponse, error) {
 	ids, err := parseUUIDs(req.GetBrigadeIds(), "brigade_ids")
+
 	if err != nil {
 		return nil, err
 	}
+
 	result, callErr := h.service.FindNearbyBrigades(
 		ctx,
 		&models.FindNearbyBrigadesInput{
@@ -176,9 +202,11 @@ func (h *Handler) FindNearbyBrigades(
 			Limit:           req.GetLimit(),
 		},
 	)
+
 	if callErr != nil {
 		return nil, toStatus(callErr)
 	}
+
 	response := &locationv1.FindNearbyBrigadesResponse{
 		Brigades: make([]*locationv1.NearbyBrigade, 0, len(result.Brigades)),
 	}
@@ -200,9 +228,11 @@ func (h *Handler) CreateGeoZone(
 	req *locationv1.CreateGeoZoneRequest,
 ) (*locationv1.CreateGeoZoneResponse, error) {
 	departmentID, err := parseUUID(req.GetDepartmentId(), "department_id")
+
 	if err != nil {
 		return nil, err
 	}
+
 	result, callErr := h.service.CreateGeoZone(
 		ctx,
 		&models.CreateGeoZoneInput{
@@ -212,9 +242,11 @@ func (h *Handler) CreateGeoZone(
 			ActorRoles:   actorRoles(ctx),
 		},
 	)
+
 	if callErr != nil {
 		return nil, toStatus(callErr)
 	}
+
 	return &locationv1.CreateGeoZoneResponse{Zone: zoneToProto(result.Zone)}, nil
 }
 
@@ -223,9 +255,11 @@ func (h *Handler) UpdateGeoZone(
 	req *locationv1.UpdateGeoZoneRequest,
 ) (*locationv1.UpdateGeoZoneResponse, error) {
 	id, err := parseUUID(req.GetId(), "id")
+
 	if err != nil {
 		return nil, err
 	}
+
 	result, callErr := h.service.UpdateGeoZone(
 		ctx,
 		&models.UpdateGeoZoneInput{
@@ -236,9 +270,11 @@ func (h *Handler) UpdateGeoZone(
 			ActorRoles: actorRoles(ctx),
 		},
 	)
+
 	if callErr != nil {
 		return nil, toStatus(callErr)
 	}
+
 	return &locationv1.UpdateGeoZoneResponse{Zone: zoneToProto(result.Zone)}, nil
 }
 
@@ -247,16 +283,20 @@ func (h *Handler) DeleteGeoZone(
 	req *locationv1.DeleteGeoZoneRequest,
 ) (*locationv1.DeleteGeoZoneResponse, error) {
 	id, err := parseUUID(req.GetId(), "id")
+
 	if err != nil {
 		return nil, err
 	}
+
 	result, callErr := h.service.DeleteGeoZone(
 		ctx,
 		&models.DeleteGeoZoneInput{ID: id, ActorRoles: actorRoles(ctx)},
 	)
+
 	if callErr != nil {
 		return nil, toStatus(callErr)
 	}
+
 	return &locationv1.DeleteGeoZoneResponse{Zone: zoneToProto(result.Zone)}, nil
 }
 
@@ -265,13 +305,17 @@ func (h *Handler) ListGeoZones(
 	req *locationv1.ListGeoZonesRequest,
 ) (*locationv1.ListGeoZonesResponse, error) {
 	var departmentID *uuid.UUID
+
 	if req.DepartmentId != nil {
 		id, err := parseUUID(req.GetDepartmentId(), "department_id")
+
 		if err != nil {
 			return nil, err
 		}
+
 		departmentID = &id
 	}
+
 	result, callErr := h.service.ListGeoZones(
 		ctx,
 		&models.ListGeoZonesInput{
@@ -281,9 +325,11 @@ func (h *Handler) ListGeoZones(
 			Offset:       req.GetOffset(),
 		},
 	)
+
 	if callErr != nil {
 		return nil, toStatus(callErr)
 	}
+
 	response := &locationv1.ListGeoZonesResponse{
 		Zones: make([]*locationv1.GeoZone, 0, len(result.Zones)),
 		Total: result.Total,
@@ -299,17 +345,23 @@ func (h *Handler) CheckPointInZones(
 	req *locationv1.CheckPointInZonesRequest,
 ) (*locationv1.CheckPointInZonesResponse, error) {
 	var departmentID *uuid.UUID
+
 	if req.DepartmentId != nil {
 		id, err := parseUUID(req.GetDepartmentId(), "department_id")
+
 		if err != nil {
 			return nil, err
 		}
+
 		departmentID = &id
 	}
+
 	ids, err := parseUUIDs(req.GetZoneIds(), "zone_ids")
+
 	if err != nil {
 		return nil, err
 	}
+
 	result, callErr := h.service.CheckPointInZones(
 		ctx,
 		&models.CheckPointInZonesInput{
@@ -319,9 +371,11 @@ func (h *Handler) CheckPointInZones(
 			ZoneIDs:      ids,
 		},
 	)
+
 	if callErr != nil {
 		return nil, toStatus(callErr)
 	}
+
 	response := &locationv1.CheckPointInZonesResponse{
 		Zones: make([]*locationv1.GeoZone, 0, len(result.Zones)),
 	}
@@ -332,9 +386,11 @@ func (h *Handler) CheckPointInZones(
 }
 
 func positionToProto(position *models.Position) *locationv1.Position {
+
 	if position == nil {
 		return nil
 	}
+
 	result := &locationv1.Position{
 		Id:             position.ID.String(),
 		EventId:        position.EventID.String(),
@@ -355,9 +411,11 @@ func positionToProto(position *models.Position) *locationv1.Position {
 	return result
 }
 func currentLocationToProto(location *models.CurrentLocation) *locationv1.CurrentLocation {
+
 	if location == nil {
 		return nil
 	}
+
 	return &locationv1.CurrentLocation{
 		Position:     positionToProto(location.Position),
 		SignalStatus: signalStatusToProto(location.SignalStatus),
@@ -365,9 +423,11 @@ func currentLocationToProto(location *models.CurrentLocation) *locationv1.Curren
 	}
 }
 func zoneToProto(zone *models.GeoZone) *locationv1.GeoZone {
+
 	if zone == nil {
 		return nil
 	}
+
 	return &locationv1.GeoZone{
 		Id:           zone.ID.String(),
 		DepartmentId: zone.DepartmentID.String(),
@@ -401,25 +461,31 @@ func subjectTypeFromProto(value locationv1.SubjectType) models.SubjectType {
 	return ""
 }
 func sortOrderFromProto(value locationv1.SortOrder) models.SortOrder {
+
 	if value == locationv1.SortOrder_SORT_ORDER_ASC {
 		return models.SortOrderAsc
 	}
+
 	return models.SortOrderDesc
 }
 func parseUUID(value, field string) (uuid.UUID, error) {
 	id, err := uuid.Parse(strings.TrimSpace(value))
+
 	if err != nil {
 		return uuid.Nil, status.Errorf(codes.InvalidArgument, "%s must be a UUID", field)
 	}
+
 	return id, nil
 }
 func parseUUIDs(values []string, field string) ([]uuid.UUID, error) {
 	result := make([]uuid.UUID, 0, len(values))
 	for _, value := range values {
 		id, err := parseUUID(value, field)
+
 		if err != nil {
 			return nil, err
 		}
+
 		result = append(result, id)
 	}
 	return result, nil
@@ -432,9 +498,11 @@ func uuidStrings(values []uuid.UUID) []string {
 	return result
 }
 func requiredTime(value *timestamppb.Timestamp, field string) (time.Time, error) {
+
 	if value == nil || !value.IsValid() {
 		return time.Time{}, status.Errorf(codes.InvalidArgument, "%s is required", field)
 	}
+
 	return value.AsTime(), nil
 }
 func actorRoles(ctx context.Context) []string {

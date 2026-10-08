@@ -35,6 +35,7 @@ func rollbackTxOnCancel(ctx context.Context, tx pgx.Tx) func() {
 	})
 
 	return func() {
+
 		if stop() {
 			rollbackTx(ctx, tx)
 			return

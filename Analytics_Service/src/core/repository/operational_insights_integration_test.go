@@ -17,17 +17,21 @@ import (
 
 func TestOperationalInsightsInClickHouse(t *testing.T) {
 	address := os.Getenv("CLICKHOUSE_TEST_ADDR")
+
 	if address == "" {
 		t.Skip("CLICKHOUSE_TEST_ADDR is not set")
 	}
+
 	ctx := context.Background()
 	db, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{address},
 		Auth: clickhouse.Auth{Database: "analytics", Username: "analytics", Password: os.Getenv("CLICKHOUSE_TEST_PASSWORD")},
 	})
+
 	if err != nil {
 		t.Fatalf("clickhouse.Open() error = %v", err)
 	}
+
 	t.Cleanup(func() { _ = db.Close() })
 	repository := NewAnalyticsRepoStruct(db)
 	departmentID := uuid.NewString()
@@ -74,9 +78,11 @@ func TestOperationalInsightsInClickHouse(t *testing.T) {
 	}
 	events = append(events, positionEvent, arrivalEvent, slaEvent)
 	for _, event := range events {
+
 		if err = repository.Store(ctx, event); err != nil {
 			t.Fatalf("Store(%s) error = %v", event.Type, err)
 		}
+
 	}
 	t.Cleanup(func() {
 		_ = db.Exec(context.Background(), "DELETE FROM domain_events WHERE department_id=? OR event_id IN (?,?,?,?,?)", departmentID, events[9].ID, events[10].ID, positionEvent.ID, arrivalEvent.ID, slaEvent.ID)
@@ -85,35 +91,47 @@ func TestOperationalInsightsInClickHouse(t *testing.T) {
 	from := start.Add(-time.Second)
 	to := start.Add(15 * time.Minute)
 	insights, err := repository.OperationalInsights(ctx, models.Filter{From: &from, To: &to, DepartmentID: &departmentID})
+
 	if err != nil {
 		t.Fatalf("OperationalInsights() error = %v", err)
 	}
+
 	if insights.DepartureTime.SampleCount != 2 || insights.DepartureTime.AverageSeconds != 60 {
 		t.Errorf("DepartureTime = %+v, want two assigned tickets departing after 60 seconds", insights.DepartureTime)
 	}
+
 	if insights.QueueAge.ActiveUnassigned != 1 || math.Abs(insights.QueueAge.Age.AverageSeconds-780) > 0.001 {
 		t.Errorf("QueueAge = %+v, want one 780-second item", insights.QueueAge)
 	}
+
 	if insights.Routing.Routes != 1 || insights.Routing.Recalculations != 1 || insights.Routing.AverageDistanceKM != 10 || insights.Routing.KilometersPerCompletedTicket != 10 {
 		t.Errorf("Routing = %+v, want one route, one recalculation and 10 km", insights.Routing)
 	}
+
 	if insights.Routing.ETASampleCount != 1 || insights.Routing.ETAMeanAbsoluteErrorSeconds != 140 || insights.Routing.ETABiasSeconds != -140 || insights.Routing.ETAWithinFiveMinutesRate != 100 {
 		t.Errorf("Routing ETA = %+v, want one sample with -140 second error within five minutes", insights.Routing)
 	}
+
 	if insights.CapacityForecast.ObservedDays != 1 || insights.CapacityForecast.ForecastNextDay != 3 || insights.CapacityForecast.RequiredBrigades != 1 {
 		t.Errorf("CapacityForecast = %+v, want one observed day, forecast 3 and one required brigade", insights.CapacityForecast)
 	}
+
 	performance, err := repository.BrigadePerformance(ctx, models.Filter{From: &from, To: &to, DepartmentID: &departmentID})
+
 	if err != nil {
 		t.Fatalf("BrigadePerformance() error = %v", err)
 	}
+
 	if performance.Completed != 3 || performance.ExecutionTime.SampleCount != 2 || performance.ExecutionTime.AverageSeconds != 330 || performance.RepeatedAssetTickets != 1 {
 		t.Errorf("BrigadePerformance() = %+v, want completed=3 sampled=2 average=330 repeated=1", performance)
 	}
+
 	if performance.SLABreaches != 1 || math.Abs(performance.SLABreachRate-100.0/3.0) > 0.001 || !performance.ShiftMetricsAvailable {
 		t.Errorf("BrigadePerformance SLA/shift = %+v, want one breach, 33.33%% and shift metrics", performance)
 	}
+
 	if performance.ShiftCount != 1 || math.Abs(performance.ShiftHours-0.25) > 0.001 || performance.CompletedPerShift != 3 || math.Abs(performance.UtilizationRate-73.333333) > 0.001 {
 		t.Errorf("BrigadePerformance shifts = %+v, want one 15-minute shift, 3 completed/shift and 73.33%% utilization", performance)
 	}
+
 }

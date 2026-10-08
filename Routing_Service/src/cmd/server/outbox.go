@@ -21,10 +21,12 @@ func startOutboxRelay(
 	logger *zap.Logger,
 ) {
 	brokers := split(os.Getenv("KAFKA_BROKERS"))
+
 	if len(brokers) == 0 {
 		logger.Warn("outbox relay disabled: KAFKA_BROKERS is empty")
 		return
 	}
+
 	worker, err := outboxrelay.New(
 		db,
 		outboxrelay.Config{
@@ -37,6 +39,7 @@ func startOutboxRelay(
 		},
 		logger,
 	)
+
 	if err != nil {
 		fatalWithCleanup(
 			logger,
@@ -45,12 +48,15 @@ func startOutboxRelay(
 			err,
 		)
 	}
+
 	dependencies.Add("outbox relay", worker.Close)
 	workers.Add(1)
 	go func() {
 		defer workers.Done()
+
 		if runErr := worker.Run(ctx); runErr != nil {
 			logger.Error("outbox relay stopped", zap.Error(runErr))
 		}
+
 	}()
 }

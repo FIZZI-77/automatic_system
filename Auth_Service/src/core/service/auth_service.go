@@ -75,6 +75,7 @@ func (a *AuthServiceStruct) Register(ctx context.Context, in models.RegisterInpu
 
 	idempotentResult, err := a.withExternalSideEffectIdempotency(ctx, "Register", in.Email, in, func(ctx context.Context) (any, uuid.UUID, error) {
 		existingUser, err := a.repo.GetUserByEmail(ctx, in.Email)
+
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			logger.Error("failed to check existing user",
 				zap.String("email", in.Email),
@@ -86,34 +87,46 @@ func (a *AuthServiceStruct) Register(ctx context.Context, in models.RegisterInpu
 		user := existingUser
 		createdUser := false
 		resumingProvisioning := user != nil
+
 		if resumingProvisioning && (user.Username != in.Username || bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(in.Password)) != nil) {
 			return nil, uuid.Nil, fmt.Errorf("jwt: Register(): %w", models.ErrUserAlreadyExists)
 		}
+
 		if user == nil {
 			passwordHash, hashErr := bcrypt.GenerateFromPassword([]byte(in.Password), bcrypt.DefaultCost)
+
 			if hashErr != nil {
 				logger.Error("failed to generate password hash", zap.Error(hashErr))
 				return nil, uuid.Nil, fmt.Errorf("jwt: Register(): cant hash password: %w", hashErr)
 			}
+
 			user = &models.User{Username: in.Username, Email: in.Email, PasswordHash: string(passwordHash), IsActive: true, EmailVerified: false}
 			id, createErr := a.repo.CreateUser(ctx, user)
+
 			if createErr != nil {
 				return nil, uuid.Nil, createErr
 			}
+
 			user.ID = id
 			createdUser = true
 		}
+
 		id := user.ID
+
 		if a.profiles == nil {
 			return nil, uuid.Nil, errors.New("profile provisioner is not configured")
 		}
+
 		profileExists, verifyErr := a.profiles.UserProfileExists(ctx, id)
+
 		if verifyErr != nil {
 			return nil, uuid.Nil, fmt.Errorf("verify user profile before provisioning: %w", verifyErr)
 		}
+
 		if profileExists && resumingProvisioning {
 			return nil, uuid.Nil, fmt.Errorf("jwt: Register(): %w", models.ErrUserAlreadyExists)
 		}
+
 		if !profileExists {
 			err = a.profiles.CreateUserProfile(ctx, id, in.Username)
 		}
@@ -124,6 +137,7 @@ func (a *AuthServiceStruct) Register(ctx context.Context, in models.RegisterInpu
 			cancel()
 
 			if !profileExists {
+
 				if verifyErr != nil || !createdUser || !definitiveProfileFailure(err) {
 					return nil, uuid.Nil, errors.Join(fmt.Errorf("create user profile: %w", err), verifyErr)
 				}
@@ -142,8 +156,10 @@ func (a *AuthServiceStruct) Register(ctx context.Context, in models.RegisterInpu
 						fmt.Errorf("compensate user registration: %w", compensationErr),
 					)
 				}
+
 				return nil, uuid.Nil, fmt.Errorf("create user profile: %w", err)
 			}
+
 		}
 
 		result := &models.RegisterResult{
@@ -159,6 +175,7 @@ func (a *AuthServiceStruct) Register(ctx context.Context, in models.RegisterInpu
 
 		return result, id, nil
 	})
+
 	if err != nil {
 		return nil, err
 	}
@@ -193,6 +210,7 @@ func (a *AuthServiceStruct) Login(ctx context.Context, in models.LoginInput) (*m
 	}
 
 	existingUser, err := a.repo.GetUserByEmail(ctx, in.Email)
+
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		logger.Error("failed to get user",
 			zap.String("email", in.Email),
@@ -215,7 +233,9 @@ func (a *AuthServiceStruct) Login(ctx context.Context, in models.LoginInput) (*m
 		)
 		return nil, fmt.Errorf("jwt: Login(): %w", models.ErrUserInactive)
 	}
+
 	err = bcrypt.CompareHashAndPassword([]byte(existingUser.PasswordHash), []byte(in.Password))
+
 	if err != nil {
 		logger.Warn("login failed - invalid password",
 			zap.String("user_id", existingUser.ID.String()),
@@ -241,6 +261,7 @@ func (a *AuthServiceStruct) Login(ctx context.Context, in models.LoginInput) (*m
 	}
 
 	role, err := a.repo.GetRolesByUserID(ctx, existingUser.ID)
+
 	if err != nil {
 		a.cleanupFailedLogin(ctx, sessionID, logger)
 		logger.Error("failed to get roles for user",
@@ -251,6 +272,7 @@ func (a *AuthServiceStruct) Login(ctx context.Context, in models.LoginInput) (*m
 	}
 
 	token, exp, err := a.generateAccessToken(ctx, existingUser.ID, sessionID, role)
+
 	if err != nil {
 		a.cleanupFailedLogin(ctx, sessionID, logger)
 		logger.Error("failed to generate access token",
@@ -261,6 +283,7 @@ func (a *AuthServiceStruct) Login(ctx context.Context, in models.LoginInput) (*m
 	}
 
 	refreshToken, refreshHashToken, expRefresh, err := a.generateRefreshToken(ctx)
+
 	if err != nil {
 		a.cleanupFailedLogin(ctx, sessionID, logger)
 		logger.Error("failed to generate refresh token",
@@ -279,6 +302,7 @@ func (a *AuthServiceStruct) Login(ctx context.Context, in models.LoginInput) (*m
 	}
 
 	err = a.repo.CreateToken(ctx, refresh)
+
 	if err != nil {
 		a.cleanupFailedLogin(ctx, sessionID, logger)
 		logger.Error("failed to create refresh token",
@@ -327,6 +351,7 @@ func (a *AuthServiceStruct) Refresh(ctx context.Context, in models.RefreshInput)
 	hashRefreshToken := base64.RawURLEncoding.EncodeToString(sum[:])
 
 	refreshToken, err := a.repo.GetByTokenHash(ctx, hashRefreshToken)
+
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		logger.Error("failed to get refresh token",
 			zap.String("client_id", in.ClientID),
@@ -360,6 +385,7 @@ func (a *AuthServiceStruct) Refresh(ctx context.Context, in models.RefreshInput)
 	}
 
 	session, err := a.repo.GetSessionByID(ctx, refreshToken.SessionID)
+
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		logger.Error("failed to get session",
 			zap.String("client_id", in.ClientID),
@@ -393,6 +419,7 @@ func (a *AuthServiceStruct) Refresh(ctx context.Context, in models.RefreshInput)
 	}
 
 	roles, err := a.repo.GetRolesByUserID(ctx, refreshToken.UserID)
+
 	if err != nil {
 		logger.Error("failed to get roles for user",
 			zap.String("user_id", refreshToken.UserID.String()),
@@ -402,6 +429,7 @@ func (a *AuthServiceStruct) Refresh(ctx context.Context, in models.RefreshInput)
 	}
 
 	accessToken, expAccess, err := a.generateAccessToken(ctx, refreshToken.UserID, refreshToken.SessionID, roles)
+
 	if err != nil {
 		logger.Error("failed to generate access token",
 			zap.String("user_id", refreshToken.UserID.String()),
@@ -411,6 +439,7 @@ func (a *AuthServiceStruct) Refresh(ctx context.Context, in models.RefreshInput)
 	}
 
 	newRefreshToken, newHash, expRefresh, err := a.generateRefreshToken(ctx)
+
 	if err != nil {
 		logger.Error("failed to generate refresh token",
 			zap.String("user_id", refreshToken.UserID.String()),
@@ -432,6 +461,7 @@ func (a *AuthServiceStruct) Refresh(ctx context.Context, in models.RefreshInput)
 	}
 
 	err = a.repo.MarkUsedAndReplaceToken(ctx, refreshToken.ID, refresh)
+
 	if err != nil {
 		logger.Error("failed to mark used and replaced token",
 			zap.String("user_id", refreshToken.UserID.String()),
@@ -474,6 +504,7 @@ func (a *AuthServiceStruct) Logout(ctx context.Context, in models.LogoutInput) e
 	}
 
 	session, err := a.repo.GetSessionByID(ctx, in.SessionID)
+
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		logger.Error("failed to get session",
 			zap.String("user_id", in.UserID.String()),
@@ -481,6 +512,7 @@ func (a *AuthServiceStruct) Logout(ctx context.Context, in models.LogoutInput) e
 		)
 		return err
 	}
+
 	if session == nil || errors.Is(err, sql.ErrNoRows) {
 		logger.Warn("logout failed - session not found",
 			zap.String("user_id", in.UserID.String()),
@@ -488,6 +520,7 @@ func (a *AuthServiceStruct) Logout(ctx context.Context, in models.LogoutInput) e
 		)
 		return fmt.Errorf("jwt: Logout(): %w", models.ErrInvalidSession)
 	}
+
 	if session.UserID != in.UserID {
 		logger.Warn("logout failed - session belongs to another user",
 			zap.String("user_id", in.UserID.String()),
@@ -497,6 +530,7 @@ func (a *AuthServiceStruct) Logout(ctx context.Context, in models.LogoutInput) e
 	}
 
 	err = a.repo.Logout(ctx, session.ID)
+
 	if err != nil {
 		logger.Error("failed to logout",
 			zap.String("user_id", in.UserID.String()),
@@ -516,12 +550,14 @@ func (a *AuthServiceStruct) Logout(ctx context.Context, in models.LogoutInput) e
 func (a *AuthServiceStruct) cleanupFailedLogin(ctx context.Context, sessionID uuid.UUID, logger *zap.Logger) {
 	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
 	defer cancel()
+
 	if err := a.repo.Logout(cleanupCtx, sessionID); err != nil {
 		logger.Error("failed to clean up session after unsuccessful login",
 			zap.String("session_id", sessionID.String()),
 			zap.Error(err),
 		)
 	}
+
 }
 
 func (a *AuthServiceStruct) LogoutAll(ctx context.Context, in models.LogoutAllInput) (uint32, error) {
@@ -540,6 +576,7 @@ func (a *AuthServiceStruct) LogoutAll(ctx context.Context, in models.LogoutAllIn
 	}
 
 	existingUser, err := a.repo.GetUserByID(ctx, in.UserID)
+
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		logger.Error("failed to get existing user",
 			zap.String("user_id", in.UserID.String()),
@@ -547,6 +584,7 @@ func (a *AuthServiceStruct) LogoutAll(ctx context.Context, in models.LogoutAllIn
 		)
 		return 0, err
 	}
+
 	if existingUser == nil || errors.Is(err, sql.ErrNoRows) {
 		logger.Warn("logoutAll failed - user not found",
 			zap.String("user_id", in.UserID.String()),
@@ -556,6 +594,7 @@ func (a *AuthServiceStruct) LogoutAll(ctx context.Context, in models.LogoutAllIn
 	}
 
 	count, err := a.repo.LogoutAll(ctx, existingUser.ID)
+
 	if err != nil {
 		logger.Error("failed to logoutAll",
 			zap.String("user_id", in.UserID.String()),
@@ -580,6 +619,7 @@ func (a *AuthServiceStruct) GetUserAuthInfo(ctx context.Context, userID uuid.UUI
 	)
 
 	user, err := a.repo.GetUserByID(ctx, userID)
+
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		logger.Error("failed to get user",
 			zap.String("user_id", userID.String()),
@@ -587,6 +627,7 @@ func (a *AuthServiceStruct) GetUserAuthInfo(ctx context.Context, userID uuid.UUI
 		)
 		return nil, err
 	}
+
 	if user == nil || errors.Is(err, sql.ErrNoRows) {
 		logger.Warn("user not found",
 			zap.String("user_id", userID.String()),
@@ -596,6 +637,7 @@ func (a *AuthServiceStruct) GetUserAuthInfo(ctx context.Context, userID uuid.UUI
 	}
 
 	roles, err := a.repo.GetRolesByUserID(ctx, userID)
+
 	if err != nil {
 		logger.Error("failed to get roles for user",
 			zap.String("user_id", userID.String()),
@@ -627,6 +669,7 @@ func (a *AuthServiceStruct) GetJWKS(ctx context.Context) (string, error) {
 	publicKey := a.privateKey.Public()
 
 	key, err := jwk.FromRaw(publicKey)
+
 	if err != nil {
 		logger.Error("failed to parse public key",
 			zap.Error(err),
@@ -663,6 +706,7 @@ func (a *AuthServiceStruct) GetJWKS(ctx context.Context) (string, error) {
 	}
 
 	set := jwk.NewSet()
+
 	if err = set.AddKey(key); err != nil {
 		logger.Error("failed to add jwk key",
 			zap.Error(err),
@@ -671,6 +715,7 @@ func (a *AuthServiceStruct) GetJWKS(ctx context.Context) (string, error) {
 	}
 
 	jwkBytes, err := json.Marshal(set)
+
 	if err != nil {
 		logger.Error("failed to marshal jwk set",
 			zap.Error(err),
@@ -701,6 +746,7 @@ func (a *AuthServiceStruct) ChangePassword(ctx context.Context, in models.Change
 
 	idempotentResult, err := a.withIdempotency(ctx, "ChangePassword", in.UserID.String(), in, func(ctx context.Context) (any, uuid.UUID, error) {
 		existingUser, err := a.repo.GetUserByID(ctx, in.UserID)
+
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			logger.Error("failed to get existing user",
 				zap.String("user_id", in.UserID.String()),
@@ -708,6 +754,7 @@ func (a *AuthServiceStruct) ChangePassword(ctx context.Context, in models.Change
 			)
 			return nil, uuid.Nil, err
 		}
+
 		if existingUser == nil || errors.Is(err, sql.ErrNoRows) {
 			logger.Warn("changePassword failed - user not found",
 				zap.String("user_id", in.UserID.String()),
@@ -717,6 +764,7 @@ func (a *AuthServiceStruct) ChangePassword(ctx context.Context, in models.Change
 		}
 
 		err = bcrypt.CompareHashAndPassword([]byte(existingUser.PasswordHash), []byte(in.OldPassword))
+
 		if err != nil {
 			logger.Error("failed to compare old password",
 				zap.String("user_id", in.UserID.String()),
@@ -726,6 +774,7 @@ func (a *AuthServiceStruct) ChangePassword(ctx context.Context, in models.Change
 		}
 
 		newHashPassword, err := bcrypt.GenerateFromPassword([]byte(in.NewPassword), bcrypt.DefaultCost)
+
 		if err != nil {
 			logger.Error("failed to generate new password",
 				zap.String("user_id", in.UserID.String()),
@@ -735,6 +784,7 @@ func (a *AuthServiceStruct) ChangePassword(ctx context.Context, in models.Change
 		}
 
 		count, err := a.repo.ChangePassword(ctx, in.UserID, string(newHashPassword), in.SessionID, in.RevokeOtherSessions)
+
 		if err != nil {
 			logger.Error("failed to change password",
 				zap.String("user_id", in.UserID.String()),
@@ -755,6 +805,7 @@ func (a *AuthServiceStruct) ChangePassword(ctx context.Context, in models.Change
 
 		return result, in.UserID, nil
 	})
+
 	if err != nil {
 		return nil, err
 	}
@@ -779,6 +830,7 @@ func (a *AuthServiceStruct) SendVerification(ctx context.Context, in models.Send
 
 	idempotentResult, err := a.withExternalSideEffectIdempotency(ctx, "SendVerification", in.UserID.String(), in, func(ctx context.Context) (any, uuid.UUID, error) {
 		user, err := a.repo.GetUserByID(ctx, in.UserID)
+
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			logger.Error("failed to get user",
 				zap.String("user_id", in.UserID.String()),
@@ -786,6 +838,7 @@ func (a *AuthServiceStruct) SendVerification(ctx context.Context, in models.Send
 			)
 			return nil, uuid.Nil, fmt.Errorf("jwt: SendVerificationEmail(): cant get user: %w", err)
 		}
+
 		if user == nil || errors.Is(err, sql.ErrNoRows) {
 			logger.Warn("sendVerification failed - user not found",
 				zap.String("user_id", in.UserID.String()),
@@ -802,6 +855,7 @@ func (a *AuthServiceStruct) SendVerification(ctx context.Context, in models.Send
 		}
 
 		err = a.repo.RevokeUnusedTokensByUserIDAndType(ctx, user.ID, models.TokenTypeEmailVerification)
+
 		if err != nil {
 			logger.Error("failed to revoke unused tokens",
 				zap.String("user_id", in.UserID.String()),
@@ -811,6 +865,7 @@ func (a *AuthServiceStruct) SendVerification(ctx context.Context, in models.Send
 		}
 
 		rawToken, hashToken, err := a.generateOpaqueToken(ctx)
+
 		if err != nil {
 			logger.Error("failed to generate opaque token",
 				zap.String("user_id", in.UserID.String()),
@@ -829,6 +884,7 @@ func (a *AuthServiceStruct) SendVerification(ctx context.Context, in models.Send
 		}
 
 		err = a.repo.CreateOneTimeToken(ctx, token)
+
 		if err != nil {
 			logger.Error("failed to save opaque token",
 				zap.String("user_id", in.UserID.String()),
@@ -838,6 +894,7 @@ func (a *AuthServiceStruct) SendVerification(ctx context.Context, in models.Send
 		}
 
 		err = a.mailService.SendVerificationEmail(ctx, user.Email, rawToken)
+
 		if err != nil {
 			logger.Error("failed to send verification email",
 				zap.String("user_id", in.UserID.String()),
@@ -856,6 +913,7 @@ func (a *AuthServiceStruct) SendVerification(ctx context.Context, in models.Send
 			ExpiresAtUnix: expiresAt.Unix(),
 		}, user.ID, nil
 	})
+
 	if err != nil {
 		return nil, err
 	}
@@ -879,12 +937,14 @@ func (a *AuthServiceStruct) VerifyEmail(ctx context.Context, in models.VerifyEma
 	hashToken := base64.RawURLEncoding.EncodeToString(sum[:])
 
 	token, err := a.repo.GetOneTimeTokenByHashAndType(ctx, hashToken, models.TokenTypeEmailVerification)
+
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		logger.Error("failed to get token by hash",
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("jwt: VerifyEmail(): cant get token: %w", err)
 	}
+
 	if token == nil || errors.Is(err, sql.ErrNoRows) {
 		logger.Warn("verifyEmail failed - token not found")
 		return nil, fmt.Errorf("jwt: VerifyEmail(): %w", models.ErrInvalidToken)
@@ -901,18 +961,21 @@ func (a *AuthServiceStruct) VerifyEmail(ctx context.Context, in models.VerifyEma
 	}
 
 	user, err := a.repo.GetUserByID(ctx, token.UserID)
+
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		logger.Error("failed to get user",
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("jwt: VerifyEmail(): cant get user: %w", err)
 	}
+
 	if user == nil || errors.Is(err, sql.ErrNoRows) {
 		logger.Warn("verifyEmail failed - user not found")
 		return nil, fmt.Errorf("jwt: VerifyEmail(): %w", models.ErrUserNotFound)
 	}
 
 	err = a.repo.VerifyEmail(ctx, user.ID, token.ID)
+
 	if err != nil {
 		logger.Error("failed to verify email",
 			zap.Error(err),
@@ -947,6 +1010,7 @@ func (a *AuthServiceStruct) RequestPasswordReset(ctx context.Context, in models.
 
 	idempotentResult, err := a.withExternalSideEffectIdempotency(ctx, "RequestPasswordReset", in.Email, in, func(ctx context.Context) (any, uuid.UUID, error) {
 		user, err := a.repo.GetUserByEmail(ctx, in.Email)
+
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			logger.Error("failed to get user",
 				zap.Error(err),
@@ -964,6 +1028,7 @@ func (a *AuthServiceStruct) RequestPasswordReset(ctx context.Context, in models.
 		}
 
 		err = a.repo.RevokeUnusedTokensByUserIDAndType(ctx, user.ID, models.TokenTypePasswordReset)
+
 		if err != nil {
 			logger.Error("failed to revoke unused tokens",
 				zap.Error(err),
@@ -972,6 +1037,7 @@ func (a *AuthServiceStruct) RequestPasswordReset(ctx context.Context, in models.
 		}
 
 		rawToken, hashToken, err := a.generateOpaqueToken(ctx)
+
 		if err != nil {
 			logger.Error("failed to generate opaque token",
 				zap.Error(err),
@@ -989,6 +1055,7 @@ func (a *AuthServiceStruct) RequestPasswordReset(ctx context.Context, in models.
 		}
 
 		err = a.repo.CreateOneTimeToken(ctx, token)
+
 		if err != nil {
 			logger.Error("failed to save opaque token",
 				zap.Error(err),
@@ -997,6 +1064,7 @@ func (a *AuthServiceStruct) RequestPasswordReset(ctx context.Context, in models.
 		}
 
 		err = a.mailService.SendPasswordResetEmail(ctx, user.Email, rawToken)
+
 		if err != nil {
 			logger.Error("failed to send reset password",
 				zap.Error(err),
@@ -1013,6 +1081,7 @@ func (a *AuthServiceStruct) RequestPasswordReset(ctx context.Context, in models.
 			ExpiresAtUnix: expiresAt.Unix(),
 		}, user.ID, nil
 	})
+
 	if err != nil {
 		return nil, err
 	}
@@ -1037,12 +1106,14 @@ func (a *AuthServiceStruct) ResetPassword(ctx context.Context, in models.ResetPa
 		hashToken := base64.RawURLEncoding.EncodeToString(sum[:])
 
 		token, err := a.repo.GetOneTimeTokenByHashAndType(ctx, hashToken, models.TokenTypePasswordReset)
+
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			logger.Error("failed to get one-time token",
 				zap.Error(err),
 			)
 			return nil, uuid.Nil, fmt.Errorf("jwt: ResetPassword(): cant get token: %w", err)
 		}
+
 		if token == nil || errors.Is(err, sql.ErrNoRows) {
 			logger.Warn("ResetPassword failed - token not found")
 			return nil, uuid.Nil, fmt.Errorf("jwt: ResetPassword(): %w", models.ErrInvalidToken)
@@ -1059,16 +1130,19 @@ func (a *AuthServiceStruct) ResetPassword(ctx context.Context, in models.ResetPa
 		}
 
 		user, err := a.repo.GetUserByID(ctx, token.UserID)
+
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			logger.Error("failed to get user")
 			return nil, uuid.Nil, fmt.Errorf("jwt: ResetPassword(): cant get user: %w", err)
 		}
+
 		if user == nil || errors.Is(err, sql.ErrNoRows) {
 			logger.Warn("ResetPassword failed - user not found")
 			return nil, uuid.Nil, fmt.Errorf("jwt: ResetPassword(): %w", models.ErrUserNotFound)
 		}
 
 		newHashPassword, err := bcrypt.GenerateFromPassword([]byte(in.NewPassword), bcrypt.DefaultCost)
+
 		if err != nil {
 			logger.Error("failed to generate new password",
 				zap.Error(err),
@@ -1077,6 +1151,7 @@ func (a *AuthServiceStruct) ResetPassword(ctx context.Context, in models.ResetPa
 		}
 
 		count, err := a.repo.ResetPasswordWithToken(ctx, user.ID, string(newHashPassword), token.ID)
+
 		if err != nil {
 			logger.Error("failed to reset password",
 				zap.Error(err),
@@ -1093,6 +1168,7 @@ func (a *AuthServiceStruct) ResetPassword(ctx context.Context, in models.ResetPa
 			InvalidatedSessionsCount: count,
 		}, user.ID, nil
 	})
+
 	if err != nil {
 		return nil, err
 	}
@@ -1119,6 +1195,7 @@ func (a *AuthServiceStruct) generateAccessToken(ctx context.Context, userID uuid
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	tokenString, err := token.SignedString(a.privateKey)
+
 	if err != nil {
 		logger.Error("failed to generate access token",
 			zap.Error(err),
@@ -1139,6 +1216,7 @@ func (a *AuthServiceStruct) generateRefreshToken(ctx context.Context) (raw strin
 	b := make([]byte, 32)
 
 	_, err = rand.Read(b)
+
 	if err != nil {
 		logger.Error("failed to generate refresh token",
 			zap.Error(err),
@@ -1163,6 +1241,7 @@ func (a *AuthServiceStruct) generateOpaqueToken(ctx context.Context) (raw string
 	b := make([]byte, 32)
 
 	_, err = rand.Read(b)
+
 	if err != nil {
 		logger.Error("failed to generate opaque token",
 			zap.Error(err),

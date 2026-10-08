@@ -95,9 +95,11 @@ func NewRepositoryFromClientsWithConfig(
 	redisClient redis.UniversalClient,
 	currentLocationConfig CurrentLocationRepoConfig,
 ) *Repository {
+
 	if pools.Read == nil {
 		pools.Read = pools.Write
 	}
+
 	return &Repository{
 		CurrentLocationRepo: NewCurrentLocationRepoWithConfig(redisClient, currentLocationConfig),
 		PositionHistoryRepo: NewPositionHistoryRepo(pools.Write, pools.Read),

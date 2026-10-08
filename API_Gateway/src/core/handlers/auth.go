@@ -38,6 +38,7 @@ func (ah *AuthHandler) Login(c *gin.Context) {
 		Ip:        c.ClientIP(),
 		UserAgent: c.GetHeader("User-Agent"),
 	})
+
 	if err != nil {
 		handleGRPCError(c, err)
 		return
@@ -83,10 +84,12 @@ func (ah *AuthHandler) LogoutAll(c *gin.Context) {
 	res, err := ah.authClient.LogoutAll(ctx, &v1.LogoutAllRequest{
 		UserId: c.GetString("user_id"),
 	})
+
 	if err != nil {
 		handleGRPCError(c, err)
 		return
 	}
+
 	result := &models.LogoutAllResponse{
 		Success:      res.Success,
 		RevokedCount: res.RevokedCount,
@@ -133,18 +136,21 @@ func (ah *AuthHandler) Refresh(c *gin.Context) {
 	defer cancel()
 
 	var req models.RefreshRequest
+
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, models.ErrorResponse{
 			Error: err.Error(),
 		})
 		return
 	}
+
 	res, err := ah.authClient.Refresh(ctx, &v1.RefreshRequest{
 		RefreshToken: req.RefreshToken,
 		ClientId:     req.ClientID,
 		Ip:           c.ClientIP(),
 		UserAgent:    c.GetHeader("User-Agent"),
 	})
+
 	if err != nil {
 		handleGRPCError(c, err)
 		return
@@ -210,6 +216,7 @@ func (ah *AuthHandler) ChangePassword(c *gin.Context) {
 	defer cancel()
 
 	var req models.ChangePasswordRequest
+
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, models.ErrorResponse{
 			Error: err.Error(),
@@ -241,6 +248,7 @@ func (ah *AuthHandler) ChangePassword(c *gin.Context) {
 
 func (ah *AuthHandler) SendVerificationEmail(c *gin.Context) {
 	userID := c.GetString("user_id")
+
 	if userID == "" {
 		c.JSON(http.StatusUnauthorized, models.ErrorResponse{Error: "unauthorized"})
 		return
@@ -249,10 +257,12 @@ func (ah *AuthHandler) SendVerificationEmail(c *gin.Context) {
 	var req models.SendVerificationEmailRequest
 
 	if c.Request.ContentLength > 0 {
+
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: err.Error()})
 			return
 		}
+
 	}
 
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
@@ -262,6 +272,7 @@ func (ah *AuthHandler) SendVerificationEmail(c *gin.Context) {
 		UserId: userID,
 		Email:  req.Email,
 	})
+
 	if err != nil {
 		handleGRPCError(c, err)
 		return
@@ -278,6 +289,7 @@ func (ah *AuthHandler) VerifyEmail(c *gin.Context) {
 	defer cancel()
 
 	var req models.VerifyEmailRequest
+
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, models.ErrorResponse{
 			Error: err.Error(),
@@ -310,6 +322,7 @@ func (ah *AuthHandler) RequestPasswordReset(c *gin.Context) {
 	defer cancel()
 
 	var req models.RequestPasswordResetRequest
+
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, models.ErrorResponse{
 			Error: err.Error(),
@@ -339,6 +352,7 @@ func (ah *AuthHandler) ResetPassword(c *gin.Context) {
 	defer cancel()
 
 	var req models.ResetPasswordRequest
+
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, models.ErrorResponse{
 			Error: err.Error(),

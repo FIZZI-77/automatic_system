@@ -25,9 +25,11 @@ func NewScheduleRepo(writePool *pgxpool.Pool, readPool *pgxpool.Pool) *ScheduleR
 
 func (s *ScheduleRepoStruct) SetBrigadeSchedule(ctx context.Context, in *models.SetBrigadeScheduleInput) (*models.SetBrigadeScheduleResult, error) {
 	tx, err := s.writePool.Begin(ctx)
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: SetBrigadeSchedule: begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	const deactivateQuery = `
@@ -35,6 +37,7 @@ func (s *ScheduleRepoStruct) SetBrigadeSchedule(ctx context.Context, in *models.
 		SET active = false, updated_at = now()
 		WHERE brigade_id = $1 AND active = true
 	`
+
 	if _, err = tx.Exec(ctx, deactivateQuery, in.BrigadeID); err != nil {
 		return nil, fmt.Errorf("repo: SetBrigadeSchedule: deactivate old schedule: %w", err)
 	}
@@ -42,9 +45,11 @@ func (s *ScheduleRepoStruct) SetBrigadeSchedule(ctx context.Context, in *models.
 	schedule := make([]*models.BrigadeSchedule, 0, len(in.Items))
 	for _, item := range in.Items {
 		row, err := s.insertBrigadeScheduleItem(ctx, tx, in.BrigadeID, item)
+
 		if err != nil {
 			return nil, fmt.Errorf("repo: SetBrigadeSchedule: insert item: %w", err)
 		}
+
 		schedule = append(schedule, row)
 	}
 
@@ -55,6 +60,7 @@ func (s *ScheduleRepoStruct) SetBrigadeSchedule(ctx context.Context, in *models.
 		"items":      len(schedule),
 		"schedule":   schedule,
 	}
+
 	if err = insertOutboxEvent(ctx, tx, "brigade", in.BrigadeID, "BrigadeScheduleChanged", payload, in.RequestID, in.TraceID); err != nil {
 		return nil, fmt.Errorf("repo: SetBrigadeSchedule: insert outbox event: %w", err)
 	}
@@ -68,6 +74,7 @@ func (s *ScheduleRepoStruct) SetBrigadeSchedule(ctx context.Context, in *models.
 
 func (s *ScheduleRepoStruct) insertBrigadeScheduleItem(ctx context.Context, tx pgx.Tx, brigadeID uuid.UUID, item *models.BrigadeScheduleItem) (*models.BrigadeSchedule, error) {
 	timezone := item.Timezone
+
 	if timezone == "" {
 		timezone = "Europe/Moscow"
 	}
@@ -103,10 +110,12 @@ func (s *ScheduleRepoStruct) insertBrigadeScheduleItem(ctx context.Context, tx p
 func (s *ScheduleRepoStruct) ListBrigadeSchedule(ctx context.Context, in *models.ListBrigadeScheduleInput) (*models.ListBrigadeScheduleResult, error) {
 	whereParts := []string{"brigade_id = $1"}
 	args := []any{in.BrigadeID}
+
 	if in.Active != nil {
 		args = append(args, *in.Active)
 		whereParts = append(whereParts, fmt.Sprintf("active = $%d", len(args)))
 	}
+
 	whereSQL := "WHERE " + strings.Join(whereParts, " AND ")
 
 	query := fmt.Sprintf(`
@@ -128,22 +137,28 @@ func (s *ScheduleRepoStruct) ListBrigadeSchedule(ctx context.Context, in *models
 	`, whereSQL)
 
 	rows, err := s.readPool.Query(ctx, query, args...)
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: ListBrigadeSchedule: query: %w", err)
 	}
+
 	defer rows.Close()
 
 	schedule := make([]*models.BrigadeSchedule, 0)
 	for rows.Next() {
 		item, err := scanBrigadeSchedule(rows)
+
 		if err != nil {
 			return nil, fmt.Errorf("repo: ListBrigadeSchedule: scan: %w", err)
 		}
+
 		schedule = append(schedule, item)
 	}
+
 	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("repo: ListBrigadeSchedule: rows: %w", err)
 	}
+
 	return &models.ListBrigadeScheduleResult{Schedule: schedule}, nil
 }
 
@@ -165,18 +180,24 @@ func scanBrigadeSchedule(row scanner) (*models.BrigadeSchedule, error) {
 		&item.CreatedAt,
 		&item.UpdatedAt,
 	)
+
 	if err != nil {
+
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, models.ErrNotFound
 		}
+
 		return nil, err
 	}
+
 	if validFrom.Valid {
 		item.ValidFrom = dateOnlyPtr(validFrom.Time)
 	}
+
 	if validTo.Valid {
 		item.ValidTo = dateOnlyPtr(validTo.Time)
 	}
+
 	return &item, nil
 }
 

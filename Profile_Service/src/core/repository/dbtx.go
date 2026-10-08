@@ -32,9 +32,11 @@ func contextWithCommandTx(ctx context.Context, tx pgx.Tx) context.Context {
 }
 
 func beginCommandTx(ctx context.Context, pool *pgxpool.Pool) (pgx.Tx, error) {
+
 	if tx, ok := ctx.Value(commandTxContextKey{}).(pgx.Tx); ok && tx != nil {
 		return borrowedTx{Tx: tx}, nil
 	}
+
 	return pool.Begin(ctx)
 }
 
@@ -51,10 +53,12 @@ func rollbackTxOnCancel(ctx context.Context, tx pgx.Tx) func() {
 		rollbackTx(ctx, tx)
 	})
 	return func() {
+
 		if stop() {
 			rollbackTx(ctx, tx)
 			return
 		}
+
 		<-done
 	}
 }

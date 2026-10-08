@@ -35,10 +35,13 @@ func setupTestDB(t *testing.T) (*pgxpool.Pool, func()) {
 				WithStartupTimeout(30*time.Second),
 		),
 	)
+
 	if err != nil {
+
 		if isDockerProviderUnavailable(err) {
 			t.Skipf("skipping repository integration tests: %v", err)
 		}
+
 		t.Fatalf("failed to start postgres container: %v", err)
 	}
 
@@ -47,12 +50,14 @@ func setupTestDB(t *testing.T) (*pgxpool.Pool, func()) {
 	}
 
 	connStr, err := container.ConnectionString(ctx, "sslmode=disable")
+
 	if err != nil {
 		cleanup()
 		t.Fatalf("failed to get connection string: %v", err)
 	}
 
 	db, err := sql.Open("pgx", connStr)
+
 	if err != nil {
 		cleanup()
 		t.Fatalf("failed to open migration db: %v", err)
@@ -67,10 +72,12 @@ func setupTestDB(t *testing.T) (*pgxpool.Pool, func()) {
 	runMigrations(t, db)
 
 	pool, err := pgxpool.New(ctx, connStr)
+
 	if err != nil {
 		cleanup()
 		t.Fatalf("failed to create pgx pool: %v", err)
 	}
+
 	if err = pool.Ping(ctx); err != nil {
 		pool.Close()
 		cleanup()
@@ -90,12 +97,15 @@ func runMigrations(t *testing.T, db *sql.DB) {
 	t.Helper()
 
 	migrationsDir := filepath.Clean("../../../scheme")
+
 	if err := goose.SetDialect("postgres"); err != nil {
 		t.Fatalf("failed to set goose dialect: %v", err)
 	}
+
 	if err := goose.Up(db, migrationsDir); err != nil {
 		t.Fatalf("failed to apply goose migrations from %s: %v", migrationsDir, err)
 	}
+
 }
 
 func waitForDB(t *testing.T, ctx context.Context, db *sql.DB) {
@@ -104,9 +114,11 @@ func waitForDB(t *testing.T, ctx context.Context, db *sql.DB) {
 	var err error
 	for i := 0; i < 30; i++ {
 		err = db.PingContext(ctx)
+
 		if err == nil {
 			return
 		}
+
 		time.Sleep(time.Second)
 	}
 	t.Fatalf("failed to ping db: %v", err)
@@ -130,9 +142,11 @@ func createTestUserProfile(t *testing.T, repo *Repository) *models.UserProfile {
 		FullName:               "Repo User",
 		PreferredContactMethod: models.PreferredContactMethodEmail,
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create test user profile: %v", err)
 	}
+
 	return result.UserProfile
 }
 
@@ -144,9 +158,11 @@ func createTestWorkProfile(t *testing.T, repo *Repository, userProfileID uuid.UU
 		DepartmentID:  departmentID,
 		Position:      "Repo engineer",
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create test work profile: %v", err)
 	}
+
 	return result.Details
 }
 
@@ -159,8 +175,10 @@ func createTestCertificationType(t *testing.T, repo *Repository, requiresFile bo
 		Name:         "Certification " + code,
 		RequiresFile: requiresFile,
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create test certification type: %v", err)
 	}
+
 	return result.CertificationType
 }

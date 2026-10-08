@@ -38,6 +38,7 @@ func (s *DepartmentServiceStruct) CreateDepartment(ctx context.Context, in *mode
 		)
 		return nil, fmt.Errorf("service: CreateDepartment(): %w: %v", models.ErrValidation, err)
 	}
+
 	if !hasPrivilegedRole(in.ActorRoles) {
 		logger.Warn("CreateDepartment permission denied",
 			zap.String("name", in.Name),
@@ -48,11 +49,14 @@ func (s *DepartmentServiceStruct) CreateDepartment(ctx context.Context, in *mode
 
 	result, err := s.withIdempotency(ctx, "CreateDepartment", "", in, func(ctx context.Context) (any, uuid.UUID, error) {
 		department, err := s.repo.CreateDepartment(ctx, in)
+
 		if err != nil {
 			return nil, uuid.Nil, err
 		}
+
 		return &models.CreateDepartmentResult{Department: department}, department.ID, nil
 	})
+
 	if err != nil {
 		logger.Error("CreateDepartment failed",
 			zap.String("name", in.Name),
@@ -61,10 +65,13 @@ func (s *DepartmentServiceStruct) CreateDepartment(ctx context.Context, in *mode
 		)
 		return nil, fmt.Errorf("service: CreateDepartment(): %w", err)
 	}
+
 	createResult, err := cachedResult[models.CreateDepartmentResult](result)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: CreateDepartment(): idempotency result: %w", err)
 	}
+
 	department := createResult.Department
 
 	logger.Info("CreateDepartment success",
@@ -94,6 +101,7 @@ func (s *DepartmentServiceStruct) GetDepartmentByID(ctx context.Context, in *mod
 	}
 
 	department, err := s.repo.GetDepartmentByID(ctx, in.ID)
+
 	if err != nil {
 		logger.Error("GetDepartmentByID failed",
 			zap.String("department_id", in.ID.String()),
@@ -130,6 +138,7 @@ func (s *DepartmentServiceStruct) ListDepartments(ctx context.Context, in *model
 	}
 
 	departments, total, err := s.repo.ListDepartments(ctx, in)
+
 	if err != nil {
 		logger.Error("ListDepartments failed",
 			zap.Int64("duration", time.Since(start).Milliseconds()),
@@ -163,6 +172,7 @@ func (s *DepartmentServiceStruct) UpdateDepartment(ctx context.Context, in *mode
 		)
 		return nil, fmt.Errorf("service: UpdateDepartment(): %w: %v", models.ErrValidation, err)
 	}
+
 	if !hasPrivilegedRole(in.ActorRoles) {
 		logger.Warn("UpdateDepartment permission denied",
 			zap.String("department_id", in.ID.String()),
@@ -173,11 +183,14 @@ func (s *DepartmentServiceStruct) UpdateDepartment(ctx context.Context, in *mode
 
 	result, err := s.withIdempotency(ctx, "UpdateDepartment", "", in, func(ctx context.Context) (any, uuid.UUID, error) {
 		department, err := s.repo.UpdateDepartment(ctx, in)
+
 		if err != nil {
 			return nil, uuid.Nil, err
 		}
+
 		return &models.UpdateDepartmentResult{Department: department}, department.ID, nil
 	})
+
 	if err != nil {
 		logger.Error("UpdateDepartment failed",
 			zap.String("department_id", in.ID.String()),
@@ -186,10 +199,13 @@ func (s *DepartmentServiceStruct) UpdateDepartment(ctx context.Context, in *mode
 		)
 		return nil, fmt.Errorf("service: UpdateDepartment(): %w", err)
 	}
+
 	updateResult, err := cachedResult[models.UpdateDepartmentResult](result)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: UpdateDepartment(): idempotency result: %w", err)
 	}
+
 	department := updateResult.Department
 
 	logger.Info("UpdateDepartment success",
@@ -217,6 +233,7 @@ func (s *DepartmentServiceStruct) DeleteDepartment(ctx context.Context, in *mode
 		)
 		return nil, fmt.Errorf("service: DeleteDepartment(): %w: %v", models.ErrValidation, err)
 	}
+
 	if !hasPrivilegedRole(in.ActorRoles) {
 		logger.Warn("DeleteDepartment permission denied",
 			zap.String("department_id", in.ID.String()),
@@ -227,11 +244,14 @@ func (s *DepartmentServiceStruct) DeleteDepartment(ctx context.Context, in *mode
 
 	result, err := s.withIdempotency(ctx, "DeleteDepartment", "", in, func(ctx context.Context) (any, uuid.UUID, error) {
 		department, err := s.repo.DeleteDepartment(ctx, in)
+
 		if err != nil {
 			return nil, uuid.Nil, err
 		}
+
 		return &models.DeleteDepartmentResult{Department: department}, department.ID, nil
 	})
+
 	if err != nil {
 		logger.Error("DeleteDepartment failed",
 			zap.String("department_id", in.ID.String()),
@@ -240,10 +260,13 @@ func (s *DepartmentServiceStruct) DeleteDepartment(ctx context.Context, in *mode
 		)
 		return nil, fmt.Errorf("service: DeleteDepartment(): %w", err)
 	}
+
 	deleteResult, err := cachedResult[models.DeleteDepartmentResult](result)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: DeleteDepartment(): idempotency result: %w", err)
 	}
+
 	department := deleteResult.Department
 
 	logger.Info("DeleteDepartment success",
@@ -257,9 +280,11 @@ func (s *DepartmentServiceStruct) DeleteDepartment(ctx context.Context, in *mode
 
 func hasPrivilegedRole(roles []string) bool {
 	for _, role := range roles {
+
 		if role == "admin" || role == "dispatcher" {
 			return true
 		}
+
 	}
 	return false
 }

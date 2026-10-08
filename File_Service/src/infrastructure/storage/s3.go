@@ -40,9 +40,11 @@ func New(cfg Config) *S3 {
 		UsePathStyle: cfg.UsePathStyle,
 	}
 	client := s3.New(options)
+
 	if cfg.PublicEndpoint != "" {
 		options.BaseEndpoint = aws.String(cfg.PublicEndpoint)
 	}
+
 	presignClient := s3.New(options)
 	return &S3{
 		client:  client,
@@ -56,9 +58,11 @@ func (s *S3) EnsureBucket(ctx context.Context) error {
 	defer span.End()
 
 	_, err := s.client.HeadBucket(ctx, &s3.HeadBucketInput{Bucket: &s.bucket})
+
 	if err == nil {
 		return nil
 	}
+
 	_, err = s.client.CreateBucket(ctx, &s3.CreateBucketInput{Bucket: &s.bucket})
 	recordError(span, err)
 	return err
@@ -73,14 +77,18 @@ func (s *S3) UploadURL(ctx context.Context, key, contentType, checksum string, t
 		Key:         &key,
 		ContentType: &contentType,
 	}
+
 	if checksum != "" {
 		in.ChecksumSHA256 = &checksum
 	}
+
 	res, err := s.presign.PresignPutObject(ctx, in, s3.WithPresignExpires(ttl))
+
 	if err != nil {
 		recordError(span, err)
 		return "", err
 	}
+
 	return res.URL, nil
 }
 
@@ -95,10 +103,12 @@ func (s *S3) DownloadURL(ctx context.Context, key, name string, ttl time.Duratio
 		ResponseContentDisposition: &disposition,
 	}
 	res, err := s.presign.PresignGetObject(ctx, input, s3.WithPresignExpires(ttl))
+
 	if err != nil {
 		recordError(span, err)
 		return "", err
 	}
+
 	return res.URL, nil
 }
 
@@ -107,10 +117,12 @@ func (s *S3) Stat(ctx context.Context, key string) (int64, string, error) {
 	defer span.End()
 
 	res, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{Bucket: &s.bucket, Key: &key})
+
 	if err != nil {
 		recordError(span, err)
 		return 0, "", err
 	}
+
 	return aws.ToInt64(res.ContentLength), aws.ToString(res.ContentType), nil
 }
 
@@ -128,15 +140,18 @@ func (s *S3) Move(ctx context.Context, source, target string) error {
 	defer span.End()
 
 	copySource := url.PathEscape(s.bucket + "/" + source)
+
 	if _, err := s.client.CopyObject(ctx, &s3.CopyObjectInput{Bucket: &s.bucket, Key: &target, CopySource: &copySource}); err != nil {
 		recordError(span, err)
 		return err
 	}
+
 	if err := s.Delete(ctx, source); err != nil {
 		_ = s.Delete(ctx, target)
 		recordError(span, err)
 		return err
 	}
+
 	return nil
 }
 
@@ -154,9 +169,11 @@ func (s *S3) startSpan(ctx context.Context, operation string) (context.Context, 
 }
 
 func recordError(span trace.Span, err error) {
+
 	if err == nil {
 		return
 	}
+
 	span.RecordError(err)
 	span.SetStatus(codes.Error, err.Error())
 }

@@ -19,6 +19,7 @@ type OneTimeTokenRepoStruct struct {
 
 func NewOneTimeTokenRepoStruct(writeDB DBTX, readDB ...DBTX) *OneTimeTokenRepoStruct {
 	reader := writeDB
+
 	if len(readDB) > 0 && readDB[0] != nil {
 		reader = readDB[0]
 	}
@@ -46,6 +47,7 @@ func (r *OneTimeTokenRepoStruct) CreateOneTimeToken(ctx context.Context, token *
 		token.ExpiresAt,
 		token.UsedAt,
 	).Scan(&token.ID, &token.CreatedAt)
+
 	if err != nil {
 		return fmt.Errorf("one_time_token_repo: CreateOneTimeToken(): %w", err)
 	}
@@ -72,10 +74,13 @@ func (r *OneTimeTokenRepoStruct) GetOneTimeTokenByHashAndType(ctx context.Contex
 		&token.UsedAt,
 		&token.CreatedAt,
 	)
+
 	if err != nil {
+
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, fmt.Errorf("one_time_token_repo: GetOneTimeTokenByHashAndType(): token not found: %w", err)
 		}
+
 		return nil, fmt.Errorf("one_time_token_repo: GetOneTimeTokenByHashAndType(): %w", err)
 	}
 
@@ -90,6 +95,7 @@ func (r *OneTimeTokenRepoStruct) MarkOneTimeTokenUsed(ctx context.Context, token
 	`
 
 	result, err := commandExec(ctx, r.writeDB).Exec(ctx, query, tokenID)
+
 	if err != nil {
 		return fmt.Errorf("one_time_token_repo: MarkOneTimeTokenUsed(): %w", err)
 	}
@@ -114,6 +120,7 @@ func (r *OneTimeTokenRepoStruct) RevokeUnusedTokensByUserIDAndType(ctx context.C
 	`
 
 	_, err := commandExec(ctx, r.writeDB).Exec(ctx, query, userID, tokenType)
+
 	if err != nil {
 		return fmt.Errorf("one_time_token_repo: RevokeUnusedTokensByUserIDAndType(): %w", err)
 	}

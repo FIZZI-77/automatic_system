@@ -27,24 +27,31 @@ import (
 
 func main() {
 	telemetryProviders, err := telemetry.Init(context.Background(), "department-service")
+
 	if err != nil {
 		log.Fatalf("initialize OpenTelemetry: %v", err)
 	}
+
 	defer func() {
+
 		if shutdownErr := telemetryProviders.Close(); shutdownErr != nil {
 			log.Printf("shutdown OpenTelemetry: %v", shutdownErr)
 		}
+
 	}()
 
 	if err := appconfig.Load(); err != nil {
 		log.Fatalf("configuration error: %v", err)
 	}
+
 	dependencies := closer.New()
 
 	logger, err := pkg.NewLogger()
+
 	if err != nil {
 		panic(err)
 	}
+
 	defer logger.Sync()
 
 	if err = godotenv.Load(".env"); err != nil && !os.IsNotExist(err) {
@@ -60,22 +67,28 @@ func main() {
 		SSLMode:  os.Getenv("SSLMODE"),
 	}
 	writeDB, err := pkg.NewPostgresDB(dbConfig)
+
 	if err != nil {
 		log.Fatalf("failed to connect db: %v", err)
 	}
+
 	dependencies.Add("postgres", func() error {
 		writeDB.Close()
 		return nil
 	})
 	readHost := strings.TrimSpace(os.Getenv("DB_READ_HOST"))
+
 	if readHost == "" {
 		readHost = dbConfig.Host
 	}
+
 	dbConfig.Host = readHost
 	readDB, err := pkg.NewPostgresDB(dbConfig)
+
 	if err != nil {
 		log.Fatalf("failed to connect read db: %v", err)
 	}
+
 	dependencies.Add("postgres read", func() error {
 		readDB.Close()
 		return nil
@@ -84,11 +97,13 @@ func main() {
 	startOutboxRelay(writeDB, dependencies, logger)
 
 	grpcPort := os.Getenv("GRPC_PORT")
+
 	if strings.TrimSpace(grpcPort) == "" {
 		grpcPort = "50053"
 	}
 
 	lis, err := net.Listen("tcp", ":"+grpcPort)
+
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
@@ -110,9 +125,11 @@ func main() {
 	serverErrCh := make(chan error, 1)
 	go func() {
 		log.Printf("department service listening at %v", lis.Addr())
+
 		if err = grpcServer.Serve(lis); err != nil {
 			serverErrCh <- err
 		}
+
 	}()
 
 	sigCh := make(chan os.Signal, 1)
@@ -155,4 +172,5 @@ func closeDependencies(dependencies *closer.Closer) {
 	if err := dependencies.Close(ctx); err != nil {
 		log.Printf("failed to close dependencies: %v", err)
 	}
+
 }

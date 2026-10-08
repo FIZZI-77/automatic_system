@@ -32,6 +32,7 @@ const swaggerInit = `SwaggerUIBundle({ url: './openapi.json', dom_id: '#swagger-
   presets: [SwaggerUIBundle.presets.apis] });`
 
 func registerAPIDocs(router *gin.Engine) {
+
 	if os.Getenv("SWAGGER_ENABLED") != "true" {
 		return
 	}
@@ -59,10 +60,12 @@ func registerAPIDocs(router *gin.Engine) {
 	} {
 		router.GET("/swagger/"+asset.name, func(c *gin.Context) {
 			content, err := fs.ReadFile(swaggerFiles.FS, asset.name)
+
 			if err != nil {
 				c.Status(http.StatusInternalServerError)
 				return
 			}
+
 			c.Data(http.StatusOK, asset.contentType, content)
 		})
 	}

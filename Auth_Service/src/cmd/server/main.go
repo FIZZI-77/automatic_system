@@ -29,27 +29,35 @@ import (
 
 func main() {
 	telemetryProviders, err := telemetry.Init(context.Background(), "auth-service")
+
 	if err != nil {
 		log.Fatalf("initialize OpenTelemetry: %v", err)
 	}
+
 	defer func() {
+
 		if shutdownErr := telemetryProviders.Close(); shutdownErr != nil {
 			log.Printf("shutdown OpenTelemetry: %v", shutdownErr)
 		}
+
 	}()
 
 	if err := appconfig.Load(); err != nil {
 		log.Fatalf("configuration error: %v", err)
 	}
+
 	dependencies := closer.New()
 
 	logger, err := pkg.NewLogger()
+
 	if err != nil {
 		panic(err)
 	}
+
 	defer logger.Sync()
 
 	err = godotenv.Load(".env")
+
 	if err != nil && !os.IsNotExist(err) {
 		log.Fatal("error loading .env file")
 	}
@@ -62,13 +70,17 @@ func main() {
 		DbName:   os.Getenv("DB_NAME"),
 		SSLMode:  os.Getenv("SSLMODE"),
 	})
+
 	if err != nil {
 		log.Fatalf("failed to connect primary db: %v", err)
 	}
+
 	readHost := strings.TrimSpace(os.Getenv("DB_READ_HOST"))
+
 	if readHost == "" {
 		readHost = os.Getenv("DB_HOST")
 	}
+
 	readDB, err := pkg.NewPostgresDB(pkg.Config{
 		Host:     readHost,
 		Port:     os.Getenv("DB_PORT"),
@@ -77,10 +89,12 @@ func main() {
 		DbName:   os.Getenv("DB_NAME"),
 		SSLMode:  os.Getenv("SSLMODE"),
 	})
+
 	if err != nil {
 		writeDB.Close()
 		log.Fatalf("failed to connect read replica: %v", err)
 	}
+
 	dependencies.Add("postgres primary", func() error {
 		writeDB.Close()
 		return nil
@@ -93,11 +107,13 @@ func main() {
 	startOutboxRelay(writeDB, dependencies, logger)
 
 	privateKey, err := pkg.LoadRSAPrivateKey(os.Getenv("JWT_PRIVATE_KEY_PATH"))
+
 	if err != nil {
 		log.Fatalf("failed to load private key: %v", err)
 	}
 
 	keyID := os.Getenv("JWT_KEY_ID")
+
 	if keyID == "" {
 		log.Fatal("JWT_KEY_ID is empty")
 	}
@@ -107,12 +123,15 @@ func main() {
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		telemetry.GRPCClientOption(),
 	)
+
 	if err != nil {
 		log.Fatalf("failed to create profile grpc client: %v", err)
 	}
+
 	dependencies.Add("profile grpc", profileConn.Close)
 
 	lis, err := net.Listen("tcp", ":50051")
+
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
@@ -146,6 +165,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to init mail jwt: %v", err)
 	}
+
 	profiles := profileclient.New(profilev1.NewProfileServiceClient(profileConn))
 	authService := service.NewService(repo, privateKey, keyID, mailService, profiles, logger)
 	authHandler := handler.NewAuthHandler(authService, logger)
@@ -157,9 +177,11 @@ func main() {
 
 	go func() {
 		log.Printf("server listening at %v", lis.Addr())
+
 		if err := grpcServer.Serve(lis); err != nil {
 			serverErrCh <- err
 		}
+
 	}()
 
 	sigCh := make(chan os.Signal, 1)
@@ -203,27 +225,34 @@ func closeDependencies(dependencies *closer.Closer) {
 	if err := dependencies.Close(ctx); err != nil {
 		log.Printf("failed to close dependencies: %v", err)
 	}
+
 }
 
 func mustInt(value string) int {
 	n, err := strconv.Atoi(strings.TrimSpace(value))
+
 	if err != nil {
 		log.Fatalf("invalid int value %q: %v", value, err)
 	}
+
 	return n
 }
 
 func mustBool(value string) bool {
 	b, err := strconv.ParseBool(strings.TrimSpace(value))
+
 	if err != nil {
 		log.Fatalf("invalid bool value %q: %v", value, err)
 	}
+
 	return b
 }
 
 func envOrDefault(key string, fallback string) string {
+
 	if value := strings.TrimSpace(os.Getenv(key)); value != "" {
 		return value
 	}
+
 	return fallback
 }

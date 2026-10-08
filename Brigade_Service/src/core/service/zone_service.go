@@ -39,6 +39,7 @@ func (z *ZoneServiceStruct) CreateBrigadeZone(ctx context.Context, in *models.Cr
 	}
 
 	brigade, err := z.getBrigadeForZoneOperation(ctx, log, start, in.BrigadeID, in.ActorUserID, in.ActorDepartmentID, in.ActorRoles, "CreateBrigadeZone")
+
 	if err != nil {
 		return nil, err
 	}
@@ -60,6 +61,7 @@ func (z *ZoneServiceStruct) CreateBrigadeZone(ctx context.Context, in *models.Cr
 	}
 
 	result, err := z.repo.CreateBrigadeZone(ctx, in)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: CreateBrigadeZone: %w", err)
 	}
@@ -87,11 +89,13 @@ func (z *ZoneServiceStruct) UpdateBrigadeZone(ctx context.Context, in *models.Up
 	}
 
 	zone, err := z.repo.GetBrigadeZoneByID(ctx, in.ID)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: UpdateBrigadeZone: get zone: %w", err)
 	}
 
 	brigade, err := z.getBrigadeForZoneOperation(ctx, log, start, zone.BrigadeID, in.ActorUserID, in.ActorDepartmentID, in.ActorRoles, "UpdateBrigadeZone")
+
 	if err != nil {
 		return nil, err
 	}
@@ -101,6 +105,7 @@ func (z *ZoneServiceStruct) UpdateBrigadeZone(ctx context.Context, in *models.Up
 	}
 
 	result, err := z.repo.UpdateBrigadeZone(ctx, in)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: UpdateBrigadeZone: %w", err)
 	}
@@ -128,11 +133,13 @@ func (z *ZoneServiceStruct) DeleteBrigadeZone(ctx context.Context, in *models.De
 	}
 
 	zone, err := z.repo.GetBrigadeZoneByID(ctx, in.ID)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: DeleteBrigadeZone: get zone: %w", err)
 	}
 
 	brigade, err := z.getBrigadeForZoneOperation(ctx, log, start, zone.BrigadeID, in.ActorUserID, in.ActorDepartmentID, in.ActorRoles, "DeleteBrigadeZone")
+
 	if err != nil {
 		return nil, err
 	}
@@ -142,6 +149,7 @@ func (z *ZoneServiceStruct) DeleteBrigadeZone(ctx context.Context, in *models.De
 	}
 
 	result, err := z.repo.DeleteBrigadeZone(ctx, in)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: DeleteBrigadeZone: %w", err)
 	}
@@ -169,6 +177,7 @@ func (z *ZoneServiceStruct) ListBrigadeZones(ctx context.Context, in *models.Lis
 	}
 
 	brigade, err := z.getBrigadeForZoneOperation(ctx, log, start, in.BrigadeID, in.ActorUserID, in.ActorDepartmentID, in.ActorRoles, "ListBrigadeZones")
+
 	if err != nil {
 		return nil, err
 	}
@@ -178,6 +187,7 @@ func (z *ZoneServiceStruct) ListBrigadeZones(ctx context.Context, in *models.Lis
 	}
 
 	result, err := z.repo.ListBrigadeZones(ctx, in)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: ListBrigadeZones: %w", err)
 	}
@@ -205,6 +215,7 @@ func (z *ZoneServiceStruct) CheckBrigadeCoversPoint(ctx context.Context, in *mod
 	}
 
 	result, err := z.repo.CheckBrigadeCoversPoint(ctx, in)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: CheckBrigadeCoversPoint: %w", err)
 	}
@@ -233,6 +244,7 @@ func (z *ZoneServiceStruct) FindBrigadesByPoint(ctx context.Context, in *models.
 	}
 
 	result, err := z.repo.FindBrigadesByPoint(ctx, in)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: FindBrigadesByPoint: %w", err)
 	}
@@ -261,6 +273,7 @@ func (z *ZoneServiceStruct) getBrigadeForZoneOperation(
 		ActorDepartmentID: actorDepartmentID,
 		ActorRoles:        actorRoles,
 	})
+
 	if err != nil {
 		return nil, fmt.Errorf("service: %s: get brigade: %w", operation, err)
 	}

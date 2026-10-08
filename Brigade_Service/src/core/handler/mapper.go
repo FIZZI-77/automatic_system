@@ -147,33 +147,41 @@ func FromProtoSortOrder(order brigadev1.SortOrder) models.SortOrder {
 }
 
 func ToProtoTimestamp(t time.Time) *timestamppb.Timestamp {
+
 	if t.IsZero() {
 		return nil
 	}
+
 	return timestamppb.New(t)
 }
 
 func ToProtoTimestampPtr(t *time.Time) *timestamppb.Timestamp {
+
 	if t == nil || t.IsZero() {
 		return nil
 	}
+
 	return timestamppb.New(*t)
 }
 
 func FromProtoTimestamp(ts *timestamppb.Timestamp) *time.Time {
+
 	if ts == nil {
 		return nil
 	}
+
 	t := ts.AsTime()
 	return &t
 }
 
 func ToProtoBrigade(brigade *models.Brigade) *brigadev1.Brigade {
+
 	if brigade == nil {
 		return nil
 	}
 
 	specialization := ""
+
 	if brigade.Specialization != nil {
 		specialization = *brigade.Specialization
 	}
@@ -193,11 +201,13 @@ func ToProtoBrigade(brigade *models.Brigade) *brigadev1.Brigade {
 }
 
 func ToProtoBrigadeMember(member *models.BrigadeMember) *brigadev1.BrigadeMember {
+
 	if member == nil {
 		return nil
 	}
 
 	profileID := ""
+
 	if member.ProfileID != nil {
 		profileID = member.ProfileID.String()
 	}
@@ -219,6 +229,7 @@ func ToProtoBrigadeMember(member *models.BrigadeMember) *brigadev1.BrigadeMember
 }
 
 func ToProtoSkill(skill *models.Skill) *brigadev1.Skill {
+
 	if skill == nil {
 		return nil
 	}
@@ -235,6 +246,7 @@ func ToProtoSkill(skill *models.Skill) *brigadev1.Skill {
 }
 
 func ToProtoBrigadeSkill(skill *models.BrigadeSkill) *brigadev1.BrigadeSkill {
+
 	if skill == nil {
 		return nil
 	}
@@ -250,6 +262,7 @@ func ToProtoBrigadeSkill(skill *models.BrigadeSkill) *brigadev1.BrigadeSkill {
 }
 
 func ToProtoBrigadeSchedule(schedule *models.BrigadeSchedule) *brigadev1.BrigadeSchedule {
+
 	if schedule == nil {
 		return nil
 	}
@@ -270,6 +283,7 @@ func ToProtoBrigadeSchedule(schedule *models.BrigadeSchedule) *brigadev1.Brigade
 }
 
 func ToProtoBrigadeZone(zone *models.BrigadeZone) *brigadev1.BrigadeZone {
+
 	if zone == nil {
 		return nil
 	}
@@ -288,21 +302,25 @@ func ToProtoBrigadeZone(zone *models.BrigadeZone) *brigadev1.BrigadeZone {
 }
 
 func ToProtoBrigadeStatusHistory(item *models.BrigadeStatusHistory) *brigadev1.BrigadeStatusHistory {
+
 	if item == nil {
 		return nil
 	}
 
 	fromStatus := brigadev1.BrigadeStatus_BRIGADE_STATUS_UNSPECIFIED
+
 	if item.FromStatus != nil {
 		fromStatus = ToProtoBrigadeStatus(*item.FromStatus)
 	}
 
 	changedByUserID := ""
+
 	if item.ChangedByUserID != nil {
 		changedByUserID = item.ChangedByUserID.String()
 	}
 
 	requestID := ""
+
 	if item.RequestID != nil {
 		requestID = *item.RequestID
 	}
@@ -320,36 +338,43 @@ func ToProtoBrigadeStatusHistory(item *models.BrigadeStatusHistory) *brigadev1.B
 }
 
 func ToProtoBrigadeMemberHistory(item *models.BrigadeMemberHistory) *brigadev1.BrigadeMemberHistory {
+
 	if item == nil {
 		return nil
 	}
 
 	memberID := ""
+
 	if item.MemberID != nil {
 		memberID = item.MemberID.String()
 	}
 
 	profileID := ""
+
 	if item.ProfileID != nil {
 		profileID = item.ProfileID.String()
 	}
 
 	oldRole := brigadev1.BrigadeMemberRole_BRIGADE_MEMBER_ROLE_UNSPECIFIED
+
 	if item.OldRole != nil {
 		oldRole = ToProtoMemberRole(*item.OldRole)
 	}
 
 	newRole := brigadev1.BrigadeMemberRole_BRIGADE_MEMBER_ROLE_UNSPECIFIED
+
 	if item.NewRole != nil {
 		newRole = ToProtoMemberRole(*item.NewRole)
 	}
 
 	changedByUserID := ""
+
 	if item.ChangedByUserID != nil {
 		changedByUserID = item.ChangedByUserID.String()
 	}
 
 	requestID := ""
+
 	if item.RequestID != nil {
 		requestID = *item.RequestID
 	}
@@ -370,26 +395,31 @@ func ToProtoBrigadeMemberHistory(item *models.BrigadeMemberHistory) *brigadev1.B
 }
 
 func ToProtoBrigadeMemberStatusHistory(item *models.BrigadeMemberStatusHistory) *brigadev1.BrigadeMemberStatusHistory {
+
 	if item == nil {
 		return nil
 	}
 
 	memberID := ""
+
 	if item.MemberID != nil {
 		memberID = item.MemberID.String()
 	}
 
 	fromStatus := brigadev1.BrigadeMemberAvailabilityStatus_BRIGADE_MEMBER_AVAILABILITY_STATUS_UNSPECIFIED
+
 	if item.FromStatus != nil {
 		fromStatus = ToProtoMemberAvailabilityStatus(*item.FromStatus)
 	}
 
 	changedByUserID := ""
+
 	if item.ChangedByUserID != nil {
 		changedByUserID = item.ChangedByUserID.String()
 	}
 
 	requestID := ""
+
 	if item.RequestID != nil {
 		requestID = *item.RequestID
 	}
@@ -409,8 +439,10 @@ func ToProtoBrigadeMemberStatusHistory(item *models.BrigadeMemberStatusHistory) 
 }
 
 func formatDatePtr(t *time.Time) string {
+
 	if t == nil || t.IsZero() {
 		return ""
 	}
+
 	return t.Format(time.DateOnly)
 }

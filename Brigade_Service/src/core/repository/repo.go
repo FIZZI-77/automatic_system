@@ -71,6 +71,7 @@ type Repository struct {
 type Repo = Repository
 
 func NewRepository(pools DBPools) *Repository {
+
 	if pools.Read == nil {
 		pools.Read = pools.Write
 	}

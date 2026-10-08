@@ -28,6 +28,7 @@ func TestTicketServiceIntegration_TicketLifecycle(t *testing.T) {
 		TicketID:    ticket.ID,
 		ActorUserID: &userID,
 	})
+
 	if err != nil {
 		t.Fatalf("get own ticket failed: %v", err)
 	}
@@ -43,6 +44,7 @@ func TestTicketServiceIntegration_TicketLifecycle(t *testing.T) {
 		Title:     &updatedTitle,
 		UpdatedBy: &updatedBy,
 	})
+
 	if err != nil {
 		t.Fatalf("update own ticket failed: %v", err)
 	}
@@ -59,6 +61,7 @@ func TestTicketServiceIntegration_TicketLifecycle(t *testing.T) {
 		Comment:    stringPtr("Assigned by dispatcher"),
 		ActorRoles: dispatcherRoles(),
 	})
+
 	if err != nil {
 		t.Fatalf("assign brigade failed: %v", err)
 	}
@@ -74,6 +77,7 @@ func TestTicketServiceIntegration_TicketLifecycle(t *testing.T) {
 		Comment:    stringPtr("Work started"),
 		ActorRoles: dispatcherRoles(),
 	})
+
 	if err != nil {
 		t.Fatalf("change status failed: %v", err)
 	}
@@ -88,6 +92,7 @@ func TestTicketServiceIntegration_TicketLifecycle(t *testing.T) {
 		Comment:     stringPtr("Resolved"),
 		ActorRoles:  dispatcherRoles(),
 	})
+
 	if err != nil {
 		t.Fatalf("complete ticket failed: %v", err)
 	}
@@ -101,6 +106,7 @@ func TestTicketServiceIntegration_TicketLifecycle(t *testing.T) {
 		ActorUserID: &userID,
 		Limit:       20,
 	})
+
 	if err != nil {
 		t.Fatalf("get status history failed: %v", err)
 	}
@@ -108,6 +114,7 @@ func TestTicketServiceIntegration_TicketLifecycle(t *testing.T) {
 	if historyResult.Total < 3 {
 		t.Fatalf("expected at least 3 status history records, got %d", historyResult.Total)
 	}
+
 }
 
 func TestTicketServiceIntegration_UserPermissions(t *testing.T) {
@@ -125,6 +132,7 @@ func TestTicketServiceIntegration_UserPermissions(t *testing.T) {
 		TicketID:    ticket.ID,
 		ActorUserID: &otherUserID,
 	})
+
 	if !errors.Is(err, models.ErrPermissionDenied) {
 		t.Fatalf("expected permission denied for other user, got %v", err)
 	}
@@ -134,6 +142,7 @@ func TestTicketServiceIntegration_UserPermissions(t *testing.T) {
 		ActorUserID: &ownerID,
 		Limit:       20,
 	})
+
 	if err != nil {
 		t.Fatalf("list own tickets failed: %v", err)
 	}
@@ -147,6 +156,7 @@ func TestTicketServiceIntegration_UserPermissions(t *testing.T) {
 		BrigadeID:  uuid.New(),
 		AssignedBy: ownerID,
 	})
+
 	if !errors.Is(err, models.ErrPermissionDenied) {
 		t.Fatalf("expected permission denied for assigning brigade without privileged role, got %v", err)
 	}
@@ -156,6 +166,7 @@ func TestTicketServiceIntegration_UserPermissions(t *testing.T) {
 		CanceledBy: ownerID,
 		Reason:     "No longer needed",
 	})
+
 	if err != nil {
 		t.Fatalf("owner cancel failed: %v", err)
 	}
@@ -163,6 +174,7 @@ func TestTicketServiceIntegration_UserPermissions(t *testing.T) {
 	if cancelResult.Ticket.Status != models.TicketStatusCanceled {
 		t.Fatalf("expected canceled status, got %s", cancelResult.Ticket.Status)
 	}
+
 }
 
 func TestTicketServiceIntegration_CategoryActiveFlagAndFilters(t *testing.T) {
@@ -178,6 +190,7 @@ func TestTicketServiceIntegration_CategoryActiveFlagAndFilters(t *testing.T) {
 		IsActive:   boolPtr(false),
 		ActorRoles: adminRoles(),
 	})
+
 	if err != nil {
 		t.Fatalf("deactivate category failed: %v", err)
 	}
@@ -190,15 +203,18 @@ func TestTicketServiceIntegration_CategoryActiveFlagAndFilters(t *testing.T) {
 		OnlyActive: false,
 		Limit:      100,
 	})
+
 	if err != nil {
 		t.Fatalf("list all categories failed: %v", err)
 	}
 
 	foundInactive := false
 	for _, item := range allResult.Categories {
+
 		if item.ID == category.ID {
 			foundInactive = !item.IsActive
 		}
+
 	}
 
 	if !foundInactive {
@@ -209,14 +225,17 @@ func TestTicketServiceIntegration_CategoryActiveFlagAndFilters(t *testing.T) {
 		OnlyActive: true,
 		Limit:      100,
 	})
+
 	if err != nil {
 		t.Fatalf("list active categories failed: %v", err)
 	}
 
 	for _, item := range activeResult.Categories {
+
 		if item.ID == category.ID {
 			t.Fatal("expected inactive category to be absent when only_active is true")
 		}
+
 	}
 }
 
@@ -231,6 +250,7 @@ func TestTicketServiceIntegration_CategoryMutationsRequirePrivilegedRole(t *test
 		Name:        "Denied category",
 		Description: stringPtr("Should not be created"),
 	})
+
 	if !errors.Is(err, models.ErrPermissionDenied) {
 		t.Fatalf("expected permission denied for create category, got %v", err)
 	}
@@ -241,6 +261,7 @@ func TestTicketServiceIntegration_CategoryMutationsRequirePrivilegedRole(t *test
 		CategoryID: category.ID,
 		Name:       stringPtr("Denied update"),
 	})
+
 	if !errors.Is(err, models.ErrPermissionDenied) {
 		t.Fatalf("expected permission denied for update category, got %v", err)
 	}
@@ -248,7 +269,9 @@ func TestTicketServiceIntegration_CategoryMutationsRequirePrivilegedRole(t *test
 	_, err = app.service.DeleteCategory(ctx, &models.DeleteCategoryInput{
 		CategoryID: category.ID,
 	})
+
 	if !errors.Is(err, models.ErrPermissionDenied) {
 		t.Fatalf("expected permission denied for delete category, got %v", err)
 	}
+
 }

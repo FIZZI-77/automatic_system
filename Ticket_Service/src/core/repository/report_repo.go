@@ -21,21 +21,29 @@ func NewReportRepository(repo *Repository) *ReportRepository { return &ReportRep
 
 func (r *ReportRepository) Create(ctx context.Context, in *models.CreateWorkReportInput) (report *models.WorkReport, err error) {
 	tx, err := r.repo.writePool.BeginTx(ctx, pgx.TxOptions{})
+
 	if err != nil {
 		return nil, err
 	}
+
 	defer func() {
+
 		if err != nil {
 			_ = tx.Rollback(ctx)
 		}
+
 	}()
 	var departmentID uuid.UUID
+
 	if err = tx.QueryRow(ctx, `SELECT department_id FROM tickets WHERE id=$1`, in.TicketID).Scan(&departmentID); err != nil {
+
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, models.ErrNotFound
 		}
+
 		return nil, fmt.Errorf("find report ticket department: %w", err)
 	}
+
 	if in.IdempotencyKey != "" {
 		existing := new(models.WorkReport)
 		err = tx.QueryRow(
@@ -56,46 +64,62 @@ func (r *ReportRepository) Create(ctx context.Context, in *models.CreateWorkRepo
 			&existing.CompletionFileID,
 			&existing.CompletionError,
 		)
+
 		if err == nil {
 			rows, queryErr := tx.Query(ctx, `SELECT file_id FROM ticket_report_files WHERE department_id=$1 AND report_id=$2 ORDER BY created_at`, departmentID, existing.ID)
+
 			if queryErr != nil {
 				return nil, queryErr
 			}
+
 			for rows.Next() {
 				var fileID uuid.UUID
+
 				if queryErr = rows.Scan(&fileID); queryErr != nil {
 					rows.Close()
 					return nil, queryErr
 				}
+
 				existing.FileIDs = append(existing.FileIDs, fileID)
 			}
 			queryErr = rows.Err()
 			rows.Close()
+
 			if queryErr != nil {
 				return nil, queryErr
 			}
+
 			return existing, tx.Commit(ctx)
 		}
+
 		if !errors.Is(err, pgx.ErrNoRows) {
 			return nil, err
 		}
+
 	}
+
 	var (
 		ticketStatus      models.TicketStatus
 		assignedBrigadeID *uuid.UUID
 	)
+
 	if err = tx.QueryRow(ctx, `SELECT status,brigade_id FROM tickets WHERE department_id=$1 AND id=$2 FOR UPDATE`, departmentID, in.TicketID).Scan(&ticketStatus, &assignedBrigadeID); err != nil {
+
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, models.ErrNotFound
 		}
+
 		return nil, fmt.Errorf("lock report ticket: %w", err)
 	}
+
 	if ticketStatus != models.TicketStatusAssigned && ticketStatus != models.TicketStatusInProgress {
 		return nil, fmt.Errorf("%w: report can only be added to an active ticket", models.ErrInvalidStatusTransition)
 	}
+
 	if !canCreateWorkReport(in, assignedBrigadeID) {
 		return nil, models.ErrPermissionDenied
 	}
+
 	report = &models.WorkReport{
 		ID:           uuid.New(),
 		TicketID:     in.TicketID,
@@ -113,26 +137,35 @@ func (r *ReportRepository) Create(ctx context.Context, in *models.CreateWorkRepo
 		report.Description,
 		in.IdempotencyKey,
 	).Scan(&report.CreatedAt, &report.UpdatedAt)
+
 	if err != nil {
 		return nil, fmt.Errorf("create report: %w", err)
 	}
+
 	for _, id := range in.FileIDs {
+
 		if _, err = tx.Exec(ctx, `INSERT INTO ticket_report_files(department_id,report_id,file_id) VALUES($1,$2,$3)`, departmentID, report.ID, id); err != nil {
 			return nil, fmt.Errorf("attach report file: %w", err)
 		}
+
 	}
 	eventType := "ticket.report.created"
 	payloadValue := any(report)
+
 	if in.Completion != nil {
+
 		if _, err = tx.Exec(ctx, `UPDATE ticket_reports SET completion_status='PENDING',completion_attempts=1,completion_deadline_at=now()+make_interval(secs => $3),completion_updated_at=now() WHERE department_id=$1 AND id=$2`, departmentID, report.ID, completionAttemptTimeout.Seconds()); err != nil {
 			return nil, fmt.Errorf("mark completion pending: %w", err)
 		}
+
 		report.CompletionStatus = "PENDING"
 		eventType = "ticket.completion_report.requested.v1"
 		var title, address string
+
 		if err = tx.QueryRow(ctx, `SELECT title,address FROM tickets WHERE department_id=$1 AND id=$2`, departmentID, report.TicketID).Scan(&title, &address); err != nil {
 			return nil, fmt.Errorf("read completion ticket snapshot: %w", err)
 		}
+
 		payloadValue = map[string]any{
 			"work_report_id": report.ID,
 			"requested_by":   in.Completion.RequestedBy,
@@ -147,50 +180,66 @@ func (r *ReportRepository) Create(ctx context.Context, in *models.CreateWorkRepo
 			"idempotency_key": in.IdempotencyKey,
 		}
 	}
+
 	payload, err := json.Marshal(payloadValue)
+
 	if err != nil {
 		return nil, fmt.Errorf("marshal report event: %w", err)
 	}
+
 	_, err = tx.Exec(ctx, `INSERT INTO outbox_events(id,aggregate_type,aggregate_id,event_type,payload) VALUES($1,'ticket_report',$2,$3,$4)`, uuid.New(), report.ID, eventType, payload)
+
 	if err != nil {
 		return nil, err
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return nil, err
 	}
+
 	return report, nil
 }
 
 func canCreateWorkReport(in *models.CreateWorkReportInput, assignedBrigadeID *uuid.UUID) bool {
 	for _, role := range in.ActorRoles {
 		normalized := strings.ToLower(strings.TrimSpace(role))
+
 		if normalized == "admin" || normalized == "dispatcher" {
 			return true
 		}
+
 	}
+
 	if in.ActorBrigadeID == nil || assignedBrigadeID == nil || *in.ActorBrigadeID != *assignedBrigadeID {
 		return false
 	}
+
 	for _, role := range in.ActorRoles {
+
 		if strings.EqualFold(strings.TrimSpace(role), "worker") {
 			return true
 		}
+
 	}
 	return false
 }
 
 func (r *ReportRepository) List(ctx context.Context, ticketID uuid.UUID) ([]*models.WorkReport, error) {
 	rows, err := r.repo.readPool.Query(ctx, listReportsQuery, ticketID)
+
 	if err != nil {
 		return nil, err
 	}
+
 	defer rows.Close()
 	result := make([]*models.WorkReport, 0)
 	for rows.Next() {
 		x := new(models.WorkReport)
+
 		if err = rows.Scan(&x.ID, &x.TicketID, &x.AuthorUserID, &x.Description, &x.CreatedAt, &x.UpdatedAt, &x.FileIDs, &x.CompletionStatus, &x.CompletionFileID, &x.CompletionError); err != nil {
 			return nil, err
 		}
+
 		result = append(result, x)
 	}
 	return result, rows.Err()

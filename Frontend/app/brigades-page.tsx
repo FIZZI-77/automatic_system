@@ -67,27 +67,37 @@ export function BrigadesPage({ tickets, vehicles, zones, onOpenMap, onOpenZones 
       })}</div>
       {current && <aside className="brigade-detail">
         <button className="detail-close" onClick={() => setSelected(undefined)}>×</button>
-        <span className="eyebrow">Единая карточка бригады</span>
-        <h2>{current.name}</h2>
-        <p className="entity-id">ID бригады: {current.id}</p>
-        <div className="brigade-status">● {statusNames[current.status] || current.status}</div>
-        <p className="no-jobs">{current.description}</p>
-        <dl>
+        <header className="brigade-detail-head">
+          <span className="eyebrow">Карточка бригады</span>
+          <h2>{current.name}</h2>
+          <div className="brigade-detail-meta">
+            <p className="entity-id">ID: {current.id}</p>
+            <div className="brigade-status">● {statusNames[current.status] || current.status}</div>
+          </div>
+          <p className="brigade-detail-description">{current.description}</p>
+        </header>
+        <dl className="brigade-detail-stats">
           <div><dt>Специализация</dt><dd>{current.specialization}</dd></div>
           <div><dt>Машин с координатами</dt><dd>{currentVehicles.length}</dd></div>
           <div><dt>Активных заявок</dt><dd>{jobs.length}</dd></div>
           <div><dt>Зон обслуживания</dt><dd>{brigadeZones.length}</dd></div>
         </dl>
-        <h3>Машины бригады</h3>
-        {currentVehicles.length ? <div className="brigade-vehicles">{currentVehicles.map((vehicle) => <button key={vehicle.vehicle_id} onClick={() => onOpenMap(vehicle.vehicle_id)}>
-          <i>▲</i>
-          <span><b>{vehicleDisplayName(vehicle.vehicle_id)}</b><small>ID машины: {vehicle.vehicle_id}</small><small>{Math.round(vehicle.speed_kmh)} км/ч · курс {Math.round(vehicle.heading)}°</small><small>{positionStatus(Number(vehicle.recorded_at))}</small><small>{positionTime(Number(vehicle.recorded_at))}</small></span>
-          <em>На карте →</em>
-        </button>)}</div> : <p className="no-jobs">От машин бригады ещё не поступали координаты.</p>}
-        <h3>Текущие задания</h3>
-        {jobs.length ? jobs.map((job) => <button className="brigade-job" key={job.id} onClick={() => onOpenMap(job.id)}><b>{job.title}</b><small>{job.address}</small><em>{job.status}</em></button>) : <p className="no-jobs">Активных заданий нет.</p>}
-        <h3>Закреплённые зоны</h3>
-        {brigadeZones.length ? brigadeZones.map((zone) => <div className="brigade-zone" key={zone.id}><b>{zone.name}</b><small>Приоритет {zone.priority}</small></div>) : <p className="no-jobs">Зоны не назначены.</p>}
+        <section className="brigade-detail-section">
+          <div className="brigade-detail-section-head"><h3>Машины</h3><span>{currentVehicles.length}</span></div>
+          {currentVehicles.length ? <div className="brigade-vehicles">{currentVehicles.map((vehicle) => <button key={vehicle.vehicle_id} onClick={() => onOpenMap(vehicle.vehicle_id)}>
+            <i>▲</i>
+            <span><b>{vehicleDisplayName(vehicle.vehicle_id)}</b><small>ID машины: {vehicle.vehicle_id}</small><small>{Math.round(vehicle.speed_kmh)} км/ч · курс {Math.round(vehicle.heading)}°</small><small>{positionStatus(Number(vehicle.recorded_at))}</small><small>{positionTime(Number(vehicle.recorded_at))}</small></span>
+            <em>На карте →</em>
+          </button>)}</div> : <p className="no-jobs">От машин бригады ещё не поступали координаты.</p>}
+        </section>
+        <section className="brigade-detail-section">
+          <div className="brigade-detail-section-head"><h3>Текущие задания</h3><span>{jobs.length}</span></div>
+          {jobs.length ? jobs.map((job) => <button className="brigade-job" key={job.id} onClick={() => onOpenMap(job.id)}><b>{job.title}</b><small>{job.address}</small><em>{job.status}</em></button>) : <p className="no-jobs">Активных заданий нет.</p>}
+        </section>
+        <section className="brigade-detail-section">
+          <div className="brigade-detail-section-head"><h3>Закреплённые зоны</h3><span>{brigadeZones.length}</span></div>
+          {brigadeZones.length ? brigadeZones.map((zone) => <div className="brigade-zone" key={zone.id}><b>{zone.name}</b><small>Приоритет {zone.priority}</small></div>) : <p className="no-jobs">Зоны не назначены.</p>}
+        </section>
       </aside>}
     </div>
   </section>;

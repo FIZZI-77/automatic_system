@@ -115,4 +115,5 @@ func TestTicketFeedbackIntegration(t *testing.T) {
 	if events != 2 {
 		t.Fatalf("expected two feedback events, got %d", events)
 	}
+
 }

@@ -49,6 +49,7 @@ func (h *DepartmentHandler) CreateDepartment(ctx context.Context, req *departmen
 	}
 
 	res, err := h.service.CreateDepartment(ctx, in)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "CreateDepartment"),
@@ -79,6 +80,7 @@ func (h *DepartmentHandler) GetDepartmentByID(ctx context.Context, req *departme
 	)
 
 	id, err := parseUUID(req.GetId(), "id")
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "GetDepartmentByID"),
@@ -90,6 +92,7 @@ func (h *DepartmentHandler) GetDepartmentByID(ctx context.Context, req *departme
 	}
 
 	res, err := h.service.GetDepartmentByID(ctx, &models.GetDepartmentByIDInput{ID: id})
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "GetDepartmentByID"),
@@ -121,6 +124,7 @@ func (h *DepartmentHandler) ListDepartments(ctx context.Context, req *department
 	)
 
 	var statusValue *models.DepartmentStatus
+
 	if req.Status != nil && req.GetStatus() != departmentv1.DepartmentStatus_DEPARTMENT_STATUS_UNSPECIFIED {
 		departmentStatus := FromProtoStatus(req.GetStatus())
 		statusValue = &departmentStatus
@@ -133,14 +137,17 @@ func (h *DepartmentHandler) ListDepartments(ctx context.Context, req *department
 		Limit:       req.GetLimit(),
 		Offset:      req.GetOffset(),
 	}
+
 	if req.SortBy != nil {
 		in.SortBy = FromProtoSortBy(req.GetSortBy())
 	}
+
 	if req.SortOrder != nil {
 		in.SortOrder = FromProtoSortOrder(req.GetSortOrder())
 	}
 
 	res, err := h.service.ListDepartments(ctx, in)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "ListDepartments"),
@@ -175,6 +182,7 @@ func (h *DepartmentHandler) UpdateDepartment(ctx context.Context, req *departmen
 	)
 
 	id, err := parseUUID(req.GetId(), "id")
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "UpdateDepartment"),
@@ -186,6 +194,7 @@ func (h *DepartmentHandler) UpdateDepartment(ctx context.Context, req *departmen
 	}
 
 	var statusValue *models.DepartmentStatus
+
 	if req.Status != nil && req.GetStatus() != departmentv1.DepartmentStatus_DEPARTMENT_STATUS_UNSPECIFIED {
 		departmentStatus := FromProtoStatus(req.GetStatus())
 		statusValue = &departmentStatus
@@ -198,6 +207,7 @@ func (h *DepartmentHandler) UpdateDepartment(ctx context.Context, req *departmen
 		Status:      statusValue,
 		ActorRoles:  actorFromContext(ctx).Roles,
 	})
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "UpdateDepartment"),
@@ -228,6 +238,7 @@ func (h *DepartmentHandler) DeleteDepartment(ctx context.Context, req *departmen
 	)
 
 	id, err := parseUUID(req.GetId(), "id")
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "DeleteDepartment"),
@@ -242,6 +253,7 @@ func (h *DepartmentHandler) DeleteDepartment(ctx context.Context, req *departmen
 		ID:         id,
 		ActorRoles: actorFromContext(ctx).Roles,
 	})
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "DeleteDepartment"),
@@ -264,26 +276,32 @@ func (h *DepartmentHandler) DeleteDepartment(ctx context.Context, req *departmen
 
 func parseUUID(value string, field string) (uuid.UUID, error) {
 	parsed, err := uuid.Parse(value)
+
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("invalid %s: %w", field, err)
 	}
+
 	return parsed, nil
 }
 
 func actorFromContext(ctx context.Context) actorContext {
 	md, ok := metadata.FromIncomingContext(ctx)
+
 	if !ok {
 		return actorContext{}
 	}
 
 	var actor actorContext
+
 	if values := md.Get("x-actor-roles"); len(values) > 0 {
 		for _, value := range values {
 			for _, role := range strings.Split(value, ",") {
 				role = strings.TrimSpace(role)
+
 				if role != "" {
 					actor.Roles = append(actor.Roles, role)
 				}
+
 			}
 		}
 	}
@@ -296,6 +314,7 @@ func departmentStatusError(method string, err error) error {
 }
 
 func departmentErrorCode(err error) codes.Code {
+
 	if err == nil {
 		return codes.OK
 	}

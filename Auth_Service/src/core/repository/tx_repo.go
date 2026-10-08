@@ -37,9 +37,11 @@ func insertAuthOutboxEvent(ctx context.Context, tx DBTX, aggregateType string, a
 
 func (t *TXRepoStruct) ChangePassword(ctx context.Context, userID uuid.UUID, password string, sessionID uuid.UUID, revokeOtherSessions bool) (int32, error) {
 	pgxTx, err := beginNestedAware(ctx, t.writeDB)
+
 	if err != nil {
 		return 0, fmt.Errorf("tx_repo: ChangePassword() :cant begin transaction: %w", err)
 	}
+
 	tx := authTx{
 		Tx:  pgxTx,
 		ctx: ctx,
@@ -51,20 +53,25 @@ func (t *TXRepoStruct) ChangePassword(ctx context.Context, userID uuid.UUID, pas
 
 	if err != nil {
 		errTX := tx.Rollback()
+
 		if errTX != nil {
 			return 0, errTX
 		}
+
 		return 0, fmt.Errorf("tx_repo: ChangePassword() :cant update user: %w", err)
 	}
 
 	if !revokeOtherSessions {
 		const revokeSessionQuery = `UPDATE sessions SET is_revoked = TRUE, revoked_at = now() WHERE id = $1 AND is_revoked = FALSE `
 		result, err := tx.Exec(ctx, revokeSessionQuery, sessionID)
+
 		if err != nil {
 			errTX := tx.Rollback()
+
 			if errTX != nil {
 				return 0, fmt.Errorf("tx_repo: changePassword(): revoke session failed: %v; rollback failed: %w", err, errTX)
 			}
+
 			return 0, fmt.Errorf("tx_repo: ChangePassword() :revoke session failed: %w", err)
 		}
 
@@ -72,11 +79,14 @@ func (t *TXRepoStruct) ChangePassword(ctx context.Context, userID uuid.UUID, pas
 
 		const revokeTokenQuery = `UPDATE refresh_tokens SET is_revoked = TRUE, revoked_at = now() WHERE session_id = $1 AND is_revoked = FALSE`
 		_, err = tx.Exec(ctx, revokeTokenQuery, sessionID)
+
 		if err != nil {
 			errTX := tx.Rollback()
+
 			if errTX != nil {
 				return 0, fmt.Errorf("tx_repo: changePassword(): revoke token failed: %v; rollback failed: %w", err, errTX)
 			}
+
 			return 0, fmt.Errorf("tx_repo: ChangePassword() :revoke token failed: %w", err)
 		}
 
@@ -86,26 +96,33 @@ func (t *TXRepoStruct) ChangePassword(ctx context.Context, userID uuid.UUID, pas
 			"revoke_other_sessions":   revokeOtherSessions,
 			"invalidated_session_cnt": rowAffected,
 		}); err != nil {
+
 			if errTX := tx.Rollback(); errTX != nil {
 				return 0, fmt.Errorf("tx_repo: ChangePassword(): insert outbox failed: %v; rollback failed: %w", err, errTX)
 			}
+
 			return 0, fmt.Errorf("tx_repo: ChangePassword(): insert outbox event: %w", err)
 		}
 
 		err = tx.Commit()
+
 		if err != nil {
 			return 0, err
 		}
+
 		return int32(rowAffected), nil
 	}
 
 	const revokeSessionsQuery = `UPDATE sessions SET is_revoked = TRUE, revoked_at = now() WHERE user_id = $1 AND is_revoked = FALSE`
 	result, err := tx.Exec(ctx, revokeSessionsQuery, userID)
+
 	if err != nil {
 		errTX := tx.Rollback()
+
 		if errTX != nil {
 			return 0, fmt.Errorf("tx_repo: changePassword(): revoke session failed: %v; rollback failed: %w", err, errTX)
 		}
+
 		return 0, fmt.Errorf("tx_repo: ChangePassword() :revoke session failed: %w", err)
 	}
 
@@ -113,11 +130,14 @@ func (t *TXRepoStruct) ChangePassword(ctx context.Context, userID uuid.UUID, pas
 
 	const revokeTokensQuery = `UPDATE refresh_tokens SET is_revoked = TRUE, revoked_at = now() WHERE user_id = $1 AND is_revoked = FALSE`
 	_, err = tx.Exec(ctx, revokeTokensQuery, userID)
+
 	if err != nil {
 		errTX := tx.Rollback()
+
 		if errTX != nil {
 			return 0, fmt.Errorf("tx_repo: changePassword(): revoke tokens failed: %v; rollback failed: %w", err, errTX)
 		}
+
 		return 0, fmt.Errorf("tx_repo: ChangePassword() :revoke tokens failed: %w", err)
 	}
 
@@ -127,24 +147,30 @@ func (t *TXRepoStruct) ChangePassword(ctx context.Context, userID uuid.UUID, pas
 		"revoke_other_sessions":   revokeOtherSessions,
 		"invalidated_session_cnt": rowAffected,
 	}); err != nil {
+
 		if errTX := tx.Rollback(); errTX != nil {
 			return 0, fmt.Errorf("tx_repo: ChangePassword(): insert outbox failed: %v; rollback failed: %w", err, errTX)
 		}
+
 		return 0, fmt.Errorf("tx_repo: ChangePassword(): insert outbox event: %w", err)
 	}
 
 	err = tx.Commit()
+
 	if err != nil {
 		return 0, fmt.Errorf("tx_repo: ChangePassword() :cant commit : %w", err)
 	}
+
 	return int32(rowAffected), nil
 }
 
 func (t *TXRepoStruct) Logout(ctx context.Context, sessionID uuid.UUID) error {
 	pgxTx, err := beginNestedAware(ctx, t.writeDB)
+
 	if err != nil {
 		return fmt.Errorf("tx_repo: logout() :cant begin transaction: %w", err)
 	}
+
 	tx := authTx{
 		Tx:  pgxTx,
 		ctx: ctx,
@@ -153,8 +179,10 @@ func (t *TXRepoStruct) Logout(ctx context.Context, sessionID uuid.UUID) error {
 	const revokeSessionQuery = `UPDATE sessions SET is_revoked = TRUE, revoked_at = now() WHERE id = $1 AND is_revoked = FALSE`
 
 	_, err = tx.Exec(ctx, revokeSessionQuery, sessionID)
+
 	if err != nil {
 		errTX := tx.Rollback()
+
 		if errTX != nil {
 			return fmt.Errorf("tx_repo: logout(): revoke session failed: %v; rollback failed: %w", err, errTX)
 		}
@@ -164,35 +192,44 @@ func (t *TXRepoStruct) Logout(ctx context.Context, sessionID uuid.UUID) error {
 
 	const revokeTokenQuery = `UPDATE refresh_tokens SET is_revoked = TRUE, revoked_at = now() WHERE session_id = $1 AND is_revoked = FALSE`
 	_, err = tx.Exec(ctx, revokeTokenQuery, sessionID)
+
 	if err != nil {
 		errTX := tx.Rollback()
+
 		if errTX != nil {
 			return fmt.Errorf("tx_repo: logout(): revoke token failed: %v; rollback failed: %w", err, errTX)
 		}
+
 		return fmt.Errorf("tx_repo: logout() :cant revoke token: %w", err)
 	}
 
 	if err = insertAuthOutboxEvent(ctx, tx, "session", sessionID, "auth.session.logged_out", map[string]any{
 		"session_id": sessionID,
 	}); err != nil {
+
 		if errTX := tx.Rollback(); errTX != nil {
 			return fmt.Errorf("tx_repo: logout(): insert outbox failed: %v; rollback failed: %w", err, errTX)
 		}
+
 		return fmt.Errorf("tx_repo: logout(): insert outbox event: %w", err)
 	}
 
 	err = tx.Commit()
+
 	if err != nil {
 		return fmt.Errorf("tx_repo: logout() :cant commit transaction: %w", err)
 	}
+
 	return nil
 }
 
 func (t *TXRepoStruct) LogoutAll(ctx context.Context, userID uuid.UUID) (int64, error) {
 	pgxTx, err := beginNestedAware(ctx, t.writeDB)
+
 	if err != nil {
 		return 0, fmt.Errorf("tx_repo: LogoutAll() :cant begin transaction: %w", err)
 	}
+
 	tx := authTx{
 		Tx:  pgxTx,
 		ctx: ctx,
@@ -200,8 +237,10 @@ func (t *TXRepoStruct) LogoutAll(ctx context.Context, userID uuid.UUID) (int64, 
 	const revokeSessionsQuery = `UPDATE sessions SET is_revoked = TRUE, revoked_at = now() WHERE user_id = $1 AND is_revoked = FALSE`
 
 	result, err := tx.Exec(ctx, revokeSessionsQuery, userID)
+
 	if err != nil {
 		errTX := tx.Rollback()
+
 		if errTX != nil {
 			return 0, fmt.Errorf("tx_repo: LogoutAll(): revoke sessions failed: %v; rollback failed: %w", err, errTX)
 		}
@@ -216,9 +255,11 @@ func (t *TXRepoStruct) LogoutAll(ctx context.Context, userID uuid.UUID) (int64, 
 
 	if err != nil {
 		errTX := tx.Rollback()
+
 		if errTX != nil {
 			return 0, fmt.Errorf("tx_repo: LogoutAll(): revoke tokens failed: %v; rollback failed: %w", err, errTX)
 		}
+
 		return 0, fmt.Errorf("tx_repo: LogoutAll(): revoke tokens failed: %w", err)
 	}
 
@@ -226,13 +267,16 @@ func (t *TXRepoStruct) LogoutAll(ctx context.Context, userID uuid.UUID) (int64, 
 		"user_id":                 userID,
 		"invalidated_session_cnt": rowAffected,
 	}); err != nil {
+
 		if errTX := tx.Rollback(); errTX != nil {
 			return 0, fmt.Errorf("tx_repo: LogoutAll(): insert outbox failed: %v; rollback failed: %w", err, errTX)
 		}
+
 		return 0, fmt.Errorf("tx_repo: LogoutAll(): insert outbox event: %w", err)
 	}
 
 	err = tx.Commit()
+
 	if err != nil {
 		return 0, err
 	}
@@ -243,9 +287,11 @@ func (t *TXRepoStruct) LogoutAll(ctx context.Context, userID uuid.UUID) (int64, 
 
 func (t *TXRepoStruct) ResetPassword(ctx context.Context, userID uuid.UUID, passwordHash string) (int32, error) {
 	pgxTx, err := beginNestedAware(ctx, t.writeDB)
+
 	if err != nil {
 		return 0, fmt.Errorf("tx_repo: ResetPassword(): cant begin transaction: %w", err)
 	}
+
 	tx := authTx{
 		Tx:  pgxTx,
 		ctx: ctx,
@@ -258,19 +304,24 @@ func (t *TXRepoStruct) ResetPassword(ctx context.Context, userID uuid.UUID, pass
 	`
 
 	result, err := tx.Exec(ctx, updatePasswordQuery, passwordHash, userID)
+
 	if err != nil {
+
 		if errTX := tx.Rollback(); errTX != nil {
 			return 0, fmt.Errorf("tx_repo: ResetPassword(): update password failed: %v; rollback failed: %w", err, errTX)
 		}
+
 		return 0, fmt.Errorf("tx_repo: ResetPassword(): cant update password: %w", err)
 	}
 
 	rowsAffected := result.RowsAffected()
 
 	if rowsAffected == 0 {
+
 		if errTX := tx.Rollback(); errTX != nil {
 			return 0, fmt.Errorf("tx_repo: ResetPassword(): user not found; rollback failed: %w", errTX)
 		}
+
 		return 0, fmt.Errorf("tx_repo: ResetPassword(): user not found")
 	}
 
@@ -281,10 +332,13 @@ func (t *TXRepoStruct) ResetPassword(ctx context.Context, userID uuid.UUID, pass
 	`
 
 	result, err = tx.Exec(ctx, revokeSessionsQuery, userID)
+
 	if err != nil {
+
 		if errTX := tx.Rollback(); errTX != nil {
 			return 0, fmt.Errorf("tx_repo: ResetPassword(): revoke sessions failed: %v; rollback failed: %w", err, errTX)
 		}
+
 		return 0, fmt.Errorf("tx_repo: ResetPassword(): cant revoke sessions: %w", err)
 	}
 
@@ -297,10 +351,13 @@ func (t *TXRepoStruct) ResetPassword(ctx context.Context, userID uuid.UUID, pass
 	`
 
 	_, err = tx.Exec(ctx, revokeTokensQuery, userID)
+
 	if err != nil {
+
 		if errTX := tx.Rollback(); errTX != nil {
 			return 0, fmt.Errorf("tx_repo: ResetPassword(): revoke tokens failed: %v; rollback failed: %w", err, errTX)
 		}
+
 		return 0, fmt.Errorf("tx_repo: ResetPassword(): cant revoke tokens: %w", err)
 	}
 
@@ -308,9 +365,11 @@ func (t *TXRepoStruct) ResetPassword(ctx context.Context, userID uuid.UUID, pass
 		"user_id":                 userID,
 		"invalidated_session_cnt": sessionRowsAffected,
 	}); err != nil {
+
 		if errTX := tx.Rollback(); errTX != nil {
 			return 0, fmt.Errorf("tx_repo: ResetPassword(): insert outbox failed: %v; rollback failed: %w", err, errTX)
 		}
+
 		return 0, fmt.Errorf("tx_repo: ResetPassword(): insert outbox event: %w", err)
 	}
 
@@ -323,9 +382,11 @@ func (t *TXRepoStruct) ResetPassword(ctx context.Context, userID uuid.UUID, pass
 
 func (t *TXRepoStruct) ResetPasswordWithToken(ctx context.Context, userID uuid.UUID, passwordHash string, tokenID uuid.UUID) (int32, error) {
 	pgxTx, err := beginNestedAware(ctx, t.writeDB)
+
 	if err != nil {
 		return 0, fmt.Errorf("tx_repo: ResetPasswordWithToken(): cant begin transaction: %w", err)
 	}
+
 	tx := authTx{
 		Tx:  pgxTx,
 		ctx: ctx,
@@ -343,6 +404,7 @@ func (t *TXRepoStruct) ResetPasswordWithToken(ctx context.Context, userID uuid.U
 	`
 
 	result, err := tx.Exec(ctx, markTokenUsedQuery, tokenID, userID, models.TokenTypePasswordReset)
+
 	if err != nil {
 		return 0, fmt.Errorf("tx_repo: ResetPasswordWithToken(): mark token used: %w", err)
 	}
@@ -360,6 +422,7 @@ func (t *TXRepoStruct) ResetPasswordWithToken(ctx context.Context, userID uuid.U
 	`
 
 	result, err = tx.Exec(ctx, updatePasswordQuery, passwordHash, userID)
+
 	if err != nil {
 		return 0, fmt.Errorf("tx_repo: ResetPasswordWithToken(): update password: %w", err)
 	}
@@ -377,6 +440,7 @@ func (t *TXRepoStruct) ResetPasswordWithToken(ctx context.Context, userID uuid.U
 	`
 
 	result, err = tx.Exec(ctx, revokeSessionsQuery, userID)
+
 	if err != nil {
 		return 0, fmt.Errorf("tx_repo: ResetPasswordWithToken(): revoke sessions: %w", err)
 	}
@@ -390,6 +454,7 @@ func (t *TXRepoStruct) ResetPasswordWithToken(ctx context.Context, userID uuid.U
 	`
 
 	_, err = tx.Exec(ctx, revokeTokensQuery, userID)
+
 	if err != nil {
 		return 0, fmt.Errorf("tx_repo: ResetPasswordWithToken(): revoke tokens: %w", err)
 	}
@@ -411,9 +476,11 @@ func (t *TXRepoStruct) ResetPasswordWithToken(ctx context.Context, userID uuid.U
 
 func (t *TXRepoStruct) VerifyEmail(ctx context.Context, userID uuid.UUID, tokenID uuid.UUID) error {
 	pgxTx, err := beginNestedAware(ctx, t.writeDB)
+
 	if err != nil {
 		return fmt.Errorf("tx_repo: VerifyEmail(): cant begin transaction: %w", err)
 	}
+
 	tx := authTx{
 		Tx:  pgxTx,
 		ctx: ctx,
@@ -431,6 +498,7 @@ func (t *TXRepoStruct) VerifyEmail(ctx context.Context, userID uuid.UUID, tokenI
 	`
 
 	result, err := tx.Exec(ctx, markTokenUsedQuery, tokenID, userID, models.TokenTypeEmailVerification)
+
 	if err != nil {
 		return fmt.Errorf("tx_repo: VerifyEmail(): mark token used: %w", err)
 	}
@@ -448,6 +516,7 @@ func (t *TXRepoStruct) VerifyEmail(ctx context.Context, userID uuid.UUID, tokenI
 	`
 
 	result, err = tx.Exec(ctx, verifyUserQuery, userID)
+
 	if err != nil {
 		return fmt.Errorf("tx_repo: VerifyEmail(): verify user: %w", err)
 	}

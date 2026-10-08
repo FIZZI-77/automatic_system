@@ -30,18 +30,23 @@ import (
 
 func main() {
 	telemetryProviders, err := telemetry.Init(context.Background(), "notification-service")
+
 	if err != nil {
 		log.Fatalf("initialize OpenTelemetry: %v", err)
 	}
+
 	defer func() {
+
 		if shutdownErr := telemetryProviders.Close(); shutdownErr != nil {
 			log.Printf("shutdown OpenTelemetry: %v", shutdownErr)
 		}
+
 	}()
 
 	if err = appconfig.Load(); err != nil {
 		log.Fatalf("configuration error: %v", err)
 	}
+
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 
 	defer stop()
@@ -51,6 +56,7 @@ func main() {
 	if e != nil {
 		log.Fatal(e)
 	}
+
 	defer logger.Sync()
 
 	db, e := telemetry.NewPostgresPool(ctx, must("DATABASE_URL"))
@@ -73,6 +79,7 @@ func main() {
 	); e != nil {
 		logger.Fatal("redis instrumentation failed", zap.Error(e))
 	}
+
 	defer redisClient.Close()
 
 	if e = redisClient.Ping(ctx).Err(); e != nil {
@@ -97,9 +104,11 @@ func main() {
 
 	if path := strings.TrimSpace(os.Getenv("FCM_SERVICE_ACCOUNT_FILE")); path != "" {
 		fcm, err := sender.NewFCM(ctx, path)
+
 		if err != nil {
 			logger.Fatal("FCM initialization failed", zap.Error(err))
 		}
+
 		senders["PUSH"] = fcm
 	} else {
 		senders["PUSH"] = sender.Disabled{Channel: "FCM"}
@@ -126,6 +135,7 @@ func main() {
 	}()
 
 	lis, e := net.Listen("tcp", ":"+env("GRPC_PORT", "50061"))
+
 	if e != nil {
 		logger.Fatal("listen failed", zap.Error(e))
 	}
@@ -142,9 +152,11 @@ func main() {
 
 	go func() {
 		logger.Info("notification gRPC started", zap.String("address", lis.Addr().String()))
+
 		if e := server.Serve(lis); e != nil {
 			stop()
 		}
+
 	}()
 	<-ctx.Done()
 
@@ -152,29 +164,37 @@ func main() {
 	server.GracefulStop()
 }
 func run(c context.Context, name string, f func(context.Context) error, l *zap.Logger) {
+
 	if e := f(c); e != nil && c.Err() == nil {
 		l.Error(name+" stopped", zap.Error(e))
 	}
+
 }
 func env(k, d string) string {
+
 	if v := strings.TrimSpace(os.Getenv(k)); v != "" {
 		return v
 	}
+
 	return d
 }
 func must(k string) string {
 	v := env(k, "")
+
 	if v == "" {
 		log.Fatalf("%s required", k)
 	}
+
 	return v
 }
 func split(v string) []string {
 	var out []string
 	for _, x := range strings.Split(v, ",") {
+
 		if x = strings.TrimSpace(x); x != "" {
 			out = append(out, x)
 		}
+
 	}
 	return out
 }

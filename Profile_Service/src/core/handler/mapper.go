@@ -178,46 +178,58 @@ func FromProtoSortOrder(value profilev1.SortOrder) models.SortOrder {
 }
 
 func ToProtoTimestamp(t time.Time) *timestamppb.Timestamp {
+
 	if t.IsZero() {
 		return nil
 	}
+
 	return timestamppb.New(t)
 }
 
 func ToProtoTimestampPtr(t *time.Time) *timestamppb.Timestamp {
+
 	if t == nil || t.IsZero() {
 		return nil
 	}
+
 	return timestamppb.New(*t)
 }
 
 func FromProtoTimestamp(t *timestamppb.Timestamp) *time.Time {
+
 	if t == nil {
 		return nil
 	}
+
 	value := t.AsTime()
 	return &value
 }
 
 func uuidPtrToStringPtr(value *uuid.UUID) *string {
+
 	if value == nil || *value == uuid.Nil {
 		return nil
 	}
+
 	result := value.String()
 	return &result
 }
 
 func stringPtrToUUIDPtr(value *string, field string) (*uuid.UUID, error) {
+
 	if value == nil {
 		return nil, nil
 	}
+
 	return parseOptionalUUID(*value, field)
 }
 
 func ToProtoUserProfile(profile *models.UserProfile) *profilev1.UserProfile {
+
 	if profile == nil {
 		return nil
 	}
+
 	return &profilev1.UserProfile{
 		Id:                     profile.ID.String(),
 		UserId:                 profile.UserID.String(),
@@ -231,9 +243,11 @@ func ToProtoUserProfile(profile *models.UserProfile) *profilev1.UserProfile {
 }
 
 func ToProtoWorkProfile(profile *models.WorkProfile) *profilev1.WorkProfile {
+
 	if profile == nil {
 		return nil
 	}
+
 	return &profilev1.WorkProfile{
 		Id:             profile.ID.String(),
 		UserProfileId:  profile.UserProfileID.String(),
@@ -248,9 +262,11 @@ func ToProtoWorkProfile(profile *models.WorkProfile) *profilev1.WorkProfile {
 }
 
 func ToProtoWorkProfileDetails(details *models.WorkProfileDetails) *profilev1.WorkProfileDetails {
+
 	if details == nil {
 		return nil
 	}
+
 	return &profilev1.WorkProfileDetails{
 		WorkProfile: ToProtoWorkProfile(details.WorkProfile),
 		UserProfile: ToProtoUserProfile(details.UserProfile),
@@ -258,9 +274,11 @@ func ToProtoWorkProfileDetails(details *models.WorkProfileDetails) *profilev1.Wo
 }
 
 func ToProtoWorkProfileStatusHistory(item *models.WorkProfileStatusHistory) *profilev1.WorkProfileStatusHistory {
+
 	if item == nil {
 		return nil
 	}
+
 	return &profilev1.WorkProfileStatusHistory{
 		Id:              item.ID.String(),
 		WorkProfileId:   item.WorkProfileID.String(),
@@ -274,17 +292,21 @@ func ToProtoWorkProfileStatusHistory(item *models.WorkProfileStatusHistory) *pro
 }
 
 func workProfileStatusPtr(value *models.WorkProfileStatus) *profilev1.WorkProfileStatus {
+
 	if value == nil {
 		return nil
 	}
+
 	result := ToProtoWorkProfileStatus(*value)
 	return &result
 }
 
 func ToProtoCertificationType(item *models.CertificationType) *profilev1.CertificationType {
+
 	if item == nil {
 		return nil
 	}
+
 	return &profilev1.CertificationType{
 		Id:                  item.ID.String(),
 		Code:                item.Code,
@@ -299,9 +321,11 @@ func ToProtoCertificationType(item *models.CertificationType) *profilev1.Certifi
 }
 
 func ToProtoCertificationTypeSkill(item *models.CertificationTypeSkill) *profilev1.CertificationTypeSkill {
+
 	if item == nil {
 		return nil
 	}
+
 	return &profilev1.CertificationTypeSkill{
 		Id:                  item.ID.String(),
 		CertificationTypeId: item.CertificationTypeID.String(),
@@ -314,9 +338,11 @@ func ToProtoCertificationTypeSkill(item *models.CertificationTypeSkill) *profile
 }
 
 func ToProtoWorkProfileCertification(item *models.WorkProfileCertification) *profilev1.WorkProfileCertification {
+
 	if item == nil {
 		return nil
 	}
+
 	return &profilev1.WorkProfileCertification{
 		Id:                  item.ID.String(),
 		WorkProfileId:       item.WorkProfileID.String(),
@@ -336,9 +362,11 @@ func ToProtoWorkProfileCertification(item *models.WorkProfileCertification) *pro
 }
 
 func ToProtoWorkProfileSkillGrant(item *models.WorkProfileSkillGrant) *profilev1.WorkProfileSkillGrant {
+
 	if item == nil {
 		return nil
 	}
+
 	return &profilev1.WorkProfileSkillGrant{
 		Id:               item.ID.String(),
 		WorkProfileId:    item.WorkProfileID.String(),

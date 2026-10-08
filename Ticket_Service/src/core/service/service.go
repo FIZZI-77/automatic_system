@@ -36,7 +36,7 @@ type CategoryService interface {
 
 type ReportService interface {
 	CreateWorkReport(ctx context.Context, in *models.CreateWorkReportInput) (*models.WorkReport, error)
-	ListWorkReports(ctx context.Context, ticketID, actorID uuid.UUID, brigadeID *uuid.UUID, roles []string) ([]*models.WorkReport, error)
+	ListWorkReports(ctx context.Context, ticketID, actorID uuid.UUID, brigadeID, departmentID *uuid.UUID, roles []string) ([]*models.WorkReport, error)
 }
 
 type Service struct {
@@ -46,6 +46,7 @@ type Service struct {
 }
 
 func NewService(repo *repository.Repository, logger *zap.Logger) *Service {
+
 	if logger == nil {
 		logger = zap.NewNop()
 	}

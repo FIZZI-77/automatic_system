@@ -21,6 +21,7 @@ type TicketRepoStruct struct {
 }
 
 func NewTicketRepository(writePool *pgxpool.Pool, readPool *pgxpool.Pool) *TicketRepoStruct {
+
 	if readPool == nil {
 		readPool = writePool
 	}
@@ -51,15 +52,19 @@ type ticketCreatedEventPayload struct {
 
 func (t *TicketRepoStruct) CreateTicket(ctx context.Context, in *models.CreateTicketInput) (*models.Ticket, error) {
 	tx, err := beginCommandTx(ctx, t.writePool)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: CreateTicket(): begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	ticket, err := t.createTicket(ctx, tx, in)
+
 	if err != nil {
 		return nil, err
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repository: CreateTicket(): commit: %w", err)
 	}
@@ -69,6 +74,7 @@ func (t *TicketRepoStruct) CreateTicket(ctx context.Context, in *models.CreateTi
 
 func (t *TicketRepoStruct) createTicket(ctx context.Context, q Querier, in *models.CreateTicketInput) (*models.Ticket, error) {
 	categoryActive, err := t.isCategoryActive(ctx, q, in.CategoryID)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: CreateTicket(): check category: %w", err)
 	}
@@ -81,6 +87,7 @@ func (t *TicketRepoStruct) createTicket(ctx context.Context, q Querier, in *mode
 	now := time.Now().UTC()
 
 	ticket, err := t.insertTicket(ctx, q, ticketID, now, in)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: CreateTicket(): insert ticket: %w", err)
 	}
@@ -135,6 +142,7 @@ func (t *TicketRepoStruct) GetTicketByID(ctx context.Context, ticketID uuid.UUID
 	row := t.readPool.QueryRow(ctx, query, ticketID)
 
 	ticket, err := scanTicket(row)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: GetTicketByID(): %w", err)
 	}
@@ -144,9 +152,11 @@ func (t *TicketRepoStruct) GetTicketByID(ctx context.Context, ticketID uuid.UUID
 
 func (t *TicketRepoStruct) ListTickets(ctx context.Context, in *models.ListTicketsInput) ([]*models.Ticket, int64, error) {
 	conn, err := t.readPool.Acquire(ctx)
+
 	if err != nil {
 		return nil, 0, fmt.Errorf("repository: ListTickets(): acquire connection: %w", err)
 	}
+
 	defer conn.Release()
 
 	whereParts := []string{"status <> 'ARCHIVED'"}
@@ -190,6 +200,7 @@ func (t *TicketRepoStruct) ListTickets(ctx context.Context, in *models.ListTicke
 	}
 
 	whereSQL := ""
+
 	if len(whereParts) > 0 {
 		whereSQL = "WHERE " + strings.Join(whereParts, " AND ")
 	}
@@ -201,6 +212,7 @@ func (t *TicketRepoStruct) ListTickets(ctx context.Context, in *models.ListTicke
 	`, whereSQL)
 
 	var total int64
+
 	if err := conn.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("repository: ListTickets(): count: %w", err)
 	}
@@ -239,15 +251,18 @@ func (t *TicketRepoStruct) ListTickets(ctx context.Context, in *models.ListTicke
 	`, whereSQL, sortBy, sortOrder, limitArg, offsetArg)
 
 	rows, err := conn.Query(ctx, listQuery, args...)
+
 	if err != nil {
 		return nil, 0, fmt.Errorf("repository: ListTickets(): query: %w", err)
 	}
+
 	defer rows.Close()
 
 	tickets := make([]*models.Ticket, 0)
 
 	for rows.Next() {
 		ticket, err := scanTicket(rows)
+
 		if err != nil {
 			return nil, 0, fmt.Errorf("repository: ListTickets(): scan: %w", err)
 		}
@@ -264,15 +279,19 @@ func (t *TicketRepoStruct) ListTickets(ctx context.Context, in *models.ListTicke
 
 func (t *TicketRepoStruct) UpdateTicket(ctx context.Context, in *models.UpdateTicketInput) (*models.Ticket, error) {
 	tx, err := beginCommandTx(ctx, t.writePool)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: UpdateTicket(): begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	ticket, err := t.updateTicket(ctx, tx, in)
+
 	if err != nil {
 		return nil, err
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repository: UpdateTicket(): commit: %w", err)
 	}
@@ -299,6 +318,7 @@ func (t *TicketRepoStruct) updateTicket(ctx context.Context, q Querier, in *mode
 
 	if in.CategoryID != nil {
 		categoryActive, err := t.isCategoryActive(ctx, q, *in.CategoryID)
+
 		if err != nil {
 			return nil, fmt.Errorf("repository: UpdateTicket(): check category: %w", err)
 		}
@@ -328,18 +348,22 @@ func (t *TicketRepoStruct) updateTicket(ctx context.Context, q Querier, in *mode
 	}
 
 	currentTicket, err := t.getTicketByIDForUpdate(ctx, q, in.TicketID)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: UpdateTicket(): get ticket: %w", err)
 	}
 
 	workerRole := false
 	for _, role := range in.ActorRoles {
+
 		if role == "worker" {
 			workerRole = true
 			break
 		}
+
 	}
 	workerOwnsTicket := workerRole && in.ActorBrigadeID != nil && currentTicket.BrigadeID != nil && *currentTicket.BrigadeID == *in.ActorBrigadeID && currentTicket.Status == models.TicketStatusInProgress
+
 	if !hasPrivilegedRole(in.ActorRoles) && !workerOwnsTicket && currentTicket.UserID != *in.UpdatedBy {
 		return nil, fmt.Errorf("repository: UpdateTicket(): %w", models.ErrPermissionDenied)
 	}
@@ -382,6 +406,7 @@ func (t *TicketRepoStruct) updateTicket(ctx context.Context, q Querier, in *mode
 	row := q.QueryRow(ctx, query, args...)
 
 	ticket, err := scanTicket(row)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: UpdateTicket(): update ticket: %w", err)
 	}
@@ -395,15 +420,19 @@ func (t *TicketRepoStruct) updateTicket(ctx context.Context, q Querier, in *mode
 
 func (t *TicketRepoStruct) ChangeTicketStatus(ctx context.Context, in *models.ChangeTicketStatusInput) (*models.Ticket, error) {
 	tx, err := beginCommandTx(ctx, t.writePool)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: ChangeTicketStatus(): begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	ticket, err := t.changeTicketStatus(ctx, tx, in)
+
 	if err != nil {
 		return nil, err
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repository: ChangeTicketStatus(): commit: %w", err)
 	}
@@ -413,6 +442,7 @@ func (t *TicketRepoStruct) ChangeTicketStatus(ctx context.Context, in *models.Ch
 
 func (t *TicketRepoStruct) changeTicketStatus(ctx context.Context, q Querier, in *models.ChangeTicketStatusInput) (*models.Ticket, error) {
 	oldTicket, err := t.getTicketByIDForUpdate(ctx, q, in.TicketID)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: ChangeTicketStatus(): get ticket: %w", err)
 	}
@@ -451,6 +481,7 @@ func (t *TicketRepoStruct) changeTicketStatus(ctx context.Context, q Querier, in
 	row := q.QueryRow(ctx, query, string(in.NewStatus), in.TicketID)
 
 	ticket, err := scanTicket(row)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: ChangeTicketStatus(): update ticket: %w", err)
 	}
@@ -468,15 +499,19 @@ func (t *TicketRepoStruct) changeTicketStatus(ctx context.Context, q Querier, in
 
 func (t *TicketRepoStruct) AssignBrigade(ctx context.Context, in *models.AssignBrigadeInput) (*models.Ticket, error) {
 	tx, err := beginCommandTx(ctx, t.writePool)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: AssignBrigade(): begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	ticket, err := t.assignBrigade(ctx, tx, in)
+
 	if err != nil {
 		return nil, err
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repository: AssignBrigade(): commit: %w", err)
 	}
@@ -486,6 +521,7 @@ func (t *TicketRepoStruct) AssignBrigade(ctx context.Context, in *models.AssignB
 
 func (t *TicketRepoStruct) assignBrigade(ctx context.Context, q Querier, in *models.AssignBrigadeInput) (*models.Ticket, error) {
 	oldTicket, err := t.getTicketByIDForUpdate(ctx, q, in.TicketID)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: AssignBrigade(): get ticket: %w", err)
 	}
@@ -510,9 +546,11 @@ func (t *TicketRepoStruct) assignBrigade(ctx context.Context, q Querier, in *mod
 			  AND status IN ('ASSIGNED', 'IN_PROGRESS')
 		)
 	`
+
 	if err = q.QueryRow(ctx, brigadeBusyQuery, in.BrigadeID, in.TicketID).Scan(&brigadeBusy); err != nil {
 		return nil, fmt.Errorf("repository: AssignBrigade(): check active ticket: %w", err)
 	}
+
 	if brigadeBusy {
 		return nil, fmt.Errorf("repository: AssignBrigade(): %w", models.ErrBrigadeBusy)
 	}
@@ -549,6 +587,7 @@ func (t *TicketRepoStruct) assignBrigade(ctx context.Context, q Querier, in *mod
 	row := q.QueryRow(ctx, query, in.BrigadeID, string(models.TicketStatusAssigned), in.TicketID)
 
 	ticket, err := scanTicket(row)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: AssignBrigade(): update ticket: %w", err)
 	}
@@ -566,15 +605,19 @@ func (t *TicketRepoStruct) assignBrigade(ctx context.Context, q Querier, in *mod
 
 func (t *TicketRepoStruct) CancelTicket(ctx context.Context, in *models.CancelTicketInput) (*models.Ticket, error) {
 	tx, err := beginCommandTx(ctx, t.writePool)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: CancelTicket(): begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	ticket, err := t.cancelTicket(ctx, tx, in)
+
 	if err != nil {
 		return nil, err
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repository: CancelTicket(): commit: %w", err)
 	}
@@ -584,6 +627,7 @@ func (t *TicketRepoStruct) CancelTicket(ctx context.Context, in *models.CancelTi
 
 func (t *TicketRepoStruct) cancelTicket(ctx context.Context, q Querier, in *models.CancelTicketInput) (*models.Ticket, error) {
 	oldTicket, err := t.getTicketByIDForUpdate(ctx, q, in.TicketID)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: CancelTicket(): get ticket: %w", err)
 	}
@@ -623,6 +667,7 @@ func (t *TicketRepoStruct) cancelTicket(ctx context.Context, q Querier, in *mode
 	row := q.QueryRow(ctx, query, string(models.TicketStatusCanceled), in.TicketID)
 
 	ticket, err := scanTicket(row)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: CancelTicket(): update ticket: %w", err)
 	}
@@ -640,15 +685,19 @@ func (t *TicketRepoStruct) cancelTicket(ctx context.Context, q Querier, in *mode
 
 func (t *TicketRepoStruct) CompleteTicket(ctx context.Context, in *models.CompleteTicketInput) (*models.Ticket, error) {
 	tx, err := beginCommandTx(ctx, t.writePool)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: CompleteTicket(): begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	ticket, err := t.completeTicket(ctx, tx, in)
+
 	if err != nil {
 		return nil, err
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repository: CompleteTicket(): commit: %w", err)
 	}
@@ -658,6 +707,7 @@ func (t *TicketRepoStruct) CompleteTicket(ctx context.Context, in *models.Comple
 
 func (t *TicketRepoStruct) completeTicket(ctx context.Context, q Querier, in *models.CompleteTicketInput) (*models.Ticket, error) {
 	oldTicket, err := t.getTicketByIDForUpdate(ctx, q, in.TicketID)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: CompleteTicket(): get ticket: %w", err)
 	}
@@ -697,6 +747,7 @@ func (t *TicketRepoStruct) completeTicket(ctx context.Context, q Querier, in *mo
 	row := q.QueryRow(ctx, query, string(models.TicketStatusDone), in.TicketID)
 
 	ticket, err := scanTicket(row)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: CompleteTicket(): update ticket: %w", err)
 	}
@@ -720,6 +771,7 @@ func (t *TicketRepoStruct) GetTicketStatusHistory(ctx context.Context, in *model
 	`
 
 	var total int64
+
 	if err := t.readPool.QueryRow(ctx, countQuery, in.TicketID).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("repository: GetTicketStatusHistory(): count: %w", err)
 	}
@@ -740,15 +792,18 @@ func (t *TicketRepoStruct) GetTicketStatusHistory(ctx context.Context, in *model
 	`
 
 	rows, err := t.readPool.Query(ctx, listQuery, in.TicketID, in.Limit, in.Offset)
+
 	if err != nil {
 		return nil, 0, fmt.Errorf("repository: GetTicketStatusHistory(): query: %w", err)
 	}
+
 	defer rows.Close()
 
 	history := make([]*models.TicketStatusHistory, 0)
 
 	for rows.Next() {
 		item, err := scanTicketStatusHistory(rows)
+
 		if err != nil {
 			return nil, 0, fmt.Errorf("repository: GetTicketStatusHistory(): scan: %w", err)
 		}
@@ -773,6 +828,7 @@ func (t *TicketRepoStruct) isCategoryActive(ctx context.Context, exec Querier, c
 	var isActive bool
 
 	err := exec.QueryRow(ctx, query, categoryID).Scan(&isActive)
+
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, ErrNotFound
 	}
@@ -887,16 +943,19 @@ func (t *TicketRepoStruct) insertTicketStatusHistory(
 	`
 
 	var oldStatusValue any
+
 	if oldStatus != nil {
 		oldStatusValue = string(*oldStatus)
 	}
 
 	var changedByValue any
+
 	if changedBy != nil {
 		changedByValue = *changedBy
 	}
 
 	var commentValue any
+
 	if comment != nil {
 		commentValue = *comment
 	}
@@ -936,6 +995,7 @@ func (t *TicketRepoStruct) insertTicketCreatedOutboxEvent(ctx context.Context, e
 	}
 
 	payloadBytes, err := json.Marshal(payload)
+
 	if err != nil {
 		return err
 	}
@@ -976,6 +1036,7 @@ func (t *TicketRepoStruct) getTicketByIDForUpdate(ctx context.Context, exec Quer
 	`
 
 	var departmentID uuid.UUID
+
 	if err := exec.QueryRow(ctx, departmentQuery, ticketID).Scan(&departmentID); err != nil {
 		return nil, err
 	}
@@ -1008,6 +1069,7 @@ func (t *TicketRepoStruct) getTicketByIDForUpdate(ctx context.Context, exec Quer
 	row := exec.QueryRow(ctx, query, departmentID, ticketID)
 
 	ticket, err := scanTicket(row)
+
 	if err != nil {
 		return nil, err
 	}
@@ -1026,6 +1088,7 @@ func (t *TicketRepoStruct) insertOutboxEvent(
 	eventID := uuid.New()
 
 	payloadBytes, err := json.Marshal(payload)
+
 	if err != nil {
 		return err
 	}
@@ -1062,9 +1125,11 @@ type scanner interface {
 }
 
 func optionalUUIDString(v *uuid.UUID) *string {
+
 	if v == nil {
 		return nil
 	}
+
 	s := v.String()
 	return &s
 }
@@ -1098,7 +1163,9 @@ func scanTicket(s scanner) (*models.Ticket, error) {
 		&canceledAt,
 		&assetID,
 	)
+
 	if err != nil {
+
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
 		}
@@ -1108,17 +1175,21 @@ func scanTicket(s scanner) (*models.Ticket, error) {
 
 	if brigadeID.Valid {
 		parsedBrigadeID, err := uuid.Parse(brigadeID.String)
+
 		if err != nil {
 			return nil, fmt.Errorf("invalid brigade_id uuid: %w", err)
 		}
 
 		ticket.BrigadeID = &parsedBrigadeID
 	}
+
 	if assetID.Valid {
 		parsed, e := uuid.Parse(assetID.String)
+
 		if e != nil {
 			return nil, e
 		}
+
 		ticket.AssetID = &parsed
 	}
 
@@ -1153,7 +1224,9 @@ func scanTicketStatusHistory(s scanner) (*models.TicketStatusHistory, error) {
 		&comment,
 		&item.CreatedAt,
 	)
+
 	if err != nil {
+
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
 		}
@@ -1168,6 +1241,7 @@ func scanTicketStatusHistory(s scanner) (*models.TicketStatusHistory, error) {
 
 	if changedBy.Valid {
 		parsedChangedBy, err := uuid.Parse(changedBy.String)
+
 		if err != nil {
 			return nil, fmt.Errorf("invalid changed_by uuid: %w", err)
 		}
@@ -1183,6 +1257,7 @@ func scanTicketStatusHistory(s scanner) (*models.TicketStatusHistory, error) {
 }
 
 func validateStatusTransition(from models.TicketStatus, to models.TicketStatus) error {
+
 	if from == to {
 		return fmt.Errorf("%w: new status must be different from current status", models.ErrInvalidStatusTransition)
 	}
@@ -1211,14 +1286,17 @@ func validateStatusTransition(from models.TicketStatus, to models.TicketStatus) 
 	}
 
 	nextStatuses, ok := allowedTransitions[from]
+
 	if !ok {
 		return fmt.Errorf("%w: invalid current status", models.ErrInvalidStatusTransition)
 	}
 
 	for _, allowedStatus := range nextStatuses {
+
 		if allowedStatus == to {
 			return nil
 		}
+
 	}
 
 	return fmt.Errorf("%w: %s -> %s", models.ErrInvalidStatusTransition, from, to)

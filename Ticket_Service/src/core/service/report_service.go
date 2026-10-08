@@ -19,18 +19,23 @@ func NewReportService(repo *repository.Repository) *ReportServiceStruct {
 }
 
 func (s *ReportServiceStruct) CreateWorkReport(ctx context.Context, in *models.CreateWorkReportInput) (*models.WorkReport, error) {
+
 	if err := in.Validate(); err != nil {
 		return nil, fmt.Errorf("%w: %v", models.ErrValidation, err)
 	}
+
 	return s.reports.Create(ctx, in)
 }
-func (s *ReportServiceStruct) ListWorkReports(ctx context.Context, ticketID, actor uuid.UUID, actorBrigadeID *uuid.UUID, roles []string) ([]*models.WorkReport, error) {
+func (s *ReportServiceStruct) ListWorkReports(ctx context.Context, ticketID, actor uuid.UUID, actorBrigadeID, actorDepartmentID *uuid.UUID, roles []string) ([]*models.WorkReport, error) {
 	ticket, err := s.tickets.GetTicketByID(ctx, ticketID)
+
 	if err != nil {
 		return nil, err
 	}
-	if !canReadTicket(ticket, &actor, actorBrigadeID, roles) {
+
+	if !canReadTicket(ticket, &actor, actorBrigadeID, actorDepartmentID, roles) {
 		return nil, models.ErrPermissionDenied
 	}
+
 	return s.reports.List(ctx, ticketID)
 }

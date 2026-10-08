@@ -22,12 +22,15 @@ func TestRouteValidate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.route.Validate()
+
 			if tt.wantErr == "" && err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
+
 			if tt.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tt.wantErr)) {
 				t.Fatalf("error = %v, want containing %q", err, tt.wantErr)
 			}
+
 		})
 	}
 }

@@ -25,20 +25,26 @@ func NewMemberRepo(writePool *pgxpool.Pool, readPool *pgxpool.Pool) *MemberRepoS
 
 func (m *MemberRepoStruct) AddBrigadeMember(ctx context.Context, in *models.AddBrigadeMemberInput) (*models.AddBrigadeMemberResult, error) {
 	tx, err := m.writePool.Begin(ctx)
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: AddBrigadeMember: begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	member, err := m.insertBrigadeMember(ctx, tx, in)
+
 	if err != nil {
+
 		if isMemberUniqueViolation(err) {
 			return nil, fmt.Errorf("repo: AddBrigadeMember: %w", models.ErrAlreadyExists)
 		}
+
 		return nil, fmt.Errorf("repo: AddBrigadeMember: insert member: %w", err)
 	}
 
 	for _, skill := range in.InitialSkills {
+
 		if _, err = tx.Exec(ctx, `
 			INSERT INTO brigade_member_skills (
 				brigade_id, member_id, work_profile_id, skill_id, source_grant_id,
@@ -56,6 +62,7 @@ func (m *MemberRepoStruct) AddBrigadeMember(ctx context.Context, in *models.AddB
 			skill.Active, skill.OccurredAt); err != nil {
 			return nil, fmt.Errorf("repo: AddBrigadeMember: insert initial skill projection: %w", err)
 		}
+
 	}
 
 	if err = m.insertBrigadeMemberHistory(ctx, tx, member, models.BrigadeMemberHistoryActionAdded, nil, &member.Role, in.ChangedByUserID, in.RequestID); err != nil {
@@ -76,6 +83,7 @@ func (m *MemberRepoStruct) AddBrigadeMember(ctx context.Context, in *models.AddB
 		"joined_at":                      member.JoinedAt,
 		"created_at":                     member.CreatedAt,
 	}
+
 	if member.ProfileID != nil {
 		payload["profile_id"] = member.ProfileID.String()
 	}
@@ -120,12 +128,15 @@ func (m *MemberRepoStruct) insertBrigadeMember(ctx context.Context, tx pgx.Tx, i
 
 func (m *MemberRepoStruct) RemoveBrigadeMember(ctx context.Context, in *models.RemoveBrigadeMemberInput) (*models.RemoveBrigadeMemberResult, error) {
 	tx, err := m.writePool.Begin(ctx)
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: RemoveBrigadeMember: begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	member, err := m.getBrigadeMemberByIDForUpdate(ctx, tx, in.BrigadeID, in.MemberID)
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: RemoveBrigadeMember: get member: %w", err)
 	}
@@ -153,6 +164,7 @@ func (m *MemberRepoStruct) RemoveBrigadeMember(ctx context.Context, in *models.R
 	`
 
 	removed, err := scanBrigadeMember(tx.QueryRow(ctx, query, in.MemberID, in.BrigadeID))
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: RemoveBrigadeMember: update member: %w", err)
 	}
@@ -195,15 +207,19 @@ func (m *MemberRepoStruct) RemoveBrigadeMember(ctx context.Context, in *models.R
 
 func (m *MemberRepoStruct) ChangeBrigadeMemberRole(ctx context.Context, in *models.ChangeBrigadeMemberRoleInput) (*models.ChangeBrigadeMemberRoleResult, error) {
 	tx, err := m.writePool.Begin(ctx)
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: ChangeBrigadeMemberRole: begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	member, err := m.getBrigadeMemberByIDForUpdate(ctx, tx, in.BrigadeID, in.MemberID)
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: ChangeBrigadeMemberRole: get member: %w", err)
 	}
+
 	oldRole := member.Role
 
 	const query = `
@@ -226,6 +242,7 @@ func (m *MemberRepoStruct) ChangeBrigadeMemberRole(ctx context.Context, in *mode
 	`
 
 	updated, err := scanBrigadeMember(tx.QueryRow(ctx, query, string(in.Role), in.MemberID, in.BrigadeID))
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: ChangeBrigadeMemberRole: update member: %w", err)
 	}
@@ -262,15 +279,19 @@ func (m *MemberRepoStruct) ChangeBrigadeMemberRole(ctx context.Context, in *mode
 
 func (m *MemberRepoStruct) SetBrigadeMemberAvailability(ctx context.Context, in *models.SetBrigadeMemberAvailabilityInput) (*models.SetBrigadeMemberAvailabilityResult, error) {
 	tx, err := m.writePool.Begin(ctx)
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: SetBrigadeMemberAvailability: begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	member, err := m.getBrigadeMemberByIDForUpdate(ctx, tx, in.BrigadeID, in.MemberID)
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: SetBrigadeMemberAvailability: get member: %w", err)
 	}
+
 	oldStatus := member.AvailabilityStatus
 
 	const query = `
@@ -296,6 +317,7 @@ func (m *MemberRepoStruct) SetBrigadeMemberAvailability(ctx context.Context, in 
 	`
 
 	updated, err := scanBrigadeMember(tx.QueryRow(ctx, query, string(in.Status), in.MemberID, in.BrigadeID))
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: SetBrigadeMemberAvailability: update member: %w", err)
 	}
@@ -343,9 +365,11 @@ func (m *MemberRepoStruct) ListBrigadeMembers(ctx context.Context, in *models.Li
 	if in.Active != nil {
 		addWhere("active = $%d", *in.Active)
 	}
+
 	if in.Role != nil {
 		addWhere("role = $%d", string(*in.Role))
 	}
+
 	if in.AvailabilityStatus != nil {
 		addWhere("availability_status = $%d", string(*in.AvailabilityStatus))
 	}
@@ -354,6 +378,7 @@ func (m *MemberRepoStruct) ListBrigadeMembers(ctx context.Context, in *models.Li
 	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM brigade_members %s", whereSQL)
 
 	var total int64
+
 	if err := m.readPool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, fmt.Errorf("repo: ListBrigadeMembers: count: %w", err)
 	}
@@ -383,19 +408,24 @@ func (m *MemberRepoStruct) ListBrigadeMembers(ctx context.Context, in *models.Li
 	`, whereSQL, limitArg, offsetArg)
 
 	rows, err := m.readPool.Query(ctx, query, args...)
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: ListBrigadeMembers: query: %w", err)
 	}
+
 	defer rows.Close()
 
 	members := make([]*models.BrigadeMember, 0)
 	for rows.Next() {
 		member, err := scanBrigadeMember(rows)
+
 		if err != nil {
 			return nil, fmt.Errorf("repo: ListBrigadeMembers: scan: %w", err)
 		}
+
 		members = append(members, member)
 	}
+
 	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("repo: ListBrigadeMembers: rows: %w", err)
 	}
@@ -405,6 +435,7 @@ func (m *MemberRepoStruct) ListBrigadeMembers(ctx context.Context, in *models.Li
 
 func (m *MemberRepoStruct) GetBrigadeByUserID(ctx context.Context, in *models.GetBrigadeByUserIDInput) (*models.GetBrigadeByUserIDResult, error) {
 	whereActive := ""
+
 	if in.OnlyActive {
 		whereActive = "AND bm.active = true"
 	}
@@ -443,6 +474,7 @@ func (m *MemberRepoStruct) GetBrigadeByUserID(ctx context.Context, in *models.Ge
 
 	row := m.readPool.QueryRow(ctx, query, in.UserID)
 	brigade, member, err := scanBrigadeWithMember(row)
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: GetBrigadeByUserID: scan: %w", err)
 	}
@@ -453,20 +485,24 @@ func (m *MemberRepoStruct) GetBrigadeByUserID(ctx context.Context, in *models.Ge
 func (m *MemberRepoStruct) GetBrigadeMemberHistory(ctx context.Context, in *models.GetBrigadeMemberHistoryInput) (*models.GetBrigadeMemberHistoryResult, error) {
 	whereParts := []string{"brigade_id = $1"}
 	args := []any{in.BrigadeID}
+
 	if in.MemberID != nil {
 		args = append(args, *in.MemberID)
 		whereParts = append(whereParts, fmt.Sprintf("member_id = $%d", len(args)))
 	}
+
 	return m.listBrigadeMemberHistory(ctx, whereParts, args, in.Limit, in.Offset)
 }
 
 func (m *MemberRepoStruct) GetBrigadeMemberStatusHistory(ctx context.Context, in *models.GetBrigadeMemberStatusHistoryInput) (*models.GetBrigadeMemberStatusHistoryResult, error) {
 	whereParts := []string{"brigade_id = $1"}
 	args := []any{in.BrigadeID}
+
 	if in.MemberID != nil {
 		args = append(args, *in.MemberID)
 		whereParts = append(whereParts, fmt.Sprintf("member_id = $%d", len(args)))
 	}
+
 	return m.listBrigadeMemberStatusHistory(ctx, whereParts, args, in.Limit, in.Offset)
 }
 
@@ -513,11 +549,14 @@ func (m *MemberRepoStruct) insertBrigadeMemberHistory(ctx context.Context, tx pg
 
 func execMemberHistoryRoleQuery(ctx context.Context, tx pgx.Tx, query string, member *models.BrigadeMember, action models.BrigadeMemberHistoryAction, oldRole *models.BrigadeMemberRole, newRole *models.BrigadeMemberRole, changedBy *uuid.UUID, requestID *string) error {
 	var oldRoleValue *string
+
 	if oldRole != nil {
 		value := string(*oldRole)
 		oldRoleValue = &value
 	}
+
 	var newRoleValue *string
+
 	if newRole != nil {
 		value := string(*newRole)
 		newRoleValue = &value
@@ -543,6 +582,7 @@ func (m *MemberRepoStruct) insertBrigadeMemberStatusHistory(ctx context.Context,
 	`
 
 	var fromStatusValue *string
+
 	if fromStatus != nil {
 		value := string(*fromStatus)
 		fromStatusValue = &value
@@ -571,20 +611,26 @@ func scanBrigadeMember(row scanner) (*models.BrigadeMember, error) {
 		&member.CreatedAt,
 		&member.UpdatedAt,
 	)
+
 	if err != nil {
+
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, models.ErrNotFound
 		}
+
 		return nil, err
 	}
 
 	if profileID.Valid {
 		id, err := uuid.Parse(profileID.String)
+
 		if err != nil {
 			return nil, fmt.Errorf("parse profile_id: %w", err)
 		}
+
 		member.ProfileID = &id
 	}
+
 	if leftAt.Valid {
 		member.LeftAt = &leftAt.Time
 	}
@@ -594,12 +640,16 @@ func scanBrigadeMember(row scanner) (*models.BrigadeMember, error) {
 
 func scanBrigadeWithMember(row scanner) (*models.Brigade, *models.BrigadeMember, error) {
 	brigade, member, err := scanBrigadeWithMemberRaw(row)
+
 	if err != nil {
+
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil, models.ErrNotFound
 		}
+
 		return nil, nil, err
 	}
+
 	return brigade, member, nil
 }
 
@@ -636,6 +686,7 @@ func scanBrigadeWithMemberRaw(row scanner) (*models.Brigade, *models.BrigadeMemb
 		&member.CreatedAt,
 		&member.UpdatedAt,
 	)
+
 	if err != nil {
 		return nil, nil, err
 	}
@@ -643,19 +694,25 @@ func scanBrigadeWithMemberRaw(row scanner) (*models.Brigade, *models.BrigadeMemb
 	if specialization.Valid {
 		brigade.Specialization = &specialization.String
 	}
+
 	if deactivatedAt.Valid {
 		brigade.DeactivatedAt = &deactivatedAt.Time
 	}
+
 	if archivedAt.Valid {
 		brigade.ArchivedAt = &archivedAt.Time
 	}
+
 	if profileID.Valid {
 		id, err := uuid.Parse(profileID.String)
+
 		if err != nil {
 			return nil, nil, fmt.Errorf("parse profile_id: %w", err)
 		}
+
 		member.ProfileID = &id
 	}
+
 	if leftAt.Valid {
 		member.LeftAt = &leftAt.Time
 	}
@@ -667,6 +724,7 @@ func (m *MemberRepoStruct) listBrigadeMemberHistory(ctx context.Context, wherePa
 	whereSQL := "WHERE " + strings.Join(whereParts, " AND ")
 	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM brigade_member_history %s", whereSQL)
 	var total int64
+
 	if err := m.readPool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, fmt.Errorf("count: %w", err)
 	}
@@ -681,19 +739,24 @@ func (m *MemberRepoStruct) listBrigadeMemberHistory(ctx context.Context, wherePa
 	`, whereSQL, len(args)-1, len(args))
 
 	rows, err := m.readPool.Query(ctx, query, args...)
+
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)
 	}
+
 	defer rows.Close()
 
 	history := make([]*models.BrigadeMemberHistory, 0)
 	for rows.Next() {
 		item, err := scanBrigadeMemberHistory(rows)
+
 		if err != nil {
 			return nil, fmt.Errorf("scan: %w", err)
 		}
+
 		history = append(history, item)
 	}
+
 	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("rows: %w", err)
 	}
@@ -711,42 +774,55 @@ func scanBrigadeMemberHistory(row scanner) (*models.BrigadeMemberHistory, error)
 	var requestID sql.NullString
 
 	err := row.Scan(&item.ID, &item.BrigadeID, &memberID, &item.UserID, &profileID, &item.Action, &oldRole, &newRole, &changedBy, &requestID, &item.CreatedAt)
+
 	if err != nil {
 		return nil, err
 	}
 
 	if memberID.Valid {
 		id, err := uuid.Parse(memberID.String)
+
 		if err != nil {
 			return nil, fmt.Errorf("parse member_id: %w", err)
 		}
+
 		item.MemberID = &id
 	}
+
 	if profileID.Valid {
 		id, err := uuid.Parse(profileID.String)
+
 		if err != nil {
 			return nil, fmt.Errorf("parse profile_id: %w", err)
 		}
+
 		item.ProfileID = &id
 	}
+
 	if oldRole.Valid {
 		value := models.BrigadeMemberRole(oldRole.String)
 		item.OldRole = &value
 	}
+
 	if newRole.Valid {
 		value := models.BrigadeMemberRole(newRole.String)
 		item.NewRole = &value
 	}
+
 	if changedBy.Valid {
 		id, err := uuid.Parse(changedBy.String)
+
 		if err != nil {
 			return nil, fmt.Errorf("parse changed_by_user_id: %w", err)
 		}
+
 		item.ChangedByUserID = &id
 	}
+
 	if requestID.Valid {
 		item.RequestID = &requestID.String
 	}
+
 	return &item, nil
 }
 
@@ -754,6 +830,7 @@ func (m *MemberRepoStruct) listBrigadeMemberStatusHistory(ctx context.Context, w
 	whereSQL := "WHERE " + strings.Join(whereParts, " AND ")
 	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM brigade_member_status_history %s", whereSQL)
 	var total int64
+
 	if err := m.readPool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, fmt.Errorf("count: %w", err)
 	}
@@ -768,22 +845,28 @@ func (m *MemberRepoStruct) listBrigadeMemberStatusHistory(ctx context.Context, w
 	`, whereSQL, len(args)-1, len(args))
 
 	rows, err := m.readPool.Query(ctx, query, args...)
+
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)
 	}
+
 	defer rows.Close()
 
 	history := make([]*models.BrigadeMemberStatusHistory, 0)
 	for rows.Next() {
 		item, err := scanBrigadeMemberStatusHistory(rows)
+
 		if err != nil {
 			return nil, fmt.Errorf("scan: %w", err)
 		}
+
 		history = append(history, item)
 	}
+
 	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("rows: %w", err)
 	}
+
 	return &models.GetBrigadeMemberStatusHistoryResult{History: history, Total: total}, nil
 }
 
@@ -795,35 +878,46 @@ func scanBrigadeMemberStatusHistory(row scanner) (*models.BrigadeMemberStatusHis
 	var requestID sql.NullString
 
 	err := row.Scan(&item.ID, &item.BrigadeID, &memberID, &item.UserID, &fromStatus, &item.ToStatus, &item.Reason, &changedBy, &requestID, &item.CreatedAt)
+
 	if err != nil {
 		return nil, err
 	}
+
 	if memberID.Valid {
 		id, err := uuid.Parse(memberID.String)
+
 		if err != nil {
 			return nil, fmt.Errorf("parse member_id: %w", err)
 		}
+
 		item.MemberID = &id
 	}
+
 	if fromStatus.Valid {
 		value := models.BrigadeMemberAvailabilityStatus(fromStatus.String)
 		item.FromStatus = &value
 	}
+
 	if changedBy.Valid {
 		id, err := uuid.Parse(changedBy.String)
+
 		if err != nil {
 			return nil, fmt.Errorf("parse changed_by_user_id: %w", err)
 		}
+
 		item.ChangedByUserID = &id
 	}
+
 	if requestID.Valid {
 		item.RequestID = &requestID.String
 	}
+
 	return &item, nil
 }
 
 func isMemberUniqueViolation(err error) bool {
 	var pgErr *pgconn.PgError
+
 	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 		return pgErr.ConstraintName == "" ||
 			pgErr.ConstraintName == "brigade_members_active_user_uidx" ||

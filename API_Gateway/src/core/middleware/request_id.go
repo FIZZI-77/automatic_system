@@ -11,6 +11,7 @@ import (
 func RequestID() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := strings.TrimSpace(c.GetHeader(requestid.Header))
+
 		if id == "" {
 			id = requestid.New()
 		}

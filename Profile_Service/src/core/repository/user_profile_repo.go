@@ -21,20 +21,25 @@ type UserProfileRepoStruct struct {
 var _ UserProfileRepository = (*UserProfileRepoStruct)(nil)
 
 func NewUserProfileRepository(writePool *pgxpool.Pool, readPool *pgxpool.Pool) *UserProfileRepoStruct {
+
 	if readPool == nil {
 		readPool = writePool
 	}
+
 	return &UserProfileRepoStruct{writePool: writePool, readPool: readPool}
 }
 
 func (u *UserProfileRepoStruct) CreateUserProfile(ctx context.Context, in *models.CreateUserProfileInput) (*models.CreateUserProfileResult, error) {
 	tx, err := beginCommandTx(ctx, u.writePool)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: CreateUserProfile(): begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	profile, err := u.createUserProfile(ctx, tx, in)
+
 	if err != nil {
 		return nil, err
 	}
@@ -80,6 +85,7 @@ func (u *UserProfileRepoStruct) createUserProfile(ctx context.Context, q Querier
 		in.AvatarFileID,
 		in.PreferredContactMethod,
 	))
+
 	if err != nil {
 		return nil, mapDatabaseError("CreateUserProfile()", err)
 	}
@@ -89,9 +95,11 @@ func (u *UserProfileRepoStruct) createUserProfile(ctx context.Context, q Querier
 
 func (u *UserProfileRepoStruct) UpdateUserProfile(ctx context.Context, in *models.UpdateUserProfileInput) (*models.UpdateUserProfileResult, error) {
 	tx, err := beginCommandTx(ctx, u.writePool)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: UpdateUserProfile(): begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	const query = `
@@ -125,6 +133,7 @@ func (u *UserProfileRepoStruct) UpdateUserProfile(ctx context.Context, in *model
 		in.PreferredContactMethod,
 		in.ID,
 	))
+
 	if err != nil {
 		return nil, mapDatabaseError("UpdateUserProfile()", err)
 	}
@@ -149,6 +158,7 @@ func (u *UserProfileRepoStruct) GetUserProfileByID(ctx context.Context, in *mode
 	`
 
 	profile, err := scanUserProfile(u.readPool.QueryRow(ctx, query, in.ID))
+
 	if err != nil {
 		return nil, mapDatabaseError("GetUserProfileByID()", err)
 	}
@@ -165,6 +175,7 @@ func (u *UserProfileRepoStruct) GetUserProfileByUserID(ctx context.Context, in *
 	`
 
 	profile, err := scanUserProfile(u.readPool.QueryRow(ctx, query, in.UserID))
+
 	if err != nil {
 		return nil, mapDatabaseError("GetUserProfileByUserID()", err)
 	}
@@ -175,6 +186,7 @@ func (u *UserProfileRepoStruct) GetUserProfileByUserID(ctx context.Context, in *
 func (u *UserProfileRepoStruct) ListUserProfiles(ctx context.Context, in *models.ListUserProfilesInput) (*models.ListUserProfilesResult, error) {
 	whereSQL := ""
 	args := make([]any, 0, 3)
+
 	if in.Query != nil {
 		args = append(args, "%"+strings.TrimSpace(*in.Query)+"%")
 		whereSQL = "WHERE full_name ILIKE $1 OR phone ILIKE $1"
@@ -182,6 +194,7 @@ func (u *UserProfileRepoStruct) ListUserProfiles(ctx context.Context, in *models
 
 	countQuery := "SELECT COUNT(*) FROM user_profiles " + whereSQL
 	var total int64
+
 	if err := u.readPool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, mapDatabaseError("ListUserProfiles(): count", err)
 	}
@@ -199,19 +212,24 @@ func (u *UserProfileRepoStruct) ListUserProfiles(ctx context.Context, in *models
 	`, whereSQL, userProfileSortColumn(in.SortBy), sortOrderSQL(in.SortOrder), limitArg, offsetArg)
 
 	rows, err := u.readPool.Query(ctx, query, args...)
+
 	if err != nil {
 		return nil, mapDatabaseError("ListUserProfiles(): query", err)
 	}
+
 	defer rows.Close()
 
 	profiles := make([]*models.UserProfile, 0)
 	for rows.Next() {
 		profile, scanErr := scanUserProfile(rows)
+
 		if scanErr != nil {
 			return nil, mapDatabaseError("ListUserProfiles(): scan", scanErr)
 		}
+
 		profiles = append(profiles, profile)
 	}
+
 	if err = rows.Err(); err != nil {
 		return nil, mapDatabaseError("ListUserProfiles(): rows", err)
 	}
@@ -231,9 +249,11 @@ func scanUserProfile(s scanner) (*models.UserProfile, error) {
 		&profile.CreatedAt,
 		&profile.UpdatedAt,
 	)
+
 	if err != nil {
 		return nil, err
 	}
+
 	return profile, nil
 }
 
@@ -249,9 +269,11 @@ func userProfileSortColumn(sortBy models.UserProfileSortBy) string {
 }
 
 func trimOptionalString(value *string) *string {
+
 	if value == nil {
 		return nil
 	}
+
 	trimmed := strings.TrimSpace(*value)
 	return &trimmed
 }

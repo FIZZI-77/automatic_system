@@ -79,15 +79,19 @@ func TestListDepartmentsInputValidate_NormalizesLimitOffset(t *testing.T) {
 	in := &ListDepartmentsInput{Limit: 500, Offset: -10}
 
 	err := in.Validate()
+
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
+
 	if in.Limit != MaxLimit {
 		t.Fatalf("expected limit %d, got %d", MaxLimit, in.Limit)
 	}
+
 	if in.Offset != 0 {
 		t.Fatalf("expected offset 0, got %d", in.Offset)
 	}
+
 }
 
 func TestUpdateDepartmentInputValidate(t *testing.T) {
@@ -158,7 +162,9 @@ func assertValidationError(t *testing.T, err error, wantErr bool) {
 	if wantErr && err == nil {
 		t.Fatal("expected error, got nil")
 	}
+
 	if !wantErr && err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
+
 }

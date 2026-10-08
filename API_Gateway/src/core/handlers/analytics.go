@@ -22,6 +22,7 @@ func NewAnalyticsHandler(c analyticsv1.AnalyticsServiceClient) *AnalyticsHandler
 
 func (h *AnalyticsHandler) Overview(c *gin.Context) {
 	var v models.AnalyticsRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
@@ -34,6 +35,7 @@ func (h *AnalyticsHandler) Overview(c *gin.Context) {
 
 func (h *AnalyticsHandler) SLA(c *gin.Context) {
 	var v models.AnalyticsRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
@@ -46,6 +48,7 @@ func (h *AnalyticsHandler) SLA(c *gin.Context) {
 
 func (h *AnalyticsHandler) Breakdown(c *gin.Context) {
 	var v models.AnalyticsBreakdownRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
@@ -61,6 +64,7 @@ func (h *AnalyticsHandler) Breakdown(c *gin.Context) {
 
 func (h *AnalyticsHandler) Daily(c *gin.Context) {
 	var v models.AnalyticsRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
@@ -73,6 +77,7 @@ func (h *AnalyticsHandler) Daily(c *gin.Context) {
 
 func (h *AnalyticsHandler) Assets(c *gin.Context) {
 	var v models.AssetAnalyticsRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
@@ -87,9 +92,11 @@ func (h *AnalyticsHandler) Assets(c *gin.Context) {
 
 func (h *AnalyticsHandler) OperationalLatency(c *gin.Context) {
 	var request models.OperationalLatencyRequest
+
 	if !bindJSON(c, &request) {
 		return
 	}
+
 	response, err := h.client.GetOperationalLatency(
 		analyticsContext(c),
 		&analyticsv1.GetOperationalLatencyRequest{
@@ -102,6 +109,7 @@ func (h *AnalyticsHandler) OperationalLatency(c *gin.Context) {
 
 func (h *AnalyticsHandler) DispatchFailures(c *gin.Context) {
 	var request models.AnalyticsRequest
+
 	if !bindJSON(c, &request) {
 		return
 	}
@@ -114,6 +122,7 @@ func (h *AnalyticsHandler) DispatchFailures(c *gin.Context) {
 
 func (h *AnalyticsHandler) BrigadeWorkload(c *gin.Context) {
 	var request models.AnalyticsRequest
+
 	if !bindJSON(c, &request) {
 		return
 	}
@@ -126,6 +135,7 @@ func (h *AnalyticsHandler) BrigadeWorkload(c *gin.Context) {
 
 func (h *AnalyticsHandler) ActiveWorkers(c *gin.Context) {
 	var request models.AnalyticsRequest
+
 	if !bindJSON(c, &request) {
 		return
 	}
@@ -138,6 +148,7 @@ func (h *AnalyticsHandler) ActiveWorkers(c *gin.Context) {
 
 func (h *AnalyticsHandler) AssignmentFunnel(c *gin.Context) {
 	var request models.AnalyticsRequest
+
 	if !bindJSON(c, &request) {
 		return
 	}
@@ -150,9 +161,11 @@ func (h *AnalyticsHandler) AssignmentFunnel(c *gin.Context) {
 
 func (h *AnalyticsHandler) DispatchEffectiveness(c *gin.Context) {
 	var request models.AnalyticsRequest
+
 	if !bindJSON(c, &request) {
 		return
 	}
+
 	response, err := h.client.GetDispatchEffectiveness(
 		analyticsContext(c),
 		&analyticsv1.GetDispatchEffectivenessRequest{
@@ -164,9 +177,11 @@ func (h *AnalyticsHandler) DispatchEffectiveness(c *gin.Context) {
 
 func (h *AnalyticsHandler) OperationalInsights(c *gin.Context) {
 	var request models.AnalyticsRequest
+
 	if !bindJSON(c, &request) {
 		return
 	}
+
 	response, err := h.client.GetOperationalInsights(
 		analyticsContext(c),
 		&analyticsv1.GetOperationalInsightsRequest{
@@ -183,9 +198,11 @@ func (h *AnalyticsHandler) ProjectionHealth(c *gin.Context) {
 
 func (h *AnalyticsHandler) DispatchOperations(c *gin.Context) {
 	var request models.AnalyticsRequest
+
 	if !bindJSON(c, &request) {
 		return
 	}
+
 	response, err := h.client.ListDispatchOperations(
 		analyticsContext(c),
 		&analyticsv1.ListDispatchOperationsRequest{
@@ -198,9 +215,11 @@ func (h *AnalyticsHandler) DispatchOperations(c *gin.Context) {
 
 func (h *AnalyticsHandler) BrigadePerformance(c *gin.Context) {
 	var request models.AnalyticsRequest
+
 	if !bindJSON(c, &request) {
 		return
 	}
+
 	response, err := h.client.GetBrigadePerformance(
 		analyticsContext(c),
 		&analyticsv1.GetBrigadePerformanceRequest{
@@ -235,9 +254,11 @@ func operationalLatencyDimension(value string) analyticsv1.OperationalLatencyDim
 }
 
 func analyticsFilter(v *models.AnalyticsFilter) *analyticsv1.AnalyticsFilter {
+
 	if v == nil {
 		return nil
 	}
+
 	x := &analyticsv1.AnalyticsFilter{
 		DepartmentId:   v.DepartmentID,
 		CategoryId:     v.CategoryID,
@@ -247,6 +268,7 @@ func analyticsFilter(v *models.AnalyticsFilter) *analyticsv1.AnalyticsFilter {
 		FailureCode:    v.FailureCode,
 		Success:        v.Success,
 	}
+
 	if v.From != nil {
 		x.From = timestamppb.New(*v.From)
 	}

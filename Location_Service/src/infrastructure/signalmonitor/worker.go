@@ -28,18 +28,23 @@ type Worker struct {
 }
 
 func New(detector Detector, cfg Config, logger *zap.Logger) *Worker {
+
 	if cfg.Interval <= 0 {
 		cfg.Interval = 5 * time.Second
 	}
+
 	if cfg.StaleAfter <= 0 {
 		cfg.StaleAfter = 15 * time.Second
 	}
+
 	if cfg.OfflineAfter <= cfg.StaleAfter {
 		cfg.OfflineAfter = 60 * time.Second
 	}
+
 	if cfg.BatchSize <= 0 {
 		cfg.BatchSize = 500
 	}
+
 	if logger == nil {
 		logger = zap.NewNop()
 	}
@@ -64,13 +69,16 @@ func (w *Worker) Run(ctx context.Context) {
 					Limit:         w.cfg.BatchSize,
 				},
 			)
+
 			if err != nil {
 				w.log.Error("detect lost signals", zap.Error(err))
 				continue
 			}
+
 			if len(result.Changes) > 0 {
 				w.log.Info("signal statuses changed", zap.Int("count", len(result.Changes)))
 			}
+
 		}
 	}
 }

@@ -60,24 +60,30 @@ func FromProtoSortOrder(order departmentv1.SortOrder) models.SortOrder {
 }
 
 func ToProtoTimestamp(t time.Time) *timestamppb.Timestamp {
+
 	if t.IsZero() {
 		return nil
 	}
+
 	return timestamppb.New(t)
 }
 
 func FromProtoTimestamp(ts *timestamppb.Timestamp) *time.Time {
+
 	if ts == nil {
 		return nil
 	}
+
 	t := ts.AsTime()
 	return &t
 }
 
 func ToProtoDepartment(department *models.Department) *departmentv1.Department {
+
 	if department == nil {
 		return nil
 	}
+
 	return &departmentv1.Department{
 		Id:          department.ID.String(),
 		Name:        department.Name,

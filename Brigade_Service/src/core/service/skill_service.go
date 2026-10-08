@@ -43,6 +43,7 @@ func (s *SkillServiceStruct) CreateSkill(ctx context.Context, in *models.CreateS
 	}
 
 	result, err := s.repo.CreateSkill(ctx, in)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: CreateSkill: %w", err)
 	}
@@ -74,6 +75,7 @@ func (s *SkillServiceStruct) UpdateSkill(ctx context.Context, in *models.UpdateS
 	}
 
 	result, err := s.repo.UpdateSkill(ctx, in)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: UpdateSkill: %w", err)
 	}
@@ -105,6 +107,7 @@ func (s *SkillServiceStruct) DeactivateSkill(ctx context.Context, in *models.Dea
 	}
 
 	result, err := s.repo.DeactivateSkill(ctx, in)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: DeactivateSkill: %w", err)
 	}
@@ -136,6 +139,7 @@ func (s *SkillServiceStruct) ListSkills(ctx context.Context, in *models.ListSkil
 	}
 
 	result, err := s.repo.ListSkills(ctx, in)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: ListSkills: %w", err)
 	}
@@ -162,6 +166,7 @@ func (s *SkillServiceStruct) AddBrigadeSkill(ctx context.Context, in *models.Add
 	}
 
 	brigade, err := s.getBrigadeForSkillOperation(ctx, log, start, in.BrigadeID, in.ActorUserID, in.ActorDepartmentID, in.ActorRoles, "AddBrigadeSkill")
+
 	if err != nil {
 		return nil, err
 	}
@@ -171,6 +176,7 @@ func (s *SkillServiceStruct) AddBrigadeSkill(ctx context.Context, in *models.Add
 	}
 
 	result, err := s.repo.AddBrigadeSkill(ctx, in)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: AddBrigadeSkill: %w", err)
 	}
@@ -199,6 +205,7 @@ func (s *SkillServiceStruct) RemoveBrigadeSkill(ctx context.Context, in *models.
 	}
 
 	brigade, err := s.getBrigadeForSkillOperation(ctx, log, start, in.BrigadeID, in.ActorUserID, in.ActorDepartmentID, in.ActorRoles, "RemoveBrigadeSkill")
+
 	if err != nil {
 		return nil, err
 	}
@@ -208,6 +215,7 @@ func (s *SkillServiceStruct) RemoveBrigadeSkill(ctx context.Context, in *models.
 	}
 
 	result, err := s.repo.RemoveBrigadeSkill(ctx, in)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: RemoveBrigadeSkill: %w", err)
 	}
@@ -236,6 +244,7 @@ func (s *SkillServiceStruct) ListBrigadeSkills(ctx context.Context, in *models.L
 	}
 
 	brigade, err := s.getBrigadeForSkillOperation(ctx, log, start, in.BrigadeID, in.ActorUserID, in.ActorDepartmentID, in.ActorRoles, "ListBrigadeSkills")
+
 	if err != nil {
 		return nil, err
 	}
@@ -245,6 +254,7 @@ func (s *SkillServiceStruct) ListBrigadeSkills(ctx context.Context, in *models.L
 	}
 
 	result, err := s.repo.ListBrigadeSkills(ctx, in)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: ListBrigadeSkills: %w", err)
 	}
@@ -273,6 +283,7 @@ func (s *SkillServiceStruct) getBrigadeForSkillOperation(
 		ActorDepartmentID: actorDepartmentID,
 		ActorRoles:        actorRoles,
 	})
+
 	if err != nil {
 		return nil, fmt.Errorf("service: %s: get brigade: %w", operation, err)
 	}
@@ -292,9 +303,11 @@ func (s *SkillServiceStruct) getBrigadeForSkillOperation(
 
 func checkAdminRole(log *zap.Logger, start time.Time, actorRoles []string) error {
 	for _, role := range actorRoles {
+
 		if role == "admin" {
 			return nil
 		}
+
 	}
 
 	err := models.ErrPermissionDenied
@@ -307,9 +320,11 @@ func checkAdminRole(log *zap.Logger, start time.Time, actorRoles []string) error
 
 func checkAdminOrDispatcherRole(log *zap.Logger, start time.Time, actorRoles []string) error {
 	for _, role := range actorRoles {
+
 		if role == "admin" || role == "dispatcher" {
 			return nil
 		}
+
 	}
 
 	err := models.ErrPermissionDenied

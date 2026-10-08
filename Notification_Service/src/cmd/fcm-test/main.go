@@ -13,6 +13,7 @@ import (
 )
 
 func main() {
+
 	if len(os.Args) < 2 {
 		log.Fatal("usage: fcm-test <registration-token>")
 	}
@@ -20,6 +21,7 @@ func main() {
 	token := os.Args[1]
 
 	credentials := os.Getenv("FCM_SERVICE_ACCOUNT_FILE")
+
 	if credentials == "" {
 		log.Fatal("FCM_SERVICE_ACCOUNT_FILE is empty")
 	}
@@ -27,6 +29,7 @@ func main() {
 	ctx := context.Background()
 
 	client, err := sender.NewFCM(ctx, credentials)
+
 	if err != nil {
 		log.Fatalf("initialize FCM: %v", err)
 	}
@@ -53,6 +56,7 @@ func main() {
 		delivery,
 		notification,
 	)
+
 	if err != nil {
 		log.Fatalf("send FCM: %v", err)
 	}

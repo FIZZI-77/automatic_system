@@ -60,21 +60,27 @@ type prediction struct {
 }
 
 func New(config Config, ticket ticketv1.TicketServiceClient, logger *zap.Logger) (*Worker, error) {
+
 	if len(config.Brokers) == 0 || config.Topic == "" || config.GroupID == "" {
 		return nil, errors.New("critical ticket worker: brokers, topic and group id are required")
 	}
+
 	if config.CategoryID == "" || config.RequesterID == "" {
 		return nil, errors.New("critical ticket worker: category id and requester id are required")
 	}
+
 	if ticket == nil {
 		return nil, errors.New("critical ticket worker: ticket client is required")
 	}
+
 	if config.RequestTimeout <= 0 {
 		config.RequestTimeout = 5 * time.Second
 	}
+
 	if config.ActorRoles == "" {
 		config.ActorRoles = "dispatcher"
 	}
+
 	if logger == nil {
 		logger = zap.NewNop()
 	}
@@ -100,10 +106,13 @@ func (w *Worker) Close() error {
 func (w *Worker) Run(ctx context.Context) error {
 	for {
 		message, err := w.reader.FetchMessage(ctx)
+
 		if err != nil {
+
 			if errors.Is(err, context.Canceled) {
 				return nil
 			}
+
 			w.logger.Warn("fetch critical risk event failed", zap.Error(err))
 			continue
 		}
@@ -112,23 +121,29 @@ func (w *Worker) Run(ctx context.Context) error {
 			w.logger.Warn("critical risk event processing failed", zap.Int64("offset", message.Offset), zap.Error(err))
 			continue
 		}
+
 		if err = w.reader.CommitMessages(ctx, message); err != nil {
 			return fmt.Errorf("commit critical risk event: %w", err)
 		}
+
 	}
 }
 
 func (w *Worker) apply(ctx context.Context, message kafka.Message) error {
 	var event eventEnvelope
+
 	if err := json.Unmarshal(message.Value, &event); err != nil {
 		return fmt.Errorf("decode critical risk event: %w", err)
 	}
+
 	if event.EventType != eventTypeRiskBecameCritical {
 		return nil
 	}
+
 	if event.EventID == "" {
 		return errors.New("critical risk event id is required")
 	}
+
 	if _, err := uuid.Parse(event.Data.AssetID); err != nil {
 		return fmt.Errorf("invalid asset_id: %w", err)
 	}
@@ -155,6 +170,7 @@ func (w *Worker) apply(ctx context.Context, message kafka.Message) error {
 		Longitude:    &event.Data.Longitude,
 		AssetId:      &event.Data.AssetID,
 	})
+
 	if err != nil {
 		return fmt.Errorf("create critical risk ticket: %w", err)
 	}
@@ -165,17 +181,21 @@ func (w *Worker) apply(ctx context.Context, message kafka.Message) error {
 
 func title(payload criticalRiskPayload) string {
 	name := strings.TrimSpace(payload.Name)
+
 	if name == "" {
 		name = payload.AssetID
 	}
+
 	return limitText("Critical failure risk: "+name, 255)
 }
 
 func description(payload criticalRiskPayload) string {
 	factors := strings.Join(payload.Prediction.Factors, "; ")
+
 	if factors == "" {
 		factors = "no detailed factors"
 	}
+
 	text := fmt.Sprintf(
 		"Asset %s reached CRITICAL failure risk. Score: %.1f, probability 90d: %.1f%%. Recommended action: %s. Factors: %s.",
 		payload.AssetID,
@@ -188,11 +208,14 @@ func description(payload criticalRiskPayload) string {
 }
 
 func limitText(text string, max int) string {
+
 	if len(text) <= max {
 		return text
 	}
+
 	if max <= 3 {
 		return text[:max]
 	}
+
 	return text[:max-3] + "..."
 }

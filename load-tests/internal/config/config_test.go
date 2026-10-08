@@ -15,9 +15,11 @@ func TestValidateDestructive(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			err := ValidateDestructive(test.environment, test.allowed)
+
 			if (err != nil) != test.wantErr {
 				t.Errorf("ValidateDestructive(%+v, %v) error = %v, wantErr %v", test.environment, test.allowed, err, test.wantErr)
 			}
+
 		})
 	}
 }

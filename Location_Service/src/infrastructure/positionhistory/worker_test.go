@@ -27,12 +27,15 @@ func (r *repositoryStub) AppendPositionsBatch(
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.batches = append(r.batches, append([]*models.Position(nil), positions...))
+
 	if r.err != nil {
 		return 0, r.err
 	}
+
 	if r.written != nil {
 		return *r.written, nil
 	}
+
 	return int64(len(positions)), nil
 }
 
@@ -44,9 +47,11 @@ func TestWorkerFlushesWhenBatchSizeReached(t *testing.T) {
 		Config{BatchSize: 2, FlushInterval: time.Hour},
 		zap.NewNop(),
 	)
+
 	if err != nil {
 		t.Fatalf("new worker: %v", err)
 	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { defer close(done); _ = worker.Run(ctx) }()
@@ -59,9 +64,11 @@ func TestWorkerFlushesWhenBatchSizeReached(t *testing.T) {
 		repo.mu.Lock()
 		count := len(repo.batches)
 		repo.mu.Unlock()
+
 		if count == 1 {
 			break
 		}
+
 		time.Sleep(time.Millisecond)
 	}
 	cancel()
@@ -69,25 +76,31 @@ func TestWorkerFlushesWhenBatchSizeReached(t *testing.T) {
 
 	repo.mu.Lock()
 	defer repo.mu.Unlock()
+
 	if len(repo.batches) != 1 || len(repo.batches[0]) != 2 {
 		t.Fatalf("batches = %#v", repo.batches)
 	}
+
 }
 
 func TestWorkerReturnsFailedBatchToBuffer(t *testing.T) {
 	repo := &repositoryStub{err: errors.New("copy failed")}
 	buffer := service.NewMemoryPositionBuffer(10)
 	worker, err := New(buffer, repo, Config{BatchSize: 2}, zap.NewNop())
+
 	if err != nil {
 		t.Fatalf("new worker: %v", err)
 	}
+
 	_ = buffer.Add(&models.Position{Sequence: 1})
 	_ = buffer.Add(&models.Position{Sequence: 2})
 
 	worker.flushAll(context.Background())
+
 	if buffer.Len() != 2 {
 		t.Fatalf("failed batch was not returned to buffer: len = %d", buffer.Len())
 	}
+
 }
 
 func TestWorkerReturnsUnwrittenPositionsToBuffer(t *testing.T) {
@@ -95,14 +108,18 @@ func TestWorkerReturnsUnwrittenPositionsToBuffer(t *testing.T) {
 	repo := &repositoryStub{written: &written}
 	buffer := service.NewMemoryPositionBuffer(10)
 	worker, err := New(buffer, repo, Config{BatchSize: 2}, zap.NewNop())
+
 	if err != nil {
 		t.Fatalf("new worker: %v", err)
 	}
+
 	_ = buffer.Add(&models.Position{Sequence: 1})
 	_ = buffer.Add(&models.Position{Sequence: 2})
 
 	worker.flushAll(context.Background())
+
 	if buffer.Len() != 1 {
 		t.Fatalf("unwritten position was not returned to buffer: len = %d", buffer.Len())
 	}
+
 }

@@ -27,6 +27,7 @@ func New(s service.ReportService) *Handler {
 
 func (h *Handler) CreateReport(c context.Context, q *reportv1.CreateReportRequest) (*reportv1.CreateReportResponse, error) {
 	owner, e := uuid.Parse(q.RequestedBy)
+
 	if e != nil {
 		return nil, bad(e)
 	}
@@ -39,6 +40,7 @@ func (h *Handler) CreateReport(c context.Context, q *reportv1.CreateReportReques
 		Filter:      filter(q.Filter),
 		ActorRoles:  q.ActorRoles,
 	})
+
 	if e != nil {
 		return nil, mapErr(e)
 	}
@@ -50,10 +52,13 @@ func (h *Handler) CreateReport(c context.Context, q *reportv1.CreateReportReques
 
 func (h *Handler) GetReport(c context.Context, q *reportv1.GetReportRequest) (*reportv1.GetReportResponse, error) {
 	id, actor, e := ids(q.ReportId, q.ActorUserId)
+
 	if e != nil {
 		return nil, bad(e)
 	}
+
 	x, e := h.s.Get(c, id, actor, privileged(q.ActorRoles))
+
 	if e != nil {
 		return nil, mapErr(e)
 	}
@@ -65,16 +70,20 @@ func (h *Handler) GetReport(c context.Context, q *reportv1.GetReportRequest) (*r
 
 func (h *Handler) ListReports(c context.Context, q *reportv1.ListReportsRequest) (*reportv1.ListReportsResponse, error) {
 	actor, e := uuid.Parse(q.ActorUserId)
+
 	if e != nil {
 		return nil, bad(e)
 	}
+
 	var st *models.Status
+
 	if q.Status != nil {
 		x := models.Status(q.Status.String()[14:])
 		st = &x
 	}
 
 	items, total, e := h.s.List(c, actor, privileged(q.ActorRoles), st, q.Limit, q.Offset)
+
 	if e != nil {
 		return nil, mapErr(e)
 	}
@@ -92,10 +101,13 @@ func (h *Handler) ListReports(c context.Context, q *reportv1.ListReportsRequest)
 
 func (h *Handler) CancelReport(c context.Context, q *reportv1.CancelReportRequest) (*reportv1.CancelReportResponse, error) {
 	id, a, e := ids(q.ReportId, q.ActorUserId)
+
 	if e != nil {
 		return nil, bad(e)
 	}
+
 	x, e := h.s.Cancel(c, id, a, privileged(q.ActorRoles))
+
 	if e != nil {
 		return nil, mapErr(e)
 	}
@@ -107,10 +119,13 @@ func (h *Handler) CancelReport(c context.Context, q *reportv1.CancelReportReques
 
 func (h *Handler) RetryReport(c context.Context, q *reportv1.RetryReportRequest) (*reportv1.RetryReportResponse, error) {
 	id, a, e := ids(q.ReportId, q.ActorUserId)
+
 	if e != nil {
 		return nil, bad(e)
 	}
+
 	x, e := h.s.Retry(c, id, a, privileged(q.ActorRoles))
+
 	if e != nil {
 		return nil, mapErr(e)
 	}
@@ -122,10 +137,13 @@ func (h *Handler) RetryReport(c context.Context, q *reportv1.RetryReportRequest)
 
 func (h *Handler) GetReportDownloadURL(c context.Context, q *reportv1.GetReportDownloadURLRequest) (*reportv1.GetReportDownloadURLResponse, error) {
 	id, a, e := ids(q.ReportId, q.ActorUserId)
+
 	if e != nil {
 		return nil, bad(e)
 	}
+
 	x, e := h.s.Download(c, id, a, q.ActorRoles, privileged(q.ActorRoles))
+
 	if e != nil {
 		return nil, mapErr(e)
 	}
@@ -139,18 +157,22 @@ func (h *Handler) GetReportDownloadURL(c context.Context, q *reportv1.GetReportD
 
 func ids(a, b string) (uuid.UUID, uuid.UUID, error) {
 	x, e := uuid.Parse(a)
+
 	if e != nil {
 		return uuid.Nil, uuid.Nil, e
 	}
+
 	y, e := uuid.Parse(b)
 	return x, y, e
 }
 
 func privileged(r []string) bool {
 	for _, x := range r {
+
 		if x == "admin" || x == "dispatcher" {
 			return true
 		}
+
 	}
 	return false
 }
@@ -181,6 +203,7 @@ func reportFormat(v reportv1.ReportFormat) models.Format {
 }
 
 func filter(v *analyticsv1.AnalyticsFilter) models.Filter {
+
 	if v == nil {
 		return models.Filter{}
 	}

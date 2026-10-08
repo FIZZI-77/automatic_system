@@ -129,9 +129,11 @@ type Download struct {
 }
 
 func (v CreateInput) Validate() error {
+
 	if v.RequestedBy == uuid.Nil || len(v.Name) < 3 || len(v.Name) > 160 {
 		return errors.New("invalid report name or requester")
 	}
+
 	switch v.Type {
 	case TypeTicketOverview, TypeSLASummary, TypeTicketBreakdown, TypeDailyTickets:
 	default:
@@ -142,8 +144,10 @@ func (v CreateInput) Validate() error {
 	default:
 		return errors.New("unsupported report format")
 	}
+
 	if v.Filter.From != nil && v.Filter.To != nil && v.Filter.From.After(*v.Filter.To) {
 		return errors.New("filter from must not be after to")
 	}
+
 	return nil
 }

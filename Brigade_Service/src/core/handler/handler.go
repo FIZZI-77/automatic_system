@@ -42,6 +42,7 @@ func (h *BrigadeHandler) CreateBrigade(ctx context.Context, req *brigadev1.Creat
 	logger := h.requestLogger(ctx, "CreateBrigade")
 
 	departmentID, err := parseUUID(req.GetDepartmentId(), "department_id")
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "CreateBrigade", err)
 	}
@@ -58,6 +59,7 @@ func (h *BrigadeHandler) CreateBrigade(ctx context.Context, req *brigadev1.Creat
 		RequestID:         requestIDFromContext(ctx),
 		TraceID:           traceIDFromContext(ctx),
 	})
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "CreateBrigade", err)
 	}
@@ -69,6 +71,7 @@ func (h *BrigadeHandler) GetBrigadeByID(ctx context.Context, req *brigadev1.GetB
 	logger := h.requestLogger(ctx, "GetBrigadeByID")
 
 	id, err := parseUUID(req.GetId(), "id")
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "GetBrigadeByID", err)
 	}
@@ -80,6 +83,7 @@ func (h *BrigadeHandler) GetBrigadeByID(ctx context.Context, req *brigadev1.GetB
 		ActorDepartmentID: actor.DepartmentID,
 		ActorRoles:        actor.Roles,
 	})
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "GetBrigadeByID", err)
 	}
@@ -91,22 +95,26 @@ func (h *BrigadeHandler) ListBrigades(ctx context.Context, req *brigadev1.ListBr
 	logger := h.requestLogger(ctx, "ListBrigades")
 
 	departmentID, err := parseOptionalUUIDPtr(req.DepartmentId, "department_id")
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "ListBrigades", err)
 	}
 
 	var brigadeStatus *models.BrigadeStatus
+
 	if req.Status != nil && req.GetStatus() != brigadev1.BrigadeStatus_BRIGADE_STATUS_UNSPECIFIED {
 		value := FromProtoBrigadeStatus(req.GetStatus())
 		brigadeStatus = &value
 	}
 
 	var sortBy models.BrigadeSortBy
+
 	if req.SortBy != nil {
 		sortBy = FromProtoBrigadeSortBy(req.GetSortBy())
 	}
 
 	var sortOrder models.SortOrder
+
 	if req.SortOrder != nil {
 		sortOrder = FromProtoSortOrder(req.GetSortOrder())
 	}
@@ -126,6 +134,7 @@ func (h *BrigadeHandler) ListBrigades(ctx context.Context, req *brigadev1.ListBr
 		ActorDepartmentID: actor.DepartmentID,
 		ActorRoles:        actor.Roles,
 	})
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "ListBrigades", err)
 	}
@@ -140,6 +149,7 @@ func (h *BrigadeHandler) UpdateBrigade(ctx context.Context, req *brigadev1.Updat
 	logger := h.requestLogger(ctx, "UpdateBrigade")
 
 	id, err := parseUUID(req.GetId(), "id")
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "UpdateBrigade", err)
 	}
@@ -156,6 +166,7 @@ func (h *BrigadeHandler) UpdateBrigade(ctx context.Context, req *brigadev1.Updat
 		RequestID:         requestIDFromContext(ctx),
 		TraceID:           traceIDFromContext(ctx),
 	})
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "UpdateBrigade", err)
 	}
@@ -167,6 +178,7 @@ func (h *BrigadeHandler) DeactivateBrigade(ctx context.Context, req *brigadev1.D
 	logger := h.requestLogger(ctx, "DeactivateBrigade")
 
 	id, changedBy, err := parseIDAndChangedBy(req.GetId(), req.GetChangedByUserId())
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "DeactivateBrigade", err)
 	}
@@ -182,6 +194,7 @@ func (h *BrigadeHandler) DeactivateBrigade(ctx context.Context, req *brigadev1.D
 		RequestID:         requestIDFromContext(ctx),
 		TraceID:           traceIDFromContext(ctx),
 	})
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "DeactivateBrigade", err)
 	}
@@ -193,6 +206,7 @@ func (h *BrigadeHandler) ArchiveBrigade(ctx context.Context, req *brigadev1.Arch
 	logger := h.requestLogger(ctx, "ArchiveBrigade")
 
 	id, changedBy, err := parseIDAndChangedBy(req.GetId(), req.GetChangedByUserId())
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "ArchiveBrigade", err)
 	}
@@ -208,6 +222,7 @@ func (h *BrigadeHandler) ArchiveBrigade(ctx context.Context, req *brigadev1.Arch
 		RequestID:         requestIDFromContext(ctx),
 		TraceID:           traceIDFromContext(ctx),
 	})
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "ArchiveBrigade", err)
 	}
@@ -219,10 +234,13 @@ func (h *BrigadeHandler) SetBrigadeStatus(ctx context.Context, req *brigadev1.Se
 	logger := h.requestLogger(ctx, "SetBrigadeStatus")
 
 	brigadeID, err := parseUUID(req.GetBrigadeId(), "brigade_id")
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "SetBrigadeStatus", err)
 	}
+
 	changedBy, err := parseOptionalUUID(req.GetChangedByUserId(), "changed_by_user_id")
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "SetBrigadeStatus", err)
 	}
@@ -239,6 +257,7 @@ func (h *BrigadeHandler) SetBrigadeStatus(ctx context.Context, req *brigadev1.Se
 		RequestID:         requestIDFromContext(ctx),
 		TraceID:           traceIDFromContext(ctx),
 	})
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "SetBrigadeStatus", err)
 	}
@@ -250,6 +269,7 @@ func (h *BrigadeHandler) GetBrigadeStatusHistory(ctx context.Context, req *briga
 	logger := h.requestLogger(ctx, "GetBrigadeStatusHistory")
 
 	brigadeID, err := parseUUID(req.GetBrigadeId(), "brigade_id")
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "GetBrigadeStatusHistory", err)
 	}
@@ -263,6 +283,7 @@ func (h *BrigadeHandler) GetBrigadeStatusHistory(ctx context.Context, req *briga
 		ActorDepartmentID: actor.DepartmentID,
 		ActorRoles:        actor.Roles,
 	})
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "GetBrigadeStatusHistory", err)
 	}
@@ -279,18 +300,25 @@ func (h *BrigadeHandler) AddBrigadeMember(ctx context.Context, req *brigadev1.Ad
 	logger := h.requestLogger(ctx, "AddBrigadeMember")
 
 	brigadeID, err := parseUUID(req.GetBrigadeId(), "brigade_id")
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "AddBrigadeMember", err)
 	}
+
 	userID, err := parseUUID(req.GetUserId(), "user_id")
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "AddBrigadeMember", err)
 	}
+
 	profileID, err := parseOptionalUUIDPtr(req.ProfileId, "profile_id")
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "AddBrigadeMember", err)
 	}
+
 	changedBy, err := parseOptionalUUID(req.GetChangedByUserId(), "changed_by_user_id")
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "AddBrigadeMember", err)
 	}
@@ -308,6 +336,7 @@ func (h *BrigadeHandler) AddBrigadeMember(ctx context.Context, req *brigadev1.Ad
 		RequestID:         requestIDFromContext(ctx),
 		TraceID:           traceIDFromContext(ctx),
 	})
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "AddBrigadeMember", err)
 	}
@@ -319,6 +348,7 @@ func (h *BrigadeHandler) RemoveBrigadeMember(ctx context.Context, req *brigadev1
 	logger := h.requestLogger(ctx, "RemoveBrigadeMember")
 
 	brigadeID, memberID, changedBy, err := parseBrigadeMemberChangedBy(req.GetBrigadeId(), req.GetMemberId(), req.GetChangedByUserId())
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "RemoveBrigadeMember", err)
 	}
@@ -335,6 +365,7 @@ func (h *BrigadeHandler) RemoveBrigadeMember(ctx context.Context, req *brigadev1
 		RequestID:         requestIDFromContext(ctx),
 		TraceID:           traceIDFromContext(ctx),
 	})
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "RemoveBrigadeMember", err)
 	}
@@ -346,6 +377,7 @@ func (h *BrigadeHandler) ChangeBrigadeMemberRole(ctx context.Context, req *briga
 	logger := h.requestLogger(ctx, "ChangeBrigadeMemberRole")
 
 	brigadeID, memberID, changedBy, err := parseBrigadeMemberChangedBy(req.GetBrigadeId(), req.GetMemberId(), req.GetChangedByUserId())
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "ChangeBrigadeMemberRole", err)
 	}
@@ -362,6 +394,7 @@ func (h *BrigadeHandler) ChangeBrigadeMemberRole(ctx context.Context, req *briga
 		RequestID:         requestIDFromContext(ctx),
 		TraceID:           traceIDFromContext(ctx),
 	})
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "ChangeBrigadeMemberRole", err)
 	}
@@ -373,6 +406,7 @@ func (h *BrigadeHandler) SetBrigadeMemberAvailability(ctx context.Context, req *
 	logger := h.requestLogger(ctx, "SetBrigadeMemberAvailability")
 
 	brigadeID, memberID, changedBy, err := parseBrigadeMemberChangedBy(req.GetBrigadeId(), req.GetMemberId(), req.GetChangedByUserId())
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "SetBrigadeMemberAvailability", err)
 	}
@@ -390,6 +424,7 @@ func (h *BrigadeHandler) SetBrigadeMemberAvailability(ctx context.Context, req *
 		RequestID:         requestIDFromContext(ctx),
 		TraceID:           traceIDFromContext(ctx),
 	})
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "SetBrigadeMemberAvailability", err)
 	}
@@ -401,17 +436,20 @@ func (h *BrigadeHandler) ListBrigadeMembers(ctx context.Context, req *brigadev1.
 	logger := h.requestLogger(ctx, "ListBrigadeMembers")
 
 	brigadeID, err := parseUUID(req.GetBrigadeId(), "brigade_id")
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "ListBrigadeMembers", err)
 	}
 
 	var role *models.BrigadeMemberRole
+
 	if req.Role != nil && req.GetRole() != brigadev1.BrigadeMemberRole_BRIGADE_MEMBER_ROLE_UNSPECIFIED {
 		value := FromProtoMemberRole(req.GetRole())
 		role = &value
 	}
 
 	var availability *models.BrigadeMemberAvailabilityStatus
+
 	if req.AvailabilityStatus != nil && req.GetAvailabilityStatus() != brigadev1.BrigadeMemberAvailabilityStatus_BRIGADE_MEMBER_AVAILABILITY_STATUS_UNSPECIFIED {
 		value := FromProtoMemberAvailabilityStatus(req.GetAvailabilityStatus())
 		availability = &value
@@ -429,6 +467,7 @@ func (h *BrigadeHandler) ListBrigadeMembers(ctx context.Context, req *brigadev1.
 		ActorDepartmentID:  actor.DepartmentID,
 		ActorRoles:         actor.Roles,
 	})
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "ListBrigadeMembers", err)
 	}
@@ -440,10 +479,13 @@ func (h *BrigadeHandler) GetBrigadeMemberHistory(ctx context.Context, req *briga
 	logger := h.requestLogger(ctx, "GetBrigadeMemberHistory")
 
 	brigadeID, err := parseUUID(req.GetBrigadeId(), "brigade_id")
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "GetBrigadeMemberHistory", err)
 	}
+
 	memberID, err := parseOptionalUUIDPtr(req.MemberId, "member_id")
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "GetBrigadeMemberHistory", err)
 	}
@@ -458,6 +500,7 @@ func (h *BrigadeHandler) GetBrigadeMemberHistory(ctx context.Context, req *briga
 		ActorDepartmentID: actor.DepartmentID,
 		ActorRoles:        actor.Roles,
 	})
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "GetBrigadeMemberHistory", err)
 	}
@@ -474,10 +517,13 @@ func (h *BrigadeHandler) GetBrigadeMemberStatusHistory(ctx context.Context, req 
 	logger := h.requestLogger(ctx, "GetBrigadeMemberStatusHistory")
 
 	brigadeID, err := parseUUID(req.GetBrigadeId(), "brigade_id")
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "GetBrigadeMemberStatusHistory", err)
 	}
+
 	memberID, err := parseOptionalUUIDPtr(req.MemberId, "member_id")
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "GetBrigadeMemberStatusHistory", err)
 	}
@@ -492,6 +538,7 @@ func (h *BrigadeHandler) GetBrigadeMemberStatusHistory(ctx context.Context, req 
 		ActorDepartmentID: actor.DepartmentID,
 		ActorRoles:        actor.Roles,
 	})
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "GetBrigadeMemberStatusHistory", err)
 	}
@@ -508,6 +555,7 @@ func (h *BrigadeHandler) GetBrigadeByUserID(ctx context.Context, req *brigadev1.
 	logger := h.requestLogger(ctx, "GetBrigadeByUserID")
 
 	userID, err := parseUUID(req.GetUserId(), "user_id")
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "GetBrigadeByUserID", err)
 	}
@@ -516,6 +564,7 @@ func (h *BrigadeHandler) GetBrigadeByUserID(ctx context.Context, req *brigadev1.
 		UserID:     userID,
 		OnlyActive: req.GetOnlyActive(),
 	})
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "GetBrigadeByUserID", err)
 	}
@@ -539,6 +588,7 @@ func (h *BrigadeHandler) CreateSkill(ctx context.Context, req *brigadev1.CreateS
 		RequestID:   requestIDFromContext(ctx),
 		TraceID:     traceIDFromContext(ctx),
 	})
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "CreateSkill", err)
 	}
@@ -550,6 +600,7 @@ func (h *BrigadeHandler) UpdateSkill(ctx context.Context, req *brigadev1.UpdateS
 	logger := h.requestLogger(ctx, "UpdateSkill")
 
 	id, err := parseUUID(req.GetId(), "id")
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "UpdateSkill", err)
 	}
@@ -566,6 +617,7 @@ func (h *BrigadeHandler) UpdateSkill(ctx context.Context, req *brigadev1.UpdateS
 		RequestID:   requestIDFromContext(ctx),
 		TraceID:     traceIDFromContext(ctx),
 	})
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "UpdateSkill", err)
 	}
@@ -577,6 +629,7 @@ func (h *BrigadeHandler) DeactivateSkill(ctx context.Context, req *brigadev1.Dea
 	logger := h.requestLogger(ctx, "DeactivateSkill")
 
 	id, err := parseUUID(req.GetId(), "id")
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "DeactivateSkill", err)
 	}
@@ -589,6 +642,7 @@ func (h *BrigadeHandler) DeactivateSkill(ctx context.Context, req *brigadev1.Dea
 		RequestID:   requestIDFromContext(ctx),
 		TraceID:     traceIDFromContext(ctx),
 	})
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "DeactivateSkill", err)
 	}
@@ -608,6 +662,7 @@ func (h *BrigadeHandler) ListSkills(ctx context.Context, req *brigadev1.ListSkil
 		ActorUserID: actor.UserID,
 		ActorRoles:  actor.Roles,
 	})
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "ListSkills", err)
 	}
@@ -624,6 +679,7 @@ func (h *BrigadeHandler) AddBrigadeSkill(ctx context.Context, req *brigadev1.Add
 	logger := h.requestLogger(ctx, "AddBrigadeSkill")
 
 	brigadeID, skillID, err := parseBrigadeSkillIDs(req.GetBrigadeId(), req.GetSkillId())
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "AddBrigadeSkill", err)
 	}
@@ -638,6 +694,7 @@ func (h *BrigadeHandler) AddBrigadeSkill(ctx context.Context, req *brigadev1.Add
 		RequestID:         requestIDFromContext(ctx),
 		TraceID:           traceIDFromContext(ctx),
 	})
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "AddBrigadeSkill", err)
 	}
@@ -649,6 +706,7 @@ func (h *BrigadeHandler) RemoveBrigadeSkill(ctx context.Context, req *brigadev1.
 	logger := h.requestLogger(ctx, "RemoveBrigadeSkill")
 
 	brigadeID, skillID, err := parseBrigadeSkillIDs(req.GetBrigadeId(), req.GetSkillId())
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "RemoveBrigadeSkill", err)
 	}
@@ -663,6 +721,7 @@ func (h *BrigadeHandler) RemoveBrigadeSkill(ctx context.Context, req *brigadev1.
 		RequestID:         requestIDFromContext(ctx),
 		TraceID:           traceIDFromContext(ctx),
 	})
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "RemoveBrigadeSkill", err)
 	}
@@ -674,6 +733,7 @@ func (h *BrigadeHandler) ListBrigadeSkills(ctx context.Context, req *brigadev1.L
 	logger := h.requestLogger(ctx, "ListBrigadeSkills")
 
 	brigadeID, err := parseUUID(req.GetBrigadeId(), "brigade_id")
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "ListBrigadeSkills", err)
 	}
@@ -686,6 +746,7 @@ func (h *BrigadeHandler) ListBrigadeSkills(ctx context.Context, req *brigadev1.L
 		ActorDepartmentID: actor.DepartmentID,
 		ActorRoles:        actor.Roles,
 	})
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "ListBrigadeSkills", err)
 	}
@@ -702,10 +763,13 @@ func (h *BrigadeHandler) SetBrigadeSchedule(ctx context.Context, req *brigadev1.
 	logger := h.requestLogger(ctx, "SetBrigadeSchedule")
 
 	brigadeID, err := parseUUID(req.GetBrigadeId(), "brigade_id")
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "SetBrigadeSchedule", err)
 	}
+
 	items, err := fromProtoScheduleItems(req.GetItems())
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "SetBrigadeSchedule", err)
 	}
@@ -720,6 +784,7 @@ func (h *BrigadeHandler) SetBrigadeSchedule(ctx context.Context, req *brigadev1.
 		RequestID:         requestIDFromContext(ctx),
 		TraceID:           traceIDFromContext(ctx),
 	})
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "SetBrigadeSchedule", err)
 	}
@@ -731,6 +796,7 @@ func (h *BrigadeHandler) ListBrigadeSchedule(ctx context.Context, req *brigadev1
 	logger := h.requestLogger(ctx, "ListBrigadeSchedule")
 
 	brigadeID, err := parseUUID(req.GetBrigadeId(), "brigade_id")
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "ListBrigadeSchedule", err)
 	}
@@ -743,6 +809,7 @@ func (h *BrigadeHandler) ListBrigadeSchedule(ctx context.Context, req *brigadev1
 		ActorDepartmentID: actor.DepartmentID,
 		ActorRoles:        actor.Roles,
 	})
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "ListBrigadeSchedule", err)
 	}
@@ -754,10 +821,13 @@ func (h *BrigadeHandler) CreateBrigadeZone(ctx context.Context, req *brigadev1.C
 	logger := h.requestLogger(ctx, "CreateBrigadeZone")
 
 	brigadeID, err := parseUUID(req.GetBrigadeId(), "brigade_id")
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "CreateBrigadeZone", err)
 	}
+
 	departmentID, err := parseUUID(req.GetDepartmentId(), "department_id")
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "CreateBrigadeZone", err)
 	}
@@ -775,6 +845,7 @@ func (h *BrigadeHandler) CreateBrigadeZone(ctx context.Context, req *brigadev1.C
 		RequestID:         requestIDFromContext(ctx),
 		TraceID:           traceIDFromContext(ctx),
 	})
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "CreateBrigadeZone", err)
 	}
@@ -786,6 +857,7 @@ func (h *BrigadeHandler) UpdateBrigadeZone(ctx context.Context, req *brigadev1.U
 	logger := h.requestLogger(ctx, "UpdateBrigadeZone")
 
 	id, err := parseUUID(req.GetId(), "id")
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "UpdateBrigadeZone", err)
 	}
@@ -803,6 +875,7 @@ func (h *BrigadeHandler) UpdateBrigadeZone(ctx context.Context, req *brigadev1.U
 		RequestID:         requestIDFromContext(ctx),
 		TraceID:           traceIDFromContext(ctx),
 	})
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "UpdateBrigadeZone", err)
 	}
@@ -814,6 +887,7 @@ func (h *BrigadeHandler) DeleteBrigadeZone(ctx context.Context, req *brigadev1.D
 	logger := h.requestLogger(ctx, "DeleteBrigadeZone")
 
 	id, err := parseUUID(req.GetId(), "id")
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "DeleteBrigadeZone", err)
 	}
@@ -827,6 +901,7 @@ func (h *BrigadeHandler) DeleteBrigadeZone(ctx context.Context, req *brigadev1.D
 		RequestID:         requestIDFromContext(ctx),
 		TraceID:           traceIDFromContext(ctx),
 	})
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "DeleteBrigadeZone", err)
 	}
@@ -838,6 +913,7 @@ func (h *BrigadeHandler) ListBrigadeZones(ctx context.Context, req *brigadev1.Li
 	logger := h.requestLogger(ctx, "ListBrigadeZones")
 
 	brigadeID, err := parseUUID(req.GetBrigadeId(), "brigade_id")
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "ListBrigadeZones", err)
 	}
@@ -850,6 +926,7 @@ func (h *BrigadeHandler) ListBrigadeZones(ctx context.Context, req *brigadev1.Li
 		ActorDepartmentID: actor.DepartmentID,
 		ActorRoles:        actor.Roles,
 	})
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "ListBrigadeZones", err)
 	}
@@ -861,6 +938,7 @@ func (h *BrigadeHandler) CheckBrigadeCoversPoint(ctx context.Context, req *briga
 	logger := h.requestLogger(ctx, "CheckBrigadeCoversPoint")
 
 	brigadeID, err := parseUUID(req.GetBrigadeId(), "brigade_id")
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "CheckBrigadeCoversPoint", err)
 	}
@@ -870,6 +948,7 @@ func (h *BrigadeHandler) CheckBrigadeCoversPoint(ctx context.Context, req *briga
 		Longitude: req.GetLongitude(),
 		Latitude:  req.GetLatitude(),
 	})
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "CheckBrigadeCoversPoint", err)
 	}
@@ -884,10 +963,13 @@ func (h *BrigadeHandler) FindBrigadesByPoint(ctx context.Context, req *brigadev1
 	logger := h.requestLogger(ctx, "FindBrigadesByPoint")
 
 	departmentID, err := parseUUID(req.GetDepartmentId(), "department_id")
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "FindBrigadesByPoint", err)
 	}
+
 	requiredSkills, err := parseUUIDSlice(req.GetRequiredSkillIds(), "required_skill_ids")
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "FindBrigadesByPoint", err)
 	}
@@ -902,6 +984,7 @@ func (h *BrigadeHandler) FindBrigadesByPoint(ctx context.Context, req *brigadev1
 		Limit:            req.GetLimit(),
 		Offset:           req.GetOffset(),
 	})
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "FindBrigadesByPoint", err)
 	}
@@ -913,10 +996,13 @@ func (h *BrigadeHandler) GetAvailableBrigades(ctx context.Context, req *brigadev
 	logger := h.requestLogger(ctx, "GetAvailableBrigades")
 
 	departmentID, err := parseUUID(req.GetDepartmentId(), "department_id")
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "GetAvailableBrigades", err)
 	}
+
 	requiredSkills, err := parseUUIDSlice(req.GetRequiredSkillIds(), "required_skill_ids")
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "GetAvailableBrigades", err)
 	}
@@ -930,6 +1016,7 @@ func (h *BrigadeHandler) GetAvailableBrigades(ctx context.Context, req *brigadev
 		Limit:            req.GetLimit(),
 		Offset:           req.GetOffset(),
 	})
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "GetAvailableBrigades", err)
 	}
@@ -941,14 +1028,19 @@ func (h *BrigadeHandler) CheckBrigadeCanHandleTicket(ctx context.Context, req *b
 	logger := h.requestLogger(ctx, "CheckBrigadeCanHandleTicket")
 
 	brigadeID, err := parseUUID(req.GetBrigadeId(), "brigade_id")
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "CheckBrigadeCanHandleTicket", err)
 	}
+
 	departmentID, err := parseUUID(req.GetDepartmentId(), "department_id")
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "CheckBrigadeCanHandleTicket", err)
 	}
+
 	requiredSkills, err := parseUUIDSlice(req.GetRequiredSkillIds(), "required_skill_ids")
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "CheckBrigadeCanHandleTicket", err)
 	}
@@ -961,6 +1053,7 @@ func (h *BrigadeHandler) CheckBrigadeCanHandleTicket(ctx context.Context, req *b
 		RequiredSkillIDs: requiredSkills,
 		RequiredRoles:    fromProtoRequiredRoles(req.GetRequiredRoles()),
 	})
+
 	if err != nil {
 		return nil, h.logAndMapError(logger, "CheckBrigadeCanHandleTicket", err)
 	}
@@ -984,28 +1077,35 @@ func (h *BrigadeHandler) logAndMapError(logger *zap.Logger, method string, err e
 
 func parseUUID(value string, field string) (uuid.UUID, error) {
 	parsed, err := uuid.Parse(value)
+
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("%w: invalid %s: %v", models.ErrValidation, field, err)
 	}
+
 	return parsed, nil
 }
 
 func parseOptionalUUID(value string, field string) (*uuid.UUID, error) {
+
 	if strings.TrimSpace(value) == "" {
 		return nil, nil
 	}
 
 	parsed, err := parseUUID(value, field)
+
 	if err != nil {
 		return nil, err
 	}
+
 	return &parsed, nil
 }
 
 func parseOptionalUUIDPtr(value *string, field string) (*uuid.UUID, error) {
+
 	if value == nil {
 		return nil, nil
 	}
+
 	return parseOptionalUUID(*value, field)
 }
 
@@ -1013,9 +1113,11 @@ func parseUUIDSlice(values []string, field string) ([]uuid.UUID, error) {
 	result := make([]uuid.UUID, 0, len(values))
 	for _, value := range values {
 		parsed, err := parseUUID(value, field)
+
 		if err != nil {
 			return nil, err
 		}
+
 		result = append(result, parsed)
 	}
 	return result, nil
@@ -1031,99 +1133,129 @@ func fromProtoRequiredRoles(values []brigadev1.BrigadeMemberRole) []models.Briga
 
 func parseIDAndChangedBy(idValue string, changedByValue string) (uuid.UUID, *uuid.UUID, error) {
 	id, err := parseUUID(idValue, "id")
+
 	if err != nil {
 		return uuid.Nil, nil, err
 	}
+
 	changedBy, err := parseOptionalUUID(changedByValue, "changed_by_user_id")
+
 	if err != nil {
 		return uuid.Nil, nil, err
 	}
+
 	return id, changedBy, nil
 }
 
 func parseBrigadeMemberChangedBy(brigadeIDValue string, memberIDValue string, changedByValue string) (uuid.UUID, uuid.UUID, *uuid.UUID, error) {
 	brigadeID, err := parseUUID(brigadeIDValue, "brigade_id")
+
 	if err != nil {
 		return uuid.Nil, uuid.Nil, nil, err
 	}
+
 	memberID, err := parseUUID(memberIDValue, "member_id")
+
 	if err != nil {
 		return uuid.Nil, uuid.Nil, nil, err
 	}
+
 	changedBy, err := parseOptionalUUID(changedByValue, "changed_by_user_id")
+
 	if err != nil {
 		return uuid.Nil, uuid.Nil, nil, err
 	}
+
 	return brigadeID, memberID, changedBy, nil
 }
 
 func parseBrigadeSkillIDs(brigadeIDValue string, skillIDValue string) (uuid.UUID, uuid.UUID, error) {
 	brigadeID, err := parseUUID(brigadeIDValue, "brigade_id")
+
 	if err != nil {
 		return uuid.Nil, uuid.Nil, err
 	}
+
 	skillID, err := parseUUID(skillIDValue, "skill_id")
+
 	if err != nil {
 		return uuid.Nil, uuid.Nil, err
 	}
+
 	return brigadeID, skillID, nil
 }
 
 func optionalString(value string) *string {
+
 	if strings.TrimSpace(value) == "" {
 		return nil
 	}
+
 	return &value
 }
 
 func requestIDFromContext(ctx context.Context) *string {
 	requestID, ok := pkg.RequestIDFromContext(ctx)
+
 	if !ok {
 		return nil
 	}
+
 	return &requestID
 }
 
 func traceIDFromContext(ctx context.Context) *string {
 	md, ok := metadata.FromIncomingContext(ctx)
+
 	if !ok {
 		return nil
 	}
+
 	for _, key := range []string{"x-trace-id", "trace-id", "trace_id"} {
+
 		if values := md.Get(key); len(values) > 0 && strings.TrimSpace(values[0]) != "" {
 			value := strings.TrimSpace(values[0])
 			return &value
 		}
+
 	}
 	return nil
 }
 
 func actorFromContext(ctx context.Context) actorContext {
 	md, ok := metadata.FromIncomingContext(ctx)
+
 	if !ok {
 		return actorContext{}
 	}
 
 	var actor actorContext
+
 	if values := md.Get("x-actor-user-id"); len(values) > 0 && strings.TrimSpace(values[0]) != "" {
+
 		if parsed, err := uuid.Parse(strings.TrimSpace(values[0])); err == nil {
 			actor.UserID = &parsed
 		}
+
 	}
 
 	if values := md.Get("x-actor-department-id"); len(values) > 0 && strings.TrimSpace(values[0]) != "" {
+
 		if parsed, err := uuid.Parse(strings.TrimSpace(values[0])); err == nil {
 			actor.DepartmentID = &parsed
 		}
+
 	}
 
 	if values := md.Get("x-actor-roles"); len(values) > 0 {
 		for _, value := range values {
 			for _, role := range strings.Split(value, ",") {
 				role = strings.TrimSpace(role)
+
 				if role != "" {
 					actor.Roles = append(actor.Roles, role)
 				}
+
 			}
 		}
 	}
@@ -1135,10 +1267,13 @@ func fromProtoScheduleItems(items []*brigadev1.BrigadeScheduleItem) ([]*models.B
 	result := make([]*models.BrigadeScheduleItem, 0, len(items))
 	for _, item := range items {
 		validFrom, err := parseDatePtr(item.ValidFrom, "valid_from")
+
 		if err != nil {
 			return nil, err
 		}
+
 		validTo, err := parseDatePtr(item.ValidTo, "valid_to")
+
 		if err != nil {
 			return nil, err
 		}
@@ -1156,14 +1291,17 @@ func fromProtoScheduleItems(items []*brigadev1.BrigadeScheduleItem) ([]*models.B
 }
 
 func parseDatePtr(value *string, field string) (*time.Time, error) {
+
 	if value == nil || strings.TrimSpace(*value) == "" {
 		return nil, nil
 	}
 
 	parsed, err := time.Parse(time.DateOnly, strings.TrimSpace(*value))
+
 	if err != nil {
 		return nil, fmt.Errorf("%w: invalid %s: %v", models.ErrValidation, field, err)
 	}
+
 	return &parsed, nil
 }
 
@@ -1204,6 +1342,7 @@ func brigadeStatusError(method string, err error) error {
 }
 
 func brigadeErrorCode(err error) codes.Code {
+
 	if err == nil {
 		return codes.OK
 	}

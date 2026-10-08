@@ -55,22 +55,27 @@ type Extrapolated struct {
 func WriteJSON(writer io.Writer, summary Summary) error {
 	encoder := json.NewEncoder(writer)
 	encoder.SetIndent("", "  ")
+
 	if err := encoder.Encode(summary); err != nil {
 		return fmt.Errorf("encode summary JSON: %w", err)
 	}
+
 	return nil
 }
 func WriteCSV(writer io.Writer, summary Summary) error {
 	csvWriter := csv.NewWriter(writer)
 	rows := [][]string{{"scenario", "sustainable", "knee", "failure", "p95_ms", "p99_ms", "bottleneck", "confidence"}, {summary.Scenario, optional(summary.SustainableThroughput), optional(summary.KneePoint), optional(summary.FailurePoint), strconv.FormatFloat(summary.Latency.P95MS, 'f', 3, 64), strconv.FormatFloat(summary.Latency.P99MS, 'f', 3, 64), summary.Bottleneck.Component, summary.Bottleneck.Confidence}}
+
 	if err := csvWriter.WriteAll(rows); err != nil {
 		return fmt.Errorf("encode summary CSV: %w", err)
 	}
+
 	return nil
 }
 func WriteMarkdown(writer io.Writer, summary Summary) error {
 	sustainable := optional(summary.SustainableThroughput)
 	text := fmt.Sprintf("# Automatic System Capacity Report\n\n## Capacity\n\n| Scenario | Sustainable | Knee | Failure | p95 | p99 | Bottleneck |\n|---|---:|---:|---:|---:|---:|---|\n| %s | %s | %s | %s | %.2f ms | %.2f ms | %s (%s) |\n\n## Confidence / Limitations\n\n", summary.Scenario, sustainable, optional(summary.KneePoint), optional(summary.FailurePoint), summary.Latency.P95MS, summary.Latency.P99MS, summary.Bottleneck.Component, summary.Bottleneck.Confidence)
+
 	if len(summary.Limitations) == 0 {
 		text += "- No limitations were recorded.\n"
 	} else {
@@ -78,15 +83,20 @@ func WriteMarkdown(writer io.Writer, summary Summary) error {
 			text += "- " + limitation + "\n"
 		}
 	}
+
 	text += "\nMeasured stages are listed in summary.json. Extrapolated values are separate and include confidence and basis.\n"
+
 	if _, err := io.Copy(writer, strings.NewReader(text)); err != nil {
 		return fmt.Errorf("write Markdown report: %w", err)
 	}
+
 	return nil
 }
 func optional(value *float64) string {
+
 	if value == nil {
 		return "N/A"
 	}
+
 	return strconv.FormatFloat(*value, 'f', 3, 64)
 }

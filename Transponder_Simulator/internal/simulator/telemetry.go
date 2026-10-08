@@ -30,13 +30,17 @@ type Position struct {
 
 func NewEvent(cfg Config, current Point, next Point, sequence uint64, now time.Time) Event {
 	speed := cfg.DefaultSpeed
+
 	if current.SpeedKMH != nil {
 		speed = *current.SpeedKMH
 	}
+
 	accuracy := cfg.AccuracyMeters
+
 	if current.Accuracy != nil {
 		accuracy = *current.Accuracy
 	}
+
 	return Event{
 		EventID:      newUUID(),
 		EventType:    "VehiclePositionUpdated",
@@ -52,9 +56,11 @@ func NewEvent(cfg Config, current Point, next Point, sequence uint64, now time.T
 }
 
 func heading(from, to Point) float64 {
+
 	if from.Latitude == to.Latitude && from.Longitude == to.Longitude {
 		return 0
 	}
+
 	lat1 := from.Latitude * math.Pi / 180
 	lat2 := to.Latitude * math.Pi / 180
 	deltaLongitude := (to.Longitude - from.Longitude) * math.Pi / 180
@@ -66,9 +72,11 @@ func heading(from, to Point) float64 {
 
 func newUUID() string {
 	var value [16]byte
+
 	if _, err := rand.Read(value[:]); err != nil {
 		return hex.EncodeToString([]byte(time.Now().UTC().Format(time.RFC3339Nano)))
 	}
+
 	value[6] = (value[6] & 0x0f) | 0x40
 	value[8] = (value[8] & 0x3f) | 0x80
 	return hex.EncodeToString(value[0:4]) + "-" +

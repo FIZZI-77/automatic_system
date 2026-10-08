@@ -25,17 +25,21 @@ func NewPostgresDB(cfg Config) (*pgxpool.Pool, error) {
 		cfg.Host, cfg.Port, cfg.Username, cfg.DbName, cfg.Password, cfg.SSLMode)
 
 	poolSettings := make([]string, 0, 2)
+
 	if cfg.MaxConns > 0 {
 		poolSettings = append(poolSettings, fmt.Sprintf("pool_max_conns=%d", cfg.MaxConns))
 	}
+
 	if cfg.MinConns > 0 {
 		poolSettings = append(poolSettings, fmt.Sprintf("pool_min_conns=%d", cfg.MinConns))
 	}
+
 	if len(poolSettings) > 0 {
 		connString += " " + strings.Join(poolSettings, " ")
 	}
 
 	db, err := telemetry.NewPostgresPool(context.Background(), connString)
+
 	if err != nil {
 		return nil, err
 	}
@@ -44,5 +48,6 @@ func NewPostgresDB(cfg Config) (*pgxpool.Pool, error) {
 		db.Close()
 		return nil, err
 	}
+
 	return db, nil
 }

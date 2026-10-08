@@ -34,6 +34,7 @@ func setupTestDB(t *testing.T) (*pgxpool.Pool, func()) {
 				WithStartupTimeout(60*time.Second),
 		),
 	)
+
 	if err != nil {
 		t.Fatalf("failed to start postgres container: %v", err)
 	}
@@ -43,12 +44,14 @@ func setupTestDB(t *testing.T) (*pgxpool.Pool, func()) {
 	}
 
 	connStr, err := container.ConnectionString(ctx, "sslmode=disable")
+
 	if err != nil {
 		cleanup()
 		t.Fatalf("failed to get connection string: %v", err)
 	}
 
 	migrationDB, err := sql.Open("pgx", connStr)
+
 	if err != nil {
 		cleanup()
 		t.Fatalf("failed to open db: %v", err)
@@ -63,10 +66,12 @@ func setupTestDB(t *testing.T) (*pgxpool.Pool, func()) {
 
 	runMigrations(t, migrationDB)
 	pool, err := pgxpool.New(ctx, connStr)
+
 	if err != nil {
 		cleanup()
 		t.Fatalf("failed to open pgx pool: %v", err)
 	}
+
 	cleanup = func() {
 		pool.Close()
 		_ = migrationDB.Close()
@@ -88,6 +93,7 @@ func runMigrations(t *testing.T, db *sql.DB) {
 	if err := goose.Up(db, migrationsDir); err != nil {
 		t.Fatalf("failed to apply goose migrations from %s: %v", migrationsDir, err)
 	}
+
 }
 
 func createTestUser(t *testing.T, repo *Repo) uuid.UUID {
@@ -100,6 +106,7 @@ func createTestUser(t *testing.T, repo *Repo) uuid.UUID {
 		IsActive:      true,
 		EmailVerified: false,
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create test user: %v", err)
 	}
@@ -117,6 +124,7 @@ func createTestSession(t *testing.T, repo *Repo, userID uuid.UUID) uuid.UUID {
 		UserAgent: "Mozilla/5.0",
 		ExpiresAt: time.Now().Add(time.Hour),
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create test session: %v", err)
 	}
@@ -135,6 +143,7 @@ func createTestOneTimeToken(t *testing.T, repo *Repo, userID uuid.UUID, tokenTyp
 		Type:      tokenType,
 		ExpiresAt: time.Now().Add(time.Hour),
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create test one-time token: %v", err)
 	}
@@ -149,6 +158,7 @@ func waitForDB(t *testing.T, ctx context.Context, db *sql.DB) {
 
 	for i := 0; i < 30; i++ {
 		err = db.PingContext(ctx)
+
 		if err == nil {
 			return
 		}

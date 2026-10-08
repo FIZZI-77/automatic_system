@@ -31,6 +31,7 @@ func TestOneTimeTokenRepo_CreateOneTimeToken(t *testing.T) {
 	}
 
 	err := oneTimeRepo.CreateOneTimeToken(ctx, token)
+
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -42,6 +43,7 @@ func TestOneTimeTokenRepo_CreateOneTimeToken(t *testing.T) {
 	if token.CreatedAt.IsZero() {
 		t.Fatal("expected created_at to be filled")
 	}
+
 }
 
 func TestOneTimeTokenRepo_GetOneTimeTokenByHashAndType_Success(t *testing.T) {
@@ -64,6 +66,7 @@ func TestOneTimeTokenRepo_GetOneTimeTokenByHashAndType_Success(t *testing.T) {
 	}
 
 	err := oneTimeRepo.CreateOneTimeToken(ctx, token)
+
 	if err != nil {
 		t.Fatalf("failed to create one-time token: %v", err)
 	}
@@ -73,6 +76,7 @@ func TestOneTimeTokenRepo_GetOneTimeTokenByHashAndType_Success(t *testing.T) {
 		tokenHash,
 		models.TokenTypeEmailVerification,
 	)
+
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -100,6 +104,7 @@ func TestOneTimeTokenRepo_GetOneTimeTokenByHashAndType_Success(t *testing.T) {
 	if foundToken.CreatedAt.IsZero() {
 		t.Fatal("expected created_at not zero")
 	}
+
 }
 
 func TestOneTimeTokenRepo_GetOneTimeTokenByHashAndType_NotFound(t *testing.T) {
@@ -126,6 +131,7 @@ func TestOneTimeTokenRepo_GetOneTimeTokenByHashAndType_NotFound(t *testing.T) {
 	if !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("expected sql.ErrNoRows inside error, got %v", err)
 	}
+
 }
 
 func TestOneTimeTokenRepo_GetOneTimeTokenByHashAndType_WrongType(t *testing.T) {
@@ -145,6 +151,7 @@ func TestOneTimeTokenRepo_GetOneTimeTokenByHashAndType_WrongType(t *testing.T) {
 		Type:      models.TokenTypeEmailVerification,
 		ExpiresAt: time.Now().Add(time.Hour),
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create one-time token: %v", err)
 	}
@@ -166,6 +173,7 @@ func TestOneTimeTokenRepo_GetOneTimeTokenByHashAndType_WrongType(t *testing.T) {
 	if !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("expected sql.ErrNoRows inside error, got %v", err)
 	}
+
 }
 
 func TestOneTimeTokenRepo_MarkOneTimeTokenUsed_Success(t *testing.T) {
@@ -187,11 +195,13 @@ func TestOneTimeTokenRepo_MarkOneTimeTokenUsed_Success(t *testing.T) {
 	}
 
 	err := oneTimeRepo.CreateOneTimeToken(ctx, token)
+
 	if err != nil {
 		t.Fatalf("failed to create one-time token: %v", err)
 	}
 
 	err = oneTimeRepo.MarkOneTimeTokenUsed(ctx, token.ID)
+
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -201,6 +211,7 @@ func TestOneTimeTokenRepo_MarkOneTimeTokenUsed_Success(t *testing.T) {
 		tokenHash,
 		models.TokenTypeEmailVerification,
 	)
+
 	if err != nil {
 		t.Fatalf("failed to get updated token: %v", err)
 	}
@@ -208,6 +219,7 @@ func TestOneTimeTokenRepo_MarkOneTimeTokenUsed_Success(t *testing.T) {
 	if updatedToken.UsedAt == nil {
 		t.Fatal("expected used_at not nil")
 	}
+
 }
 
 func TestOneTimeTokenRepo_MarkOneTimeTokenUsed_AlreadyUsed(t *testing.T) {
@@ -229,19 +241,23 @@ func TestOneTimeTokenRepo_MarkOneTimeTokenUsed_AlreadyUsed(t *testing.T) {
 	}
 
 	err := oneTimeRepo.CreateOneTimeToken(ctx, token)
+
 	if err != nil {
 		t.Fatalf("failed to create one-time token: %v", err)
 	}
 
 	err = oneTimeRepo.MarkOneTimeTokenUsed(ctx, token.ID)
+
 	if err != nil {
 		t.Fatalf("first mark should be successful, got %v", err)
 	}
 
 	err = oneTimeRepo.MarkOneTimeTokenUsed(ctx, token.ID)
+
 	if err == nil {
 		t.Fatal("expected error for already used token")
 	}
+
 }
 
 func TestOneTimeTokenRepo_MarkOneTimeTokenUsed_NotFound(t *testing.T) {
@@ -252,9 +268,11 @@ func TestOneTimeTokenRepo_MarkOneTimeTokenUsed_NotFound(t *testing.T) {
 	oneTimeRepo := NewOneTimeTokenRepoStruct(db)
 
 	err := oneTimeRepo.MarkOneTimeTokenUsed(ctx, uuid.New())
+
 	if err == nil {
 		t.Fatal("expected error for unknown token")
 	}
+
 }
 
 func TestOneTimeTokenRepo_RevokeUnusedTokensByUserIDAndType(t *testing.T) {
@@ -278,6 +296,7 @@ func TestOneTimeTokenRepo_RevokeUnusedTokensByUserIDAndType(t *testing.T) {
 		Type:      models.TokenTypeEmailVerification,
 		ExpiresAt: time.Now().Add(time.Hour),
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create first token: %v", err)
 	}
@@ -288,6 +307,7 @@ func TestOneTimeTokenRepo_RevokeUnusedTokensByUserIDAndType(t *testing.T) {
 		Type:      models.TokenTypeEmailVerification,
 		ExpiresAt: time.Now().Add(time.Hour),
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create second token: %v", err)
 	}
@@ -298,6 +318,7 @@ func TestOneTimeTokenRepo_RevokeUnusedTokensByUserIDAndType(t *testing.T) {
 		Type:      models.TokenTypePasswordReset,
 		ExpiresAt: time.Now().Add(time.Hour),
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create password reset token: %v", err)
 	}
@@ -308,6 +329,7 @@ func TestOneTimeTokenRepo_RevokeUnusedTokensByUserIDAndType(t *testing.T) {
 		Type:      models.TokenTypeEmailVerification,
 		ExpiresAt: time.Now().Add(-time.Hour),
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create expired token: %v", err)
 	}
@@ -317,6 +339,7 @@ func TestOneTimeTokenRepo_RevokeUnusedTokensByUserIDAndType(t *testing.T) {
 		userID,
 		models.TokenTypeEmailVerification,
 	)
+
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -326,6 +349,7 @@ func TestOneTimeTokenRepo_RevokeUnusedTokensByUserIDAndType(t *testing.T) {
 		firstHash,
 		models.TokenTypeEmailVerification,
 	)
+
 	if err != nil {
 		t.Fatalf("failed to get first token: %v", err)
 	}
@@ -335,6 +359,7 @@ func TestOneTimeTokenRepo_RevokeUnusedTokensByUserIDAndType(t *testing.T) {
 		secondHash,
 		models.TokenTypeEmailVerification,
 	)
+
 	if err != nil {
 		t.Fatalf("failed to get second token: %v", err)
 	}
@@ -344,6 +369,7 @@ func TestOneTimeTokenRepo_RevokeUnusedTokensByUserIDAndType(t *testing.T) {
 		passwordResetHash,
 		models.TokenTypePasswordReset,
 	)
+
 	if err != nil {
 		t.Fatalf("failed to get password reset token: %v", err)
 	}
@@ -353,6 +379,7 @@ func TestOneTimeTokenRepo_RevokeUnusedTokensByUserIDAndType(t *testing.T) {
 		expiredHash,
 		models.TokenTypeEmailVerification,
 	)
+
 	if err != nil {
 		t.Fatalf("failed to get expired token: %v", err)
 	}
@@ -372,4 +399,5 @@ func TestOneTimeTokenRepo_RevokeUnusedTokensByUserIDAndType(t *testing.T) {
 	if expiredToken.UsedAt != nil {
 		t.Fatal("expected expired token not to be revoked")
 	}
+
 }

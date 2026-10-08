@@ -52,21 +52,27 @@ func TestUserChecker(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			checker := NewUserChecker(authClientStub{get: func(_ context.Context, in *authv1.GetUserAuthInfoRequest, _ ...grpc.CallOption) (*authv1.GetUserAuthInfoResponse, error) {
+
 				if in.GetUserId() != userID.String() {
 					t.Fatalf("user id = %q", in.GetUserId())
 				}
+
 				return tt.response, tt.err
 			}})
 			err := checker.EnsureUserExists(context.Background(), userID)
+
 			if tt.wantErr == "" && err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
+
 			if tt.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tt.wantErr)) {
 				t.Fatalf("error = %v, want containing %q", err, tt.wantErr)
 			}
+
 			if tt.err != nil && !errors.Is(err, tt.err) {
 				t.Fatalf("error does not wrap upstream error: %v", err)
 			}
+
 		})
 	}
 }
@@ -93,24 +99,31 @@ func TestDepartmentChecker(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			checker := NewDepartmentChecker(departmentClientStub{get: func(_ context.Context, in *departmentv1.GetDepartmentByIDRequest, _ ...grpc.CallOption) (*departmentv1.GetDepartmentByIDResponse, error) {
+
 				if in.GetId() != departmentID.String() {
 					t.Fatalf("department id = %q", in.GetId())
 				}
+
 				return tt.response, tt.err
 			}})
 			err := checker.EnsureDepartmentActive(context.Background(), departmentID)
+
 			if tt.wantErr == "" && err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
+
 			if tt.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tt.wantErr)) {
 				t.Fatalf("error = %v, want containing %q", err, tt.wantErr)
 			}
+
 			if tt.err != nil && !errors.Is(err, tt.err) {
 				t.Fatalf("error does not wrap upstream error: %v", err)
 			}
+
 			if got := errors.Is(err, models.ErrNotFound); got != tt.wantNotFound {
 				t.Errorf("EnsureDepartmentActive(%s) not-found mapping = %t, want %t", departmentID, got, tt.wantNotFound)
 			}
+
 		})
 	}
 }

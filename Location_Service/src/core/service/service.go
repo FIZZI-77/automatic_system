@@ -80,9 +80,11 @@ func NewServiceWithLogger(
 	history PositionHistorySink,
 	logger *zap.Logger,
 ) *Service {
+
 	if logger == nil {
 		logger = zap.NewNop()
 	}
+
 	return &Service{
 		PositionService: NewPositionServiceStructWithLogger(repo, history, logger),
 		GeoZoneService:  NewGeoZoneServiceStructWithLogger(repo, logger),

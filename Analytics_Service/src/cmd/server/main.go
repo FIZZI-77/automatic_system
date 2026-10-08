@@ -31,9 +31,11 @@ func main() {
 	}
 
 	defer func() {
+
 		if shutdownErr := telemetryProviders.Close(); shutdownErr != nil {
 			log.Printf("shutdown OpenTelemetry: %v", shutdownErr)
 		}
+
 	}()
 
 	if e := appconfig.Load(); e != nil {
@@ -67,6 +69,7 @@ func main() {
 	if e != nil {
 		logger.Fatal("clickhouse failed", zap.Error(e))
 	}
+
 	defer db.Close()
 
 	if e = db.Ping(ctx); e != nil {
@@ -107,10 +110,12 @@ func main() {
 
 	go func() {
 		logger.Info("analytics gRPC started", zap.String("address", lis.Addr().String()))
+
 		if e := server.Serve(lis); e != nil && ctx.Err() == nil {
 			logger.Error("gRPC stopped", zap.Error(e))
 			stop()
 		}
+
 	}()
 
 	<-ctx.Done()
@@ -120,14 +125,18 @@ func main() {
 	server.GracefulStop()
 }
 func run(c context.Context, n string, f func(context.Context) error, l *zap.Logger) {
+
 	if e := f(c); e != nil && c.Err() == nil {
 		l.Error(n+" stopped", zap.Error(e))
 	}
+
 }
 func env(k, d string) string {
+
 	if v := strings.TrimSpace(os.Getenv(k)); v != "" {
 		return v
 	}
+
 	return d
 }
 func required(k string) string {
@@ -142,9 +151,11 @@ func required(k string) string {
 func split(v string) []string {
 	var out []string
 	for _, x := range strings.Split(v, ",") {
+
 		if x = strings.TrimSpace(x); x != "" {
 			out = append(out, x)
 		}
+
 	}
 	return out
 }

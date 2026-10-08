@@ -27,9 +27,11 @@ func (h *Handler) BuildRoute(
 	request *routingv1.BuildRouteRequest,
 ) (*routingv1.BuildRouteResponse, error) {
 	route, err := h.service.BuildRoute(ctx, buildRouteInput(request))
+
 	if err != nil {
 		return nil, mapError(err)
 	}
+
 	return &routingv1.BuildRouteResponse{
 		Route: calculatedRouteToProto(route),
 	}, nil
@@ -44,9 +46,11 @@ func (h *Handler) BuildMatrix(
 		Targets: pointsFromProto(request.GetTargets()),
 		Options: optionsFromProto(request.GetOptions()),
 	})
+
 	if err != nil {
 		return nil, mapError(err)
 	}
+
 	result := make([]*routingv1.MatrixCell, 0, len(cells))
 	for _, cell := range cells {
 		result = append(result, &routingv1.MatrixCell{
@@ -77,9 +81,11 @@ func (h *Handler) RankCandidates(
 		Options:     optionsFromProto(request.GetOptions()),
 		Limit:       request.GetLimit(),
 	})
+
 	if err != nil {
 		return nil, mapError(err)
 	}
+
 	result := make([]*routingv1.RankedCandidate, 0, len(ranked))
 	for _, candidate := range ranked {
 		result = append(result, &routingv1.RankedCandidate{
@@ -106,9 +112,11 @@ func (h *Handler) CreateRoute(
 		Waypoints:   pointsFromProto(request.GetWaypoints()),
 		Options:     optionsFromProto(request.GetOptions()),
 	})
+
 	if err != nil {
 		return nil, mapError(err)
 	}
+
 	return &routingv1.CreateRouteResponse{Route: routeToProto(route)}, nil
 }
 
@@ -117,9 +125,11 @@ func (h *Handler) GetRoute(
 	request *routingv1.GetRouteRequest,
 ) (*routingv1.GetRouteResponse, error) {
 	route, err := h.service.GetRoute(ctx, request.GetId())
+
 	if err != nil {
 		return nil, mapError(err)
 	}
+
 	return &routingv1.GetRouteResponse{Route: routeToProto(route)}, nil
 }
 
@@ -131,9 +141,11 @@ func (h *Handler) RecalculateRoute(
 		ID:              request.GetId(),
 		CurrentPosition: pointFromProto(request.GetCurrentPosition()),
 	})
+
 	if err != nil {
 		return nil, mapError(err)
 	}
+
 	return &routingv1.RecalculateRouteResponse{Route: routeToProto(route)}, nil
 }
 
@@ -146,9 +158,11 @@ func (h *Handler) SetRouteStatus(
 		request.GetId(),
 		statusFromProto(request.GetStatus()),
 	)
+
 	if err != nil {
 		return nil, mapError(err)
 	}
+
 	return &routingv1.SetRouteStatusResponse{
 		Route: routeToProto(route),
 	}, nil
@@ -164,14 +178,18 @@ func (h *Handler) ListRoutes(
 		Limit:     request.GetLimit(),
 		Offset:    request.GetOffset(),
 	}
+
 	if request.Status != nil {
 		value := statusFromProto(request.GetStatus())
 		input.Status = &value
 	}
+
 	result, err := h.service.ListRoutes(ctx, input)
+
 	if err != nil {
 		return nil, mapError(err)
 	}
+
 	routes := make([]*routingv1.Route, 0, len(result.Routes))
 	for _, route := range result.Routes {
 		routes = append(routes, routeToProto(route))
@@ -192,9 +210,11 @@ func buildRouteInput(request *routingv1.BuildRouteRequest) *models.BuildRouteInp
 }
 
 func pointFromProto(point *routingv1.Point) models.Point {
+
 	if point == nil {
 		return models.Point{}
 	}
+
 	return models.Point{
 		Latitude:  point.GetLatitude(),
 		Longitude: point.GetLongitude(),
@@ -217,17 +237,21 @@ func pointsFromProto(points []*routingv1.Point) []models.Point {
 }
 
 func optionsFromProto(options *routingv1.RouteOptions) models.RouteOptions {
+
 	if options == nil {
 		return models.RouteOptions{}
 	}
+
 	result := models.RouteOptions{
 		TravelMode:   modeFromProto(options.GetTravelMode()),
 		Alternatives: options.GetAlternatives(),
 	}
+
 	if options.DepartureAt != nil {
 		value := options.DepartureAt.AsTime()
 		result.DepartureAt = &value
 	}
+
 	if options.Vehicle != nil {
 		result.Vehicle = &models.VehicleConstraints{
 			HeightMeters:       options.Vehicle.HeightMeters,
@@ -238,6 +262,7 @@ func optionsFromProto(options *routingv1.RouteOptions) models.RouteOptions {
 			HazardousMaterials: options.Vehicle.GetHazardousMaterials(),
 		}
 	}
+
 	return result
 }
 
@@ -246,9 +271,11 @@ func optionsToProto(options models.RouteOptions) *routingv1.RouteOptions {
 		TravelMode:   modeToProto(options.TravelMode),
 		Alternatives: options.Alternatives,
 	}
+
 	if options.DepartureAt != nil {
 		result.DepartureAt = timestamppb.New(*options.DepartureAt)
 	}
+
 	if options.Vehicle != nil {
 		result.Vehicle = &routingv1.VehicleConstraints{
 			HeightMeters:       options.Vehicle.HeightMeters,
@@ -259,13 +286,16 @@ func optionsToProto(options models.RouteOptions) *routingv1.RouteOptions {
 			HazardousMaterials: options.Vehicle.HazardousMaterials,
 		}
 	}
+
 	return result
 }
 
 func calculatedRouteToProto(route *models.CalculatedRoute) *routingv1.CalculatedRoute {
+
 	if route == nil {
 		return nil
 	}
+
 	legs := make([]*routingv1.RouteLeg, 0, len(route.Legs))
 	for _, leg := range route.Legs {
 		legs = append(legs, &routingv1.RouteLeg{
@@ -292,9 +322,11 @@ func calculatedRouteToProto(route *models.CalculatedRoute) *routingv1.Calculated
 }
 
 func routeToProto(route *models.Route) *routingv1.Route {
+
 	if route == nil {
 		return nil
 	}
+
 	waypoints := make([]*routingv1.Point, 0, len(route.Waypoints))
 	for _, point := range route.Waypoints {
 		waypoints = append(waypoints, pointToProto(point))

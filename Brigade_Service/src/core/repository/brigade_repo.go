@@ -43,6 +43,7 @@ type brigadeCreatedEventPayload struct {
 
 func (b *BrigadeRepoStruct) CreateBrigade(ctx context.Context, in *models.CreateBrigadeInput) (*models.CreateBrigadeResult, error) {
 	tx, err := b.writePool.Begin(ctx)
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: CreateBrigade: begin tx: %w", err)
 	}
@@ -50,10 +51,13 @@ func (b *BrigadeRepoStruct) CreateBrigade(ctx context.Context, in *models.Create
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	brigade, err := b.insertBrigade(ctx, tx, in)
+
 	if err != nil {
+
 		if isBrigadeNameUniqueViolation(err) {
 			return nil, fmt.Errorf("repo: CreateBrigade: %w", models.ErrAlreadyExists)
 		}
+
 		return nil, fmt.Errorf("repo: CreateBrigade: insert brigade: %w", err)
 	}
 
@@ -126,6 +130,7 @@ func (b *BrigadeRepoStruct) GetBrigadeByID(ctx context.Context, in *models.GetBr
 	row := b.readPool.QueryRow(ctx, query, in.ID)
 
 	brigade, err := scanBrigade(row)
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: GetBrigadeByID: scan brigade: %w", err)
 	}
@@ -145,20 +150,25 @@ func (b *BrigadeRepoStruct) ListBrigades(ctx context.Context, in *models.ListBri
 	if in.DepartmentID != nil {
 		addWhere("department_id = $%d", *in.DepartmentID)
 	}
+
 	if in.Status != nil {
 		addWhere("status = $%d", string(*in.Status))
 	}
+
 	if in.Specialization != nil {
 		addWhere("specialization = $%d", *in.Specialization)
 	}
+
 	if in.CreatedFrom != nil {
 		addWhere("created_at >= $%d", *in.CreatedFrom)
 	}
+
 	if in.CreatedTo != nil {
 		addWhere("created_at <= $%d", *in.CreatedTo)
 	}
 
 	whereSQL := ""
+
 	if len(whereParts) > 0 {
 		whereSQL = "WHERE " + strings.Join(whereParts, " AND ")
 	}
@@ -170,6 +180,7 @@ func (b *BrigadeRepoStruct) ListBrigades(ctx context.Context, in *models.ListBri
 	`, whereSQL)
 
 	var total int64
+
 	if err := b.readPool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, fmt.Errorf("repo: ListBrigades: scan count: %w", err)
 	}
@@ -200,15 +211,18 @@ func (b *BrigadeRepoStruct) ListBrigades(ctx context.Context, in *models.ListBri
 	`, whereSQL, sortBy, sortOrder, limitArg, offsetArg)
 
 	rows, err := b.readPool.Query(ctx, listQuery, args...)
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: ListBrigades: query: %w", err)
 	}
+
 	defer rows.Close()
 
 	brigades := make([]*models.Brigade, 0)
 
 	for rows.Next() {
 		brigade, err := scanBrigade(rows)
+
 		if err != nil {
 			return nil, fmt.Errorf("repo: ListBrigades: scan brigade: %w", err)
 		}
@@ -228,9 +242,11 @@ func (b *BrigadeRepoStruct) ListBrigades(ctx context.Context, in *models.ListBri
 
 func (b *BrigadeRepoStruct) UpdateBrigade(ctx context.Context, in *models.UpdateBrigadeInput) (*models.UpdateBrigadeResult, error) {
 	tx, err := b.writePool.Begin(ctx)
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: UpdateBrigade: begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	const query = `
@@ -255,6 +271,7 @@ func (b *BrigadeRepoStruct) UpdateBrigade(ctx context.Context, in *models.Update
 	`
 
 	brigade, err := scanBrigade(tx.QueryRow(ctx, query, in.Name, in.Description, in.Specialization, in.ID))
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: UpdateBrigade: scan brigade: %w", err)
 	}
@@ -269,6 +286,7 @@ func (b *BrigadeRepoStruct) UpdateBrigade(ctx context.Context, in *models.Update
 		"status":        brigade.Status,
 		"updated_at":    brigade.UpdatedAt,
 	}
+
 	if brigade.Specialization != nil {
 		payload["specialization"] = *brigade.Specialization
 	}
@@ -286,6 +304,7 @@ func (b *BrigadeRepoStruct) UpdateBrigade(ctx context.Context, in *models.Update
 
 func (b *BrigadeRepoStruct) DeactivateBrigade(ctx context.Context, in *models.DeactivateBrigadeInput) (*models.DeactivateBrigadeResult, error) {
 	brigade, err := b.setBrigadeStatusWithTx(ctx, in.ID, models.BrigadeStatusInactive, in.Reason, in.ChangedByUserID, in.RequestID, in.TraceID, true, false)
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: DeactivateBrigade: %w", err)
 	}
@@ -295,6 +314,7 @@ func (b *BrigadeRepoStruct) DeactivateBrigade(ctx context.Context, in *models.De
 
 func (b *BrigadeRepoStruct) ArchiveBrigade(ctx context.Context, in *models.ArchiveBrigadeInput) (*models.ArchiveBrigadeResult, error) {
 	brigade, err := b.setBrigadeStatusWithTx(ctx, in.ID, models.BrigadeStatusArchived, in.Reason, in.ChangedByUserID, in.RequestID, in.TraceID, false, true)
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: ArchiveBrigade: %w", err)
 	}
@@ -304,6 +324,7 @@ func (b *BrigadeRepoStruct) ArchiveBrigade(ctx context.Context, in *models.Archi
 
 func (b *BrigadeRepoStruct) SetBrigadeStatus(ctx context.Context, in *models.SetBrigadeStatusInput) (*models.SetBrigadeStatusResult, error) {
 	brigade, err := b.setBrigadeStatusWithTx(ctx, in.BrigadeID, in.Status, in.Reason, in.ChangedByUserID, in.RequestID, in.TraceID, false, false)
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: SetBrigadeStatus: %w", err)
 	}
@@ -319,6 +340,7 @@ func (b *BrigadeRepoStruct) GetBrigadeStatusHistory(ctx context.Context, in *mod
 	`
 
 	var total int64
+
 	if err := b.readPool.QueryRow(ctx, countQuery, in.BrigadeID).Scan(&total); err != nil {
 		return nil, fmt.Errorf("repo: GetBrigadeStatusHistory: count: %w", err)
 	}
@@ -340,19 +362,24 @@ func (b *BrigadeRepoStruct) GetBrigadeStatusHistory(ctx context.Context, in *mod
 	`
 
 	rows, err := b.readPool.Query(ctx, query, in.BrigadeID, in.Limit, in.Offset)
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: GetBrigadeStatusHistory: query: %w", err)
 	}
+
 	defer rows.Close()
 
 	history := make([]*models.BrigadeStatusHistory, 0)
 	for rows.Next() {
 		item, err := scanBrigadeStatusHistory(rows)
+
 		if err != nil {
 			return nil, fmt.Errorf("repo: GetBrigadeStatusHistory: scan: %w", err)
 		}
+
 		history = append(history, item)
 	}
+
 	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("repo: GetBrigadeStatusHistory: rows: %w", err)
 	}
@@ -374,9 +401,11 @@ func (b *BrigadeRepoStruct) GetAvailableBrigades(ctx context.Context, in *models
 		findInput.Longitude = *in.Longitude
 		findInput.Latitude = *in.Latitude
 		result, err := NewZoneRepo(b.writePool, b.readPool).FindBrigadesByPoint(ctx, findInput)
+
 		if err != nil {
 			return nil, err
 		}
+
 		return &models.GetAvailableBrigadesResult{
 			Brigades: result.Brigades,
 			Total:    result.Total,
@@ -384,6 +413,7 @@ func (b *BrigadeRepoStruct) GetAvailableBrigades(ctx context.Context, in *models
 	}
 
 	result, err := NewZoneRepo(b.writePool, b.readPool).listAvailableBrigades(ctx, in.DepartmentID, in.RequiredSkillIDs, in.RequiredRoles, in.Limit, in.Offset)
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: GetAvailableBrigades: %w", err)
 	}
@@ -395,6 +425,7 @@ func (b *BrigadeRepoStruct) CheckBrigadeCanHandleTicket(ctx context.Context, in 
 	reasons := make([]string, 0)
 
 	brigade, err := b.GetBrigadeByID(ctx, &models.GetBrigadeByIDInput{ID: in.BrigadeID})
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: CheckBrigadeCanHandleTicket: get brigade: %w", err)
 	}
@@ -402,14 +433,17 @@ func (b *BrigadeRepoStruct) CheckBrigadeCanHandleTicket(ctx context.Context, in 
 	if brigade.Brigade.DepartmentID != in.DepartmentID {
 		reasons = append(reasons, "brigade belongs to another department")
 	}
+
 	if brigade.Brigade.Status != models.BrigadeStatusAvailable {
 		reasons = append(reasons, "brigade is not available")
 	}
 
 	readinessReasons, err := b.CheckBrigadeReadiness(ctx, in.BrigadeID, true, in.RequiredRoles)
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: CheckBrigadeCanHandleTicket: check readiness: %w", err)
 	}
+
 	reasons = append(reasons, readinessReasons...)
 
 	covers, err := NewZoneRepo(b.writePool, b.readPool).CheckBrigadeCoversPoint(ctx, &models.CheckBrigadeCoversPointInput{
@@ -417,25 +451,31 @@ func (b *BrigadeRepoStruct) CheckBrigadeCanHandleTicket(ctx context.Context, in 
 		Longitude: in.Longitude,
 		Latitude:  in.Latitude,
 	})
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: CheckBrigadeCanHandleTicket: check zone: %w", err)
 	}
+
 	if !covers.Covers {
 		reasons = append(reasons, "brigade does not cover ticket location")
 	}
 
 	hasSkills, err := NewSkillRepo(b.writePool, b.readPool).brigadeHasSkills(ctx, in.BrigadeID, in.RequiredSkillIDs)
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: CheckBrigadeCanHandleTicket: check skills: %w", err)
 	}
+
 	if !hasSkills {
 		reasons = append(reasons, "brigade does not have required skills")
 	}
 
 	hasMemberSkills, err := b.brigadeHasAvailableMemberSkills(ctx, in.BrigadeID, in.RequiredSkillIDs)
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: CheckBrigadeCanHandleTicket: check member skills: %w", err)
 	}
+
 	if !hasMemberSkills {
 		reasons = append(reasons, "available brigade members do not have required verified skills")
 	}
@@ -447,9 +487,11 @@ func (b *BrigadeRepoStruct) CheckBrigadeCanHandleTicket(ctx context.Context, in 
 }
 
 func (b *BrigadeRepoStruct) brigadeHasAvailableMemberSkills(ctx context.Context, brigadeID uuid.UUID, requiredSkillIDs []uuid.UUID) (bool, error) {
+
 	if len(requiredSkillIDs) == 0 {
 		return true, nil
 	}
+
 	const query = `
 		SELECT COUNT(DISTINCT bms.skill_id)
 		FROM brigade_member_skills bms
@@ -463,9 +505,11 @@ func (b *BrigadeRepoStruct) brigadeHasAvailableMemberSkills(ctx context.Context,
 		  AND bm.availability_status = 'AVAILABLE'
 	`
 	var count int
+
 	if err := b.readPool.QueryRow(ctx, query, brigadeID, requiredSkillIDs).Scan(&count); err != nil {
 		return false, err
 	}
+
 	return count == len(requiredSkillIDs), nil
 }
 
@@ -473,35 +517,44 @@ func (b *BrigadeRepoStruct) CheckBrigadeReadiness(ctx context.Context, brigadeID
 	reasons := make([]string, 0)
 
 	hasActiveMembers, err := b.brigadeHasActiveMembers(ctx, brigadeID)
+
 	if err != nil {
 		return nil, fmt.Errorf("check active members: %w", err)
 	}
+
 	if !hasActiveMembers {
 		reasons = append(reasons, "brigade has no active members")
 	}
 
 	if requireOnShift {
 		hasAvailableMembers, err := b.brigadeHasAvailableActiveMembers(ctx, brigadeID)
+
 		if err != nil {
 			return nil, fmt.Errorf("check available active members: %w", err)
 		}
+
 		if !hasAvailableMembers {
 			reasons = append(reasons, "brigade has no available active members")
 		}
 
 		onShift, err := b.brigadeIsOnShift(ctx, brigadeID)
+
 		if err != nil {
 			return nil, fmt.Errorf("check shift: %w", err)
 		}
+
 		if !onShift {
 			reasons = append(reasons, "brigade is not on shift")
 		}
+
 	}
 
 	hasRoles, err := b.brigadeHasRoles(ctx, brigadeID, requiredRoles)
+
 	if err != nil {
 		return nil, fmt.Errorf("check roles: %w", err)
 	}
+
 	if !hasRoles {
 		reasons = append(reasons, "brigade does not have required roles")
 	}
@@ -520,6 +573,7 @@ func (b *BrigadeRepoStruct) brigadeHasActiveMembers(ctx context.Context, brigade
 	`
 
 	var exists bool
+
 	if err := b.readPool.QueryRow(ctx, query, brigadeID).Scan(&exists); err != nil {
 		return false, err
 	}
@@ -539,6 +593,7 @@ func (b *BrigadeRepoStruct) brigadeHasAvailableActiveMembers(ctx context.Context
 	`
 
 	var exists bool
+
 	if err := b.readPool.QueryRow(ctx, query, brigadeID, string(models.BrigadeMemberAvailabilityAvailable)).Scan(&exists); err != nil {
 		return false, err
 	}
@@ -565,6 +620,7 @@ func (b *BrigadeRepoStruct) brigadeIsOnShift(ctx context.Context, brigadeID uuid
 	`
 
 	var exists bool
+
 	if err := b.readPool.QueryRow(ctx, query, brigadeID).Scan(&exists); err != nil {
 		return false, err
 	}
@@ -573,6 +629,7 @@ func (b *BrigadeRepoStruct) brigadeIsOnShift(ctx context.Context, brigadeID uuid
 }
 
 func (b *BrigadeRepoStruct) brigadeHasRoles(ctx context.Context, brigadeID uuid.UUID, requiredRoles []models.BrigadeMemberRole) (bool, error) {
+
 	if len(requiredRoles) == 0 {
 		return true, nil
 	}
@@ -586,6 +643,7 @@ func (b *BrigadeRepoStruct) brigadeHasRoles(ctx context.Context, brigadeID uuid.
 	`
 
 	var count int
+
 	if err := b.readPool.QueryRow(ctx, query, brigadeID, roleStrings(requiredRoles)).Scan(&count); err != nil {
 		return false, err
 	}
@@ -611,7 +669,9 @@ func scanBrigade(row scanner) (*models.Brigade, error) {
 		&deactivatedAt,
 		&archivedAt,
 	)
+
 	if err != nil {
+
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, models.ErrNotFound
 		}
@@ -622,9 +682,11 @@ func scanBrigade(row scanner) (*models.Brigade, error) {
 	if specialization.Valid {
 		brigade.Specialization = &specialization.String
 	}
+
 	if deactivatedAt.Valid {
 		brigade.DeactivatedAt = &deactivatedAt.Time
 	}
+
 	if archivedAt.Valid {
 		brigade.ArchivedAt = &archivedAt.Time
 	}
@@ -644,12 +706,15 @@ func (b *BrigadeRepoStruct) setBrigadeStatusWithTx(
 	setArchivedAt bool,
 ) (*models.Brigade, error) {
 	tx, err := b.writePool.Begin(ctx)
+
 	if err != nil {
 		return nil, fmt.Errorf("begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	current, err := b.getBrigadeByIDForUpdate(ctx, tx, brigadeID)
+
 	if err != nil {
 		return nil, fmt.Errorf("get current brigade: %w", err)
 	}
@@ -676,6 +741,7 @@ func (b *BrigadeRepoStruct) setBrigadeStatusWithTx(
 	`
 
 	brigade, err := scanBrigade(tx.QueryRow(ctx, query, string(status), setDeactivatedAt, setArchivedAt, brigadeID))
+
 	if err != nil {
 		return nil, fmt.Errorf("update brigade status: %w", err)
 	}
@@ -694,15 +760,18 @@ func (b *BrigadeRepoStruct) setBrigadeStatusWithTx(
 		"reason":        reason,
 		"changed_at":    brigade.UpdatedAt,
 	}
+
 	if changedBy != nil {
 		payload["changed_by_user_id"] = changedBy.String()
 	}
 
 	eventType := "BrigadeStatusChanged"
+
 	if status == models.BrigadeStatusInactive && setDeactivatedAt {
 		eventType = "BrigadeDeactivated"
 		payload["event_type"] = eventType
 	}
+
 	if status == models.BrigadeStatusArchived {
 		eventType = "BrigadeArchived"
 		payload["event_type"] = eventType
@@ -711,6 +780,7 @@ func (b *BrigadeRepoStruct) setBrigadeStatusWithTx(
 	if err = insertOutboxEvent(ctx, tx, "brigade", brigade.ID, eventType, payload, requestID, traceID); err != nil {
 		return nil, fmt.Errorf("insert outbox event: %w", err)
 	}
+
 	if err = syncBrigadeShift(ctx, tx, current, brigade, reason, changedBy, requestID, traceID); err != nil {
 		return nil, fmt.Errorf("sync brigade shift: %w", err)
 	}
@@ -737,12 +807,15 @@ func syncBrigadeShift(
 			id,brigade_id,department_id,started_by_user_id,start_reason
 		) VALUES($1,$2,$3,$4,$5) ON CONFLICT (brigade_id) WHERE ended_at IS NULL DO NOTHING`,
 			shiftID, current.ID, current.DepartmentID, changedBy, reason)
+
 		if err != nil {
 			return err
 		}
+
 		if command.RowsAffected() == 0 {
 			return nil
 		}
+
 		payload := map[string]any{
 			"event_id": uuid.NewString(), "event_type": "BrigadeShiftStarted", "event_version": 1,
 			"shift_id": shiftID.String(), "brigade_id": current.ID.String(),
@@ -756,12 +829,15 @@ func syncBrigadeShift(
 		err := tx.QueryRow(ctx, `UPDATE brigade_shifts SET ended_at=$1,ended_by_user_id=$2,end_reason=$3,updated_at=$1
 			WHERE brigade_id=$4 AND ended_at IS NULL RETURNING id,started_at`,
 			current.UpdatedAt, changedBy, reason, current.ID).Scan(&shiftID, &startedAt)
+
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
+
 		if err != nil {
 			return err
 		}
+
 		payload := map[string]any{
 			"event_id": uuid.NewString(), "event_type": "BrigadeShiftEnded", "event_version": 1,
 			"shift_id": shiftID.String(), "brigade_id": current.ID.String(),
@@ -818,6 +894,7 @@ func (b *BrigadeRepoStruct) insertBrigadeStatusHistory(
 	`
 
 	var fromStatusValue *string
+
 	if fromStatus != nil {
 		value := string(*fromStatus)
 		fromStatusValue = &value
@@ -843,6 +920,7 @@ func scanBrigadeStatusHistory(row scanner) (*models.BrigadeStatusHistory, error)
 		&requestID,
 		&item.CreatedAt,
 	)
+
 	if err != nil {
 		return nil, err
 	}
@@ -851,13 +929,17 @@ func scanBrigadeStatusHistory(row scanner) (*models.BrigadeStatusHistory, error)
 		value := models.BrigadeStatus(fromStatus.String)
 		item.FromStatus = &value
 	}
+
 	if changedBy.Valid {
 		id, err := uuid.Parse(changedBy.String)
+
 		if err != nil {
 			return nil, fmt.Errorf("parse changed_by_user_id: %w", err)
 		}
+
 		item.ChangedByUserID = &id
 	}
+
 	if requestID.Valid {
 		item.RequestID = &requestID.String
 	}
@@ -876,13 +958,17 @@ func insertOutboxEvent(
 	traceID *string,
 ) error {
 	payloadBytes, err := json.Marshal(payload)
+
 	if err != nil {
 		return fmt.Errorf("marshal payload: %w", err)
 	}
+
 	var envelope map[string]any
+
 	if err = json.Unmarshal(payloadBytes, &envelope); err != nil {
 		return fmt.Errorf("normalize payload: %w", err)
 	}
+
 	eventID := uuid.New()
 	envelope["event_id"] = eventID.String()
 	envelope["event_type"] = eventType
@@ -891,20 +977,27 @@ func insertOutboxEvent(
 	envelope["aggregate_type"] = aggregateType
 	envelope["aggregate_id"] = aggregateID.String()
 	envelope["occurred_at"] = time.Now().UTC()
+
 	if requestID != nil {
 		envelope["request_id"] = *requestID
 	}
+
 	if traceID != nil {
 		envelope["trace_id"] = *traceID
 	}
+
 	if aggregateType == "brigade" {
 		var departmentID uuid.UUID
+
 		if err = tx.QueryRow(ctx, `SELECT department_id FROM brigades WHERE id=$1`, aggregateID).Scan(&departmentID); err != nil {
 			return fmt.Errorf("load event department: %w", err)
 		}
+
 		envelope["department_id"] = departmentID.String()
 	}
+
 	payloadBytes, err = json.Marshal(envelope)
+
 	if err != nil {
 		return fmt.Errorf("marshal event envelope: %w", err)
 	}
@@ -933,6 +1026,7 @@ func insertOutboxEvent(
 		requestID,
 		traceID,
 	)
+
 	if err != nil {
 		return fmt.Errorf("exec: %w", err)
 	}
@@ -984,6 +1078,7 @@ func roleStrings(roles []models.BrigadeMemberRole) []string {
 
 func isBrigadeNameUniqueViolation(err error) bool {
 	var pgErr *pgconn.PgError
+
 	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 		return pgErr.ConstraintName == "" || pgErr.ConstraintName == "brigades_department_name_active_uidx"
 	}

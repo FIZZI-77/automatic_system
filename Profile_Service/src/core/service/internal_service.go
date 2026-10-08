@@ -14,9 +14,11 @@ type ProfileInternalServiceStruct struct {
 }
 
 func NewProfileInternalServiceStruct(repo *repository.Repository, logger *zap.Logger) *ProfileInternalServiceStruct {
+
 	if logger == nil {
 		logger = zap.NewNop()
 	}
+
 	return &ProfileInternalServiceStruct{repo: repo, logger: logger}
 }
 
@@ -29,11 +31,14 @@ func (s *ProfileInternalServiceStruct) ResolveWorkingDepartment(ctx context.Cont
 		logValidationFailed(logger, method, start, err, fields...)
 		return nil, validationError(method, err)
 	}
+
 	result, err := s.repo.ResolveWorkingDepartment(ctx, in)
+
 	if err != nil {
 		logOperationFailed(logger, method, start, err, fields...)
 		return nil, wrapServiceError(method, err)
 	}
+
 	logOperationSuccess(logger, method, start,
 		zap.String("work_profile_id", result.WorkProfileID.String()),
 		zap.String("department_id", result.DepartmentID.String()),
@@ -45,23 +50,29 @@ func (s *ProfileInternalServiceStruct) ResolveWorkingDepartment(ctx context.Cont
 func (s *ProfileInternalServiceStruct) CheckProfileCanJoinBrigade(ctx context.Context, in *models.CheckProfileCanJoinBrigadeInput) (*models.CheckProfileCanJoinBrigadeResult, error) {
 	const method = "CheckProfileCanJoinBrigade"
 	fields := []zap.Field{zap.String("brigade_department_id", in.BrigadeDepartmentID.String())}
+
 	if in.UserID != nil {
 		fields = append(fields, zap.String("user_id", in.UserID.String()))
 	}
+
 	if in.WorkProfileID != nil {
 		fields = append(fields, zap.String("work_profile_id", in.WorkProfileID.String()))
 	}
+
 	logger, start := startOperation(ctx, s.logger, method, fields...)
 
 	if err := in.Validate(); err != nil {
 		logValidationFailed(logger, method, start, err, fields...)
 		return nil, validationError(method, err)
 	}
+
 	result, err := s.repo.CheckProfileCanJoinBrigade(ctx, in)
+
 	if err != nil {
 		logOperationFailed(logger, method, start, err, fields...)
 		return nil, wrapServiceError(method, err)
 	}
+
 	logOperationSuccess(logger, method, start,
 		zap.String("work_profile_id", result.WorkProfileID.String()),
 		zap.Bool("allowed", result.Allowed),

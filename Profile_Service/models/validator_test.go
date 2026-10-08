@@ -8,18 +8,23 @@ import (
 )
 
 func TestEnumValidation(t *testing.T) {
+
 	if !PreferredContactMethodEmail.IsValid() || PreferredContactMethod("BAD").IsValid() {
 		t.Fatal("preferred contact method validation is incorrect")
 	}
+
 	if !WorkProfileStatusActive.IsValid() || WorkProfileStatus("BAD").IsValid() {
 		t.Fatal("work profile status validation is incorrect")
 	}
+
 	if !CanJoinBrigadeReasonNoWorkProfile.IsValid() || CanJoinBrigadeReason("BAD").IsValid() {
 		t.Fatal("can join brigade reason validation is incorrect")
 	}
+
 	if !OutboxEventStatusPending.IsValid() || OutboxEventStatus("BAD").IsValid() {
 		t.Fatal("outbox event status validation is incorrect")
 	}
+
 }
 
 func TestCreateUserProfileInputValidate(t *testing.T) {
@@ -49,12 +54,15 @@ func TestCreateUserProfileInputValidate(t *testing.T) {
 	}
 
 	in := &CreateUserProfileInput{UserID: uuid.New(), FullName: "Иван Иванов"}
+
 	if err := in.Validate(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if in.PreferredContactMethod != PreferredContactMethodEmail {
 		t.Fatalf("expected EMAIL default, got %s", in.PreferredContactMethod)
 	}
+
 }
 
 func TestUpdateUserProfileInputValidate(t *testing.T) {
@@ -89,17 +97,21 @@ func TestUpdateUserProfileInputValidate(t *testing.T) {
 
 func TestListInputsValidate(t *testing.T) {
 	userInput := &ListUserProfilesInput{Limit: 500, Offset: -1}
+
 	if err := userInput.Validate(); err != nil {
 		t.Fatalf("unexpected user list validation error: %v", err)
 	}
+
 	if userInput.Limit != MaxLimit || userInput.Offset != 0 || userInput.SortBy != UserProfileSortByCreatedAt || userInput.SortOrder != SortOrderDesc {
 		t.Fatalf("user list defaults were not normalized: %+v", userInput)
 	}
 
 	workInput := &ListWorkProfilesInput{}
+
 	if err := workInput.Validate(); err != nil {
 		t.Fatalf("unexpected work list validation error: %v", err)
 	}
+
 	if workInput.Limit != DefaultLimit || workInput.SortBy != WorkProfileSortByCreatedAt || workInput.SortOrder != SortOrderDesc {
 		t.Fatalf("work list defaults were not normalized: %+v", workInput)
 	}
@@ -200,10 +212,13 @@ func stringPtr(value string) *string {
 
 func assertValidation(t *testing.T, err error, wantErr bool) {
 	t.Helper()
+
 	if wantErr && err == nil {
 		t.Fatal("expected error, got nil")
 	}
+
 	if !wantErr && err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
+
 }

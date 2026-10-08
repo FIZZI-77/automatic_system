@@ -34,9 +34,11 @@ func TestApplyWorkloadBalance(t *testing.T) {
 			}
 			result := models.BrigadeWorkload{Brigades: items}
 			applyWorkloadBalance(&result)
+
 			if result.BrigadeCount != uint64(len(test.active)) || result.MaxActive != test.max {
 				t.Errorf("counts = (%d, %d), want (%d, %d)", result.BrigadeCount, result.MaxActive, len(test.active), test.max)
 			}
+
 			assertClose(t, "average", result.AverageActive, test.average)
 			assertClose(t, "standard deviation", result.StandardDeviation, test.deviation)
 			assertClose(t, "coefficient of variation", result.CoefficientOfVariation, test.cv)
@@ -49,9 +51,11 @@ func TestMergeEligibleBrigadesAddsIdleAndSorts(t *testing.T) {
 	t.Parallel()
 	items := []models.BrigadeWorkloadItem{{BrigadeID: "brigade-b", Active: 2}}
 	got := mergeEligibleBrigades(items, []string{"brigade-c", "brigade-a", "brigade-b"})
+
 	if len(got) != 3 || got[0].BrigadeID != "brigade-a" || got[1].Active != 2 || got[2].BrigadeID != "brigade-c" {
 		t.Fatalf("mergeEligibleBrigades() = %+v, want sorted entries including idle brigades", got)
 	}
+
 }
 
 func TestApplyShiftMetrics(t *testing.T) {
@@ -91,9 +95,11 @@ func TestApplyShiftMetrics(t *testing.T) {
 
 func assertClose(t *testing.T, name string, got, want float64) {
 	t.Helper()
+
 	if math.Abs(got-want) > 1e-9 {
 		t.Errorf("%s = %f, want %f", name, got, want)
 	}
+
 }
 
 func TestEventTimeUsesEnvelopeTimestampForEntityEvents(t *testing.T) {
@@ -105,9 +111,11 @@ func TestEventTimeUsesEnvelopeTimestampForEntityEvents(t *testing.T) {
 			"updated_at": "2026-08-17T09:00:00Z",
 		},
 	})
+
 	if !got.Equal(envelope) {
 		t.Fatalf("eventTime() = %v, want envelope timestamp %v", got, envelope)
 	}
+
 }
 
 func TestOperationalFiltersAreAppliedAfterLifecycleAggregation(t *testing.T) {
@@ -119,12 +127,15 @@ func TestOperationalFiltersAreAppliedAfterLifecycleAggregation(t *testing.T) {
 		AssignmentMode: &mode,
 	}
 	where, args := buildAssignmentDimensions(filter)
+
 	if !strings.Contains(where, "department_id=?") || !strings.Contains(where, "assignment_mode=?") {
 		t.Errorf("buildAssignmentDimensions(%+v) = %q, want department and mode filters", filter, where)
 	}
+
 	if len(args) != 2 || args[0] != departmentID || args[1] != "AUTOMATIC" {
 		t.Errorf("buildAssignmentDimensions(%+v) args = %#v, want [%q %q]", filter, args, departmentID, "AUTOMATIC")
 	}
+
 }
 
 func TestEventTimeUsesExplicitOccurredAt(t *testing.T) {
@@ -134,9 +145,11 @@ func TestEventTimeUsesExplicitOccurredAt(t *testing.T) {
 		Timestamp: envelope,
 		Payload:   map[string]any{"occurred_at": want.Format(time.RFC3339Nano)},
 	})
+
 	if !got.Equal(want) {
 		t.Fatalf("eventTime() = %v, want explicit occurrence time %v", got, want)
 	}
+
 }
 
 func TestPayloadValuesIgnoreCaseAndEnvelopeShape(t *testing.T) {
@@ -149,18 +162,23 @@ func TestPayloadValuesIgnoreCaseAndEnvelopeShape(t *testing.T) {
 			"SUCCESS":               true,
 		},
 	}
+
 	if got := stringValue(payload, "trace_id"); got != "trace-42" {
 		t.Errorf("stringValue(payload, trace_id) = %q, want %q", got, "trace-42")
 	}
+
 	if got := numberValue(payload, "calculation_duration_ms"); got == nil || *got != 1250 {
 		t.Errorf("numberValue(payload, calculation_duration_ms) = %v, want 1250", got)
 	}
+
 	if got := boolValue(payload, "success"); got == nil || !*got {
 		t.Errorf("boolValue(payload, success) = %v, want true", got)
 	}
+
 	if got := stringValue(payload, "failure_stage"); got != "candidate_ranking" {
 		t.Errorf("stringValue(payload, failure_stage) = %q, want %q", got, "candidate_ranking")
 	}
+
 }
 
 func TestCrossServicePayloadContract(t *testing.T) {
@@ -191,12 +209,15 @@ func TestCrossServicePayloadContract(t *testing.T) {
 			t.Parallel()
 			for field, want := range test.fields {
 				keys := []string{field}
+
 				if field == "aggregate_id" {
 					keys = []string{"aggregate_id", "operation_id"}
 				}
+
 				if got := stringValue(test.payload, keys...); got != want {
 					t.Errorf("stringValue(%s, %q) = %q, want %q", test.name, field, got, want)
 				}
+
 			}
 		})
 	}
@@ -224,9 +245,11 @@ func TestPublishedEventTypeFixtures(t *testing.T) {
 				"priority": "HIGH", "brigade_id": "brigade-1", "route_id": "route-1",
 				"mode": "AUTOMATIC", "failure_code": "NO_ROUTE", "failure_stage": "ROUTING", "trace_id": "trace-1",
 			})
+
 			if got := uint64Value(payload, "candidate_count"); got == nil || *got != 4 {
 				t.Errorf("candidate_count = %v, want 4", got)
 			}
+
 		})
 	}
 
@@ -238,13 +261,17 @@ func TestPublishedEventTypeFixtures(t *testing.T) {
 				"duration_seconds": float64(600), "success": eventType != "routing.calculation.failed.v1",
 				"engine": "valhalla", "travel_mode": "auto", "failure_code": "NO_ROUTE",
 			}
+
 			if got := eventRouteID(models.Event{Topic: "routing.events.v1", Payload: payload}); got != "route-1" {
 				t.Errorf("route id = %q, want route-1", got)
 			}
+
 			assertStringFields(t, payload, map[string]string{"ticket_id": "ticket-1", "brigade_id": "brigade-1", "engine": "valhalla", "travel_mode": "auto"})
+
 			if got := numberValue(payload, "calculation_duration_ms"); got == nil || *got != 125 {
 				t.Errorf("calculation_duration_ms = %v, want 125", got)
 			}
+
 		})
 	}
 
@@ -272,9 +299,11 @@ func TestPublishedEventTypeFixtures(t *testing.T) {
 func assertStringFields(t *testing.T, payload map[string]any, fields map[string]string) {
 	t.Helper()
 	for field, want := range fields {
+
 		if got := stringValue(payload, field); got != want {
 			t.Errorf("%s = %q, want %q", field, got, want)
 		}
+
 	}
 }
 
@@ -282,22 +311,29 @@ func TestOperationalLatencyGroupDimensions(t *testing.T) {
 	t.Parallel()
 	assignment := []string{"DEPARTMENT", "CATEGORY", "PRIORITY", "ASSIGNMENT_MODE", "BRIGADE"}
 	for _, dimension := range assignment {
+
 		if _, ok := assignmentGroupColumn(dimension); !ok {
 			t.Errorf("assignmentGroupColumn(%q) ok = false, want true", dimension)
 		}
+
 	}
 	routing := []string{"DEPARTMENT", "CATEGORY", "PRIORITY", "ASSIGNMENT_MODE", "BRIGADE", "ENGINE", "TRAVEL_MODE", "SUCCESS", "FAILURE_CODE"}
 	for _, dimension := range routing {
+
 		if _, ok := routingGroupExpression(dimension); !ok {
 			t.Errorf("routingGroupExpression(%q) ok = false, want true", dimension)
 		}
+
 	}
+
 	if _, ok := assignmentGroupColumn("ENGINE"); ok {
 		t.Error("assignmentGroupColumn(ENGINE) ok = true, want false")
 	}
+
 	if _, ok := routingGroupExpression("INVALID"); ok {
 		t.Error("routingGroupExpression(INVALID) ok = true, want false")
 	}
+
 }
 
 func TestRoutingPayloadFields(t *testing.T) {
@@ -313,24 +349,31 @@ func TestRoutingPayloadFields(t *testing.T) {
 			},
 		},
 	}
+
 	if got := eventRouteID(models.Event{Topic: "routing.events.v1", Payload: payload}); got != "route-1" {
 		t.Errorf("eventRouteID(routing event) = %q, want route-1", got)
 	}
+
 	if got := stringValue(payload, "id"); got != "route-1" {
 		t.Errorf("stringValue(payload, id) = %q, want route-1", got)
 	}
+
 	if got := uint64Value(payload, "revision"); got == nil || *got != 2 {
 		t.Errorf("uint64Value(payload, revision) = %v, want 2", got)
 	}
+
 	if got := numberValue(payload, "distance_meters"); got == nil || *got != 12500 {
 		t.Errorf("numberValue(payload, distance_meters) = %v, want 12500", got)
 	}
+
 	if got := numberValue(payload, "duration_seconds"); got == nil || *got != 900 {
 		t.Errorf("numberValue(payload, duration_seconds) = %v, want 900", got)
 	}
+
 	if got := numberPathValue(payload, "destination", "latitude"); got == nil || *got != 55.75 {
 		t.Errorf("numberPathValue(payload, destination, latitude) = %v, want 55.75", got)
 	}
+
 }
 
 func TestEventEntityIDUsesTopicAggregate(t *testing.T) {
@@ -348,9 +391,11 @@ func TestEventEntityIDUsesTopicAggregate(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+
 			if got := eventEntityID(models.Event{Topic: test.topic, Payload: test.payload}); got != test.want {
 				t.Errorf("eventEntityID() = %q, want %q", got, test.want)
 			}
+
 		})
 	}
 }

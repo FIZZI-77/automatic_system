@@ -60,6 +60,7 @@ func ToProtoDepartmentSortOrder(sortOrder string) departmentv1.SortOrder {
 }
 
 func FromProtoDepartment(department *departmentv1.Department) *models.Department {
+
 	if department == nil {
 		return nil
 	}

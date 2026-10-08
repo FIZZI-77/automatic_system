@@ -22,6 +22,7 @@ func NewAssetHandler(c assetv1.AssetServiceClient) *AssetHandler {
 
 func (h *AssetHandler) Create(c *gin.Context) {
 	var v models.CreateAssetRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
@@ -56,9 +57,11 @@ func (h *AssetHandler) Create(c *gin.Context) {
 
 func (h *AssetHandler) Get(c *gin.Context) {
 	var v models.AssetIDRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
+
 	x, e := h.c.GetAsset(dispatchContext(c), &assetv1.GetAssetRequest{
 		AssetId: v.AssetID,
 	})
@@ -67,6 +70,7 @@ func (h *AssetHandler) Get(c *gin.Context) {
 
 func (h *AssetHandler) Resolve(c *gin.Context) {
 	var v models.ResolveAssetRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
@@ -79,6 +83,7 @@ func (h *AssetHandler) Resolve(c *gin.Context) {
 			Limit:  pageSize,
 			Offset: offset,
 		})
+
 		if err != nil {
 			dispatchResponse(c, http.StatusOK, err, nil)
 			return
@@ -95,11 +100,13 @@ func (h *AssetHandler) Resolve(c *gin.Context) {
 				})
 				return
 			}
+
 		}
 
 		if len(result.GetAssets()) < int(pageSize) {
 			break
 		}
+
 	}
 
 	c.JSON(http.StatusNotFound, gin.H{"error": "asset not found"})
@@ -107,6 +114,7 @@ func (h *AssetHandler) Resolve(c *gin.Context) {
 
 func (h *AssetHandler) Update(c *gin.Context) {
 	var v models.UpdateAssetRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
@@ -127,6 +135,7 @@ func (h *AssetHandler) Update(c *gin.Context) {
 
 func (h *AssetHandler) ChangeStatus(c *gin.Context) {
 	var v models.ChangeAssetStatusRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
@@ -145,6 +154,7 @@ func (h *AssetHandler) ChangeStatus(c *gin.Context) {
 
 func (h *AssetHandler) List(c *gin.Context) {
 	var v models.ListAssetsRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
@@ -173,6 +183,7 @@ func (h *AssetHandler) List(c *gin.Context) {
 
 func (h *AssetHandler) Nearby(c *gin.Context) {
 	var v models.NearbyAssetsRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
@@ -189,6 +200,7 @@ func (h *AssetHandler) Nearby(c *gin.Context) {
 
 func (h *AssetHandler) Incident(c *gin.Context) {
 	var v models.AssetIncidentRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
@@ -210,6 +222,7 @@ func (h *AssetHandler) Incident(c *gin.Context) {
 
 func (h *AssetHandler) Repair(c *gin.Context) {
 	var v models.AssetRepairRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
@@ -232,6 +245,7 @@ func (h *AssetHandler) Repair(c *gin.Context) {
 
 func (h *AssetHandler) Inspection(c *gin.Context) {
 	var v models.AssetInspectionRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
@@ -253,9 +267,11 @@ func (h *AssetHandler) Inspection(c *gin.Context) {
 
 func (h *AssetHandler) Prediction(c *gin.Context) {
 	var v models.AssetIDRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
+
 	x, e := h.c.GetFailurePrediction(dispatchContext(c), &assetv1.GetFailurePredictionRequest{
 		AssetId: v.AssetID,
 	})
@@ -264,6 +280,7 @@ func (h *AssetHandler) Prediction(c *gin.Context) {
 
 func (h *AssetHandler) CreatePlan(c *gin.Context) {
 	var v models.MaintenancePlanRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
@@ -282,6 +299,7 @@ func (h *AssetHandler) CreatePlan(c *gin.Context) {
 
 func (h *AssetHandler) DuePlans(c *gin.Context) {
 	var v models.DueMaintenanceRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
@@ -297,6 +315,7 @@ func (h *AssetHandler) DuePlans(c *gin.Context) {
 
 func (h *AssetHandler) Recalculate(c *gin.Context) {
 	var v models.RecalculateAssetRisksRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
@@ -310,8 +329,10 @@ func (h *AssetHandler) Recalculate(c *gin.Context) {
 }
 
 func ts(v *time.Time) *timestamppb.Timestamp {
+
 	if v == nil {
 		return timestamppb.Now()
 	}
+
 	return timestamppb.New(*v)
 }

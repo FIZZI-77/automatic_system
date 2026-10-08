@@ -87,25 +87,32 @@ type Environment struct {
 
 func Load(path string, destination any) error {
 	data, err := os.ReadFile(path)
+
 	if err != nil {
 		return fmt.Errorf("read config %s: %w", path, err)
 	}
+
 	if err := yaml.Unmarshal(data, destination); err != nil {
 		return fmt.Errorf("decode config %s: %w", path, err)
 	}
+
 	return nil
 }
 
 func ValidateDestructive(environment Environment, allowed bool) error {
 	name := strings.ToLower(environment.Name + " " + environment.Namespace + " " + environment.GatewayURL)
+
 	if environment.Production || strings.Contains(name, "prod") || strings.Contains(name, "production") {
 		return fmt.Errorf("destructive load tests are forbidden for production")
 	}
+
 	if !allowed {
 		return fmt.Errorf("destructive load test requires LOAD_TEST_ALLOW_DESTRUCTIVE=true")
 	}
+
 	if strings.TrimSpace(environment.Namespace) == "" {
 		return fmt.Errorf("destructive load test requires an explicit namespace")
 	}
+
 	return nil
 }

@@ -69,9 +69,11 @@ type Repository struct {
 type Repo = Repository
 
 func NewRepository(pools DBPools) *Repository {
+
 	if pools.Read == nil {
 		pools.Read = pools.Write
 	}
+
 	return &Repository{
 		writePool:              pools.Write,
 		readPool:               pools.Read,
@@ -104,14 +106,17 @@ func newRepoWithExecutor(exec DBTX) *Repo {
 }
 
 func (r *Repo) WithTx(ctx context.Context, fn func(txRepo *Repo) error) error {
+
 	if r.writePool == nil {
 		return fmt.Errorf("repository: WithTx(): root db is unavailable")
 	}
 
 	tx, err := r.writePool.Begin(ctx)
+
 	if err != nil {
 		return fmt.Errorf("repository: WithTx(): begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	if err := fn(newRepoWithExecutor(tx)); err != nil {

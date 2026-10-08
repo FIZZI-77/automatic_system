@@ -53,6 +53,7 @@ func (th *TicketHandler) GetFeedback(c *gin.Context) {
 }
 
 func feedbackFromProto(value *ticketv1.TicketFeedback) *models.TicketFeedback {
+
 	if value == nil {
 		return nil
 	}

@@ -45,11 +45,13 @@ func normalizeString(s string) string {
 }
 
 func isEmailValid(email string) bool {
+
 	if email == "" {
 		return false
 	}
 
 	addr, err := mail.ParseAddress(email)
+
 	if err != nil {
 		return false
 	}
@@ -62,12 +64,15 @@ func isIPValid(ip string) bool {
 }
 
 func validatePassword(password string) error {
+
 	if strings.TrimSpace(password) == "" {
 		return ErrPasswordRequired
 	}
+
 	if utf8.RuneCountInString(password) < minPasswordLength {
 		return ErrPasswordTooShort
 	}
+
 	return nil
 }
 
@@ -79,9 +84,11 @@ func validateUsername(username string) error {
 	}
 
 	length := utf8.RuneCountInString(username)
+
 	if length < minUsernameLength {
 		return ErrUsernameTooShort
 	}
+
 	if length > maxUsernameLength {
 		return ErrUsernameTooLong
 	}
@@ -96,12 +103,15 @@ func (in *RegisterInput) Validate() error {
 	if in.Email == "" {
 		return ErrEmailRequired
 	}
+
 	if !isEmailValid(in.Email) {
 		return ErrEmailInvalid
 	}
+
 	if err := validateUsername(in.Username); err != nil {
 		return err
 	}
+
 	if err := validatePassword(in.Password); err != nil {
 		return err
 	}
@@ -118,21 +128,27 @@ func (in *LoginInput) Validate() error {
 	if in.Email == "" {
 		return ErrEmailRequired
 	}
+
 	if !isEmailValid(in.Email) {
 		return ErrEmailInvalid
 	}
+
 	if strings.TrimSpace(in.Password) == "" {
 		return ErrPasswordRequired
 	}
+
 	if in.ClientID == "" {
 		return ErrClientIDRequired
 	}
+
 	if in.IP == "" {
 		return ErrIPRequired
 	}
+
 	if !isIPValid(in.IP) {
 		return ErrIPInvalid
 	}
+
 	if in.UserAgent == "" {
 		return ErrUserAgentRequired
 	}
@@ -149,15 +165,19 @@ func (in *RefreshInput) Validate() error {
 	if in.RefreshToken == "" {
 		return ErrRefreshTokenRequired
 	}
+
 	if in.ClientID == "" {
 		return ErrClientIDRequired
 	}
+
 	if in.IP == "" {
 		return ErrIPRequired
 	}
+
 	if !isIPValid(in.IP) {
 		return ErrIPInvalid
 	}
+
 	if in.UserAgent == "" {
 		return ErrUserAgentRequired
 	}
@@ -166,38 +186,49 @@ func (in *RefreshInput) Validate() error {
 }
 
 func (in *LogoutInput) Validate() error {
+
 	if in.UserID == uuid.Nil {
 		return ErrUserIDRequired
 	}
+
 	if in.SessionID == uuid.Nil {
 		return ErrSessionIDRequired
 	}
+
 	return nil
 }
 
 func (in *LogoutAllInput) Validate() error {
+
 	if in.UserID == uuid.Nil {
 		return ErrUserIDRequired
 	}
+
 	return nil
 }
 
 func (in *ChangePasswordInput) Validate() error {
+
 	if in.UserID == uuid.Nil {
 		return ErrUserIDRequired
 	}
+
 	if in.SessionID == uuid.Nil {
 		return ErrSessionIDRequired
 	}
+
 	if strings.TrimSpace(in.OldPassword) == "" {
 		return ErrOldPasswordRequired
 	}
+
 	if strings.TrimSpace(in.NewPassword) == "" {
 		return ErrNewPasswordRequired
 	}
+
 	if utf8.RuneCountInString(in.NewPassword) < minPasswordLength {
 		return ErrPasswordTooShort
 	}
+
 	if in.OldPassword == in.NewPassword {
 		return ErrNewPasswordSameAsOld
 	}
@@ -206,11 +237,13 @@ func (in *ChangePasswordInput) Validate() error {
 }
 
 func (in *SendVerificationEmailInput) Validate() error {
+
 	if in.UserID == uuid.Nil {
 		return ErrUserIDRequired
 	}
 
 	in.Email = normalizeEmail(in.Email)
+
 	if in.Email != "" && !isEmailValid(in.Email) {
 		return ErrEmailInvalid
 	}
@@ -220,9 +253,11 @@ func (in *SendVerificationEmailInput) Validate() error {
 
 func (in *VerifyEmailInput) Validate() error {
 	in.Token = normalizeString(in.Token)
+
 	if in.Token == "" {
 		return ErrTokenRequired
 	}
+
 	return nil
 }
 
@@ -232,6 +267,7 @@ func (in *RequestPasswordResetInput) Validate() error {
 	if in.Email == "" {
 		return ErrEmailRequired
 	}
+
 	if !isEmailValid(in.Email) {
 		return ErrEmailInvalid
 	}
@@ -245,9 +281,11 @@ func (in *ResetPasswordInput) Validate() error {
 	if in.Token == "" {
 		return ErrTokenRequired
 	}
+
 	if strings.TrimSpace(in.NewPassword) == "" {
 		return ErrNewPasswordRequired
 	}
+
 	if utf8.RuneCountInString(in.NewPassword) < minPasswordLength {
 		return ErrPasswordTooShort
 	}

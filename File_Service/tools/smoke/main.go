@@ -54,6 +54,7 @@ func testHappyPath(ctx context.Context, client filev1.FileServiceClient) {
 	uploadResponse, err := http.DefaultClient.Do(uploadRequest)
 	check(err)
 	defer uploadResponse.Body.Close()
+
 	if uploadResponse.StatusCode/100 != 2 {
 		body, _ := io.ReadAll(uploadResponse.Body)
 		fail("upload failed: %s: %s", uploadResponse.Status, body)
@@ -63,6 +64,7 @@ func testHappyPath(ctx context.Context, client filev1.FileServiceClient) {
 		FileId: fileID, ActorUserId: ownerID,
 	})
 	check(err)
+
 	if confirmed.GetFile().GetStatus() != filev1.FileStatus_FILE_STATUS_UPLOADED {
 		fail("unexpected confirmed status: %s", confirmed.GetFile().GetStatus())
 	}
@@ -72,6 +74,7 @@ func testHappyPath(ctx context.Context, client filev1.FileServiceClient) {
 		ResourceType: "ticket_report", ResourceId: resourceID,
 	})
 	check(err)
+
 	if linked.GetFile().GetStatus() != filev1.FileStatus_FILE_STATUS_LINKED {
 		fail("unexpected linked status: %s", linked.GetFile().GetStatus())
 	}
@@ -81,13 +84,16 @@ func testHappyPath(ctx context.Context, client filev1.FileServiceClient) {
 		ActorUserId: ownerID,
 	})
 	check(err)
+
 	if len(listed.GetFiles()) != 1 || listed.GetFiles()[0].GetId() != fileID {
 		fail("linked file was not returned")
 	}
+
 	_, err = client.ListResourceFiles(ctx, &filev1.ListResourceFilesRequest{
 		ResourceType: "ticket_report", ResourceId: resourceID,
 		ActorUserId: uuid.New().String(),
 	})
+
 	if err == nil {
 		fail("foreign user unexpectedly listed resource files")
 	}
@@ -101,6 +107,7 @@ func testHappyPath(ctx context.Context, client filev1.FileServiceClient) {
 	defer downloadResponse.Body.Close()
 	downloaded, err := io.ReadAll(downloadResponse.Body)
 	check(err)
+
 	if !bytes.Equal(downloaded, content) {
 		fail("downloaded content differs")
 	}
@@ -108,6 +115,7 @@ func testHappyPath(ctx context.Context, client filev1.FileServiceClient) {
 	_, err = client.GetDownloadURL(ctx, &filev1.GetDownloadURLRequest{
 		FileId: fileID, ActorUserId: uuid.New().String(),
 	})
+
 	if err == nil {
 		fail("foreign user unexpectedly received a download URL")
 	}
@@ -120,6 +128,7 @@ func testHappyPath(ctx context.Context, client filev1.FileServiceClient) {
 	_, err = client.GetDownloadURL(ctx, &filev1.GetDownloadURLRequest{
 		FileId: fileID, ActorUserId: ownerID,
 	})
+
 	if err == nil {
 		fail("deleted file is still accessible")
 	}
@@ -132,6 +141,7 @@ func testValidation(ctx context.Context, client filev1.FileServiceClient) {
 	_, err := client.CreateUpload(ctx, &filev1.CreateUploadRequest{
 		OwnerUserId: ownerID, Name: "malware.exe", ContentType: "application/x-msdownload", Size: 10,
 	})
+
 	if err == nil {
 		fail("unsupported content type was accepted")
 	}
@@ -139,9 +149,11 @@ func testValidation(ctx context.Context, client filev1.FileServiceClient) {
 	_, err = client.CreateUpload(ctx, &filev1.CreateUploadRequest{
 		OwnerUserId: ownerID, Name: "large.pdf", ContentType: "application/pdf", Size: 26 << 20,
 	})
+
 	if err == nil {
 		fail("oversized file was accepted")
 	}
+
 }
 
 func testMetadataMismatch(ctx context.Context, client filev1.FileServiceClient) {
@@ -158,6 +170,7 @@ func testMetadataMismatch(ctx context.Context, client filev1.FileServiceClient) 
 	response, err := http.DefaultClient.Do(request)
 	check(err)
 	response.Body.Close()
+
 	if response.StatusCode/100 != 2 {
 		fail("metadata mismatch upload failed unexpectedly: %s", response.Status)
 	}
@@ -165,15 +178,19 @@ func testMetadataMismatch(ctx context.Context, client filev1.FileServiceClient) 
 	_, err = client.ConfirmUpload(ctx, &filev1.ConfirmUploadRequest{
 		FileId: created.GetFile().GetId(), ActorUserId: ownerID,
 	})
+
 	if err == nil {
 		fail("metadata mismatch was accepted")
 	}
+
 }
 
 func check(err error) {
+
 	if err != nil {
 		fail("%v", err)
 	}
+
 }
 
 func fail(format string, args ...any) {
@@ -182,8 +199,10 @@ func fail(format string, args ...any) {
 }
 
 func env(key, fallback string) string {
+
 	if value := os.Getenv(key); value != "" {
 		return value
 	}
+
 	return fallback
 }

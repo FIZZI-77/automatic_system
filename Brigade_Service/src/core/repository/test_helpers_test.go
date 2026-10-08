@@ -35,6 +35,7 @@ func setupTestDB(t *testing.T) (*pgxpool.Pool, func()) {
 				WithStartupTimeout(90*time.Second),
 		),
 	)
+
 	if err != nil {
 		t.Fatalf("failed to start postgres container: %v", err)
 	}
@@ -44,12 +45,14 @@ func setupTestDB(t *testing.T) (*pgxpool.Pool, func()) {
 	}
 
 	connStr, err := container.ConnectionString(ctx, "sslmode=disable")
+
 	if err != nil {
 		cleanup()
 		t.Fatalf("failed to get connection string: %v", err)
 	}
 
 	migrationDB, err := sql.Open("pgx", connStr)
+
 	if err != nil {
 		cleanup()
 		t.Fatalf("failed to open db: %v", err)
@@ -63,10 +66,12 @@ func setupTestDB(t *testing.T) (*pgxpool.Pool, func()) {
 	waitForDB(t, ctx, migrationDB)
 	runMigrations(t, migrationDB)
 	pool, err := pgxpool.New(ctx, connStr)
+
 	if err != nil {
 		cleanup()
 		t.Fatalf("failed to open pgx pool: %v", err)
 	}
+
 	cleanup = func() {
 		pool.Close()
 		_ = migrationDB.Close()
@@ -80,12 +85,15 @@ func runMigrations(t *testing.T, db *sql.DB) {
 	t.Helper()
 
 	migrationsDir := filepath.Clean("../../../scheme")
+
 	if err := goose.SetDialect("postgres"); err != nil {
 		t.Fatalf("failed to set goose dialect: %v", err)
 	}
+
 	if err := goose.Up(db, migrationsDir); err != nil {
 		t.Fatalf("failed to apply goose migrations from %s: %v", migrationsDir, err)
 	}
+
 }
 
 func waitForDB(t *testing.T, ctx context.Context, db *sql.DB) {
@@ -94,9 +102,11 @@ func waitForDB(t *testing.T, ctx context.Context, db *sql.DB) {
 	var err error
 	for i := 0; i < 30; i++ {
 		err = db.PingContext(ctx)
+
 		if err == nil {
 			return
 		}
+
 		time.Sleep(time.Second)
 	}
 	t.Fatalf("failed to ping db: %v", err)
@@ -110,9 +120,11 @@ func createTestBrigade(t *testing.T, repo *Repo, departmentID uuid.UUID) *models
 		Name:         fmt.Sprintf("brigade-%s", uuid.NewString()),
 		Description:  "test brigade",
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create test brigade: %v", err)
 	}
+
 	return result.Brigade
 }
 
@@ -124,9 +136,11 @@ func createTestSkill(t *testing.T, repo *Repo) *models.Skill {
 		Code: code,
 		Name: "Skill " + code,
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create test skill: %v", err)
 	}
+
 	return result.Skill
 }
 
@@ -138,8 +152,10 @@ func createTestMember(t *testing.T, repo *Repo, brigadeID uuid.UUID) *models.Bri
 		UserID:    uuid.New(),
 		Role:      models.BrigadeMemberRoleLead,
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create test member: %v", err)
 	}
+
 	return result.Member
 }

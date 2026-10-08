@@ -41,27 +41,35 @@ type eventPayload struct {
 }
 
 func New(rdb redis.UniversalClient, cfg Config, logger *zap.Logger) *Worker {
+
 	if cfg.Interval <= 0 {
 		cfg.Interval = time.Second
 	}
+
 	if cfg.BatchSize <= 0 {
 		cfg.BatchSize = 50
 	}
+
 	if strings.TrimSpace(cfg.Topic) == "" {
 		cfg.Topic = "locations.events.v1"
 	}
+
 	if strings.TrimSpace(cfg.Stream) == "" {
 		cfg.Stream = "locations:events"
 	}
+
 	if strings.TrimSpace(cfg.Group) == "" {
 		cfg.Group = "location-kafka-relay"
 	}
+
 	if strings.TrimSpace(cfg.Consumer) == "" {
 		cfg.Consumer = "location-service"
 	}
+
 	if logger == nil {
 		logger = zap.NewNop()
 	}
+
 	writer := &kafka.Writer{
 		Addr:         kafka.TCP(cfg.Brokers...),
 		Topic:        cfg.Topic,
@@ -74,29 +82,37 @@ func New(rdb redis.UniversalClient, cfg Config, logger *zap.Logger) *Worker {
 func (w *Worker) Close() error { return w.writer.Close() }
 
 func (w *Worker) Run(ctx context.Context) {
+
 	if err := w.ensureGroup(ctx); err != nil {
 		w.log.Error("redis stream relay group", zap.Error(err))
 		return
 	}
+
 	for ctx.Err() == nil {
 		processed, err := w.flush(ctx, "0")
+
 		if err == nil && processed == 0 {
 			_, err = w.flush(ctx, ">")
 		}
+
 		if err != nil && !errors.Is(err, context.Canceled) {
 			w.log.Error("redis stream relay", zap.Error(err))
 		}
+
 		if !wait(ctx, w.cfg.Interval) {
 			return
 		}
+
 	}
 }
 
 func (w *Worker) ensureGroup(ctx context.Context) error {
 	err := w.rdb.XGroupCreateMkStream(ctx, w.cfg.Stream, w.cfg.Group, "0").Err()
+
 	if err != nil && !strings.Contains(err.Error(), "BUSYGROUP") {
 		return err
 	}
+
 	return nil
 }
 
@@ -108,24 +124,31 @@ func (w *Worker) flush(ctx context.Context, id string) (int, error) {
 		Count:    w.cfg.BatchSize,
 	}
 	streams, err := w.rdb.XReadGroup(ctx, args).Result()
+
 	if errors.Is(err, redis.Nil) {
 		return 0, nil
 	}
+
 	if err != nil {
 		return 0, err
 	}
+
 	processed := 0
 	for _, stream := range streams {
 		for _, message := range stream.Messages {
+
 			if err = w.publish(ctx, message); err != nil {
 				return processed, err
 			}
+
 			pipe := w.rdb.TxPipeline()
 			pipe.XAck(ctx, w.cfg.Stream, w.cfg.Group, message.ID)
 			pipe.XDel(ctx, w.cfg.Stream, message.ID)
+
 			if _, err = pipe.Exec(ctx); err != nil {
 				return processed, fmt.Errorf("ack stream event %s: %w", message.ID, err)
 			}
+
 			processed++
 		}
 	}
@@ -136,9 +159,11 @@ func (w *Worker) publish(ctx context.Context, message redis.XMessage) error {
 	eventType := field(message, "event_type")
 	brigadeID := field(message, "brigade_id")
 	occurredAt := field(message, "occurred_at")
+
 	if brigadeID == "" || occurredAt == "" {
 		return fmt.Errorf("invalid stream event %s", message.ID)
 	}
+
 	payloadFields := map[string]any{"brigade_id": brigadeID}
 	switch eventType {
 	case "BrigadeSignalLost":
@@ -153,9 +178,11 @@ func (w *Worker) publish(ctx context.Context, message redis.XMessage) error {
 		return fmt.Errorf("unsupported stream event %s type %q", message.ID, eventType)
 	}
 	version := 1
+
 	if parsed, parseErr := strconv.Atoi(field(message, "event_version")); parseErr == nil && parsed > 0 {
 		version = parsed
 	}
+
 	payload, err := json.Marshal(
 		eventPayload{
 			EventID:      firstNonEmpty(field(message, "event_id"), message.ID),
@@ -165,9 +192,11 @@ func (w *Worker) publish(ctx context.Context, message redis.XMessage) error {
 			Payload:      payloadFields,
 		},
 	)
+
 	if err != nil {
 		return fmt.Errorf("marshal stream event %s: %w", message.ID, err)
 	}
+
 	err = telemetry.WriteKafka(
 		ctx,
 		w.writer,
@@ -182,26 +211,32 @@ func (w *Worker) publish(ctx context.Context, message redis.XMessage) error {
 			Time: time.Now().UTC(),
 		},
 	)
+
 	if err != nil {
 		return fmt.Errorf("publish stream event %s: %w", message.ID, err)
 	}
+
 	return nil
 }
 
 func firstNonEmpty(values ...string) string {
 	for _, value := range values {
+
 		if value != "" {
 			return value
 		}
+
 	}
 	return ""
 }
 
 func field(message redis.XMessage, name string) string {
 	value, ok := message.Values[name]
+
 	if !ok {
 		return ""
 	}
+
 	return fmt.Sprint(value)
 }
 

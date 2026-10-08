@@ -158,6 +158,7 @@ func (value *departmentStats) add(item departmentStats) {
 }
 
 func percent(part, total uint64) float64 {
+
 	if total == 0 {
 		return 0
 	}
@@ -166,6 +167,7 @@ func percent(part, total uint64) float64 {
 }
 
 func average(total float64, count uint64) float64 {
+
 	if count == 0 {
 		return 0
 	}
