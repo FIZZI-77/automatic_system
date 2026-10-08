@@ -55,11 +55,12 @@ func TestTicketServiceIntegration_TicketLifecycle(t *testing.T) {
 
 	brigadeID := uuid.New()
 	assignResult, err := app.service.AssignBrigade(ctx, &models.AssignBrigadeInput{
-		TicketID:   ticket.ID,
-		BrigadeID:  brigadeID,
-		AssignedBy: uuid.New(),
-		Comment:    stringPtr("Assigned by dispatcher"),
-		ActorRoles: dispatcherRoles(),
+		TicketID:          ticket.ID,
+		BrigadeID:         brigadeID,
+		AssignedBy:        uuid.New(),
+		Comment:           stringPtr("Assigned by dispatcher"),
+		ActorDepartmentID: &ticket.DepartmentID,
+		ActorRoles:        dispatcherRoles(),
 	})
 
 	if err != nil {
@@ -71,11 +72,12 @@ func TestTicketServiceIntegration_TicketLifecycle(t *testing.T) {
 	}
 
 	statusResult, err := app.service.ChangeTicketStatus(ctx, &models.ChangeTicketStatusInput{
-		TicketID:   ticket.ID,
-		NewStatus:  models.TicketStatusInProgress,
-		ChangedBy:  uuid.New(),
-		Comment:    stringPtr("Work started"),
-		ActorRoles: dispatcherRoles(),
+		TicketID:          ticket.ID,
+		NewStatus:         models.TicketStatusInProgress,
+		ChangedBy:         uuid.New(),
+		Comment:           stringPtr("Work started"),
+		ActorDepartmentID: &ticket.DepartmentID,
+		ActorRoles:        dispatcherRoles(),
 	})
 
 	if err != nil {
@@ -87,10 +89,11 @@ func TestTicketServiceIntegration_TicketLifecycle(t *testing.T) {
 	}
 
 	completeResult, err := app.service.CompleteTicket(ctx, &models.CompleteTicketInput{
-		TicketID:    ticket.ID,
-		CompletedBy: uuid.New(),
-		Comment:     stringPtr("Resolved"),
-		ActorRoles:  dispatcherRoles(),
+		TicketID:          ticket.ID,
+		CompletedBy:       uuid.New(),
+		Comment:           stringPtr("Resolved"),
+		ActorDepartmentID: &ticket.DepartmentID,
+		ActorRoles:        dispatcherRoles(),
 	})
 
 	if err != nil {

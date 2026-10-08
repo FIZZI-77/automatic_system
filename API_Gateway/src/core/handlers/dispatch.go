@@ -201,6 +201,12 @@ func dispatchStatus(value string) dispatchv1.DispatchStatus {
 	return dispatchv1.DispatchStatus_DISPATCH_STATUS_UNSPECIFIED
 }
 
+func dispatchContext(c *gin.Context) context.Context {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 20*time.Second)
+	c.Set("dispatch_cancel", cancel)
+	return gatewayActorContext(ctx, c)
+}
+
 func (h *DispatchHandler) context(c *gin.Context) (context.Context, bool) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 20*time.Second)
 	c.Set("dispatch_cancel", cancel)

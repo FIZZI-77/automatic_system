@@ -254,6 +254,9 @@ func TestTicketService_UpdateTicket_Success(t *testing.T) {
 	title := "Updated title"
 
 	ticketRepo := &mockTicketRepo{
+		getTicketByIDFunc: func(ctx context.Context, id uuid.UUID) (*models.Ticket, error) {
+			return &models.Ticket{ID: id, UserID: updatedBy, Status: models.TicketStatusNew}, nil
+		},
 		updateTicketFunc: func(ctx context.Context, in *models.UpdateTicketInput) (*models.Ticket, error) {
 
 			if in.TicketID != ticketID {
@@ -294,14 +297,17 @@ func TestTicketService_UpdateTicket_Success(t *testing.T) {
 
 }
 
-func TestTicketService_ChangeTicketStatus_DelegatesToRepoWithoutPreRead(t *testing.T) {
+func TestTicketService_ChangeTicketStatus_DelegatesToRepoAfterAccessCheck(t *testing.T) {
 	ticketID := uuid.New()
 	changedBy := uuid.New()
 
 	ticketRepo := &mockTicketRepo{
 		getTicketByIDFunc: func(ctx context.Context, id uuid.UUID) (*models.Ticket, error) {
-			t.Fatal("expected ChangeTicketStatus not to pre-read ticket in service")
-			return nil, nil
+			if id != ticketID {
+				t.Fatalf("GetTicketByID(%s) id = %s, want %s", ticketID, id, ticketID)
+			}
+
+			return &models.Ticket{ID: id, Status: models.TicketStatusNew}, nil
 		},
 		changeTicketStatusFunc: func(ctx context.Context, in *models.ChangeTicketStatusInput) (*models.Ticket, error) {
 
@@ -373,6 +379,9 @@ func TestTicketService_ChangeTicketStatus_PreservesRepoDomainError(t *testing.T)
 	ticketID := uuid.New()
 
 	ticketRepo := &mockTicketRepo{
+		getTicketByIDFunc: func(ctx context.Context, id uuid.UUID) (*models.Ticket, error) {
+			return &models.Ticket{ID: id, Status: models.TicketStatusInProgress}, nil
+		},
 		changeTicketStatusFunc: func(ctx context.Context, in *models.ChangeTicketStatusInput) (*models.Ticket, error) {
 			return nil, models.ErrInvalidStatusTransition
 		},
@@ -406,9 +415,13 @@ func TestTicketService_AssignCancelComplete_CommonCases(t *testing.T) {
 
 	t.Run("assign brigade success", func(t *testing.T) {
 		brigadeID := uuid.New()
+		departmentID := uuid.New()
 		assignedBy := uuid.New()
 
 		ticketRepo := &mockTicketRepo{
+			getTicketByIDFunc: func(ctx context.Context, id uuid.UUID) (*models.Ticket, error) {
+				return &models.Ticket{ID: id, DepartmentID: departmentID, Status: models.TicketStatusNew}, nil
+			},
 			assignBrigadeFunc: func(ctx context.Context, in *models.AssignBrigadeInput) (*models.Ticket, error) {
 
 				if in.TicketID != ticketID {
@@ -430,10 +443,11 @@ func TestTicketService_AssignCancelComplete_CommonCases(t *testing.T) {
 		svc := newTestTicketService(&repository.Repository{TicketRepository: ticketRepo})
 
 		result, err := svc.AssignBrigade(context.Background(), &models.AssignBrigadeInput{
-			TicketID:   ticketID,
-			BrigadeID:  brigadeID,
-			AssignedBy: assignedBy,
-			ActorRoles: []string{"dispatcher"},
+			TicketID:          ticketID,
+			BrigadeID:         brigadeID,
+			AssignedBy:        assignedBy,
+			ActorDepartmentID: &departmentID,
+			ActorRoles:        []string{"dispatcher"},
 		})
 
 		if err != nil {
@@ -581,6 +595,9 @@ func TestTicketService_AccessRules(t *testing.T) {
 		ticketID := uuid.New()
 
 		svc := newTestTicketService(&repository.Repository{TicketRepository: &mockTicketRepo{
+			getTicketByIDFunc: func(ctx context.Context, id uuid.UUID) (*models.Ticket, error) {
+				return &models.Ticket{ID: id, Status: models.TicketStatusNew}, nil
+			},
 			changeTicketStatusFunc: func(ctx context.Context, in *models.ChangeTicketStatusInput) (*models.Ticket, error) {
 				t.Fatal("expected repo not to be called")
 				return nil, nil
