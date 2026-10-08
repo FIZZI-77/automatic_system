@@ -68,7 +68,7 @@ spec:
         timeout: 5s
         metadata:
           type: cmd
-          cmd: {{ printf "bash -c 'for i in $(seq 1 720); do grpc_health_probe -addr=%s-canary.%s.svc.cluster.local:%v >/dev/null 2>&1; sleep 1; done'" $service.service $root.Release.Namespace $service.port | quote }}
+          cmd: {{ printf "bash -c 'for i in $(seq 1 720); do grpc_health_probe -connect-timeout 5s -rpc-timeout 5s -addr %s-canary.%s.svc.cluster.local:%v >/dev/null 2>&1 || true; sleep 1; done'" $service.service $root.Release.Namespace $service.port | quote }}
     {{- end }}
     {{- end }}
 {{- end }}
