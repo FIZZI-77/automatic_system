@@ -24,20 +24,24 @@ func AccessLogUnaryServerInterceptor(log *zap.Logger) grpc.UnaryServerIntercepto
 			zap.String("code", status.Code(err).String()),
 			zap.Duration("duration", time.Since(start)),
 		}
+
 		if err != nil {
 			log.Warn("gRPC request completed", append(fields, zap.Error(err))...)
 		} else {
 			log.Info("gRPC request completed", fields...)
 		}
+
 		return response, err
 	}
 }
 func HTTPMiddleware(log *zap.Logger, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := r.Header.Get(RequestIDHeader)
+
 		if id == "" {
 			id = uuid.NewString()
 		}
+
 		ctx := WithRequestID(r.Context(), id)
 		w.Header().Set(RequestIDHeader, id)
 		wrapped := &statusWriter{ResponseWriter: w, status: http.StatusOK}

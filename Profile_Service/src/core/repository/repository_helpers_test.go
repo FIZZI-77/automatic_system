@@ -24,29 +24,37 @@ func TestMapDatabaseError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+
 			if err := mapDatabaseError("test", tt.err); !errors.Is(err, tt.target) {
 				t.Fatalf("expected %v, got %v", tt.target, err)
 			}
+
 		})
 	}
 }
 
 func TestSortHelpersUseAllowlist(t *testing.T) {
+
 	if got := userProfileSortColumn(models.UserProfileSortByFullName); got != "full_name" {
 		t.Fatalf("unexpected user profile sort column: %s", got)
 	}
+
 	if got := userProfileSortColumn(models.UserProfileSortBy("DROP TABLE")); got != "created_at" {
 		t.Fatalf("unsafe user profile sort fallback: %s", got)
 	}
+
 	if got := workProfileSortColumn(models.WorkProfileSortByPosition); got != "wp.position" {
 		t.Fatalf("unexpected work profile sort column: %s", got)
 	}
+
 	if got := workProfileSortColumn(models.WorkProfileSortBy("DROP TABLE")); got != "wp.created_at" {
 		t.Fatalf("unsafe work profile sort fallback: %s", got)
 	}
+
 	if got := sortOrderSQL(models.SortOrder("DROP TABLE")); got != "DESC" {
 		t.Fatalf("unsafe sort order fallback: %s", got)
 	}
+
 }
 
 func TestEvaluateCanJoinBrigade(t *testing.T) {
@@ -70,19 +78,24 @@ func TestEvaluateCanJoinBrigade(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			allowed, reason := evaluateCanJoinBrigade(tt.status, tt.department, departmentID)
+
 			if allowed != tt.allowed || reason != tt.reason {
 				t.Fatalf("expected allowed=%v reason=%s, got allowed=%v reason=%s", tt.allowed, tt.reason, allowed, reason)
 			}
+
 		})
 	}
 }
 
 func TestNewRepositoryInitializesImplementations(t *testing.T) {
 	repository := NewRepository(DBPools{})
+
 	if repository.UserProfileRepository == nil {
 		t.Fatal("user profile repository is nil")
 	}
+
 	if repository.WorkProfileRepository == nil {
 		t.Fatal("work profile repository is nil")
 	}
+
 }

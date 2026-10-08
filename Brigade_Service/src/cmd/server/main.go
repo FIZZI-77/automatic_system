@@ -31,24 +31,31 @@ import (
 
 func main() {
 	telemetryProviders, err := telemetry.Init(context.Background(), "brigade-service")
+
 	if err != nil {
 		log.Fatalf("initialize OpenTelemetry: %v", err)
 	}
+
 	defer func() {
+
 		if shutdownErr := telemetryProviders.Close(); shutdownErr != nil {
 			log.Printf("shutdown OpenTelemetry: %v", shutdownErr)
 		}
+
 	}()
 
 	if err := appconfig.Load(); err != nil {
 		log.Fatalf("configuration error: %v", err)
 	}
+
 	dependencies := closer.New()
 
 	logger, err := pkg.NewLogger()
+
 	if err != nil {
 		panic(err)
 	}
+
 	defer logger.Sync()
 
 	if err = loadEnvFile(".env"); err != nil && !os.IsNotExist(err) {
@@ -64,22 +71,28 @@ func main() {
 		SSLMode:  os.Getenv("SSLMODE"),
 	}
 	writeDB, err := pkg.NewPostgresDB(dbConfig)
+
 	if err != nil {
 		log.Fatalf("failed to connect db: %v", err)
 	}
+
 	dependencies.Add("postgres", func() error {
 		writeDB.Close()
 		return nil
 	})
 	readHost := strings.TrimSpace(os.Getenv("DB_READ_HOST"))
+
 	if readHost == "" {
 		readHost = dbConfig.Host
 	}
+
 	dbConfig.Host = readHost
 	readDB, err := pkg.NewPostgresDB(dbConfig)
+
 	if err != nil {
 		log.Fatalf("failed to connect read db: %v", err)
 	}
+
 	dependencies.Add("postgres read", func() error {
 		readDB.Close()
 		return nil
@@ -97,9 +110,11 @@ func main() {
 			pkg.RequestIDUnaryClientInterceptor,
 		),
 	)
+
 	if err != nil {
 		log.Fatalf("failed to create department grpc client: %v", err)
 	}
+
 	dependencies.Add("department grpc", departmentConn.Close)
 
 	profileConn, err := newGRPCClient(
@@ -107,13 +122,16 @@ func main() {
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithChainUnaryInterceptor(pkg.RequestIDUnaryClientInterceptor),
 	)
+
 	if err != nil {
 		log.Fatalf("failed to create profile grpc client: %v", err)
 	}
+
 	dependencies.Add("profile grpc", profileConn.Close)
 
 	grpcPort := envOrDefault("GRPC_PORT", "50054")
 	lis, err := net.Listen("tcp", ":"+grpcPort)
+
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
@@ -140,9 +158,11 @@ func main() {
 	serverErrCh := make(chan error, 1)
 	go func() {
 		log.Printf("brigade service listening at %v", lis.Addr())
+
 		if err := grpcServer.Serve(lis); err != nil {
 			serverErrCh <- err
 		}
+
 	}()
 
 	sigCh := make(chan os.Signal, 1)
@@ -179,42 +199,52 @@ func main() {
 
 func envOrDefault(key string, defaultValue string) string {
 	value := strings.TrimSpace(os.Getenv(key))
+
 	if value == "" {
 		return defaultValue
 	}
+
 	return value
 }
 
 func loadEnvFile(path string) error {
 	file, err := os.Open(path)
+
 	if err != nil {
 		return err
 	}
+
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
+
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
 
 		key, value, ok := strings.Cut(line, "=")
+
 		if !ok {
 			return fmt.Errorf("invalid env line: %q", line)
 		}
 
 		key = strings.TrimSpace(key)
 		value = strings.Trim(strings.TrimSpace(value), `"'`)
+
 		if key == "" {
 			return fmt.Errorf("empty env key")
 		}
 
 		if _, exists := os.LookupEnv(key); !exists {
+
 			if err := os.Setenv(key, value); err != nil {
 				return err
 			}
+
 		}
+
 	}
 
 	return scanner.Err()
@@ -227,6 +257,7 @@ func closeDependencies(dependencies *closer.Closer) {
 	if err := dependencies.Close(ctx); err != nil {
 		log.Printf("failed to close dependencies: %v", err)
 	}
+
 }
 
 func newGRPCClient(target string, options ...grpc.DialOption) (*grpc.ClientConn, error) {

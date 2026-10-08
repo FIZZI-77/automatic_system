@@ -14,6 +14,7 @@ const (
 )
 
 func validateUUID(value uuid.UUID, field string) error {
+
 	if value == uuid.Nil {
 		return fmt.Errorf("%s is required", field)
 	}
@@ -22,6 +23,7 @@ func validateUUID(value uuid.UUID, field string) error {
 }
 
 func validateOptionalUUID(value *uuid.UUID, field string) error {
+
 	if value == nil {
 		return nil
 	}
@@ -48,6 +50,7 @@ func validateText(value string, field string, maxLen int) error {
 }
 
 func validateOptionalText(value *string, field string, maxLen int) error {
+
 	if value == nil {
 		return nil
 	}
@@ -66,6 +69,7 @@ func validateOptionalText(value *string, field string, maxLen int) error {
 }
 
 func validateCoordinates(latitude float64, longitude float64) error {
+
 	if latitude < -90 || latitude > 90 {
 		return errors.New("latitude must be between -90 and 90")
 	}
@@ -78,6 +82,7 @@ func validateCoordinates(latitude float64, longitude float64) error {
 }
 
 func normalizeLimitOffset(limit int32, offset int32) (int32, int32) {
+
 	if limit <= 0 {
 		limit = DefaultLimit
 	}
@@ -94,6 +99,7 @@ func normalizeLimitOffset(limit int32, offset int32) (int32, int32) {
 }
 
 func (in *CreateTicketInput) Validate() error {
+
 	if in == nil {
 		return errors.New("create ticket input is nil")
 	}
@@ -134,6 +140,7 @@ func (in *CreateTicketInput) Validate() error {
 }
 
 func (in *GetTicketInput) Validate() error {
+
 	if in == nil {
 		return errors.New("get ticket input is nil")
 	}
@@ -142,6 +149,7 @@ func (in *GetTicketInput) Validate() error {
 }
 
 func (in *ListTicketsInput) Validate() error {
+
 	if in == nil {
 		return errors.New("list tickets input is nil")
 	}
@@ -196,6 +204,7 @@ func (in *ListTicketsInput) Validate() error {
 }
 
 func (in *UpdateTicketInput) Validate() error {
+
 	if in == nil {
 		return errors.New("update ticket input is nil")
 	}
@@ -229,9 +238,11 @@ func (in *UpdateTicketInput) Validate() error {
 	}
 
 	if in.Latitude != nil && in.Longitude != nil {
+
 		if err := validateCoordinates(*in.Latitude, *in.Longitude); err != nil {
 			return err
 		}
+
 	}
 
 	if in.UpdatedBy == nil {
@@ -246,6 +257,7 @@ func (in *UpdateTicketInput) Validate() error {
 }
 
 func (in *ChangeTicketStatusInput) Validate() error {
+
 	if in == nil {
 		return errors.New("change ticket status input is nil")
 	}
@@ -270,6 +282,7 @@ func (in *ChangeTicketStatusInput) Validate() error {
 }
 
 func (in *AssignBrigadeInput) Validate() error {
+
 	if in == nil {
 		return errors.New("assign brigade input is nil")
 	}
@@ -294,6 +307,7 @@ func (in *AssignBrigadeInput) Validate() error {
 }
 
 func (in *CancelTicketInput) Validate() error {
+
 	if in == nil {
 		return errors.New("cancel ticket input is nil")
 	}
@@ -314,6 +328,7 @@ func (in *CancelTicketInput) Validate() error {
 }
 
 func (in *CompleteTicketInput) Validate() error {
+
 	if in == nil {
 		return errors.New("complete ticket input is nil")
 	}
@@ -334,6 +349,7 @@ func (in *CompleteTicketInput) Validate() error {
 }
 
 func (in *GetTicketStatusHistoryInput) Validate() error {
+
 	if in == nil {
 		return errors.New("get ticket status history input is nil")
 	}
@@ -348,6 +364,7 @@ func (in *GetTicketStatusHistoryInput) Validate() error {
 }
 
 func (in *CreateCategoryInput) Validate() error {
+
 	if in == nil {
 		return errors.New("create category input is nil")
 	}
@@ -372,6 +389,7 @@ func (in *CreateCategoryInput) Validate() error {
 }
 
 func (in *GetCategoryInput) Validate() error {
+
 	if in == nil {
 		return errors.New("get category input is nil")
 	}
@@ -380,6 +398,7 @@ func (in *GetCategoryInput) Validate() error {
 }
 
 func (in *ListCategoriesInput) Validate() error {
+
 	if in == nil {
 		return errors.New("list categories input is nil")
 	}
@@ -390,6 +409,7 @@ func (in *ListCategoriesInput) Validate() error {
 }
 
 func (in *UpdateCategoryInput) Validate() error {
+
 	if in == nil {
 		return errors.New("update category input is nil")
 	}
@@ -414,6 +434,7 @@ func (in *UpdateCategoryInput) Validate() error {
 }
 
 func (in *DeleteCategoryInput) Validate() error {
+
 	if in == nil {
 		return errors.New("delete category input is nil")
 	}
@@ -429,6 +450,7 @@ func isValidCode(code string) bool {
 	}
 
 	for _, r := range code {
+
 		if r >= 'a' && r <= 'z' {
 			continue
 		}

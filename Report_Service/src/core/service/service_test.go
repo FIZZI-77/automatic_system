@@ -26,23 +26,29 @@ func (r *repoMock) List(context.Context, models.ListFilter) ([]*models.Report, i
 func (r *repoMock) Cancel(context.Context, uuid.UUID) (*models.Report, error) { return r.item, nil }
 func (r *repoMock) Retry(context.Context, uuid.UUID) (*models.Report, error)  { return r.item, nil }
 func (r *repoMock) Claim(context.Context) (*models.Report, error) {
+
 	if !r.claimed {
 		r.claimed = true
 		return r.item, nil
 	}
+
 	return nil, errors.New("empty")
 }
 func (r *repoMock) Complete(_ context.Context, _ uuid.UUID, _ uuid.UUID, attempt int32) error {
+
 	if attempt != r.item.Attempts {
 		return errors.New("wrong attempt")
 	}
+
 	r.completed = true
 	return nil
 }
 func (r *repoMock) Fail(_ context.Context, _ uuid.UUID, attempt int32, _ string) error {
+
 	if attempt != r.item.Attempts {
 		return errors.New("wrong attempt")
 	}
+
 	r.failed = true
 	return nil
 }
@@ -71,18 +77,23 @@ func TestProcessNextCompletesReport(t *testing.T) {
 	r := &repoMock{item: &models.Report{ID: uuid.New(), RequestedBy: uuid.New(), Name: "Report", Type: models.TypeTicketOverview, Format: models.FormatCSV, Status: models.StatusProcessing, Attempts: 2}}
 	s := NewService(r, sourceMock{}, filesMock{}, genMock{}, nil)
 	ok, e := s.ProcessNext(context.Background())
+
 	if e != nil || !ok || !r.completed || r.failed {
 		t.Fatalf("ok=%v err=%v completed=%v failed=%v", ok, e, r.completed, r.failed)
 	}
+
 }
 func TestOwnerAccess(t *testing.T) {
 	owner := uuid.New()
 	r := &repoMock{item: &models.Report{ID: uuid.New(), RequestedBy: owner}}
 	s := NewService(r, sourceMock{}, filesMock{}, genMock{}, nil)
+
 	if _, e := s.Get(context.Background(), r.item.ID, uuid.New(), false); !errors.Is(e, models.ErrForbidden) {
 		t.Fatalf("expected forbidden, got %v", e)
 	}
+
 	if _, e := s.Get(context.Background(), r.item.ID, owner, false); e != nil {
 		t.Fatal(e)
 	}
+
 }

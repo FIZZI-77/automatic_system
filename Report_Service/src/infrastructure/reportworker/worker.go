@@ -21,12 +21,15 @@ func (w *Worker) Run(ctx context.Context) error {
 	defer tick.Stop()
 	for {
 		processed, e := w.processor.ProcessNext(ctx)
+
 		if e != nil && ctx.Err() == nil {
 			w.log.Error("report job failed", zap.Error(e))
 		}
+
 		if processed {
 			continue
 		}
+
 		select {
 		case <-ctx.Done():
 			return nil

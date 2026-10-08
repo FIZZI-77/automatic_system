@@ -14,6 +14,7 @@ type idempotencyKeyContextKey struct{}
 
 func WithIdempotencyKey(ctx context.Context, key string) context.Context {
 	key = strings.TrimSpace(key)
+
 	if key == "" {
 		return ctx
 	}
@@ -23,6 +24,7 @@ func WithIdempotencyKey(ctx context.Context, key string) context.Context {
 
 func IdempotencyKeyFromContext(ctx context.Context) (string, bool) {
 	key, ok := ctx.Value(idempotencyKeyContextKey{}).(string)
+
 	if !ok || key == "" {
 		return "", false
 	}
@@ -36,11 +38,14 @@ func IdempotencyKeyUnaryServerInterceptor(
 	_ *grpc.UnaryServerInfo,
 	handler grpc.UnaryHandler,
 ) (interface{}, error) {
+
 	if md, ok := metadata.FromIncomingContext(ctx); ok {
 		values := md.Get(idempotencyKeyMetadataKey)
+
 		if len(values) > 0 {
 			ctx = WithIdempotencyKey(ctx, values[0])
 		}
+
 	}
 
 	return handler(ctx, req)

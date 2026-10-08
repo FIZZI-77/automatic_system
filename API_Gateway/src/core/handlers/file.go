@@ -18,9 +18,11 @@ func NewFileHandler(client filev1.FileServiceClient) *FileHandler {
 
 func (h *FileHandler) CreateUpload(c *gin.Context) {
 	var req models.CreateFileUploadRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
+
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
@@ -31,6 +33,7 @@ func (h *FileHandler) CreateUpload(c *gin.Context) {
 		Size:        req.Size,
 		Checksum:    req.Checksum,
 	})
+
 	if err != nil {
 		handleGRPCError(c, err)
 		return
@@ -45,9 +48,11 @@ func (h *FileHandler) CreateUpload(c *gin.Context) {
 
 func (h *FileHandler) ConfirmUpload(c *gin.Context) {
 	var req models.FileIDRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
+
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
@@ -56,18 +61,22 @@ func (h *FileHandler) ConfirmUpload(c *gin.Context) {
 		ActorUserId: c.GetString("user_id"),
 		ActorRoles:  actorRoles(c),
 	})
+
 	if err != nil {
 		handleGRPCError(c, err)
 		return
 	}
+
 	c.JSON(http.StatusOK, gin.H{"file": fromProtoFile(res.GetFile())})
 }
 
 func (h *FileHandler) LinkFile(c *gin.Context) {
 	var req models.LinkFileRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
+
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
@@ -78,18 +87,22 @@ func (h *FileHandler) LinkFile(c *gin.Context) {
 		ActorUserId:  c.GetString("user_id"),
 		ActorRoles:   actorRoles(c),
 	})
+
 	if err != nil {
 		handleGRPCError(c, err)
 		return
 	}
+
 	c.JSON(http.StatusOK, gin.H{"file": fromProtoFile(res.GetFile())})
 }
 
 func (h *FileHandler) GetDownloadURL(c *gin.Context) {
 	var req models.FileIDRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
+
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
@@ -98,10 +111,12 @@ func (h *FileHandler) GetDownloadURL(c *gin.Context) {
 		ActorUserId: c.GetString("user_id"),
 		ActorRoles:  actorRoles(c),
 	})
+
 	if err != nil {
 		handleGRPCError(c, err)
 		return
 	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"file":         fromProtoFile(res.GetFile()),
 		"download_url": res.GetDownloadUrl(),
@@ -111,9 +126,11 @@ func (h *FileHandler) GetDownloadURL(c *gin.Context) {
 
 func (h *FileHandler) ListResourceFiles(c *gin.Context) {
 	var req models.ListResourceFilesRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
+
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
@@ -123,10 +140,12 @@ func (h *FileHandler) ListResourceFiles(c *gin.Context) {
 		ActorUserId:  c.GetString("user_id"),
 		ActorRoles:   actorRoles(c),
 	})
+
 	if err != nil {
 		handleGRPCError(c, err)
 		return
 	}
+
 	files := make([]*models.File, 0, len(res.GetFiles()))
 	for _, file := range res.GetFiles() {
 		files = append(files, fromProtoFile(file))
@@ -136,9 +155,11 @@ func (h *FileHandler) ListResourceFiles(c *gin.Context) {
 
 func (h *FileHandler) DeleteFile(c *gin.Context) {
 	var req models.FileIDRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
+
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
@@ -147,10 +168,12 @@ func (h *FileHandler) DeleteFile(c *gin.Context) {
 		ActorUserId: c.GetString("user_id"),
 		ActorRoles:  actorRoles(c),
 	})
+
 	if err != nil {
 		handleGRPCError(c, err)
 		return
 	}
+
 	c.JSON(http.StatusOK, gin.H{"deleted": true})
 }
 
@@ -164,14 +187,17 @@ func protoTime(value interface {
 	AsTime() time.Time
 	IsValid() bool
 }) *time.Time {
+
 	if value == nil || !value.IsValid() {
 		return nil
 	}
+
 	parsed := value.AsTime()
 	return &parsed
 }
 
 func fromProtoFile(file *filev1.File) *models.File {
+
 	if file == nil {
 		return nil
 	}

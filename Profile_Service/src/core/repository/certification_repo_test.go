@@ -26,9 +26,11 @@ func TestCertificationRepository_TypeAndSkills(t *testing.T) {
 		SkillID:             skillID,
 		ProficiencyLevel:    &level,
 	})
+
 	if err != nil {
 		t.Fatalf("add certification type skill failed: %v", err)
 	}
+
 	if link.CertificationTypeSkill.SkillID != skillID {
 		t.Fatalf("expected skill id %s, got %s", skillID, link.CertificationTypeSkill.SkillID)
 	}
@@ -37,9 +39,11 @@ func TestCertificationRepository_TypeAndSkills(t *testing.T) {
 		CertificationTypeID: certificationType.ID,
 		ActiveOnly:          true,
 	})
+
 	if err != nil {
 		t.Fatalf("list certification type skills failed: %v", err)
 	}
+
 	if len(list.Skills) != 1 {
 		t.Fatalf("expected one active skill, got %d", len(list.Skills))
 	}
@@ -55,9 +59,11 @@ func TestCertificationRepository_TypeAndSkills(t *testing.T) {
 		CertificationTypeID: certificationType.ID,
 		ActiveOnly:          true,
 	})
+
 	if err != nil {
 		t.Fatalf("list certification type skills after remove failed: %v", err)
 	}
+
 	if len(list.Skills) != 0 {
 		t.Fatalf("expected no active skills, got %d", len(list.Skills))
 	}
@@ -69,12 +75,15 @@ func TestCertificationRepository_TypeAndSkills(t *testing.T) {
 		Name:   &newName,
 		Active: &active,
 	})
+
 	if err != nil {
 		t.Fatalf("update certification type failed: %v", err)
 	}
+
 	if updated.CertificationType.Name != newName || updated.CertificationType.Active {
 		t.Fatalf("unexpected updated certification type: %+v", updated.CertificationType)
 	}
+
 }
 
 func TestCertificationRepository_VerifyCertificationGrantsAndRevokesSkills(t *testing.T) {
@@ -92,6 +101,7 @@ func TestCertificationRepository_VerifyCertificationGrantsAndRevokesSkills(t *te
 		CertificationTypeID: certificationType.ID,
 		SkillID:             skillID,
 	})
+
 	if err != nil {
 		t.Fatalf("add certification type skill failed: %v", err)
 	}
@@ -102,9 +112,11 @@ func TestCertificationRepository_VerifyCertificationGrantsAndRevokesSkills(t *te
 		CertificationTypeID: certificationType.ID,
 		ExpiresAt:           &expiresAt,
 	})
+
 	if err != nil {
 		t.Fatalf("upload work profile certification failed: %v", err)
 	}
+
 	if upload.Certification.Status != models.CertificationStatusPending {
 		t.Fatalf("expected PENDING, got %s", upload.Certification.Status)
 	}
@@ -114,20 +126,25 @@ func TestCertificationRepository_VerifyCertificationGrantsAndRevokesSkills(t *te
 		ID:          upload.Certification.ID,
 		ActorUserID: &verifierID,
 	})
+
 	if err != nil {
 		t.Fatalf("verify certification failed: %v", err)
 	}
+
 	if verify.Certification.Status != models.CertificationStatusVerified {
 		t.Fatalf("expected VERIFIED, got %s", verify.Certification.Status)
 	}
+
 	if len(verify.SkillGrants) != 1 || verify.SkillGrants[0].SkillID != skillID {
 		t.Fatalf("expected one skill grant for %s, got %+v", skillID, verify.SkillGrants)
 	}
 
 	effective, err := repo.ListEffectiveWorkProfileSkills(ctx, &models.ListEffectiveWorkProfileSkillsInput{WorkProfileID: workProfile.WorkProfile.ID})
+
 	if err != nil {
 		t.Fatalf("list effective work profile skills failed: %v", err)
 	}
+
 	if len(effective.SkillGrants) != 1 {
 		t.Fatalf("expected one effective skill, got %d", len(effective.SkillGrants))
 	}
@@ -136,9 +153,11 @@ func TestCertificationRepository_VerifyCertificationGrantsAndRevokesSkills(t *te
 		WorkProfileID:    workProfile.WorkProfile.ID,
 		RequiredSkillIDs: []uuid.UUID{skillID},
 	})
+
 	if err != nil {
 		t.Fatalf("check work profile skills failed: %v", err)
 	}
+
 	if !check.Allowed {
 		t.Fatalf("expected allowed skill check, missing %+v", check.MissingSkillIDs)
 	}
@@ -147,15 +166,19 @@ func TestCertificationRepository_VerifyCertificationGrantsAndRevokesSkills(t *te
 		ID:     upload.Certification.ID,
 		Reason: "manual revoke",
 	})
+
 	if err != nil {
 		t.Fatalf("revoke certification failed: %v", err)
 	}
+
 	if revoke.Certification.Status != models.CertificationStatusRevoked {
 		t.Fatalf("expected REVOKED, got %s", revoke.Certification.Status)
 	}
+
 	if len(revoke.RevokedGrants) != 1 || revoke.RevokedGrants[0].Active {
 		t.Fatalf("expected one inactive revoked grant, got %+v", revoke.RevokedGrants)
 	}
+
 }
 
 func TestCertificationRepository_ManualSkillGrant(t *testing.T) {
@@ -173,9 +196,11 @@ func TestCertificationRepository_ManualSkillGrant(t *testing.T) {
 		SkillID:       skillID,
 		Reason:        "manual grant",
 	})
+
 	if err != nil {
 		t.Fatalf("grant manual skill failed: %v", err)
 	}
+
 	if grant.SkillGrant.SourceType != models.SkillGrantSourceTypeManual {
 		t.Fatalf("expected MANUAL source, got %s", grant.SkillGrant.SourceType)
 	}
@@ -183,9 +208,11 @@ func TestCertificationRepository_ManualSkillGrant(t *testing.T) {
 	batch, err := repo.BatchListEffectiveWorkProfileSkills(ctx, &models.BatchListEffectiveWorkProfileSkillsInput{
 		WorkProfileIDs: []uuid.UUID{workProfile.WorkProfile.ID},
 	})
+
 	if err != nil {
 		t.Fatalf("batch list effective skills failed: %v", err)
 	}
+
 	if len(batch.SkillGrantsByWorkProfileID[workProfile.WorkProfile.ID]) != 1 {
 		t.Fatalf("expected one batch grant, got %+v", batch.SkillGrantsByWorkProfileID)
 	}
@@ -194,15 +221,19 @@ func TestCertificationRepository_ManualSkillGrant(t *testing.T) {
 		ID:     grant.SkillGrant.ID,
 		Reason: "manual revoke",
 	})
+
 	if err != nil {
 		t.Fatalf("revoke manual skill grant failed: %v", err)
 	}
+
 	if revoked.SkillGrant.Active {
 		t.Fatal("expected grant to be inactive")
 	}
+
 	if revoked.SkillGrant.RevokedAt == nil {
 		t.Fatal("expected revoked_at")
 	}
+
 }
 
 func TestCertificationRepository_VerifyInvalidStatusFails(t *testing.T) {
@@ -219,6 +250,7 @@ func TestCertificationRepository_VerifyInvalidStatusFails(t *testing.T) {
 		WorkProfileID:       workProfile.WorkProfile.ID,
 		CertificationTypeID: certificationType.ID,
 	})
+
 	if err != nil {
 		t.Fatalf("upload work profile certification failed: %v", err)
 	}
@@ -227,12 +259,15 @@ func TestCertificationRepository_VerifyInvalidStatusFails(t *testing.T) {
 		ID:              upload.Certification.ID,
 		RejectionReason: "bad document",
 	})
+
 	if err != nil {
 		t.Fatalf("reject certification failed: %v", err)
 	}
 
 	_, err = repo.VerifyWorkProfileCertification(ctx, &models.VerifyWorkProfileCertificationInput{ID: upload.Certification.ID})
+
 	if !errors.Is(err, models.ErrInvalidCertificationStatus) {
 		t.Fatalf("expected invalid certification status, got %v", err)
 	}
+
 }

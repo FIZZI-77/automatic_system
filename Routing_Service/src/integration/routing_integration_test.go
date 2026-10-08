@@ -35,26 +35,34 @@ func TestRouteRepositoryPersistsRouteAndOutbox(t *testing.T) {
 				WithStartupTimeout(90*time.Second),
 		),
 	)
+
 	if err != nil {
 		t.Fatalf("start postgres: %v", err)
 	}
+
 	defer container.Terminate(ctx)
 
 	connectionString, err := container.ConnectionString(
 		ctx,
 		"sslmode=disable",
 	)
+
 	if err != nil {
 		t.Fatalf("connection string: %v", err)
 	}
+
 	migrationDB, err := sql.Open("pgx", connectionString)
+
 	if err != nil {
 		t.Fatalf("open migration database: %v", err)
 	}
+
 	defer migrationDB.Close()
+
 	if err = goose.SetDialect("postgres"); err != nil {
 		t.Fatalf("set dialect: %v", err)
 	}
+
 	if err = goose.Up(
 		migrationDB,
 		filepath.Clean("../../scheme"),
@@ -63,9 +71,11 @@ func TestRouteRepositoryPersistsRouteAndOutbox(t *testing.T) {
 	}
 
 	pool, err := pgxpool.New(ctx, connectionString)
+
 	if err != nil {
 		t.Fatalf("open pool: %v", err)
 	}
+
 	defer pool.Close()
 
 	repo := repository.NewRouteRepo(pool, pool)
@@ -96,13 +106,17 @@ func TestRouteRepositoryPersistsRouteAndOutbox(t *testing.T) {
 		CalculationSuccess:        &success,
 	}
 	created, err := repo.CreateRoute(ctx, route)
+
 	if err != nil {
 		t.Fatalf("create route: %v", err)
 	}
+
 	loaded, err := repo.GetRoute(ctx, created.ID)
+
 	if err != nil {
 		t.Fatalf("get route: %v", err)
 	}
+
 	if loaded.Calculation.Engine != "valhalla" ||
 		loaded.Calculation.Summary.DistanceMeters != 1500 {
 		t.Fatalf("loaded route = %#v", loaded)
@@ -110,6 +124,7 @@ func TestRouteRepositoryPersistsRouteAndOutbox(t *testing.T) {
 
 	var eventID, payloadEventID, eventType string
 	var payloadBytes []byte
+
 	if err = pool.QueryRow(
 		ctx,
 		"SELECT id::text,event_type,payload FROM outbox_events WHERE aggregate_id = $1",
@@ -117,19 +132,25 @@ func TestRouteRepositoryPersistsRouteAndOutbox(t *testing.T) {
 	).Scan(&eventID, &eventType, &payloadBytes); err != nil {
 		t.Fatalf("read outbox event: %v", err)
 	}
+
 	if eventType != "routing.route.created.v1" {
 		t.Fatalf("event type = %s", eventType)
 	}
+
 	var payload map[string]any
+
 	if err = json.Unmarshal(payloadBytes, &payload); err != nil {
 		t.Fatalf("decode outbox payload: %v", err)
 	}
+
 	payloadEventID, _ = payload["event_id"].(string)
+
 	if payloadEventID != eventID || payload["engine"] != "valhalla" || payload["travel_mode"] != "auto" || payload["success"] != true {
 		t.Fatalf("routing event envelope = %#v, want event id and normalized calculation fields", payload)
 	}
 
 	failureFinishedAt := now.Add(250 * time.Millisecond)
+
 	if err = repo.RecordCalculationFailure(ctx, models.CalculationFailure{
 		AggregateType:         "ticket",
 		AggregateID:           route.TicketID,
@@ -145,7 +166,9 @@ func TestRouteRepositoryPersistsRouteAndOutbox(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("RecordCalculationFailure() error = %v", err)
 	}
+
 	var failureAggregateType string
+
 	if err = pool.QueryRow(
 		ctx,
 		`SELECT aggregate_type,payload FROM outbox_events WHERE aggregate_id=$1 AND event_type='routing.calculation.failed.v1'`,
@@ -153,11 +176,15 @@ func TestRouteRepositoryPersistsRouteAndOutbox(t *testing.T) {
 	).Scan(&failureAggregateType, &payloadBytes); err != nil {
 		t.Fatalf("read calculation failure event: %v", err)
 	}
+
 	payload = nil
+
 	if err = json.Unmarshal(payloadBytes, &payload); err != nil {
 		t.Fatalf("decode calculation failure event: %v", err)
 	}
+
 	if failureAggregateType != "ticket" || payload["success"] != false || payload["failure_code"] != "ENGINE_TIMEOUT" || payload["route_id"] != nil {
 		t.Errorf("calculation failure event = aggregate %q payload %#v, want ticket aggregate without fictitious route", failureAggregateType, payload)
 	}
+
 }

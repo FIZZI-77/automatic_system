@@ -19,6 +19,7 @@ type SessionRepoStruct struct {
 
 func NewSessionRepoStruct(writeDB DBTX, readDB ...DBTX) *SessionRepoStruct {
 	reader := writeDB
+
 	if len(readDB) > 0 && readDB[0] != nil {
 		reader = readDB[0]
 	}
@@ -77,9 +78,11 @@ func (s *SessionRepoStruct) GetSessionByID(ctx context.Context, id uuid.UUID) (*
 	)
 
 	if err != nil {
+
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, fmt.Errorf("session_repo: GetByID(): session not found: %w", err)
 		}
+
 		return nil, fmt.Errorf("session_repo: GetByID(): %w", err)
 	}
 
@@ -92,10 +95,12 @@ func (s *SessionRepoStruct) GetSessionByUserID(ctx context.Context, userID uuid.
 	const query = `SELECT id, user_id, client_id, host(ip), user_agent, is_revoked, revoked_at, expires_at, last_seen_at, created_at FROM sessions WHERE user_id = $1`
 
 	rows, err := s.readDB.Query(ctx, query, userID)
+
 	if err != nil {
 
 		return nil, fmt.Errorf("session_repo: GetByUserID(): %w", err)
 	}
+
 	defer rows.Close()
 
 	for rows.Next() {
@@ -112,15 +117,19 @@ func (s *SessionRepoStruct) GetSessionByUserID(ctx context.Context, userID uuid.
 			&session.LastSeenAt,
 			&session.CreatedAt,
 		)
+
 		if err != nil {
 			return nil, fmt.Errorf("session_repo: GetByUserID(): cant scan rows: %w", err)
 		}
+
 		sessions = append(sessions, &session)
 
 	}
+
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("session_repo: GetByUserID(): %w", err)
 	}
+
 	return sessions, nil
 }
 
@@ -128,6 +137,7 @@ func (s *SessionRepoStruct) RevokeSessionByID(ctx context.Context, sessionID uui
 	const query = `UPDATE sessions SET is_revoked = TRUE, revoked_at = now() WHERE id = $1 AND is_revoked = FALSE`
 
 	_, err := s.writeDB.Exec(ctx, query, sessionID)
+
 	if err != nil {
 		return fmt.Errorf("session_repo: RevokeByID(): %w", err)
 	}
@@ -142,6 +152,7 @@ func (s *SessionRepoStruct) RevokeAllSessionByUserID(ctx context.Context, userID
 	const query = `UPDATE sessions SET is_revoked = TRUE, revoked_at = now() WHERE user_id = $1 AND is_revoked = FALSE`
 
 	result, err := s.writeDB.Exec(ctx, query, userID)
+
 	if err != nil {
 		return 0, fmt.Errorf("session_repo: RevokeAllByUserID(): %w", err)
 	}

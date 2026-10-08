@@ -1,0 +1,99 @@
+{
+  "annotations": {"list": []},
+  "description": "Бизнес-аналитика городских обращений по событиям Analytics Service в ClickHouse.",
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {"type": "grafana-clickhouse-datasource", "uid": "clickhouse-analytics"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}}, "overrides": []},
+      "gridPos": {"h": 5, "w": 6, "x": 0, "y": 0},
+      "id": 1,
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto", "wideLayout": true},
+      "targets": [{"datasource": {"type": "grafana-clickhouse-datasource", "uid": "clickhouse-analytics"}, "editorType": "sql", "format": 1, "queryType": "table", "rawSql": "SELECT count() AS value FROM analytics.domain_events FINAL WHERE occurred_at >= $__fromTime AND occurred_at <= $__toTime AND ('$department' = 'all' OR department_id = '$department') AND ('$priority' = 'all' OR priority = '$priority')", "refId": "A"}],
+      "title": "Всего событий", "type": "stat"
+    },
+    {
+      "datasource": {"type": "grafana-clickhouse-datasource", "uid": "clickhouse-analytics"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "blue", "value": null}]}}, "overrides": []},
+      "gridPos": {"h": 5, "w": 6, "x": 6, "y": 0}, "id": 2,
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto", "wideLayout": true},
+      "targets": [{"datasource": {"type": "grafana-clickhouse-datasource", "uid": "clickhouse-analytics"}, "editorType": "sql", "format": 1, "queryType": "table", "rawSql": "SELECT countIf(event_type = 'ticket.created') AS value FROM analytics.domain_events FINAL WHERE occurred_at >= $__fromTime AND occurred_at <= $__toTime AND ('$department' = 'all' OR department_id = '$department') AND ('$priority' = 'all' OR priority = '$priority')", "refId": "A"}],
+      "title": "Создано заявок", "type": "stat"
+    },
+    {
+      "datasource": {"type": "grafana-clickhouse-datasource", "uid": "clickhouse-analytics"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}}, "overrides": []},
+      "gridPos": {"h": 5, "w": 6, "x": 12, "y": 0}, "id": 3,
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto", "wideLayout": true},
+      "targets": [{"datasource": {"type": "grafana-clickhouse-datasource", "uid": "clickhouse-analytics"}, "editorType": "sql", "format": 1, "queryType": "table", "rawSql": "SELECT countIf(event_type = 'ticket.completed') AS value FROM analytics.domain_events FINAL WHERE occurred_at >= $__fromTime AND occurred_at <= $__toTime AND ('$department' = 'all' OR department_id = '$department') AND ('$priority' = 'all' OR priority = '$priority')", "refId": "A"}],
+      "title": "Выполнено заявок", "type": "stat"
+    },
+    {
+      "datasource": {"type": "grafana-clickhouse-datasource", "uid": "clickhouse-analytics"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "decimals": 1, "unit": "percent", "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "yellow", "value": 70}, {"color": "green", "value": 90}]}}, "overrides": []},
+      "gridPos": {"h": 5, "w": 6, "x": 18, "y": 0}, "id": 4,
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto", "wideLayout": true},
+      "targets": [{"datasource": {"type": "grafana-clickhouse-datasource", "uid": "clickhouse-analytics"}, "editorType": "sql", "format": 1, "queryType": "table", "rawSql": "SELECT if(countIf(event_type IN ('dispatch.assigned','dispatch.failed','dispatch.expired','dispatch.canceled')) = 0, 0, 100.0 * countIf(event_type = 'dispatch.assigned') / countIf(event_type IN ('dispatch.assigned','dispatch.failed','dispatch.expired','dispatch.canceled'))) AS value FROM analytics.domain_events FINAL WHERE occurred_at >= $__fromTime AND occurred_at <= $__toTime AND ('$department' = 'all' OR department_id = '$department') AND ('$priority' = 'all' OR priority = '$priority')", "refId": "A"}],
+      "title": "Успех диспетчеризации", "type": "stat"
+    },
+    {
+      "datasource": {"type": "grafana-clickhouse-datasource", "uid": "clickhouse-analytics"},
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "drawStyle": "line", "fillOpacity": 20, "gradientMode": "none", "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 3, "showPoints": "auto", "spanNulls": false, "stacking": {"group": "A", "mode": "none"}}, "unit": "short"}, "overrides": []},
+      "gridPos": {"h": 9, "w": 16, "x": 0, "y": 5}, "id": 5,
+      "options": {"legend": {"calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"hideZeros": false, "mode": "multi", "sort": "desc"}},
+      "targets": [{"datasource": {"type": "grafana-clickhouse-datasource", "uid": "clickhouse-analytics"}, "editorType": "sql", "format": 0, "queryType": "timeSeries", "rawSql": "SELECT toStartOfDay(occurred_at) AS time, event_type AS metric, count() AS value FROM analytics.domain_events FINAL WHERE occurred_at >= $__fromTime AND occurred_at <= $__toTime AND ('$department' = 'all' OR department_id = '$department') AND ('$priority' = 'all' OR priority = '$priority') GROUP BY time, metric ORDER BY time", "refId": "A"}],
+      "title": "События по дням", "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "grafana-clickhouse-datasource", "uid": "clickhouse-analytics"},
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "short"}, "overrides": []},
+      "gridPos": {"h": 9, "w": 8, "x": 16, "y": 5}, "id": 6,
+      "options": {"displayLabels": ["name", "percent"], "legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "pieType": "donut", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": true}, "tooltip": {"hideZeros": false, "mode": "single", "sort": "none"}},
+      "targets": [{"datasource": {"type": "grafana-clickhouse-datasource", "uid": "clickhouse-analytics"}, "editorType": "sql", "format": 1, "queryType": "table", "rawSql": "SELECT if(empty(status), 'не указан', status) AS name, count() AS value FROM analytics.domain_events FINAL WHERE occurred_at >= $__fromTime AND occurred_at <= $__toTime AND ('$department' = 'all' OR department_id = '$department') AND ('$priority' = 'all' OR priority = '$priority') GROUP BY name ORDER BY value DESC", "refId": "A"}],
+      "title": "Статусы", "type": "piechart"
+    },
+    {
+      "datasource": {"type": "grafana-clickhouse-datasource", "uid": "clickhouse-analytics"},
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "fillOpacity": 80, "gradientMode": "none", "hideFrom": {"legend": false, "tooltip": false, "viz": false}, "lineWidth": 1}}, "overrides": []},
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 14}, "id": 7,
+      "options": {"barRadius": 0, "barWidth": 0.8, "fullHighlight": false, "groupWidth": 0.7, "legend": {"calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": false}, "orientation": "horizontal", "showValue": "always", "stacking": "none", "tooltip": {"hideZeros": false, "mode": "single", "sort": "none"}, "xTickLabelRotation": 0, "xTickLabelSpacing": 0},
+      "targets": [{"datasource": {"type": "grafana-clickhouse-datasource", "uid": "clickhouse-analytics"}, "editorType": "sql", "format": 1, "queryType": "table", "rawSql": "SELECT if(empty(priority), 'не указан', priority) AS priority, count() AS value FROM analytics.domain_events FINAL WHERE occurred_at >= $__fromTime AND occurred_at <= $__toTime AND ('$department' = 'all' OR department_id = '$department') AND ('$priority' = 'all' OR priority = '$priority') GROUP BY priority ORDER BY value DESC", "refId": "A"}],
+      "title": "Приоритеты", "type": "barchart"
+    },
+    {
+      "datasource": {"type": "grafana-clickhouse-datasource", "uid": "clickhouse-analytics"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "custom": {"align": "auto", "cellOptions": {"type": "auto"}, "inspect": false}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}}, "overrides": []},
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 14}, "id": 8,
+      "options": {"cellHeight": "sm", "footer": {"countRows": false, "fields": "", "reducer": ["sum"], "show": false}, "showHeader": true},
+      "targets": [{"datasource": {"type": "grafana-clickhouse-datasource", "uid": "clickhouse-analytics"}, "editorType": "sql", "format": 1, "queryType": "table", "rawSql": "SELECT event_type AS `Тип события`, count() AS `Количество`, uniqExact(ticket_id) AS `Заявки`, uniqExact(brigade_id) AS `Бригады` FROM analytics.domain_events FINAL WHERE occurred_at >= $__fromTime AND occurred_at <= $__toTime AND ('$department' = 'all' OR department_id = '$department') AND ('$priority' = 'all' OR priority = '$priority') GROUP BY event_type ORDER BY `Количество` DESC LIMIT 30", "refId": "A"}],
+      "title": "Типы событий", "type": "table"
+    },
+    {
+      "datasource": {"type": "grafana-clickhouse-datasource", "uid": "clickhouse-analytics"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}}, "overrides": []},
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 14}, "id": 9,
+      "options": {"basemap": {"config": {}, "type": "osm-standard"}, "controls": {"mouseWheelZoom": true, "showAttribution": true, "showDebug": false, "showMeasure": false, "showScale": false, "showZoom": true}, "layers": [{"config": {"showLegend": true, "style": {"color": {"fixed": "dark-green"}, "opacity": 0.7, "rotation": {"fixed": 0}, "size": {"fixed": 5}, "symbol": {"fixed": "img/icons/marker/circle.svg"}, "text": {"fixed": ""}}}, "location": {"latitude": "latitude", "longitude": "longitude", "mode": "coords"}, "name": "Обращения", "tooltip": true, "type": "markers"}], "tooltip": {"mode": "details"}, "view": {"allLayers": true, "id": "fit", "lat": 55.75, "lon": 37.62, "zoom": 10}},
+      "targets": [{"datasource": {"type": "grafana-clickhouse-datasource", "uid": "clickhouse-analytics"}, "editorType": "sql", "format": 1, "queryType": "table", "rawSql": "SELECT latitude, longitude, event_type, priority, status, occurred_at FROM analytics.domain_events FINAL WHERE occurred_at >= $__fromTime AND occurred_at <= $__toTime AND latitude IS NOT NULL AND longitude IS NOT NULL AND ('$department' = 'all' OR department_id = '$department') AND ('$priority' = 'all' OR priority = '$priority') ORDER BY occurred_at DESC LIMIT 5000", "refId": "A"}],
+      "title": "Карта событий", "type": "geomap"
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 41,
+  "tags": ["automatic-system", "business", "clickhouse", "analytics"],
+  "templating": {"list": [
+    {"current": {"selected": true, "text": "Все", "value": "all"}, "datasource": {"type": "grafana-clickhouse-datasource", "uid": "clickhouse-analytics"}, "definition": "SELECT DISTINCT department_id FROM analytics.domain_events FINAL WHERE department_id != '' ORDER BY department_id", "hide": 0, "includeAll": true, "label": "Подразделение", "multi": false, "name": "department", "options": [], "query": "SELECT DISTINCT department_id FROM analytics.domain_events FINAL WHERE department_id != '' ORDER BY department_id", "refresh": 2, "regex": "", "skipUrlSync": false, "sort": 1, "type": "query", "allValue": "all"},
+    {"current": {"selected": true, "text": "Все", "value": "all"}, "datasource": {"type": "grafana-clickhouse-datasource", "uid": "clickhouse-analytics"}, "definition": "SELECT DISTINCT priority FROM analytics.domain_events FINAL WHERE priority != '' ORDER BY priority", "hide": 0, "includeAll": true, "label": "Приоритет", "multi": false, "name": "priority", "options": [], "query": "SELECT DISTINCT priority FROM analytics.domain_events FINAL WHERE priority != '' ORDER BY priority", "refresh": 2, "regex": "", "skipUrlSync": false, "sort": 1, "type": "query", "allValue": "all"}
+  ]},
+  "time": {"from": "now-365d", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Городская аналитика",
+  "uid": "automatic-city-business-analytics",
+  "version": 1,
+  "weekStart": "monday"
+}

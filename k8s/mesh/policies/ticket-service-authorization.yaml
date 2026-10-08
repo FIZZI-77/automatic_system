@@ -1,0 +1,47 @@
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: ticket-service-callers
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ticket-service
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/automatic-system/sa/api-gateway
+      to:
+        - operation:
+            ports: ["50052"]
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/automatic-system/sa/dispatch-service
+      to:
+        - operation:
+            ports: ["50052"]
+            methods: ["POST"]
+            paths:
+              - /ticket.v1.TicketService/GetTicket
+              - /ticket.v1.TicketService/AssignBrigade
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/automatic-system/sa/asset-service
+      to:
+        - operation:
+            ports: ["50052"]
+            methods: ["POST"]
+            paths:
+              - /ticket.v1.TicketService/CreateTicket
+    - to:
+        - operation:
+            ports: ["50052"]
+            paths:
+              - /grpc.health.v1.Health/Check
+              - /grpc.health.v1.Health/Watch
+    - to:
+        - operation:
+            ports: ["9464"]

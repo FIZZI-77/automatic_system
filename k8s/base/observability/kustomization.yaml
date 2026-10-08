@@ -141,6 +141,9 @@ configMapGenerator:
       - dashboards/automatic-system-infra-otel-collector.json
       - dashboards/automatic-system-infra-prometheus.json
       - dashboards/automatic-system-infra-valhalla.json
+  - name: grafana-dashboards-business-analytics
+    files:
+      - dashboards/automatic-system-business-analytics.json
   - name: grafana-dashboard-community-postgresql
     files:
       - dashboards/community/postgresql-database.json

@@ -17,6 +17,7 @@ type contextKey struct{}
 
 func WithContext(ctx context.Context, key string) context.Context {
 	key = strings.TrimSpace(key)
+
 	if key == "" {
 		return ctx
 	}
@@ -26,6 +27,7 @@ func WithContext(ctx context.Context, key string) context.Context {
 
 func FromContext(ctx context.Context) (string, bool) {
 	key, ok := ctx.Value(contextKey{}).(string)
+
 	if !ok || key == "" {
 		return "", false
 	}
@@ -42,6 +44,7 @@ func UnaryClientInterceptor(
 	invoker grpc.UnaryInvoker,
 	opts ...grpc.CallOption,
 ) error {
+
 	if key, ok := FromContext(ctx); ok {
 		ctx = metadata.AppendToOutgoingContext(ctx, MetadataKey, key)
 	}

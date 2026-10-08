@@ -50,17 +50,20 @@ func (c *Client) UploadForResource(ctx context.Context, resourceType string, res
 		Size:        int64(len(a.Data)),
 		Checksum:    checksum,
 	})
+
 	if e != nil {
 		return uuid.Nil, e
 	}
 
 	original, e := url.Parse(created.UploadUrl)
+
 	if e != nil {
 		return uuid.Nil, e
 	}
 
 	target := c.internalURL(created.UploadUrl)
 	req, e := http.NewRequestWithContext(ctx, http.MethodPut, target, bytes.NewReader(a.Data))
+
 	if e != nil {
 		return uuid.Nil, e
 	}
@@ -70,9 +73,11 @@ func (c *Client) UploadForResource(ctx context.Context, resourceType string, res
 	req.Host = original.Host
 
 	resp, e := c.http.Do(req)
+
 	if e != nil {
 		return uuid.Nil, e
 	}
+
 	defer resp.Body.Close()
 
 	if resp.StatusCode/100 != 2 {
@@ -80,6 +85,7 @@ func (c *Client) UploadForResource(ctx context.Context, resourceType string, res
 	}
 
 	id, e := uuid.Parse(created.File.Id)
+
 	if e != nil {
 		return uuid.Nil, e
 	}
@@ -119,9 +125,11 @@ func (c *Client) Delete(ctx context.Context, fileID, actor uuid.UUID, roles []st
 		ActorUserId: actor.String(),
 		ActorRoles:  roles,
 	})
+
 	if status.Code(err) == codes.NotFound {
 		return nil
 	}
+
 	return err
 }
 
@@ -133,17 +141,20 @@ func (c *Client) DownloadImages(ctx context.Context, ids []uuid.UUID, actor uuid
 			ActorUserId: actor.String(),
 			ActorRoles:  roles,
 		})
+
 		if err != nil {
 			return nil, err
 		}
 
 		file := item.GetFile()
+
 		if file == nil || !strings.HasPrefix(strings.ToLower(file.GetContentType()), "image/") {
 			continue
 		}
 
 		target := c.internalURL(item.GetDownloadUrl())
 		request, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
+
 		if err != nil {
 			return nil, err
 		}
@@ -153,12 +164,14 @@ func (c *Client) DownloadImages(ctx context.Context, ids []uuid.UUID, actor uuid
 		}
 
 		response, err := c.http.Do(request)
+
 		if err != nil {
 			return nil, err
 		}
 
 		data, readErr := io.ReadAll(io.LimitReader(response.Body, 20<<20))
 		response.Body.Close()
+
 		if readErr != nil {
 			return nil, readErr
 		}
@@ -183,6 +196,7 @@ func (c *Client) Download(ctx context.Context, id, actor uuid.UUID, roles []stri
 		ActorUserId: actor.String(),
 		ActorRoles:  roles,
 	})
+
 	if e != nil {
 		return "", time.Time{}, e
 	}
@@ -191,12 +205,14 @@ func (c *Client) Download(ctx context.Context, id, actor uuid.UUID, roles []stri
 }
 
 func (c *Client) internalURL(raw string) string {
+
 	if c.internalEndpoint == "" {
 		return raw
 	}
 
 	u, e := url.Parse(raw)
 	base, e2 := url.Parse(c.internalEndpoint)
+
 	if e == nil && e2 == nil {
 		u.Scheme = base.Scheme
 		u.Host = base.Host

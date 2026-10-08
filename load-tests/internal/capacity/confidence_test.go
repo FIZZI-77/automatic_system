@@ -13,9 +13,11 @@ func TestExtrapolationConfidence(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
+
 			if got := ExtrapolationConfidence(test.evidence); got != test.want {
 				t.Errorf("ExtrapolationConfidence(%+v) = %q, want %q", test.evidence, got, test.want)
 			}
+
 		})
 	}
 }

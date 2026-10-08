@@ -39,6 +39,7 @@ func (s *ScheduleServiceStruct) SetBrigadeSchedule(ctx context.Context, in *mode
 	}
 
 	brigade, err := s.getBrigadeForScheduleOperation(ctx, log, start, in.BrigadeID, in.ActorUserID, in.ActorDepartmentID, in.ActorRoles, "SetBrigadeSchedule")
+
 	if err != nil {
 		return nil, err
 	}
@@ -48,6 +49,7 @@ func (s *ScheduleServiceStruct) SetBrigadeSchedule(ctx context.Context, in *mode
 	}
 
 	result, err := s.repo.SetBrigadeSchedule(ctx, in)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: SetBrigadeSchedule: %w", err)
 	}
@@ -75,6 +77,7 @@ func (s *ScheduleServiceStruct) ListBrigadeSchedule(ctx context.Context, in *mod
 	}
 
 	brigade, err := s.getBrigadeForScheduleOperation(ctx, log, start, in.BrigadeID, in.ActorUserID, in.ActorDepartmentID, in.ActorRoles, "ListBrigadeSchedule")
+
 	if err != nil {
 		return nil, err
 	}
@@ -85,13 +88,17 @@ func (s *ScheduleServiceStruct) ListBrigadeSchedule(ctx context.Context, in *mod
 		if in.ActorUserID == nil {
 			return nil, err
 		}
+
 		own, ownErr := s.repo.GetBrigadeByUserID(ctx, &models.GetBrigadeByUserIDInput{UserID: *in.ActorUserID, OnlyActive: true})
+
 		if ownErr != nil || own == nil || own.Brigade == nil || own.Brigade.ID != brigade.ID {
 			return nil, err
 		}
+
 	}
 
 	result, err := s.repo.ListBrigadeSchedule(ctx, in)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: ListBrigadeSchedule: %w", err)
 	}
@@ -120,6 +127,7 @@ func (s *ScheduleServiceStruct) getBrigadeForScheduleOperation(
 		ActorDepartmentID: actorDepartmentID,
 		ActorRoles:        actorRoles,
 	})
+
 	if err != nil {
 		return nil, fmt.Errorf("service: %s: get brigade: %w", operation, err)
 	}

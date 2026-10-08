@@ -42,12 +42,14 @@ func main() {
 	flag.Parse()
 
 	root := "."
+
 	if len(flag.Args()) != 0 {
 		root = flag.Arg(0)
 	}
 
 	output := filepath.Join(root, "src", "core", "handlers", "openapi.json")
 	data, err := generate(root)
+
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -55,10 +57,12 @@ func main() {
 
 	if *check {
 		current, err := os.ReadFile(output)
+
 		if err != nil || !bytes.Equal(current, data) {
 			fmt.Fprintln(os.Stderr, "openapi.json is stale; run go run ./tools/openapi")
 			os.Exit(1)
 		}
+
 		return
 	}
 
@@ -66,21 +70,25 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+
 }
 
 func generate(root string) ([]byte, error) {
 	fset := token.NewFileSet()
 	router, err := parser.ParseFile(fset, filepath.Join(root, "src/core/handlers/handler.go"), nil, 0)
+
 	if err != nil {
 		return nil, err
 	}
 
 	handlers, err := parseDir(fset, filepath.Join(root, "src/core/handlers"))
+
 	if err != nil {
 		return nil, err
 	}
 
 	models, err := parseDir(fset, filepath.Join(root, "models"))
+
 	if err != nil {
 		return nil, err
 	}
@@ -89,9 +97,11 @@ func generate(root string) ([]byte, error) {
 	for _, file := range models["models"].Files {
 		for _, decl := range file.Decls {
 			gen, ok := decl.(*ast.GenDecl)
+
 			if !ok || gen.Tok != token.TYPE {
 				continue
 			}
+
 			for _, spec := range gen.Specs {
 				typ := spec.(*ast.TypeSpec)
 				schemas[typ.Name.Name] = schema(typ.Type)
@@ -103,20 +113,26 @@ func generate(root string) ([]byte, error) {
 	handlerTypes := make(map[string]string)
 	for _, decl := range router.Decls {
 		gen, ok := decl.(*ast.GenDecl)
+
 		if !ok || gen.Tok != token.TYPE {
 			continue
 		}
+
 		for _, spec := range gen.Specs {
 			typ := spec.(*ast.TypeSpec)
+
 			if typ.Name.Name != "Handler" {
 				continue
 			}
+
 			fields := typ.Type.(*ast.StructType).Fields.List
 			for _, field := range fields {
 				fieldType := field.Type
+
 				if pointer, ok := fieldType.(*ast.StarExpr); ok {
 					fieldType = pointer.X
 				}
+
 				for _, name := range field.Names {
 					handlerTypes[name.Name] = identifier(fieldType)
 				}
@@ -126,11 +142,15 @@ func generate(root string) ([]byte, error) {
 	for _, file := range handlers["handlers"].Files {
 		for _, decl := range file.Decls {
 			fn, ok := decl.(*ast.FuncDecl)
+
 			if ok && fn.Recv != nil {
+
 				if receiver := receiverName(fn); receiver != "" {
 					methods[receiver+"."+fn.Name.Name] = fn
 				}
+
 			}
+
 		}
 	}
 
@@ -159,39 +179,51 @@ func generate(root string) ([]byte, error) {
 	ast.Inspect(router, func(node ast.Node) bool {
 		switch n := node.(type) {
 		case *ast.AssignStmt:
+
 			if len(n.Lhs) != 1 || len(n.Rhs) != 1 {
 				break
 			}
+
 			call, ok := n.Rhs[0].(*ast.CallExpr)
+
 			if !ok || selector(call.Fun) != "Group" || len(call.Args) != 1 {
 				break
 			}
+
 			name, ok := n.Lhs[0].(*ast.Ident)
+
 			if !ok {
 				break
 			}
+
 			base := call.Fun.(*ast.SelectorExpr).X.(*ast.Ident).Name
+
 			if prefix, ok := groups[base]; ok {
 				groups[name.Name] = prefix + literal(call.Args[0])
 			}
+
 		case *ast.CallExpr:
 			method := selector(n.Fun)
+
 			if (method != "GET" && method != "POST") || len(n.Args) != 2 {
 				break
 			}
 
 			sel := n.Fun.(*ast.SelectorExpr)
 			group, ok := sel.X.(*ast.Ident)
+
 			if !ok {
 				break
 			}
 
 			prefix, ok := groups[group.Name]
+
 			if !ok {
 				break
 			}
 
 			path := prefix + literal(n.Args[0])
+
 			if path == "" {
 				break
 			}
@@ -220,9 +252,11 @@ func generate(root string) ([]byte, error) {
 			if handler, ok := n.Args[1].(*ast.SelectorExpr); ok {
 				op.Summary = handler.Sel.Name
 				op.OperationID = group.Name + "." + handler.Sel.Name
+
 				if fn := methods[routeHandlerName(handler.X, handlerTypes)+"."+handler.Sel.Name]; fn != nil {
 					fillOperation(&op, fn)
 				}
+
 			} else {
 				op.Summary = strings.Trim(path, "/")
 				op.OperationID = strings.ToLower(method) + "." + strings.Trim(path, "/")
@@ -247,24 +281,28 @@ func generate(root string) ([]byte, error) {
 
 func parseDir(fset *token.FileSet, path string) (map[string]*parsedPackage, error) {
 	entries, err := os.ReadDir(path)
+
 	if err != nil {
 		return nil, err
 	}
 
 	packages := make(map[string]*parsedPackage)
 	for _, entry := range entries {
+
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") {
 			continue
 		}
 
 		filePath := filepath.Join(path, entry.Name())
 		file, err := parser.ParseFile(fset, filePath, nil, 0)
+
 		if err != nil {
 			return nil, err
 		}
 
 		name := file.Name.Name
 		pkg := packages[name]
+
 		if pkg == nil {
 			pkg = &parsedPackage{
 				Files: make(map[string]*ast.File),
@@ -285,22 +323,32 @@ func fillOperation(op *operation, fn *ast.FuncDecl) {
 	ast.Inspect(fn.Body, func(node ast.Node) bool {
 		switch n := node.(type) {
 		case *ast.ValueSpec:
+
 			if typ := modelName(n.Type); typ != "" {
 				for _, name := range n.Names {
 					locals[name.Name] = typ
 				}
 			}
+
 		case *ast.AssignStmt:
+
 			if len(n.Lhs) == 1 && len(n.Rhs) == 1 {
+
 				if name, ok := n.Lhs[0].(*ast.Ident); ok {
+
 					if typ := modelValue(n.Rhs[0]); typ != "" {
 						locals[name.Name] = typ
 					}
+
 				}
+
 			}
+
 		case *ast.CallExpr:
+
 			if (selector(n.Fun) == "ShouldBindJSON" || identifier(n.Fun) == "bindJSON") && len(n.Args) > 0 {
 				arg := n.Args[len(n.Args)-1]
+
 				if unary, ok := arg.(*ast.UnaryExpr); ok {
 					arg = unary.X
 				}
@@ -308,19 +356,23 @@ func fillOperation(op *operation, fn *ast.FuncDecl) {
 				if name, ok := arg.(*ast.Ident); ok {
 					request = locals[name.Name]
 				}
+
 			}
 
 			responseCall := selector(n.Fun) == "JSON" && len(n.Args) == 2
 			proxyCall := len(n.Args) == 4 && isResponseHelper(identifier(n.Fun))
+
 			if responseCall || proxyCall {
 				statusArg := n.Args[0]
 				responseArg := n.Args[1]
+
 				if proxyCall {
 					statusArg = n.Args[1]
 					responseArg = n.Args[3]
 				}
 
 				status := identifier(statusArg)
+
 				if sel, ok := statusArg.(*ast.SelectorExpr); ok {
 					status = sel.Sel.Name
 				}
@@ -334,14 +386,17 @@ func fillOperation(op *operation, fn *ast.FuncDecl) {
 				case "StatusNoContent":
 					code = "204"
 				}
+
 				if code != "" {
 					response := map[string]any{"description": "Успешный ответ"}
 					typ := modelValue(responseArg)
 
 					if typ == "" {
+
 						if name, ok := responseArg.(*ast.Ident); ok {
 							typ = locals[name.Name]
 						}
+
 					}
 
 					if typ != "" {
@@ -353,11 +408,15 @@ func fillOperation(op *operation, fn *ast.FuncDecl) {
 					}
 
 					op.Responses[code] = response
+
 					if code == "201" {
 						delete(op.Responses, "200")
 					}
+
 				}
+
 			}
+
 		}
 		return true
 	})
@@ -372,6 +431,7 @@ func fillOperation(op *operation, fn *ast.FuncDecl) {
 			},
 		}
 	}
+
 }
 
 func isResponseHelper(name string) bool {
@@ -398,6 +458,7 @@ func schema(expr ast.Expr) any {
 			"additionalProperties": schema(n.Value),
 		}
 	case *ast.SelectorExpr:
+
 		if identifier(n.X) == "time" && n.Sel.Name == "Time" {
 			return map[string]any{
 				"type":   "string",
@@ -426,14 +487,19 @@ func schema(expr ast.Expr) any {
 		var required []string
 
 		for _, field := range n.Fields.List {
+
 			if len(field.Names) == 0 || field.Tag == nil {
 				continue
 			}
+
 			tag, err := strconv.Unquote(field.Tag.Value)
+
 			if err != nil {
 				continue
 			}
+
 			jsonName := strings.Split(reflect.StructTag(tag).Get("json"), ",")[0]
+
 			if jsonName == "-" || jsonName == "" {
 				continue
 			}
@@ -442,9 +508,11 @@ func schema(expr ast.Expr) any {
 			properties[jsonName] = fieldSchema(field.Type, binding)
 
 			for _, rule := range strings.Split(binding, ",") {
+
 				if rule == "required" {
 					required = append(required, jsonName)
 				}
+
 			}
 		}
 
@@ -469,28 +537,35 @@ func ref(name string) map[string]any {
 }
 
 func modelName(expr ast.Expr) string {
+
 	if p, ok := expr.(*ast.StarExpr); ok {
 		return modelName(p.X)
 	}
+
 	if s, ok := expr.(*ast.SelectorExpr); ok && identifier(s.X) == "models" {
 		return s.Sel.Name
 	}
+
 	return ""
 }
 
 func receiverName(fn *ast.FuncDecl) string {
 	typ := fn.Recv.List[0].Type
+
 	if ptr, ok := typ.(*ast.StarExpr); ok {
 		typ = ptr.X
 	}
+
 	return identifier(typ)
 }
 
 func routeHandlerName(expr ast.Expr, handlerTypes map[string]string) string {
 	field, ok := expr.(*ast.SelectorExpr)
+
 	if !ok || identifier(field.X) != "h" || field.Sel.Name == "" {
 		return ""
 	}
+
 	return handlerTypes[field.Sel.Name]
 }
 
@@ -502,11 +577,14 @@ func fieldSchema(typ ast.Expr, binding string) map[string]any {
 
 	current := result
 	for _, rule := range strings.Split(binding, ",") {
+
 		if rule == "dive" {
 			items, ok := result["items"].(map[string]any)
+
 			if !ok {
 				break
 			}
+
 			current = items
 			continue
 		}
@@ -514,30 +592,42 @@ func fieldSchema(typ ast.Expr, binding string) map[string]any {
 		name, value, hasValue := strings.Cut(rule, "=")
 		switch name {
 		case "uuid", "email":
+
 			if current["type"] == "string" {
 				current["format"] = name
 			}
+
 		case "oneof":
+
 			if hasValue {
 				current["enum"] = strings.Fields(value)
 			}
+
 		case "eq", "min", "max", "gt", "gte", "lt", "lte":
+
 			if !hasValue {
 				continue
 			}
+
 			number, err := strconv.ParseFloat(value, 64)
+
 			if err != nil {
 				continue
 			}
+
 			switch current["type"] {
 			case "string":
+
 				if name == "min" || name == "max" {
 					current[name+"Length"] = number
 				}
+
 			case "array":
+
 				if name == "min" || name == "max" {
 					current[name+"Items"] = number
 				}
+
 			case "integer", "number":
 				switch name {
 				case "eq":
@@ -560,33 +650,42 @@ func fieldSchema(typ ast.Expr, binding string) map[string]any {
 }
 
 func modelValue(expr ast.Expr) string {
+
 	if p, ok := expr.(*ast.UnaryExpr); ok {
 		return modelValue(p.X)
 	}
+
 	if c, ok := expr.(*ast.CompositeLit); ok {
 		return modelName(c.Type)
 	}
+
 	return ""
 }
 
 func selector(expr ast.Expr) string {
+
 	if s, ok := expr.(*ast.SelectorExpr); ok {
 		return s.Sel.Name
 	}
+
 	return ""
 }
 
 func identifier(expr ast.Expr) string {
+
 	if id, ok := expr.(*ast.Ident); ok {
 		return id.Name
 	}
+
 	return ""
 }
 
 func literal(expr ast.Expr) string {
+
 	if basic, ok := expr.(*ast.BasicLit); ok {
 		value, _ := strconv.Unquote(basic.Value)
 		return value
 	}
+
 	return ""
 }

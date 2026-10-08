@@ -21,6 +21,7 @@ func NewLogger() (*zap.Logger, error) {
 	}`)
 
 	var cfg zap.Config
+
 	if err := json.Unmarshal(rawJSON, &cfg); err != nil {
 		return nil, err
 	}

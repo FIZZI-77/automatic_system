@@ -25,9 +25,11 @@ func NewRoutingHandler(
 
 func (h *RoutingHandler) BuildRoute(c *gin.Context) {
 	var input models.BuildRouteRequest
+
 	if !bindJSON(c, &input) {
 		return
 	}
+
 	response, err := h.client.BuildRoute(
 		routingContext(c),
 		&routingv1.BuildRouteRequest{
@@ -42,9 +44,11 @@ func (h *RoutingHandler) BuildRoute(c *gin.Context) {
 
 func (h *RoutingHandler) BuildMatrix(c *gin.Context) {
 	var input models.BuildMatrixRequest
+
 	if !bindJSON(c, &input) {
 		return
 	}
+
 	response, err := h.client.BuildMatrix(
 		routingContext(c),
 		&routingv1.BuildMatrixRequest{
@@ -58,9 +62,11 @@ func (h *RoutingHandler) BuildMatrix(c *gin.Context) {
 
 func (h *RoutingHandler) RankCandidates(c *gin.Context) {
 	var input models.RankCandidatesRequest
+
 	if !bindJSON(c, &input) {
 		return
 	}
+
 	candidates := make([]*routingv1.Candidate, 0, len(input.Candidates))
 	for _, candidate := range input.Candidates {
 		candidates = append(candidates, &routingv1.Candidate{
@@ -82,9 +88,11 @@ func (h *RoutingHandler) RankCandidates(c *gin.Context) {
 
 func (h *RoutingHandler) CreateRoute(c *gin.Context) {
 	var input models.CreateRoutingRouteRequest
+
 	if !bindJSON(c, &input) {
 		return
 	}
+
 	response, err := h.client.CreateRoute(
 		routingContext(c),
 		&routingv1.CreateRouteRequest{
@@ -101,9 +109,11 @@ func (h *RoutingHandler) CreateRoute(c *gin.Context) {
 
 func (h *RoutingHandler) GetRoute(c *gin.Context) {
 	var input models.GetRoutingRouteRequest
+
 	if !bindJSON(c, &input) {
 		return
 	}
+
 	response, err := h.client.GetRoute(
 		routingContext(c),
 		&routingv1.GetRouteRequest{Id: input.ID},
@@ -113,9 +123,11 @@ func (h *RoutingHandler) GetRoute(c *gin.Context) {
 
 func (h *RoutingHandler) RecalculateRoute(c *gin.Context) {
 	var input models.RecalculateRoutingRouteRequest
+
 	if !bindJSON(c, &input) {
 		return
 	}
+
 	response, err := h.client.RecalculateRoute(
 		routingContext(c),
 		&routingv1.RecalculateRouteRequest{
@@ -128,9 +140,11 @@ func (h *RoutingHandler) RecalculateRoute(c *gin.Context) {
 
 func (h *RoutingHandler) SetRouteStatus(c *gin.Context) {
 	var input models.SetRoutingRouteStatusRequest
+
 	if !bindJSON(c, &input) {
 		return
 	}
+
 	response, err := h.client.SetRouteStatus(
 		routingContext(c),
 		&routingv1.SetRouteStatusRequest{
@@ -143,19 +157,23 @@ func (h *RoutingHandler) SetRouteStatus(c *gin.Context) {
 
 func (h *RoutingHandler) ListRoutes(c *gin.Context) {
 	var input models.ListRoutingRoutesRequest
+
 	if !bindJSON(c, &input) {
 		return
 	}
+
 	request := &routingv1.ListRoutesRequest{
 		TicketId:  input.TicketID,
 		BrigadeId: input.BrigadeID,
 		Limit:     input.Limit,
 		Offset:    input.Offset,
 	}
+
 	if input.Status != nil {
 		value := routingStatus(*input.Status)
 		request.Status = &value
 	}
+
 	response, err := h.client.ListRoutes(routingContext(c), request)
 	routingResponse(c, http.StatusOK, err, response)
 }
@@ -180,12 +198,16 @@ func routingOptions(value models.RoutingOptions) *routingv1.RouteOptions {
 		TravelMode:   routingMode(value.TravelMode),
 		Alternatives: value.Alternatives,
 	}
+
 	if strings.TrimSpace(value.DepartureAt) != "" {
 		parsed, err := time.Parse(time.RFC3339, value.DepartureAt)
+
 		if err == nil {
 			result.DepartureAt = timestamppb.New(parsed)
 		}
+
 	}
+
 	if value.Vehicle != nil {
 		result.Vehicle = &routingv1.VehicleConstraints{
 			HeightMeters:       value.Vehicle.HeightMeters,
@@ -196,6 +218,7 @@ func routingOptions(value models.RoutingOptions) *routingv1.RouteOptions {
 			HazardousMaterials: value.Vehicle.HazardousMaterials,
 		}
 	}
+
 	return result
 }
 
@@ -240,14 +263,19 @@ func routingResponse(
 	err error,
 	response any,
 ) {
+
 	if value, ok := c.Get("routing_cancel"); ok {
+
 		if cancel, valid := value.(context.CancelFunc); valid {
 			cancel()
 		}
+
 	}
+
 	if err != nil {
 		handleGRPCError(c, err)
 		return
 	}
+
 	c.JSON(statusCode, response)
 }

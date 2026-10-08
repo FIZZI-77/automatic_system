@@ -33,12 +33,15 @@ func (*Client) Name() string { return "valhalla" }
 
 func New(config Config) (*Client, error) {
 	baseURL := strings.TrimRight(strings.TrimSpace(config.BaseURL), "/")
+
 	if baseURL == "" {
 		return nil, errors.New("valhalla: base URL is required")
 	}
+
 	if config.Timeout <= 0 {
 		config.Timeout = 10 * time.Second
 	}
+
 	return &Client{
 		baseURL: baseURL,
 		http: &http.Client{
@@ -126,11 +129,13 @@ func (c *Client) BuildRoute(
 		Units:             "kilometers",
 		DirectionsOptions: map[string]string{"units": "kilometers"},
 	}
+
 	if in.Options.Alternatives {
 		request.Alternates = 2
 	}
 
 	var response routeResponse
+
 	if err := c.post(ctx, "/route", request, &response); err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "Valhalla route request failed")
@@ -139,9 +144,11 @@ func (c *Client) BuildRoute(
 
 	legs := make([]models.RouteLeg, 0, len(response.Trip.Legs))
 	for index, leg := range response.Trip.Legs {
+
 		if index+1 >= len(points) {
 			break
 		}
+
 		legs = append(legs, models.RouteLeg{
 			From:            points[index],
 			To:              points[index+1],
@@ -159,12 +166,15 @@ func (c *Client) BuildRoute(
 	}
 
 	encodedPolyline := response.Trip.Shape
+
 	if encodedPolyline == "" {
 		shapes := make([]string, 0, len(response.Trip.Legs))
 		for _, leg := range response.Trip.Legs {
+
 			if leg.Shape != "" {
 				shapes = append(shapes, leg.Shape)
 			}
+
 		}
 		encodedPolyline = mergePolyline6(shapes)
 	}
@@ -187,9 +197,11 @@ func mergePolyline6(shapes []string) string {
 	points := make([]polylinePoint, 0)
 	for index, shape := range shapes {
 		leg := decodePolyline6(shape)
+
 		if index > 0 && len(leg) > 0 {
 			leg = leg[1:]
 		}
+
 		points = append(points, leg...)
 	}
 	return encodePolyline6(points)
@@ -208,14 +220,18 @@ func decodePolyline6(encoded string) []polylinePoint {
 				index++
 				result |= uint64(value&0x1f) << shift
 				shift += 5
+
 				if value < 0x20 {
 					break
 				}
+
 			}
 			value := int64(result >> 1)
+
 			if result&1 != 0 {
 				value = ^value
 			}
+
 			values[coordinate] = value
 		}
 		latitude += values[0]
@@ -238,9 +254,11 @@ func encodePolyline6(points []polylinePoint) string {
 
 func appendPolylineValue(builder *strings.Builder, value int64) {
 	encoded := uint64(value << 1)
+
 	if value < 0 {
 		encoded = uint64(^(value << 1))
 	}
+
 	for encoded >= 0x20 {
 		builder.WriteByte(byte((0x20 | (encoded & 0x1f)) + 63))
 		encoded >>= 5
@@ -270,6 +288,7 @@ func (c *Client) BuildMatrix(
 	}
 
 	var response matrixResponse
+
 	if err := c.post(ctx, "/sources_to_targets", request, &response); err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "Valhalla matrix request failed")
@@ -283,11 +302,13 @@ func (c *Client) BuildMatrix(
 				SourceIndex: int32(sourceIndex),
 				TargetIndex: int32(targetIndex),
 			}
+
 			if value.Distance != nil && value.Time != nil {
 				cell.DistanceMeters = *value.Distance * 1000
 				cell.DurationSeconds = int64(*value.Time)
 				cell.Reachable = true
 			}
+
 			cells = append(cells, cell)
 		}
 	}
@@ -296,29 +317,39 @@ func (c *Client) BuildMatrix(
 
 func (c *Client) post(ctx context.Context, path string, input, output any) error {
 	body, err := json.Marshal(input)
+
 	if err != nil {
 		return fmt.Errorf("valhalla: encode request: %w", err)
 	}
+
 	response, err := c.sendJSON(ctx, http.MethodPost, c.baseURL+path, body)
+
 	if err != nil {
 		return err
 	}
 
 	data, statusCode, err := readResponse(response)
+
 	if err != nil {
 		return err
 	}
+
 	if statusCode == http.StatusBadRequest && strings.Contains(string(data), "Malformed HTTP request") {
 		query := url.Values{"json": []string{string(body)}}
 		response, err = c.sendJSON(ctx, http.MethodGet, c.baseURL+path+"?"+query.Encode(), nil)
+
 		if err != nil {
 			return err
 		}
+
 		data, statusCode, err = readResponse(response)
+
 		if err != nil {
 			return err
 		}
+
 	}
+
 	if statusCode < 200 || statusCode >= 300 {
 		return fmt.Errorf(
 			"%w: valhalla status %d: %s",
@@ -327,9 +358,11 @@ func (c *Client) post(ctx context.Context, path string, input, output any) error
 			strings.TrimSpace(string(data)),
 		)
 	}
+
 	if err := json.Unmarshal(data, output); err != nil {
 		return fmt.Errorf("%w: valhalla response: %v", models.ErrDependencyUnavailable, err)
 	}
+
 	return nil
 }
 
@@ -340,15 +373,19 @@ func (c *Client) sendJSON(ctx context.Context, method, requestURL string, body [
 		requestURL,
 		bytes.NewReader(body),
 	)
+
 	if err != nil {
 		return nil, fmt.Errorf("valhalla: create request: %w", err)
 	}
+
 	request.Header.Set("Content-Type", "application/json")
 
 	response, err := c.http.Do(request)
+
 	if err != nil {
 		return nil, fmt.Errorf("%w: valhalla request: %v", models.ErrDependencyUnavailable, err)
 	}
+
 	return response, nil
 }
 
@@ -356,6 +393,7 @@ func readResponse(response *http.Response) ([]byte, int, error) {
 	defer response.Body.Close()
 
 	data, err := io.ReadAll(io.LimitReader(response.Body, 64<<10))
+
 	if err != nil {
 		return nil, response.StatusCode, fmt.Errorf(
 			"%w: valhalla response: %v",
@@ -363,6 +401,7 @@ func readResponse(response *http.Response) ([]byte, int, error) {
 			err,
 		)
 	}
+
 	return data, response.StatusCode, nil
 }
 
@@ -378,16 +417,20 @@ func toLocations(points []models.Point) []location {
 }
 
 func costing(options models.RouteOptions) string {
+
 	if options.TravelMode == "" {
 		return string(models.TravelModeAuto)
 	}
+
 	return string(options.TravelMode)
 }
 
 func departureTime(options models.RouteOptions) *dateTime {
+
 	if options.DepartureAt == nil {
 		return nil
 	}
+
 	return &dateTime{
 		Type:  1,
 		Value: options.DepartureAt.Format("2006-01-02T15:04"),
@@ -395,27 +438,36 @@ func departureTime(options models.RouteOptions) *dateTime {
 }
 
 func costingOptions(options models.RouteOptions) map[string]any {
+
 	if options.TravelMode != models.TravelModeTruck || options.Vehicle == nil {
 		return nil
 	}
+
 	values := map[string]any{}
+
 	if options.Vehicle.HeightMeters != nil {
 		values["height"] = *options.Vehicle.HeightMeters
 	}
+
 	if options.Vehicle.WidthMeters != nil {
 		values["width"] = *options.Vehicle.WidthMeters
 	}
+
 	if options.Vehicle.LengthMeters != nil {
 		values["length"] = *options.Vehicle.LengthMeters
 	}
+
 	if options.Vehicle.WeightTons != nil {
 		values["weight"] = *options.Vehicle.WeightTons
 	}
+
 	if options.Vehicle.AxleLoadTons != nil {
 		values["axle_load"] = *options.Vehicle.AxleLoadTons
 	}
+
 	if options.Vehicle.HazardousMaterials {
 		values["hazmat"] = true
 	}
+
 	return map[string]any{"truck": values}
 }

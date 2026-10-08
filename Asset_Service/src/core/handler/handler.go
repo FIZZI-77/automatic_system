@@ -26,9 +26,11 @@ func New(s service.AssetService) *Handler {
 
 func (h *Handler) CreateAsset(c context.Context, q *assetv1.CreateAssetRequest) (*assetv1.AssetResponse, error) {
 	d, a, e := ids(q.DepartmentId, q.ActorUserId)
+
 	if e != nil {
 		return nil, bad(e)
 	}
+
 	v := models.CreateInput{
 		Asset: models.Asset{
 			DepartmentID:           d,
@@ -53,26 +55,32 @@ func (h *Handler) CreateAsset(c context.Context, q *assetv1.CreateAssetRequest) 
 		},
 		ActorID: a,
 	}
+
 	if q.WarrantyUntil != nil {
 		x := q.WarrantyUntil.AsTime()
 		v.WarrantyUntil = &x
 	}
+
 	x, e := h.s.Create(c, v, priv(q.ActorRoles))
 	return &assetv1.AssetResponse{Asset: pa(x)}, mapErr(e)
 }
 func (h *Handler) GetAsset(c context.Context, q *assetv1.GetAssetRequest) (*assetv1.AssetResponse, error) {
 	id, e := uuid.Parse(q.AssetId)
+
 	if e != nil {
 		return nil, bad(e)
 	}
+
 	x, e := h.s.Get(c, id)
 	return &assetv1.AssetResponse{Asset: pa(x)}, mapErr(e)
 }
 func (h *Handler) UpdateAsset(c context.Context, q *assetv1.UpdateAssetRequest) (*assetv1.AssetResponse, error) {
 	id, e := uuid.Parse(q.AssetId)
+
 	if e != nil {
 		return nil, bad(e)
 	}
+
 	input := models.UpdateInput{
 		ID:          id,
 		Name:        q.Name,
@@ -86,21 +94,27 @@ func (h *Handler) UpdateAsset(c context.Context, q *assetv1.UpdateAssetRequest) 
 }
 func (h *Handler) ListAssets(c context.Context, q *assetv1.ListAssetsRequest) (*assetv1.ListAssetsResponse, error) {
 	f := models.Filter{Type: q.Type, District: q.District, Limit: q.Limit, Offset: q.Offset}
+
 	if q.DepartmentId != nil {
 		id, e := uuid.Parse(*q.DepartmentId)
+
 		if e != nil {
 			return nil, bad(e)
 		}
+
 		f.DepartmentID = &id
 	}
+
 	if q.Status != nil {
 		x := statusModel(*q.Status)
 		f.Status = &x
 	}
+
 	if q.RiskLevel != nil {
 		x := riskModel(*q.RiskLevel)
 		f.RiskLevel = &x
 	}
+
 	xs, n, e := h.s.List(c, f)
 	out := []*assetv1.Asset{}
 	for _, x := range xs {
@@ -110,9 +124,11 @@ func (h *Handler) ListAssets(c context.Context, q *assetv1.ListAssetsRequest) (*
 }
 func (h *Handler) ChangeAssetStatus(c context.Context, q *assetv1.ChangeAssetStatusRequest) (*assetv1.AssetResponse, error) {
 	id, a, e := ids(q.AssetId, q.ActorUserId)
+
 	if e != nil {
 		return nil, bad(e)
 	}
+
 	x, e := h.s.ChangeStatus(c, id, statusModel(q.Status), a, q.Reason, priv(q.ActorRoles))
 	return &assetv1.AssetResponse{Asset: pa(x)}, mapErr(e)
 }
@@ -126,9 +142,11 @@ func (h *Handler) FindNearbyAssets(c context.Context, q *assetv1.FindNearbyAsset
 }
 func (h *Handler) RecordIncident(c context.Context, q *assetv1.RecordIncidentRequest) (*assetv1.IncidentResponse, error) {
 	id, e := uuid.Parse(q.AssetId)
+
 	if e != nil {
 		return nil, bad(e)
 	}
+
 	v := models.Incident{
 		AssetID:     id,
 		TicketID:    optID(q.TicketId),
@@ -143,9 +161,11 @@ func (h *Handler) RecordIncident(c context.Context, q *assetv1.RecordIncidentReq
 }
 func (h *Handler) CompleteRepair(c context.Context, q *assetv1.CompleteRepairRequest) (*assetv1.RepairResponse, error) {
 	id, e := uuid.Parse(q.AssetId)
+
 	if e != nil {
 		return nil, bad(e)
 	}
+
 	v := models.Repair{
 		AssetID:            id,
 		IncidentID:         optID(q.IncidentId),
@@ -161,9 +181,11 @@ func (h *Handler) CompleteRepair(c context.Context, q *assetv1.CompleteRepairReq
 }
 func (h *Handler) RecordInspection(c context.Context, q *assetv1.RecordInspectionRequest) (*assetv1.InspectionResponse, error) {
 	id, a, e := ids(q.AssetId, q.InspectorUserId)
+
 	if e != nil {
 		return nil, bad(e)
 	}
+
 	inspection := models.Inspection{
 		AssetID:        id,
 		InspectorID:    a,
@@ -179,9 +201,11 @@ func (h *Handler) RecordInspection(c context.Context, q *assetv1.RecordInspectio
 }
 func (h *Handler) CreateMaintenancePlan(c context.Context, q *assetv1.CreateMaintenancePlanRequest) (*assetv1.MaintenancePlanResponse, error) {
 	id, e := uuid.Parse(q.AssetId)
+
 	if e != nil {
 		return nil, bad(e)
 	}
+
 	plan := models.Plan{
 		AssetID:      id,
 		Kind:         q.Kind,
@@ -193,13 +217,17 @@ func (h *Handler) CreateMaintenancePlan(c context.Context, q *assetv1.CreateMain
 }
 func (h *Handler) ListDueMaintenance(c context.Context, q *assetv1.ListDueMaintenanceRequest) (*assetv1.ListMaintenancePlansResponse, error) {
 	var d *uuid.UUID
+
 	if q.DepartmentId != nil {
 		x, e := uuid.Parse(*q.DepartmentId)
+
 		if e != nil {
 			return nil, bad(e)
 		}
+
 		d = &x
 	}
+
 	xs, n, e := h.s.Due(c, d, pt(q.DueBefore), q.Limit, q.Offset)
 	out := []*assetv1.MaintenancePlan{}
 	for _, x := range xs {
@@ -209,54 +237,70 @@ func (h *Handler) ListDueMaintenance(c context.Context, q *assetv1.ListDueMainte
 }
 func (h *Handler) GetFailurePrediction(c context.Context, q *assetv1.GetFailurePredictionRequest) (*assetv1.FailurePredictionResponse, error) {
 	id, e := uuid.Parse(q.AssetId)
+
 	if e != nil {
 		return nil, bad(e)
 	}
+
 	x, e := h.s.Prediction(c, id)
 	return &assetv1.FailurePredictionResponse{Prediction: pp(x)}, mapErr(e)
 }
 func (h *Handler) RecalculateRisks(c context.Context, q *assetv1.RecalculateRisksRequest) (*assetv1.RecalculateRisksResponse, error) {
 	var d *uuid.UUID
+
 	if q.DepartmentId != nil {
 		x, e := uuid.Parse(*q.DepartmentId)
+
 		if e != nil {
 			return nil, bad(e)
 		}
+
 		d = &x
 	}
+
 	n, e := h.s.Recalculate(c, d, priv(q.ActorRoles))
 	return &assetv1.RecalculateRisksResponse{Updated: n}, mapErr(e)
 }
 func priv(r []string) bool {
 	for _, x := range r {
+
 		if x == "admin" || x == "dispatcher" || x == "worker" {
 			return true
 		}
+
 	}
 	return false
 }
 func ids(a, b string) (uuid.UUID, uuid.UUID, error) {
 	x, e := uuid.Parse(a)
+
 	if e != nil {
 		return x, x, e
 	}
+
 	y, e := uuid.Parse(b)
 	return x, y, e
 }
 func optID(v *string) *uuid.UUID {
+
 	if v == nil {
 		return nil
 	}
+
 	x, e := uuid.Parse(*v)
+
 	if e != nil {
 		return nil
 	}
+
 	return &x
 }
 func pt(v *timestamppb.Timestamp) time.Time {
+
 	if v == nil {
 		return time.Now().UTC()
 	}
+
 	return v.AsTime()
 }
 func bad(e error) error {
@@ -264,15 +308,19 @@ func bad(e error) error {
 }
 
 func mapErr(e error) error {
+
 	if e == nil {
 		return nil
 	}
+
 	if repository.IsNotFound(e) {
 		return status.Error(codes.NotFound, "asset not found")
 	}
+
 	if errors.Is(e, models.ErrForbidden) {
 		return status.Error(codes.PermissionDenied, e.Error())
 	}
+
 	return status.Error(codes.InvalidArgument, e.Error())
 }
 func statusModel(v assetv1.AssetStatus) models.Status {
@@ -282,9 +330,11 @@ func riskModel(v assetv1.RiskLevel) models.RiskLevel {
 	return models.RiskLevel(strings.TrimPrefix(v.String(), "RISK_LEVEL_"))
 }
 func pa(x *models.Asset) *assetv1.Asset {
+
 	if x == nil {
 		return nil
 	}
+
 	p := &assetv1.Asset{
 		Id:                     x.ID.String(),
 		ExternalId:             x.ExternalID,
@@ -312,21 +362,27 @@ func pa(x *models.Asset) *assetv1.Asset {
 		CreatedAt:              timestamppb.New(x.CreatedAt),
 		UpdatedAt:              timestamppb.New(x.UpdatedAt),
 	}
+
 	if x.WarrantyUntil != nil {
 		p.WarrantyUntil = timestamppb.New(*x.WarrantyUntil)
 	}
+
 	if x.LastRepairAt != nil {
 		p.LastRepairAt = timestamppb.New(*x.LastRepairAt)
 	}
+
 	if x.NextInspectionAt != nil {
 		p.NextInspectionAt = timestamppb.New(*x.NextInspectionAt)
 	}
+
 	return p
 }
 func pp(x *models.Prediction) *assetv1.FailurePrediction {
+
 	if x == nil {
 		return nil
 	}
+
 	return &assetv1.FailurePrediction{
 		AssetId:                x.AssetID.String(),
 		RiskScore:              x.Score,
@@ -338,9 +394,11 @@ func pp(x *models.Prediction) *assetv1.FailurePrediction {
 	}
 }
 func pi(x *models.Incident) *assetv1.Incident {
+
 	if x == nil {
 		return nil
 	}
+
 	return &assetv1.Incident{
 		Id:          x.ID.String(),
 		AssetId:     x.AssetID.String(),
@@ -353,9 +411,11 @@ func pi(x *models.Incident) *assetv1.Incident {
 	}
 }
 func pr(x *models.Repair) *assetv1.Repair {
+
 	if x == nil {
 		return nil
 	}
+
 	return &assetv1.Repair{
 		Id:                 x.ID.String(),
 		AssetId:            x.AssetID.String(),
@@ -366,9 +426,11 @@ func pr(x *models.Repair) *assetv1.Repair {
 	}
 }
 func pin(x *models.Inspection) *assetv1.Inspection {
+
 	if x == nil {
 		return nil
 	}
+
 	return &assetv1.Inspection{
 		Id:              x.ID.String(),
 		AssetId:         x.AssetID.String(),
@@ -382,9 +444,11 @@ func pin(x *models.Inspection) *assetv1.Inspection {
 	}
 }
 func pplan(x *models.Plan) *assetv1.MaintenancePlan {
+
 	if x == nil {
 		return nil
 	}
+
 	return &assetv1.MaintenancePlan{
 		Id:           x.ID.String(),
 		AssetId:      x.AssetID.String(),

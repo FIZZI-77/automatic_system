@@ -99,6 +99,7 @@ func FromProtoSortOrder(order ticketv1.SortOrder) models.SortOrder {
 }
 
 func ToProtoTimestamp(t time.Time) *timestamppb.Timestamp {
+
 	if t.IsZero() {
 		return nil
 	}
@@ -107,6 +108,7 @@ func ToProtoTimestamp(t time.Time) *timestamppb.Timestamp {
 }
 
 func ToProtoTimestampPtr(t *time.Time) *timestamppb.Timestamp {
+
 	if t == nil || t.IsZero() {
 		return nil
 	}
@@ -115,6 +117,7 @@ func ToProtoTimestampPtr(t *time.Time) *timestamppb.Timestamp {
 }
 
 func FromProtoTimestamp(ts *timestamppb.Timestamp) *time.Time {
+
 	if ts == nil {
 		return nil
 	}
@@ -124,11 +127,13 @@ func FromProtoTimestamp(ts *timestamppb.Timestamp) *time.Time {
 }
 
 func ToProtoTicket(ticket *models.Ticket) *ticketv1.Ticket {
+
 	if ticket == nil {
 		return nil
 	}
 
 	brigadeID := ""
+
 	if ticket.BrigadeID != nil {
 		brigadeID = (*ticket.BrigadeID).String()
 	}
@@ -160,9 +165,11 @@ func ToProtoTicket(ticket *models.Ticket) *ticketv1.Ticket {
 	}
 }
 func uuidStringPtr(v *uuid.UUID) *string {
+
 	if v == nil {
 		return nil
 	}
+
 	s := v.String()
 	return &s
 }

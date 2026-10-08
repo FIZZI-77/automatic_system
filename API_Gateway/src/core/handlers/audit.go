@@ -20,6 +20,7 @@ func NewAuditHandler(client auditv1.AuditServiceClient) *AuditHandler {
 
 func (h *AuditHandler) Get(c *gin.Context) {
 	var request models.GetAuditEntryRequest
+
 	if !bindJSON(c, &request) {
 		return
 	}
@@ -32,6 +33,7 @@ func (h *AuditHandler) Get(c *gin.Context) {
 
 func (h *AuditHandler) List(c *gin.Context) {
 	var request models.ListAuditEntriesRequest
+
 	if !bindJSON(c, &request) {
 		return
 	}

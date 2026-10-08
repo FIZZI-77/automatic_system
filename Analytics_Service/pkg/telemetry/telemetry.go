@@ -53,9 +53,11 @@ func RecordUnknownEventVersion(ctx context.Context, topic string, version uint32
 			metricapi.WithDescription("Events excluded from projections because their version is unsupported"),
 		)
 	})
+
 	if unknownVersionCounter == nil {
 		return
 	}
+
 	unknownVersionCounter.Add(ctx, 1, metricapi.WithAttributes(
 		attribute.String("topic", topic),
 		attribute.Int64("event_version", int64(version)),
@@ -79,18 +81,23 @@ func RecordConsumerResult(ctx context.Context, topic string, duration time.Durat
 		)
 	})
 	attributes := metricapi.WithAttributes(attribute.String("topic", topic))
+
 	if consumerOperations != nil {
 		consumerOperations.Add(ctx, 1, attributes)
 	}
+
 	if err != nil && consumerErrors != nil {
 		consumerErrors.Add(ctx, 1, attributes)
 	}
+
 	if consumerDuration != nil {
 		consumerDuration.Record(ctx, duration.Seconds(), attributes)
 	}
+
 	if lag >= 0 && consumerLag != nil {
 		consumerLag.Record(ctx, lag, attributes)
 	}
+
 }
 
 // Providers owns the process-wide OpenTelemetry providers.
@@ -105,11 +112,13 @@ type Providers struct {
 // does not prevent the service from starting.
 func Init(ctx context.Context, serviceName string) (*Providers, error) {
 	res, err := newResource(ctx, serviceName)
+
 	if err != nil {
 		return nil, err
 	}
 
 	traceExporter, err := otlptracegrpc.New(ctx)
+
 	if err != nil {
 		return nil, fmt.Errorf("create OTLP trace exporter: %w", err)
 	}
@@ -123,6 +132,7 @@ func Init(ctx context.Context, serviceName string) (*Providers, error) {
 	metricExporter, err := prometheusexporter.New(
 		prometheusexporter.WithRegisterer(registry),
 	)
+
 	if err != nil {
 		_ = traceExporter.Shutdown(ctx)
 		return nil, fmt.Errorf("create Prometheus metric exporter: %w", err)
@@ -138,11 +148,13 @@ func Init(ctx context.Context, serviceName string) (*Providers, error) {
 		sdkmetric.WithReader(metricExporter),
 	)
 	metricsListener, err := net.Listen("tcp", env("METRICS_ADDR", ":9464"))
+
 	if err != nil {
 		_ = tracerProvider.Shutdown(ctx)
 		_ = meterProvider.Shutdown(ctx)
 		return nil, fmt.Errorf("listen for Prometheus metrics: %w", err)
 	}
+
 	metricsServer := &http.Server{
 		Handler: promhttp.HandlerFor(registry, promhttp.HandlerOpts{
 			EnableOpenMetrics: true,
@@ -150,10 +162,12 @@ func Init(ctx context.Context, serviceName string) (*Providers, error) {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	go func() {
+
 		if serveErr := metricsServer.Serve(metricsListener); serveErr != nil &&
 			!errors.Is(serveErr, http.ErrServerClosed) {
 			log.Printf("Prometheus metrics server failed: %v", serveErr)
 		}
+
 	}()
 
 	otel.SetTracerProvider(tracerProvider)
@@ -186,6 +200,7 @@ func (p *Providers) Close() error {
 
 // Shutdown flushes pending telemetry and stops both providers.
 func (p *Providers) Shutdown(ctx context.Context) error {
+
 	if p == nil {
 		return nil
 	}
@@ -225,9 +240,11 @@ func HTTPHandler(handler http.Handler, operation string) http.Handler {
 
 // HTTPTransport instruments outbound HTTP traffic.
 func HTTPTransport(base http.RoundTripper) http.RoundTripper {
+
 	if base == nil {
 		base = http.DefaultTransport
 	}
+
 	return otelhttp.NewTransport(base)
 }
 
@@ -265,17 +282,21 @@ func newResource(ctx context.Context, serviceName string) (*resource.Resource, e
 func sampleRatio() float64 {
 	value := env("OTEL_TRACES_SAMPLER_ARG", strconv.FormatFloat(defaultSampleRatio, 'f', 2, 64))
 	ratio, err := strconv.ParseFloat(value, 64)
+
 	if err != nil || ratio < 0 || ratio > 1 {
 		return defaultSampleRatio
 	}
+
 	return ratio
 }
 
 func env(key string, fallback string) string {
 	value := strings.TrimSpace(os.Getenv(key))
+
 	if value == "" {
 		return fallback
 	}
+
 	return value
 }
 

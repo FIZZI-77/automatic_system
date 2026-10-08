@@ -31,9 +31,11 @@ type AnalyticsServiceStruct struct {
 }
 
 func NewAnalyticsServiceStruct(repo *repository.Repository, logger *zap.Logger) *AnalyticsServiceStruct {
+
 	if logger == nil {
 		logger = zap.NewNop()
 	}
+
 	return &AnalyticsServiceStruct{
 		events:        repo.EventRepository,
 		overview:      repo.OverviewRepository,
@@ -147,19 +149,25 @@ func (s *AnalyticsServiceStruct) AssetSummary(c context.Context, f models.Filter
 }
 func (s *AnalyticsServiceStruct) Consume(c context.Context, e models.Event) error {
 	start := time.Now()
+
 	if e.Version == 0 {
 		e.Version = 1
 	}
+
 	e.ProjectionEligible = e.Version == 1
+
 	if !e.ProjectionEligible {
 		telemetry.RecordUnknownEventVersion(c, e.Topic, e.Version)
 		s.logger.Warn("unknown analytics event version stored without projection", zap.String("topic", e.Topic), zap.String("event_type", e.Type), zap.Uint32("event_version", e.Version))
 	}
+
 	err := s.events.Store(c, e)
+
 	if err != nil {
 		s.logger.Error("store analytics event failed", zap.String("topic", e.Topic), zap.String("event_type", e.Type), zap.Error(err))
 		return err
 	}
+
 	s.logger.Debug("analytics event stored", zap.String("topic", e.Topic), zap.Duration("duration", time.Since(start)))
 	return nil
 }
@@ -189,9 +197,11 @@ func (s *AnalyticsServiceStruct) Daily(c context.Context, f models.Filter) ([]mo
 }
 func (s *AnalyticsServiceStruct) logQuery(name string, start time.Time, err error, fields ...zap.Field) {
 	fields = append(fields, zap.Duration("duration", time.Since(start)))
+
 	if err != nil {
 		s.logger.Error(name+" failed", append(fields, zap.Error(err))...)
 		return
 	}
+
 	s.logger.Info(name+" completed", fields...)
 }

@@ -14,6 +14,7 @@ import (
 )
 
 func (t *TicketRepoStruct) SubmitTicketFeedback(ctx context.Context, in *models.SubmitTicketFeedbackInput) (*models.TicketFeedback, error) {
+
 	if in.Rating < 1 || in.Rating > 5 || len([]rune(in.Comment)) > 1000 {
 		return nil, fmt.Errorf("%w: rating must be 1-5 and comment at most 1000 characters", models.ErrValidation)
 	}

@@ -24,9 +24,11 @@ func NewSkillRepo(writePool *pgxpool.Pool, readPool *pgxpool.Pool) *SkillRepoStr
 
 func (s *SkillRepoStruct) CreateSkill(ctx context.Context, in *models.CreateSkillInput) (*models.CreateSkillResult, error) {
 	tx, err := s.writePool.Begin(ctx)
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: CreateSkill: begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	const query = `
@@ -36,10 +38,13 @@ func (s *SkillRepoStruct) CreateSkill(ctx context.Context, in *models.CreateSkil
 	`
 
 	skill, err := scanSkill(tx.QueryRow(ctx, query, in.Code, in.Name, in.Description))
+
 	if err != nil {
+
 		if isSkillUniqueViolation(err) {
 			return nil, fmt.Errorf("repo: CreateSkill: %w", models.ErrAlreadyExists)
 		}
+
 		return nil, fmt.Errorf("repo: CreateSkill: scan skill: %w", err)
 	}
 
@@ -51,6 +56,7 @@ func (s *SkillRepoStruct) CreateSkill(ctx context.Context, in *models.CreateSkil
 		"name":       skill.Name,
 		"created_at": skill.CreatedAt,
 	}
+
 	if err = insertOutboxEvent(ctx, tx, "skill", skill.ID, "SkillCreated", payload, in.RequestID, in.TraceID); err != nil {
 		return nil, fmt.Errorf("repo: CreateSkill: insert outbox event: %w", err)
 	}
@@ -64,9 +70,11 @@ func (s *SkillRepoStruct) CreateSkill(ctx context.Context, in *models.CreateSkil
 
 func (s *SkillRepoStruct) UpdateSkill(ctx context.Context, in *models.UpdateSkillInput) (*models.UpdateSkillResult, error) {
 	tx, err := s.writePool.Begin(ctx)
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: UpdateSkill: begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	const query = `
@@ -82,10 +90,13 @@ func (s *SkillRepoStruct) UpdateSkill(ctx context.Context, in *models.UpdateSkil
 	`
 
 	skill, err := scanSkill(tx.QueryRow(ctx, query, in.Code, in.Name, in.Description, in.Active, in.ID))
+
 	if err != nil {
+
 		if isSkillUniqueViolation(err) {
 			return nil, fmt.Errorf("repo: UpdateSkill: %w", models.ErrAlreadyExists)
 		}
+
 		return nil, fmt.Errorf("repo: UpdateSkill: scan skill: %w", err)
 	}
 
@@ -98,6 +109,7 @@ func (s *SkillRepoStruct) UpdateSkill(ctx context.Context, in *models.UpdateSkil
 		"active":     skill.Active,
 		"updated_at": skill.UpdatedAt,
 	}
+
 	if err = insertOutboxEvent(ctx, tx, "skill", skill.ID, "SkillUpdated", payload, in.RequestID, in.TraceID); err != nil {
 		return nil, fmt.Errorf("repo: UpdateSkill: insert outbox event: %w", err)
 	}
@@ -111,9 +123,11 @@ func (s *SkillRepoStruct) UpdateSkill(ctx context.Context, in *models.UpdateSkil
 
 func (s *SkillRepoStruct) DeactivateSkill(ctx context.Context, in *models.DeactivateSkillInput) (*models.DeactivateSkillResult, error) {
 	tx, err := s.writePool.Begin(ctx)
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: DeactivateSkill: begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	const query = `
@@ -124,6 +138,7 @@ func (s *SkillRepoStruct) DeactivateSkill(ctx context.Context, in *models.Deacti
 	`
 
 	skill, err := scanSkill(tx.QueryRow(ctx, query, in.ID))
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: DeactivateSkill: scan skill: %w", err)
 	}
@@ -135,6 +150,7 @@ func (s *SkillRepoStruct) DeactivateSkill(ctx context.Context, in *models.Deacti
 		"code":       skill.Code,
 		"updated_at": skill.UpdatedAt,
 	}
+
 	if err = insertOutboxEvent(ctx, tx, "skill", skill.ID, "SkillDeactivated", payload, in.RequestID, in.TraceID); err != nil {
 		return nil, fmt.Errorf("repo: DeactivateSkill: insert outbox event: %w", err)
 	}
@@ -157,6 +173,7 @@ func (s *SkillRepoStruct) ListSkills(ctx context.Context, in *models.ListSkillsI
 	if in.Active != nil {
 		addWhere("active = $%d", *in.Active)
 	}
+
 	if in.Query != nil {
 		addWhere("(code ILIKE $%d OR name ILIKE $%d)", "%"+*in.Query+"%")
 		args = append(args, "%"+*in.Query+"%")
@@ -164,12 +181,14 @@ func (s *SkillRepoStruct) ListSkills(ctx context.Context, in *models.ListSkillsI
 	}
 
 	whereSQL := ""
+
 	if len(whereParts) > 0 {
 		whereSQL = "WHERE " + strings.Join(whereParts, " AND ")
 	}
 
 	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM skills %s", whereSQL)
 	var total int64
+
 	if err := s.readPool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, fmt.Errorf("repo: ListSkills: count: %w", err)
 	}
@@ -184,19 +203,24 @@ func (s *SkillRepoStruct) ListSkills(ctx context.Context, in *models.ListSkillsI
 	`, whereSQL, len(args)-1, len(args))
 
 	rows, err := s.readPool.Query(ctx, query, args...)
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: ListSkills: query: %w", err)
 	}
+
 	defer rows.Close()
 
 	skills := make([]*models.Skill, 0)
 	for rows.Next() {
 		skill, err := scanSkill(rows)
+
 		if err != nil {
 			return nil, fmt.Errorf("repo: ListSkills: scan: %w", err)
 		}
+
 		skills = append(skills, skill)
 	}
+
 	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("repo: ListSkills: rows: %w", err)
 	}
@@ -206,9 +230,11 @@ func (s *SkillRepoStruct) ListSkills(ctx context.Context, in *models.ListSkillsI
 
 func (s *SkillRepoStruct) AddBrigadeSkill(ctx context.Context, in *models.AddBrigadeSkillInput) (*models.AddBrigadeSkillResult, error) {
 	tx, err := s.writePool.Begin(ctx)
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: AddBrigadeSkill: begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	const query = `
@@ -218,10 +244,13 @@ func (s *SkillRepoStruct) AddBrigadeSkill(ctx context.Context, in *models.AddBri
 	`
 
 	brigadeSkill, err := scanBrigadeSkill(tx.QueryRow(ctx, query, in.BrigadeID, in.SkillID))
+
 	if err != nil {
+
 		if isBrigadeSkillUniqueViolation(err) {
 			return nil, fmt.Errorf("repo: AddBrigadeSkill: %w", models.ErrAlreadyExists)
 		}
+
 		return nil, fmt.Errorf("repo: AddBrigadeSkill: scan brigade skill: %w", err)
 	}
 
@@ -232,6 +261,7 @@ func (s *SkillRepoStruct) AddBrigadeSkill(ctx context.Context, in *models.AddBri
 		"skill_id":   in.SkillID.String(),
 		"created_at": brigadeSkill.CreatedAt,
 	}
+
 	if err = insertOutboxEvent(ctx, tx, "brigade", in.BrigadeID, "BrigadeSkillAdded", payload, in.RequestID, in.TraceID); err != nil {
 		return nil, fmt.Errorf("repo: AddBrigadeSkill: insert outbox event: %w", err)
 	}
@@ -245,9 +275,11 @@ func (s *SkillRepoStruct) AddBrigadeSkill(ctx context.Context, in *models.AddBri
 
 func (s *SkillRepoStruct) RemoveBrigadeSkill(ctx context.Context, in *models.RemoveBrigadeSkillInput) (*models.RemoveBrigadeSkillResult, error) {
 	tx, err := s.writePool.Begin(ctx)
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: RemoveBrigadeSkill: begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	const query = `
@@ -258,6 +290,7 @@ func (s *SkillRepoStruct) RemoveBrigadeSkill(ctx context.Context, in *models.Rem
 	`
 
 	brigadeSkill, err := scanBrigadeSkill(tx.QueryRow(ctx, query, in.BrigadeID, in.SkillID))
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: RemoveBrigadeSkill: scan brigade skill: %w", err)
 	}
@@ -269,6 +302,7 @@ func (s *SkillRepoStruct) RemoveBrigadeSkill(ctx context.Context, in *models.Rem
 		"skill_id":   in.SkillID.String(),
 		"updated_at": brigadeSkill.UpdatedAt,
 	}
+
 	if err = insertOutboxEvent(ctx, tx, "brigade", in.BrigadeID, "BrigadeSkillRemoved", payload, in.RequestID, in.TraceID); err != nil {
 		return nil, fmt.Errorf("repo: RemoveBrigadeSkill: insert outbox event: %w", err)
 	}
@@ -283,10 +317,12 @@ func (s *SkillRepoStruct) RemoveBrigadeSkill(ctx context.Context, in *models.Rem
 func (s *SkillRepoStruct) ListBrigadeSkills(ctx context.Context, in *models.ListBrigadeSkillsInput) (*models.ListBrigadeSkillsResult, error) {
 	whereParts := []string{"bs.brigade_id = $1"}
 	args := []any{in.BrigadeID}
+
 	if in.Active != nil {
 		args = append(args, *in.Active)
 		whereParts = append(whereParts, fmt.Sprintf("bs.active = $%d", len(args)))
 	}
+
 	whereSQL := "WHERE " + strings.Join(whereParts, " AND ")
 
 	query := fmt.Sprintf(`
@@ -311,57 +347,75 @@ func (s *SkillRepoStruct) ListBrigadeSkills(ctx context.Context, in *models.List
 	`, whereSQL)
 
 	rows, err := s.readPool.Query(ctx, query, args...)
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: ListBrigadeSkills: query: %w", err)
 	}
+
 	defer rows.Close()
 
 	skills := make([]*models.BrigadeSkill, 0)
 	for rows.Next() {
 		item, err := scanBrigadeSkillWithSkill(rows)
+
 		if err != nil {
 			return nil, fmt.Errorf("repo: ListBrigadeSkills: scan: %w", err)
 		}
+
 		skills = append(skills, item)
 	}
+
 	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("repo: ListBrigadeSkills: rows: %w", err)
 	}
+
 	return &models.ListBrigadeSkillsResult{Skills: skills}, nil
 }
 
 func scanSkill(row scanner) (*models.Skill, error) {
 	var skill models.Skill
 	err := row.Scan(&skill.ID, &skill.Code, &skill.Name, &skill.Description, &skill.Active, &skill.CreatedAt, &skill.UpdatedAt)
+
 	if err != nil {
+
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, models.ErrNotFound
 		}
+
 		return nil, err
 	}
+
 	return &skill, nil
 }
 
 func scanBrigadeSkill(row scanner) (*models.BrigadeSkill, error) {
 	var item models.BrigadeSkill
 	err := row.Scan(&item.ID, &item.BrigadeID, &item.SkillID, &item.Active, &item.CreatedAt, &item.UpdatedAt)
+
 	if err != nil {
+
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, models.ErrNotFound
 		}
+
 		return nil, err
 	}
+
 	return &item, nil
 }
 
 func scanBrigadeSkillWithSkill(row scanner) (*models.BrigadeSkill, error) {
 	item, skill, err := scanBrigadeSkillWithSkillRaw(row)
+
 	if err != nil {
+
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, models.ErrNotFound
 		}
+
 		return nil, err
 	}
+
 	item.Skill = skill
 	return item, nil
 }
@@ -384,13 +438,16 @@ func scanBrigadeSkillWithSkillRaw(row scanner) (*models.BrigadeSkill, *models.Sk
 		&skill.CreatedAt,
 		&skill.UpdatedAt,
 	)
+
 	if err != nil {
 		return nil, nil, err
 	}
+
 	return &item, &skill, nil
 }
 
 func (s *SkillRepoStruct) brigadeHasSkills(ctx context.Context, brigadeID uuid.UUID, skillIDs []uuid.UUID) (bool, error) {
+
 	if len(skillIDs) == 0 {
 		return true, nil
 	}
@@ -404,6 +461,7 @@ func (s *SkillRepoStruct) brigadeHasSkills(ctx context.Context, brigadeID uuid.U
 	`
 
 	var count int
+
 	if err := s.readPool.QueryRow(ctx, query, brigadeID, uuidStrings(skillIDs)).Scan(&count); err != nil {
 		return false, err
 	}
@@ -413,6 +471,7 @@ func (s *SkillRepoStruct) brigadeHasSkills(ctx context.Context, brigadeID uuid.U
 
 func isSkillUniqueViolation(err error) bool {
 	var pgErr *pgconn.PgError
+
 	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 		return pgErr.ConstraintName == "" || pgErr.ConstraintName == "skills_code_uidx"
 	}
@@ -422,6 +481,7 @@ func isSkillUniqueViolation(err error) bool {
 
 func isBrigadeSkillUniqueViolation(err error) bool {
 	var pgErr *pgconn.PgError
+
 	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 		return pgErr.ConstraintName == "" || pgErr.ConstraintName == "brigade_skills_active_uidx"
 	}

@@ -34,24 +34,32 @@ func (r *Runner) Run(ctx context.Context) error {
 			next := r.route.Points[(index+1)%len(r.route.Points)]
 			eventTime := now()
 			wallSequence := uint64(eventTime.UnixNano())
+
 			if wallSequence > sequence {
 				sequence = wallSequence
 			} else {
 				sequence++
 			}
+
 			event := NewEvent(r.cfg, point, next, sequence, eventTime)
+
 			if err := r.sender.Send(ctx, event); err != nil {
 				return fmt.Errorf("point %d sequence %d: %w", index, sequence, err)
 			}
+
 			r.logger.Printf("position sent: sequence=%d latitude=%.6f longitude=%.6f speed=%.1f heading=%.1f",
 				sequence, point.Latitude, point.Longitude, event.Payload.SpeedKMH, event.Payload.Heading)
+
 			if err := wait(ctx, r.cfg.Interval); err != nil {
 				return nil
 			}
+
 		}
+
 		if !r.cfg.LoopRoute {
 			return nil
 		}
+
 	}
 }
 

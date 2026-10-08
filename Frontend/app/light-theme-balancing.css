@@ -1,0 +1,1113 @@
+.app-shell.theme-light .service-split > div {
+  background: transparent;
+}
+
+.app-shell.theme-light .filter-search {
+  background: transparent;
+}
+
+.app-shell.theme-light .person-status.active,
+.app-shell.theme-light .person-status.on_shift,
+.app-shell.theme-light .sla-level.normal {
+  background: #168b63;
+  color: #ffffff;
+  border-color: #168b63;
+}
+
+.app-shell.theme-light .person-name > i {
+  background: #168b63;
+  color: #ffffff;
+}
+
+.app-shell.theme-light .zone-brigade-filters button {
+  background: #168b63;
+  color: #ffffff;
+  border-color: #168b63;
+}
+
+.app-shell.theme-light .zone-brigade-filters button:hover:not(:disabled) {
+  background: #0f7351;
+  border-color: #0f7351;
+}
+
+.app-shell.theme-light .zone-brigade-filters button:disabled {
+  background: #dce9e3;
+  color: #6a7d74;
+  border-color: #dce9e3;
+}
+
+.app-shell.theme-light .draw-hint {
+  background: rgba(22, 139, 99, 0.96);
+  color: #ffffff;
+}
+
+.app-shell.theme-light .draw-hint * {
+  color: inherit;
+}
+
+.app-shell.theme-light .zones-map .leaflet-control-zoom a {
+  background: #168b63;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.app-shell.theme-light .zones-map .leaflet-control-zoom a:hover {
+  background: #0f7351;
+  color: #ffffff !important;
+}
+
+.app-shell > aside nav button {
+  height: auto;
+  min-height: 76px;
+  box-sizing: border-box;
+}
+
+.app-shell > aside nav button span {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  line-height: 1.2;
+}
+
+.app-shell.theme-light .section-assets .ops-grid > button h3,
+.app-shell.theme-light .section-assets .ops-grid > button b,
+.app-shell.theme-light .section-assets .ops-grid > button strong,
+.app-shell.theme-light .ops-detail h2,
+.app-shell.theme-light .ops-detail dd,
+.app-shell.theme-light .audit-row b {
+  color: #0f7351 !important;
+}
+
+.app-shell.theme-light .ops-detail .detail-close {
+  background: #168b63 !important;
+  color: #ffffff !important;
+  border-color: #168b63 !important;
+}
+
+.app-shell.theme-light .report-submit small {
+  color: #687970;
+}
+
+.app-shell.theme-light .content-page h2,
+.app-shell.theme-light .content-page h3,
+.app-shell.theme-light .ops-page > header h2 {
+  color: #0f7351 !important;
+}
+
+.landing .landing-links {
+  align-items: center;
+}
+
+.landing .landing-links > a,
+.landing .landing-links > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  min-height: 44px;
+  margin: 0;
+  padding: 0 16px;
+  box-sizing: border-box;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.landing .landing-theme-toggle b {
+  font: inherit;
+}
+
+.landing .landing-links > .primary.small {
+  height: 44px;
+  min-height: 44px;
+  padding-inline: 20px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* Registration: polished return action and lightweight 3D background. */
+.auth-page {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  --cube-face: linear-gradient(145deg, rgba(48, 222, 161, 0.96), rgba(8, 66, 47, 0.98));
+  --cube-side: linear-gradient(145deg, rgba(20, 145, 102, 0.98), rgba(5, 42, 31, 0.98));
+  --cube-top: linear-gradient(145deg, rgba(118, 244, 199, 0.98), rgba(20, 145, 102, 0.96));
+  --cube-line: rgba(104, 255, 205, 0.32);
+}
+
+html[data-theme="light"] .auth-page {
+  background:
+    radial-gradient(circle at 78% 18%, rgba(38, 211, 151, 0.16), transparent 24%),
+    radial-gradient(circle at 15% 82%, rgba(53, 139, 255, 0.08), transparent 25%),
+    #f2f3ee;
+  --cube-face: linear-gradient(145deg, rgba(91, 218, 172, 0.96), rgba(13, 126, 87, 0.94));
+  --cube-side: linear-gradient(145deg, rgba(26, 145, 103, 0.98), rgba(5, 77, 54, 0.98));
+  --cube-top: linear-gradient(145deg, rgba(205, 255, 237, 0.98), rgba(58, 188, 141, 0.96));
+  --cube-line: rgba(8, 94, 65, 0.36);
+}
+
+html[data-theme="light"] .auth-register-callout {
+  border-color: #c5d9ce;
+  background: #f1f7f3;
+  box-shadow: none;
+}
+
+html[data-theme="light"] .auth-register-callout span {
+  color: #526d61;
+}
+
+html[data-theme="light"] .auth-register-callout button {
+  min-height: 46px;
+  border: 1px solid #168b63;
+  border-radius: 12px;
+  padding: 0 18px;
+  background: #168b63;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 750;
+}
+
+html[data-theme="light"] .auth-register-callout button:hover {
+  border-color: #0f7351;
+  background: #0f7351;
+}
+
+.auth-card {
+  position: relative;
+  z-index: 2;
+}
+
+.auth-page .back {
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 154px;
+  height: 48px;
+  padding: 0 20px;
+  border: 1px solid rgba(22, 139, 99, 0.45) !important;
+  border-radius: 14px !important;
+  background: rgba(255, 255, 255, 0.9) !important;
+  color: #0f7351 !important;
+  box-shadow: 0 12px 34px rgba(17, 69, 51, 0.12);
+  backdrop-filter: blur(14px);
+  font-size: 14px;
+  font-weight: 750;
+  line-height: 1;
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.auth-page .back:hover {
+  transform: translateY(-2px);
+  border-color: #168b63 !important;
+  box-shadow: 0 16px 38px rgba(17, 69, 51, 0.18);
+}
+
+html[data-theme="dark"] .auth-page .back {
+  border-color: rgba(80, 226, 174, 0.35) !important;
+  background: rgba(24, 24, 27, 0.82) !important;
+  color: #72e2ba !important;
+}
+
+.auth-cubes {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  perspective: 1100px;
+}
+
+.auth-cube {
+  --cube-size: 150px;
+  --cube-depth: 75px;
+  position: absolute;
+  width: var(--cube-size);
+  height: var(--cube-size);
+  transform-style: preserve-3d;
+  filter: drop-shadow(0 32px 34px rgba(10, 55, 40, 0.2));
+  will-change: transform;
+  animation: auth-cube-spin 8.5s ease-in-out infinite;
+}
+
+.auth-cube i {
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--cube-line);
+  border-radius: 24px;
+  background: var(--cube-face);
+  box-shadow: inset 0 0 34px rgba(255, 255, 255, 0.2);
+  backface-visibility: hidden;
+}
+
+.auth-cube i:nth-child(1) { transform: translateZ(var(--cube-depth)); }
+.auth-cube i:nth-child(2) { transform: rotateY(180deg) translateZ(var(--cube-depth)); }
+.auth-cube i:nth-child(3) { transform: rotateY(90deg) translateZ(var(--cube-depth)); background: var(--cube-side); }
+.auth-cube i:nth-child(4) { transform: rotateY(-90deg) translateZ(var(--cube-depth)); background: var(--cube-side); }
+.auth-cube i:nth-child(5) { transform: rotateX(90deg) translateZ(var(--cube-depth)); background: var(--cube-top); }
+.auth-cube i:nth-child(6) { transform: rotateX(-90deg) translateZ(var(--cube-depth)); background: var(--cube-side); }
+
+.auth-cube.cube-one {
+  --cube-size: 184px;
+  --cube-depth: 92px;
+  top: 15%;
+  right: 8%;
+}
+
+.auth-cube.cube-two {
+  --cube-size: 104px;
+  --cube-depth: 52px;
+  bottom: 12%;
+  left: 9%;
+  opacity: 0.68;
+  animation-duration: 12s;
+  animation-direction: reverse;
+}
+
+.auth-cube.cube-three {
+  --cube-size: 72px;
+  --cube-depth: 36px;
+  right: 22%;
+  bottom: 8%;
+  opacity: 0.52;
+  animation-duration: 7s;
+  animation-delay: -3s;
+}
+
+@keyframes auth-cube-spin {
+  0%, 100% {
+    transform: translate3d(0, -10px, 0) rotateX(-20deg) rotateY(22deg) rotateZ(-8deg);
+  }
+  50% {
+    transform: translate3d(-14px, 18px, 0) rotateX(12deg) rotateY(76deg) rotateZ(6deg);
+  }
+}
+
+@media (max-width: 900px) {
+  .auth-cube.cube-one { right: -52px; opacity: 0.55; }
+  .auth-cube.cube-two { left: -34px; opacity: 0.42; }
+  .auth-cube.cube-three { display: none; }
+}
+
+@media (max-width: 600px) {
+  .auth-cubes { opacity: 0.34; }
+  .auth-page .back { left: 16px; top: 16px; min-width: 138px; height: 44px; }
+}
+
+/* KPI units must remain readable beside the large dashboard value. */
+.kpis article:nth-child(3) b em,
+.kpis article:nth-child(4) b em {
+  display: inline-block;
+  margin-left: 10px;
+  color: inherit;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: normal;
+  vertical-align: baseline;
+}
+
+@media (max-width: 430px) {
+  .kpis article:nth-child(3) b em,
+  .kpis article:nth-child(4) b em {
+    margin-left: 7px;
+    font-size: 17px;
+  }
+}
+
+/* i.moscow typography: one geometric sans-serif stack across every surface. */
+:root {
+  --font-reference: TTFirs, Helvetica, Arial, sans-serif;
+  --font-display: var(--font-reference);
+}
+
+html[data-theme="light"] body {
+  background: #f2f3ee !important;
+  color: #151715 !important;
+}
+
+html body,
+html body .landing,
+html body .landing *,
+html body .auth-page,
+html body .auth-page *,
+html body .app-shell,
+html body .app-shell * {
+  font-family: var(--font-reference) !important;
+}
+
+html body :where(h1, h2, h3, h4, h5, h6) {
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+}
+
+html body :where(button, input, select, textarea) {
+  font-family: var(--font-reference) !important;
+}
+
+/* Light analytics must not inherit the dark workspace card treatment. */
+.app-shell.theme-light :where(
+  .analytics-grid article,
+  .analytics-section,
+  .asset-analytics-card,
+  .trend-card,
+  .breakdown-card
+) {
+  border-color: #d4d8d1 !important;
+  background: #ffffff !important;
+  color: #173a2e !important;
+  box-shadow: 0 12px 32px rgba(26, 83, 61, 0.06) !important;
+}
+
+.app-shell.theme-light :where(.analytics-grid, .analytics-section, .asset-analytics-card) :where(h3, h4, b) {
+  color: #0f7351 !important;
+}
+
+.app-shell.theme-light :where(.analytics-grid, .analytics-section, .asset-analytics-card) :where(p, span, small) {
+  color: #65716a !important;
+}
+
+.app-shell.theme-light .trend-bars {
+  border-color: #dfe5df !important;
+  background: repeating-linear-gradient(to bottom, transparent 0 58px, #e7ebe6 59px) !important;
+}
+
+.app-shell.theme-light .priority-donut::before {
+  background: #ffffff !important;
+}
+
+/* Light side panels use white/green controls; destructive actions stay explicit. */
+.app-shell.theme-light .ops-detail button,
+.app-shell.theme-light .ops-detail .ghost {
+  border: 1px solid #b9cec3 !important;
+  background: #ffffff !important;
+  color: #0f7351 !important;
+  box-shadow: none !important;
+}
+
+.app-shell.theme-light .ops-detail button:hover,
+.app-shell.theme-light .ops-detail .ghost:hover {
+  border-color: #168b63 !important;
+  background: #eaf5f0 !important;
+  color: #0a5e42 !important;
+}
+
+.app-shell.theme-light .ops-detail .danger-action {
+  border-color: #e3b9b2 !important;
+  background: #fff1ee !important;
+  color: #9f463e !important;
+}
+
+.app-shell.theme-light .ops-detail .danger-action:hover {
+  border-color: #ca766b !important;
+  background: #fbe2dd !important;
+  color: #853931 !important;
+}
+
+.app-shell.theme-light .ops-detail .detail-close {
+  border-color: #168b63 !important;
+  background: #168b63 !important;
+  color: #ffffff !important;
+}
+
+.app-shell.theme-light :where(
+  .ops-state.active,
+  .ops-state.available,
+  .ops-state.on_shift,
+  .ops-state.verified,
+  .ops-state.completed,
+  .ops-state.assigned,
+  .person-status.active,
+  .person-status.available,
+  .person-status.on_shift
+) {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  border: 1px solid #168b63 !important;
+  border-radius: 9px;
+  padding: 6px 9px;
+  background: #168b63 !important;
+  color: #ffffff !important;
+  line-height: 1;
+}
+
+.app-shell.theme-light .ops-state.active,
+.app-shell.theme-light .ops-state.available,
+.app-shell.theme-light .ops-state.on_shift,
+.app-shell.theme-light .ops-state.verified,
+.app-shell.theme-light .ops-state.completed,
+.app-shell.theme-light .ops-state.assigned,
+.app-shell.theme-light .person-status.active,
+.app-shell.theme-light .person-status.available,
+.app-shell.theme-light .person-status.on_shift {
+  color: #ffffff !important;
+  font-style: normal;
+}
+
+/* Keep the landing header geometry stable when the color theme changes. */
+.landing .landing-nav,
+.landing.theme-light .landing-nav,
+.landing.theme-dark .landing-nav {
+  width: min(100%, 1560px);
+  max-width: 1560px;
+  height: 92px;
+  margin-inline: auto;
+  padding: 0 32px;
+  box-sizing: border-box;
+}
+
+.landing .landing-links,
+.landing.theme-light .landing-links,
+.landing.theme-dark .landing-links {
+  gap: 3px;
+  padding: 4px;
+  border: 1px solid transparent;
+  box-sizing: border-box;
+}
+
+.landing .landing-theme-toggle {
+  flex: 0 0 112px;
+  width: 112px;
+}
+
+@media (max-width: 1120px) {
+  .landing .landing-nav,
+  .landing.theme-light .landing-nav,
+  .landing.theme-dark .landing-nav {
+    padding-inline: 22px;
+  }
+
+  .landing .landing-theme-toggle {
+    flex-basis: 42px;
+    width: 42px;
+    padding: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .landing .landing-nav,
+  .landing.theme-light .landing-nav,
+  .landing.theme-dark .landing-nav {
+    height: 76px;
+    padding-inline: 14px;
+  }
+}
+
+/* Brigade detail cards stay readable at the narrow side-panel width. */
+.app-shell .brigade-detail .eyebrow {
+  font-size: 12px;
+}
+
+.app-shell .brigade-detail h3 {
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.app-shell .brigade-status {
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.app-shell .brigade-detail dt {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.app-shell .brigade-detail dd {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.app-shell .brigade-vehicles > button {
+  padding: 15px !important;
+}
+
+.app-shell .brigade-vehicles > button > i {
+  font-size: 21px;
+}
+
+.app-shell .brigade-vehicles b {
+  font-size: 16px;
+}
+
+.app-shell .brigade-vehicles small {
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.app-shell .brigade-vehicles em {
+  font-size: 13px;
+}
+
+.app-shell .brigade-job {
+  gap: 5px;
+  padding: 14px !important;
+  border-radius: 14px;
+}
+
+.app-shell .brigade-job b {
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.app-shell .brigade-job small,
+.app-shell .no-jobs {
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.app-shell .brigade-job em {
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+/* Light-theme selection uses a conventional tint instead of a dark fill. */
+.app-shell.theme-light .brigade-vehicles > button:hover,
+.app-shell.theme-light .brigade-vehicles > button:focus-visible {
+  border-color: #62a485 !important;
+  background: #e6f3ec !important;
+  color: #173a2e !important;
+  box-shadow: 0 0 0 3px rgba(22, 139, 99, 0.12) !important;
+}
+
+.app-shell.theme-light .brigade-vehicles > button:hover b,
+.app-shell.theme-light .brigade-vehicles > button:focus-visible b {
+  color: #0f7351 !important;
+}
+
+.app-shell.theme-light .brigade-vehicles > button:hover :where(small, em),
+.app-shell.theme-light .brigade-vehicles > button:focus-visible :where(small, em) {
+  color: #526d61 !important;
+}
+
+/* Workspace actions share one shape and one sizing scale. */
+.app-shell :where(button.primary, button.ghost, button.danger-action) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  border-radius: 12px;
+  padding: 0 18px;
+  font-size: 14px;
+  font-weight: 750;
+  line-height: 1.2;
+}
+
+/* Brigade workspace: compact cards and a structured, theme-aware detail panel. */
+.app-shell .brigade-grid {
+  align-content: start;
+  grid-auto-rows: max-content;
+}
+
+.app-shell .brigade-grid article {
+  align-self: start;
+}
+
+.app-shell.theme-dark .brigade-grid article.selected {
+  border-color: #38c994;
+  background: #1d2b26;
+  box-shadow: 0 0 0 3px rgba(54, 223, 160, 0.14);
+}
+
+.app-shell.theme-light .brigade-grid article.selected {
+  border-color: #62a485;
+  background: #edf7f2;
+  box-shadow: 0 0 0 3px rgba(22, 139, 99, 0.12);
+}
+
+.app-shell .brigade-grid article > button {
+  min-height: 44px;
+  border: 1px solid var(--workspace-border);
+  border-radius: 11px;
+  background: var(--workspace-surface-3);
+  color: var(--workspace-accent);
+  font-size: 13px;
+  font-weight: 750;
+  transition: border-color .2s ease, background .2s ease, color .2s ease;
+}
+
+.app-shell .brigade-grid article > button:hover:not(:disabled) {
+  border-color: var(--workspace-accent);
+  background: var(--workspace-accent);
+  color: #ffffff;
+}
+
+.app-shell .brigade-grid article > button:disabled {
+  opacity: .55;
+  cursor: default;
+}
+
+.app-shell.theme-light .brigade-grid article > button {
+  border-color: #b9cec3;
+  background: #ffffff;
+  color: #0f7351;
+}
+
+.app-shell .brigade-detail {
+  min-height: 0;
+  padding: 28px !important;
+  border-left: 1px solid var(--workspace-border);
+  background: var(--workspace-surface) !important;
+  color: var(--workspace-text) !important;
+}
+
+.app-shell .brigade-detail-head {
+  padding: 2px 46px 22px 0;
+}
+
+.app-shell .brigade-detail-head .eyebrow {
+  display: block;
+  margin-bottom: 11px;
+  color: var(--workspace-accent) !important;
+  font-size: 11px;
+  letter-spacing: .13em;
+}
+
+.app-shell .brigade-detail-head h2 {
+  margin: 0;
+  color: var(--workspace-text) !important;
+  font-size: 30px;
+  line-height: 1.08;
+  overflow-wrap: anywhere;
+}
+
+.app-shell .brigade-detail-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 15px;
+}
+
+.app-shell .brigade-detail-meta .entity-id,
+.app-shell .brigade-detail-meta .brigade-status {
+  margin: 0;
+  border: 1px solid var(--workspace-border);
+  border-radius: 999px;
+  padding: 7px 10px;
+  background: var(--workspace-surface-2);
+  color: var(--workspace-muted) !important;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.app-shell .brigade-detail-meta .brigade-status {
+  border-color: color-mix(in srgb, var(--workspace-accent) 42%, transparent);
+  background: color-mix(in srgb, var(--workspace-accent) 14%, var(--workspace-surface));
+  color: var(--workspace-accent) !important;
+}
+
+.app-shell .brigade-detail-description {
+  margin: 12px 0 0;
+  color: var(--workspace-muted) !important;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.app-shell .brigade-detail-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 26px;
+}
+
+.app-shell .brigade-detail-stats > div {
+  min-height: 82px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 13px;
+  border: 1px solid var(--workspace-border);
+  border-radius: 14px;
+  background: var(--workspace-surface-2);
+}
+
+.app-shell .brigade-detail-stats > div:first-child {
+  grid-column: 1 / -1;
+  min-height: 72px;
+}
+
+.app-shell .brigade-detail-stats dt {
+  color: var(--workspace-muted) !important;
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.app-shell .brigade-detail-stats dd {
+  color: var(--workspace-text) !important;
+  font-size: 15px;
+  line-height: 1.3;
+  text-align: left;
+}
+
+.app-shell .brigade-detail-section {
+  padding: 22px 0;
+  border-top: 1px solid var(--workspace-border);
+}
+
+.app-shell .brigade-detail-section:last-child {
+  padding-bottom: 0;
+}
+
+.app-shell .brigade-detail-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.app-shell .brigade-detail-section-head h3 {
+  margin: 0;
+  color: var(--workspace-text) !important;
+  font-size: 19px;
+  line-height: 1.2;
+}
+
+.app-shell .brigade-detail-section-head > span {
+  display: grid;
+  place-items: center;
+  min-width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--workspace-surface-3);
+  color: var(--workspace-accent);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.app-shell .brigade-detail .detail-close {
+  right: 18px;
+  top: 18px !important;
+  border: 1px solid var(--workspace-border) !important;
+  border-radius: 50%;
+  background: var(--workspace-surface-2) !important;
+  color: var(--workspace-text) !important;
+}
+
+.app-shell .brigade-vehicles {
+  gap: 10px;
+  margin: 0;
+}
+
+.app-shell .brigade-vehicles > button {
+  grid-template-columns: 34px minmax(0, 1fr) auto !important;
+  gap: 12px !important;
+  padding: 15px !important;
+  border-color: var(--workspace-border) !important;
+  border-radius: 16px !important;
+  background: var(--workspace-surface-2) !important;
+  color: var(--workspace-text) !important;
+  transition: border-color .2s ease, background .2s ease, transform .2s ease;
+}
+
+.app-shell .brigade-vehicles > button:hover {
+  border-color: var(--workspace-accent) !important;
+  background: var(--workspace-surface-3) !important;
+  transform: translateY(-1px);
+}
+
+.app-shell .brigade-vehicles > button > i {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--workspace-accent) 16%, var(--workspace-surface));
+  color: var(--workspace-accent);
+}
+
+.app-shell .brigade-vehicles b {
+  color: var(--workspace-text) !important;
+  font-size: 15px;
+}
+
+.app-shell .brigade-vehicles small {
+  color: var(--workspace-muted) !important;
+  font-size: 12px;
+}
+
+.app-shell .brigade-vehicles em {
+  color: var(--workspace-accent) !important;
+  font-size: 12px;
+}
+
+.app-shell .brigade-job,
+.app-shell .brigade-zone {
+  border: 1px solid var(--workspace-border) !important;
+  border-radius: 14px;
+  background: var(--workspace-surface-2) !important;
+  color: var(--workspace-text) !important;
+}
+
+.app-shell .brigade-job:hover {
+  border-color: var(--workspace-accent) !important;
+  background: var(--workspace-surface-3) !important;
+}
+
+.app-shell .brigade-job :where(b, small),
+.app-shell .brigade-zone :where(b, small) {
+  color: inherit !important;
+}
+
+.app-shell .brigade-job em,
+.app-shell .brigade-zone small {
+  color: var(--workspace-accent) !important;
+}
+
+.app-shell .brigade-detail .no-jobs {
+  margin: 0;
+  padding: 15px;
+  border: 1px dashed var(--workspace-border);
+  border-radius: 14px;
+  background: var(--workspace-surface-2);
+  color: var(--workspace-muted) !important;
+}
+
+@media (max-width: 560px) {
+  .app-shell .brigade-detail { padding: 22px 18px !important; }
+  .app-shell .brigade-detail-stats { grid-template-columns: 1fr; }
+  .app-shell .brigade-detail-stats > div:first-child { grid-column: auto; }
+  .app-shell .brigade-vehicles > button { grid-template-columns: 34px minmax(0, 1fr) !important; }
+  .app-shell .brigade-vehicles em { grid-column: 2; }
+}
+
+.app-shell :where(button.primary.small, button.ghost.small) {
+  min-height: 40px;
+  padding-inline: 14px;
+  font-size: 13px;
+}
+
+.app-shell .asset-detail .ops-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 10px;
+}
+
+.app-shell .asset-detail .ops-actions > button {
+  width: 100%;
+  min-height: 46px;
+  border-radius: 12px;
+  padding: 0 14px;
+  font-size: 14px;
+  font-weight: 750;
+  line-height: 1.2;
+}
+
+.app-shell .modal-buttons > button {
+  width: 170px;
+  min-height: 46px;
+}
+
+.app-shell.theme-light .asset-detail > label select {
+  border: 1px solid #b9cec3 !important;
+  background: #ffffff !important;
+  color: #173a2e !important;
+  color-scheme: light;
+}
+
+@media (max-width: 650px) {
+  .app-shell .asset-detail .ops-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .app-shell .modal-buttons > button {
+    width: 100%;
+  }
+}
+
+/* Ticket modal fields must follow the active dark workspace palette. */
+.app-shell.theme-dark .ticket-facts > div {
+  border: 1px solid var(--workspace-border);
+  background: var(--workspace-surface-2);
+}
+
+.app-shell.theme-dark .ticket-facts dt {
+  color: var(--workspace-muted) !important;
+}
+
+.app-shell.theme-dark .ticket-facts dd {
+  color: var(--workspace-text) !important;
+}
+
+.app-shell.theme-dark .ticket-modal-actions > label {
+  color: var(--workspace-muted) !important;
+}
+
+.app-shell.theme-dark .ticket-modal :where(
+  .ticket-modal-actions select,
+  .ticket-edit-form input,
+  .ticket-edit-form select,
+  .ticket-edit-form textarea,
+  .ticket-cancel-form input,
+  .completion-form textarea,
+  .ticket-feedback textarea
+) {
+  border-color: #505158 !important;
+  background: var(--workspace-surface-2) !important;
+  color: var(--workspace-text) !important;
+  caret-color: var(--workspace-text);
+  color-scheme: dark;
+}
+
+.app-shell.theme-dark .ticket-modal :where(
+  .ticket-edit-form input,
+  .ticket-edit-form textarea,
+  .ticket-cancel-form input,
+  .completion-form textarea,
+  .ticket-feedback textarea
+)::placeholder {
+  color: #85868b !important;
+  opacity: 1;
+}
+
+.app-shell.theme-dark .ticket-cancel-form {
+  border-color: #5a3934;
+  background: #2b201e;
+}
+
+.app-shell.theme-dark .ticket-cancel-form label {
+  color: #d7aaa2;
+}
+
+.app-shell.theme-dark .ticket-modal .completion-form,
+.app-shell.theme-dark .ticket-feedback,
+.app-shell.theme-dark .saved-reports > article {
+  border-color: var(--workspace-border);
+  background: var(--workspace-surface-2);
+  color: var(--workspace-text);
+}
+
+.app-shell.theme-dark .ticket-modal .detail-close {
+  border: 1px solid var(--workspace-border);
+  background: var(--workspace-surface-2);
+  color: var(--workspace-text);
+}
+
+.app-shell.theme-dark .ticket-modal .primary.full-action {
+  border-color: #168b63;
+  background: #168b63;
+  color: #ffffff;
+}
+
+.app-shell.theme-dark .ticket-modal .primary.full-action:hover {
+  border-color: #20a878;
+  background: #20a878;
+}
+
+/* Keep period tabs swipeable on narrow screens without showing a native scrollbar. */
+.app-shell .analytics-period {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.app-shell .analytics-period::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* Keep breakdown values inside their cards when the two-column analytics grid narrows. */
+.app-shell .analytics-section .breakdown-list > div {
+  grid-template-columns: minmax(0, 0.8fr) minmax(72px, 1.3fr) minmax(20px, auto);
+  gap: 10px;
+}
+
+.app-shell .analytics-section .breakdown-list > div > b {
+  min-width: 0;
+  justify-self: end;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The chart remains horizontally scrollable, but without the native white track. */
+.app-shell .trend-chart {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.app-shell .trend-chart::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* Restore readable hierarchy inside the SLA modal in the dark theme. */
+.app-shell.theme-dark .sla-detail-modal > div {
+  border: 1px solid var(--workspace-border);
+  background: var(--workspace-surface);
+  color: var(--workspace-text);
+}
+
+.app-shell.theme-dark .sla-detail-modal :where(h2, h3) {
+  color: var(--workspace-text) !important;
+}
+
+.app-shell.theme-dark .sla-detail-modal .readable-detail-row,
+.app-shell.theme-dark .sla-detail-modal .readable-detail-group {
+  border-color: var(--workspace-border);
+}
+
+.app-shell.theme-dark .sla-detail-modal .readable-details dt {
+  color: var(--workspace-muted) !important;
+}
+
+.app-shell.theme-dark .sla-detail-modal .readable-details dd {
+  color: var(--workspace-text) !important;
+}
+
+.app-shell.theme-dark .sla-detail-modal .readable-history-card {
+  border-color: var(--workspace-border);
+  background: var(--workspace-surface-2);
+}
+
+/* Give catalog editor controls the same comfortable scale as the rest of the workspace. */
+.app-shell .catalog-rule-modal {
+  width: min(580px, 100%);
+  padding: 32px;
+}
+
+.app-shell .catalog-rule-modal .ops-form {
+  gap: 18px;
+}
+
+.app-shell .catalog-rule-modal .ops-form label {
+  gap: 9px;
+  font-size: 14px;
+}
+
+.app-shell .catalog-rule-modal .ops-form :where(input:not([type="checkbox"]), select, textarea) {
+  min-height: 48px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.app-shell .catalog-rule-modal .regulation-active {
+  min-height: 82px;
+  padding: 16px 18px;
+}
+
+/* Remove the light status tile that leaked into the dark catalog modal. */
+.app-shell.theme-dark .catalog-rule-modal .regulation-active {
+  border-color: var(--workspace-border);
+  background: var(--workspace-surface-2);
+  color: var(--workspace-text);
+}
+
+.app-shell.theme-dark .catalog-rule-modal .regulation-active b {
+  color: var(--workspace-text);
+}
+
+.app-shell.theme-dark .catalog-rule-modal .regulation-active small {
+  color: var(--workspace-muted);
+}

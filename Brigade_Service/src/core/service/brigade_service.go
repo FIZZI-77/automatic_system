@@ -51,22 +51,27 @@ func (b *BrigadeServiceStruct) CreateBrigade(ctx context.Context, in *models.Cre
 		)
 		return nil, fmt.Errorf("service: CreateBrigade validation failed: %w: %v", models.ErrValidation, err)
 	}
+
 	validationMs := time.Since(validationStart).Milliseconds()
 
 	permissionStart := time.Now()
+
 	if err := checkPermissionAndDepartmentForAdminAndDispatcher(log, start, in.ActorRoles, in.ActorDepartmentID, in.DepartmentID); err != nil {
 		return nil, err
 	}
+
 	permissionCheckMs := time.Since(permissionStart).Milliseconds()
 
 	departmentCheckStart := time.Now()
 	department, err := b.getDepartmentByIDWithRetry(ctx, log, in.DepartmentID)
 	departmentCheckMs := time.Since(departmentCheckStart).Milliseconds()
+
 	if err != nil {
 		return nil, fmt.Errorf("service: CreateBrigade: check department: %w", err)
 	}
 
 	departmentData := department.GetDepartment()
+
 	if departmentData == nil || departmentData.Status != departmentv1.DepartmentStatus_DEPARTMENT_STATUS_ACTIVE {
 		err = models.ErrDepartmentInactive
 		log.Warn("CreateBrigade error: department is not active",
@@ -83,7 +88,9 @@ func (b *BrigadeServiceStruct) CreateBrigade(ctx context.Context, in *models.Cre
 	repoStart := time.Now()
 	result, err := b.repo.CreateBrigade(ctx, in)
 	repoMs := time.Since(repoStart).Milliseconds()
+
 	if err != nil {
+
 		if errors.Is(err, models.ErrAlreadyExists) {
 			log.Warn("CreateBrigade error: Brigade already exists",
 				zap.String("name", in.Name),
@@ -96,6 +103,7 @@ func (b *BrigadeServiceStruct) CreateBrigade(ctx context.Context, in *models.Cre
 			)
 			return nil, fmt.Errorf("service: CreateBrigade error: Brigade already exists: %w", err)
 		}
+
 		return nil, fmt.Errorf("service: CreateBrigade error: %w", err)
 	}
 
@@ -127,6 +135,7 @@ func (b *BrigadeServiceStruct) getDepartmentByIDWithRetry(ctx context.Context, l
 		}
 
 		lastErr = err
+
 		if !isRetryableDepartmentError(err) || attempt == departmentCheckAttempts {
 			break
 		}
@@ -156,6 +165,7 @@ func (b *BrigadeServiceStruct) getDepartmentByIDWithRetry(ctx context.Context, l
 }
 
 func mapDepartmentServiceError(err error) error {
+
 	if err == nil {
 		return nil
 	}
@@ -194,7 +204,9 @@ func (b *BrigadeServiceStruct) GetBrigadeByID(ctx context.Context, in *models.Ge
 	}
 
 	brigade, err := b.repo.GetBrigadeByID(ctx, in)
+
 	if err != nil {
+
 		if errors.Is(err, models.ErrNotFound) {
 			log.Warn("GetBrigadeByID: Brigade not found",
 				zap.Int64("duration", time.Since(start).Milliseconds()),
@@ -202,6 +214,7 @@ func (b *BrigadeServiceStruct) GetBrigadeByID(ctx context.Context, in *models.Ge
 			)
 			return nil, err
 		}
+
 		return nil, fmt.Errorf("service: GetBrigadeByID: Brigade error: %w", err)
 	}
 
@@ -211,10 +224,13 @@ func (b *BrigadeServiceStruct) GetBrigadeByID(ctx context.Context, in *models.Ge
 		if in.ActorUserID == nil {
 			return nil, err
 		}
+
 		own, ownErr := b.repo.GetBrigadeByUserID(ctx, &models.GetBrigadeByUserIDInput{UserID: *in.ActorUserID, OnlyActive: true})
+
 		if ownErr != nil || own == nil || own.Brigade == nil || own.Brigade.ID != brigade.Brigade.ID {
 			return nil, err
 		}
+
 	}
 
 	log.Info("GetBrigadeByID success",
@@ -243,12 +259,15 @@ func (b *BrigadeServiceStruct) ListBrigades(ctx context.Context, in *models.List
 	isDispatcher := false
 
 	for _, role := range in.ActorRoles {
+
 		if role == "admin" {
 			isAdmin = true
 		}
+
 		if role == "dispatcher" {
 			isDispatcher = true
 		}
+
 	}
 
 	if !isAdmin && !isDispatcher {
@@ -261,6 +280,7 @@ func (b *BrigadeServiceStruct) ListBrigades(ctx context.Context, in *models.List
 	}
 
 	if !isAdmin {
+
 		if in.ActorDepartmentID == nil {
 			err := models.ErrPermissionDenied
 			log.Warn("ListBrigades error: actor_department is nil",
@@ -269,11 +289,14 @@ func (b *BrigadeServiceStruct) ListBrigades(ctx context.Context, in *models.List
 			)
 			return nil, err
 		}
+
 		in.DepartmentID = in.ActorDepartmentID
 	}
 
 	result, err := b.repo.ListBrigades(ctx, in)
+
 	if err != nil {
+
 		if errors.Is(err, models.ErrNotFound) {
 			log.Warn("ListBrigades: Brigade not found",
 				zap.Int64("duration", time.Since(start).Milliseconds()),
@@ -281,8 +304,10 @@ func (b *BrigadeServiceStruct) ListBrigades(ctx context.Context, in *models.List
 			)
 			return nil, err
 		}
+
 		return nil, fmt.Errorf("service: ListBrigades error: %w", err)
 	}
+
 	log.Info("ListBrigades success",
 		zap.Int64("duration", time.Since(start).Milliseconds()),
 	)
@@ -305,7 +330,9 @@ func (b *BrigadeServiceStruct) UpdateBrigade(ctx context.Context, in *models.Upd
 	}
 
 	current, err := b.repo.GetBrigadeByID(ctx, &models.GetBrigadeByIDInput{ID: in.ID})
+
 	if err != nil {
+
 		if errors.Is(err, models.ErrNotFound) {
 			log.Warn("UpdateBrigade: Brigade not found",
 				zap.String("brigade_id", in.ID.String()),
@@ -314,6 +341,7 @@ func (b *BrigadeServiceStruct) UpdateBrigade(ctx context.Context, in *models.Upd
 			)
 			return nil, err
 		}
+
 		return nil, fmt.Errorf("service: UpdateBrigade: get brigade: %w", err)
 	}
 
@@ -322,7 +350,9 @@ func (b *BrigadeServiceStruct) UpdateBrigade(ctx context.Context, in *models.Upd
 	}
 
 	result, err := b.repo.UpdateBrigade(ctx, in)
+
 	if err != nil {
+
 		if errors.Is(err, models.ErrAlreadyExists) {
 			log.Warn("UpdateBrigade error: Brigade already exists",
 				zap.String("brigade_id", in.ID.String()),
@@ -331,6 +361,7 @@ func (b *BrigadeServiceStruct) UpdateBrigade(ctx context.Context, in *models.Upd
 			)
 			return nil, fmt.Errorf("service: UpdateBrigade error: Brigade already exists: %w", err)
 		}
+
 		return nil, fmt.Errorf("service: UpdateBrigade error: %w", err)
 	}
 
@@ -357,7 +388,9 @@ func (b *BrigadeServiceStruct) DeactivateBrigade(ctx context.Context, in *models
 	}
 
 	current, err := b.repo.GetBrigadeByID(ctx, &models.GetBrigadeByIDInput{ID: in.ID})
+
 	if err != nil {
+
 		if errors.Is(err, models.ErrNotFound) {
 			log.Warn("DeactivateBrigade: Brigade not found",
 				zap.String("brigade_id", in.ID.String()),
@@ -366,6 +399,7 @@ func (b *BrigadeServiceStruct) DeactivateBrigade(ctx context.Context, in *models
 			)
 			return nil, err
 		}
+
 		return nil, fmt.Errorf("service: DeactivateBrigade: get brigade: %w: %v", models.ErrValidation, err)
 	}
 
@@ -378,6 +412,7 @@ func (b *BrigadeServiceStruct) DeactivateBrigade(ctx context.Context, in *models
 	}
 
 	result, err := b.repo.DeactivateBrigade(ctx, in)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: DeactivateBrigade error: %w", err)
 	}
@@ -405,7 +440,9 @@ func (b *BrigadeServiceStruct) ArchiveBrigade(ctx context.Context, in *models.Ar
 	}
 
 	current, err := b.repo.GetBrigadeByID(ctx, &models.GetBrigadeByIDInput{ID: in.ID})
+
 	if err != nil {
+
 		if errors.Is(err, models.ErrNotFound) {
 			log.Warn("ArchiveBrigade: Brigade not found",
 				zap.String("brigade_id", in.ID.String()),
@@ -414,6 +451,7 @@ func (b *BrigadeServiceStruct) ArchiveBrigade(ctx context.Context, in *models.Ar
 			)
 			return nil, err
 		}
+
 		return nil, fmt.Errorf("service: ArchiveBrigade: get brigade: %w", err)
 	}
 
@@ -426,6 +464,7 @@ func (b *BrigadeServiceStruct) ArchiveBrigade(ctx context.Context, in *models.Ar
 	}
 
 	result, err := b.repo.ArchiveBrigade(ctx, in)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: ArchiveBrigade error: %w", err)
 	}
@@ -452,12 +491,15 @@ func (b *BrigadeServiceStruct) SetBrigadeStatus(ctx context.Context, in *models.
 		)
 		return nil, fmt.Errorf("service: SetBrigadeStatus validation failed: %w: %v", models.ErrValidation, err)
 	}
+
 	validationMs := time.Since(validationStart).Milliseconds()
 
 	getBrigadeStart := time.Now()
 	current, err := b.repo.GetBrigadeByID(ctx, &models.GetBrigadeByIDInput{ID: in.BrigadeID})
 	getBrigadeMs := time.Since(getBrigadeStart).Milliseconds()
+
 	if err != nil {
+
 		if errors.Is(err, models.ErrNotFound) {
 			log.Warn("SetBrigadeStatus: Brigade not found",
 				zap.String("brigade_id", in.BrigadeID.String()),
@@ -469,19 +511,24 @@ func (b *BrigadeServiceStruct) SetBrigadeStatus(ctx context.Context, in *models.
 			)
 			return nil, err
 		}
+
 		return nil, fmt.Errorf("service: SetBrigadeStatus: get brigade: %w", err)
 	}
 
 	permissionStart := time.Now()
+
 	if err = checkPermissionAndDepartmentForAdminAndDispatcher(log, start, in.ActorRoles, in.ActorDepartmentID, current.Brigade.DepartmentID); err != nil {
 		return nil, err
 	}
+
 	permissionCheckMs := time.Since(permissionStart).Milliseconds()
 
 	readinessStart := time.Now()
+
 	if err = b.checkStatusReadiness(ctx, log, start, current.Brigade, in.Status); err != nil {
 		return nil, err
 	}
+
 	readinessCheckMs := time.Since(readinessStart).Milliseconds()
 
 	if in.ChangedByUserID == nil {
@@ -491,6 +538,7 @@ func (b *BrigadeServiceStruct) SetBrigadeStatus(ctx context.Context, in *models.
 	repoStart := time.Now()
 	result, err := b.repo.SetBrigadeStatus(ctx, in)
 	repoMs := time.Since(repoStart).Milliseconds()
+
 	if err != nil {
 		return nil, fmt.Errorf("service: SetBrigadeStatus error: %w", err)
 	}
@@ -525,7 +573,9 @@ func (b *BrigadeServiceStruct) GetBrigadeStatusHistory(ctx context.Context, in *
 	}
 
 	current, err := b.repo.GetBrigadeByID(ctx, &models.GetBrigadeByIDInput{ID: in.BrigadeID})
+
 	if err != nil {
+
 		if errors.Is(err, models.ErrNotFound) {
 			log.Warn("GetBrigadeStatusHistory: Brigade not found",
 				zap.String("brigade_id", in.BrigadeID.String()),
@@ -534,6 +584,7 @@ func (b *BrigadeServiceStruct) GetBrigadeStatusHistory(ctx context.Context, in *
 			)
 			return nil, err
 		}
+
 		return nil, fmt.Errorf("service: GetBrigadeStatusHistory: get brigade: %w", err)
 	}
 
@@ -542,6 +593,7 @@ func (b *BrigadeServiceStruct) GetBrigadeStatusHistory(ctx context.Context, in *
 	}
 
 	result, err := b.repo.GetBrigadeStatusHistory(ctx, in)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: GetBrigadeStatusHistory error: %w", err)
 	}
@@ -568,11 +620,13 @@ func (b *BrigadeServiceStruct) GetAvailableBrigades(ctx context.Context, in *mod
 		)
 		return nil, fmt.Errorf("service: GetAvailableBrigades validation failed: %w: %v", models.ErrValidation, err)
 	}
+
 	validationMs := time.Since(validationStart).Milliseconds()
 
 	repoStart := time.Now()
 	result, err := b.repo.GetAvailableBrigades(ctx, in)
 	repoMs := time.Since(repoStart).Milliseconds()
+
 	if err != nil {
 		return nil, fmt.Errorf("service: GetAvailableBrigades error: %w", err)
 	}
@@ -606,6 +660,7 @@ func (b *BrigadeServiceStruct) CheckBrigadeCanHandleTicket(ctx context.Context, 
 	}
 
 	result, err := b.repo.CheckBrigadeCanHandleTicket(ctx, in)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: CheckBrigadeCanHandleTicket error: %w", err)
 	}
@@ -620,6 +675,7 @@ func (b *BrigadeServiceStruct) CheckBrigadeCanHandleTicket(ctx context.Context, 
 }
 
 func checkPermissionAndDepartmentForAdminAndDispatcher(log *zap.Logger, start time.Time, actorRoles []string, actorDepartmentID *uuid.UUID, departmentID uuid.UUID) error {
+
 	if actorRoles == nil {
 		log.Warn("actor_roles is nil",
 			zap.Int64("duration", time.Since(start).Milliseconds()),
@@ -630,14 +686,17 @@ func checkPermissionAndDepartmentForAdminAndDispatcher(log *zap.Logger, start ti
 	access := false
 
 	for _, role := range actorRoles {
+
 		if role == "admin" {
 			return nil
 		}
+
 		if role == "dispatcher" {
 			access = true
 		} else {
 			continue
 		}
+
 	}
 
 	if !access {
@@ -675,9 +734,11 @@ func (b *BrigadeServiceStruct) checkStatusReadiness(ctx context.Context, log *za
 	switch targetStatus {
 	case models.BrigadeStatusActive:
 		reasons, err := b.repo.CheckBrigadeReadiness(ctx, brigade.ID, false, nil)
+
 		if err != nil {
 			return fmt.Errorf("service: check active readiness: %w", err)
 		}
+
 		if len(reasons) > 0 {
 			err = models.ErrBrigadeUnavailable
 			log.Warn("SetBrigadeStatus failed: brigade cannot become active",
@@ -689,7 +750,9 @@ func (b *BrigadeServiceStruct) checkStatusReadiness(ctx context.Context, log *za
 			)
 			return err
 		}
+
 	case models.BrigadeStatusAvailable:
+
 		if brigade.Status == models.BrigadeStatusInactive || brigade.Status == models.BrigadeStatusArchived {
 			err := models.ErrBrigadeUnavailable
 			log.Warn("SetBrigadeStatus failed: inactive or archived brigade cannot become available",
@@ -703,9 +766,11 @@ func (b *BrigadeServiceStruct) checkStatusReadiness(ctx context.Context, log *za
 		}
 
 		reasons, err := b.repo.CheckBrigadeReadiness(ctx, brigade.ID, true, nil)
+
 		if err != nil {
 			return fmt.Errorf("service: check available readiness: %w", err)
 		}
+
 		if len(reasons) > 0 {
 			err = models.ErrBrigadeUnavailable
 			log.Warn("SetBrigadeStatus failed: brigade cannot become available",
@@ -717,6 +782,7 @@ func (b *BrigadeServiceStruct) checkStatusReadiness(ctx context.Context, log *za
 			)
 			return err
 		}
+
 	}
 
 	return nil

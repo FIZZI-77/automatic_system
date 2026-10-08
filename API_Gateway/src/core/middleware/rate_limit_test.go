@@ -27,14 +27,17 @@ func TestRedisRateLimiterEnforcesSharedBurst(t *testing.T) {
 		request := httptest.NewRequest(http.MethodGet, "/", nil)
 		request.RemoteAddr = "192.0.2.1:1234"
 		router.ServeHTTP(response, request)
+
 		if response.Code != expected {
 			t.Fatalf("request %d: expected %d, got %d", i+1, expected, response.Code)
 		}
+
 	}
 
 	if !server.Exists("test:global:192.0.2.1") {
 		t.Fatal("rate limit state was not stored in Redis")
 	}
+
 }
 
 func TestRedisRateLimiterReturnsUnavailableOnRedisFailure(t *testing.T) {
@@ -49,9 +52,11 @@ func TestRedisRateLimiterReturnsUnavailableOnRedisFailure(t *testing.T) {
 
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/", nil))
+
 	if response.Code != http.StatusServiceUnavailable {
 		t.Fatalf("expected %d, got %d", http.StatusServiceUnavailable, response.Code)
 	}
+
 }
 
 func TestRedisRateLimiterBypassesTaggedLoadTest(t *testing.T) {
@@ -72,4 +77,5 @@ func TestRedisRateLimiterBypassesTaggedLoadTest(t *testing.T) {
 	if response.Code != http.StatusOK {
 		t.Errorf("tagged load-test request status = %d, want %d", response.Code, http.StatusOK)
 	}
+
 }

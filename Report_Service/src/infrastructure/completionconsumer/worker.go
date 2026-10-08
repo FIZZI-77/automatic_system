@@ -44,9 +44,11 @@ func New(
 	processor Processor,
 	logger *zap.Logger,
 ) (*Worker, error) {
+
 	if len(brokers) == 0 || strings.TrimSpace(requestTopic) == "" || strings.TrimSpace(resultTopic) == "" || strings.TrimSpace(groupID) == "" || processor == nil {
 		return nil, errors.New("completion consumer: brokers, topics, group id and processor are required")
 	}
+
 	if logger == nil {
 		logger = zap.NewNop()
 	}
@@ -82,10 +84,13 @@ func (w *Worker) Close() error {
 func (w *Worker) Run(ctx context.Context) error {
 	for {
 		message, err := w.reader.FetchMessage(ctx)
+
 		if err != nil {
+
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return nil
 			}
+
 			w.logger.Warn("fetch completion request failed; retrying", zap.Error(err))
 			select {
 			case <-ctx.Done():
@@ -94,6 +99,7 @@ func (w *Worker) Run(ctx context.Context) error {
 				continue
 			}
 		}
+
 		if err = telemetry.TraceKafkaConsumer(
 			ctx,
 			message,
@@ -102,9 +108,11 @@ func (w *Worker) Run(ctx context.Context) error {
 		); err != nil {
 			return err
 		}
+
 		if err = w.reader.CommitMessages(ctx, message); err != nil {
 			return fmt.Errorf("commit completion request: %w", err)
 		}
+
 	}
 }
 
@@ -116,16 +124,21 @@ func (w *Worker) handle(ctx context.Context, message kafka.Message) (err error) 
 		attribute.String("saga.name", "completion_report"),
 		attribute.String("messaging.event.type", eventType),
 	)
+
 	if eventType == compensateEvent {
 		return w.handleCompensation(ctx, message)
 	}
+
 	if eventType != requestedEvent {
 		return nil
 	}
+
 	var input models.CompletionReport
+
 	if err := json.Unmarshal(message.Value, &input); err != nil {
 		return w.publishDLQ(ctx, message, fmt.Errorf("decode completion request: %w", err))
 	}
+
 	result, processErr := w.processor.Process(ctx, input)
 	eventType = "ticket.completion_report.generated.v1"
 	payload := map[string]any{
@@ -135,6 +148,7 @@ func (w *Worker) handle(ctx context.Context, message kafka.Message) (err error) 
 		"requested_by":   input.RequestedBy,
 		"actor_roles":    input.ActorRoles,
 	}
+
 	if processErr != nil {
 		eventType = "ticket.completion_report.failed.v1"
 		payload = map[string]any{
@@ -147,7 +161,9 @@ func (w *Worker) handle(ctx context.Context, message kafka.Message) (err error) 
 			zap.Error(processErr),
 		)
 	}
+
 	if err := w.publish(ctx, w.resultTopic, eventType, input.WorkReportID, payload, nil); err != nil {
+
 		if processErr == nil {
 			compensation := models.CompletionCompensation{
 				WorkReportID: input.WorkReportID,
@@ -155,12 +171,16 @@ func (w *Worker) handle(ctx context.Context, message kafka.Message) (err error) 
 				RequestedBy:  input.RequestedBy,
 				ActorRoles:   input.ActorRoles,
 			}
+
 			if compensateErr := w.processor.Compensate(ctx, compensation); compensateErr != nil {
 				return errors.Join(err, fmt.Errorf("compensate unpublished completion: %w", compensateErr))
 			}
+
 		}
+
 		return err
 	}
+
 	return nil
 }
 
@@ -170,6 +190,7 @@ func (w *Worker) handleCompensation(ctx context.Context, message kafka.Message) 
 	span.SetAttributes(attribute.String("saga.name", "completion_report"))
 
 	var input models.CompletionCompensation
+
 	if err := json.Unmarshal(message.Value, &input); err != nil {
 		return w.publishDLQ(ctx, message, fmt.Errorf("decode completion compensation: %w", err))
 	}
@@ -181,6 +202,7 @@ func (w *Worker) handleCompensation(ctx context.Context, message kafka.Message) 
 		"requested_by":   input.RequestedBy,
 		"actor_roles":    input.ActorRoles,
 	}
+
 	if err := w.processor.Compensate(ctx, input); err != nil {
 		eventType = "ticket.completion_report.compensation_failed.v1"
 		payload["error"] = truncate(err.Error(), 2000)
@@ -217,9 +239,11 @@ func (w *Worker) publishDLQ(ctx context.Context, message kafka.Message, processE
 
 func (w *Worker) publish(ctx context.Context, topic, eventType, key string, payload any, headers []kafka.Header) error {
 	value, err := json.Marshal(payload)
+
 	if err != nil {
 		return err
 	}
+
 	headers = append(headers,
 		kafka.Header{Key: "event_id", Value: []byte(uuid.NewString())},
 		kafka.Header{Key: "event_type", Value: []byte(eventType)},
@@ -235,16 +259,20 @@ func (w *Worker) publish(ctx context.Context, topic, eventType, key string, payl
 
 func header(headers []kafka.Header, key string) string {
 	for _, value := range headers {
+
 		if strings.EqualFold(value.Key, key) {
 			return string(value.Value)
 		}
+
 	}
 	return ""
 }
 
 func truncate(value string, maxLen int) string {
+
 	if len(value) <= maxLen {
 		return value
 	}
+
 	return value[:maxLen]
 }

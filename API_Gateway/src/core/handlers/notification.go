@@ -30,17 +30,21 @@ func NewNotificationHandler(c notificationv1.NotificationServiceClient, r *redis
 }
 func (h *NotificationHandler) List(c *gin.Context) {
 	var v models.NotificationListRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
+
 	x, e := h.client.ListNotifications(dispatchContext(c), &notificationv1.ListNotificationsRequest{UserId: c.GetString("user_id"), UnreadOnly: v.UnreadOnly, Limit: v.Limit, Offset: v.Offset})
 	dispatchResponse(c, http.StatusOK, e, x)
 }
 func (h *NotificationHandler) MarkRead(c *gin.Context) {
 	var v models.NotificationIDRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
+
 	x, e := h.client.MarkRead(dispatchContext(c), &notificationv1.MarkReadRequest{UserId: c.GetString("user_id"), NotificationId: v.NotificationID})
 	dispatchResponse(c, http.StatusOK, e, x)
 }
@@ -54,79 +58,100 @@ func (h *NotificationHandler) GetPreferences(c *gin.Context) {
 }
 func (h *NotificationHandler) UpdatePreferences(c *gin.Context) {
 	var v models.NotificationPreferencesRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
+
 	x, e := h.client.UpdatePreferences(dispatchContext(c), &notificationv1.UpdatePreferencesRequest{UserId: c.GetString("user_id"), InAppEnabled: v.InAppEnabled, PushEnabled: v.PushEnabled, EmailEnabled: v.EmailEnabled, SmsEnabled: v.SMSEnabled, Email: v.Email, Phone: v.Phone})
 	dispatchResponse(c, http.StatusOK, e, x)
 }
 func (h *NotificationHandler) RegisterDevice(c *gin.Context) {
 	var v models.RegisterDeviceRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
+
 	x, e := h.client.RegisterDevice(dispatchContext(c), &notificationv1.RegisterDeviceRequest{UserId: c.GetString("user_id"), Token: v.Token, Platform: v.Platform})
 	dispatchResponse(c, http.StatusCreated, e, x)
 }
 func (h *NotificationHandler) DeleteDevice(c *gin.Context) {
 	var v models.DeleteDeviceRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
+
 	x, e := h.client.DeleteDevice(dispatchContext(c), &notificationv1.DeleteDeviceRequest{UserId: c.GetString("user_id"), DeviceId: v.DeviceID})
 	dispatchResponse(c, http.StatusOK, e, x)
 }
 func (h *NotificationHandler) UpsertTemplate(c *gin.Context) {
 	var v models.UpsertNotificationTemplateRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
+
 	x, e := h.client.UpsertTemplate(dispatchContext(c), &notificationv1.UpsertTemplateRequest{EventType: v.EventType, Channel: notificationChannel(v.Channel), Subject: v.Subject, Body: v.Body, Active: v.Active})
 	dispatchResponse(c, http.StatusOK, e, x)
 }
 func (h *NotificationHandler) ListTemplates(c *gin.Context) {
 	var v models.ListNotificationTemplatesRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
+
 	q := &notificationv1.ListTemplatesRequest{EventType: v.EventType, Limit: v.Limit, Offset: v.Offset}
+
 	if v.Channel != nil {
 		x := notificationChannel(*v.Channel)
 		q.Channel = &x
 	}
+
 	out, e := h.client.ListTemplates(dispatchContext(c), q)
 	dispatchResponse(c, http.StatusOK, e, out)
 }
 func (h *NotificationHandler) ListDeliveries(c *gin.Context) {
 	var v models.ListDeliveriesRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
+
 	q := &notificationv1.ListDeliveriesRequest{Limit: v.Limit, Offset: v.Offset}
+
 	if v.Channel != nil {
 		x := notificationChannel(*v.Channel)
 		q.Channel = &x
 	}
+
 	if v.Status != nil {
 		x := notificationStatus(*v.Status)
 		q.Status = &x
 	}
+
 	out, e := h.client.ListDeliveries(dispatchContext(c), q)
 	dispatchResponse(c, http.StatusOK, e, out)
 }
 func (h *NotificationHandler) WebSocket(c *gin.Context) {
 	conn, e := h.upgrader.Upgrade(c.Writer, c.Request, nil)
+
 	if e != nil {
 		return
 	}
+
 	defer conn.Close()
 	ctx, cancel := context.WithCancel(c.Request.Context())
 	defer cancel()
 	sub := h.redis.Subscribe(ctx, h.prefix+c.GetString("user_id"))
 	defer sub.Close()
+
 	if e = conn.SetReadDeadline(time.Now().Add(webSocketPongWait)); e != nil {
 		return
 	}
+
 	conn.SetPongHandler(func(string) error {
 		return conn.SetReadDeadline(time.Now().Add(webSocketPongWait))
 	})
@@ -134,10 +159,12 @@ func (h *NotificationHandler) WebSocket(c *gin.Context) {
 	go func() {
 		defer close(readDone)
 		for {
+
 			if _, _, readErr := conn.ReadMessage(); readErr != nil {
 				cancel()
 				return
 			}
+
 		}
 	}()
 	ping := time.NewTicker(webSocketPingPeriod)
@@ -149,22 +176,29 @@ func (h *NotificationHandler) WebSocket(c *gin.Context) {
 		case <-readDone:
 			return
 		case <-ping.C:
+
 			if e = conn.SetWriteDeadline(time.Now().Add(webSocketWriteWait)); e != nil {
 				return
 			}
+
 			if e = conn.WriteMessage(websocket.PingMessage, nil); e != nil {
 				return
 			}
+
 		case msg, ok := <-sub.Channel():
+
 			if !ok {
 				return
 			}
+
 			if e = conn.SetWriteDeadline(time.Now().Add(webSocketWriteWait)); e != nil {
 				return
 			}
+
 			if e = conn.WriteMessage(websocket.TextMessage, []byte(msg.Payload)); e != nil {
 				return
 			}
+
 		}
 	}
 }

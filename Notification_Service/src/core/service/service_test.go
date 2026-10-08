@@ -24,9 +24,11 @@ func TestIsUserFacingEvent(t *testing.T) {
 			t.Parallel()
 
 			got := isUserFacingEvent(test.eventType)
+
 			if got != test.want {
 				t.Errorf("isUserFacingEvent(%q) = %t, want %t", test.eventType, got, test.want)
 			}
+
 		})
 	}
 }

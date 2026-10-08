@@ -27,7 +27,11 @@ func TestTicketFeedbackIntegration(t *testing.T) {
 
 	brigadeID := uuid.New()
 	_, err = app.service.AssignBrigade(ctx, &models.AssignBrigadeInput{
-		TicketID: ticket.ID, BrigadeID: brigadeID, AssignedBy: uuid.New(), ActorRoles: dispatcherRoles(),
+		TicketID:          ticket.ID,
+		BrigadeID:         brigadeID,
+		AssignedBy:        uuid.New(),
+		ActorDepartmentID: &ticket.DepartmentID,
+		ActorRoles:        dispatcherRoles(),
 	})
 
 	if err != nil {
@@ -35,7 +39,11 @@ func TestTicketFeedbackIntegration(t *testing.T) {
 	}
 
 	_, err = app.service.ChangeTicketStatus(ctx, &models.ChangeTicketStatusInput{
-		TicketID: ticket.ID, NewStatus: models.TicketStatusInProgress, ChangedBy: uuid.New(), ActorRoles: dispatcherRoles(),
+		TicketID:          ticket.ID,
+		NewStatus:         models.TicketStatusInProgress,
+		ChangedBy:         uuid.New(),
+		ActorDepartmentID: &ticket.DepartmentID,
+		ActorRoles:        dispatcherRoles(),
 	})
 
 	if err != nil {
@@ -43,7 +51,10 @@ func TestTicketFeedbackIntegration(t *testing.T) {
 	}
 
 	_, err = app.service.CompleteTicket(ctx, &models.CompleteTicketInput{
-		TicketID: ticket.ID, CompletedBy: uuid.New(), ActorRoles: dispatcherRoles(),
+		TicketID:          ticket.ID,
+		CompletedBy:       uuid.New(),
+		ActorDepartmentID: &ticket.DepartmentID,
+		ActorRoles:        dispatcherRoles(),
 	})
 
 	if err != nil {
@@ -115,4 +126,5 @@ func TestTicketFeedbackIntegration(t *testing.T) {
 	if events != 2 {
 		t.Fatalf("expected two feedback events, got %d", events)
 	}
+
 }

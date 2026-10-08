@@ -27,6 +27,7 @@ func TestUserRepo_CreateUser_And_GetUserByID(t *testing.T) {
 	}
 
 	userID, err := userRepo.CreateUser(ctx, user)
+
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -36,6 +37,7 @@ func TestUserRepo_CreateUser_And_GetUserByID(t *testing.T) {
 	}
 
 	foundUser, err := userRepo.GetUserByID(ctx, userID)
+
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -67,6 +69,7 @@ func TestUserRepo_CreateUser_And_GetUserByID(t *testing.T) {
 	if foundUser.CreatedAt.IsZero() {
 		t.Fatal("expected created_at not zero")
 	}
+
 }
 
 func TestUserRepo_CreateUser_And_GetUserByEmail(t *testing.T) {
@@ -87,11 +90,13 @@ func TestUserRepo_CreateUser_And_GetUserByEmail(t *testing.T) {
 	}
 
 	userID, err := userRepo.CreateUser(ctx, user)
+
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
 
 	foundUser, err := userRepo.GetUserByEmail(ctx, email)
+
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -111,6 +116,7 @@ func TestUserRepo_CreateUser_And_GetUserByEmail(t *testing.T) {
 	if !foundUser.EmailVerified {
 		t.Fatal("expected email_verified true")
 	}
+
 }
 
 func TestUserRepo_CreateUser_DuplicateEmail_ReturnsError(t *testing.T) {
@@ -139,14 +145,17 @@ func TestUserRepo_CreateUser_DuplicateEmail_ReturnsError(t *testing.T) {
 	}
 
 	_, err := userRepo.CreateUser(ctx, firstUser)
+
 	if err != nil {
 		t.Fatalf("first create should be successful, got %v", err)
 	}
 
 	_, err = userRepo.CreateUser(ctx, secondUser)
+
 	if err == nil {
 		t.Fatal("expected error for duplicate email")
 	}
+
 }
 
 func TestUserRepo_GetUserByID_NotFound(t *testing.T) {
@@ -169,6 +178,7 @@ func TestUserRepo_GetUserByID_NotFound(t *testing.T) {
 	if !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("expected sql.ErrNoRows inside error, got %v", err)
 	}
+
 }
 
 func TestUserRepo_GetUserByEmail_NotFound(t *testing.T) {
@@ -191,6 +201,7 @@ func TestUserRepo_GetUserByEmail_NotFound(t *testing.T) {
 	if !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("expected sql.ErrNoRows inside error, got %v", err)
 	}
+
 }
 
 func TestUserRepo_UpdateUser(t *testing.T) {
@@ -207,11 +218,13 @@ func TestUserRepo_UpdateUser(t *testing.T) {
 		IsActive:      true,
 		EmailVerified: false,
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create user: %v", err)
 	}
 
 	user, err := userRepo.GetUserByID(ctx, userID)
+
 	if err != nil {
 		t.Fatalf("failed to get user: %v", err)
 	}
@@ -225,11 +238,13 @@ func TestUserRepo_UpdateUser(t *testing.T) {
 	user.EmailVerified = true
 
 	err = userRepo.UpdateUser(ctx, user)
+
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
 
 	updatedUser, err := userRepo.GetUserByID(ctx, userID)
+
 	if err != nil {
 		t.Fatalf("failed to get updated user: %v", err)
 	}
@@ -253,6 +268,7 @@ func TestUserRepo_UpdateUser(t *testing.T) {
 	if !updatedUser.EmailVerified {
 		t.Fatal("expected email_verified true")
 	}
+
 }
 
 func TestUserRepo_UpdateUser_UnknownUser_DoesNotFail(t *testing.T) {
@@ -274,4 +290,5 @@ func TestUserRepo_UpdateUser_UnknownUser_DoesNotFail(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil error because UpdateUser does not check RowsAffected, got %v", err)
 	}
+
 }

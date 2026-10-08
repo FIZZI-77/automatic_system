@@ -27,6 +27,7 @@ type userRegisteredEventPayload struct {
 
 func NewUserRepoStruct(writeDB DBTX, readDB ...DBTX) *UserRepoStruct {
 	reader := writeDB
+
 	if len(readDB) > 0 && readDB[0] != nil {
 		reader = readDB[0]
 	}
@@ -45,6 +46,7 @@ func (u *UserRepoStruct) CreateUser(ctx context.Context, user *models.User) (uui
 		id, err = txRepo.createUser(ctx, user)
 		return err
 	})
+
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -54,6 +56,7 @@ func (u *UserRepoStruct) CreateUser(ctx context.Context, user *models.User) (uui
 
 func (u *UserRepoStruct) DeleteUserRegistration(ctx context.Context, userID uuid.UUID) error {
 	return withTransaction(ctx, u.writeDB, "DeleteUserRegistration()", func(txExec DBTX) error {
+
 		if _, err := txExec.Exec(ctx, `
 			DELETE FROM outbox_events
 			WHERE aggregate_type = 'user'
@@ -64,9 +67,11 @@ func (u *UserRepoStruct) DeleteUserRegistration(ctx context.Context, userID uuid
 		}
 
 		result, err := txExec.Exec(ctx, `DELETE FROM users WHERE id = $1`, userID)
+
 		if err != nil {
 			return fmt.Errorf("user_repo: DeleteUserRegistration(): delete user: %w", err)
 		}
+
 		if result.RowsAffected() != 1 {
 			return fmt.Errorf("user_repo: DeleteUserRegistration(): user %s not found", userID)
 		}
@@ -102,9 +107,11 @@ func (u *UserRepoStruct) createUser(ctx context.Context, user *models.User) (uui
 		FROM roles
 		WHERE name = 'user'
 		ON CONFLICT (user_id, role_id) DO NOTHING`, id)
+
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("user_repo: Create(): assign default role: %w", err)
 	}
+
 	if tag.RowsAffected() != 1 {
 		return uuid.Nil, fmt.Errorf("user_repo: Create(): default role user is not seeded")
 	}
@@ -139,9 +146,11 @@ func (u *UserRepoStruct) GetUserByID(ctx context.Context, id uuid.UUID) (*models
 	)
 
 	if err != nil {
+
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, fmt.Errorf("user_repo: GetByID(): user not found: %w", err)
 		}
+
 		return nil, fmt.Errorf("user_repo: GetUserByID(): %w", err)
 	}
 
@@ -163,9 +172,11 @@ func (u *UserRepoStruct) GetUserByEmail(ctx context.Context, email string) (*mod
 	)
 
 	if err != nil {
+
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, fmt.Errorf("user_repo: GetByEmail(): user not exist :%w", err)
 		}
+
 		return nil, fmt.Errorf("user_repo: GetByEmail(): %w", err)
 	}
 

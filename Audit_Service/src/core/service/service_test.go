@@ -22,11 +22,15 @@ func (*fakeRepository) List(context.Context, models.Filter) ([]*models.Entry, in
 func TestServiceUsesPorts(t *testing.T) {
 	repo := &repository.Repository{EntryWriterRepository: new(fakeRepository), EntryReaderRepository: new(fakeRepository)}
 	svc := NewService(repo)
+
 	if err := svc.Consume(context.Background(), models.Event{}); err != nil || !repo.EntryWriterRepository.(*fakeRepository).stored {
 		t.Fatal("writer was not used")
 	}
+
 	entry, err := svc.Get(context.Background(), uuid.New())
+
 	if err != nil || entry.Action != "ticket.created" {
 		t.Fatal("reader was not used")
 	}
+
 }

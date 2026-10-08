@@ -34,6 +34,7 @@ func insertOutboxEvent(
 	now := time.Now().UTC()
 
 	var requestID *string
+
 	if value, ok := profilepkg.RequestIDFromContext(ctx); ok {
 		requestID = &value
 	}
@@ -50,6 +51,7 @@ func insertOutboxEvent(
 	}
 
 	payloadBytes, err := json.Marshal(envelope)
+
 	if err != nil {
 		return fmt.Errorf("outbox: marshal payload: %w", err)
 	}

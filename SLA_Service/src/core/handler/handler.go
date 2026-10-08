@@ -27,13 +27,17 @@ func New(s *service.Service) *Handler {
 }
 
 func (h *Handler) CreateRule(c context.Context, q *slav1.CreateRuleRequest) (*slav1.RuleResponse, error) {
+
 	if e := admin(c); e != nil {
 		return nil, e
 	}
+
 	v, e := ruleFromCreate(q)
+
 	if e != nil {
 		return nil, e
 	}
+
 	v, e = h.s.CreateRule(c, v)
 	return &slav1.RuleResponse{
 		Rule: rule(v),
@@ -41,51 +45,71 @@ func (h *Handler) CreateRule(c context.Context, q *slav1.CreateRuleRequest) (*sl
 }
 
 func (h *Handler) UpdateRule(c context.Context, q *slav1.UpdateRuleRequest) (*slav1.RuleResponse, error) {
+
 	if e := admin(c); e != nil {
 		return nil, e
 	}
+
 	id, e := parse(q.GetId())
+
 	if e != nil {
 		return nil, e
 	}
+
 	v, e := h.s.GetRule(c, id)
+
 	if e != nil {
 		return nil, mapped(e)
 	}
+
 	if q.Name != nil {
 		v.Name = q.GetName()
 	}
+
 	if q.DepartmentId != nil {
 		v.DepartmentID, e = optionalID(q.GetDepartmentId())
+
 		if e != nil {
 			return nil, e
 		}
+
 	}
+
 	if q.CategoryId != nil {
 		v.CategoryID, e = optionalID(q.GetCategoryId())
+
 		if e != nil {
 			return nil, e
 		}
+
 	}
+
 	if q.Priority != nil {
 		p, ok := priority(q.GetPriority())
+
 		if !ok {
 			return nil, bad()
 		}
+
 		v.Priority = &p
 	}
+
 	if q.ResponseTimeSeconds != nil {
 		v.ResponseTime = time.Duration(q.GetResponseTimeSeconds()) * time.Second
 	}
+
 	if q.ResolutionTimeSeconds != nil {
 		v.ResolutionTime = time.Duration(q.GetResolutionTimeSeconds()) * time.Second
 	}
+
 	if q.WarningPercent != nil {
 		v.WarningPercent = q.GetWarningPercent()
 	}
+
 	if q.Active != nil {
 		v.Active = q.GetActive()
 	}
+
 	v, e = h.s.UpdateRule(c, v)
 	return &slav1.RuleResponse{
 		Rule: rule(v),
@@ -93,13 +117,17 @@ func (h *Handler) UpdateRule(c context.Context, q *slav1.UpdateRuleRequest) (*sl
 }
 
 func (h *Handler) DeleteRule(c context.Context, q *slav1.DeleteRuleRequest) (*slav1.RuleResponse, error) {
+
 	if e := admin(c); e != nil {
 		return nil, e
 	}
+
 	id, e := parse(q.GetId())
+
 	if e != nil {
 		return nil, e
 	}
+
 	v, e := h.s.DeleteRule(c, id)
 	return &slav1.RuleResponse{
 		Rule: rule(v),
@@ -107,13 +135,17 @@ func (h *Handler) DeleteRule(c context.Context, q *slav1.DeleteRuleRequest) (*sl
 }
 
 func (h *Handler) GetRule(c context.Context, q *slav1.GetRuleRequest) (*slav1.RuleResponse, error) {
+
 	if e := staff(c); e != nil {
 		return nil, e
 	}
+
 	id, e := parse(q.GetId())
+
 	if e != nil {
 		return nil, e
 	}
+
 	v, e := h.s.GetRule(c, id)
 	return &slav1.RuleResponse{
 		Rule: rule(v),
@@ -121,9 +153,11 @@ func (h *Handler) GetRule(c context.Context, q *slav1.GetRuleRequest) (*slav1.Ru
 }
 
 func (h *Handler) ListRules(c context.Context, q *slav1.ListRulesRequest) (*slav1.ListRulesResponse, error) {
+
 	if e := staff(c); e != nil {
 		return nil, e
 	}
+
 	f := models.RuleFilter{
 		Limit:  q.GetLimit(),
 		Offset: q.GetOffset(),
@@ -131,6 +165,7 @@ func (h *Handler) ListRules(c context.Context, q *slav1.ListRulesRequest) (*slav
 	}
 
 	var e error
+
 	if q.DepartmentId != nil {
 		f.DepartmentID, e = optionalID(q.GetDepartmentId())
 	}
@@ -145,11 +180,14 @@ func (h *Handler) ListRules(c context.Context, q *slav1.ListRulesRequest) (*slav
 
 	if q.Priority != nil {
 		p, ok := priority(q.GetPriority())
+
 		if !ok {
 			return nil, bad()
 		}
+
 		f.Priority = &p
 	}
+
 	items, total, e := h.s.ListRules(c, f)
 	out := make([]*slav1.SLARule, 0, len(items))
 	for _, v := range items {
@@ -163,13 +201,17 @@ func (h *Handler) ListRules(c context.Context, q *slav1.ListRulesRequest) (*slav
 }
 
 func (h *Handler) GetTicketSLA(c context.Context, q *slav1.GetTicketSLARequest) (*slav1.TicketSLAResponse, error) {
+
 	if e := staff(c); e != nil {
 		return nil, e
 	}
+
 	id, e := parse(q.GetTicketId())
+
 	if e != nil {
 		return nil, e
 	}
+
 	v, e := h.s.GetTicketSLA(c, id)
 	return &slav1.TicketSLAResponse{
 		Sla: ticketSLA(v),
@@ -177,9 +219,11 @@ func (h *Handler) GetTicketSLA(c context.Context, q *slav1.GetTicketSLARequest) 
 }
 
 func (h *Handler) ListTicketSLAs(c context.Context, q *slav1.ListTicketSLAsRequest) (*slav1.ListTicketSLAsResponse, error) {
+
 	if e := staff(c); e != nil {
 		return nil, e
 	}
+
 	f := models.SLAFilter{
 		Limit:    q.GetLimit(),
 		Offset:   q.GetOffset(),
@@ -187,6 +231,7 @@ func (h *Handler) ListTicketSLAs(c context.Context, q *slav1.ListTicketSLAsReque
 	}
 
 	var e error
+
 	if q.DepartmentId != nil {
 		f.DepartmentID, e = optionalID(q.GetDepartmentId())
 	}
@@ -197,11 +242,14 @@ func (h *Handler) ListTicketSLAs(c context.Context, q *slav1.ListTicketSLAsReque
 
 	if q.Status != nil {
 		s, ok := slaStatus(q.GetStatus())
+
 		if !ok {
 			return nil, bad()
 		}
+
 		f.Status = &s
 	}
+
 	items, total, e := h.s.ListSLAs(c, f)
 	out := make([]*slav1.TicketSLA, 0, len(items))
 	for _, v := range items {
@@ -215,13 +263,17 @@ func (h *Handler) ListTicketSLAs(c context.Context, q *slav1.ListTicketSLAsReque
 }
 
 func (h *Handler) ListHistory(c context.Context, q *slav1.ListHistoryRequest) (*slav1.ListHistoryResponse, error) {
+
 	if e := staff(c); e != nil {
 		return nil, e
 	}
+
 	id, e := parse(q.GetTicketId())
+
 	if e != nil {
 		return nil, e
 	}
+
 	items, total, e := h.s.ListHistory(c, id, q.GetLimit(), q.GetOffset())
 	out := make([]*slav1.SLAHistory, 0, len(items))
 	for _, v := range items {
@@ -243,6 +295,7 @@ func ruleFromCreate(q *slav1.CreateRuleRequest) (*models.Rule, error) {
 	}
 
 	var e error
+
 	if q.DepartmentId != nil {
 		v.DepartmentID, e = optionalID(q.GetDepartmentId())
 	}
@@ -257,15 +310,19 @@ func ruleFromCreate(q *slav1.CreateRuleRequest) (*models.Rule, error) {
 
 	if q.Priority != nil {
 		p, ok := priority(q.GetPriority())
+
 		if !ok {
 			return nil, bad()
 		}
+
 		v.Priority = &p
 	}
+
 	return v, nil
 }
 
 func rule(v *models.Rule) *slav1.SLARule {
+
 	if v == nil {
 		return nil
 	}
@@ -300,6 +357,7 @@ func rule(v *models.Rule) *slav1.SLARule {
 }
 
 func ticketSLA(v *models.TicketSLA) *slav1.TicketSLA {
+
 	if v == nil {
 		return nil
 	}
@@ -347,13 +405,16 @@ func history(v *models.History) *slav1.SLAHistory {
 
 func parse(v string) (uuid.UUID, error) {
 	id, e := uuid.Parse(v)
+
 	if e != nil {
 		return uuid.Nil, bad()
 	}
+
 	return id, nil
 }
 
 func optionalID(v string) (*uuid.UUID, error) {
+
 	if strings.TrimSpace(v) == "" {
 		return nil, nil
 	}
@@ -373,9 +434,11 @@ func roles(c context.Context) []string {
 
 func admin(c context.Context) error {
 	for _, r := range roles(c) {
+
 		if strings.TrimSpace(strings.ToLower(r)) == "admin" {
 			return nil
 		}
+
 	}
 	return status.Error(codes.PermissionDenied, "admin role required")
 }
@@ -383,17 +446,21 @@ func admin(c context.Context) error {
 func staff(c context.Context) error {
 	for _, r := range roles(c) {
 		r = strings.TrimSpace(strings.ToLower(r))
+
 		if r == "admin" || r == "dispatcher" || r == "worker" {
 			return nil
 		}
+
 	}
 	return status.Error(codes.PermissionDenied, "staff role required")
 }
 
 func mapped(e error) error {
+
 	if e == nil {
 		return nil
 	}
+
 	switch {
 	case errors.Is(e, models.ErrInvalidArgument):
 		return status.Error(codes.InvalidArgument, e.Error())
@@ -441,6 +508,7 @@ func slaStatus(v slav1.SLAStatus) (models.Status, bool) {
 }
 
 func statusProto(v models.Status) slav1.SLAStatus {
+
 	if v == models.StatusActive {
 		return slav1.SLAStatus_SLA_STATUS_ACTIVE
 	}

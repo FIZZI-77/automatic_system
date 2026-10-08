@@ -15,6 +15,7 @@ type TraceHandler struct {
 
 func (h TraceHandler) Handle(ctx context.Context, record slog.Record) error {
 	spanContext := trace.SpanContextFromContext(ctx)
+
 	if spanContext.IsValid() {
 		record.AddAttrs(
 			slog.String("trace_id", spanContext.TraceID().String()),

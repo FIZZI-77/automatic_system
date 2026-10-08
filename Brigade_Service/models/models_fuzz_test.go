@@ -19,6 +19,7 @@ func FuzzCreateBrigadeInputValidate(f *testing.F) {
 		departmentID, _ := uuid.Parse(departmentIDRaw)
 
 		var specializationPtr *string
+
 		if includeSpecialization {
 			specializationPtr = &specialization
 		}
@@ -35,9 +36,11 @@ func FuzzCreateBrigadeInputValidate(f *testing.F) {
 		if departmentID == uuid.Nil && err == nil {
 			t.Fatal("empty department_id should be invalid")
 		}
+
 		if strings.TrimSpace(name) == "" && err == nil {
 			t.Fatal("empty name should be invalid")
 		}
+
 	})
 }
 
@@ -51,18 +54,21 @@ func FuzzListBrigadesInputValidate(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, departmentIDRaw string, statusRaw string, specialization string, sortByRaw string, sortOrderRaw string, limit int32, offset int32) {
 		var departmentIDPtr *uuid.UUID
+
 		if departmentIDRaw != "" {
 			departmentID, _ := uuid.Parse(departmentIDRaw)
 			departmentIDPtr = &departmentID
 		}
 
 		var statusPtr *BrigadeStatus
+
 		if statusRaw != "" {
 			value := BrigadeStatus(statusRaw)
 			statusPtr = &value
 		}
 
 		var specializationPtr *string
+
 		if specialization != "" {
 			specializationPtr = &specialization
 		}
@@ -93,16 +99,19 @@ func FuzzUpdateBrigadeInputValidate(f *testing.F) {
 		brigadeID, _ := uuid.Parse(brigadeIDRaw)
 
 		var namePtr *string
+
 		if includeName {
 			namePtr = &name
 		}
 
 		var descriptionPtr *string
+
 		if includeDescription {
 			descriptionPtr = &description
 		}
 
 		var specializationPtr *string
+
 		if includeSpecialization {
 			specializationPtr = &specialization
 		}
@@ -119,9 +128,11 @@ func FuzzUpdateBrigadeInputValidate(f *testing.F) {
 		if brigadeID == uuid.Nil && err == nil {
 			t.Fatal("empty id should be invalid")
 		}
+
 		if namePtr == nil && descriptionPtr == nil && specializationPtr == nil && err == nil {
 			t.Fatal("update without fields should be invalid")
 		}
+
 	})
 }
 
@@ -146,6 +157,7 @@ func FuzzSetBrigadeStatusInputValidate(f *testing.F) {
 		if brigadeID == uuid.Nil && err == nil {
 			t.Fatal("empty brigade_id should be invalid")
 		}
+
 	})
 }
 
@@ -164,6 +176,7 @@ func FuzzAddBrigadeMemberInputValidate(f *testing.F) {
 		userID, _ := uuid.Parse(userIDRaw)
 
 		var profileIDPtr *uuid.UUID
+
 		if includeProfileID {
 			profileID, _ := uuid.Parse(profileIDRaw)
 			profileIDPtr = &profileID
@@ -181,9 +194,11 @@ func FuzzAddBrigadeMemberInputValidate(f *testing.F) {
 		if brigadeID == uuid.Nil && err == nil {
 			t.Fatal("empty brigade_id should be invalid")
 		}
+
 		if userID == uuid.Nil && err == nil {
 			t.Fatal("empty user_id should be invalid")
 		}
+
 	})
 }
 
@@ -211,9 +226,11 @@ func FuzzChangeBrigadeMemberRoleInputValidate(f *testing.F) {
 		if brigadeID == uuid.Nil && err == nil {
 			t.Fatal("empty brigade_id should be invalid")
 		}
+
 		if memberID == uuid.Nil && err == nil {
 			t.Fatal("empty member_id should be invalid")
 		}
+
 	})
 }
 
@@ -229,6 +246,7 @@ func FuzzSetBrigadeScheduleInputValidate(f *testing.F) {
 		brigadeID, _ := uuid.Parse(brigadeIDRaw)
 
 		var items []*BrigadeScheduleItem
+
 		if includeItem {
 			items = append(items, &BrigadeScheduleItem{
 				DayOfWeek: dayOfWeek,
@@ -248,9 +266,11 @@ func FuzzSetBrigadeScheduleInputValidate(f *testing.F) {
 		if brigadeID == uuid.Nil && err == nil {
 			t.Fatal("empty brigade_id should be invalid")
 		}
+
 		if len(items) == 0 && err == nil {
 			t.Fatal("empty schedule items should be invalid")
 		}
+
 	})
 }
 
@@ -280,12 +300,15 @@ func FuzzCreateBrigadeZoneInputValidate(f *testing.F) {
 		if brigadeID == uuid.Nil && err == nil {
 			t.Fatal("empty brigade_id should be invalid")
 		}
+
 		if departmentID == uuid.Nil && err == nil {
 			t.Fatal("empty department_id should be invalid")
 		}
+
 		if strings.TrimSpace(name) == "" && err == nil {
 			t.Fatal("empty name should be invalid")
 		}
+
 	})
 }
 
@@ -304,12 +327,14 @@ func FuzzCheckBrigadeCanHandleTicketInputValidate(f *testing.F) {
 		departmentID, _ := uuid.Parse(departmentIDRaw)
 
 		requiredSkillIDs := []uuid.UUID{}
+
 		if includeSkill {
 			skillID, _ := uuid.Parse(skillIDRaw)
 			requiredSkillIDs = append(requiredSkillIDs, skillID)
 		}
 
 		requiredRoles := []BrigadeMemberRole{}
+
 		if includeRole {
 			requiredRoles = append(requiredRoles, BrigadeMemberRole(roleRaw))
 		}
@@ -328,8 +353,10 @@ func FuzzCheckBrigadeCanHandleTicketInputValidate(f *testing.F) {
 		if brigadeID == uuid.Nil && err == nil {
 			t.Fatal("empty brigade_id should be invalid")
 		}
+
 		if departmentID == uuid.Nil && err == nil {
 			t.Fatal("empty department_id should be invalid")
 		}
+
 	})
 }

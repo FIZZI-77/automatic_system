@@ -23,6 +23,7 @@ func UnaryClientInterceptor(
 	invoker grpc.UnaryInvoker,
 	opts ...grpc.CallOption,
 ) error {
+
 	if !shouldRetry(ctx, method) {
 		return invoker(ctx, method, req, reply, cc, opts...)
 	}
@@ -31,6 +32,7 @@ func UnaryClientInterceptor(
 	backoff := 50 * time.Millisecond
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		err = invoker(ctx, method, req, reply, cc, opts...)
+
 		if err == nil || !isRetryable(err) || attempt == maxAttempts {
 			return err
 		}
@@ -50,6 +52,7 @@ func UnaryClientInterceptor(
 }
 
 func shouldRetry(ctx context.Context, method string) bool {
+
 	if isReadOnlyMethod(method) {
 		return true
 	}

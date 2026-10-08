@@ -45,13 +45,17 @@ func (g *Generator) Generate(format models.Format, name string, rows [][]string)
 
 func safe(v string) string {
 	v = strings.TrimSpace(v)
+
 	if v == "" {
 		return "report"
 	}
+
 	return strings.Map(func(r rune) rune {
+
 		if r == '/' || r == '\\' || r == ':' {
 			return '-'
 		}
+
 		return r
 	}, v)
 }
@@ -60,6 +64,7 @@ func csvFile(name string, rows [][]string) (models.Artifact, error) {
 	var b bytes.Buffer
 	w := csv.NewWriter(&b)
 	e := w.WriteAll(rows)
+
 	if e == nil {
 		e = w.Error()
 	}
@@ -81,6 +86,7 @@ func xlsxFile(name string, rows [][]string) (models.Artifact, error) {
 		}
 	}
 	b, e := f.WriteToBuffer()
+
 	if e != nil {
 		return models.Artifact{}, e
 	}
@@ -131,6 +137,7 @@ func (g *Generator) GenerateCompletion(v models.CompletionReport, images []model
 			p.Error(),
 		)
 	}
+
 	p.SetMargins(20, 18, 20)
 	p.SetAutoPageBreak(true, 18)
 	p.AddPage()
@@ -158,9 +165,11 @@ func (g *Generator) GenerateCompletion(v models.CompletionReport, images []model
 	members := make([]string, 0, len(v.Brigade.Members))
 	for _, member := range v.Brigade.Members {
 		name := fallback(member.FullName, member.UserID)
+
 		if strings.TrimSpace(member.Role) != "" {
 			name += " (" + member.Role + ")"
 		}
+
 		members = append(members, name)
 	}
 	field("Состав бригады", strings.Join(members, ", "))
@@ -176,9 +185,11 @@ func (g *Generator) GenerateCompletion(v models.CompletionReport, images []model
 
 	for index, item := range images {
 		kind, width, height, ok := imageInfo(item)
+
 		if !ok {
 			continue
 		}
+
 		p.AddPage()
 		p.SetFont("Report", "B", 11)
 		p.SetTextColor(31, 72, 60)
@@ -193,13 +204,16 @@ func (g *Generator) GenerateCompletion(v models.CompletionReport, images []model
 		maxW, maxH := 170.0, 235.0
 		ratio := float64(width) / float64(height)
 		w, h := maxW, maxW/ratio
+
 		if h > maxH {
 			h, w = maxH, maxH*ratio
 		}
+
 		p.ImageOptions(name, 20+(170-w)/2, p.GetY(), w, h, false, options, 0, "")
 	}
 
 	var out bytes.Buffer
+
 	if err := p.Output(&out); err != nil {
 		return models.Artifact{}, err
 	}
@@ -213,9 +227,11 @@ func (g *Generator) GenerateCompletion(v models.CompletionReport, images []model
 
 func fallback(values ...string) string {
 	for _, value := range values {
+
 		if value = strings.TrimSpace(value); value != "" {
 			return value
 		}
+
 	}
 	return ""
 }
@@ -228,11 +244,13 @@ func imageInfo(item models.EmbeddedImage) (string, int, int, bool) {
 		"image/png":  "PNG",
 		"image/gif":  "GIF",
 	}[contentType]
+
 	if kind == "" {
 		return "", 0, 0, false
 	}
 
 	config, _, err := image.DecodeConfig(bytes.NewReader(item.Data))
+
 	if err != nil || config.Width <= 0 || config.Height <= 0 {
 		return "", 0, 0, false
 	}

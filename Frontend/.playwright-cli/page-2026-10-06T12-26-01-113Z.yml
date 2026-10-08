@@ -1,0 +1,94 @@
+- main [ref=f6e2]:
+  - navigation [ref=f6e3]:
+    - link "Г 〽 Город рядом" [ref=f6e4] [cursor=pointer]:
+      - /url: "#top"
+      - generic [ref=f6e5]: Г 〽
+      - text: Город рядом
+    - generic [ref=f6e6]:
+      - link "Как это работает" [ref=f6e7] [cursor=pointer]:
+        - /url: "#how"
+      - link "Возможности" [ref=f6e8] [cursor=pointer]:
+        - /url: "#services"
+      - button "Включить тёмную тему" [ref=f6e9] [cursor=pointer]:
+        - generic [aria-hidden] [ref=f6e10]: ◐
+        - generic [ref=f6e11]: Тёмная
+      - button "Войти" [disabled] [ref=f6e12] [cursor=pointer]
+      - button "Регистрация" [disabled] [ref=f6e13] [cursor=pointer]
+      - button "Открыть демо" [disabled] [ref=f6e14] [cursor=pointer]
+  - generic [ref=f6e15]:
+    - generic [ref=f6e16]:
+      - generic [ref=f6e17]: Единая цифровая городская служба
+      - heading [level=1] [ref=f6e18]:
+        - text: Город слышит.
+        - emphasis [ref=f6e19]: Службы действуют.
+      - paragraph [ref=f6e20]: Сообщайте о проблемах, следите за исполнением и наблюдайте, как город становится лучше — в одном понятном пространстве.
+      - generic [ref=f6e21]:
+        - button "Сообщить о проблеме →" [disabled] [ref=f6e22] [cursor=pointer]:
+          - text: Сообщить о проблеме
+          - generic [ref=f6e23]: →
+        - button "Посмотреть живую карту" [disabled] [ref=f6e24] [cursor=pointer]
+      - generic [ref=f6e25]:
+        - generic [ref=f6e26]: ● Сервисы на связи
+        - generic [ref=f6e27]: Среднее время реакции 18 мин
+    - generic [ref=f6e28]:
+      - generic [ref=f6e31]:
+        - generic [ref=f6e32]:
+          - generic [ref=f6e33]: Сейчас в городе
+          - generic [ref=f6e34]: ● LIVE
+        - generic [ref=f6e35]:
+          - button "!" [ref=f6e39] [cursor=pointer]
+          - button "•" [ref=f6e40] [cursor=pointer]
+          - button "▰" [ref=f6e41] [cursor=pointer]
+        - generic [ref=f6e43]:
+          - generic [ref=f6e44]:
+            - generic [ref=f6e45]: "24"
+            - generic [ref=f6e46]: активных заявки
+          - generic [ref=f6e47]:
+            - generic [ref=f6e48]: "11"
+            - generic [ref=f6e49]: бригад на линии
+          - generic [ref=f6e50]:
+            - generic [ref=f6e51]: 94%
+            - generic [ref=f6e52]: выполнено вовремя
+      - generic [ref=f6e53]:
+        - generic [ref=f6e54]: ✓
+        - generic [ref=f6e55]:
+          - generic [ref=f6e56]: Бригада назначена
+          - generic [ref=f6e57]: Прибудет через 12 минут
+  - generic [ref=f6e58]:
+    - generic [ref=f6e59]:
+      - text: "01"
+      - heading "Всё видно" [level=3] [ref=f6e60]
+      - paragraph [ref=f6e61]: Заявки, машины и маршруты на одной карте в реальном времени.
+    - generic [ref=f6e62]:
+      - text: "02"
+      - heading "Каждый на своём месте" [level=3] [ref=f6e63]
+      - paragraph [ref=f6e64]: Отдельные рабочие пространства для жителей, бригад и служб.
+    - generic [ref=f6e65]:
+      - text: "03"
+      - heading "Ничего не теряется" [level=3] [ref=f6e66]
+      - paragraph [ref=f6e67]: История действий, SLA и уведомления сопровождают заявку до результата.
+  - generic [ref=f6e68]:
+    - generic [ref=f6e69]: Просто для жителя. Точно для служб.
+    - heading "От сообщения до результата без лишних звонков" [level=2] [ref=f6e70]: От сообщения до результатабез лишних звонков
+    - generic [ref=f6e71]:
+      - article [ref=f6e72]:
+        - generic [ref=f6e73]: "1"
+        - heading "Отметьте проблему" [level=3] [ref=f6e74]
+        - paragraph [ref=f6e75]: Укажите точку на карте, добавьте описание и фотографию.
+      - article [ref=f6e76]:
+        - generic [ref=f6e77]: "2"
+        - heading "Мы найдём исполнителя" [level=3] [ref=f6e78]
+        - paragraph [ref=f6e79]: Диспетчер увидит ближайшую подходящую бригаду и маршрут.
+      - article [ref=f6e80]:
+        - generic [ref=f6e81]: "3"
+        - heading "Следите за ходом работ" [level=3] [ref=f6e82]
+        - paragraph [ref=f6e83]: Статусы и уведомления покажут, что происходит прямо сейчас.
+  - generic [ref=f6e84]:
+    - link "Г 〽 Город рядом" [ref=f6e85] [cursor=pointer]:
+      - /url: "#top"
+      - generic [ref=f6e86]: Г 〽
+      - text: Город рядом
+    - paragraph [ref=f6e87]: Цифровые городские службы — ближе, понятнее, быстрее.
+    - generic [ref=f6e88]:
+      - button "Зарегистрироваться" [disabled] [ref=f6e89] [cursor=pointer]
+      - button "Войти в систему" [disabled] [ref=f6e90] [cursor=pointer]

@@ -15,9 +15,11 @@ func TestRuleValidate(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			e := c.rule.Validate()
+
 			if errors.Is(e, ErrInvalidArgument) != c.want {
 				t.Fatalf("Validate()=%v", e)
 			}
+
 		})
 	}
 }

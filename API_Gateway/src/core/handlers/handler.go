@@ -14,6 +14,7 @@ import (
 
 func handleGRPCError(c *gin.Context, err error) {
 	st, ok := status.FromError(err)
+
 	if !ok {
 		writeAPIError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Внутренняя ошибка сервера")
 		return
@@ -113,13 +114,16 @@ func (h *Handler) InitRouters() *gin.Engine {
 	allowedOrigins := map[string]struct{}{}
 
 	for _, origin := range strings.Split(envOrDefault("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"), ",") {
+
 		if value := strings.TrimSpace(origin); value != "" {
 			allowedOrigins[value] = struct{}{}
 		}
+
 	}
 
 	router.Use(func(c *gin.Context) {
 		origin := c.GetHeader("Origin")
+
 		if _, allowed := allowedOrigins[origin]; allowed {
 			c.Header("Access-Control-Allow-Origin", origin)
 			c.Header("Access-Control-Allow-Credentials", "true")
@@ -192,9 +196,11 @@ func (h *Handler) InitRouters() *gin.Engine {
 		Window: time.Minute,
 		KeyFunc: func(c *gin.Context) string {
 			userID := c.GetString("user_id")
+
 			if userID == "" {
 				userID = c.ClientIP()
 			}
+
 			return userID + ":" + c.Request.URL.Path
 		},
 	}))
@@ -523,19 +529,24 @@ func configureTrustedProxies(router *gin.Engine) {
 	raw := envOrDefault("TRUSTED_PROXIES", "127.0.0.0/8")
 	proxies := make([]string, 0)
 	for _, proxy := range strings.Split(raw, ",") {
+
 		if value := strings.TrimSpace(proxy); value != "" {
 			proxies = append(proxies, value)
 		}
+
 	}
 
 	if err := router.SetTrustedProxies(proxies); err != nil {
 		panic("configure trusted proxies: " + err.Error())
 	}
+
 }
 
 func envOrDefault(key, fallback string) string {
+
 	if value := strings.TrimSpace(os.Getenv(key)); value != "" {
 		return value
 	}
+
 	return fallback
 }

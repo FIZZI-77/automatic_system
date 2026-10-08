@@ -62,6 +62,7 @@ func TestDepartmentPerformanceInClickHouse(t *testing.T) {
 		if err = repo.Store(ctx, event); err != nil {
 			t.Fatalf("Store(%s): %v", event.Type, err)
 		}
+
 	}
 
 	from, to := start.Add(-time.Minute), start.Add(4*time.Minute)
@@ -81,6 +82,7 @@ func TestDepartmentPerformanceInClickHouse(t *testing.T) {
 		if item.DepartmentID == departmentID {
 			department = item
 		}
+
 	}
 
 	if department.Created != 2 || department.FeedbackCount != 1 || department.AverageRating != 4 || department.ResolvedFeedbackRate != 0 {
@@ -98,4 +100,5 @@ func TestDepartmentPerformanceInClickHouse(t *testing.T) {
 	if math.Abs(department.AverageResponseSLADeviationSeconds+60) > 1 || math.Abs(department.AverageResolutionSLADeviationSeconds-120) > 1 {
 		t.Fatalf("unexpected SLA deviations: %+v", department)
 	}
+
 }

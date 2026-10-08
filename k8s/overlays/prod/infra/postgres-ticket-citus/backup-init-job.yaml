@@ -7,13 +7,17 @@ spec:
   backoffLimit: 12
   activeDeadlineSeconds: 1800
   template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: postgres-ticket-citus
       restartPolicy: OnFailure
       automountServiceAccountToken: true
       containers:
         - name: initialize
-          image: bitnami/kubectl:1.33
+          image: automatic-system-kubectl:dev-shell
+          imagePullPolicy: IfNotPresent
           command:
             - /bin/sh
             - -ec

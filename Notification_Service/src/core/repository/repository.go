@@ -25,9 +25,11 @@ func New(db *pgxpool.Pool) *Repository {
 func (r *Repository) List(ctx context.Context, user uuid.UUID, unread *bool, limit, offset int32) ([]*models.Notification, int64, int64, error) {
 	limit = bounded(limit)
 	rows, e := r.db.Query(ctx, `SELECT id,event_id,user_id,event_type,title,body,data,read,read_at,created_at,count(*) OVER(),count(*) FILTER(WHERE NOT read) OVER() FROM notifications WHERE user_id=$1 AND (COALESCE($2::bool,FALSE)=FALSE OR NOT read) ORDER BY created_at DESC LIMIT $3 OFFSET $4`, user, unread, limit, offset)
+
 	if e != nil {
 		return nil, 0, 0, e
 	}
+
 	defer rows.Close()
 
 	var out []*models.Notification
@@ -35,9 +37,11 @@ func (r *Repository) List(ctx context.Context, user uuid.UUID, unread *bool, lim
 	for rows.Next() {
 		v := new(models.Notification)
 		var data []byte
+
 		if e = rows.Scan(&v.ID, &v.EventID, &v.UserID, &v.EventType, &v.Title, &v.Body, &data, &v.Read, &v.ReadAt, &v.CreatedAt, &total, &unreadCount); e != nil {
 			return nil, 0, 0, e
 		}
+
 		_ = json.Unmarshal(data, &v.Data)
 		out = append(out, v)
 	}
@@ -92,18 +96,22 @@ func (r *Repository) UpsertTemplate(ctx context.Context, v *models.Template) (*m
 
 func (r *Repository) ListTemplates(ctx context.Context, event, channel *string, limit, offset int32) ([]*models.Template, int64, error) {
 	rows, e := r.db.Query(ctx, `SELECT id,event_type,channel,subject,body,active,created_at,updated_at,count(*) OVER() FROM notification_templates WHERE ($1::text IS NULL OR event_type=$1) AND ($2::text IS NULL OR channel=$2) ORDER BY event_type,channel LIMIT $3 OFFSET $4`, event, channel, bounded(limit), offset)
+
 	if e != nil {
 		return nil, 0, e
 	}
+
 	defer rows.Close()
 
 	var out []*models.Template
 	var total int64
 	for rows.Next() {
 		v := new(models.Template)
+
 		if e = rows.Scan(&v.ID, &v.EventType, &v.Channel, &v.Subject, &v.Body, &v.Active, &v.CreatedAt, &v.UpdatedAt, &total); e != nil {
 			return nil, 0, e
 		}
+
 		out = append(out, v)
 	}
 
@@ -112,18 +120,22 @@ func (r *Repository) ListTemplates(ctx context.Context, event, channel *string, 
 
 func (r *Repository) ListDeliveries(ctx context.Context, status, channel *string, limit, offset int32) ([]*models.Delivery, int64, error) {
 	rows, e := r.db.Query(ctx, `SELECT id,notification_id,channel,recipient,status,provider_id,attempts,next_attempt_at,last_error,created_at,updated_at,count(*) OVER() FROM deliveries WHERE ($1::text IS NULL OR status=$1) AND ($2::text IS NULL OR channel=$2) ORDER BY created_at DESC LIMIT $3 OFFSET $4`, status, channel, bounded(limit), offset)
+
 	if e != nil {
 		return nil, 0, e
 	}
+
 	defer rows.Close()
 
 	var out []*models.Delivery
 	var total int64
 	for rows.Next() {
 		v := new(models.Delivery)
+
 		if e = rows.Scan(&v.ID, &v.NotificationID, &v.Channel, &v.Recipient, &v.Status, &v.ProviderID, &v.Attempts, &v.NextAttemptAt, &v.LastError, &v.CreatedAt, &v.UpdatedAt, &total); e != nil {
 			return nil, 0, e
 		}
+
 		out = append(out, v)
 	}
 
@@ -132,15 +144,19 @@ func (r *Repository) ListDeliveries(ctx context.Context, status, channel *string
 
 func (r *Repository) Dispatch(ctx context.Context, e models.Event, recipients []uuid.UUID) ([]*models.Notification, error) {
 	tx, err := r.db.Begin(ctx)
+
 	if err != nil {
 		return nil, err
 	}
+
 	defer tx.Rollback(ctx)
 	payload, _ := json.Marshal(e.Payload)
 	tag, err := tx.Exec(ctx, `INSERT INTO event_inbox(event_id,event_type,topic,payload) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING`, e.ID, e.Type, e.Topic, payload)
+
 	if err != nil {
 		return nil, err
 	}
+
 	if tag.RowsAffected() == 0 {
 		return nil, tx.Commit(ctx)
 	}
@@ -167,9 +183,11 @@ func (r *Repository) Dispatch(ctx context.Context, e models.Event, recipients []
 
 		data, _ := json.Marshal(v.Data)
 		err = tx.QueryRow(ctx, `INSERT INTO notifications(event_id,user_id,event_type,title,body,data) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(event_id,user_id) DO NOTHING RETURNING id,created_at`, v.EventID, v.UserID, v.EventType, v.Title, v.Body, data).Scan(&v.ID, &v.CreatedAt)
+
 		if errors.Is(err, pgx.ErrNoRows) {
 			continue
 		}
+
 		if err != nil {
 			return nil, err
 		}
@@ -197,6 +215,7 @@ func (r *Repository) Dispatch(ctx context.Context, e models.Event, recipients []
 		if err != nil {
 			return nil, err
 		}
+
 	}
 
 	return created, tx.Commit(ctx)
@@ -205,6 +224,7 @@ func (r *Repository) Dispatch(ctx context.Context, e models.Event, recipients []
 func renderTemplate(ctx context.Context, tx pgx.Tx, event, channel string, data map[string]any) (string, string) {
 	var subject, body string
 	err := tx.QueryRow(ctx, `SELECT subject,body FROM notification_templates WHERE event_type=$1 AND channel=$2 AND active`, event, channel).Scan(&subject, &body)
+
 	if err != nil {
 		subject = event
 		body = "Событие " + event
@@ -212,10 +232,12 @@ func renderTemplate(ctx context.Context, tx pgx.Tx, event, channel string, data 
 
 	for k, v := range data {
 		value, ok := v.(string)
+
 		if ok {
 			subject = strings.ReplaceAll(subject, "{{"+k+"}}", value)
 			body = strings.ReplaceAll(body, "{{"+k+"}}", value)
 		}
+
 	}
 	return subject, body
 }
@@ -223,29 +245,39 @@ func renderTemplate(ctx context.Context, tx pgx.Tx, event, channel string, data 
 func (r *Repository) ResolveRecipients(ctx context.Context, e models.Event) ([]uuid.UUID, error) {
 	unique := map[uuid.UUID]struct{}{}
 	for _, key := range []string{"user_id", "owner_user_id", "assigned_user_id"} {
+
 		if raw, ok := e.Payload[key].(string); ok {
+
 			if id, err := uuid.Parse(raw); err == nil {
 				unique[id] = struct{}{}
 			}
+
 		}
+
 	}
 
 	ticketID, _ := uuid.Parse(stringValue(e.Payload, "ticket_id", "id"))
+
 	if ticketID != uuid.Nil {
+
 		if e.Topic == "tickets.events.v1" {
 			userID, _ := uuid.Parse(stringValue(e.Payload, "user_id"))
 			departmentID, _ := uuid.Parse(stringValue(e.Payload, "department_id"))
 			brigadeID, _ := uuid.Parse(stringValue(e.Payload, "brigade_id"))
 			_, err := r.db.Exec(ctx, `INSERT INTO ticket_recipients(ticket_id,user_id,department_id,brigade_id) VALUES($1,NULLIF($2::uuid,$5::uuid),NULLIF($3::uuid,$5::uuid),NULLIF($4::uuid,$5::uuid)) ON CONFLICT(ticket_id) DO UPDATE SET user_id=COALESCE(EXCLUDED.user_id,ticket_recipients.user_id),department_id=COALESCE(EXCLUDED.department_id,ticket_recipients.department_id),brigade_id=COALESCE(EXCLUDED.brigade_id,ticket_recipients.brigade_id),updated_at=now()`, ticketID, userID, departmentID, brigadeID, uuid.Nil)
+
 			if err != nil {
 				return nil, err
 			}
+
 		}
 
 		var userID *uuid.UUID
+
 		if err := r.db.QueryRow(ctx, `SELECT user_id FROM ticket_recipients WHERE ticket_id=$1`, ticketID).Scan(&userID); err == nil && userID != nil {
 			unique[*userID] = struct{}{}
 		}
+
 	}
 
 	out := make([]uuid.UUID, 0, len(unique))
@@ -258,35 +290,46 @@ func (r *Repository) ResolveRecipients(ctx context.Context, e models.Event) ([]u
 
 func stringValue(data map[string]any, keys ...string) string {
 	for _, key := range keys {
+
 		if value, ok := data[key].(string); ok && value != "" {
 			return value
 		}
+
 	}
 	return ""
 }
 
 func (r *Repository) ClaimDelivery(ctx context.Context) (*models.Delivery, *models.Notification, error) {
 	tx, e := r.db.Begin(ctx)
+
 	if e != nil {
 		return nil, nil, e
 	}
+
 	defer tx.Rollback(ctx)
 	d := new(models.Delivery)
 	e = tx.QueryRow(ctx, `SELECT id,notification_id,channel,recipient,title,body,status,provider_id,attempts,next_attempt_at,last_error,created_at,updated_at FROM deliveries WHERE (status IN('PENDING','FAILED') AND next_attempt_at<=now() OR status='PROCESSING' AND locked_at < now()-interval '5 minutes') AND attempts<8 ORDER BY next_attempt_at FOR UPDATE SKIP LOCKED LIMIT 1`).Scan(&d.ID, &d.NotificationID, &d.Channel, &d.Recipient, &d.Title, &d.Body, &d.Status, &d.ProviderID, &d.Attempts, &d.NextAttemptAt, &d.LastError, &d.CreatedAt, &d.UpdatedAt)
+
 	if e != nil {
 		return nil, nil, e
 	}
+
 	_, e = tx.Exec(ctx, `UPDATE deliveries SET status='PROCESSING',attempts=attempts+1,locked_at=now(),updated_at=now() WHERE id=$1`, d.ID)
+
 	if e != nil {
 		return nil, nil, e
 	}
+
 	n, e := scanNotification(tx.QueryRow(ctx, `SELECT id,event_id,user_id,event_type,title,body,data,read,read_at,created_at FROM notifications WHERE id=$1`, d.NotificationID))
+
 	if e != nil {
 		return nil, nil, e
 	}
+
 	if d.Title != "" {
 		n.Title = d.Title
 	}
+
 	if d.Body != "" {
 		n.Body = d.Body
 	}
@@ -297,23 +340,28 @@ func (r *Repository) ClaimDelivery(ctx context.Context) (*models.Delivery, *mode
 
 func (r *Repository) DeliverySent(ctx context.Context, id uuid.UUID, attempt int32, provider string) error {
 	tag, e := r.db.Exec(ctx, `UPDATE deliveries SET status='SENT',provider_id=NULLIF($3,''),last_error=NULL,locked_at=NULL,updated_at=now() WHERE id=$1 AND status='PROCESSING' AND attempts=$2`, id, attempt, provider)
+
 	if e == nil && tag.RowsAffected() == 0 {
 		return pgx.ErrNoRows
 	}
+
 	return e
 }
 
 func (r *Repository) DeliveryFailed(ctx context.Context, d *models.Delivery, reason string) error {
 	status := "FAILED"
+
 	if d.Attempts >= 8 {
 		status = "DEAD"
 	}
 
 	delay := time.Duration(1<<min(d.Attempts, 8)) * time.Second
 	tag, e := r.db.Exec(ctx, `UPDATE deliveries SET status=$3,last_error=$4,next_attempt_at=now()+make_interval(secs=>$5),locked_at=NULL,updated_at=now() WHERE id=$1 AND status='PROCESSING' AND attempts=$2`, d.ID, d.Attempts, status, truncate(reason, 2000), delay.Seconds())
+
 	if e == nil && tag.RowsAffected() == 0 {
 		return pgx.ErrNoRows
 	}
+
 	return e
 }
 
@@ -323,28 +371,35 @@ func (r *Repository) DeactivateToken(ctx context.Context, token string) error {
 }
 
 func truncate(v string, n int) string {
+
 	if len(v) > n {
 		return v[:n]
 	}
+
 	return v
 }
 
 func safeData(v map[string]any) map[string]string {
 	out := map[string]string{}
 	for _, k := range []string{"ticket_id", "ticket_sla_id", "department_id", "status", "event_type"} {
+
 		if s, ok := v[k].(string); ok {
 			out[k] = s
 		}
+
 	}
 	return out
 }
 
 func bounded(v int32) int32 {
+
 	if v <= 0 {
 		return 50
 	}
+
 	if v > 200 {
 		return 200
 	}
+
 	return v
 }

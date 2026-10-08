@@ -28,6 +28,7 @@ func TestTicketRepo_ChangeTicketStatus_ValidTransitionUpdatesTicketAndHistory(t 
 		ChangedBy: changedBy,
 		Comment:   &comment,
 	})
+
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -41,6 +42,7 @@ func TestTicketRepo_ChangeTicketStatus_ValidTransitionUpdatesTicketAndHistory(t 
 		Limit:    10,
 		Offset:   0,
 	})
+
 	if err != nil {
 		t.Fatalf("failed to get status history: %v", err)
 	}
@@ -51,10 +53,12 @@ func TestTicketRepo_ChangeTicketStatus_ValidTransitionUpdatesTicketAndHistory(t 
 
 	var transition *models.TicketStatusHistory
 	for _, item := range history {
+
 		if item.NewStatus == models.TicketStatusAssigned {
 			transition = item
 			break
 		}
+
 	}
 
 	if transition == nil {
@@ -64,6 +68,7 @@ func TestTicketRepo_ChangeTicketStatus_ValidTransitionUpdatesTicketAndHistory(t 
 	if transition.OldStatus == nil || *transition.OldStatus != models.TicketStatusNew {
 		t.Fatal("expected old status NEW")
 	}
+
 }
 
 func TestTicketRepo_CreateGetListUpdateTicket_CommonFlow(t *testing.T) {
@@ -77,6 +82,7 @@ func TestTicketRepo_CreateGetListUpdateTicket_CommonFlow(t *testing.T) {
 	ticket := createTestTicket(t, repo, category.ID)
 
 	stored, err := repo.GetTicketByID(ctx, ticket.ID)
+
 	if err != nil {
 		t.Fatalf("failed to get ticket: %v", err)
 	}
@@ -96,6 +102,7 @@ func TestTicketRepo_CreateGetListUpdateTicket_CommonFlow(t *testing.T) {
 		SortBy:       models.TicketSortByCreatedAt,
 		SortOrder:    models.SortOrderDesc,
 	})
+
 	if err != nil {
 		t.Fatalf("failed to list tickets: %v", err)
 	}
@@ -119,6 +126,7 @@ func TestTicketRepo_CreateGetListUpdateTicket_CommonFlow(t *testing.T) {
 		Longitude: &longitude,
 		UpdatedBy: &ticket.UserID,
 	})
+
 	if err != nil {
 		t.Fatalf("failed to update ticket: %v", err)
 	}
@@ -134,6 +142,7 @@ func TestTicketRepo_CreateGetListUpdateTicket_CommonFlow(t *testing.T) {
 	if updated.Longitude != longitude {
 		t.Fatalf("expected longitude %f, got %f", longitude, updated.Longitude)
 	}
+
 }
 
 func TestTicketRepo_UpdateTicket_NonAuthorReturnsPermissionDenied(t *testing.T) {
@@ -163,6 +172,7 @@ func TestTicketRepo_UpdateTicket_NonAuthorReturnsPermissionDenied(t *testing.T) 
 	}
 
 	stored, err := repo.GetTicketByID(ctx, ticket.ID)
+
 	if err != nil {
 		t.Fatalf("failed to get ticket: %v", err)
 	}
@@ -170,6 +180,7 @@ func TestTicketRepo_UpdateTicket_NonAuthorReturnsPermissionDenied(t *testing.T) 
 	if stored.Title == title {
 		t.Fatal("expected title to remain unchanged")
 	}
+
 }
 
 func TestTicketRepo_CreateTicket_InactiveCategoryReturnsDomainError(t *testing.T) {
@@ -186,6 +197,7 @@ func TestTicketRepo_CreateTicket_InactiveCategoryReturnsDomainError(t *testing.T
 		CategoryID: category.ID,
 		IsActive:   &isActive,
 	})
+
 	if err != nil {
 		t.Fatalf("failed to deactivate category: %v", err)
 	}
@@ -209,6 +221,7 @@ func TestTicketRepo_CreateTicket_InactiveCategoryReturnsDomainError(t *testing.T
 	if !errors.Is(err, models.ErrCategoryInactive) {
 		t.Fatalf("expected category inactive error, got %v", err)
 	}
+
 }
 
 func TestTicketRepo_ChangeTicketStatus_InvalidTransitionReturnsDomainError(t *testing.T) {
@@ -236,6 +249,7 @@ func TestTicketRepo_ChangeTicketStatus_InvalidTransitionReturnsDomainError(t *te
 	}
 
 	stored, err := repo.GetTicketByID(ctx, ticket.ID)
+
 	if err != nil {
 		t.Fatalf("failed to get ticket: %v", err)
 	}
@@ -243,6 +257,7 @@ func TestTicketRepo_ChangeTicketStatus_InvalidTransitionReturnsDomainError(t *te
 	if stored.Status != models.TicketStatusNew {
 		t.Fatalf("expected ticket to remain NEW, got %s", stored.Status)
 	}
+
 }
 
 func TestTicketRepo_AssignComplete_CommonFlow(t *testing.T) {
@@ -261,6 +276,7 @@ func TestTicketRepo_AssignComplete_CommonFlow(t *testing.T) {
 		BrigadeID:  brigadeID,
 		AssignedBy: uuid.New(),
 	})
+
 	if err != nil {
 		t.Fatalf("expected assign to succeed, got %v", err)
 	}
@@ -278,6 +294,7 @@ func TestTicketRepo_AssignComplete_CommonFlow(t *testing.T) {
 		NewStatus: models.TicketStatusInProgress,
 		ChangedBy: uuid.New(),
 	})
+
 	if err != nil {
 		t.Fatalf("expected in progress transition to succeed, got %v", err)
 	}
@@ -290,6 +307,7 @@ func TestTicketRepo_AssignComplete_CommonFlow(t *testing.T) {
 		TicketID:    ticket.ID,
 		CompletedBy: uuid.New(),
 	})
+
 	if err != nil {
 		t.Fatalf("expected complete to succeed, got %v", err)
 	}
@@ -301,6 +319,7 @@ func TestTicketRepo_AssignComplete_CommonFlow(t *testing.T) {
 	if completed.CompletedAt == nil {
 		t.Fatal("expected completed_at not nil")
 	}
+
 }
 
 func TestTicketRepo_AssignBrigade_BusyBrigadeReturnsDomainError(t *testing.T) {
@@ -327,6 +346,7 @@ func TestTicketRepo_AssignBrigade_BusyBrigadeReturnsDomainError(t *testing.T) {
 			Latitude:     55.751244,
 			Longitude:    37.618423,
 		})
+
 		if err != nil {
 			t.Fatalf("create ticket: %v", err)
 		}
@@ -351,20 +371,25 @@ func TestTicketRepo_AssignBrigade_BusyBrigadeReturnsDomainError(t *testing.T) {
 		BrigadeID:  brigadeID,
 		AssignedBy: assignedBy,
 	})
+
 	if assigned != nil {
 		t.Fatal("expected no second assignment")
 	}
+
 	if !errors.Is(err, models.ErrBrigadeBusy) {
 		t.Fatalf("expected brigade busy error, got %v", err)
 	}
 
 	stored, err := repo.GetTicketByID(ctx, secondTicket.ID)
+
 	if err != nil {
 		t.Fatalf("get second ticket: %v", err)
 	}
+
 	if stored.Status != models.TicketStatusNew || stored.BrigadeID != nil {
 		t.Fatalf("expected second ticket to remain unassigned, got status=%s brigade_id=%v", stored.Status, stored.BrigadeID)
 	}
+
 }
 
 func TestTicketRepo_ChangeTicketStatus_TerminalTicketCannotBeChanged(t *testing.T) {
@@ -382,6 +407,7 @@ func TestTicketRepo_ChangeTicketStatus_TerminalTicketCannotBeChanged(t *testing.
 		CanceledBy: uuid.New(),
 		Reason:     "duplicate",
 	})
+
 	if err != nil {
 		t.Fatalf("expected cancel to succeed, got %v", err)
 	}
@@ -401,6 +427,7 @@ func TestTicketRepo_ChangeTicketStatus_TerminalTicketCannotBeChanged(t *testing.
 	}
 
 	stored, err := repo.GetTicketByID(ctx, ticket.ID)
+
 	if err != nil {
 		t.Fatalf("failed to get ticket: %v", err)
 	}
@@ -408,6 +435,7 @@ func TestTicketRepo_ChangeTicketStatus_TerminalTicketCannotBeChanged(t *testing.
 	if stored.Status != models.TicketStatusCanceled {
 		t.Fatalf("expected ticket to remain CANCELED, got %s", stored.Status)
 	}
+
 }
 
 func TestTicketRepo_AssignBrigade_TerminalTicketCannotBeChanged(t *testing.T) {
@@ -425,6 +453,7 @@ func TestTicketRepo_AssignBrigade_TerminalTicketCannotBeChanged(t *testing.T) {
 		CanceledBy: uuid.New(),
 		Reason:     "not needed",
 	})
+
 	if err != nil {
 		t.Fatalf("expected cancel to succeed, got %v", err)
 	}
@@ -442,4 +471,5 @@ func TestTicketRepo_AssignBrigade_TerminalTicketCannotBeChanged(t *testing.T) {
 	if !errors.Is(err, models.ErrTicketTerminalState) {
 		t.Fatalf("expected terminal state error, got %v", err)
 	}
+
 }

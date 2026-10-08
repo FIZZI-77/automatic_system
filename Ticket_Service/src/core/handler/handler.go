@@ -33,9 +33,10 @@ func NewTicketHandler(service *service.Service, logger *zap.Logger) *TicketHandl
 }
 
 type actorContext struct {
-	UserID    *uuid.UUID
-	BrigadeID *uuid.UUID
-	Roles     []string
+	UserID       *uuid.UUID
+	BrigadeID    *uuid.UUID
+	DepartmentID *uuid.UUID
+	Roles        []string
 }
 
 func (t *TicketHandler) SubmitTicketFeedback(ctx context.Context, req *ticketv1.SubmitTicketFeedbackRequest) (*ticketv1.SubmitTicketFeedbackResponse, error) {
@@ -98,26 +99,35 @@ func toProtoFeedback(value *models.TicketFeedback) *ticketv1.TicketFeedback {
 
 func (t *TicketHandler) CreateWorkReport(ctx context.Context, req *ticketv1.CreateWorkReportRequest) (*ticketv1.CreateWorkReportResponse, error) {
 	ticketID, err := uuid.Parse(req.GetTicketId())
+
 	if err != nil {
 		return nil, ticketStatusError("CreateWorkReport", fmt.Errorf("%w: invalid ticket_id", models.ErrValidation))
 	}
+
 	authorID, err := uuid.Parse(req.GetAuthorUserId())
+
 	if err != nil {
 		return nil, ticketStatusError("CreateWorkReport", fmt.Errorf("%w: invalid author_user_id", models.ErrValidation))
 	}
+
 	fileIDs := make([]uuid.UUID, 0, len(req.GetFileIds()))
 	for _, raw := range req.GetFileIds() {
 		id, parseErr := uuid.Parse(raw)
+
 		if parseErr != nil {
 			return nil, ticketStatusError("CreateWorkReport", fmt.Errorf("%w: invalid file_id", models.ErrValidation))
 		}
+
 		fileIDs = append(fileIDs, id)
 	}
 	actor := actorFromContext(ctx)
+
 	if actor.UserID == nil || (*actor.UserID != authorID && !containsRole(actor.Roles, "admin") && !containsRole(actor.Roles, "dispatcher")) {
 		return nil, ticketStatusError("CreateWorkReport", models.ErrPermissionDenied)
 	}
+
 	var completion *models.CompletionReportInput
+
 	if req.GetCompletion() != nil {
 		completion = &models.CompletionReportInput{
 			RequestedBy: req.GetCompletion().GetRequestedBy(),
@@ -132,26 +142,35 @@ func (t *TicketHandler) CreateWorkReport(ctx context.Context, req *ticketv1.Crea
 			completion.Brigade.Members = append(completion.Brigade.Members, models.CompletionBrigadeMemberInput{UserID: member.GetUserId(), FullName: member.GetFullName(), Role: member.GetRole()})
 		}
 	}
-	report, err := t.service.CreateWorkReport(ctx, &models.CreateWorkReportInput{TicketID: ticketID, AuthorUserID: authorID, Description: req.GetDescription(), FileIDs: fileIDs, ActorBrigadeID: actor.BrigadeID, ActorRoles: actor.Roles, IdempotencyKey: req.GetIdempotencyKey(), Completion: completion})
+
+	report, err := t.service.CreateWorkReport(ctx, &models.CreateWorkReportInput{TicketID: ticketID, AuthorUserID: authorID, Description: req.GetDescription(), FileIDs: fileIDs, ActorBrigadeID: actor.BrigadeID, ActorDepartmentID: actor.DepartmentID, ActorRoles: actor.Roles, IdempotencyKey: req.GetIdempotencyKey(), Completion: completion})
+
 	if err != nil {
 		return nil, ticketStatusError("CreateWorkReport", err)
 	}
+
 	return &ticketv1.CreateWorkReportResponse{Report: toProtoWorkReport(report)}, nil
 }
 
 func (t *TicketHandler) ListWorkReports(ctx context.Context, req *ticketv1.ListWorkReportsRequest) (*ticketv1.ListWorkReportsResponse, error) {
 	ticketID, err := uuid.Parse(req.GetTicketId())
+
 	if err != nil {
 		return nil, ticketStatusError("ListWorkReports", fmt.Errorf("%w: invalid ticket_id", models.ErrValidation))
 	}
+
 	actor := actorFromContext(ctx)
+
 	if actor.UserID == nil {
 		return nil, ticketStatusError("ListWorkReports", models.ErrPermissionDenied)
 	}
-	reports, err := t.service.ListWorkReports(ctx, ticketID, *actor.UserID, actor.BrigadeID, actor.Roles)
+
+	reports, err := t.service.ListWorkReports(ctx, ticketID, *actor.UserID, actor.BrigadeID, actor.DepartmentID, actor.Roles)
+
 	if err != nil {
 		return nil, ticketStatusError("ListWorkReports", err)
 	}
+
 	result := make([]*ticketv1.WorkReport, 0, len(reports))
 	for _, report := range reports {
 		result = append(result, toProtoWorkReport(report))
@@ -161,25 +180,31 @@ func (t *TicketHandler) ListWorkReports(ctx context.Context, req *ticketv1.ListW
 
 func containsRole(roles []string, wanted string) bool {
 	for _, role := range roles {
+
 		if role == wanted {
 			return true
 		}
+
 	}
 	return false
 }
 
 func toProtoWorkReport(report *models.WorkReport) *ticketv1.WorkReport {
+
 	if report == nil {
 		return nil
 	}
+
 	files := make([]string, 0, len(report.FileIDs))
 	for _, id := range report.FileIDs {
 		files = append(files, id.String())
 	}
 	fileID := ""
+
 	if report.CompletionFileID != nil {
 		fileID = report.CompletionFileID.String()
 	}
+
 	return &ticketv1.WorkReport{Id: report.ID.String(), TicketId: report.TicketID.String(), AuthorUserId: report.AuthorUserID.String(), Description: report.Description, FileIds: files, CreatedAt: ToProtoTimestamp(report.CreatedAt), UpdatedAt: ToProtoTimestamp(report.UpdatedAt), CompletionStatus: report.CompletionStatus, CompletionFileId: fileID, CompletionError: report.CompletionError}
 }
 
@@ -195,6 +220,7 @@ func (t *TicketHandler) CreateTicket(ctx context.Context, req *ticketv1.CreateTi
 	)
 
 	departmentID, err := uuid.Parse(req.GetDepartmentId())
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "CreateTicket"),
@@ -206,6 +232,7 @@ func (t *TicketHandler) CreateTicket(ctx context.Context, req *ticketv1.CreateTi
 	}
 
 	categoryID, err := uuid.Parse(req.GetCategoryId())
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "CreateTicket"),
@@ -217,6 +244,7 @@ func (t *TicketHandler) CreateTicket(ctx context.Context, req *ticketv1.CreateTi
 	}
 
 	userID, err := uuid.Parse(req.GetUserId())
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "CreateTicket"),
@@ -263,6 +291,7 @@ func (t *TicketHandler) CreateTicket(ctx context.Context, req *ticketv1.CreateTi
 	}
 
 	res, err := t.service.CreateTicket(ctx, in)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "CreateTicket"),
@@ -295,6 +324,7 @@ func (t *TicketHandler) GetTicket(ctx context.Context, req *ticketv1.GetTicketRe
 	)
 
 	ticketID, err := uuid.Parse(req.GetTicketId())
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "GetTicket"),
@@ -307,13 +337,15 @@ func (t *TicketHandler) GetTicket(ctx context.Context, req *ticketv1.GetTicketRe
 
 	actor := actorFromContext(ctx)
 	in := &models.GetTicketInput{
-		TicketID:       ticketID,
-		ActorUserID:    actor.UserID,
-		ActorBrigadeID: actor.BrigadeID,
-		ActorRoles:     actor.Roles,
+		TicketID:          ticketID,
+		ActorUserID:       actor.UserID,
+		ActorBrigadeID:    actor.BrigadeID,
+		ActorDepartmentID: actor.DepartmentID,
+		ActorRoles:        actor.Roles,
 	}
 
 	res, err := t.service.GetTicket(ctx, in)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "GetTicket"),
@@ -349,6 +381,7 @@ func (t *TicketHandler) ListTickets(ctx context.Context, req *ticketv1.ListTicke
 	)
 
 	departmentID, err := parseOptionalUUIDPtr(req.DepartmentId, "department_id")
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "ListTickets"),
@@ -360,6 +393,7 @@ func (t *TicketHandler) ListTickets(ctx context.Context, req *ticketv1.ListTicke
 	}
 
 	userID, err := parseOptionalUUIDPtr(req.UserId, "user_id")
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "ListTickets"),
@@ -371,6 +405,7 @@ func (t *TicketHandler) ListTickets(ctx context.Context, req *ticketv1.ListTicke
 	}
 
 	brigadeID, err := parseOptionalUUIDPtr(req.BrigadeId, "brigade_id")
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "ListTickets"),
@@ -382,6 +417,7 @@ func (t *TicketHandler) ListTickets(ctx context.Context, req *ticketv1.ListTicke
 	}
 
 	categoryID, err := parseOptionalUUIDPtr(req.CategoryId, "category_id")
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "ListTickets"),
@@ -393,12 +429,14 @@ func (t *TicketHandler) ListTickets(ctx context.Context, req *ticketv1.ListTicke
 	}
 
 	var ticketStatus *models.TicketStatus
+
 	if req.Status != nil && req.GetStatus() != ticketv1.TicketStatus_TICKET_STATUS_UNSPECIFIED {
 		v := FromProtoStatus(req.GetStatus())
 		ticketStatus = &v
 	}
 
 	var priority *models.TicketPriority
+
 	if req.Priority != nil && req.GetPriority() != ticketv1.TicketPriority_TICKET_PRIORITY_UNSPECIFIED {
 		v := FromProtoPriority(req.GetPriority())
 		priority = &v
@@ -406,24 +444,26 @@ func (t *TicketHandler) ListTickets(ctx context.Context, req *ticketv1.ListTicke
 
 	actor := actorFromContext(ctx)
 	in := &models.ListTicketsInput{
-		DepartmentID:   departmentID,
-		UserID:         userID,
-		BrigadeID:      brigadeID,
-		CategoryID:     categoryID,
-		Status:         ticketStatus,
-		Priority:       priority,
-		CreatedFrom:    FromProtoTimestamp(req.GetCreatedFrom()),
-		CreatedTo:      FromProtoTimestamp(req.GetCreatedTo()),
-		Limit:          req.GetLimit(),
-		Offset:         req.GetOffset(),
-		SortBy:         FromProtoSortBy(req.GetSortBy()),
-		SortOrder:      FromProtoSortOrder(req.GetSortOrder()),
-		ActorUserID:    actor.UserID,
-		ActorBrigadeID: actor.BrigadeID,
-		ActorRoles:     actor.Roles,
+		DepartmentID:      departmentID,
+		UserID:            userID,
+		BrigadeID:         brigadeID,
+		CategoryID:        categoryID,
+		Status:            ticketStatus,
+		Priority:          priority,
+		CreatedFrom:       FromProtoTimestamp(req.GetCreatedFrom()),
+		CreatedTo:         FromProtoTimestamp(req.GetCreatedTo()),
+		Limit:             req.GetLimit(),
+		Offset:            req.GetOffset(),
+		SortBy:            FromProtoSortBy(req.GetSortBy()),
+		SortOrder:         FromProtoSortOrder(req.GetSortOrder()),
+		ActorUserID:       actor.UserID,
+		ActorBrigadeID:    actor.BrigadeID,
+		ActorDepartmentID: actor.DepartmentID,
+		ActorRoles:        actor.Roles,
 	}
 
 	res, err := t.service.ListTickets(ctx, in)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "ListTickets"),
@@ -462,6 +502,7 @@ func (t *TicketHandler) UpdateTicket(ctx context.Context, req *ticketv1.UpdateTi
 	)
 
 	ticketID, err := uuid.Parse(req.GetTicketId())
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "UpdateTicket"),
@@ -473,6 +514,7 @@ func (t *TicketHandler) UpdateTicket(ctx context.Context, req *ticketv1.UpdateTi
 	}
 
 	categoryID, err := parseOptionalUUIDPtr(req.CategoryId, "category_id")
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "UpdateTicket"),
@@ -484,6 +526,7 @@ func (t *TicketHandler) UpdateTicket(ctx context.Context, req *ticketv1.UpdateTi
 	}
 
 	updatedBy, err := parseOptionalUUID(req.GetUpdatedBy(), "updated_by")
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "UpdateTicket"),
@@ -495,12 +538,14 @@ func (t *TicketHandler) UpdateTicket(ctx context.Context, req *ticketv1.UpdateTi
 	}
 
 	assetID, err := parseOptionalUUID(req.GetAssetId(), "asset_id")
+
 	if err != nil {
 		logger.Warn("gRPC request failed", zap.String("method", "UpdateTicket"), zap.Error(err))
 		return nil, ticketStatusError("UpdateTicket", fmt.Errorf("%w: %v", models.ErrValidation, err))
 	}
 
 	var priority *models.TicketPriority
+
 	if req.Priority != nil && req.GetPriority() != ticketv1.TicketPriority_TICKET_PRIORITY_UNSPECIFIED {
 		v := FromProtoPriority(req.GetPriority())
 		priority = &v
@@ -508,16 +553,17 @@ func (t *TicketHandler) UpdateTicket(ctx context.Context, req *ticketv1.UpdateTi
 
 	actor := actorFromContext(ctx)
 	in := &models.UpdateTicketInput{
-		TicketID:       ticketID,
-		Title:          req.Title,
-		Description:    req.Description,
-		CategoryID:     categoryID,
-		Priority:       priority,
-		Address:        req.Address,
-		UpdatedBy:      updatedBy,
-		AssetID:        assetID,
-		ActorBrigadeID: actor.BrigadeID,
-		ActorRoles:     actor.Roles,
+		TicketID:          ticketID,
+		Title:             req.Title,
+		Description:       req.Description,
+		CategoryID:        categoryID,
+		Priority:          priority,
+		Address:           req.Address,
+		UpdatedBy:         updatedBy,
+		AssetID:           assetID,
+		ActorBrigadeID:    actor.BrigadeID,
+		ActorDepartmentID: actor.DepartmentID,
+		ActorRoles:        actor.Roles,
 	}
 
 	if req.Latitude != nil {
@@ -531,6 +577,7 @@ func (t *TicketHandler) UpdateTicket(ctx context.Context, req *ticketv1.UpdateTi
 	}
 
 	res, err := t.service.UpdateTicket(ctx, in)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "UpdateTicket"),
@@ -564,6 +611,7 @@ func (t *TicketHandler) ChangeTicketStatus(ctx context.Context, req *ticketv1.Ch
 	)
 
 	ticketID, err := uuid.Parse(req.GetTicketId())
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "ChangeTicketStatus"),
@@ -575,6 +623,7 @@ func (t *TicketHandler) ChangeTicketStatus(ctx context.Context, req *ticketv1.Ch
 	}
 
 	changedBy, err := uuid.Parse(req.GetChangedBy())
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "ChangeTicketStatus"),
@@ -587,15 +636,17 @@ func (t *TicketHandler) ChangeTicketStatus(ctx context.Context, req *ticketv1.Ch
 
 	actor := actorFromContext(ctx)
 	in := &models.ChangeTicketStatusInput{
-		TicketID:       ticketID,
-		NewStatus:      FromProtoStatus(req.GetNewStatus()),
-		ChangedBy:      changedBy,
-		Comment:        optionalString(req.GetComment()),
-		ActorBrigadeID: actor.BrigadeID,
-		ActorRoles:     actor.Roles,
+		TicketID:          ticketID,
+		NewStatus:         FromProtoStatus(req.GetNewStatus()),
+		ChangedBy:         changedBy,
+		Comment:           optionalString(req.GetComment()),
+		ActorBrigadeID:    actor.BrigadeID,
+		ActorDepartmentID: actor.DepartmentID,
+		ActorRoles:        actor.Roles,
 	}
 
 	res, err := t.service.ChangeTicketStatus(ctx, in)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "ChangeTicketStatus"),
@@ -631,6 +682,7 @@ func (t *TicketHandler) AssignBrigade(ctx context.Context, req *ticketv1.AssignB
 	)
 
 	ticketID, err := uuid.Parse(req.GetTicketId())
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "AssignBrigade"),
@@ -642,6 +694,7 @@ func (t *TicketHandler) AssignBrigade(ctx context.Context, req *ticketv1.AssignB
 	}
 
 	brigadeID, err := uuid.Parse(req.GetBrigadeId())
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "AssignBrigade"),
@@ -653,6 +706,7 @@ func (t *TicketHandler) AssignBrigade(ctx context.Context, req *ticketv1.AssignB
 	}
 
 	assignedBy, err := uuid.Parse(req.GetAssignedBy())
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "AssignBrigade"),
@@ -663,15 +717,18 @@ func (t *TicketHandler) AssignBrigade(ctx context.Context, req *ticketv1.AssignB
 		return nil, ticketStatusError("AssignBrigade", fmt.Errorf("%w: invalid assigned_by: %v", models.ErrValidation, err))
 	}
 
+	actor := actorFromContext(ctx)
 	in := &models.AssignBrigadeInput{
-		TicketID:   ticketID,
-		BrigadeID:  brigadeID,
-		AssignedBy: assignedBy,
-		Comment:    optionalString(req.GetComment()),
-		ActorRoles: actorFromContext(ctx).Roles,
+		TicketID:          ticketID,
+		BrigadeID:         brigadeID,
+		AssignedBy:        assignedBy,
+		Comment:           optionalString(req.GetComment()),
+		ActorDepartmentID: actor.DepartmentID,
+		ActorRoles:        actor.Roles,
 	}
 
 	res, err := t.service.AssignBrigade(ctx, in)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "AssignBrigade"),
@@ -706,6 +763,7 @@ func (t *TicketHandler) CancelTicket(ctx context.Context, req *ticketv1.CancelTi
 	)
 
 	ticketID, err := uuid.Parse(req.GetTicketId())
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "CancelTicket"),
@@ -717,6 +775,7 @@ func (t *TicketHandler) CancelTicket(ctx context.Context, req *ticketv1.CancelTi
 	}
 
 	canceledBy, err := uuid.Parse(req.GetCanceledBy())
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "CancelTicket"),
@@ -727,14 +786,17 @@ func (t *TicketHandler) CancelTicket(ctx context.Context, req *ticketv1.CancelTi
 		return nil, ticketStatusError("CancelTicket", fmt.Errorf("%w: invalid canceled_by: %v", models.ErrValidation, err))
 	}
 
+	actor := actorFromContext(ctx)
 	in := &models.CancelTicketInput{
-		TicketID:   ticketID,
-		CanceledBy: canceledBy,
-		Reason:     req.GetReason(),
-		ActorRoles: actorFromContext(ctx).Roles,
+		TicketID:          ticketID,
+		CanceledBy:        canceledBy,
+		Reason:            req.GetReason(),
+		ActorDepartmentID: actor.DepartmentID,
+		ActorRoles:        actor.Roles,
 	}
 
 	res, err := t.service.CancelTicket(ctx, in)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "CancelTicket"),
@@ -767,6 +829,7 @@ func (t *TicketHandler) CompleteTicket(ctx context.Context, req *ticketv1.Comple
 	)
 
 	ticketID, err := uuid.Parse(req.GetTicketId())
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "CompleteTicket"),
@@ -778,6 +841,7 @@ func (t *TicketHandler) CompleteTicket(ctx context.Context, req *ticketv1.Comple
 	}
 
 	completedBy, err := uuid.Parse(req.GetCompletedBy())
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "CompleteTicket"),
@@ -790,14 +854,16 @@ func (t *TicketHandler) CompleteTicket(ctx context.Context, req *ticketv1.Comple
 
 	actor := actorFromContext(ctx)
 	in := &models.CompleteTicketInput{
-		TicketID:       ticketID,
-		CompletedBy:    completedBy,
-		Comment:        optionalString(req.GetComment()),
-		ActorBrigadeID: actor.BrigadeID,
-		ActorRoles:     actor.Roles,
+		TicketID:          ticketID,
+		CompletedBy:       completedBy,
+		Comment:           optionalString(req.GetComment()),
+		ActorBrigadeID:    actor.BrigadeID,
+		ActorDepartmentID: actor.DepartmentID,
+		ActorRoles:        actor.Roles,
 	}
 
 	res, err := t.service.CompleteTicket(ctx, in)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "CompleteTicket"),
@@ -829,6 +895,7 @@ func (t *TicketHandler) GetTicketStatusHistory(ctx context.Context, req *ticketv
 	)
 
 	ticketID, err := uuid.Parse(req.GetTicketId())
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "GetTicketStatusHistory"),
@@ -841,15 +908,17 @@ func (t *TicketHandler) GetTicketStatusHistory(ctx context.Context, req *ticketv
 
 	actor := actorFromContext(ctx)
 	in := &models.GetTicketStatusHistoryInput{
-		TicketID:       ticketID,
-		Limit:          req.GetLimit(),
-		Offset:         req.GetOffset(),
-		ActorUserID:    actor.UserID,
-		ActorBrigadeID: actor.BrigadeID,
-		ActorRoles:     actor.Roles,
+		TicketID:          ticketID,
+		Limit:             req.GetLimit(),
+		Offset:            req.GetOffset(),
+		ActorUserID:       actor.UserID,
+		ActorBrigadeID:    actor.BrigadeID,
+		ActorDepartmentID: actor.DepartmentID,
+		ActorRoles:        actor.Roles,
 	}
 
 	res, err := t.service.GetTicketStatusHistory(ctx, in)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "GetTicketStatusHistory"),
@@ -897,6 +966,7 @@ func (t *TicketHandler) CreateCategory(ctx context.Context, req *ticketv1.Create
 	}
 
 	res, err := t.service.CreateCategory(ctx, in)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "CreateCategory"),
@@ -929,6 +999,7 @@ func (t *TicketHandler) GetCategory(ctx context.Context, req *ticketv1.GetCatego
 	)
 
 	categoryID, err := uuid.Parse(req.GetCategoryId())
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "GetCategory"),
@@ -944,6 +1015,7 @@ func (t *TicketHandler) GetCategory(ctx context.Context, req *ticketv1.GetCatego
 	}
 
 	res, err := t.service.GetCategory(ctx, in)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "GetCategory"),
@@ -982,6 +1054,7 @@ func (t *TicketHandler) ListCategories(ctx context.Context, req *ticketv1.ListCa
 	}
 
 	res, err := t.service.ListCategories(ctx, in)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "ListCategories"),
@@ -1020,6 +1093,7 @@ func (t *TicketHandler) UpdateCategory(ctx context.Context, req *ticketv1.Update
 	)
 
 	categoryID, err := uuid.Parse(req.GetCategoryId())
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "UpdateCategory"),
@@ -1043,6 +1117,7 @@ func (t *TicketHandler) UpdateCategory(ctx context.Context, req *ticketv1.Update
 	}
 
 	res, err := t.service.UpdateCategory(ctx, in)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "UpdateCategory"),
@@ -1075,6 +1150,7 @@ func (t *TicketHandler) DeleteCategory(ctx context.Context, req *ticketv1.Delete
 	)
 
 	categoryID, err := uuid.Parse(req.GetCategoryId())
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "DeleteCategory"),
@@ -1091,6 +1167,7 @@ func (t *TicketHandler) DeleteCategory(ctx context.Context, req *ticketv1.Delete
 	}
 
 	res, err := t.service.DeleteCategory(ctx, in)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "DeleteCategory"),
@@ -1114,11 +1191,13 @@ func (t *TicketHandler) DeleteCategory(ctx context.Context, req *ticketv1.Delete
 }
 
 func parseOptionalUUID(value string, field string) (*uuid.UUID, error) {
+
 	if value == "" {
 		return nil, nil
 	}
 
 	parsed, err := uuid.Parse(value)
+
 	if err != nil {
 		return nil, fmt.Errorf("invalid %s: %w", field, err)
 	}
@@ -1127,6 +1206,7 @@ func parseOptionalUUID(value string, field string) (*uuid.UUID, error) {
 }
 
 func parseOptionalUUIDPtr(value *string, field string) (*uuid.UUID, error) {
+
 	if value == nil {
 		return nil, nil
 	}
@@ -1135,6 +1215,7 @@ func parseOptionalUUIDPtr(value *string, field string) (*uuid.UUID, error) {
 }
 
 func optionalString(value string) *string {
+
 	if value == "" {
 		return nil
 	}
@@ -1142,31 +1223,48 @@ func optionalString(value string) *string {
 	return &value
 }
 func optionalParsedUUID(value *string) *uuid.UUID {
+
 	if value == nil {
 		return nil
 	}
+
 	v, e := uuid.Parse(*value)
+
 	if e != nil {
 		return nil
 	}
+
 	return &v
 }
 
 func actorFromContext(ctx context.Context) actorContext {
 	md, ok := metadata.FromIncomingContext(ctx)
+
 	if !ok {
 		return actorContext{}
 	}
 
 	var actor actorContext
+
 	if values := md.Get("x-actor-user-id"); len(values) > 0 && values[0] != "" {
+
 		if parsed, err := uuid.Parse(values[0]); err == nil {
 			actor.UserID = &parsed
 		}
+
 	}
+
 	if values := md.Get("x-actor-brigade-id"); len(values) > 0 && values[0] != "" {
+
 		if parsed, err := uuid.Parse(values[0]); err == nil {
 			actor.BrigadeID = &parsed
+		}
+
+	}
+
+	if values := md.Get("x-actor-department-id"); len(values) > 0 && values[0] != "" {
+		if parsed, err := uuid.Parse(values[0]); err == nil {
+			actor.DepartmentID = &parsed
 		}
 	}
 
@@ -1174,9 +1272,11 @@ func actorFromContext(ctx context.Context) actorContext {
 		for _, value := range values {
 			for _, role := range strings.Split(value, ",") {
 				role = strings.TrimSpace(role)
+
 				if role != "" {
 					actor.Roles = append(actor.Roles, role)
 				}
+
 			}
 		}
 	}
@@ -1186,6 +1286,7 @@ func actorFromContext(ctx context.Context) actorContext {
 
 func protoHasField(message interface{ ProtoReflect() protoreflect.Message }, fieldName protoreflect.Name) bool {
 	field := message.ProtoReflect().Descriptor().Fields().ByName(fieldName)
+
 	if field == nil {
 		return false
 	}
@@ -1198,6 +1299,7 @@ func ticketStatusError(method string, err error) error {
 }
 
 func ticketErrorCode(err error) codes.Code {
+
 	if err == nil {
 		return codes.OK
 	}
@@ -1232,6 +1334,7 @@ func ticketErrorCode(err error) codes.Code {
 }
 
 func toProtoCategory(category *models.TicketCategory) *ticketv1.TicketCategory {
+
 	if category == nil {
 		return nil
 	}
@@ -1248,21 +1351,25 @@ func toProtoCategory(category *models.TicketCategory) *ticketv1.TicketCategory {
 }
 
 func toProtoStatusHistory(item *models.TicketStatusHistory) *ticketv1.TicketStatusHistory {
+
 	if item == nil {
 		return nil
 	}
 
 	oldStatus := ticketv1.TicketStatus_TICKET_STATUS_UNSPECIFIED
+
 	if item.OldStatus != nil {
 		oldStatus = ToProtoStatus(*item.OldStatus)
 	}
 
 	changedBy := ""
+
 	if item.ChangedBy != nil {
 		changedBy = item.ChangedBy.String()
 	}
 
 	comment := ""
+
 	if item.Comment != nil {
 		comment = *item.Comment
 	}

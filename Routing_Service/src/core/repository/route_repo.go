@@ -26,9 +26,11 @@ func NewRouteRepo(
 	writePool *pgxpool.Pool,
 	readPool *pgxpool.Pool,
 ) *RouteRepo {
+
 	if readPool == nil {
 		readPool = writePool
 	}
+
 	return &RouteRepo{
 		writePool: writePool,
 		readPool:  readPool,
@@ -40,32 +42,42 @@ func (r *RouteRepo) CreateRoute(
 	route *models.Route,
 ) (*models.Route, error) {
 	tx, err := r.writePool.Begin(ctx)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: begin create route: %w", err)
 	}
+
 	defer tx.Rollback(ctx)
 
 	if err = writeRoute(ctx, tx, route); err != nil {
 		var databaseError *pgconn.PgError
+
 		if errors.As(err, &databaseError) && databaseError.ConstraintName == "routes_one_open_route_per_ticket_idx" {
 			_ = tx.Rollback(ctx)
 			existing, lookupErr := r.GetOpenRouteByTicket(ctx, route.TicketID)
+
 			if lookupErr != nil {
 				return nil, lookupErr
 			}
+
 			if existing.BrigadeID != route.BrigadeID {
 				return nil, models.ErrConflict
 			}
+
 			return existing, nil
 		}
+
 		return nil, err
 	}
+
 	if err = appendEvent(ctx, tx, "routing.route.created.v1", route); err != nil {
 		return nil, err
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repository: commit create route: %w", err)
 	}
+
 	return route, nil
 }
 
@@ -90,12 +102,15 @@ func (r *RouteRepo) GetRoute(
  WHERE id = $1`
 
 	route, err := scanRoute(r.readPool.QueryRow(ctx, query, id))
+
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, models.ErrNotFound
 	}
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: get route: %w", err)
 	}
+
 	return route, nil
 }
 
@@ -109,12 +124,15 @@ func (r *RouteRepo) GetOpenRouteByTicket(ctx context.Context, ticketID string) (
  LIMIT 1`
 
 	route, err := scanRoute(r.readPool.QueryRow(ctx, query, ticketID))
+
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, models.ErrNotFound
 	}
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: get open route by ticket: %w", err)
 	}
+
 	return route, nil
 }
 func (r *RouteRepo) UpdateCalculation(
@@ -122,18 +140,23 @@ func (r *RouteRepo) UpdateCalculation(
 	route *models.Route,
 ) (*models.Route, error) {
 	origin, err := json.Marshal(route.Origin)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: encode origin: %w", err)
 	}
+
 	calculation, err := json.Marshal(route.Calculation)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: encode calculation: %w", err)
 	}
 
 	tx, err := r.writePool.Begin(ctx)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: begin recalculate route: %w", err)
 	}
+
 	defer tx.Rollback(ctx)
 
 	const query = `UPDATE routes
@@ -168,18 +191,23 @@ func (r *RouteRepo) UpdateCalculation(
 			route.UpdatedAt,
 		),
 	)
+
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, models.ErrNotFound
 	}
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: recalculate route: %w", err)
 	}
+
 	if err = appendEvent(ctx, tx, "routing.route.recalculated.v1", updated); err != nil {
 		return nil, err
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repository: commit recalculate route: %w", err)
 	}
+
 	return updated, nil
 }
 
@@ -197,18 +225,22 @@ func (r *RouteRepo) ListRoutes(
 			fmt.Sprintf(expression, len(args)),
 		)
 	}
+
 	if in.TicketID != nil {
 		add("ticket_id = $%d", *in.TicketID)
 	}
+
 	if in.BrigadeID != nil {
 		add("brigade_id = $%d", *in.BrigadeID)
 	}
+
 	if in.Status != nil {
 		add("status = $%d", *in.Status)
 	}
 
 	clause := strings.Join(where, " AND ")
 	var total int64
+
 	if err := r.readPool.QueryRow(
 		ctx,
 		"SELECT count(*) FROM routes WHERE "+clause,
@@ -239,9 +271,11 @@ func (r *RouteRepo) ListRoutes(
 	)
 
 	rows, err := r.readPool.Query(ctx, query, args...)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: list routes: %w", err)
 	}
+
 	defer rows.Close()
 
 	result := &models.ListRoutesResult{
@@ -250,14 +284,18 @@ func (r *RouteRepo) ListRoutes(
 	}
 	for rows.Next() {
 		route, scanErr := scanRoute(rows)
+
 		if scanErr != nil {
 			return nil, fmt.Errorf("repository: scan route: %w", scanErr)
 		}
+
 		result.Routes = append(result.Routes, route)
 	}
+
 	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("repository: route rows: %w", err)
 	}
+
 	return result, nil
 }
 
@@ -267,22 +305,31 @@ func writeRoute(
 	route *models.Route,
 ) error {
 	origin, err := json.Marshal(route.Origin)
+
 	if err != nil {
 		return fmt.Errorf("repository: encode origin: %w", err)
 	}
+
 	destination, err := json.Marshal(route.Destination)
+
 	if err != nil {
 		return fmt.Errorf("repository: encode destination: %w", err)
 	}
+
 	waypoints, err := json.Marshal(route.Waypoints)
+
 	if err != nil {
 		return fmt.Errorf("repository: encode waypoints: %w", err)
 	}
+
 	options, err := json.Marshal(route.Options)
+
 	if err != nil {
 		return fmt.Errorf("repository: encode options: %w", err)
 	}
+
 	calculation, err := json.Marshal(route.Calculation)
+
 	if err != nil {
 		return fmt.Errorf("repository: encode calculation: %w", err)
 	}
@@ -304,6 +351,7 @@ func writeRoute(
   $1, $2, $3, $4, $5, $6,
   $7, $8, $9, $10, $11, $12
  )`
+
 	if _, err = tx.Exec(
 		ctx,
 		query,
@@ -322,6 +370,7 @@ func writeRoute(
 	); err != nil {
 		return fmt.Errorf("repository: create route: %w", err)
 	}
+
 	return nil
 }
 
@@ -360,15 +409,18 @@ func appendEvent(
 		DurationSeconds: route.Calculation.Summary.DurationSeconds,
 		Success:         route.CalculationSuccess != nil && *route.CalculationSuccess,
 	})
+
 	if err != nil {
 		return fmt.Errorf("repository: encode route event: %w", err)
 	}
+
 	const query = `INSERT INTO outbox_events(
   id,
   aggregate_id,
   event_type,
   payload
  ) VALUES($1, $2, $3, $4)`
+
 	if _, err = tx.Exec(
 		ctx,
 		query,
@@ -379,6 +431,7 @@ func appendEvent(
 	); err != nil {
 		return fmt.Errorf("repository: append route event: %w", err)
 	}
+
 	return nil
 }
 
@@ -403,25 +456,33 @@ func (r *RouteRepo) RecordCalculationFailure(ctx context.Context, failure models
 		TraceID:            traceID(ctx),
 		Success:            false,
 	})
+
 	if err != nil {
 		return fmt.Errorf("repository: encode calculation failure: %w", err)
 	}
+
 	aggregateID, err := uuid.Parse(failure.AggregateID)
+
 	if err != nil {
 		return fmt.Errorf("repository: parse calculation failure aggregate id: %w", err)
 	}
+
 	_, err = r.writePool.Exec(ctx, `INSERT INTO outbox_events(id,aggregate_type,aggregate_id,event_type,payload) VALUES($1,$2,$3,$4,$5)`, eventID, failure.AggregateType, aggregateID, "routing.calculation.failed.v1", payload)
+
 	if err != nil {
 		return fmt.Errorf("repository: append calculation failure: %w", err)
 	}
+
 	return nil
 }
 
 func traceID(ctx context.Context) string {
 	spanContext := trace.SpanContextFromContext(ctx)
+
 	if !spanContext.IsValid() {
 		return ""
 	}
+
 	return spanContext.TraceID().String()
 }
 
@@ -465,9 +526,11 @@ func scanRoute(row rowScanner) (*models.Route, error) {
 		{data: calculation, target: &route.Calculation},
 	}
 	for _, value := range values {
+
 		if err := json.Unmarshal(value.data, value.target); err != nil {
 			return nil, fmt.Errorf("decode route: %w", err)
 		}
+
 	}
 	return route, nil
 }

@@ -60,9 +60,11 @@ func TestDepartmentService_CreateDepartment_Success(t *testing.T) {
 	departmentID := uuid.New()
 	svc := newTestDepartmentService(&mockDepartmentRepo{
 		createDepartmentFunc: func(ctx context.Context, in *models.CreateDepartmentInput) (*models.Department, error) {
+
 			if in.Name != "Roads" {
 				t.Fatalf("expected name Roads, got %s", in.Name)
 			}
+
 			return newDepartment(departmentID), nil
 		},
 	})
@@ -75,9 +77,11 @@ func TestDepartmentService_CreateDepartment_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
+
 	if result.Department.ID != departmentID {
 		t.Fatalf("expected department id %s, got %s", departmentID, result.Department.ID)
 	}
+
 }
 
 func TestDepartmentService_CreateDepartment_InvalidInput(t *testing.T) {
@@ -91,9 +95,11 @@ func TestDepartmentService_CreateDepartment_InvalidInput(t *testing.T) {
 	if result != nil {
 		t.Fatal("expected nil result")
 	}
+
 	if !errors.Is(err, models.ErrValidation) {
 		t.Fatalf("expected validation error, got %v", err)
 	}
+
 }
 
 func TestDepartmentService_CreateDepartment_PermissionDenied(t *testing.T) {
@@ -113,21 +119,26 @@ func TestDepartmentService_CreateDepartment_PermissionDenied(t *testing.T) {
 	if result != nil {
 		t.Fatal("expected nil result")
 	}
+
 	if !errors.Is(err, models.ErrPermissionDenied) {
 		t.Fatalf("expected permission denied, got %v", err)
 	}
+
 	if called {
 		t.Fatal("repo should not be called")
 	}
+
 }
 
 func TestDepartmentService_GetDepartmentByID_Success(t *testing.T) {
 	departmentID := uuid.New()
 	svc := newTestDepartmentService(&mockDepartmentRepo{
 		getDepartmentByIDFunc: func(ctx context.Context, id uuid.UUID) (*models.Department, error) {
+
 			if id != departmentID {
 				t.Fatalf("expected id %s, got %s", departmentID, id)
 			}
+
 			return newDepartment(departmentID), nil
 		},
 	})
@@ -137,9 +148,11 @@ func TestDepartmentService_GetDepartmentByID_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
+
 	if result.Department.ID != departmentID {
 		t.Fatalf("expected department id %s, got %s", departmentID, result.Department.ID)
 	}
+
 }
 
 func TestDepartmentService_GetDepartmentByID_NotFound(t *testing.T) {
@@ -155,18 +168,22 @@ func TestDepartmentService_GetDepartmentByID_NotFound(t *testing.T) {
 	if result != nil {
 		t.Fatal("expected nil result")
 	}
+
 	if !errors.Is(err, models.ErrNotFound) {
 		t.Fatalf("expected not found, got %v", err)
 	}
+
 }
 
 func TestDepartmentService_ListDepartments_Success(t *testing.T) {
 	departmentID := uuid.New()
 	svc := newTestDepartmentService(&mockDepartmentRepo{
 		listDepartmentsFunc: func(ctx context.Context, in *models.ListDepartmentsInput) ([]*models.Department, int64, error) {
+
 			if in.Limit != models.DefaultLimit {
 				t.Fatalf("expected normalized limit %d, got %d", models.DefaultLimit, in.Limit)
 			}
+
 			return []*models.Department{newDepartment(departmentID)}, 1, nil
 		},
 	})
@@ -176,9 +193,11 @@ func TestDepartmentService_ListDepartments_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
+
 	if result.Total != 1 || len(result.Departments) != 1 {
 		t.Fatalf("expected one department, got total=%d len=%d", result.Total, len(result.Departments))
 	}
+
 }
 
 func TestDepartmentService_UpdateDepartment_Success(t *testing.T) {
@@ -186,9 +205,11 @@ func TestDepartmentService_UpdateDepartment_Success(t *testing.T) {
 	name := "Water"
 	svc := newTestDepartmentService(&mockDepartmentRepo{
 		updateDepartmentFunc: func(ctx context.Context, in *models.UpdateDepartmentInput) (*models.Department, error) {
+
 			if in.ID != departmentID {
 				t.Fatalf("expected id %s, got %s", departmentID, in.ID)
 			}
+
 			department := newDepartment(departmentID)
 			department.Name = *in.Name
 			return department, nil
@@ -204,9 +225,11 @@ func TestDepartmentService_UpdateDepartment_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
+
 	if result.Department.Name != name {
 		t.Fatalf("expected name %s, got %s", name, result.Department.Name)
 	}
+
 }
 
 func TestDepartmentService_UpdateDepartment_RequiresChange(t *testing.T) {
@@ -220,18 +243,22 @@ func TestDepartmentService_UpdateDepartment_RequiresChange(t *testing.T) {
 	if result != nil {
 		t.Fatal("expected nil result")
 	}
+
 	if !errors.Is(err, models.ErrValidation) {
 		t.Fatalf("expected validation error, got %v", err)
 	}
+
 }
 
 func TestDepartmentService_DeleteDepartment_Success(t *testing.T) {
 	departmentID := uuid.New()
 	svc := newTestDepartmentService(&mockDepartmentRepo{
 		deleteDepartmentFunc: func(ctx context.Context, in *models.DeleteDepartmentInput) (*models.Department, error) {
+
 			if in.ID != departmentID {
 				t.Fatalf("expected id %s, got %s", departmentID, in.ID)
 			}
+
 			department := newDepartment(departmentID)
 			department.Status = models.DepartmentStatusArchived
 			return department, nil
@@ -246,9 +273,11 @@ func TestDepartmentService_DeleteDepartment_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
+
 	if result.Department.Status != models.DepartmentStatusArchived {
 		t.Fatalf("expected archived status, got %s", result.Department.Status)
 	}
+
 }
 
 func TestDepartmentService_DeleteDepartment_PermissionDenied(t *testing.T) {
@@ -262,7 +291,9 @@ func TestDepartmentService_DeleteDepartment_PermissionDenied(t *testing.T) {
 	if result != nil {
 		t.Fatal("expected nil result")
 	}
+
 	if !errors.Is(err, models.ErrPermissionDenied) {
 		t.Fatalf("expected permission denied, got %v", err)
 	}
+
 }

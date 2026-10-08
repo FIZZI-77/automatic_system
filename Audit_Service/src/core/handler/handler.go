@@ -25,24 +25,32 @@ func New(service service.AuditService) *Handler {
 }
 
 func (h *Handler) GetAuditEntry(ctx context.Context, req *auditv1.GetAuditEntryRequest) (*auditv1.GetAuditEntryResponse, error) {
+
 	if err := authorize(ctx); err != nil {
 		return nil, err
 	}
+
 	id, err := uuid.Parse(req.GetId())
+
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid audit entry id")
 	}
+
 	entry, err := h.service.Get(ctx, id)
+
 	if err != nil {
 		return nil, mapError(err)
 	}
+
 	return &auditv1.GetAuditEntryResponse{Entry: toProto(entry)}, nil
 }
 
 func (h *Handler) ListAuditEntries(ctx context.Context, req *auditv1.ListAuditEntriesRequest) (*auditv1.ListAuditEntriesResponse, error) {
+
 	if err := authorize(ctx); err != nil {
 		return nil, err
 	}
+
 	filter := models.Filter{
 		Action:     req.Action,
 		EntityType: req.EntityType,
@@ -53,25 +61,33 @@ func (h *Handler) ListAuditEntries(ctx context.Context, req *auditv1.ListAuditEn
 		Limit:      req.GetLimit(),
 		Offset:     req.GetOffset(),
 	}
+
 	if req.ActorId != nil {
 		id, err := uuid.Parse(req.GetActorId())
+
 		if err != nil {
 			return nil, status.Error(codes.InvalidArgument, "invalid actor id")
 		}
+
 		filter.ActorID = &id
 	}
+
 	if req.From != nil {
 		value := req.From.AsTime()
 		filter.From = &value
 	}
+
 	if req.To != nil {
 		value := req.To.AsTime()
 		filter.To = &value
 	}
+
 	entries, total, err := h.service.List(ctx, filter)
+
 	if err != nil {
 		return nil, mapError(err)
 	}
+
 	result := make([]*auditv1.AuditEntry, 0, len(entries))
 	for _, entry := range entries {
 		result = append(result, toProto(entry))
@@ -92,9 +108,11 @@ func authorize(ctx context.Context) error {
 }
 
 func toProto(entry *models.Entry) *auditv1.AuditEntry {
+
 	if entry == nil {
 		return nil
 	}
+
 	data, _ := structpb.NewStruct(entry.Data)
 	result := &auditv1.AuditEntry{
 		Id:         entry.ID.String(),
@@ -109,16 +127,20 @@ func toProto(entry *models.Entry) *auditv1.AuditEntry {
 		OccurredAt: timestamppb.New(entry.OccurredAt),
 		RecordedAt: timestamppb.New(entry.RecordedAt),
 	}
+
 	if entry.ActorID != nil {
 		value := entry.ActorID.String()
 		result.ActorId = &value
 	}
+
 	return result
 }
 
 func mapError(err error) error {
+
 	if service.IsNotFound(err) {
 		return status.Error(codes.NotFound, "audit entry not found")
 	}
+
 	return status.Error(codes.Internal, "audit operation failed")
 }

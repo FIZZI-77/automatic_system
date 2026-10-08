@@ -49,6 +49,7 @@ func NewService(
 	profileProvisioner ProfileProvisioner,
 	logger *zap.Logger,
 ) *Service {
+
 	if logger == nil {
 		logger = zap.NewNop()
 	}

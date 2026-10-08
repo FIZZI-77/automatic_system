@@ -32,16 +32,19 @@ func TestTXRepo_Logout_RevokesSessionAndTokens(t *testing.T) {
 		IsRevoked: false,
 		ExpiresAt: time.Now().Add(time.Hour),
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create refresh token: %v", err)
 	}
 
 	err = txRepo.Logout(ctx, sessionID)
+
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
 
 	session, err := repo.GetSessionByID(ctx, sessionID)
+
 	if err != nil {
 		t.Fatalf("failed to get session: %v", err)
 	}
@@ -55,6 +58,7 @@ func TestTXRepo_Logout_RevokesSessionAndTokens(t *testing.T) {
 	}
 
 	token, err := getRefreshTokenByHashForTXTest(ctx, db, tokenHash)
+
 	if err != nil {
 		t.Fatalf("failed to get refresh token: %v", err)
 	}
@@ -66,6 +70,7 @@ func TestTXRepo_Logout_RevokesSessionAndTokens(t *testing.T) {
 	if token.RevokedAt == nil {
 		t.Fatal("expected refresh token revoked_at not nil")
 	}
+
 }
 
 func TestTXRepo_Logout_UnknownSession_DoesNotFail(t *testing.T) {
@@ -76,9 +81,11 @@ func TestTXRepo_Logout_UnknownSession_DoesNotFail(t *testing.T) {
 	txRepo := NewTXRepoStruct(db)
 
 	err := txRepo.Logout(ctx, uuid.New())
+
 	if err != nil {
 		t.Fatalf("expected nil error for unknown session, got %v", err)
 	}
+
 }
 
 func TestTXRepo_LogoutAll_RevokesUserSessionsAndTokens(t *testing.T) {
@@ -108,6 +115,7 @@ func TestTXRepo_LogoutAll_RevokesUserSessionsAndTokens(t *testing.T) {
 		IsRevoked: false,
 		ExpiresAt: time.Now().Add(time.Hour),
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create first refresh token: %v", err)
 	}
@@ -119,6 +127,7 @@ func TestTXRepo_LogoutAll_RevokesUserSessionsAndTokens(t *testing.T) {
 		IsRevoked: false,
 		ExpiresAt: time.Now().Add(time.Hour),
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create second refresh token: %v", err)
 	}
@@ -130,11 +139,13 @@ func TestTXRepo_LogoutAll_RevokesUserSessionsAndTokens(t *testing.T) {
 		IsRevoked: false,
 		ExpiresAt: time.Now().Add(time.Hour),
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create other refresh token: %v", err)
 	}
 
 	count, err := txRepo.LogoutAll(ctx, userID)
+
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -144,16 +155,19 @@ func TestTXRepo_LogoutAll_RevokesUserSessionsAndTokens(t *testing.T) {
 	}
 
 	firstSession, err := repo.GetSessionByID(ctx, firstSessionID)
+
 	if err != nil {
 		t.Fatalf("failed to get first session: %v", err)
 	}
 
 	secondSession, err := repo.GetSessionByID(ctx, secondSessionID)
+
 	if err != nil {
 		t.Fatalf("failed to get second session: %v", err)
 	}
 
 	otherSession, err := repo.GetSessionByID(ctx, otherSessionID)
+
 	if err != nil {
 		t.Fatalf("failed to get other session: %v", err)
 	}
@@ -183,16 +197,19 @@ func TestTXRepo_LogoutAll_RevokesUserSessionsAndTokens(t *testing.T) {
 	}
 
 	firstToken, err := getRefreshTokenByHashForTXTest(ctx, db, firstTokenHash)
+
 	if err != nil {
 		t.Fatalf("failed to get first token: %v", err)
 	}
 
 	secondToken, err := getRefreshTokenByHashForTXTest(ctx, db, secondTokenHash)
+
 	if err != nil {
 		t.Fatalf("failed to get second token: %v", err)
 	}
 
 	otherToken, err := getRefreshTokenByHashForTXTest(ctx, db, otherTokenHash)
+
 	if err != nil {
 		t.Fatalf("failed to get other token: %v", err)
 	}
@@ -220,6 +237,7 @@ func TestTXRepo_LogoutAll_RevokesUserSessionsAndTokens(t *testing.T) {
 	if otherToken.RevokedAt != nil {
 		t.Fatal("expected other user token revoked_at nil")
 	}
+
 }
 
 func TestTXRepo_LogoutAll_NoSessions(t *testing.T) {
@@ -230,6 +248,7 @@ func TestTXRepo_LogoutAll_NoSessions(t *testing.T) {
 	txRepo := NewTXRepoStruct(db)
 
 	count, err := txRepo.LogoutAll(ctx, uuid.New())
+
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -237,6 +256,7 @@ func TestTXRepo_LogoutAll_NoSessions(t *testing.T) {
 	if count != 0 {
 		t.Fatalf("expected revoked sessions count 0, got %d", count)
 	}
+
 }
 
 func TestTXRepo_ChangePassword_RevokeOnlyCurrentSession(t *testing.T) {
@@ -263,6 +283,7 @@ func TestTXRepo_ChangePassword_RevokeOnlyCurrentSession(t *testing.T) {
 		IsRevoked: false,
 		ExpiresAt: time.Now().Add(time.Hour),
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create current refresh token: %v", err)
 	}
@@ -274,6 +295,7 @@ func TestTXRepo_ChangePassword_RevokeOnlyCurrentSession(t *testing.T) {
 		IsRevoked: false,
 		ExpiresAt: time.Now().Add(time.Hour),
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create other refresh token: %v", err)
 	}
@@ -281,6 +303,7 @@ func TestTXRepo_ChangePassword_RevokeOnlyCurrentSession(t *testing.T) {
 	newPasswordHash := "new-password-hash"
 
 	count, err := txRepo.ChangePassword(ctx, userID, newPasswordHash, currentSessionID, false)
+
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -290,6 +313,7 @@ func TestTXRepo_ChangePassword_RevokeOnlyCurrentSession(t *testing.T) {
 	}
 
 	user, err := repo.GetUserByID(ctx, userID)
+
 	if err != nil {
 		t.Fatalf("failed to get user: %v", err)
 	}
@@ -299,11 +323,13 @@ func TestTXRepo_ChangePassword_RevokeOnlyCurrentSession(t *testing.T) {
 	}
 
 	currentSession, err := repo.GetSessionByID(ctx, currentSessionID)
+
 	if err != nil {
 		t.Fatalf("failed to get current session: %v", err)
 	}
 
 	otherSession, err := repo.GetSessionByID(ctx, otherSessionID)
+
 	if err != nil {
 		t.Fatalf("failed to get other session: %v", err)
 	}
@@ -325,11 +351,13 @@ func TestTXRepo_ChangePassword_RevokeOnlyCurrentSession(t *testing.T) {
 	}
 
 	currentToken, err := getRefreshTokenByHashForTXTest(ctx, db, currentTokenHash)
+
 	if err != nil {
 		t.Fatalf("failed to get current token: %v", err)
 	}
 
 	otherToken, err := getRefreshTokenByHashForTXTest(ctx, db, otherTokenHash)
+
 	if err != nil {
 		t.Fatalf("failed to get other token: %v", err)
 	}
@@ -349,6 +377,7 @@ func TestTXRepo_ChangePassword_RevokeOnlyCurrentSession(t *testing.T) {
 	if otherToken.RevokedAt != nil {
 		t.Fatal("expected other token revoked_at nil")
 	}
+
 }
 
 func TestTXRepo_ChangePassword_RevokeAllUserSessions(t *testing.T) {
@@ -378,6 +407,7 @@ func TestTXRepo_ChangePassword_RevokeAllUserSessions(t *testing.T) {
 		IsRevoked: false,
 		ExpiresAt: time.Now().Add(time.Hour),
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create first refresh token: %v", err)
 	}
@@ -389,6 +419,7 @@ func TestTXRepo_ChangePassword_RevokeAllUserSessions(t *testing.T) {
 		IsRevoked: false,
 		ExpiresAt: time.Now().Add(time.Hour),
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create second refresh token: %v", err)
 	}
@@ -400,6 +431,7 @@ func TestTXRepo_ChangePassword_RevokeAllUserSessions(t *testing.T) {
 		IsRevoked: false,
 		ExpiresAt: time.Now().Add(time.Hour),
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create other refresh token: %v", err)
 	}
@@ -407,6 +439,7 @@ func TestTXRepo_ChangePassword_RevokeAllUserSessions(t *testing.T) {
 	newPasswordHash := "new-password-hash-all"
 
 	count, err := txRepo.ChangePassword(ctx, userID, newPasswordHash, firstSessionID, true)
+
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -416,6 +449,7 @@ func TestTXRepo_ChangePassword_RevokeAllUserSessions(t *testing.T) {
 	}
 
 	user, err := repo.GetUserByID(ctx, userID)
+
 	if err != nil {
 		t.Fatalf("failed to get user: %v", err)
 	}
@@ -425,16 +459,19 @@ func TestTXRepo_ChangePassword_RevokeAllUserSessions(t *testing.T) {
 	}
 
 	firstSession, err := repo.GetSessionByID(ctx, firstSessionID)
+
 	if err != nil {
 		t.Fatalf("failed to get first session: %v", err)
 	}
 
 	secondSession, err := repo.GetSessionByID(ctx, secondSessionID)
+
 	if err != nil {
 		t.Fatalf("failed to get second session: %v", err)
 	}
 
 	otherSession, err := repo.GetSessionByID(ctx, otherSessionID)
+
 	if err != nil {
 		t.Fatalf("failed to get other session: %v", err)
 	}
@@ -464,16 +501,19 @@ func TestTXRepo_ChangePassword_RevokeAllUserSessions(t *testing.T) {
 	}
 
 	firstToken, err := getRefreshTokenByHashForTXTest(ctx, db, firstTokenHash)
+
 	if err != nil {
 		t.Fatalf("failed to get first token: %v", err)
 	}
 
 	secondToken, err := getRefreshTokenByHashForTXTest(ctx, db, secondTokenHash)
+
 	if err != nil {
 		t.Fatalf("failed to get second token: %v", err)
 	}
 
 	otherToken, err := getRefreshTokenByHashForTXTest(ctx, db, otherTokenHash)
+
 	if err != nil {
 		t.Fatalf("failed to get other token: %v", err)
 	}
@@ -501,6 +541,7 @@ func TestTXRepo_ChangePassword_RevokeAllUserSessions(t *testing.T) {
 	if otherToken.RevokedAt != nil {
 		t.Fatal("expected other user token revoked_at nil")
 	}
+
 }
 
 func TestTXRepo_ChangePassword_UnknownUser_DoesNotFailBecauseRowsAffectedNotChecked(t *testing.T) {
@@ -511,6 +552,7 @@ func TestTXRepo_ChangePassword_UnknownUser_DoesNotFailBecauseRowsAffectedNotChec
 	txRepo := NewTXRepoStruct(db)
 
 	count, err := txRepo.ChangePassword(ctx, uuid.New(), "new-password-hash", uuid.New(), true)
+
 	if err != nil {
 		t.Fatalf("expected nil error because ChangePassword does not check updated user rows, got %v", err)
 	}
@@ -518,6 +560,7 @@ func TestTXRepo_ChangePassword_UnknownUser_DoesNotFailBecauseRowsAffectedNotChec
 	if count != 0 {
 		t.Fatalf("expected revoked sessions count 0, got %d", count)
 	}
+
 }
 
 func TestTXRepo_ResetPassword_UpdatesPasswordAndRevokesSessionsAndTokens(t *testing.T) {
@@ -544,6 +587,7 @@ func TestTXRepo_ResetPassword_UpdatesPasswordAndRevokesSessionsAndTokens(t *test
 		IsRevoked: false,
 		ExpiresAt: time.Now().Add(time.Hour),
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create first refresh token: %v", err)
 	}
@@ -555,6 +599,7 @@ func TestTXRepo_ResetPassword_UpdatesPasswordAndRevokesSessionsAndTokens(t *test
 		IsRevoked: false,
 		ExpiresAt: time.Now().Add(time.Hour),
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create second refresh token: %v", err)
 	}
@@ -562,6 +607,7 @@ func TestTXRepo_ResetPassword_UpdatesPasswordAndRevokesSessionsAndTokens(t *test
 	newPasswordHash := "reset-password-hash"
 
 	count, err := txRepo.ResetPassword(ctx, userID, newPasswordHash)
+
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -571,6 +617,7 @@ func TestTXRepo_ResetPassword_UpdatesPasswordAndRevokesSessionsAndTokens(t *test
 	}
 
 	user, err := repo.GetUserByID(ctx, userID)
+
 	if err != nil {
 		t.Fatalf("failed to get user: %v", err)
 	}
@@ -580,11 +627,13 @@ func TestTXRepo_ResetPassword_UpdatesPasswordAndRevokesSessionsAndTokens(t *test
 	}
 
 	firstSession, err := repo.GetSessionByID(ctx, firstSessionID)
+
 	if err != nil {
 		t.Fatalf("failed to get first session: %v", err)
 	}
 
 	secondSession, err := repo.GetSessionByID(ctx, secondSessionID)
+
 	if err != nil {
 		t.Fatalf("failed to get second session: %v", err)
 	}
@@ -606,11 +655,13 @@ func TestTXRepo_ResetPassword_UpdatesPasswordAndRevokesSessionsAndTokens(t *test
 	}
 
 	firstToken, err := getRefreshTokenByHashForTXTest(ctx, db, firstTokenHash)
+
 	if err != nil {
 		t.Fatalf("failed to get first token: %v", err)
 	}
 
 	secondToken, err := getRefreshTokenByHashForTXTest(ctx, db, secondTokenHash)
+
 	if err != nil {
 		t.Fatalf("failed to get second token: %v", err)
 	}
@@ -630,6 +681,7 @@ func TestTXRepo_ResetPassword_UpdatesPasswordAndRevokesSessionsAndTokens(t *test
 	if secondToken.RevokedAt == nil {
 		t.Fatal("expected second token revoked_at not nil")
 	}
+
 }
 
 func TestTXRepo_ResetPassword_UnknownUser_ReturnsError(t *testing.T) {
@@ -648,6 +700,7 @@ func TestTXRepo_ResetPassword_UnknownUser_ReturnsError(t *testing.T) {
 	if count != 0 {
 		t.Fatalf("expected count 0, got %d", count)
 	}
+
 }
 
 func TestTXRepo_VerifyEmail_VerifiesUserAndMarksTokenUsed(t *testing.T) {
@@ -662,16 +715,19 @@ func TestTXRepo_VerifyEmail_VerifiesUserAndMarksTokenUsed(t *testing.T) {
 	tokenHash := createTestOneTimeToken(t, repo, userID, models.TokenTypeEmailVerification)
 
 	token, err := repo.GetOneTimeTokenByHashAndType(ctx, tokenHash, models.TokenTypeEmailVerification)
+
 	if err != nil {
 		t.Fatalf("failed to get one-time token: %v", err)
 	}
 
 	err = txRepo.VerifyEmail(ctx, userID, token.ID)
+
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
 
 	user, err := repo.GetUserByID(ctx, userID)
+
 	if err != nil {
 		t.Fatalf("failed to get user: %v", err)
 	}
@@ -681,6 +737,7 @@ func TestTXRepo_VerifyEmail_VerifiesUserAndMarksTokenUsed(t *testing.T) {
 	}
 
 	token, err = repo.GetOneTimeTokenByHashAndType(ctx, tokenHash, models.TokenTypeEmailVerification)
+
 	if err != nil {
 		t.Fatalf("failed to get updated one-time token: %v", err)
 	}
@@ -688,6 +745,7 @@ func TestTXRepo_VerifyEmail_VerifiesUserAndMarksTokenUsed(t *testing.T) {
 	if token.UsedAt == nil {
 		t.Fatal("expected token used_at not nil")
 	}
+
 }
 
 func TestTXRepo_VerifyEmail_AlreadyUsedTokenReturnsError(t *testing.T) {
@@ -702,6 +760,7 @@ func TestTXRepo_VerifyEmail_AlreadyUsedTokenReturnsError(t *testing.T) {
 	tokenHash := createTestOneTimeToken(t, repo, userID, models.TokenTypeEmailVerification)
 
 	token, err := repo.GetOneTimeTokenByHashAndType(ctx, tokenHash, models.TokenTypeEmailVerification)
+
 	if err != nil {
 		t.Fatalf("failed to get one-time token: %v", err)
 	}
@@ -713,6 +772,7 @@ func TestTXRepo_VerifyEmail_AlreadyUsedTokenReturnsError(t *testing.T) {
 	if err = txRepo.VerifyEmail(ctx, userID, token.ID); err == nil {
 		t.Fatal("expected error for already used token")
 	}
+
 }
 
 func TestTXRepo_ResetPasswordWithToken_UpdatesPasswordRevokesSessionsTokensAndMarksTokenUsed(t *testing.T) {
@@ -738,6 +798,7 @@ func TestTXRepo_ResetPasswordWithToken_UpdatesPasswordRevokesSessionsTokensAndMa
 		IsRevoked: false,
 		ExpiresAt: time.Now().Add(time.Hour),
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create first refresh token: %v", err)
 	}
@@ -749,12 +810,14 @@ func TestTXRepo_ResetPasswordWithToken_UpdatesPasswordRevokesSessionsTokensAndMa
 		IsRevoked: false,
 		ExpiresAt: time.Now().Add(time.Hour),
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create second refresh token: %v", err)
 	}
 
 	resetTokenHash := createTestOneTimeToken(t, repo, userID, models.TokenTypePasswordReset)
 	resetToken, err := repo.GetOneTimeTokenByHashAndType(ctx, resetTokenHash, models.TokenTypePasswordReset)
+
 	if err != nil {
 		t.Fatalf("failed to get reset token: %v", err)
 	}
@@ -762,6 +825,7 @@ func TestTXRepo_ResetPasswordWithToken_UpdatesPasswordRevokesSessionsTokensAndMa
 	newPasswordHash := "reset-password-with-token-hash"
 
 	count, err := txRepo.ResetPasswordWithToken(ctx, userID, newPasswordHash, resetToken.ID)
+
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -771,6 +835,7 @@ func TestTXRepo_ResetPasswordWithToken_UpdatesPasswordRevokesSessionsTokensAndMa
 	}
 
 	user, err := repo.GetUserByID(ctx, userID)
+
 	if err != nil {
 		t.Fatalf("failed to get user: %v", err)
 	}
@@ -780,11 +845,13 @@ func TestTXRepo_ResetPasswordWithToken_UpdatesPasswordRevokesSessionsTokensAndMa
 	}
 
 	firstSession, err := repo.GetSessionByID(ctx, firstSessionID)
+
 	if err != nil {
 		t.Fatalf("failed to get first session: %v", err)
 	}
 
 	secondSession, err := repo.GetSessionByID(ctx, secondSessionID)
+
 	if err != nil {
 		t.Fatalf("failed to get second session: %v", err)
 	}
@@ -794,11 +861,13 @@ func TestTXRepo_ResetPasswordWithToken_UpdatesPasswordRevokesSessionsTokensAndMa
 	}
 
 	firstToken, err := getRefreshTokenByHashForTXTest(ctx, db, firstTokenHash)
+
 	if err != nil {
 		t.Fatalf("failed to get first refresh token: %v", err)
 	}
 
 	secondToken, err := getRefreshTokenByHashForTXTest(ctx, db, secondTokenHash)
+
 	if err != nil {
 		t.Fatalf("failed to get second refresh token: %v", err)
 	}
@@ -808,6 +877,7 @@ func TestTXRepo_ResetPasswordWithToken_UpdatesPasswordRevokesSessionsTokensAndMa
 	}
 
 	resetToken, err = repo.GetOneTimeTokenByHashAndType(ctx, resetTokenHash, models.TokenTypePasswordReset)
+
 	if err != nil {
 		t.Fatalf("failed to get updated reset token: %v", err)
 	}
@@ -815,6 +885,7 @@ func TestTXRepo_ResetPasswordWithToken_UpdatesPasswordRevokesSessionsTokensAndMa
 	if resetToken.UsedAt == nil {
 		t.Fatal("expected reset token used_at not nil")
 	}
+
 }
 
 func TestTXRepo_ResetPasswordWithToken_AlreadyUsedTokenReturnsError(t *testing.T) {
@@ -829,6 +900,7 @@ func TestTXRepo_ResetPasswordWithToken_AlreadyUsedTokenReturnsError(t *testing.T
 	tokenHash := createTestOneTimeToken(t, repo, userID, models.TokenTypePasswordReset)
 
 	token, err := repo.GetOneTimeTokenByHashAndType(ctx, tokenHash, models.TokenTypePasswordReset)
+
 	if err != nil {
 		t.Fatalf("failed to get reset token: %v", err)
 	}
@@ -840,6 +912,7 @@ func TestTXRepo_ResetPasswordWithToken_AlreadyUsedTokenReturnsError(t *testing.T
 	if _, err = txRepo.ResetPasswordWithToken(ctx, userID, "second-password-hash", token.ID); err == nil {
 		t.Fatal("expected error for already used token")
 	}
+
 }
 
 func getRefreshTokenByHashForTXTest(ctx context.Context, db *pgxpool.Pool, tokenHash string) (*models.RefreshToken, error) {
@@ -863,6 +936,7 @@ func getRefreshTokenByHashForTXTest(ctx context.Context, db *pgxpool.Pool, token
 		&token.ReplacedByTokenID,
 		&token.CreatedAt,
 	)
+
 	if err != nil {
 		return nil, err
 	}

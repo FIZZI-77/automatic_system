@@ -11,15 +11,19 @@ import (
 )
 
 func main() {
+
 	if err := appconfig.Load(); err != nil {
 		log.Fatalf("configuration error: %v", err)
 	}
+
 	cfg, err := simulator.LoadConfig()
+
 	if err != nil {
 		log.Fatalf("configuration error: %v", err)
 	}
 
 	route, err := simulator.LoadRoute(cfg.RouteFile)
+
 	if err != nil {
 		log.Fatalf("route error: %v", err)
 	}
@@ -33,4 +37,5 @@ func main() {
 	if err = runner.Run(ctx); err != nil {
 		log.Fatalf("simulator stopped: %v", err)
 	}
+
 }

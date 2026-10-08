@@ -129,6 +129,7 @@ func (h *AuthHandler) Logout(ctx context.Context, request *v1.LogoutRequest) (*v
 	logger := h.logger.With(pkg.RequestIDField(ctx))
 
 	userID, err := uuid.Parse(request.GetUserId())
+
 	if err != nil {
 		logger.Warn("invalid user_id in request",
 			zap.String("method", "Logout"),
@@ -139,6 +140,7 @@ func (h *AuthHandler) Logout(ctx context.Context, request *v1.LogoutRequest) (*v
 	}
 
 	sessionID, err := uuid.Parse(request.GetSessionId())
+
 	if err != nil {
 		logger.Warn("invalid session_id in request",
 			zap.String("method", "Logout"),
@@ -154,6 +156,7 @@ func (h *AuthHandler) Logout(ctx context.Context, request *v1.LogoutRequest) (*v
 	}
 
 	err = h.service.Logout(ctx, logoutInput)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "Logout"),
@@ -198,6 +201,7 @@ func (h *AuthHandler) Refresh(ctx context.Context, request *v1.RefreshRequest) (
 	}
 
 	result, err := h.service.Refresh(ctx, refreshInput)
+
 	if err != nil {
 		logger.Info("gRPC request received",
 			zap.String("method", "Refresh"),
@@ -237,6 +241,7 @@ func (h *AuthHandler) LogoutAll(ctx context.Context, request *v1.LogoutAllReques
 	)
 
 	userID, err := uuid.Parse(request.GetUserId())
+
 	if err != nil {
 		logger.Warn("invalid user_id in request",
 			zap.String("method", "LogoutAll"),
@@ -251,6 +256,7 @@ func (h *AuthHandler) LogoutAll(ctx context.Context, request *v1.LogoutAllReques
 	}
 
 	result, err := h.service.LogoutAll(ctx, logoutInput)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "LogoutAll"),
@@ -286,6 +292,7 @@ func (h *AuthHandler) GetUserAuthInfo(ctx context.Context, request *v1.GetUserAu
 	)
 
 	userID, err := uuid.Parse(request.GetUserId())
+
 	if err != nil {
 		logger.Warn("invalid user_id in request",
 			zap.String("method", "GetUserAuthInfo"),
@@ -296,6 +303,7 @@ func (h *AuthHandler) GetUserAuthInfo(ctx context.Context, request *v1.GetUserAu
 	}
 
 	user, err := h.service.GetUserAuthInfo(ctx, userID)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "GetUserAuthInfo"),
@@ -371,6 +379,7 @@ func (h *AuthHandler) ChangePassword(ctx context.Context, request *v1.ChangePass
 	)
 
 	userID, err := uuid.Parse(request.GetUserId())
+
 	if err != nil {
 		logger.Warn("invalid user_id in request",
 			zap.String("method", "ChangePassword"),
@@ -381,6 +390,7 @@ func (h *AuthHandler) ChangePassword(ctx context.Context, request *v1.ChangePass
 	}
 
 	sessionID, err := uuid.Parse(request.GetSessionId())
+
 	if err != nil {
 		logger.Warn("invalid session_id in request",
 			zap.String("method", "ChangePassword"),
@@ -399,6 +409,7 @@ func (h *AuthHandler) ChangePassword(ctx context.Context, request *v1.ChangePass
 	}
 
 	out, err := h.service.ChangePassword(ctx, input)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "ChangePassword"),
@@ -435,6 +446,7 @@ func (h *AuthHandler) SendVerificationEmail(ctx context.Context, request *v1.Sen
 	)
 
 	userID, err := uuid.Parse(request.GetUserId())
+
 	if err != nil {
 		logger.Warn("invalid user_id in request",
 			zap.String("method", "SendVerificationEmail"),
@@ -450,6 +462,7 @@ func (h *AuthHandler) SendVerificationEmail(ctx context.Context, request *v1.Sen
 	}
 
 	out, err := h.service.SendVerification(ctx, input)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "SendVerificationEmail"),
@@ -490,6 +503,7 @@ func (h *AuthHandler) VerifyEmail(ctx context.Context, request *v1.VerifyEmailRe
 	}
 
 	out, err := h.service.VerifyEmail(ctx, input)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "VerifyEmail"),
@@ -532,6 +546,7 @@ func (h *AuthHandler) RequestPasswordReset(ctx context.Context, request *v1.Requ
 	}
 
 	out, err := h.service.RequestPasswordReset(ctx, input)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "RequestPasswordReset"),
@@ -573,6 +588,7 @@ func (h *AuthHandler) ResetPassword(ctx context.Context, request *v1.ResetPasswo
 	}
 
 	out, err := h.service.ResetPassword(ctx, input)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "ResetPassword"),
@@ -601,6 +617,7 @@ func authStatusError(method string, err error) error {
 }
 
 func loginStatusError(err error) error {
+
 	if errors.Is(err, models.ErrUserNotFound) || errors.Is(err, models.ErrInvalidPassword) {
 		return status.Error(codes.Unauthenticated, "invalid email or password")
 	}
@@ -609,6 +626,7 @@ func loginStatusError(err error) error {
 }
 
 func authErrorCode(err error) codes.Code {
+
 	if err == nil {
 		return codes.OK
 	}
@@ -670,9 +688,11 @@ func isValidationError(err error) bool {
 	}
 
 	for _, validationErr := range validationErrors {
+
 		if errors.Is(err, validationErr) {
 			return true
 		}
+
 	}
 
 	return false

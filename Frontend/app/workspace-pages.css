@@ -199,9 +199,37 @@
 .ticket-feedback label{display:grid;gap:6px}
 .ticket-feedback .ticket-feedback-resolved{display:flex;align-items:center;gap:8px}
 .ticket-feedback textarea{width:100%;resize:vertical}
+
+/* Keep a consistent vertical rhythm between analytics card groups. */
+.analytics-section > .analytics-kpis:not(:last-child) {
+  margin-bottom: 24px;
+}
+
+.analytics-section > .analytics-grid + .analytics-grid,
+.analytics-section > .breakdown-card + .analytics-grid,
+.analytics-section > .analytics-grid + .breakdown-card {
+  margin-top: 24px;
+}
+
+@media (max-width: 760px) {
+  .analytics-section > .analytics-kpis:not(:last-child) {
+    margin-bottom: 18px;
+  }
+
+  .analytics-section > .analytics-grid + .analytics-grid,
+  .analytics-section > .breakdown-card + .analytics-grid,
+  .analytics-section > .analytics-grid + .breakdown-card {
+    margin-top: 18px;
+  }
+}
 .department-performance-table{overflow-x:auto}
 .department-performance-table table{width:100%;border-collapse:collapse;min-width:1100px}
 .department-performance-table th,.department-performance-table td{padding:12px;text-align:left;border-bottom:1px solid #e2e8f0;vertical-align:top}
 .department-performance-table td small{display:block;color:#64748b;margin-top:3px}
 .department-performance-table tr.total{background:#f1f5f9;font-weight:600}
 .department-performance>p,.department-performance>small{color:#64748b}
+
+/* A header without an action group must keep its title copy stacked. */
+.ops-head > div:only-child {
+  display: block;
+}

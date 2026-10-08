@@ -3,7 +3,7 @@ globalImage:
   tag: sha-7e50eb65738b
   tags:
     analytics: sha-460e7c81c5c2
-    api-gateway: sha-460e7c81c5c2
+    api-gateway: sha-f8448de797fb
     asset: sha-460e7c81c5c2
     audit: sha-460e7c81c5c2
     auth: sha-460e7c81c5c2
@@ -18,7 +18,7 @@ globalImage:
     report: sha-460e7c81c5c2
     routing: sha-460e7c81c5c2
     sla: sha-460e7c81c5c2
-    ticket: sha-460e7c81c5c2
+    ticket: sha-f8448de797fb
   pullPolicy: Always
 
 migrations:

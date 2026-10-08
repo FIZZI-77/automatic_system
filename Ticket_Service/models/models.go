@@ -158,10 +158,11 @@ type CreateTicketResult struct {
 }
 
 type GetTicketInput struct {
-	TicketID       uuid.UUID
-	ActorUserID    *uuid.UUID
-	ActorBrigadeID *uuid.UUID
-	ActorRoles     []string
+	TicketID          uuid.UUID
+	ActorUserID       *uuid.UUID
+	ActorBrigadeID    *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
 }
 
 type GetTicketResult struct {
@@ -186,9 +187,10 @@ type ListTicketsInput struct {
 	Limit  int32
 	Offset int32
 
-	ActorUserID    *uuid.UUID
-	ActorBrigadeID *uuid.UUID
-	ActorRoles     []string
+	ActorUserID       *uuid.UUID
+	ActorBrigadeID    *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
 }
 
 type ListTicketsResult struct {
@@ -209,9 +211,10 @@ type UpdateTicketInput struct {
 	Longitude *float64
 	AssetID   *uuid.UUID
 
-	UpdatedBy      *uuid.UUID
-	ActorBrigadeID *uuid.UUID
-	ActorRoles     []string
+	UpdatedBy         *uuid.UUID
+	ActorBrigadeID    *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
 }
 
 type UpdateTicketResult struct {
@@ -219,12 +222,13 @@ type UpdateTicketResult struct {
 }
 
 type ChangeTicketStatusInput struct {
-	TicketID       uuid.UUID
-	NewStatus      TicketStatus
-	ChangedBy      uuid.UUID
-	Comment        *string
-	ActorBrigadeID *uuid.UUID
-	ActorRoles     []string
+	TicketID          uuid.UUID
+	NewStatus         TicketStatus
+	ChangedBy         uuid.UUID
+	Comment           *string
+	ActorBrigadeID    *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
 }
 
 type ChangeTicketStatusResult struct {
@@ -232,11 +236,12 @@ type ChangeTicketStatusResult struct {
 }
 
 type AssignBrigadeInput struct {
-	TicketID   uuid.UUID
-	BrigadeID  uuid.UUID
-	AssignedBy uuid.UUID
-	Comment    *string
-	ActorRoles []string
+	TicketID          uuid.UUID
+	BrigadeID         uuid.UUID
+	AssignedBy        uuid.UUID
+	Comment           *string
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
 }
 
 type AssignBrigadeResult struct {
@@ -244,10 +249,11 @@ type AssignBrigadeResult struct {
 }
 
 type CancelTicketInput struct {
-	TicketID   uuid.UUID
-	CanceledBy uuid.UUID
-	Reason     string
-	ActorRoles []string
+	TicketID          uuid.UUID
+	CanceledBy        uuid.UUID
+	Reason            string
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
 }
 
 type CancelTicketResult struct {
@@ -255,11 +261,12 @@ type CancelTicketResult struct {
 }
 
 type CompleteTicketInput struct {
-	TicketID       uuid.UUID
-	CompletedBy    uuid.UUID
-	Comment        *string
-	ActorBrigadeID *uuid.UUID
-	ActorRoles     []string
+	TicketID          uuid.UUID
+	CompletedBy       uuid.UUID
+	Comment           *string
+	ActorBrigadeID    *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
 }
 
 type CompleteTicketResult struct {
@@ -267,12 +274,13 @@ type CompleteTicketResult struct {
 }
 
 type GetTicketStatusHistoryInput struct {
-	TicketID       uuid.UUID
-	Limit          int32
-	Offset         int32
-	ActorUserID    *uuid.UUID
-	ActorBrigadeID *uuid.UUID
-	ActorRoles     []string
+	TicketID          uuid.UUID
+	Limit             int32
+	Offset            int32
+	ActorUserID       *uuid.UUID
+	ActorBrigadeID    *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
 }
 
 type GetTicketStatusHistoryResult struct {

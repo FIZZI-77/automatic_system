@@ -41,23 +41,30 @@ func contextWithCommandTx(ctx context.Context, tx pgx.Tx) context.Context {
 }
 
 func commandExec(ctx context.Context, fallback DBTX) DBTX {
+
 	if tx, ok := ctx.Value(commandTxContextKey{}).(pgx.Tx); ok && tx != nil {
 		return tx
 	}
+
 	return fallback
 }
 
 func beginNestedAware(ctx context.Context, exec DBTX) (pgx.Tx, error) {
+
 	if tx, ok := ctx.Value(commandTxContextKey{}).(pgx.Tx); ok && tx != nil {
 		return borrowedTx{Tx: tx}, nil
 	}
+
 	if tx, ok := exec.(pgx.Tx); ok {
 		return borrowedTx{Tx: tx}, nil
 	}
+
 	pool, ok := exec.(*pgxpool.Pool)
+
 	if !ok {
 		return nil, fmt.Errorf("repository: transaction source is unavailable")
 	}
+
 	return pool.Begin(ctx)
 }
 
@@ -74,35 +81,47 @@ func rollbackTxOnCancel(ctx context.Context, tx pgx.Tx) func() {
 		rollbackTx(ctx, tx)
 	})
 	return func() {
+
 		if stop() {
 			rollbackTx(ctx, tx)
 			return
 		}
+
 		<-done
 	}
 }
 
 func withTransaction(ctx context.Context, exec DBTX, operation string, fn func(txExec DBTX) error) error {
+
 	if tx, ok := ctx.Value(commandTxContextKey{}).(pgx.Tx); ok && tx != nil {
 		return fn(tx)
 	}
+
 	if tx, ok := exec.(pgx.Tx); ok {
 		return fn(tx)
 	}
+
 	pool, ok := exec.(*pgxpool.Pool)
+
 	if !ok {
 		return fmt.Errorf("repository: %s: transaction source is unavailable", operation)
 	}
+
 	tx, err := pool.Begin(ctx)
+
 	if err != nil {
 		return fmt.Errorf("repository: %s: begin tx: %w", operation, err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
+
 	if err = fn(tx); err != nil {
 		return err
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return fmt.Errorf("repository: %s: commit: %w", operation, err)
 	}
+
 	return nil
 }

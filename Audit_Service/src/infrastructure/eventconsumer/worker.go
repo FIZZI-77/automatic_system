@@ -42,10 +42,13 @@ func New(brokers []string, topic, group string, service EventConsumer, logger *z
 func (w *Worker) Run(ctx context.Context) error {
 	for {
 		message, err := w.reader.FetchMessage(ctx)
+
 		if err != nil {
+
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return nil
 			}
+
 			w.logger.Warn("fetch event failed; retrying", zap.String("topic", w.topic), zap.Error(err))
 			select {
 			case <-ctx.Done():
@@ -54,43 +57,56 @@ func (w *Worker) Run(ctx context.Context) error {
 				continue
 			}
 		}
+
 		messageCtx, span := telemetry.StartKafkaConsumer(ctx, message, w.group)
 		payload := map[string]any{}
+
 		if err = json.Unmarshal(message.Value, &payload); err != nil {
 			telemetry.End(span, err)
 			w.logger.Error("invalid event", zap.String("topic", w.topic), zap.Error(err))
+
 			if err = w.publishDLQ(messageCtx, message, err); err != nil {
 				return err
 			}
+
 			if err = w.reader.CommitMessages(ctx, message); err != nil {
 				return err
 			}
+
 			continue
 		}
+
 		headers := make(map[string]string, len(message.Headers))
 		for _, header := range message.Headers {
 			headers[header.Key] = string(header.Value)
 		}
 		id := first(headers["event_id"], value(payload, "event_id"))
+
 		if id == "" {
 			id = fmt.Sprintf("%s:%d:%d", w.topic, message.Partition, message.Offset)
 		}
+
 		action := first(headers["event_type"], value(payload, "event_type"), value(payload, "type"))
+
 		if action == "" {
 			action = "unknown." + strconv.FormatInt(message.Offset, 10)
 		}
+
 		event := models.Event{ID: id, Type: action, Topic: w.topic, Payload: payload, Headers: headers, Timestamp: message.Time}
 		err = retryCurrent(messageCtx, func() error { return w.service.Consume(messageCtx, event) }, func(attempt int, retryErr error) {
 			w.logger.Error("event processing failed; retrying current offset", zap.String("topic", w.topic), zap.Int("attempt", attempt), zap.Int64("offset", message.Offset), zap.Error(retryErr))
 		})
+
 		if err != nil {
 			telemetry.End(span, err)
 			return nil
 		}
+
 		if err = w.reader.CommitMessages(ctx, message); err != nil {
 			telemetry.End(span, err)
 			return err
 		}
+
 		telemetry.End(span, nil)
 	}
 }
@@ -105,9 +121,11 @@ func (w *Worker) publishDLQ(ctx context.Context, message kafka.Message, processE
 
 func dlqMessage(topic string, message kafka.Message, processErr error) kafka.Message {
 	errorText := processErr.Error()
+
 	if len(errorText) > 1000 {
 		errorText = errorText[:1000]
 	}
+
 	headers := append([]kafka.Header{}, message.Headers...)
 	headers = append(headers,
 		kafka.Header{Key: "x-error", Value: []byte(errorText)},
@@ -120,11 +138,13 @@ func dlqMessage(topic string, message kafka.Message, processErr error) kafka.Mes
 
 func retryCurrent(ctx context.Context, process func() error, onError func(int, error)) error {
 	for attempt := 1; ; attempt++ {
+
 		if err := process(); err == nil {
 			return nil
 		} else {
 			onError(attempt, err)
 		}
+
 		delay := time.Duration(1<<min(attempt-1, 5)) * time.Second
 		timer := time.NewTimer(delay)
 		select {
@@ -137,9 +157,11 @@ func retryCurrent(ctx context.Context, process func() error, onError func(int, e
 }
 func first(values ...string) string {
 	for _, item := range values {
+
 		if item != "" {
 			return item
 		}
+
 	}
 	return ""
 }

@@ -195,9 +195,11 @@ func activeDepartmentClient(t *testing.T, departmentID uuid.UUID) *mockDepartmen
 	t.Helper()
 	return &mockDepartmentClient{
 		getDepartmentByIDFunc: func(ctx context.Context, in *departmentv1.GetDepartmentByIDRequest, opts ...grpc.CallOption) (*departmentv1.GetDepartmentByIDResponse, error) {
+
 			if in.Id != departmentID.String() {
 				t.Fatalf("expected department id %s, got %s", departmentID, in.Id)
 			}
+
 			return &departmentv1.GetDepartmentByIDResponse{
 				Department: &departmentv1.Department{
 					Id:     departmentID.String(),
@@ -238,9 +240,11 @@ func TestBrigadeService_CreateBrigade_Success(t *testing.T) {
 	brigadeID := uuid.New()
 	mock := &mockBrigadeRepo{
 		createBrigadeFunc: func(ctx context.Context, in *models.CreateBrigadeInput) (*models.CreateBrigadeResult, error) {
+
 			if in.DepartmentID != departmentID {
 				t.Fatalf("expected department id %s, got %s", departmentID, in.DepartmentID)
 			}
+
 			return &models.CreateBrigadeResult{Brigade: testBrigade(brigadeID, departmentID, models.BrigadeStatusInactive)}, nil
 		},
 	}
@@ -256,9 +260,11 @@ func TestBrigadeService_CreateBrigade_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
+
 	if result.Brigade.ID != brigadeID {
 		t.Fatalf("expected brigade id %s, got %s", brigadeID, result.Brigade.ID)
 	}
+
 }
 
 func TestBrigadeService_CreateBrigade_DepartmentInactive(t *testing.T) {
@@ -287,12 +293,15 @@ func TestBrigadeService_CreateBrigade_DepartmentInactive(t *testing.T) {
 	if result != nil {
 		t.Fatal("expected nil result")
 	}
+
 	if err == nil {
 		t.Fatal("expected error")
 	}
+
 	if !errors.Is(err, models.ErrDepartmentInactive) {
 		t.Fatalf("expected ErrDepartmentInactive, got %v", err)
 	}
+
 }
 
 func TestMapDepartmentServiceError(t *testing.T) {
@@ -309,9 +318,11 @@ func TestMapDepartmentServiceError(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := mapDepartmentServiceError(tt.err)
+
 			if !errors.Is(got, tt.target) {
 				t.Fatalf("expected %v, got %v", tt.target, got)
 			}
+
 		})
 	}
 }
@@ -323,9 +334,11 @@ func TestBrigadeService_CreateBrigade_DepartmentRetry(t *testing.T) {
 	client := &mockDepartmentClient{
 		getDepartmentByIDFunc: func(ctx context.Context, in *departmentv1.GetDepartmentByIDRequest, opts ...grpc.CallOption) (*departmentv1.GetDepartmentByIDResponse, error) {
 			attempts++
+
 			if attempts == 1 {
 				return nil, status.Error(codes.Unavailable, "temporary")
 			}
+
 			return &departmentv1.GetDepartmentByIDResponse{
 				Department: &departmentv1.Department{Id: departmentID.String(), Status: departmentv1.DepartmentStatus_DEPARTMENT_STATUS_ACTIVE},
 			}, nil
@@ -347,9 +360,11 @@ func TestBrigadeService_CreateBrigade_DepartmentRetry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
+
 	if attempts != 2 {
 		t.Fatalf("expected 2 attempts, got %d", attempts)
 	}
+
 }
 
 func TestBrigadeService_GetBrigadeByID_DispatcherWrongDepartment(t *testing.T) {
@@ -372,9 +387,11 @@ func TestBrigadeService_GetBrigadeByID_DispatcherWrongDepartment(t *testing.T) {
 	if result != nil {
 		t.Fatal("expected nil result")
 	}
+
 	if !errors.Is(err, models.ErrPermissionDenied) {
 		t.Fatalf("expected permission denied, got %v", err)
 	}
+
 }
 
 func TestBrigadeService_GetBrigadeByID_WorkerOwnActiveBrigade(t *testing.T) {
@@ -392,18 +409,22 @@ func TestBrigadeService_GetBrigadeByID_WorkerOwnActiveBrigade(t *testing.T) {
 	svc := NewBrigadeService(newTestRepo(mock), nil, zap.NewNop())
 
 	result, err := svc.GetBrigadeByID(context.Background(), &models.GetBrigadeByIDInput{ID: brigadeID, ActorUserID: &workerID, ActorRoles: []string{"worker"}})
+
 	if err != nil || result == nil || result.Brigade.ID != brigadeID {
 		t.Fatalf("expected worker's own brigade, result=%v err=%v", result, err)
 	}
+
 }
 
 func TestBrigadeService_ListBrigades_DispatcherScopedToDepartment(t *testing.T) {
 	departmentID := uuid.New()
 	mock := &mockBrigadeRepo{
 		listBrigadesFunc: func(ctx context.Context, in *models.ListBrigadesInput) (*models.ListBrigadesResult, error) {
+
 			if in.DepartmentID == nil || *in.DepartmentID != departmentID {
 				t.Fatalf("expected department scope %s, got %v", departmentID, in.DepartmentID)
 			}
+
 			return &models.ListBrigadesResult{Brigades: []*models.Brigade{testBrigade(uuid.New(), departmentID, models.BrigadeStatusActive)}, Total: 1}, nil
 		},
 	}
@@ -417,9 +438,11 @@ func TestBrigadeService_ListBrigades_DispatcherScopedToDepartment(t *testing.T) 
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
+
 	if result.Total != 1 {
 		t.Fatalf("expected total 1, got %d", result.Total)
 	}
+
 }
 
 func TestBrigadeService_SetBrigadeStatus_ReadinessFailure(t *testing.T) {
@@ -430,9 +453,11 @@ func TestBrigadeService_SetBrigadeStatus_ReadinessFailure(t *testing.T) {
 			return &models.GetBrigadeByIDResult{Brigade: testBrigade(brigadeID, departmentID, models.BrigadeStatusInactive)}, nil
 		},
 		checkBrigadeReadinessFunc: func(ctx context.Context, id uuid.UUID, requireOnShift bool, roles []models.BrigadeMemberRole) ([]string, error) {
+
 			if requireOnShift {
 				t.Fatal("active readiness should not require shift")
 			}
+
 			return []string{"brigade has no active members"}, nil
 		},
 		setBrigadeStatusFunc: func(ctx context.Context, in *models.SetBrigadeStatusInput) (*models.SetBrigadeStatusResult, error) {
@@ -453,9 +478,11 @@ func TestBrigadeService_SetBrigadeStatus_ReadinessFailure(t *testing.T) {
 	if result != nil {
 		t.Fatal("expected nil result")
 	}
+
 	if !errors.Is(err, models.ErrBrigadeUnavailable) {
 		t.Fatalf("expected brigade unavailable, got %v", err)
 	}
+
 }
 
 func TestMemberService_AddBrigadeMember_Success(t *testing.T) {
@@ -472,9 +499,11 @@ func TestMemberService_AddBrigadeMember_Success(t *testing.T) {
 			return nil, models.ErrNotFound
 		},
 		addBrigadeMemberFunc: func(ctx context.Context, in *models.AddBrigadeMemberInput) (*models.AddBrigadeMemberResult, error) {
+
 			if in.ChangedByUserID == nil || *in.ChangedByUserID != actorID {
 				t.Fatalf("expected changed_by_user_id %s, got %v", actorID, in.ChangedByUserID)
 			}
+
 			return &models.AddBrigadeMemberResult{Member: testMember(memberID, brigadeID, userID)}, nil
 		},
 	}
@@ -492,9 +521,11 @@ func TestMemberService_AddBrigadeMember_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
+
 	if result.Member.ID != memberID {
 		t.Fatalf("expected member id %s, got %s", memberID, result.Member.ID)
 	}
+
 }
 
 func TestMemberService_AddBrigadeMember_UserAlreadyActive(t *testing.T) {
@@ -522,9 +553,11 @@ func TestMemberService_AddBrigadeMember_UserAlreadyActive(t *testing.T) {
 	if result != nil {
 		t.Fatal("expected nil result")
 	}
+
 	if !errors.Is(err, models.ErrAlreadyExists) {
 		t.Fatalf("expected already exists, got %v", err)
 	}
+
 }
 
 func TestMemberService_RemoveBrigadeMember_LastActiveMember(t *testing.T) {
@@ -551,9 +584,11 @@ func TestMemberService_RemoveBrigadeMember_LastActiveMember(t *testing.T) {
 	if result != nil {
 		t.Fatal("expected nil result")
 	}
+
 	if !errors.Is(err, models.ErrBrigadeUnavailable) {
 		t.Fatalf("expected brigade unavailable, got %v", err)
 	}
+
 }
 
 func TestMemberService_ListBrigadeMembers_WorkerOwnActiveBrigade(t *testing.T) {
@@ -575,9 +610,11 @@ func TestMemberService_ListBrigadeMembers_WorkerOwnActiveBrigade(t *testing.T) {
 	svc := NewMemberServiceStruct(newTestRepo(mock), zap.NewNop())
 
 	result, err := svc.ListBrigadeMembers(context.Background(), &models.ListBrigadeMembersInput{BrigadeID: brigadeID, ActorUserID: &workerID, ActorRoles: []string{"worker"}})
+
 	if err != nil || result == nil || result.Total != 1 {
 		t.Fatalf("expected own brigade members, result=%v err=%v", result, err)
 	}
+
 }
 
 func TestSkillService_CreateSkill_AdminOnly(t *testing.T) {
@@ -599,20 +636,25 @@ func TestSkillService_CreateSkill_AdminOnly(t *testing.T) {
 	if result != nil {
 		t.Fatal("expected nil result")
 	}
+
 	if !errors.Is(err, models.ErrPermissionDenied) {
 		t.Fatalf("expected permission denied, got %v", err)
 	}
+
 	if called {
 		t.Fatal("repo should not be called")
 	}
+
 }
 
 func TestSkillService_ListSkills_DispatcherAllowed(t *testing.T) {
 	mock := &mockBrigadeRepo{
 		listSkillsFunc: func(ctx context.Context, in *models.ListSkillsInput) (*models.ListSkillsResult, error) {
+
 			if in.Limit != models.DefaultLimit {
 				t.Fatalf("expected normalized limit %d, got %d", models.DefaultLimit, in.Limit)
 			}
+
 			return &models.ListSkillsResult{Skills: []*models.Skill{{ID: uuid.New(), Code: "plumbing", Name: "Plumbing", Active: true}}, Total: 1}, nil
 		},
 	}
@@ -623,9 +665,11 @@ func TestSkillService_ListSkills_DispatcherAllowed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
+
 	if result.Total != 1 {
 		t.Fatalf("expected total 1, got %d", result.Total)
 	}
+
 }
 
 func TestScheduleService_SetBrigadeSchedule_ArchivedDenied(t *testing.T) {
@@ -652,9 +696,11 @@ func TestScheduleService_SetBrigadeSchedule_ArchivedDenied(t *testing.T) {
 	if result != nil {
 		t.Fatal("expected nil result")
 	}
+
 	if !errors.Is(err, models.ErrPermissionDenied) {
 		t.Fatalf("expected permission denied, got %v", err)
 	}
+
 }
 
 func TestZoneService_CreateBrigadeZone_DepartmentMismatch(t *testing.T) {
@@ -679,18 +725,22 @@ func TestZoneService_CreateBrigadeZone_DepartmentMismatch(t *testing.T) {
 	if result != nil {
 		t.Fatal("expected nil result")
 	}
+
 	if !errors.Is(err, models.ErrPermissionDenied) {
 		t.Fatalf("expected permission denied, got %v", err)
 	}
+
 }
 
 func TestZoneService_CheckBrigadeCoversPoint_Success(t *testing.T) {
 	brigadeID := uuid.New()
 	mock := &mockBrigadeRepo{
 		checkBrigadeCoversPointFunc: func(ctx context.Context, in *models.CheckBrigadeCoversPointInput) (*models.CheckBrigadeCoversPointResult, error) {
+
 			if in.Longitude != 37.62 || in.Latitude != 55.75 {
 				t.Fatalf("unexpected coordinates: %f %f", in.Longitude, in.Latitude)
 			}
+
 			return &models.CheckBrigadeCoversPointResult{Covers: true}, nil
 		},
 	}
@@ -705,9 +755,11 @@ func TestZoneService_CheckBrigadeCoversPoint_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
+
 	if !result.Covers {
 		t.Fatal("expected covers true")
 	}
+
 }
 
 func TestPermissionHelper(t *testing.T) {
@@ -731,12 +783,15 @@ func TestPermissionHelper(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := checkPermissionAndDepartmentForAdminAndDispatcher(zap.NewNop(), time.Now(), tt.roles, tt.actorDepartmentID, departmentID)
+
 			if tt.wantErr && !errors.Is(err, models.ErrPermissionDenied) {
 				t.Fatalf("expected permission denied, got %v", err)
 			}
+
 			if !tt.wantErr && err != nil {
 				t.Fatalf("expected nil error, got %v", err)
 			}
+
 		})
 	}
 }

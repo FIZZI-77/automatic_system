@@ -71,11 +71,13 @@ func ToProtoSortOrder(sortOrder string) ticketv1.SortOrder {
 }
 
 func ToProtoTimestamp(value string) (*timestamppb.Timestamp, error) {
+
 	if value == "" {
 		return nil, nil
 	}
 
 	parsed, err := time.Parse(time.RFC3339, value)
+
 	if err != nil {
 		return nil, err
 	}
@@ -84,6 +86,7 @@ func ToProtoTimestamp(value string) (*timestamppb.Timestamp, error) {
 }
 
 func FromProtoTicket(t *ticketv1.Ticket) *models.Ticket {
+
 	if t == nil {
 		return nil
 	}
@@ -110,6 +113,7 @@ func FromProtoTicket(t *ticketv1.Ticket) *models.Ticket {
 }
 
 func FromProtoCategory(category *ticketv1.TicketCategory) *models.TicketCategory {
+
 	if category == nil {
 		return nil
 	}
@@ -126,6 +130,7 @@ func FromProtoCategory(category *ticketv1.TicketCategory) *models.TicketCategory
 }
 
 func FromProtoStatusHistory(history *ticketv1.TicketStatusHistory) *models.TicketStatusHistory {
+
 	if history == nil {
 		return nil
 	}
@@ -174,6 +179,7 @@ func FromProtoPriority(priority ticketv1.TicketPriority) string {
 }
 
 func timestampUnix(ts *timestamppb.Timestamp) int64 {
+
 	if ts == nil {
 		return 0
 	}

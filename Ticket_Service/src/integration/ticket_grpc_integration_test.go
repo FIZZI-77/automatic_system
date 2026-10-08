@@ -49,6 +49,7 @@ func newGRPCTestApp(t *testing.T) *grpcTestApp {
 		}),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
+
 	if err != nil {
 		grpcServer.Stop()
 		app.cleanup()
@@ -78,6 +79,7 @@ func actorContext(userID uuid.UUID, roles ...string) context.Context {
 }
 
 func joinRoles(roles []string) string {
+
 	if len(roles) == 0 {
 		return ""
 	}
@@ -106,6 +108,7 @@ func TestTicketGRPCIntegration_TicketLifecycle(t *testing.T) {
 		Name:        "gRPC category",
 		Description: "Created by gRPC integration test",
 	})
+
 	if err != nil {
 		t.Fatalf("grpc create category failed: %v", err)
 	}
@@ -121,6 +124,7 @@ func TestTicketGRPCIntegration_TicketLifecycle(t *testing.T) {
 		Latitude:     float64Ptr(55.751244),
 		Longitude:    float64Ptr(37.618423),
 	})
+
 	if err != nil {
 		t.Fatalf("grpc create ticket failed: %v", err)
 	}
@@ -132,6 +136,7 @@ func TestTicketGRPCIntegration_TicketLifecycle(t *testing.T) {
 	getResp, err := grpcApp.client.GetTicket(userCtx, &ticketv1.GetTicketRequest{
 		TicketId: ticketResp.GetTicket().GetId(),
 	})
+
 	if err != nil {
 		t.Fatalf("grpc get own ticket failed: %v", err)
 	}
@@ -147,6 +152,7 @@ func TestTicketGRPCIntegration_TicketLifecycle(t *testing.T) {
 		AssignedBy: adminID.String(),
 		Comment:    "Assigned by gRPC integration test",
 	})
+
 	if err != nil {
 		t.Fatalf("grpc assign brigade failed: %v", err)
 	}
@@ -161,6 +167,7 @@ func TestTicketGRPCIntegration_TicketLifecycle(t *testing.T) {
 		ChangedBy: adminID.String(),
 		Comment:   "Work started by gRPC integration test",
 	})
+
 	if err != nil {
 		t.Fatalf("grpc change status failed: %v", err)
 	}
@@ -174,6 +181,7 @@ func TestTicketGRPCIntegration_TicketLifecycle(t *testing.T) {
 		CompletedBy: adminID.String(),
 		Comment:     "Completed by gRPC integration test",
 	})
+
 	if err != nil {
 		t.Fatalf("grpc complete ticket failed: %v", err)
 	}
@@ -185,18 +193,23 @@ func TestTicketGRPCIntegration_TicketLifecycle(t *testing.T) {
 	feedbackResp, err := grpcApp.client.SubmitTicketFeedback(userCtx, &ticketv1.SubmitTicketFeedbackRequest{
 		TicketId: ticketResp.GetTicket().GetId(), Rating: 5, ProblemResolved: true,
 	})
+
 	if err != nil || feedbackResp.GetFeedback().GetRating() != 5 {
 		t.Fatalf("grpc submit feedback failed: %v, %+v", err, feedbackResp)
 	}
+
 	feedbackGet, err := grpcApp.client.GetTicketFeedback(userCtx, &ticketv1.GetTicketFeedbackRequest{
 		TicketId: ticketResp.GetTicket().GetId(),
 	})
+
 	if err != nil || feedbackGet.GetFeedback().GetUserId() != userID.String() {
 		t.Fatalf("grpc get feedback failed: %v, %+v", err, feedbackGet)
 	}
+
 	_, err = grpcApp.client.SubmitTicketFeedback(adminCtx, &ticketv1.SubmitTicketFeedbackRequest{
 		TicketId: ticketResp.GetTicket().GetId(), Rating: 1,
 	})
+
 	if status.Code(err) != codes.PermissionDenied {
 		t.Fatalf("expected owner-only feedback, got %v", err)
 	}
@@ -205,6 +218,7 @@ func TestTicketGRPCIntegration_TicketLifecycle(t *testing.T) {
 		TicketId: ticketResp.GetTicket().GetId(),
 		Limit:    20,
 	})
+
 	if err != nil {
 		t.Fatalf("grpc get status history failed: %v", err)
 	}
@@ -212,6 +226,7 @@ func TestTicketGRPCIntegration_TicketLifecycle(t *testing.T) {
 	if historyResp.GetTotal() < 3 {
 		t.Fatalf("expected at least 3 history records, got %d", historyResp.GetTotal())
 	}
+
 }
 
 func TestTicketGRPCIntegration_UpdateCategoryExplicitFalse(t *testing.T) {
@@ -225,6 +240,7 @@ func TestTicketGRPCIntegration_UpdateCategoryExplicitFalse(t *testing.T) {
 		Name:        "gRPC inactive category",
 		Description: "Created to verify optional is_active=false",
 	})
+
 	if err != nil {
 		t.Fatalf("grpc create category failed: %v", err)
 	}
@@ -234,6 +250,7 @@ func TestTicketGRPCIntegration_UpdateCategoryExplicitFalse(t *testing.T) {
 		CategoryId: createResp.GetCategory().GetId(),
 		IsActive:   &isActive,
 	})
+
 	if err != nil {
 		t.Fatalf("grpc update category failed: %v", err)
 	}
@@ -246,16 +263,20 @@ func TestTicketGRPCIntegration_UpdateCategoryExplicitFalse(t *testing.T) {
 		OnlyActive: boolPtr(false),
 		Limit:      100,
 	})
+
 	if err != nil {
 		t.Fatalf("grpc list all categories failed: %v", err)
 	}
 
 	foundInactive := false
 	for _, category := range allResp.GetCategories() {
+
 		if category.GetId() == createResp.GetCategory().GetId() {
 			foundInactive = !category.GetIsActive()
 		}
+
 	}
+
 	if !foundInactive {
 		t.Fatal("expected inactive category to be present when only_active is false")
 	}
@@ -264,14 +285,17 @@ func TestTicketGRPCIntegration_UpdateCategoryExplicitFalse(t *testing.T) {
 		OnlyActive: boolPtr(true),
 		Limit:      100,
 	})
+
 	if err != nil {
 		t.Fatalf("grpc list active categories failed: %v", err)
 	}
 
 	for _, category := range activeResp.GetCategories() {
+
 		if category.GetId() == createResp.GetCategory().GetId() {
 			t.Fatal("expected inactive category to be absent when only_active is true")
 		}
+
 	}
 }
 
@@ -289,7 +313,9 @@ func TestTicketGRPCIntegration_PermissionDeniedWithoutPrivilegedRole(t *testing.
 		Code: "grpc-denied",
 		Name: "Denied category",
 	})
+
 	if status.Code(err) != codes.PermissionDenied {
 		t.Fatalf("expected PermissionDenied, got %v", err)
 	}
+
 }

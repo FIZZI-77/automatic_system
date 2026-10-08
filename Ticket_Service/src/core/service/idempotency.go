@@ -18,12 +18,14 @@ const idempotencyTTL = 24 * time.Hour
 
 func withIdempotency(repo *repository.Repository, ctx context.Context, operation string, actorKey string, request any, fn func(context.Context) (any, uuid.UUID, error)) (any, error) {
 	key, ok := pkg.IdempotencyKeyFromContext(ctx)
+
 	if !ok {
 		result, _, err := fn(ctx)
 		return result, err
 	}
 
 	requestHash, err := hashRequest(request)
+
 	if err != nil {
 		return nil, err
 	}
@@ -32,11 +34,13 @@ func withIdempotency(repo *repository.Repository, ctx context.Context, operation
 		value, resourceID, runErr := fn(txCtx)
 		return value, resourceID, runErr
 	})
+
 	if err != nil {
 		return nil, err
 	}
 
 	if !acquired {
+
 		if record.RequestHash != requestHash {
 			return nil, models.ErrIdempotencyConflict
 		}
@@ -44,9 +48,11 @@ func withIdempotency(repo *repository.Repository, ctx context.Context, operation
 		switch record.Status {
 		case "COMPLETED":
 			var result any
+
 			if err = json.Unmarshal(record.Response, &result); err != nil {
 				return nil, fmt.Errorf("service: idempotency: decode cached response: %w", err)
 			}
+
 			return result, nil
 		case "PROCESSING":
 			return nil, models.ErrIdempotencyInProgress
@@ -69,16 +75,19 @@ func (s *CategoryServiceStruct) withIdempotency(ctx context.Context, operation s
 }
 
 func cachedResult[T any](result any) (*T, error) {
+
 	if typed, ok := result.(*T); ok {
 		return typed, nil
 	}
 
 	bytes, err := json.Marshal(result)
+
 	if err != nil {
 		return nil, err
 	}
 
 	var typed T
+
 	if err = json.Unmarshal(bytes, &typed); err != nil {
 		return nil, err
 	}
@@ -88,6 +97,7 @@ func cachedResult[T any](result any) (*T, error) {
 
 func hashRequest(request any) (string, error) {
 	bytes, err := json.Marshal(request)
+
 	if err != nil {
 		return "", fmt.Errorf("service: idempotency: encode request: %w", err)
 	}
@@ -97,11 +107,14 @@ func hashRequest(request any) (string, error) {
 }
 
 func idempotencyActor(actor *uuid.UUID, fallback uuid.UUID) string {
+
 	if actor != nil {
 		return actor.String()
 	}
+
 	if fallback != uuid.Nil {
 		return fallback.String()
 	}
+
 	return ""
 }

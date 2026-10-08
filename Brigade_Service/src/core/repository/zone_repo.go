@@ -42,9 +42,11 @@ func (z *ZoneRepoStruct) GetBrigadeZoneByID(ctx context.Context, zoneID uuid.UUI
 
 func (z *ZoneRepoStruct) CreateBrigadeZone(ctx context.Context, in *models.CreateBrigadeZoneInput) (*models.CreateBrigadeZoneResult, error) {
 	tx, err := z.writePool.Begin(ctx)
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: CreateBrigadeZone: begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	const query = `
@@ -69,6 +71,7 @@ func (z *ZoneRepoStruct) CreateBrigadeZone(ctx context.Context, in *models.Creat
 	`
 
 	zone, err := scanBrigadeZone(tx.QueryRow(ctx, query, in.BrigadeID, in.DepartmentID, in.Name, in.GeoJSON, in.Priority))
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: CreateBrigadeZone: scan zone: %w", err)
 	}
@@ -83,6 +86,7 @@ func (z *ZoneRepoStruct) CreateBrigadeZone(ctx context.Context, in *models.Creat
 		"priority":      zone.Priority,
 		"created_at":    zone.CreatedAt,
 	}
+
 	if err = insertOutboxEvent(ctx, tx, "brigade", zone.BrigadeID, "BrigadeZoneCreated", payload, in.RequestID, in.TraceID); err != nil {
 		return nil, fmt.Errorf("repo: CreateBrigadeZone: insert outbox event: %w", err)
 	}
@@ -96,9 +100,11 @@ func (z *ZoneRepoStruct) CreateBrigadeZone(ctx context.Context, in *models.Creat
 
 func (z *ZoneRepoStruct) UpdateBrigadeZone(ctx context.Context, in *models.UpdateBrigadeZoneInput) (*models.UpdateBrigadeZoneResult, error) {
 	tx, err := z.writePool.Begin(ctx)
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: UpdateBrigadeZone: begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	const query = `
@@ -123,6 +129,7 @@ func (z *ZoneRepoStruct) UpdateBrigadeZone(ctx context.Context, in *models.Updat
 	`
 
 	zone, err := scanBrigadeZone(tx.QueryRow(ctx, query, in.Name, in.GeoJSON, in.Priority, in.Active, in.ID))
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: UpdateBrigadeZone: scan zone: %w", err)
 	}
@@ -137,6 +144,7 @@ func (z *ZoneRepoStruct) UpdateBrigadeZone(ctx context.Context, in *models.Updat
 		"active":     zone.Active,
 		"updated_at": zone.UpdatedAt,
 	}
+
 	if err = insertOutboxEvent(ctx, tx, "brigade", zone.BrigadeID, "BrigadeZoneUpdated", payload, in.RequestID, in.TraceID); err != nil {
 		return nil, fmt.Errorf("repo: UpdateBrigadeZone: insert outbox event: %w", err)
 	}
@@ -150,9 +158,11 @@ func (z *ZoneRepoStruct) UpdateBrigadeZone(ctx context.Context, in *models.Updat
 
 func (z *ZoneRepoStruct) DeleteBrigadeZone(ctx context.Context, in *models.DeleteBrigadeZoneInput) (*models.DeleteBrigadeZoneResult, error) {
 	tx, err := z.writePool.Begin(ctx)
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: DeleteBrigadeZone: begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	const query = `
@@ -171,6 +181,7 @@ func (z *ZoneRepoStruct) DeleteBrigadeZone(ctx context.Context, in *models.Delet
 			updated_at
 	`
 	zone, err := scanBrigadeZone(tx.QueryRow(ctx, query, in.ID))
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: DeleteBrigadeZone: scan zone: %w", err)
 	}
@@ -182,6 +193,7 @@ func (z *ZoneRepoStruct) DeleteBrigadeZone(ctx context.Context, in *models.Delet
 		"brigade_id": zone.BrigadeID.String(),
 		"updated_at": zone.UpdatedAt,
 	}
+
 	if err = insertOutboxEvent(ctx, tx, "brigade", zone.BrigadeID, "BrigadeZoneDeleted", payload, in.RequestID, in.TraceID); err != nil {
 		return nil, fmt.Errorf("repo: DeleteBrigadeZone: insert outbox event: %w", err)
 	}
@@ -196,10 +208,12 @@ func (z *ZoneRepoStruct) DeleteBrigadeZone(ctx context.Context, in *models.Delet
 func (z *ZoneRepoStruct) ListBrigadeZones(ctx context.Context, in *models.ListBrigadeZonesInput) (*models.ListBrigadeZonesResult, error) {
 	whereParts := []string{"brigade_id = $1"}
 	args := []any{in.BrigadeID}
+
 	if in.Active != nil {
 		args = append(args, *in.Active)
 		whereParts = append(whereParts, fmt.Sprintf("active = $%d", len(args)))
 	}
+
 	whereSQL := "WHERE " + strings.Join(whereParts, " AND ")
 
 	query := fmt.Sprintf(`
@@ -219,22 +233,28 @@ func (z *ZoneRepoStruct) ListBrigadeZones(ctx context.Context, in *models.ListBr
 	`, whereSQL)
 
 	rows, err := z.readPool.Query(ctx, query, args...)
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: ListBrigadeZones: query: %w", err)
 	}
+
 	defer rows.Close()
 
 	zones := make([]*models.BrigadeZone, 0)
 	for rows.Next() {
 		zone, err := scanBrigadeZone(rows)
+
 		if err != nil {
 			return nil, fmt.Errorf("repo: ListBrigadeZones: scan: %w", err)
 		}
+
 		zones = append(zones, zone)
 	}
+
 	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("repo: ListBrigadeZones: rows: %w", err)
 	}
+
 	return &models.ListBrigadeZonesResult{Zones: zones}, nil
 }
 
@@ -258,22 +278,28 @@ func (z *ZoneRepoStruct) CheckBrigadeCoversPoint(ctx context.Context, in *models
 	`
 
 	rows, err := z.readPool.Query(ctx, query, in.BrigadeID, in.Longitude, in.Latitude)
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: CheckBrigadeCoversPoint: query: %w", err)
 	}
+
 	defer rows.Close()
 
 	zones := make([]*models.BrigadeZone, 0)
 	for rows.Next() {
 		zone, err := scanBrigadeZone(rows)
+
 		if err != nil {
 			return nil, fmt.Errorf("repo: CheckBrigadeCoversPoint: scan: %w", err)
 		}
+
 		zones = append(zones, zone)
 	}
+
 	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("repo: CheckBrigadeCoversPoint: rows: %w", err)
 	}
+
 	return &models.CheckBrigadeCoversPointResult{Covers: len(zones) > 0, MatchedZones: zones}, nil
 }
 
@@ -292,6 +318,7 @@ func (z *ZoneRepoStruct) FindBrigadesByPoint(ctx context.Context, in *models.Fin
 		whereParts = append(whereParts, brigadeHasAvailableActiveMembersSQL("b.id"))
 		whereParts = append(whereParts, brigadeIsOnShiftSQL("b.id"))
 	}
+
 	if len(in.RequiredSkillIDs) > 0 {
 		whereParts = append(whereParts, fmt.Sprintf(`
 			(
@@ -304,6 +331,7 @@ func (z *ZoneRepoStruct) FindBrigadesByPoint(ctx context.Context, in *models.Fin
 		`, len(args)+1, len(in.RequiredSkillIDs)))
 		args = append(args, uuidStrings(in.RequiredSkillIDs))
 	}
+
 	if len(in.RequiredRoles) > 0 {
 		whereParts = append(whereParts, fmt.Sprintf(`
 			(
@@ -316,6 +344,7 @@ func (z *ZoneRepoStruct) FindBrigadesByPoint(ctx context.Context, in *models.Fin
 		`, len(args)+1, len(in.RequiredRoles)))
 		args = append(args, roleStrings(in.RequiredRoles))
 	}
+
 	whereSQL := "WHERE " + strings.Join(whereParts, " AND ")
 
 	countQuery := fmt.Sprintf(`
@@ -325,6 +354,7 @@ func (z *ZoneRepoStruct) FindBrigadesByPoint(ctx context.Context, in *models.Fin
 		%s
 	`, whereSQL)
 	var total int64
+
 	if err := z.readPool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, fmt.Errorf("repo: FindBrigadesByPoint: count: %w", err)
 	}
@@ -350,28 +380,35 @@ func (z *ZoneRepoStruct) FindBrigadesByPoint(ctx context.Context, in *models.Fin
 	`, whereSQL, len(args)-1, len(args))
 
 	rows, err := z.readPool.Query(ctx, query, args...)
+
 	if err != nil {
 		return nil, fmt.Errorf("repo: FindBrigadesByPoint: query: %w", err)
 	}
+
 	defer rows.Close()
 
 	brigades := make([]*models.Brigade, 0)
 	for rows.Next() {
 		brigade, err := scanBrigade(rows)
+
 		if err != nil {
 			return nil, fmt.Errorf("repo: FindBrigadesByPoint: scan: %w", err)
 		}
+
 		brigades = append(brigades, brigade)
 	}
+
 	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("repo: FindBrigadesByPoint: rows: %w", err)
 	}
+
 	return &models.FindBrigadesByPointResult{Brigades: brigades, Total: total}, nil
 }
 
 func (z *ZoneRepoStruct) listAvailableBrigades(ctx context.Context, departmentID uuid.UUID, requiredSkillIDs []uuid.UUID, requiredRoles []models.BrigadeMemberRole, limit int32, offset int32) (*models.GetAvailableBrigadesResult, error) {
 	whereParts := []string{"department_id = $1", "status = $2", brigadeHasActiveMembersSQL("brigades.id"), brigadeHasAvailableActiveMembersSQL("brigades.id"), brigadeIsOnShiftSQL("brigades.id")}
 	args := []any{departmentID, string(models.BrigadeStatusAvailable)}
+
 	if len(requiredSkillIDs) > 0 {
 		whereParts = append(whereParts, fmt.Sprintf(`
 			(
@@ -384,6 +421,7 @@ func (z *ZoneRepoStruct) listAvailableBrigades(ctx context.Context, departmentID
 		`, len(args)+1, len(requiredSkillIDs)))
 		args = append(args, uuidStrings(requiredSkillIDs))
 	}
+
 	if len(requiredRoles) > 0 {
 		whereParts = append(whereParts, fmt.Sprintf(`
 			(
@@ -396,10 +434,12 @@ func (z *ZoneRepoStruct) listAvailableBrigades(ctx context.Context, departmentID
 		`, len(args)+1, len(requiredRoles)))
 		args = append(args, roleStrings(requiredRoles))
 	}
+
 	whereSQL := "WHERE " + strings.Join(whereParts, " AND ")
 
 	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM brigades %s", whereSQL)
 	var total int64
+
 	if err := z.readPool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, fmt.Errorf("count: %w", err)
 	}
@@ -414,22 +454,28 @@ func (z *ZoneRepoStruct) listAvailableBrigades(ctx context.Context, departmentID
 	`, whereSQL, len(args)-1, len(args))
 
 	rows, err := z.readPool.Query(ctx, query, args...)
+
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)
 	}
+
 	defer rows.Close()
 
 	brigades := make([]*models.Brigade, 0)
 	for rows.Next() {
 		brigade, err := scanBrigade(rows)
+
 		if err != nil {
 			return nil, fmt.Errorf("scan: %w", err)
 		}
+
 		brigades = append(brigades, brigade)
 	}
+
 	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("rows: %w", err)
 	}
+
 	return &models.GetAvailableBrigadesResult{Brigades: brigades, Total: total}, nil
 }
 
@@ -472,11 +518,15 @@ func brigadeIsOnShiftSQL(brigadeIDExpr string) string {
 func scanBrigadeZone(row scanner) (*models.BrigadeZone, error) {
 	var zone models.BrigadeZone
 	err := row.Scan(&zone.ID, &zone.BrigadeID, &zone.DepartmentID, &zone.Name, &zone.GeoJSON, &zone.Priority, &zone.Active, &zone.CreatedAt, &zone.UpdatedAt)
+
 	if err != nil {
+
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, models.ErrNotFound
 		}
+
 		return nil, err
 	}
+
 	return &zone, nil
 }

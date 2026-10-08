@@ -29,6 +29,7 @@ func New(fileService *service.Service, logger *zap.Logger) *Handler {
 func (h *Handler) CreateUpload(ctx context.Context, req *filev1.CreateUploadRequest) (*filev1.CreateUploadResponse, error) {
 	logger := h.logger.With(pkg.RequestIDField(ctx), zap.String("method", "CreateUpload"))
 	ownerID, err := parseUUID(req.GetOwnerUserId(), "owner_user_id")
+
 	if err != nil {
 		logger.Warn("invalid request", zap.Error(err))
 		return nil, invalidArgument(err)
@@ -41,10 +42,12 @@ func (h *Handler) CreateUpload(ctx context.Context, req *filev1.CreateUploadRequ
 		Size:        req.GetSize(),
 		Checksum:    req.GetChecksum(),
 	})
+
 	if err != nil {
 		logger.Error("create upload failed", zap.Error(err))
 		return nil, serviceError(err)
 	}
+
 	logger.Info("upload created", zap.String("file_id", result.File.ID.String()), zap.Int64("size", result.File.Size))
 
 	return &filev1.CreateUploadResponse{
@@ -56,11 +59,13 @@ func (h *Handler) CreateUpload(ctx context.Context, req *filev1.CreateUploadRequ
 
 func (h *Handler) ConfirmUpload(ctx context.Context, req *filev1.ConfirmUploadRequest) (*filev1.ConfirmUploadResponse, error) {
 	fileID, actorID, err := parseFileAndActor(req.GetFileId(), req.GetActorUserId())
+
 	if err != nil {
 		return nil, invalidArgument(err)
 	}
 
 	file, err := h.service.Confirm(ctx, fileID, actorID, hasPrivilegedRole(req.GetActorRoles()))
+
 	if err != nil {
 		return nil, serviceError(err)
 	}
@@ -70,10 +75,13 @@ func (h *Handler) ConfirmUpload(ctx context.Context, req *filev1.ConfirmUploadRe
 
 func (h *Handler) LinkFile(ctx context.Context, req *filev1.LinkFileRequest) (*filev1.LinkFileResponse, error) {
 	fileID, actorID, err := parseFileAndActor(req.GetFileId(), req.GetActorUserId())
+
 	if err != nil {
 		return nil, invalidArgument(err)
 	}
+
 	resourceID, err := parseUUID(req.GetResourceId(), "resource_id")
+
 	if err != nil {
 		return nil, invalidArgument(err)
 	}
@@ -82,6 +90,7 @@ func (h *Handler) LinkFile(ctx context.Context, req *filev1.LinkFileRequest) (*f
 		ResourceType: req.GetResourceType(),
 		ResourceID:   resourceID,
 	})
+
 	if err != nil {
 		return nil, serviceError(err)
 	}
@@ -91,11 +100,13 @@ func (h *Handler) LinkFile(ctx context.Context, req *filev1.LinkFileRequest) (*f
 
 func (h *Handler) GetDownloadURL(ctx context.Context, req *filev1.GetDownloadURLRequest) (*filev1.GetDownloadURLResponse, error) {
 	fileID, actorID, err := parseFileAndActor(req.GetFileId(), req.GetActorUserId())
+
 	if err != nil {
 		return nil, invalidArgument(err)
 	}
 
 	result, err := h.service.Download(ctx, fileID, actorID, hasPrivilegedRole(req.GetActorRoles()))
+
 	if err != nil {
 		return nil, serviceError(err)
 	}
@@ -109,10 +120,13 @@ func (h *Handler) GetDownloadURL(ctx context.Context, req *filev1.GetDownloadURL
 
 func (h *Handler) ListResourceFiles(ctx context.Context, req *filev1.ListResourceFilesRequest) (*filev1.ListResourceFilesResponse, error) {
 	resourceID, err := parseUUID(req.GetResourceId(), "resource_id")
+
 	if err != nil {
 		return nil, invalidArgument(err)
 	}
+
 	actorID, err := parseUUID(req.GetActorUserId(), "actor_user_id")
+
 	if err != nil {
 		return nil, invalidArgument(err)
 	}
@@ -124,6 +138,7 @@ func (h *Handler) ListResourceFiles(ctx context.Context, req *filev1.ListResourc
 		actorID,
 		hasPrivilegedRole(req.GetActorRoles()),
 	)
+
 	if err != nil {
 		return nil, serviceError(err)
 	}
@@ -138,6 +153,7 @@ func (h *Handler) ListResourceFiles(ctx context.Context, req *filev1.ListResourc
 
 func (h *Handler) DeleteFile(ctx context.Context, req *filev1.DeleteFileRequest) (*filev1.DeleteFileResponse, error) {
 	fileID, actorID, err := parseFileAndActor(req.GetFileId(), req.GetActorUserId())
+
 	if err != nil {
 		return nil, invalidArgument(err)
 	}
@@ -151,29 +167,37 @@ func (h *Handler) DeleteFile(ctx context.Context, req *filev1.DeleteFileRequest)
 
 func parseFileAndActor(fileID, actorID string) (uuid.UUID, uuid.UUID, error) {
 	parsedFileID, err := parseUUID(fileID, "file_id")
+
 	if err != nil {
 		return uuid.Nil, uuid.Nil, err
 	}
+
 	parsedActorID, err := parseUUID(actorID, "actor_user_id")
+
 	if err != nil {
 		return uuid.Nil, uuid.Nil, err
 	}
+
 	return parsedFileID, parsedActorID, nil
 }
 
 func parseUUID(value, field string) (uuid.UUID, error) {
 	parsed, err := uuid.Parse(value)
+
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("invalid %s: %w", field, err)
 	}
+
 	return parsed, nil
 }
 
 func hasPrivilegedRole(roles []string) bool {
 	for _, role := range roles {
+
 		if role == "admin" || role == "dispatcher" {
 			return true
 		}
+
 	}
 	return false
 }
@@ -198,6 +222,7 @@ func serviceError(err error) error {
 }
 
 func toProtoFile(file *models.File) *filev1.File {
+
 	if file == nil {
 		return nil
 	}
@@ -213,13 +238,16 @@ func toProtoFile(file *models.File) *filev1.File {
 		CreatedAt:   timestamppb.New(file.CreatedAt),
 		UpdatedAt:   timestamppb.New(file.UpdatedAt),
 	}
+
 	if file.ResourceType != nil {
 		result.ResourceType = file.ResourceType
 	}
+
 	if file.ResourceID != nil {
 		resourceID := file.ResourceID.String()
 		result.ResourceId = &resourceID
 	}
+
 	return result
 }
 

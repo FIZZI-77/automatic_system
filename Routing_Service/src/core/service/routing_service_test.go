@@ -77,12 +77,15 @@ func TestSetRouteStatusUsesStateReadBeforeUpdate(t *testing.T) {
 	repo := &repoStub{route: &models.Route{ID: "14c39ee8-0104-4b07-9a97-f0b62b35e844", Status: models.RouteStatusActive}}
 	value := New(repo, &engineStub{}, nil)
 	updated, err := value.SetRouteStatus(context.Background(), repo.route.ID, models.RouteStatusCompleted)
+
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if repo.expectedStatus != models.RouteStatusActive || updated.Status != models.RouteStatusCompleted {
 		t.Fatalf("compare-and-set statuses: expected=%s updated=%s", repo.expectedStatus, updated.Status)
 	}
+
 }
 
 func (s *repoStub) ListRoutes(
@@ -128,12 +131,15 @@ func TestRankCandidatesOrdersByETA(t *testing.T) {
 			},
 		},
 	)
+
 	if err != nil {
 		t.Fatalf("rank candidates: %v", err)
 	}
+
 	if result[0].BrigadeID != "second" || result[0].Rank != 1 {
 		t.Fatalf("ranking = %#v", result)
 	}
+
 }
 
 func TestCreateAndRecalculateRoute(t *testing.T) {
@@ -156,13 +162,16 @@ func TestCreateAndRecalculateRoute(t *testing.T) {
 			Destination: models.Point{Latitude: 55.76, Longitude: 37.62},
 		},
 	)
+
 	if err != nil {
 		t.Fatalf("create route: %v", err)
 	}
+
 	if route.CalculationStartedAt == nil || route.CalculationFinishedAt == nil ||
 		route.CalculationDurationMillis == nil || route.CalculationSuccess == nil || !*route.CalculationSuccess {
 		t.Fatalf("CreateRoute() calculation telemetry = %#v, want complete successful telemetry", route)
 	}
+
 	updated, err := value.RecalculateRoute(
 		context.Background(),
 		&models.RecalculateRouteInput{
@@ -173,15 +182,19 @@ func TestCreateAndRecalculateRoute(t *testing.T) {
 			},
 		},
 	)
+
 	if err != nil {
 		t.Fatalf("recalculate route: %v", err)
 	}
+
 	if updated.Revision != 2 || updated.Origin.Latitude != 55.755 {
 		t.Fatalf("updated route = %#v", updated)
 	}
+
 	if updated.CalculationDurationMillis == nil || updated.CalculationSuccess == nil || !*updated.CalculationSuccess {
 		t.Fatalf("RecalculateRoute() calculation telemetry = %#v, want complete successful telemetry", updated)
 	}
+
 }
 
 func TestCreateRouteRecordsEngineFailure(t *testing.T) {
@@ -194,16 +207,21 @@ func TestCreateRouteRecordsEngineFailure(t *testing.T) {
 		Origin:      models.Point{Latitude: 55.75, Longitude: 37.61},
 		Destination: models.Point{Latitude: 55.76, Longitude: 37.62},
 	})
+
 	if !errors.Is(err, engineErr) {
 		t.Fatalf("CreateRoute() error = %v, want engine error", err)
 	}
+
 	if repo.failure == nil {
 		t.Fatal("CreateRoute() did not record calculation failure")
 	}
+
 	if repo.failure.AggregateType != "ticket" || repo.failure.FailureCode != "ENGINE_ERROR" || repo.failure.TicketID == "" || repo.failure.BrigadeID == "" {
 		t.Errorf("CreateRoute() failure = %+v, want ticket aggregate and normalized engine failure", repo.failure)
 	}
+
 	if repo.route != nil {
 		t.Errorf("CreateRoute() persisted route = %+v, want no fictitious route", repo.route)
 	}
+
 }

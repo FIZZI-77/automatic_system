@@ -23,6 +23,7 @@ type DepartmentRepoStruct struct {
 }
 
 func NewDepartmentRepository(writePool *pgxpool.Pool, readPool *pgxpool.Pool) *DepartmentRepoStruct {
+
 	if readPool == nil {
 		readPool = writePool
 	}
@@ -32,12 +33,15 @@ func NewDepartmentRepository(writePool *pgxpool.Pool, readPool *pgxpool.Pool) *D
 
 func (r *DepartmentRepoStruct) CreateDepartment(ctx context.Context, in *models.CreateDepartmentInput) (*models.Department, error) {
 	tx, err := beginCommandTx(ctx, r.writePool)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: CreateDepartment(): begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	department, err := r.createDepartment(ctx, tx, in)
+
 	if err != nil {
 		return nil, err
 	}
@@ -73,10 +77,13 @@ func (r *DepartmentRepoStruct) createDepartment(ctx context.Context, q Querier, 
 	)
 
 	department, err := scanDepartment(row)
+
 	if err != nil {
+
 		if isUniqueViolation(err) {
 			return nil, fmt.Errorf("repository: CreateDepartment(): %w", models.ErrAlreadyExists)
 		}
+
 		return nil, fmt.Errorf("repository: CreateDepartment(): %w", err)
 	}
 
@@ -95,6 +102,7 @@ func (r *DepartmentRepoStruct) GetDepartmentByID(ctx context.Context, id uuid.UU
 	`
 
 	department, err := scanDepartment(r.readPool.QueryRow(ctx, query, id))
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: GetDepartmentByID(): %w", err)
 	}
@@ -110,10 +118,12 @@ func (r *DepartmentRepoStruct) ListDepartments(ctx context.Context, in *models.L
 		args = append(args, *in.Status)
 		whereSQL += fmt.Sprintf(" AND status = $%d", len(args))
 	}
+
 	if in.CreatedFrom != nil {
 		args = append(args, *in.CreatedFrom)
 		whereSQL += fmt.Sprintf(" AND created_at >= $%d", len(args))
 	}
+
 	if in.CreatedTo != nil {
 		args = append(args, *in.CreatedTo)
 		whereSQL += fmt.Sprintf(" AND created_at <= $%d", len(args))
@@ -122,12 +132,14 @@ func (r *DepartmentRepoStruct) ListDepartments(ctx context.Context, in *models.L
 	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM departments %s", whereSQL)
 
 	var total int64
+
 	if err := r.readPool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("repository: ListDepartments(): count: %w", err)
 	}
 
 	sortColumn := departmentSortColumn(in.SortBy)
 	sortOrder := "DESC"
+
 	if in.SortOrder == models.SortOrderAsc {
 		sortOrder = "ASC"
 	}
@@ -145,17 +157,21 @@ func (r *DepartmentRepoStruct) ListDepartments(ctx context.Context, in *models.L
 	`, whereSQL, sortColumn, sortOrder, limitArg, offsetArg)
 
 	rows, err := r.readPool.Query(ctx, listQuery, args...)
+
 	if err != nil {
 		return nil, 0, fmt.Errorf("repository: ListDepartments(): query: %w", err)
 	}
+
 	defer rows.Close()
 
 	departments := make([]*models.Department, 0)
 	for rows.Next() {
 		department, err := scanDepartment(rows)
+
 		if err != nil {
 			return nil, 0, fmt.Errorf("repository: ListDepartments(): scan: %w", err)
 		}
+
 		departments = append(departments, department)
 	}
 
@@ -168,12 +184,15 @@ func (r *DepartmentRepoStruct) ListDepartments(ctx context.Context, in *models.L
 
 func (r *DepartmentRepoStruct) UpdateDepartment(ctx context.Context, in *models.UpdateDepartmentInput) (*models.Department, error) {
 	tx, err := beginCommandTx(ctx, r.writePool)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: UpdateDepartment(): begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	department, err := r.updateDepartment(ctx, tx, in)
+
 	if err != nil {
 		return nil, err
 	}
@@ -198,10 +217,13 @@ func (r *DepartmentRepoStruct) updateDepartment(ctx context.Context, q Querier, 
 	`
 
 	department, err := scanDepartment(q.QueryRow(ctx, query, in.Name, in.Description, in.Status, in.ID))
+
 	if err != nil {
+
 		if isUniqueViolation(err) {
 			return nil, fmt.Errorf("repository: UpdateDepartment(): %w", models.ErrAlreadyExists)
 		}
+
 		return nil, fmt.Errorf("repository: UpdateDepartment(): %w", err)
 	}
 
@@ -214,12 +236,15 @@ func (r *DepartmentRepoStruct) updateDepartment(ctx context.Context, q Querier, 
 
 func (r *DepartmentRepoStruct) DeleteDepartment(ctx context.Context, in *models.DeleteDepartmentInput) (*models.Department, error) {
 	tx, err := beginCommandTx(ctx, r.writePool)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: DeleteDepartment(): begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	department, err := r.deleteDepartment(ctx, tx, in)
+
 	if err != nil {
 		return nil, err
 	}
@@ -242,6 +267,7 @@ func (r *DepartmentRepoStruct) deleteDepartment(ctx context.Context, q Querier, 
 	`
 
 	department, err := scanDepartment(q.QueryRow(ctx, query, models.DepartmentStatusArchived, in.ID))
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: DeleteDepartment(): %w", err)
 	}
@@ -264,10 +290,13 @@ func scanDepartment(s scanner) (*models.Department, error) {
 		&department.CreatedAt,
 		&department.UpdatedAt,
 	)
+
 	if err != nil {
+
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, models.ErrNotFound
 		}
+
 		return nil, err
 	}
 
@@ -289,6 +318,7 @@ func departmentSortColumn(sortBy models.DepartmentSortBy) string {
 
 func isUniqueViolation(err error) bool {
 	var pgErr *pgconn.PgError
+
 	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 		return true
 	}

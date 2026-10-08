@@ -16,19 +16,23 @@ type KafkaHeaderCarrier []kafka.Header
 
 func (carrier KafkaHeaderCarrier) Get(key string) string {
 	for i := len(carrier) - 1; i >= 0; i-- {
+
 		if carrier[i].Key == key {
 			return string(carrier[i].Value)
 		}
+
 	}
 	return ""
 }
 
 func (carrier KafkaHeaderCarrier) Set(key string, value string) {
 	for i := range carrier {
+
 		if carrier[i].Key == key {
 			carrier[i].Value = []byte(value)
 			return
 		}
+
 	}
 }
 
@@ -103,6 +107,7 @@ func StartKafkaProducer(ctx context.Context, message *kafka.Message) (context.Co
 // WriteKafka creates a producer span, injects its context into every message,
 // and records the broker write result.
 func WriteKafka(ctx context.Context, writer *kafka.Writer, messages ...kafka.Message) error {
+
 	if len(messages) == 0 {
 		return nil
 	}
@@ -129,10 +134,12 @@ func WriteKafka(ctx context.Context, writer *kafka.Writer, messages ...kafka.Mes
 
 // End records an operation error, sets the span status, and ends the span.
 func End(span trace.Span, err error) {
+
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 	}
+
 	span.End()
 }
 

@@ -154,9 +154,11 @@ func ToProtoBrigadeSortOrder(sortOrder string) brigadev1.SortOrder {
 }
 
 func FromProtoBrigade(item *brigadev1.Brigade) *models.Brigade {
+
 	if item == nil {
 		return nil
 	}
+
 	return &models.Brigade{
 		ID:              item.GetId(),
 		DepartmentID:    item.GetDepartmentId(),
@@ -180,9 +182,11 @@ func FromProtoBrigades(items []*brigadev1.Brigade) []*models.Brigade {
 }
 
 func FromProtoBrigadeMember(item *brigadev1.BrigadeMember) *models.BrigadeMember {
+
 	if item == nil {
 		return nil
 	}
+
 	return &models.BrigadeMember{
 		ID:                              item.GetId(),
 		BrigadeID:                       item.GetBrigadeId(),
@@ -208,9 +212,11 @@ func FromProtoBrigadeMembers(items []*brigadev1.BrigadeMember) []*models.Brigade
 }
 
 func FromProtoSkill(item *brigadev1.Skill) *models.Skill {
+
 	if item == nil {
 		return nil
 	}
+
 	return &models.Skill{
 		ID:            item.GetId(),
 		Code:          item.GetCode(),
@@ -231,9 +237,11 @@ func FromProtoSkills(items []*brigadev1.Skill) []*models.Skill {
 }
 
 func FromProtoBrigadeSkill(item *brigadev1.BrigadeSkill) *models.BrigadeSkill {
+
 	if item == nil {
 		return nil
 	}
+
 	return &models.BrigadeSkill{
 		ID:            item.GetId(),
 		BrigadeID:     item.GetBrigadeId(),
@@ -253,9 +261,11 @@ func FromProtoBrigadeSkills(items []*brigadev1.BrigadeSkill) []*models.BrigadeSk
 }
 
 func FromProtoBrigadeSchedule(item *brigadev1.BrigadeSchedule) *models.BrigadeSchedule {
+
 	if item == nil {
 		return nil
 	}
+
 	return &models.BrigadeSchedule{
 		ID:            item.GetId(),
 		BrigadeID:     item.GetBrigadeId(),
@@ -280,9 +290,11 @@ func FromProtoBrigadeSchedules(items []*brigadev1.BrigadeSchedule) []*models.Bri
 }
 
 func FromProtoBrigadeZone(item *brigadev1.BrigadeZone) *models.BrigadeZone {
+
 	if item == nil {
 		return nil
 	}
+
 	return &models.BrigadeZone{
 		ID:            item.GetId(),
 		BrigadeID:     item.GetBrigadeId(),
@@ -305,9 +317,11 @@ func FromProtoBrigadeZones(items []*brigadev1.BrigadeZone) []*models.BrigadeZone
 }
 
 func FromProtoBrigadeStatusHistory(item *brigadev1.BrigadeStatusHistory) *models.BrigadeStatusHistory {
+
 	if item == nil {
 		return nil
 	}
+
 	return &models.BrigadeStatusHistory{
 		ID:              item.GetId(),
 		BrigadeID:       item.GetBrigadeId(),
@@ -329,9 +343,11 @@ func FromProtoBrigadeStatusHistoryItems(items []*brigadev1.BrigadeStatusHistory)
 }
 
 func FromProtoBrigadeMemberHistory(item *brigadev1.BrigadeMemberHistory) *models.BrigadeMemberHistory {
+
 	if item == nil {
 		return nil
 	}
+
 	return &models.BrigadeMemberHistory{
 		ID:              item.GetId(),
 		BrigadeID:       item.GetBrigadeId(),
@@ -356,9 +372,11 @@ func FromProtoBrigadeMemberHistoryItems(items []*brigadev1.BrigadeMemberHistory)
 }
 
 func FromProtoBrigadeMemberStatusHistory(item *brigadev1.BrigadeMemberStatusHistory) *models.BrigadeMemberStatusHistory {
+
 	if item == nil {
 		return nil
 	}
+
 	return &models.BrigadeMemberStatusHistory{
 		ID:              item.GetId(),
 		BrigadeID:       item.GetBrigadeId(),
@@ -384,9 +402,11 @@ func FromProtoBrigadeMemberStatusHistoryItems(items []*brigadev1.BrigadeMemberSt
 func ToProtoScheduleItems(items []*models.BrigadeScheduleItem) []*brigadev1.BrigadeScheduleItem {
 	result := make([]*brigadev1.BrigadeScheduleItem, 0, len(items))
 	for _, item := range items {
+
 		if item == nil {
 			continue
 		}
+
 		result = append(result, &brigadev1.BrigadeScheduleItem{
 			DayOfWeek: item.DayOfWeek,
 			StartsAt:  item.StartsAt,

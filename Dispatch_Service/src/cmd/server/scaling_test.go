@@ -15,17 +15,22 @@ func TestDefaultTimeoutInterceptorAddsDeadline(t *testing.T) {
 	invoked := false
 	err := interceptor(t.Context(), "/dispatch.Test/Call", nil, nil, nil, func(ctx context.Context, _ string, _, _ any, _ *grpc.ClientConn, _ ...grpc.CallOption) error {
 		invoked = true
+
 		if _, ok := ctx.Deadline(); !ok {
 			t.Error("defaultTimeoutInterceptor() context has no deadline")
 		}
+
 		return nil
 	})
+
 	if err != nil {
 		t.Fatalf("defaultTimeoutInterceptor() error = %v", err)
 	}
+
 	if !invoked {
 		t.Fatal("defaultTimeoutInterceptor() invoked = false, want true")
 	}
+
 }
 
 func TestStopGRPCServerReturnsForIdleServer(t *testing.T) {

@@ -26,18 +26,23 @@ func New(value *service.Service) *Handler {
 }
 
 func (h *Handler) PreviewDispatch(ctx context.Context, req *dispatchv1.PreviewDispatchRequest) (*dispatchv1.PreviewDispatchResponse, error) {
+
 	if err := authorize(ctx); err != nil {
 		return nil, err
 	}
+
 	ticketID, skills, err := parseInputIDs(req.GetTicketId(), req.GetRequiredSkillIds())
+
 	if err != nil {
 		return nil, err
 	}
+
 	items, err := h.service.Preview(ctx, &models.RecommendInput{
 		TicketID:         ticketID,
 		RequiredSkillIDs: skills,
 		Limit:            req.GetLimit(),
 	})
+
 	if err != nil {
 		return nil, mapError(err)
 	}
@@ -61,22 +66,31 @@ func (h *Handler) PreviewDispatch(ctx context.Context, req *dispatchv1.PreviewDi
 }
 
 func (h *Handler) ReserveBrigade(ctx context.Context, req *dispatchv1.ReserveBrigadeRequest) (*dispatchv1.ReserveBrigadeResponse, error) {
+
 	if err := authorize(ctx); err != nil {
 		return nil, err
 	}
+
 	ticketID, skills, err := parseInputIDs(req.GetTicketId(), req.GetRequiredSkillIds())
+
 	if err != nil {
 		return nil, err
 	}
+
 	brigadeID, err := parseID(req.GetBrigadeId(), "brigade_id")
+
 	if err != nil {
 		return nil, err
 	}
+
 	actor, err := parseID(req.GetRequestedBy(), "requested_by")
+
 	if err != nil {
 		return nil, err
 	}
+
 	var ttl time.Duration
+
 	if req.ReservationTtlSeconds != nil {
 		ttl = time.Duration(req.GetReservationTtlSeconds()) * time.Second
 	}
@@ -88,6 +102,7 @@ func (h *Handler) ReserveBrigade(ctx context.Context, req *dispatchv1.ReserveBri
 		RequestedBy:      actor,
 		TTL:              ttl,
 	})
+
 	if err != nil {
 		return nil, mapError(err)
 	}
@@ -98,22 +113,29 @@ func (h *Handler) ReserveBrigade(ctx context.Context, req *dispatchv1.ReserveBri
 }
 
 func (h *Handler) ConfirmDispatch(ctx context.Context, req *dispatchv1.ConfirmDispatchRequest) (*dispatchv1.ConfirmDispatchResponse, error) {
+
 	if err := authorize(ctx); err != nil {
 		return nil, err
 	}
+
 	id, err := parseID(req.GetId(), "id")
+
 	if err != nil {
 		return nil, err
 	}
+
 	actor, err := parseID(req.GetConfirmedBy(), "confirmed_by")
+
 	if err != nil {
 		return nil, err
 	}
+
 	op, err := h.service.Confirm(ctx, &models.ConfirmInput{
 		ID:              id,
 		ConfirmedBy:     actor,
 		ExpectedVersion: req.GetExpectedVersion(),
 	})
+
 	if err != nil {
 		return nil, mapError(err)
 	}
@@ -124,23 +146,30 @@ func (h *Handler) ConfirmDispatch(ctx context.Context, req *dispatchv1.ConfirmDi
 }
 
 func (h *Handler) AutoDispatch(ctx context.Context, req *dispatchv1.AutoDispatchRequest) (*dispatchv1.AutoDispatchResponse, error) {
+
 	if err := authorize(ctx); err != nil {
 		return nil, err
 	}
+
 	ticketID, skills, err := parseInputIDs(req.GetTicketId(), req.GetRequiredSkillIds())
+
 	if err != nil {
 		return nil, err
 	}
+
 	actor, err := parseID(req.GetRequestedBy(), "requested_by")
+
 	if err != nil {
 		return nil, err
 	}
+
 	op, err := h.service.AutoDispatch(ctx, &models.AutoInput{
 		TicketID:         ticketID,
 		RequiredSkillIDs: skills,
 		RequestedBy:      actor,
 		CandidateLimit:   req.GetCandidateLimit(),
 	})
+
 	if err != nil {
 		return nil, mapError(err)
 	}
@@ -151,26 +180,34 @@ func (h *Handler) AutoDispatch(ctx context.Context, req *dispatchv1.AutoDispatch
 }
 
 func (h *Handler) GetDispatch(ctx context.Context, req *dispatchv1.GetDispatchRequest) (*dispatchv1.GetDispatchResponse, error) {
+
 	if err := authorize(ctx); err != nil {
 		return nil, err
 	}
+
 	id, err := parseID(req.GetId(), "id")
+
 	if err != nil {
 		return nil, err
 	}
+
 	op, err := h.service.Get(ctx, id)
+
 	if err != nil {
 		return nil, mapError(err)
 	}
+
 	return &dispatchv1.GetDispatchResponse{
 		Operation: toProto(op),
 	}, nil
 }
 
 func (h *Handler) ListDispatches(ctx context.Context, req *dispatchv1.ListDispatchesRequest) (*dispatchv1.ListDispatchesResponse, error) {
+
 	if err := authorize(ctx); err != nil {
 		return nil, err
 	}
+
 	in := &models.ListInput{
 		Limit:  req.GetLimit(),
 		Offset: req.GetOffset(),
@@ -178,29 +215,36 @@ func (h *Handler) ListDispatches(ctx context.Context, req *dispatchv1.ListDispat
 
 	if req.TicketId != nil {
 		value, err := parseID(req.GetTicketId(), "ticket_id")
+
 		if err != nil {
 			return nil, err
 		}
+
 		in.TicketID = &value
 	}
 
 	if req.BrigadeId != nil {
 		value, err := parseID(req.GetBrigadeId(), "brigade_id")
+
 		if err != nil {
 			return nil, err
 		}
+
 		in.BrigadeID = &value
 	}
 
 	if req.Status != nil {
 		value, ok := statusFromProto(req.GetStatus())
+
 		if !ok {
 			return nil, status.Error(codes.InvalidArgument, "invalid status")
 		}
+
 		in.Status = &value
 	}
 
 	items, total, err := h.service.List(ctx, in)
+
 	if err != nil {
 		return nil, mapError(err)
 	}
@@ -217,23 +261,30 @@ func (h *Handler) ListDispatches(ctx context.Context, req *dispatchv1.ListDispat
 }
 
 func (h *Handler) CancelDispatch(ctx context.Context, req *dispatchv1.CancelDispatchRequest) (*dispatchv1.CancelDispatchResponse, error) {
+
 	if err := authorize(ctx); err != nil {
 		return nil, err
 	}
+
 	id, err := parseID(req.GetId(), "id")
+
 	if err != nil {
 		return nil, err
 	}
+
 	actor, err := parseID(req.GetCancelledBy(), "cancelled_by")
+
 	if err != nil {
 		return nil, err
 	}
+
 	op, err := h.service.Cancel(ctx, &models.CancelInput{
 		ID:              id,
 		CancelledBy:     actor,
 		ExpectedVersion: req.GetExpectedVersion(),
 		Reason:          req.GetReason(),
 	})
+
 	if err != nil {
 		return nil, mapError(err)
 	}
@@ -248,9 +299,11 @@ func authorize(ctx context.Context) error {
 	for _, value := range md.Get("x-actor-roles") {
 		for _, role := range strings.Split(value, ",") {
 			role = strings.TrimSpace(strings.ToLower(role))
+
 			if role == "admin" || role == "dispatcher" {
 				return nil
 			}
+
 		}
 	}
 	return status.Error(codes.PermissionDenied, "dispatcher or admin role required")
@@ -258,14 +311,17 @@ func authorize(ctx context.Context) error {
 
 func parseID(raw, field string) (uuid.UUID, error) {
 	value, err := uuid.Parse(raw)
+
 	if err != nil {
 		return uuid.Nil, status.Error(codes.InvalidArgument, "invalid "+field)
 	}
+
 	return value, nil
 }
 
 func parseInputIDs(ticket string, rawSkills []string) (uuid.UUID, []uuid.UUID, error) {
 	ticketID, err := parseID(ticket, "ticket_id")
+
 	if err != nil {
 		return uuid.Nil, nil, err
 	}
@@ -273,9 +329,11 @@ func parseInputIDs(ticket string, rawSkills []string) (uuid.UUID, []uuid.UUID, e
 	skills := make([]uuid.UUID, 0, len(rawSkills))
 	for _, raw := range rawSkills {
 		value, parseErr := parseID(raw, "skill id")
+
 		if parseErr != nil {
 			return uuid.Nil, nil, parseErr
 		}
+
 		skills = append(skills, value)
 	}
 
@@ -283,9 +341,11 @@ func parseInputIDs(ticket string, rawSkills []string) (uuid.UUID, []uuid.UUID, e
 }
 
 func toProto(value *models.Operation) *dispatchv1.DispatchOperation {
+
 	if value == nil {
 		return nil
 	}
+
 	result := &dispatchv1.DispatchOperation{
 		Id:              value.ID.String(),
 		TicketId:        value.TicketID.String(),
@@ -314,12 +374,15 @@ func toProto(value *models.Operation) *dispatchv1.DispatchOperation {
 }
 
 func modeToProto(value models.Mode) dispatchv1.DispatchMode {
+
 	if value == models.ModeManual {
 		return dispatchv1.DispatchMode_DISPATCH_MODE_MANUAL
 	}
+
 	if value == models.ModeAutomatic {
 		return dispatchv1.DispatchMode_DISPATCH_MODE_AUTOMATIC
 	}
+
 	return dispatchv1.DispatchMode_DISPATCH_MODE_UNSPECIFIED
 }
 

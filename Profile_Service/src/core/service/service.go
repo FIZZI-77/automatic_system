@@ -80,6 +80,7 @@ type Dependencies struct {
 }
 
 func NewService(repo *repository.Repository, deps Dependencies, logger *zap.Logger) *Service {
+
 	if logger == nil {
 		logger = zap.NewNop()
 	}
@@ -99,9 +100,11 @@ func validationError(method string, err error) error {
 func hasRole(roles []string, allowed ...string) bool {
 	for _, role := range roles {
 		for _, allow := range allowed {
+
 			if strings.EqualFold(role, allow) {
 				return true
 			}
+
 		}
 	}
 	return false
@@ -120,9 +123,11 @@ func isHR(roles []string) bool {
 }
 
 func actorKey(actorUserID *uuid.UUID) string {
+
 	if actorUserID == nil || *actorUserID == uuid.Nil {
 		return "system"
 	}
+
 	return actorUserID.String()
 }
 
@@ -135,13 +140,16 @@ func permissionDenied(method string) error {
 }
 
 func wrapServiceError(method string, err error) error {
+
 	if err == nil {
 		return nil
 	}
+
 	return fmt.Errorf("service: %s(): %w", method, err)
 }
 
 func startOperation(ctx context.Context, logger *zap.Logger, method string, fields ...zap.Field) (*zap.Logger, time.Time) {
+
 	if logger == nil {
 		logger = zap.NewNop()
 	}
@@ -187,8 +195,10 @@ func runCommand[T any](
 	command func(context.Context) (*T, uuid.UUID, error),
 ) (*T, error) {
 	result, err := withIdempotency(ctx, repo, method, actorKey(actorUserID), request, command)
+
 	if err != nil {
 		return nil, wrapServiceError(method, err)
 	}
+
 	return result, nil
 }

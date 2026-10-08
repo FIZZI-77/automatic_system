@@ -24,9 +24,11 @@ func TestProfileServiceIntegration_UserWorkAndStatusLifecycle(t *testing.T) {
 		FullName:    "Ivan Ivanov",
 		ActorUserID: &userID,
 	})
+
 	if err != nil {
 		t.Fatalf("create user profile failed: %v", err)
 	}
+
 	if userResult.UserProfile.ID == uuid.Nil {
 		t.Fatal("expected user profile id")
 	}
@@ -37,15 +39,19 @@ func TestProfileServiceIntegration_UserWorkAndStatusLifecycle(t *testing.T) {
 		Position:      "Engineer",
 		ActorRoles:    []string{"admin"},
 	})
+
 	if err != nil {
 		t.Fatalf("create work profile failed: %v", err)
 	}
+
 	workProfileID := workResult.Details.WorkProfile.ID
 
 	resolveResult, err := app.service.ResolveWorkingDepartment(ctx, &models.ResolveWorkingDepartmentInput{UserID: userID})
+
 	if err != nil {
 		t.Fatalf("resolve working department failed: %v", err)
 	}
+
 	if resolveResult.DepartmentID != departmentID || !resolveResult.CanOperate {
 		t.Fatalf("unexpected resolve result: %+v", resolveResult)
 	}
@@ -56,9 +62,11 @@ func TestProfileServiceIntegration_UserWorkAndStatusLifecycle(t *testing.T) {
 		Reason:      "start shift",
 		ActorUserID: &userID,
 	})
+
 	if err != nil {
 		t.Fatalf("set work profile status failed: %v", err)
 	}
+
 	if statusResult.Details.WorkProfile.Status != models.WorkProfileStatusOnShift {
 		t.Fatalf("expected ON_SHIFT, got %s", statusResult.Details.WorkProfile.Status)
 	}
@@ -67,12 +75,15 @@ func TestProfileServiceIntegration_UserWorkAndStatusLifecycle(t *testing.T) {
 		WorkProfileID: workProfileID,
 		ActorUserID:   &userID,
 	})
+
 	if err != nil {
 		t.Fatalf("get status history failed: %v", err)
 	}
+
 	if historyResult.Total == 0 {
 		t.Fatal("expected status history records")
 	}
+
 }
 
 func TestProfileServiceIntegration_CertificationGrantsAndRevokesSkills(t *testing.T) {
@@ -90,6 +101,7 @@ func TestProfileServiceIntegration_CertificationGrantsAndRevokesSkills(t *testin
 		FullName:    "Petr Petrov",
 		ActorUserID: &userID,
 	})
+
 	if err != nil {
 		t.Fatalf("create user profile failed: %v", err)
 	}
@@ -100,9 +112,11 @@ func TestProfileServiceIntegration_CertificationGrantsAndRevokesSkills(t *testin
 		Position:      "Electrician",
 		ActorRoles:    []string{"admin"},
 	})
+
 	if err != nil {
 		t.Fatalf("create work profile failed: %v", err)
 	}
+
 	workProfileID := workResult.Details.WorkProfile.ID
 
 	typeResult, err := app.service.CreateCertificationType(ctx, &models.CreateCertificationTypeInput{
@@ -111,6 +125,7 @@ func TestProfileServiceIntegration_CertificationGrantsAndRevokesSkills(t *testin
 		RequiresFile: false,
 		ActorRoles:   []string{"admin"},
 	})
+
 	if err != nil {
 		t.Fatalf("create certification type failed: %v", err)
 	}
@@ -120,6 +135,7 @@ func TestProfileServiceIntegration_CertificationGrantsAndRevokesSkills(t *testin
 		SkillID:             skillID,
 		ActorRoles:          []string{"admin"},
 	})
+
 	if err != nil {
 		t.Fatalf("add certification type skill failed: %v", err)
 	}
@@ -131,6 +147,7 @@ func TestProfileServiceIntegration_CertificationGrantsAndRevokesSkills(t *testin
 		ExpiresAt:           &expiresAt,
 		ActorUserID:         &userID,
 	})
+
 	if err != nil {
 		t.Fatalf("upload certification failed: %v", err)
 	}
@@ -140,9 +157,11 @@ func TestProfileServiceIntegration_CertificationGrantsAndRevokesSkills(t *testin
 		ActorUserID: &verifierID,
 		ActorRoles:  []string{"qualification_verifier"},
 	})
+
 	if err != nil {
 		t.Fatalf("verify certification failed: %v", err)
 	}
+
 	if len(verifyResult.SkillGrants) != 1 || verifyResult.SkillGrants[0].SkillID != skillID {
 		t.Fatalf("expected one grant for skill %s, got %+v", skillID, verifyResult.SkillGrants)
 	}
@@ -152,9 +171,11 @@ func TestProfileServiceIntegration_CertificationGrantsAndRevokesSkills(t *testin
 		RequiredSkillIDs: []uuid.UUID{skillID},
 		ActorUserID:      &userID,
 	})
+
 	if err != nil {
 		t.Fatalf("check work profile skills failed: %v", err)
 	}
+
 	if !checkResult.Allowed {
 		t.Fatalf("expected skill check allowed, missing: %+v", checkResult.MissingSkillIDs)
 	}
@@ -165,12 +186,15 @@ func TestProfileServiceIntegration_CertificationGrantsAndRevokesSkills(t *testin
 		ActorUserID: &verifierID,
 		ActorRoles:  []string{"hr"},
 	})
+
 	if err != nil {
 		t.Fatalf("revoke certification failed: %v", err)
 	}
+
 	if len(revokeResult.RevokedGrants) != 1 {
 		t.Fatalf("expected one revoked grant, got %+v", revokeResult.RevokedGrants)
 	}
+
 }
 
 func TestProfileServiceIntegration_DuplicateUserProfileFails(t *testing.T) {
@@ -185,6 +209,7 @@ func TestProfileServiceIntegration_DuplicateUserProfileFails(t *testing.T) {
 		FullName:    "Duplicate User",
 		ActorUserID: &userID,
 	})
+
 	if err != nil {
 		t.Fatalf("first create failed: %v", err)
 	}
@@ -194,7 +219,9 @@ func TestProfileServiceIntegration_DuplicateUserProfileFails(t *testing.T) {
 		FullName:    "Duplicate User",
 		ActorUserID: &userID,
 	})
+
 	if !errors.Is(err, models.ErrAlreadyExists) {
 		t.Fatalf("expected already exists, got %v", err)
 	}
+
 }

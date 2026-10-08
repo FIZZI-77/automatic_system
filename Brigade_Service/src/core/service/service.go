@@ -77,6 +77,7 @@ func NewService(repo *repository.Repo, departmentClient departmentv1.DepartmentS
 }
 
 func NewServiceWithProfile(repo *repository.Repo, departmentClient departmentv1.DepartmentServiceClient, profileClient profilev1.ProfileServiceClient, logger *zap.Logger) *Service {
+
 	if logger == nil {
 		logger = zap.NewNop()
 	}
