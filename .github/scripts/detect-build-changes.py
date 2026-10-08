@@ -66,6 +66,12 @@ CANARIES = {
     "frontend": "frontend",
 }
 
+BUILD_PIPELINE_PATHS = {
+    ".github/workflows/ci.yml",
+    ".github/scripts/detect-build-changes.py",
+    ".github/scripts/update-local-deploy-values.py",
+}
+
 
 def changed_files(base: str, head: str) -> list[str]:
     result = subprocess.run(
@@ -125,7 +131,7 @@ def main() -> None:
     paths = args.changed_file if args.changed_file is not None else (
         [] if args.force_all else changed_files(args.base, args.head)
     )
-    force_all = args.force_all
+    force_all = args.force_all or any(path in BUILD_PIPELINE_PATHS for path in paths)
 
     applications = {
         service

@@ -18,6 +18,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
+  actions: read
   contents: read
   packages: write
 
@@ -45,12 +46,40 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Find last successful deployment baseline
+        id: baseline
+        if: >
+          github.event_name == 'push' &&
+          (github.ref == 'refs/heads/test' ||
+           github.ref == 'refs/heads/feature' ||
+           startsWith(github.ref, 'refs/heads/feature/'))
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          if ! SUCCESSFUL_SHA="$(gh api \
+              --method GET \
+              -f branch="$GITHUB_REF_NAME" \
+              -f event=push \
+              -f status=success \
+              -f per_page=1 \
+              "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs" \
+              --jq '.workflow_runs[0].head_sha // ""')"; then
+            echo "::warning::Unable to find the last successful workflow run; all images will be rebuilt"
+            SUCCESSFUL_SHA=""
+          fi
+
+          echo "sha=$SUCCESSFUL_SHA" >> "$GITHUB_OUTPUT"
+
       - name: Detect changed components
         id: detect
         shell: bash
         env:
           BEFORE_SHA: ${{ github.event.before }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          SUCCESSFUL_SHA: ${{ steps.baseline.outputs.sha }}
         run: |
           set -euo pipefail
 
@@ -63,6 +92,17 @@ jobs:
             args+=(--force-all)
           elif [ -n "${PR_BASE_SHA:-}" ]; then
             args+=(--base "$PR_BASE_SHA")
+          elif [[ "$GITHUB_REF" == "refs/heads/test" ||
+                  "$GITHUB_REF" == "refs/heads/feature" ||
+                  "$GITHUB_REF" == refs/heads/feature/* ]]; then
+            if [ -n "${SUCCESSFUL_SHA:-}" ] &&
+               git merge-base --is-ancestor "$SUCCESSFUL_SHA" "$GITHUB_SHA"; then
+              echo "Detecting changes since last successful workflow run: $SUCCESSFUL_SHA"
+              args+=(--base "$SUCCESSFUL_SHA")
+            else
+              echo "No usable successful workflow baseline; rebuilding all images"
+              args+=(--force-all)
+            fi
           else
             args+=(--base "$BEFORE_SHA")
           fi
