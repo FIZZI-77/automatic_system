@@ -1043,10 +1043,49 @@ jobs:
             reconcile.fluxcd.io/requestedAt="$(date +%s)" \
             --overwrite
 
-          kubectl wait kustomization/automatic-system-local-ha \
+          echo "Waiting for Flux reconciliation of ${DEPLOY_REVISION}"
+          for attempt in $(seq 1 480); do
+            READY_STATUS="$(kubectl get kustomization automatic-system-local-ha \
+              -n flux-system \
+              -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}')"
+            READY_REASON="$(kubectl get kustomization automatic-system-local-ha \
+              -n flux-system \
+              -o jsonpath='{.status.conditions[?(@.type=="Ready")].reason}')"
+            READY_MESSAGE="$(kubectl get kustomization automatic-system-local-ha \
+              -n flux-system \
+              -o jsonpath='{.status.conditions[?(@.type=="Ready")].message}')"
+            RECONCILING_STATUS="$(kubectl get kustomization automatic-system-local-ha \
+              -n flux-system \
+              -o jsonpath='{.status.conditions[?(@.type=="Reconciling")].status}')"
+
+            if [ "$READY_STATUS" = "True" ]; then
+              echo "Flux reconciliation completed: $READY_MESSAGE"
+              break
+            fi
+
+            if (( attempt > 6 )) && [ "$RECONCILING_STATUS" != "True" ] && \
+               { [[ "$READY_REASON" =~ (HealthCheckFailed|ReconciliationFailed) ]] || \
+                 [[ "$READY_MESSAGE" =~ (stalled|Failed) ]]; }; then
+              echo "::error::Flux reconciliation failed: ${READY_REASON}: ${READY_MESSAGE}"
+              kubectl get helmrelease applications -n flux-system -o wide || true
+              exit 1
+            fi
+
+            if (( attempt % 6 == 1 )); then
+              echo "Flux reconciliation pending (${attempt}/480): ${READY_STATUS:-Unknown} ${READY_REASON:-Unknown}: ${READY_MESSAGE:-no message}"
+              kubectl get helmrelease applications -n flux-system -o wide || true
+            fi
+
+            sleep 5
+          done
+
+          READY_STATUS="$(kubectl get kustomization automatic-system-local-ha \
             -n flux-system \
-            --for=condition=ready \
-            --timeout=40m
+            -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}')"
+          if [ "$READY_STATUS" != "True" ]; then
+            echo "::error::Flux reconciliation did not become Ready within 40 minutes"
+            exit 1
+          fi
 
       - name: Verify Flagger promotion
         shell: bash
@@ -1093,7 +1132,7 @@ jobs:
             fi
           done
 
-          for _ in $(seq 1 480); do
+          for attempt in $(seq 1 480); do
             PRIMARY_COUNT=0
 
             for CANARY_NAME in "${EXPECTED_CANARIES[@]}"; do
@@ -1110,10 +1149,23 @@ jobs:
                 -n automatic-system \
                 -o jsonpath='{.status.phase}')"
 
+              if (( attempt % 6 == 1 )); then
+                WEIGHT="$(kubectl get canary "$CANARY_NAME" \
+                  -n automatic-system \
+                  -o jsonpath='{.status.canaryWeight}')"
+                MESSAGE="$(kubectl get canary "$CANARY_NAME" \
+                  -n automatic-system \
+                  -o jsonpath='{.status.conditions[?(@.type=="Promoted")].message}')"
+                echo "Flagger ${CANARY_NAME}: phase=${PHASE:-Unknown}, weight=${WEIGHT:-0}, primary=${PRIMARY_IMAGE}, message=${MESSAGE:-no message}"
+              fi
+
               if [ "$PHASE" != "Failed" ]; then
                 ROLLOUT_STARTED["$CANARY_NAME"]=true
               elif [ "${ROLLOUT_STARTED[$CANARY_NAME]}" = "true" ]; then
-                echo "::error::Flagger failed: $CANARY_NAME"
+                MESSAGE="$(kubectl get canary "$CANARY_NAME" \
+                  -n automatic-system \
+                  -o jsonpath='{.status.conditions[?(@.type=="Promoted")].message}')"
+                echo "::error::Flagger failed: ${CANARY_NAME}: ${MESSAGE:-no status message}"
                 exit 1
               fi
             done
@@ -1135,6 +1187,8 @@ jobs:
           kubectl get kustomization,gitrepository -n flux-system -o wide || true
           kubectl get helmrelease -n flux-system -o wide || true
           kubectl get canary -n automatic-system || true
+          kubectl get jobs -n automatic-system \
+            --sort-by=.metadata.creationTimestamp -o wide || true
           kubectl get pods -n automatic-system -o wide || true
 
   # ===========================================================================

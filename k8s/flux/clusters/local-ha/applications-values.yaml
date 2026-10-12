@@ -2,46 +2,46 @@ globalImage:
   registry: ghcr.io/fizzi-77
   tag: sha-7e50eb65738b
   tags:
-    analytics: sha-602213784de6
-    api-gateway: sha-602213784de6
-    asset: sha-602213784de6
-    audit: sha-602213784de6
-    auth: sha-602213784de6
-    brigade: sha-602213784de6
-    department: sha-602213784de6
-    dispatch: sha-602213784de6
-    file: sha-602213784de6
-    frontend: sha-602213784de6
-    location: sha-602213784de6
-    notification: sha-602213784de6
-    profile: sha-602213784de6
-    report: sha-602213784de6
-    routing: sha-602213784de6
-    sla: sha-602213784de6
-    ticket: sha-602213784de6
+    analytics: sha-eaaf1ce41914
+    api-gateway: sha-eaaf1ce41914
+    asset: sha-eaaf1ce41914
+    audit: sha-eaaf1ce41914
+    auth: sha-eaaf1ce41914
+    brigade: sha-eaaf1ce41914
+    department: sha-eaaf1ce41914
+    dispatch: sha-eaaf1ce41914
+    file: sha-eaaf1ce41914
+    frontend: sha-eaaf1ce41914
+    location: sha-eaaf1ce41914
+    notification: sha-eaaf1ce41914
+    profile: sha-eaaf1ce41914
+    report: sha-eaaf1ce41914
+    routing: sha-eaaf1ce41914
+    sla: sha-eaaf1ce41914
+    ticket: sha-eaaf1ce41914
   pullPolicy: Always
 
 migrations:
   registry: ghcr.io/fizzi-77
   tag: sha-7e50eb65738b
   tags:
-    asset: sha-602213784de6
-    audit: sha-602213784de6
-    auth: sha-602213784de6
-    brigade: sha-602213784de6
-    department: sha-602213784de6
-    dispatch: sha-602213784de6
-    file: sha-602213784de6
-    location: sha-602213784de6
-    notification: sha-602213784de6
-    profile: sha-602213784de6
-    report: sha-602213784de6
-    routing: sha-602213784de6
-    sla: sha-602213784de6
-    ticket: sha-602213784de6
+    asset: sha-eaaf1ce41914
+    audit: sha-eaaf1ce41914
+    auth: sha-eaaf1ce41914
+    brigade: sha-eaaf1ce41914
+    department: sha-eaaf1ce41914
+    dispatch: sha-eaaf1ce41914
+    file: sha-eaaf1ce41914
+    location: sha-eaaf1ce41914
+    notification: sha-eaaf1ce41914
+    profile: sha-eaaf1ce41914
+    report: sha-eaaf1ce41914
+    routing: sha-eaaf1ce41914
+    sla: sha-eaaf1ce41914
+    ticket: sha-eaaf1ce41914
   pullPolicy: Always
 
 analyticsInit:
   registry: ghcr.io/fizzi-77
-  tag: sha-602213784de6
+  tag: sha-eaaf1ce41914
   pullPolicy: Always
