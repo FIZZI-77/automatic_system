@@ -1054,20 +1054,23 @@ jobs:
             READY_MESSAGE="$(kubectl get kustomization automatic-system-local-ha \
               -n flux-system \
               -o jsonpath='{.status.conditions[?(@.type=="Ready")].message}')"
-            RECONCILING_STATUS="$(kubectl get kustomization automatic-system-local-ha \
+            HELM_STALLED="$(kubectl get helmrelease applications \
               -n flux-system \
-              -o jsonpath='{.status.conditions[?(@.type=="Reconciling")].status}')"
+              -o jsonpath='{.status.conditions[?(@.type=="Stalled")].status}')"
 
             if [ "$READY_STATUS" = "True" ]; then
               echo "Flux reconciliation completed: $READY_MESSAGE"
               break
             fi
 
-            if (( attempt > 6 )) && [ "$RECONCILING_STATUS" != "True" ] && \
-               { [[ "$READY_REASON" =~ (HealthCheckFailed|ReconciliationFailed) ]] || \
+            if (( attempt > 6 )) && \
+               { [ "$HELM_STALLED" = "True" ] || \
+                 [[ "$READY_REASON" =~ (HealthCheckFailed|ReconciliationFailed) ]] || \
                  [[ "$READY_MESSAGE" =~ (stalled|Failed) ]]; }; then
               echo "::error::Flux reconciliation failed: ${READY_REASON}: ${READY_MESSAGE}"
               kubectl get helmrelease applications -n flux-system -o wide || true
+              kubectl get helmrelease applications -n flux-system \
+                -o jsonpath='{range .status.conditions[*]}{.type}{"="}{.status}{" reason="}{.reason}{" message="}{.message}{"\n"}{end}' || true
               exit 1
             fi
 
