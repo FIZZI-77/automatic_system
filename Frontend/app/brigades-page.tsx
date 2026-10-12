@@ -30,6 +30,9 @@ export function BrigadesPage({ tickets, vehicles, zones, onOpenMap, onOpenZones 
 }) {
   const [brigades, setBrigades] = useState<BrigadeRecord[]>(loadBrigades);
   const [selected, setSelected] = useState<string>();
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState("");
+  const [visibleCount, setVisibleCount] = useState(12);
 
   useEffect(() => {
     const sync = (event: Event) => setBrigades((event as CustomEvent<BrigadeRecord[]>).detail || loadBrigades());
@@ -41,14 +44,21 @@ export function BrigadesPage({ tickets, vehicles, zones, onOpenMap, onOpenZones 
   const currentVehicles = vehicles.filter((vehicle) => vehicle.brigade_id === selected);
   const jobs = tickets.filter((ticket) => ticket.brigade_id === selected && ["ASSIGNED", "IN_PROGRESS"].includes(ticket.status));
   const brigadeZones = zones.filter((zone) => zone.brigade_id === selected);
+  const normalizedQuery = query.trim().toLocaleLowerCase("ru-RU");
+  const visibleBrigades = brigades.filter((brigade) =>
+    (!status || brigade.status === status) &&
+    (!normalizedQuery || [brigade.id, brigade.name, brigade.specialization, brigade.description].some((value) => value.toLocaleLowerCase("ru-RU").includes(normalizedQuery)))
+  );
+  useEffect(()=>setVisibleCount(12),[query,status]);
 
   return <section className="content-page">
     <div className="page-toolbar">
       <div><h2>Городские бригады</h2><p>Состав бригад, все закреплённые машины и их последние координаты</p></div>
       <button className="primary" onClick={onOpenZones}>Настроить зоны</button>
     </div>
+    <div className="service-filters"><label className="filter-search">Поиск<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Название, специализация или ID"/></label><label>Статус<select value={status} onChange={(event) => setStatus(event.target.value)}><option value="">Все</option>{Object.entries(statusNames).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label><button onClick={()=>{setQuery("");setStatus("")}}>Сбросить</button></div>
     <div className={`brigades-layout ${current ? "has-detail" : ""}`}>
-      <div className="brigade-grid">{brigades.map((brigade) => {
+      <div className="brigade-grid">{visibleBrigades.slice(0,visibleCount).map((brigade) => {
         const brigadeVehicles = vehicles.filter((vehicle) => vehicle.brigade_id === brigade.id);
         const job = tickets.find((ticket) => ticket.brigade_id === brigade.id && ["ASSIGNED", "IN_PROGRESS"].includes(ticket.status));
         return <article className={selected === brigade.id ? "selected" : ""} key={brigade.id} onClick={() => setSelected(brigade.id)}>
@@ -64,7 +74,8 @@ export function BrigadesPage({ tickets, vehicles, zones, onOpenMap, onOpenZones 
             ? <button onClick={(event) => { event.stopPropagation(); onOpenMap(brigadeVehicles[0].vehicle_id); }}>Все на карте</button>
             : <button disabled>Нет координат</button>}
         </article>;
-      })}</div>
+      })}{!visibleBrigades.length&&<p className="list-empty">Бригады по заданным условиям не найдены.</p>}</div>
+      {visibleBrigades.length>12&&<div className="list-pagination"><span>Показано {Math.min(visibleCount,visibleBrigades.length)} из {visibleBrigades.length}</span><button onClick={()=>setVisibleCount(current=>current>=visibleBrigades.length?12:Math.min(current+12,visibleBrigades.length))}>{visibleCount>=visibleBrigades.length?"Свернуть":"Показать ещё"}</button></div>}
       {current && <aside className="brigade-detail">
         <button className="detail-close" onClick={() => setSelected(undefined)}>×</button>
         <header className="brigade-detail-head">
