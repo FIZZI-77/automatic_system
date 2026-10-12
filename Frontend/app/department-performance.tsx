@@ -58,7 +58,7 @@ export function DepartmentPerformanceSection({period,session,onNotice}:{period:n
 
   const rows=report?.departments||[];
   const organization=report?.organization;
-  return <section className="analytics-section department-performance"><div className="analytics-section-head"><div><span className="eyebrow">Качество услуг</span><h3>Работа департаментов</h3></div><b>Заявки, созданные за {period} дней</b></div>
+  return <details className="analytics-section department-performance"><summary className="analytics-section-head"><div><span className="eyebrow">Качество услуг</span><h3>Работа департаментов</h3></div><b>Заявки, созданные за {period} дней</b><span className="analytics-section-toggle" aria-hidden="true">⌄</span></summary>
     <p>Оценки оставляют авторы завершённых заявок. Отклонение SLA: положительное значение означает просрочку, отрицательное — выполнение раньше срока.</p>
     <div className="department-performance-table"><table><thead><tr><th>Департамент</th><th>Заявки</th><th>Выполнено</th><th>Оценка</th><th>Проблема решена</th><th>Реакция SLA</th><th>Выполнение SLA</th><th>Средняя реакция</th><th>Среднее выполнение</th><th>Отклонение реакции</th><th>Отклонение выполнения</th></tr></thead><tbody>
       {organization&&<PerformanceRow title="Организация" value={organization} total/>}
@@ -66,7 +66,7 @@ export function DepartmentPerformanceSection({period,session,onNotice}:{period:n
     </tbody></table></div>
     {!rows.length&&<p className="analytics-empty">За выбранный период данных нет.</p>}
     <small>Доли SLA рассчитаны по заявкам с событиями, содержащими фактическое время и дедлайн. Количество таких заявок показано рядом с процентом.</small>
-  </section>;
+  </details>;
 }
 
 function PerformanceRow({title,value,total=false}:{title:string;value:Performance;total?:boolean}){

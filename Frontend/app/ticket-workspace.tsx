@@ -29,6 +29,7 @@ export function TicketWorkspace({tickets,session,role,onUpdate,onMap,onNotice}:{
   const [feedbackComment,setFeedbackComment]=useState("");
   const [editing,setEditing]=useState(false);
   const [filters,setFilters]=useState({query:"",status:"",priority:"",assignment:"",createdFrom:"",createdTo:"",sort:"created_desc"});
+  const [visibleCount,setVisibleCount]=useState(20);
   const demo=session.accessToken==="demo";
   const brigades=loadBrigades().filter(item=>!["INACTIVE","OFFLINE","ARCHIVED"].includes(item.status));
 
@@ -52,6 +53,7 @@ export function TicketWorkspace({tickets,session,role,onUpdate,onMap,onNotice}:{
       return Number(right.created_at)-Number(left.created_at);
     });
   },[filters,tickets]);
+  useEffect(()=>setVisibleCount(20),[filters]);
 
   async function openTicket(ticket:Ticket){
     setSelected(ticket);
@@ -215,7 +217,8 @@ export function TicketWorkspace({tickets,session,role,onUpdate,onMap,onNotice}:{
       <button type="button" onClick={()=>setFilters({query:"",status:"",priority:"",assignment:"",createdFrom:"",createdTo:"",sort:"created_desc"})}>Сбросить</button>
       <span className="filter-result-count">Найдено: <b>{visibleTickets.length}</b></span>
     </div>
-    <div className="work-ticket-list">{visibleTickets.map(ticket=><button key={ticket.id} className={selected?.id===ticket.id?"selected":""} onClick={()=>void openTicket(ticket)}><span className={`priority ${ticket.priority.toLowerCase()}`}/><div><b>{ticket.title}</b><small>{ticket.address}</small></div><em className={`status ${ticket.status.toLowerCase()}`}>{statusNames[ticket.status]||ticket.status}</em></button>)}{!visibleTickets.length&&<p className="ticket-filter-empty">По выбранным фильтрам заявок нет.</p>}</div>
+    <div className="work-ticket-list">{visibleTickets.slice(0,visibleCount).map(ticket=><button key={ticket.id} className={selected?.id===ticket.id?"selected":""} onClick={()=>void openTicket(ticket)}><span className={`priority ${ticket.priority.toLowerCase()}`}/><div><b>{ticket.title}</b><small>{ticket.address}</small></div><em className={`status ${ticket.status.toLowerCase()}`}>{statusNames[ticket.status]||ticket.status}</em></button>)}{!visibleTickets.length&&<p className="ticket-filter-empty">По выбранным фильтрам заявок нет.</p>}</div>
+    {visibleTickets.length>20&&<div className="list-pagination"><span>Показано {Math.min(visibleCount,visibleTickets.length)} из {visibleTickets.length}</span><button onClick={()=>setVisibleCount(current=>current>=visibleTickets.length?20:Math.min(current+20,visibleTickets.length))}>{visibleCount>=visibleTickets.length?"Свернуть":"Показать ещё"}</button></div>}
     {selected&&<div className="ticket-modal-backdrop" role="presentation" onMouseDown={event=>{if(event.currentTarget===event.target)setSelected(undefined)}}>
       <article className="ticket-modal" role="dialog" aria-modal="true" aria-label={`Заявка ${selected.id}`}>
         <button className="detail-close" onClick={()=>setSelected(undefined)} aria-label="Закрыть">×</button>

@@ -40,7 +40,6 @@ const demoVehicles: Position[] = [
 const operationalStatuses=new Set(["ACTIVE","AVAILABLE","BUSY","ON_ROUTE","ON_SITE"]);
 const vehicleFreshnessSeconds=120;
 function hasFreshPosition(vehicle:Position){return Number(vehicle.recorded_at)>=Date.now()/1000-vehicleFreshnessSeconds}
-function operationalVehicles(vehicles:Position[],brigades:BrigadeRecord[]){const active=new Set(brigades.filter(brigade=>operationalStatuses.has(brigade.status)).map(brigade=>brigade.id));return vehicles.filter(vehicle=>active.has(vehicle.brigade_id))}
 function pluralRu(value:number,one:string,few:string,many:string){const mod100=value%100,mod10=value%10;return mod100>=11&&mod100<=14?many:mod10===1?one:mod10>=2&&mod10<=4?few:many}
 
 const navByRole: Record<Role, { icon: string; label: string; id: string }[]> = {
@@ -300,7 +299,9 @@ function DashboardV2({ theme, onToggleTheme, session, role, setDemoRole, onExit 
   }, [notice]);
   const visibleTickets = demo && role === "dispatcher" ? tickets.filter(ticket => ticket.department_id === dispatcherDepartmentId) : tickets;
   const activeTickets = visibleTickets.filter(ticket => !["DONE", "CANCELED"].includes(ticket.status));
-  const mapVehicles = operationalVehicles(vehicles,loadedBrigades);
+  // Location API is already scoped to the brigades visible to the current user.
+  // Keep last known positions on the map even when a brigade is offline or inactive.
+  const mapVehicles = vehicles;
   const onlineVehicles = mapVehicles.filter(hasFreshPosition);
   const activeBrigades = loadedBrigades.filter(brigade=>operationalStatuses.has(brigade.status));
   const scopedSession:Session=dispatcherDepartmentId&&session.user?{...session,user:{...session.user,department_id:dispatcherDepartmentId}}:session;
@@ -338,8 +339,19 @@ function vehicleState(vehicle:Position,brigades:BrigadeRecord[],tickets:Ticket[]
 }
 
 function VehicleGroups({vehicles,brigades,tickets,selected,onSelect}:{vehicles:Position[];brigades:BrigadeRecord[];tickets:Ticket[];selected?:string;onSelect:(id:string)=>void}){
-  const groups=Array.from(new Set(vehicles.map(vehicle=>vehicle.brigade_id))).map(brigadeId=>({brigadeId,vehicles:vehicles.filter(vehicle=>vehicle.brigade_id===brigadeId)}));
-  return <div className="vehicle-list"><div className="list-caption">Машины по бригадам</div>{groups.map(group=>{const active=selected===group.brigadeId||group.vehicles.some(vehicle=>vehicle.vehicle_id===selected),brigadeName=brigades.find(brigade=>brigade.id===group.brigadeId)?.name||brigadeDisplayName(group.brigadeId);return <button key={group.brigadeId} className={active?"selected":""} onClick={()=>onSelect(group.brigadeId)}><i>▲</i><div><b>{brigadeName}</b>{group.vehicles.map(vehicle=><span className="vehicle-feed-row" key={vehicle.vehicle_id}><small>{vehicleDisplayName(vehicle.vehicle_id)}</small><em>{vehicleState(vehicle,brigades,tickets)}</em></span>)}</div><span>⌖</span></button>})}</div>
+  const [query,setQuery]=useState("");
+  const [freshness,setFreshness]=useState<"all"|"fresh"|"stale">("all");
+  const [showAll,setShowAll]=useState(false);
+  const normalized=query.trim().toLocaleLowerCase("ru-RU");
+  const filtered=vehicles.filter(vehicle=>{
+    const brigade=brigades.find(item=>item.id===vehicle.brigade_id);
+    const matchesQuery=!normalized||[vehicle.vehicle_id,vehicleDisplayName(vehicle.vehicle_id),vehicle.brigade_id,brigade?.name].some(value=>value?.toLocaleLowerCase("ru-RU").includes(normalized));
+    const fresh=hasFreshPosition(vehicle);
+    return matchesQuery&&(freshness==="all"||(freshness==="fresh"?fresh:!fresh));
+  });
+  const visible=showAll?filtered:filtered.slice(0,12);
+  const groups=Array.from(new Set(visible.map(vehicle=>vehicle.brigade_id))).map(brigadeId=>({brigadeId,vehicles:visible.filter(vehicle=>vehicle.brigade_id===brigadeId)}));
+  return <div className="vehicle-list"><div className="list-caption"><span>Машины по бригадам</span><b>{filtered.length} из {vehicles.length}</b></div><div className="vehicle-list-filters"><input aria-label="Поиск машин" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Машина или бригада"/><select aria-label="Актуальность координат" value={freshness} onChange={event=>setFreshness(event.target.value as "all"|"fresh"|"stale")}><option value="all">Все координаты</option><option value="fresh">На связи</option><option value="stale">Давно не обновлялись</option></select></div>{groups.map(group=>{const active=selected===group.brigadeId||group.vehicles.some(vehicle=>vehicle.vehicle_id===selected),brigadeName=brigades.find(brigade=>brigade.id===group.brigadeId)?.name||brigadeDisplayName(group.brigadeId);return <button key={group.brigadeId} className={active?"selected":""} onClick={()=>onSelect(group.brigadeId)}><i>▲</i><div><b>{brigadeName}</b>{group.vehicles.map(vehicle=><span className="vehicle-feed-row" key={vehicle.vehicle_id}><small>{vehicleDisplayName(vehicle.vehicle_id)}</small><em>{vehicleState(vehicle,brigades,tickets)}</em></span>)}</div><span>⌖</span></button>})}{!groups.length&&<p className="list-empty">Машины по заданным условиям не найдены.</p>}{filtered.length>12&&<button className="vehicle-list-more" onClick={()=>setShowAll(value=>!value)}>{showAll?"Свернуть список":`Показать все (${filtered.length})`}</button>}</div>
 }
 
 function SectionPage({ section, tickets, vehicles, zones, session, role, onTicketUpdate, onTicketCreated, onNotice, onOpenMap, onOpenZones }: { section: string; tickets: Ticket[]; vehicles: Position[]; zones: BrigadeZoneRecord[]; session:Session; role:Role; onTicketUpdate:(ticket:Ticket)=>void; onTicketCreated:(ticket:Ticket)=>void; onNotice:(text:string)=>void; onOpenMap: (id: string) => void; onOpenZones: () => void }) {
