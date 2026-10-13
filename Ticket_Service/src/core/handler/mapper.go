@@ -72,6 +72,17 @@ func FromProtoPriority(priority ticketv1.TicketPriority) models.TicketPriority {
 	}
 }
 
+func ToProtoTicketType(ticketType models.TicketType) ticketv1.TicketType {
+	switch ticketType {
+	case models.TicketTypeIncident:
+		return ticketv1.TicketType_TICKET_TYPE_INCIDENT
+	case models.TicketTypeRequest:
+		return ticketv1.TicketType_TICKET_TYPE_REQUEST
+	default:
+		return ticketv1.TicketType_TICKET_TYPE_UNSPECIFIED
+	}
+}
+
 func FromProtoSortBy(sortBy ticketv1.TicketSortBy) models.TicketSortBy {
 	switch sortBy {
 	case ticketv1.TicketSortBy_TICKET_SORT_BY_CREATED_AT:
@@ -156,12 +167,16 @@ func ToProtoTicket(ticket *models.Ticket) *ticketv1.Ticket {
 		Latitude:  ticket.Latitude,
 		Longitude: ticket.Longitude,
 
-		CreatedAt:   ToProtoTimestamp(ticket.CreatedAt),
-		UpdatedAt:   ToProtoTimestamp(ticket.UpdatedAt),
-		AssignedAt:  ToProtoTimestampPtr(ticket.AssignedAt),
-		CompletedAt: ToProtoTimestampPtr(ticket.CompletedAt),
-		CanceledAt:  ToProtoTimestampPtr(ticket.CanceledAt),
-		AssetId:     uuidStringPtr(ticket.AssetID),
+		CreatedAt:        ToProtoTimestamp(ticket.CreatedAt),
+		UpdatedAt:        ToProtoTimestamp(ticket.UpdatedAt),
+		AssignedAt:       ToProtoTimestampPtr(ticket.AssignedAt),
+		CompletedAt:      ToProtoTimestampPtr(ticket.CompletedAt),
+		CanceledAt:       ToProtoTimestampPtr(ticket.CanceledAt),
+		AssetId:          uuidStringPtr(ticket.AssetID),
+		TicketType:       ToProtoTicketType(ticket.Type),
+		IncidentId:       uuidStringPtr(ticket.IncidentID),
+		ExternalSystemId: uuidStringPtr(ticket.ExternalSystemID),
+		ExternalId:       ticket.ExternalID,
 	}
 }
 func uuidStringPtr(v *uuid.UUID) *string {

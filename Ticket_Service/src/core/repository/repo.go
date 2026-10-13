@@ -24,6 +24,13 @@ type TicketRepository interface {
 	GetTicketStatusHistory(ctx context.Context, in *models.GetTicketStatusHistoryInput) ([]*models.TicketStatusHistory, int64, error)
 }
 
+type RequestRepository interface {
+	CreateRequest(ctx context.Context, in *models.CreateRequestInput) (*models.CreateRequestResult, error)
+	AttachRequest(ctx context.Context, in *models.AttachRequestInput) (*models.Ticket, error)
+	DetachRequest(ctx context.Context, in *models.DetachRequestInput) (*models.Ticket, error)
+	ListIncidentRequests(ctx context.Context, in *models.ListIncidentRequestsInput) ([]*models.Ticket, int64, error)
+}
+
 type CategoryRepository interface {
 	CreateCategory(ctx context.Context, in *models.CreateCategoryInput) (*models.TicketCategory, error)
 	GetCategoryByID(ctx context.Context, categoryID uuid.UUID) (*models.TicketCategory, error)
@@ -37,6 +44,7 @@ type Repository struct {
 	readPool  *pgxpool.Pool
 	TicketRepository
 	CategoryRepository
+	RequestRepository
 }
 
 func NewRepository(pools DBPools) *Repository {
@@ -53,5 +61,6 @@ func NewRepository(pools DBPools) *Repository {
 		readPool:           pools.Read,
 		TicketRepository:   ticketRepo,
 		CategoryRepository: categoryRepo,
+		RequestRepository:  ticketRepo,
 	}
 }

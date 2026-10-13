@@ -6,7 +6,6 @@ export const frontendUrl = process.env.E2E_BASE_URL || "http://127.0.0.1:3000";
 export const gatewayUrl = process.env.E2E_API_URL || "http://127.0.0.1:8081";
 export const frontendHealthUrl = process.env.E2E_FRONTEND_HEALTH_URL || frontendUrl;
 export const gatewayHealthUrl = process.env.E2E_GATEWAY_HEALTH_URL || gatewayUrl;
-export const demoPassword = process.env.E2E_DEMO_PASSWORD || "CityDemo123!";
 
 export const accounts = {
   admin: "demo.admin@city.local",
@@ -18,6 +17,16 @@ export const accounts = {
 
 const currentFile = fileURLToPath(import.meta.url);
 export const repositoryRoot = path.resolve(path.dirname(currentFile), "..", "..", "..");
+
+export function getDemoPassword() {
+  const password = process.env.E2E_DEMO_PASSWORD || process.env.DEMO_PASSWORD;
+
+  if (!password) {
+    throw new Error("Demo password is required. Set E2E_DEMO_PASSWORD or DEMO_PASSWORD.");
+  }
+
+  return password;
+}
 
 export async function waitForUrl(url: string, timeoutMs = 120_000) {
   const deadline = Date.now() + timeoutMs;
@@ -37,11 +46,17 @@ export async function waitForUrl(url: string, timeoutMs = 120_000) {
 
 export function seedDemoData() {
   if (process.env.E2E_SKIP_SEED === "1") return;
+  const demoPassword = getDemoPassword();
   const shell = process.platform === "win32" ? "pwsh.exe" : "pwsh";
   execFileSync(shell, [
     "-NoProfile",
     "-ExecutionPolicy", "Bypass",
     "-File", path.join(repositoryRoot, "scripts", "seed-demo-data.ps1"),
     "-BaseUrl", gatewayUrl,
-  ], { cwd: repositoryRoot, stdio: "inherit", timeout: 180_000 });
+  ], {
+    cwd: repositoryRoot,
+    env: { ...process.env, DEMO_PASSWORD: demoPassword },
+    stdio: "inherit",
+    timeout: 180_000,
+  });
 }

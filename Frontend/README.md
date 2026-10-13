@@ -33,10 +33,11 @@ Service Worker приложение должно быть открыто чер�
 После запуска основного `docker-compose.yml` связанный набор данных для всех экранов можно безопасно загрузить повторно:
 
 ```powershell
+$env:DEMO_PASSWORD = Read-Host "Demo password"
 powershell -ExecutionPolicy Bypass -File scripts/seed-demo-data.ps1
 ```
 
-Тестовые учётные записи используют пароль `CityDemo123!`:
+Тестовые учётные записи используют пароль из `DEMO_PASSWORD`:
 
 - `demo.admin@city.local`
 - `demo.dispatcher@city.local`

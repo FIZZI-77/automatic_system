@@ -88,13 +88,18 @@ func (s SortOrder) IsValid() bool {
 }
 
 type Ticket struct {
-	ID           uuid.UUID `json:"id"`
-	DepartmentID uuid.UUID `json:"department_id"`
-	CategoryID   uuid.UUID `json:"category_id"`
+	ID           uuid.UUID  `json:"id"`
+	DepartmentID uuid.UUID  `json:"department_id"`
+	CategoryID   uuid.UUID  `json:"category_id"`
+	Type         TicketType `json:"ticket_type"`
+	IncidentID   *uuid.UUID `json:"incident_id,omitempty"`
 
 	UserID    uuid.UUID  `json:"user_id"`
 	BrigadeID *uuid.UUID `json:"brigade_id,omitempty"`
 	AssetID   *uuid.UUID `json:"asset_id,omitempty"`
+
+	ExternalSystemID *uuid.UUID `json:"external_system_id,omitempty"`
+	ExternalID       *string    `json:"external_id,omitempty"`
 
 	Title       string         `json:"title"`
 	Description string         `json:"description"`

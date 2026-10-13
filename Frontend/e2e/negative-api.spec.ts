@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { apiLogin, bearer } from "./support/auth";
-import { accounts, demoPassword, gatewayUrl } from "./support/environment";
+import { accounts, gatewayUrl, getDemoPassword } from "./support/environment";
 
 test.describe("Негативные сценарии API", () => {
   test("закрытые маршруты отклоняют отсутствующий и повреждённый JWT", async ({ request }) => {
@@ -17,6 +17,8 @@ test.describe("Негативные сценарии API", () => {
   });
 
   test("вход не раскрывает существование пользователя и отклоняет неверный пароль", async ({ request }) => {
+    const demoPassword = getDemoPassword();
+
     for (const email of [accounts.admin, "missing-user@city.local"]) {
       const response = await request.post(`${gatewayUrl}/auth/login`, {
         data: { email, password: `${demoPassword}-wrong`, client_id: "negative-e2e" },
