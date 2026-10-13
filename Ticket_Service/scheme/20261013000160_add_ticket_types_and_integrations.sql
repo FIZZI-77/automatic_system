@@ -1,5 +1,4 @@
 -- +goose Up
--- +goose StatementBegin
 
 ALTER TABLE tickets
     ADD COLUMN ticket_type VARCHAR(50) NOT NULL DEFAULT 'INCIDENT',
@@ -50,10 +49,7 @@ CREATE INDEX idx_ticket_integrations_active
     ON ticket_integrations(client_id)
     WHERE is_active = TRUE;
 
--- +goose StatementEnd
-
 -- +goose Down
--- +goose StatementBegin
 
 DROP TABLE ticket_integrations;
 
@@ -68,5 +64,3 @@ ALTER TABLE tickets
     DROP COLUMN external_system_id,
     DROP COLUMN incident_id,
     DROP COLUMN ticket_type;
-
--- +goose StatementEnd
