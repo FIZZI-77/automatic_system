@@ -1,12 +1,17 @@
 param(
     [switch]$Execute,
     [int]$RecoveryTimeoutSeconds = 240,
-    [string]$ReportPath = ""
+    [string]$ReportPath = "",
+    [string]$Password = $env:DEMO_PASSWORD
 )
 
 $ErrorActionPreference = "Stop"
 if (-not $Execute) {
     throw "Chaos testing is destructive. Re-run with -Execute after verifying the target context."
+}
+
+if ([string]::IsNullOrWhiteSpace($Password)) {
+    throw "Demo password is required. Pass -Password or set DEMO_PASSWORD."
 }
 
 $namespace = "automatic-system"
@@ -74,7 +79,7 @@ function Get-PrimaryPod {
 function Start-Workload {
     $loginBody = @{
         email = "demo.admin@city.local"
-        password = "CityDemo123!"
+        password = $Password
         client_id = "chaos-workload"
     } | ConvertTo-Json
 

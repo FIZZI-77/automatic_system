@@ -6,7 +6,11 @@ export const frontendUrl = process.env.E2E_BASE_URL || "http://127.0.0.1:3000";
 export const gatewayUrl = process.env.E2E_API_URL || "http://127.0.0.1:8081";
 export const frontendHealthUrl = process.env.E2E_FRONTEND_HEALTH_URL || frontendUrl;
 export const gatewayHealthUrl = process.env.E2E_GATEWAY_HEALTH_URL || gatewayUrl;
-export const demoPassword = process.env.E2E_DEMO_PASSWORD || "CityDemo123!";
+export const demoPassword = process.env.E2E_DEMO_PASSWORD || process.env.DEMO_PASSWORD;
+
+if (!demoPassword) {
+  throw new Error("Demo password is required. Set E2E_DEMO_PASSWORD or DEMO_PASSWORD.");
+}
 
 export const accounts = {
   admin: "demo.admin@city.local",
@@ -43,5 +47,10 @@ export function seedDemoData() {
     "-ExecutionPolicy", "Bypass",
     "-File", path.join(repositoryRoot, "scripts", "seed-demo-data.ps1"),
     "-BaseUrl", gatewayUrl,
-  ], { cwd: repositoryRoot, stdio: "inherit", timeout: 180_000 });
+  ], {
+    cwd: repositoryRoot,
+    env: { ...process.env, DEMO_PASSWORD: demoPassword },
+    stdio: "inherit",
+    timeout: 180_000,
+  });
 }

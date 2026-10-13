@@ -95,23 +95,107 @@ type TicketCategory struct {
 }
 
 type Ticket struct {
-	ID              string  `json:"id"`
-	DepartmentID    string  `json:"department_id"`
-	CategoryID      string  `json:"category_id"`
-	UserID          string  `json:"user_id"`
-	BrigadeID       string  `json:"brigade_id,omitempty"`
-	Title           string  `json:"title"`
-	Description     string  `json:"description"`
-	Status          string  `json:"status"`
-	Priority        string  `json:"priority"`
-	Address         string  `json:"address"`
-	Latitude        float64 `json:"latitude"`
-	Longitude       float64 `json:"longitude"`
-	CreatedAtUnix   int64   `json:"created_at"`
-	UpdatedAtUnix   int64   `json:"updated_at"`
-	AssignedAtUnix  int64   `json:"assigned_at,omitempty"`
-	CompletedAtUnix int64   `json:"completed_at,omitempty"`
-	CanceledAtUnix  int64   `json:"canceled_at,omitempty"`
+	ID               string  `json:"id"`
+	DepartmentID     string  `json:"department_id"`
+	CategoryID       string  `json:"category_id"`
+	UserID           string  `json:"user_id"`
+	BrigadeID        string  `json:"brigade_id,omitempty"`
+	Title            string  `json:"title"`
+	Description      string  `json:"description"`
+	Status           string  `json:"status"`
+	Priority         string  `json:"priority"`
+	Address          string  `json:"address"`
+	Latitude         float64 `json:"latitude"`
+	Longitude        float64 `json:"longitude"`
+	CreatedAtUnix    int64   `json:"created_at"`
+	UpdatedAtUnix    int64   `json:"updated_at"`
+	AssignedAtUnix   int64   `json:"assigned_at,omitempty"`
+	CompletedAtUnix  int64   `json:"completed_at,omitempty"`
+	CanceledAtUnix   int64   `json:"canceled_at,omitempty"`
+	TicketType       string  `json:"ticket_type"`
+	IncidentID       string  `json:"incident_id,omitempty"`
+	ExternalSystemID string  `json:"external_system_id,omitempty"`
+	ExternalID       string  `json:"external_id,omitempty"`
+}
+
+type CreateRequestRequest struct {
+	DepartmentID string  `json:"department_id" binding:"required,uuid"`
+	CategoryID   string  `json:"category_id" binding:"required,uuid"`
+	Title        string  `json:"title" binding:"required,max=255"`
+	Description  string  `json:"description" binding:"required,max=3000"`
+	Priority     string  `json:"priority" binding:"required,oneof=LOW MEDIUM HIGH EMERGENCY"`
+	Address      string  `json:"address" binding:"required,max=500"`
+	Latitude     float64 `json:"latitude" binding:"latitude"`
+	Longitude    float64 `json:"longitude" binding:"longitude"`
+	AssetID      *string `json:"asset_id,omitempty" binding:"omitempty,uuid"`
+}
+
+type CreateRequestResponse struct {
+	Request          *Ticket `json:"request"`
+	Incident         *Ticket `json:"incident"`
+	DuplicateMatched bool    `json:"duplicate_matched"`
+}
+
+type AttachRequestRequest struct {
+	IncidentID string `json:"incident_id" binding:"required,uuid"`
+	RequestID  string `json:"request_id" binding:"required,uuid"`
+	Reason     string `json:"reason" binding:"required,max=1000"`
+}
+
+type DetachRequestRequest struct {
+	RequestID string `json:"request_id" binding:"required,uuid"`
+	Reason    string `json:"reason" binding:"required,max=1000"`
+}
+
+type ListIncidentRequestsRequest struct {
+	IncidentID string `json:"incident_id" binding:"required,uuid"`
+	Limit      *int32 `json:"limit,omitempty" binding:"omitempty,min=1,max=100"`
+	Offset     *int32 `json:"offset,omitempty" binding:"omitempty,min=0"`
+}
+
+type ListIncidentRequestsResponse struct {
+	Requests []*Ticket `json:"requests"`
+	Total    int64     `json:"total"`
+}
+
+type RegisterTicketIntegrationRequest struct {
+	Name                string  `json:"name" binding:"required,max=255"`
+	ClientID            string  `json:"client_id" binding:"required,min=3,max=100"`
+	AllowedDepartmentID *string `json:"allowed_department_id,omitempty" binding:"omitempty,uuid"`
+}
+
+type TicketIntegration struct {
+	ID                  string    `json:"id"`
+	Name                string    `json:"name"`
+	ClientID            string    `json:"client_id"`
+	SecretPrefix        string    `json:"secret_prefix"`
+	AllowedDepartmentID string    `json:"allowed_department_id,omitempty"`
+	IsActive            bool      `json:"is_active"`
+	CreatedBy           string    `json:"created_by"`
+	CreatedAt           time.Time `json:"created_at"`
+	UpdatedAt           time.Time `json:"updated_at"`
+	LastUsedAt          time.Time `json:"last_used_at,omitempty"`
+}
+
+type RegisterTicketIntegrationResponse struct {
+	Integration *TicketIntegration `json:"integration"`
+	Secret      string             `json:"secret"`
+}
+
+type CreateExternalTicketRequest struct {
+	ClientID     string  `json:"client_id" binding:"required"`
+	Secret       string  `json:"secret" binding:"required"`
+	ExternalID   string  `json:"external_id" binding:"required,max=255"`
+	DepartmentID string  `json:"department_id" binding:"required,uuid"`
+	CategoryID   string  `json:"category_id" binding:"required,uuid"`
+	UserID       string  `json:"user_id" binding:"required,uuid"`
+	Title        string  `json:"title" binding:"required,max=255"`
+	Description  string  `json:"description" binding:"required,max=3000"`
+	Priority     string  `json:"priority" binding:"required,oneof=LOW MEDIUM HIGH EMERGENCY"`
+	Address      string  `json:"address" binding:"required,max=500"`
+	Latitude     float64 `json:"latitude" binding:"latitude"`
+	Longitude    float64 `json:"longitude" binding:"longitude"`
+	AssetID      *string `json:"asset_id,omitempty" binding:"omitempty,uuid"`
 }
 
 type TicketStatusHistory struct {

@@ -24,6 +24,11 @@ type TicketService interface {
 	GetTicketFeedback(ctx context.Context, in *models.GetTicketFeedbackInput) (*models.TicketFeedback, error)
 
 	GetTicketStatusHistory(ctx context.Context, in *models.GetTicketStatusHistoryInput) (*models.GetTicketStatusHistoryResult, error)
+
+	CreateRequest(ctx context.Context, in *models.CreateRequestInput) (*models.CreateRequestResult, error)
+	AttachRequest(ctx context.Context, in *models.AttachRequestInput) (*models.Ticket, error)
+	DetachRequest(ctx context.Context, in *models.DetachRequestInput) (*models.Ticket, error)
+	ListIncidentRequests(ctx context.Context, in *models.ListIncidentRequestsInput) ([]*models.Ticket, int64, error)
 }
 
 type CategoryService interface {
@@ -43,6 +48,7 @@ type Service struct {
 	TicketService
 	CategoryService
 	ReportService
+	IntegrationService
 }
 
 func NewService(repo *repository.Repository, logger *zap.Logger) *Service {
@@ -52,8 +58,9 @@ func NewService(repo *repository.Repository, logger *zap.Logger) *Service {
 	}
 
 	return &Service{
-		TicketService:   NewTicketServiceStruct(repo, logger),
-		CategoryService: NewCategoryServiceStruct(repo, logger),
-		ReportService:   NewReportService(repo),
+		TicketService:      NewTicketServiceStruct(repo, logger),
+		CategoryService:    NewCategoryServiceStruct(repo, logger),
+		ReportService:      NewReportService(repo),
+		IntegrationService: NewIntegrationServiceStruct(repo),
 	}
 }

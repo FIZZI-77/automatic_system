@@ -139,6 +139,174 @@ func (in *CreateTicketInput) Validate() error {
 	return nil
 }
 
+func (in *CreateRequestInput) Validate() error {
+
+	if in == nil {
+		return errors.New("create request input is nil")
+	}
+
+	if err := validateUUID(in.DepartmentID, "department_id"); err != nil {
+		return err
+	}
+
+	if err := validateUUID(in.CategoryID, "category_id"); err != nil {
+		return err
+	}
+
+	if err := validateUUID(in.UserID, "user_id"); err != nil {
+		return err
+	}
+
+	if err := validateText(in.Title, "title", 255); err != nil {
+		return err
+	}
+
+	if err := validateText(in.Description, "description", 3000); err != nil {
+		return err
+	}
+
+	if !in.Priority.IsValid() {
+		return errors.New("priority is invalid")
+	}
+
+	if err := validateText(in.Address, "address", 500); err != nil {
+		return err
+	}
+
+	if err := validateCoordinates(in.Latitude, in.Longitude); err != nil {
+		return err
+	}
+
+	if err := validateOptionalUUID(in.AssetID, "asset_id"); err != nil {
+		return err
+	}
+
+	if err := validateOptionalUUID(in.ExternalSystemID, "external_system_id"); err != nil {
+		return err
+	}
+
+	if in.ExternalSystemID == nil && in.ExternalID != nil {
+		return errors.New("external_system_id is required with external_id")
+	}
+
+	if in.ExternalSystemID != nil {
+
+		if err := validateOptionalText(in.ExternalID, "external_id", 255); err != nil {
+			return err
+		}
+
+		if in.ExternalID == nil {
+			return errors.New("external_id is required with external_system_id")
+		}
+
+	}
+
+	return nil
+}
+
+func (in *AttachRequestInput) Validate() error {
+
+	if in == nil {
+		return errors.New("attach request input is nil")
+	}
+
+	if err := validateUUID(in.IncidentID, "incident_id"); err != nil {
+		return err
+	}
+
+	if err := validateUUID(in.RequestID, "request_id"); err != nil {
+		return err
+	}
+
+	if err := validateUUID(in.ChangedBy, "changed_by"); err != nil {
+		return err
+	}
+
+	if err := validateText(in.Reason, "reason", 1000); err != nil {
+		return err
+	}
+
+	if in.IncidentID == in.RequestID {
+		return errors.New("request cannot be attached to itself")
+	}
+
+	return nil
+}
+
+func (in *DetachRequestInput) Validate() error {
+
+	if in == nil {
+		return errors.New("detach request input is nil")
+	}
+
+	if err := validateUUID(in.RequestID, "request_id"); err != nil {
+		return err
+	}
+
+	if err := validateUUID(in.ChangedBy, "changed_by"); err != nil {
+		return err
+	}
+
+	return validateText(in.Reason, "reason", 1000)
+}
+
+func (in *ListIncidentRequestsInput) Validate() error {
+
+	if in == nil {
+		return errors.New("list incident requests input is nil")
+	}
+
+	if err := validateUUID(in.IncidentID, "incident_id"); err != nil {
+		return err
+	}
+
+	in.Limit, in.Offset = normalizeLimitOffset(in.Limit, in.Offset)
+
+	return nil
+}
+
+func (in *RegisterIntegrationInput) Validate() error {
+
+	if in == nil {
+		return errors.New("register integration input is nil")
+	}
+
+	if err := validateText(in.Name, "name", 255); err != nil {
+		return err
+	}
+
+	if err := validateText(in.ClientID, "client_id", 100); err != nil {
+		return err
+	}
+
+	if len(strings.TrimSpace(in.ClientID)) < 3 {
+		return errors.New("client_id must be at least 3 characters")
+	}
+
+	if !isValidCode(in.ClientID) {
+		return errors.New("client_id must contain only lowercase letters, digits, underscore or hyphen")
+	}
+
+	if err := validateOptionalUUID(in.AllowedDepartmentID, "allowed_department_id"); err != nil {
+		return err
+	}
+
+	return validateUUID(in.CreatedBy, "created_by")
+}
+
+func (in *AuthenticateIntegrationInput) Validate() error {
+
+	if in == nil {
+		return errors.New("authenticate integration input is nil")
+	}
+
+	if err := validateText(in.ClientID, "client_id", 100); err != nil {
+		return err
+	}
+
+	return validateText(in.Secret, "secret", 255)
+}
+
 func (in *GetTicketInput) Validate() error {
 
 	if in == nil {

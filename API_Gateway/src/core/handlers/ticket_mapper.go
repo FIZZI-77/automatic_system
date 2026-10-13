@@ -92,23 +92,38 @@ func FromProtoTicket(t *ticketv1.Ticket) *models.Ticket {
 	}
 
 	return &models.Ticket{
-		ID:              t.GetId(),
-		DepartmentID:    t.GetDepartmentId(),
-		CategoryID:      t.GetCategoryId(),
-		UserID:          t.GetUserId(),
-		BrigadeID:       t.GetBrigadeId(),
-		Title:           t.GetTitle(),
-		Description:     t.GetDescription(),
-		Status:          FromProtoStatus(t.GetStatus()),
-		Priority:        FromProtoPriority(t.GetPriority()),
-		Address:         t.GetAddress(),
-		Latitude:        t.GetLatitude(),
-		Longitude:       t.GetLongitude(),
-		CreatedAtUnix:   timestampUnix(t.GetCreatedAt()),
-		UpdatedAtUnix:   timestampUnix(t.GetUpdatedAt()),
-		AssignedAtUnix:  timestampUnix(t.GetAssignedAt()),
-		CompletedAtUnix: timestampUnix(t.GetCompletedAt()),
-		CanceledAtUnix:  timestampUnix(t.GetCanceledAt()),
+		ID:               t.GetId(),
+		DepartmentID:     t.GetDepartmentId(),
+		CategoryID:       t.GetCategoryId(),
+		UserID:           t.GetUserId(),
+		BrigadeID:        t.GetBrigadeId(),
+		Title:            t.GetTitle(),
+		Description:      t.GetDescription(),
+		Status:           FromProtoStatus(t.GetStatus()),
+		Priority:         FromProtoPriority(t.GetPriority()),
+		Address:          t.GetAddress(),
+		Latitude:         t.GetLatitude(),
+		Longitude:        t.GetLongitude(),
+		CreatedAtUnix:    timestampUnix(t.GetCreatedAt()),
+		UpdatedAtUnix:    timestampUnix(t.GetUpdatedAt()),
+		AssignedAtUnix:   timestampUnix(t.GetAssignedAt()),
+		CompletedAtUnix:  timestampUnix(t.GetCompletedAt()),
+		CanceledAtUnix:   timestampUnix(t.GetCanceledAt()),
+		TicketType:       FromProtoTicketType(t.GetTicketType()),
+		IncidentID:       t.GetIncidentId(),
+		ExternalSystemID: t.GetExternalSystemId(),
+		ExternalID:       t.GetExternalId(),
+	}
+}
+
+func FromProtoTicketType(ticketType ticketv1.TicketType) string {
+	switch ticketType {
+	case ticketv1.TicketType_TICKET_TYPE_INCIDENT:
+		return "INCIDENT"
+	case ticketv1.TicketType_TICKET_TYPE_REQUEST:
+		return "REQUEST"
+	default:
+		return ""
 	}
 }
 

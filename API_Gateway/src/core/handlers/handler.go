@@ -218,6 +218,11 @@ func (h *Handler) InitRouters() *gin.Engine {
 	privateTickets.Use(h.authMiddleware.Handle())
 	{
 		privateTickets.POST("/create", h.ticketHandler.CreateTicket)
+		privateTickets.POST("/requests/create", h.ticketHandler.CreateRequest)
+		privateTickets.POST("/requests/attach", h.ticketHandler.AttachRequest)
+		privateTickets.POST("/requests/detach", h.ticketHandler.DetachRequest)
+		privateTickets.POST("/requests/list", h.ticketHandler.ListIncidentRequests)
+		privateTickets.POST("/integrations/register", h.ticketHandler.RegisterIntegration)
 		privateTickets.POST("/get", h.ticketHandler.GetTicket)
 		privateTickets.POST("/list", h.ticketHandler.ListTicket)
 		privateTickets.POST("/update", h.ticketHandler.UpdateTicket)
@@ -230,6 +235,11 @@ func (h *Handler) InitRouters() *gin.Engine {
 		privateTickets.POST("/reports/list", h.ticketHandler.ListWorkReports)
 		privateTickets.POST("/feedback/submit", h.ticketHandler.SubmitFeedback)
 		privateTickets.POST("/feedback/get", h.ticketHandler.GetFeedback)
+	}
+
+	publicTicketIntegrations := router.Group("/integrations/tickets")
+	{
+		publicTicketIntegrations.POST("/requests", h.ticketHandler.CreateExternalRequest)
 	}
 
 	privateFiles := router.Group("/files")

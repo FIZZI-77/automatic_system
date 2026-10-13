@@ -1,6 +1,6 @@
 param(
     [string]$BaseUrl = "http://localhost:8081",
-    [string]$Password = "CityDemo123!",
+    [string]$Password = $env:DEMO_PASSWORD,
     [ValidateSet("Compose", "Kubernetes")]
     [string]$Target = "Compose",
     [string]$Namespace = "automatic-system",
@@ -8,6 +8,10 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+if (-not $SkipRegister -and [string]::IsNullOrWhiteSpace($Password)) {
+    throw "Demo password is required. Pass -Password or set DEMO_PASSWORD."
+}
 
 function Get-ReadyPrimaryPod {
     param([string]$Selector)

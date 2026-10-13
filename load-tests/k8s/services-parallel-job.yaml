@@ -48,7 +48,10 @@ spec:
             - name: LOAD_USER_EMAIL
               value: demo.admin@city.local
             - name: LOAD_USER_PASSWORD
-              value: CityDemo123!
+              valueFrom:
+                secretKeyRef:
+                  name: demo-credentials
+                  key: password
             - name: CLIENT_ID
               value: k6-kubernetes
             - name: TICKET_ID

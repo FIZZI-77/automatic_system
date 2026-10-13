@@ -48,6 +48,8 @@ type ticketCreatedEventPayload struct {
 	Longitude    float64   `json:"longitude"`
 	AssetID      *string   `json:"asset_id,omitempty"`
 	CreatedAt    time.Time `json:"created_at"`
+	TicketType   string    `json:"ticket_type"`
+	IncidentID   *string   `json:"incident_id,omitempty"`
 }
 
 func (t *TicketRepoStruct) CreateTicket(ctx context.Context, in *models.CreateTicketInput) (*models.Ticket, error) {
@@ -116,32 +118,14 @@ func (t *TicketRepoStruct) createTicket(ctx context.Context, q Querier, in *mode
 
 func (t *TicketRepoStruct) GetTicketByID(ctx context.Context, ticketID uuid.UUID) (*models.Ticket, error) {
 	const query = `
-		SELECT
-			id,
-			department_id,
-			category_id,
-			user_id,
-			brigade_id,
-			title,
-			description,
-			status,
-			priority,
-			address,
-			latitude,
-			longitude,
-			created_at,
-			updated_at,
-			assigned_at,
-			completed_at,
-			canceled_at,
-			asset_id
+		SELECT ` + ticketWithRelationColumns + `
 		FROM tickets
 		WHERE id = $1 AND status <> 'ARCHIVED'
 	`
 
 	row := t.readPool.QueryRow(ctx, query, ticketID)
 
-	ticket, err := scanTicket(row)
+	ticket, err := scanTicketWithRelation(row)
 
 	if err != nil {
 		return nil, fmt.Errorf("repository: GetTicketByID(): %w", err)
@@ -225,25 +209,7 @@ func (t *TicketRepoStruct) ListTickets(ctx context.Context, in *models.ListTicke
 	offsetArg := len(args)
 
 	listQuery := fmt.Sprintf(`
-		SELECT
-			id,
-			department_id,
-			category_id,
-			user_id,
-			brigade_id,
-			title,
-			description,
-			status,
-			priority,
-			address,
-			latitude,
-			longitude,
-			created_at,
-			updated_at,
-			assigned_at,
-			completed_at,
-			canceled_at,
-			asset_id
+		SELECT `+ticketWithRelationColumns+`
 		FROM tickets
 		%s
 		ORDER BY %s %s
@@ -261,7 +227,7 @@ func (t *TicketRepoStruct) ListTickets(ctx context.Context, in *models.ListTicke
 	tickets := make([]*models.Ticket, 0)
 
 	for rows.Next() {
-		ticket, err := scanTicket(rows)
+		ticket, err := scanTicketWithRelation(rows)
 
 		if err != nil {
 			return nil, 0, fmt.Errorf("repository: ListTickets(): scan: %w", err)
@@ -992,6 +958,8 @@ func (t *TicketRepoStruct) insertTicketCreatedOutboxEvent(ctx context.Context, e
 		Longitude:    ticket.Longitude,
 		AssetID:      optionalUUIDString(ticket.AssetID),
 		CreatedAt:    ticket.CreatedAt,
+		TicketType:   string(ticket.Type),
+		IncidentID:   optionalUUIDString(ticket.IncidentID),
 	}
 
 	payloadBytes, err := json.Marshal(payload)
@@ -1135,7 +1103,9 @@ func optionalUUIDString(v *uuid.UUID) *string {
 }
 
 func scanTicket(s scanner) (*models.Ticket, error) {
-	var ticket models.Ticket
+	ticket := models.Ticket{
+		Type: models.TicketTypeIncident,
+	}
 
 	var brigadeID sql.NullString
 	var assignedAt sql.NullTime

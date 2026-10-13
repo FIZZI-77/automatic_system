@@ -1323,6 +1323,13 @@ func ticketErrorCode(err error) codes.Code {
 		return codes.FailedPrecondition
 	case errors.Is(err, models.ErrPermissionDenied):
 		return codes.PermissionDenied
+	case errors.Is(err, models.ErrIntegrationCredentials):
+		return codes.Unauthenticated
+	case errors.Is(err, models.ErrIntegrationInactive),
+		errors.Is(err, models.ErrInvalidTicketType),
+		errors.Is(err, models.ErrInvalidTicketRelation),
+		errors.Is(err, models.ErrRequestAlreadyAttached):
+		return codes.FailedPrecondition
 	case errors.Is(err, models.ErrCategoryInactive),
 		errors.Is(err, models.ErrInvalidStatusTransition),
 		errors.Is(err, models.ErrTicketTerminalState),
