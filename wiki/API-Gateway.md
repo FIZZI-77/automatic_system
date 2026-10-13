@@ -10,6 +10,8 @@
 - Создаёт gRPC clients ко всем 15 backend domain services.
 - Global limit: 300 requests/minute + burst 100; auth flows имеют отдельные более строгие limits.
 - HTTP DTO живут в `models`, но не образуют самостоятельный persisted domain.
+- Шлюз предоставляет отдельные HTTP-пути для обращений жителей и управления их связью с городскими инцидентами, сохраняя существующие ticket endpoints для рабочего lifecycle инцидентов.
+- Публичная интеграционная ручка аутентифицируется `client_id` и секретом Ticket Service, а регистрация интеграции остается защищенной JWT и ролью администратора.
 
 ## Зависимости
 
@@ -255,7 +257,20 @@ func isRetryable(err error) bool
 
 ### Обработчики заявок и отчетов
 
-`NewTicketHandler` сохраняет клиентов заявок и бригад. `CreateTicket`, `GetTicket`, `ListTicket`, `UpdateTicket`, `ChangeTicketStatus`, `AssignBrigade`, `CancelTicket`, `CompleteTicket`, `GetTicketStatusHistory` обслуживают жизненный цикл заявки. `CreateWorkReport` и `ListWorkReports` при роли работника сначала определяют его активную бригаду. Методы категорий вызывают одноименные операции Ticket Service. `bindJSON`, `buildListTicketsRequest`, `buildUpdateTicketRequest` и преобразователи формируют строгий запрос.
+`NewTicketHandler` сохраняет клиентов заявок и бригад. `CreateTicket`, `GetTicket`, `ListTicket`, `UpdateTicket`, `ChangeTicketStatus`, `AssignBrigade`, `CancelTicket`, `CompleteTicket`, `GetTicketStatusHistory` обслуживают рабочий lifecycle инцидента. `CreateRequest`, `AttachRequest`, `DetachRequest`, `ListIncidentRequests`, `RegisterIntegration` и `CreateExternalRequest` обслуживают обращения и внешние городские системы. Все эти HTTP-методы находятся в общем `TicketHandler` (`src/core/handlers/ticket.go`), без отдельного обработчика обращений или интеграций. `CreateWorkReport` и `ListWorkReports` при роли работника сначала определяют его активную бригаду. Методы категорий вызывают одноименные операции Ticket Service. `bindJSON`, `buildListTicketsRequest`, `buildUpdateTicketRequest` и преобразователи формируют строгий запрос.
+
+### Маршруты обращений и интеграций
+
+| Метод и путь | Доступ | Назначение |
+|---|---|---|
+| `POST /tickets/requests/create` | JWT | Создать обращение жителя и автоматически связать его с существующим либо новым инцидентом. `user_id` берется из подтвержденного JWT. |
+| `POST /tickets/requests/attach` | JWT, admin/dispatcher | Вручную присоединить обращение к инциденту; требуются `incident_id`, `request_id` и `reason`. |
+| `POST /tickets/requests/detach` | JWT, admin/dispatcher | Отсоединить обращение; требуются `request_id` и `reason`. |
+| `POST /tickets/requests/list` | JWT, admin/dispatcher | Получить обращения указанного инцидента с `limit`, `offset` и `total`. |
+| `POST /tickets/integrations/register` | JWT, admin | Зарегистрировать внешний сервис. Полный секрет возвращается только в этом ответе. |
+| `POST /integrations/tickets/requests` | публичный transport endpoint | Создать обращение от внешней системы по `client_id`, `secret` и `external_id`; Ticket Service проверяет credential, активность и разрешенный департамент. |
+
+`CreateRequest` и `CreateExternalRequest` возвращают HTTP 201 и объект с полями `request`, `incident`, `duplicate_matched`. Ручные attach/detach возвращают измененное обращение. gRPC-ошибки неверных credentials переводятся в 401, недостаточных прав — в 403, неправильной связи или уже существующей связи — в 409.
 
 ### Обработчики бригад
 
