@@ -8,7 +8,9 @@ ALTER TABLE tickets
 
 ALTER TABLE tickets
     ADD CONSTRAINT chk_ticket_type
-        CHECK (ticket_type IN ('INCIDENT', 'REQUEST')),
+        CHECK (ticket_type IN ('INCIDENT', 'REQUEST'));
+
+ALTER TABLE tickets
     ADD CONSTRAINT chk_ticket_incident_relation
         CHECK (
             (ticket_type = 'INCIDENT' AND incident_id IS NULL)
@@ -58,8 +60,12 @@ DROP INDEX idx_tickets_incident_deduplication;
 DROP INDEX idx_tickets_incident_requests;
 
 ALTER TABLE tickets
-    DROP CONSTRAINT chk_ticket_incident_relation,
-    DROP CONSTRAINT chk_ticket_type,
+    DROP CONSTRAINT chk_ticket_incident_relation;
+
+ALTER TABLE tickets
+    DROP CONSTRAINT chk_ticket_type;
+
+ALTER TABLE tickets
     DROP COLUMN external_id,
     DROP COLUMN external_system_id,
     DROP COLUMN incident_id,
