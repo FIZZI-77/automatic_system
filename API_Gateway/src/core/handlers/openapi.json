@@ -3250,6 +3250,42 @@
         }
       }
     },
+    "/integrations/tickets/requests": {
+      "post": {
+        "tags": [
+          "integrations/tickets"
+        ],
+        "summary": "CreateExternalRequest",
+        "operationId": "publicTicketIntegrations.CreateExternalRequest",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateExternalTicketRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateRequestResponse"
+                }
+              }
+            },
+            "description": "Успешный ответ"
+          }
+        }
+      }
+    },
     "/livez": {
       "get": {
         "tags": [
@@ -5030,6 +5066,42 @@
         }
       }
     },
+    "/tickets/integrations/register": {
+      "post": {
+        "tags": [
+          "tickets"
+        ],
+        "summary": "RegisterIntegration",
+        "operationId": "privateTickets.RegisterIntegration",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterTicketIntegrationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterTicketIntegrationResponse"
+                }
+              }
+            },
+            "description": "Успешный ответ"
+          }
+        }
+      }
+    },
     "/tickets/list": {
       "post": {
         "tags": [
@@ -5119,6 +5191,136 @@
         },
         "responses": {
           "200": {
+            "description": "Успешный ответ"
+          }
+        }
+      }
+    },
+    "/tickets/requests/attach": {
+      "post": {
+        "tags": [
+          "tickets"
+        ],
+        "summary": "AttachRequest",
+        "operationId": "privateTickets.AttachRequest",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttachRequestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Успешный ответ"
+          }
+        }
+      }
+    },
+    "/tickets/requests/create": {
+      "post": {
+        "tags": [
+          "tickets"
+        ],
+        "summary": "CreateRequest",
+        "operationId": "privateTickets.CreateRequest",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRequestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateRequestResponse"
+                }
+              }
+            },
+            "description": "Успешный ответ"
+          }
+        }
+      }
+    },
+    "/tickets/requests/detach": {
+      "post": {
+        "tags": [
+          "tickets"
+        ],
+        "summary": "DetachRequest",
+        "operationId": "privateTickets.DetachRequest",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DetachRequestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Успешный ответ"
+          }
+        }
+      }
+    },
+    "/tickets/requests/list": {
+      "post": {
+        "tags": [
+          "tickets"
+        ],
+        "summary": "ListIncidentRequests",
+        "operationId": "privateTickets.ListIncidentRequests",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListIncidentRequestsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListIncidentRequestsResponse"
+                }
+              }
+            },
             "description": "Успешный ответ"
           }
         }
@@ -6390,6 +6592,28 @@
             "$ref": "#/components/schemas/Ticket"
           }
         },
+        "type": "object"
+      },
+      "AttachRequestRequest": {
+        "properties": {
+          "incident_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 1000,
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "incident_id",
+          "reason",
+          "request_id"
+        ],
         "type": "object"
       },
       "AutoDispatchRequest": {
@@ -7769,6 +7993,76 @@
         },
         "type": "object"
       },
+      "CreateExternalTicketRequest": {
+        "properties": {
+          "address": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "asset_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "category_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "client_id": {
+            "type": "string"
+          },
+          "department_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "description": {
+            "maxLength": 3000,
+            "type": "string"
+          },
+          "external_id": {
+            "maxLength": 255,
+            "type": "string"
+          },
+          "latitude": {
+            "type": "number"
+          },
+          "longitude": {
+            "type": "number"
+          },
+          "priority": {
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH",
+              "EMERGENCY"
+            ],
+            "type": "string"
+          },
+          "secret": {
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 255,
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "address",
+          "category_id",
+          "client_id",
+          "department_id",
+          "description",
+          "external_id",
+          "priority",
+          "secret",
+          "title",
+          "user_id"
+        ],
+        "type": "object"
+      },
       "CreateFileUploadRequest": {
         "properties": {
           "checksum": {
@@ -7849,6 +8143,72 @@
           "name",
           "type"
         ],
+        "type": "object"
+      },
+      "CreateRequestRequest": {
+        "properties": {
+          "address": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "asset_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "category_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "department_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "description": {
+            "maxLength": 3000,
+            "type": "string"
+          },
+          "latitude": {
+            "type": "number"
+          },
+          "longitude": {
+            "type": "number"
+          },
+          "priority": {
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH",
+              "EMERGENCY"
+            ],
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 255,
+            "type": "string"
+          }
+        },
+        "required": [
+          "address",
+          "category_id",
+          "department_id",
+          "description",
+          "priority",
+          "title"
+        ],
+        "type": "object"
+      },
+      "CreateRequestResponse": {
+        "properties": {
+          "duplicate_matched": {
+            "type": "boolean"
+          },
+          "incident": {
+            "$ref": "#/components/schemas/Ticket"
+          },
+          "request": {
+            "$ref": "#/components/schemas/Ticket"
+          }
+        },
         "type": "object"
       },
       "CreateRoutingRouteRequest": {
@@ -8219,6 +8579,23 @@
       },
       "DepartmentStatus": {
         "type": "string"
+      },
+      "DetachRequestRequest": {
+        "properties": {
+          "reason": {
+            "maxLength": 1000,
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "request_id"
+        ],
+        "type": "object"
       },
       "DueMaintenanceRequest": {
         "properties": {
@@ -9361,6 +9738,41 @@
         },
         "type": "object"
       },
+      "ListIncidentRequestsRequest": {
+        "properties": {
+          "incident_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "limit": {
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "incident_id"
+        ],
+        "type": "object"
+      },
+      "ListIncidentRequestsResponse": {
+        "properties": {
+          "requests": {
+            "items": {
+              "$ref": "#/components/schemas/Ticket"
+            },
+            "type": "array"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
       "ListNotificationTemplatesRequest": {
         "properties": {
           "channel": {
@@ -10340,6 +10752,39 @@
         },
         "type": "object"
       },
+      "RegisterTicketIntegrationRequest": {
+        "properties": {
+          "allowed_department_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "client_id": {
+            "maxLength": 100,
+            "minLength": 3,
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 255,
+            "type": "string"
+          }
+        },
+        "required": [
+          "client_id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "RegisterTicketIntegrationResponse": {
+        "properties": {
+          "integration": {
+            "$ref": "#/components/schemas/TicketIntegration"
+          },
+          "secret": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "RejectWorkProfileCertificationRequest": {
         "properties": {
           "id": {
@@ -10891,7 +11336,16 @@
           "description": {
             "type": "string"
           },
+          "external_id": {
+            "type": "string"
+          },
+          "external_system_id": {
+            "type": "string"
+          },
           "id": {
+            "type": "string"
+          },
+          "incident_id": {
             "type": "string"
           },
           "latitude": {
@@ -10904,6 +11358,9 @@
             "type": "string"
           },
           "status": {
+            "type": "string"
+          },
+          "ticket_type": {
             "type": "string"
           },
           "title": {
@@ -10982,6 +11439,44 @@
         "required": [
           "ticket_id"
         ],
+        "type": "object"
+      },
+      "TicketIntegration": {
+        "properties": {
+          "allowed_department_id": {
+            "type": "string"
+          },
+          "client_id": {
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "created_by": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "is_active": {
+            "type": "boolean"
+          },
+          "last_used_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "secret_prefix": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "TicketPriority": {

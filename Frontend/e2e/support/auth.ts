@@ -1,9 +1,11 @@
 import { expect, type APIRequestContext, type Page } from "@playwright/test";
-import { accounts, demoPassword, gatewayUrl } from "./environment";
+import { accounts, gatewayUrl, getDemoPassword } from "./environment";
 
 export type AccountRole = keyof typeof accounts;
 
 export async function loginThroughUi(page: Page, role: AccountRole) {
+  const demoPassword = getDemoPassword();
+
   await page.goto("/");
   await page.waitForLoadState("networkidle");
   await page.getByRole("button", { name: "Войти", exact: true }).click();
@@ -14,6 +16,8 @@ export async function loginThroughUi(page: Page, role: AccountRole) {
 }
 
 export async function apiLogin(request: APIRequestContext, role: AccountRole) {
+  const demoPassword = getDemoPassword();
+
   const response = await request.post(`${gatewayUrl}/auth/login`, {
     data: { email: accounts[role], password: demoPassword, client_id: "playwright-e2e" },
   });
