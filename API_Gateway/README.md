@@ -51,7 +51,10 @@
 | Модель | Поля и назначение |
 |---|---|
 | `TicketCategory` | идентификатор, код, название, описание, активность и времена. |
-| `Ticket` | заявка, подразделение, категория, автор, бригада, объект, текст, состояние, приоритет, адрес, координаты и времена переходов. |
+| `Ticket` | заявка, подразделение, категория, автор, бригада, объект, текст, состояние, приоритет, адрес, координаты, времена переходов, `ticket_type` и `incident_id`. |
+| `CreateRequestRequest`, `CreateRequestResponse` | создание обычной заявки с автоматическим поиском либо созданием инцидента и признаком найденного дубля. |
+| `AttachRequestRequest`, `DetachRequestRequest` | присоединение части к инциденту и отсоединение с обязательной причиной. |
+| `ListIncidentRequestsRequest`, `ListIncidentRequestsResponse` | состав инцидента, общее и выполненное количество частей, число департаментов, признаки составного и полностью завершенного инцидента. |
 | `TicketStatusHistory` | прежнее/новое состояние, автор, комментарий и время. |
 | `CreateTicketRequest` | подразделение, категория, заголовок, описание, приоритет, адрес, координаты и необязательный `AssetID`. |
 | `GetTicketRequest` | `TicketID`. |
@@ -455,7 +458,7 @@ func isRetryable(err error) bool
 
 ### Обработчики заявок и отчетов
 
-`NewTicketHandler` сохраняет клиентов заявок и бригад. `CreateTicket`, `GetTicket`, `ListTicket`, `UpdateTicket`, `ChangeTicketStatus`, `AssignBrigade`, `CancelTicket`, `CompleteTicket`, `GetTicketStatusHistory` обслуживают жизненный цикл заявки. `CreateWorkReport` и `ListWorkReports` при роли работника сначала определяют его активную бригаду. Методы категорий вызывают одноименные операции Ticket Service. `bindJSON`, `buildListTicketsRequest`, `buildUpdateTicketRequest` и преобразователи формируют строгий запрос.
+`NewTicketHandler` сохраняет клиентов заявок и бригад. `CreateTicket`, `GetTicket`, `ListTicket`, `UpdateTicket`, `ChangeTicketStatus`, `AssignBrigade`, `CancelTicket`, `CompleteTicket`, `GetTicketStatusHistory` обслуживают жизненный цикл заявки. `CreateRequest`, `AttachRequest`, `DetachRequest` и `ListIncidentRequests` находятся в этом же общем handler: последний агрегирует все страницы состава и возвращает диспетчеру прогресс и число участвующих департаментов. `CreateWorkReport` и `ListWorkReports` при роли работника сначала определяют его активную бригаду. Методы категорий вызывают одноименные операции Ticket Service. `bindJSON`, `buildListTicketsRequest`, `buildUpdateTicketRequest` и преобразователи формируют строгий запрос.
 
 ### Обработчики бригад
 

@@ -29,6 +29,7 @@ type RequestRepository interface {
 	AttachRequest(ctx context.Context, in *models.AttachRequestInput) (*models.Ticket, error)
 	DetachRequest(ctx context.Context, in *models.DetachRequestInput) (*models.Ticket, error)
 	ListIncidentRequests(ctx context.Context, in *models.ListIncidentRequestsInput) ([]*models.Ticket, int64, error)
+	IncidentHasDepartment(ctx context.Context, incidentID uuid.UUID, departmentID *uuid.UUID) (bool, error)
 }
 
 type CategoryRepository interface {

@@ -36,6 +36,10 @@ export type Ticket = {
   assigned_at?: number;
   completed_at?: number;
   canceled_at?: number;
+  ticket_type?: "INCIDENT" | "REQUEST";
+  incident_id?: string;
+  external_system_id?: string;
+  external_id?: string;
   created_by_name?: string;
   accepted_by_name?: string;
 };
@@ -104,6 +108,9 @@ export const config = {
     ticketsStatus: process.env.NEXT_PUBLIC_API_TICKETS_STATUS || "/tickets/change-status",
     ticketsAssign: process.env.NEXT_PUBLIC_API_TICKETS_ASSIGN || "/tickets/assign-brigade",
     ticketsComplete: process.env.NEXT_PUBLIC_API_TICKETS_COMPLETE || "/tickets/complete",
+    ticketRequestsAttach: process.env.NEXT_PUBLIC_API_TICKET_REQUESTS_ATTACH || "/tickets/requests/attach",
+    ticketRequestsDetach: process.env.NEXT_PUBLIC_API_TICKET_REQUESTS_DETACH || "/tickets/requests/detach",
+    ticketRequestsList: process.env.NEXT_PUBLIC_API_TICKET_REQUESTS_LIST || "/tickets/requests/list",
     ticketReportsCreate: process.env.NEXT_PUBLIC_API_TICKET_REPORTS_CREATE || "/tickets/reports/create",
     ticketReportsList: process.env.NEXT_PUBLIC_API_TICKET_REPORTS_LIST || "/tickets/reports/list",
     ticketFeedbackSubmit: process.env.NEXT_PUBLIC_API_TICKET_FEEDBACK_SUBMIT || "/tickets/feedback/submit",

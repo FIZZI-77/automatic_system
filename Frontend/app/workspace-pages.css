@@ -153,6 +153,102 @@
 .zones-page{grid-template-columns:minmax(0,1.6fr) 430px}.zone-brigade-filters{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px;border:1px solid #dce6e0;border-radius:14px;background:#f3f7f4}.zone-brigade-filters .wide{grid-column:1/-1}.zone-brigade-filters>div{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px;color:#60766b;font-size:12px}.zone-brigade-filters>div button{border:1px solid #cbd9d1;border-radius:9px;background:#fff;color:#315b4b;padding:7px 11px;font-weight:700}.zone-panel label>small{color:#8a6d43;font-size:11px;line-height:1.4}@media(max-width:900px){.zones-page{grid-template-columns:1fr}}
 .ticket-modal>.eyebrow{display:block;margin:1px 48px 14px 0;font-size:13px;font-weight:800;line-height:1.35;letter-spacing:.09em;color:#527966}.ticket-modal-actions{grid-template-columns:minmax(210px,.75fr) minmax(0,1.6fr);gap:16px;align-items:end;margin-top:20px}.ticket-modal-actions>.ghost{width:100%;min-height:50px;display:flex;align-items:center;justify-content:center;white-space:nowrap;padding:12px 18px;font-size:15px}.ticket-modal-actions>label{min-width:0;gap:8px;font-size:14px;line-height:1.35}.ticket-modal-actions select{width:100%;min-width:0;min-height:50px;font-size:15px;padding:0 42px 0 14px}.ticket-modal-actions>label>.link{justify-self:start;margin-top:3px}.ticket-modal .full-action{min-height:52px;margin-top:18px;margin-bottom:18px;font-size:16px}.ticket-cancel-form{margin-top:18px}.ticket-cancel-form input{min-height:46px;font-size:14px}.ticket-cancel-form .danger-action{min-height:46px;white-space:nowrap;font-size:14px}@media(max-width:680px){.ticket-modal-actions{grid-template-columns:1fr}.ticket-modal-actions>.ghost{white-space:normal}.ticket-cancel-form{grid-template-columns:1fr}.ticket-cancel-form .danger-action{width:100%}}
 
+.incident-composition,
+.incident-relations {
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid #dce6df;
+  border-radius: 15px;
+  background: #f8fbf9;
+}
+
+.incident-composition-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.incident-composition-heading h3,
+.incident-relations h3 {
+  margin: 4px 0 0;
+}
+
+.incident-composition-heading strong {
+  white-space: nowrap;
+  color: #315f49;
+}
+
+.incident-progress {
+  height: 8px;
+  margin: 14px 0;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #dce6df;
+}
+
+.incident-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #4f8a68;
+}
+
+.incident-parts {
+  display: grid;
+  gap: 8px;
+}
+
+.incident-parts > button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 12px;
+  border: 1px solid #dce6df;
+  border-radius: 11px;
+  background: #fff;
+  text-align: left;
+}
+
+.incident-parts > button > span {
+  display: grid;
+  gap: 4px;
+}
+
+.incident-complete-note {
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border-radius: 11px;
+  background: #eaf4ed;
+  color: #315f49;
+  font-weight: 700;
+}
+
+.incident-relations {
+  display: grid;
+  gap: 14px;
+}
+
+.incident-relations form {
+  display: grid;
+  gap: 10px;
+}
+
+.incident-relations label {
+  display: grid;
+  gap: 6px;
+}
+
+.incident-relations input {
+  min-height: 44px;
+  border: 1px solid #ccd9d1;
+  border-radius: 10px;
+  padding: 0 12px;
+  background: #fff;
+  color: #193c30;
+}
+
 .security-form>p{margin:0 0 22px;color:#687d73;font-size:14px;line-height:1.55}.security-password-button{width:100%;min-height:50px;justify-content:center}.security-actions{display:grid;grid-template-columns:1fr;margin-top:12px}.security-actions>button{width:100%;min-height:46px;font-size:14px}.password-modal-backdrop{position:fixed;z-index:4600;inset:0;display:grid;place-items:center;padding:24px;background:rgba(20,43,34,.48);backdrop-filter:blur(4px)}.password-modal{position:relative;width:min(520px,100%);display:grid;gap:16px;padding:34px;border:1px solid #d4e0d8;border-radius:24px;background:#fff;color:#193c30;box-shadow:0 28px 90px rgba(18,43,33,.3)}.password-modal .eyebrow{margin-right:45px;font-size:12px}.password-modal h2{margin:0;font:32px/1.15 Georgia,serif}.password-modal>p{margin:-7px 0 5px;color:#687d73;font-size:14px}.password-modal>label{display:grid;gap:8px;color:#385d4d;font-size:14px;font-weight:700}.password-modal input[type="password"]{width:100%;min-height:52px;border:2px solid #b8cdc1;border-radius:12px;padding:12px 14px;background:#fbfdfc;color:#163b2f;font:15px "Segoe UI";outline:0;box-shadow:inset 0 1px 2px rgba(25,60,47,.04)}.password-modal input[type="password"]::placeholder{color:#84978e}.password-modal input[type="password"]:focus{border-color:#4d876c;box-shadow:0 0 0 4px rgba(77,135,108,.14)}.password-modal .check{display:flex;align-items:center;gap:10px;font-weight:500}.password-modal .check input{width:18px;height:18px}.password-error{padding:11px 13px;border:1px solid #edc9c3;border-radius:10px;background:#fff1ee;color:#a14d46;font-size:13px}.password-modal-actions{display:grid;grid-template-columns:1fr 1.5fr;gap:10px;margin-top:4px}.password-modal-actions button{min-height:50px;justify-content:center;font-size:14px}@media(max-width:560px){.password-modal-backdrop{padding:12px}.password-modal{padding:28px 20px}.password-modal h2{font-size:28px}.password-modal-actions{grid-template-columns:1fr}}
 
 /* A brigade can own several vehicles: keep them grouped in one readable card. */

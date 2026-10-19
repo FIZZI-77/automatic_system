@@ -46,6 +46,173 @@ test.describe("Контракты API, используемые фронтенд
     }
   });
 
+  test("составной междепартаментный инцидент проходит полный жизненный цикл", async ({ request }) => {
+    const adminToken = await apiLogin(request, "admin");
+    const dispatcherToken = await apiLogin(request, "dispatcher");
+    const dispatcherMe = await request.get(`${gatewayUrl}/auth/me`, { headers: bearer(dispatcherToken) });
+    await expect(dispatcherMe).toBeOK();
+    const dispatcherUser = await dispatcherMe.json() as { user_id: string };
+    const workingDepartment = await post(
+      request,
+      "/profile-checks/resolve-working-department",
+      dispatcherToken,
+      { user_id: dispatcherUser.user_id },
+    );
+    expect(workingDepartment.response.ok(), JSON.stringify(workingDepartment.body)).toBeTruthy();
+    expect(workingDepartment.body).toEqual(expect.objectContaining({
+      can_operate: true,
+      department_id: expect.any(String),
+    }));
+
+    const dispatcherDepartmentID = workingDepartment.body.department_id as string;
+    const departments = await post(request, "/departments/list", adminToken, { limit: 100, offset: 0 });
+    const foreignDepartment = (departments.body.departments as Array<{ id: string }>).find(
+      department => department.id !== dispatcherDepartmentID,
+    );
+    expect(foreignDepartment, "нужен второй департамент для междепартаментного теста").toBeTruthy();
+
+    const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const category = await post(request, "/ticket-categories/create", adminToken, {
+      code: `e2e_multi_${suffix}`,
+      name: `E2E междепартаментная категория ${suffix}`,
+      description: "Изолированная категория для проверки жизненного цикла составного инцидента",
+    });
+    expect(category.response.status(), JSON.stringify(category.body)).toBe(201);
+    const categoryID = category.body.category.id as string;
+
+    const first = await post(request, "/tickets/requests/create", adminToken, {
+      department_id: foreignDepartment!.id,
+      category_id: categoryID,
+      title: `E2E составной инцидент A ${suffix}`,
+      description: "Работа первого департамента",
+      priority: "HIGH",
+      address: "Москва, Тверская улица, 1",
+      latitude: 55.757393,
+      longitude: 37.613218,
+    });
+    expect(first.response.status(), JSON.stringify(first.body)).toBe(201);
+
+    const second = await post(request, "/tickets/requests/create", dispatcherToken, {
+      department_id: dispatcherDepartmentID,
+      category_id: categoryID,
+      title: `E2E составной инцидент B ${suffix}`,
+      description: "Работа департамента диспетчера",
+      priority: "HIGH",
+      address: "Москва, Петровка, 2",
+      latitude: 55.761393,
+      longitude: 37.617218,
+    });
+    expect(second.response.status(), JSON.stringify(second.body)).toBe(201);
+
+    const incidentID = first.body.incident.id as string;
+    const firstRequestID = first.body.request.id as string;
+    const secondRequestID = second.body.request.id as string;
+    const attach = await post(request, "/tickets/requests/attach", dispatcherToken, {
+      incident_id: incidentID,
+      request_id: secondRequestID,
+      reason: "Обе работы устраняют один городской инцидент",
+    });
+    expect(attach.response.ok(), JSON.stringify(attach.body)).toBeTruthy();
+    expect(attach.body.request).toEqual(expect.objectContaining({
+      id: secondRequestID,
+      incident_id: incidentID,
+      department_id: dispatcherDepartmentID,
+      ticket_type: "REQUEST",
+    }));
+
+    const composition = await post(request, "/tickets/requests/list", dispatcherToken, {
+      incident_id: incidentID,
+      limit: 1,
+      offset: 0,
+    });
+    expect(composition.response.ok(), JSON.stringify(composition.body)).toBeTruthy();
+    expect(composition.body).toEqual(expect.objectContaining({
+      total: 2,
+      completed: 0,
+      department_count: 2,
+      is_composite: true,
+      all_parts_completed: false,
+    }));
+    expect(composition.body.requests).toHaveLength(1);
+
+    const detach = await post(request, "/tickets/requests/detach", dispatcherToken, {
+      request_id: secondRequestID,
+      reason: "Проверка исключения части из инцидента",
+    });
+    expect(detach.response.ok(), JSON.stringify(detach.body)).toBeTruthy();
+    expect(detach.body.request.incident_id || "").toBe("");
+
+    const compositionAfterDetach = await post(request, "/tickets/requests/list", adminToken, {
+      incident_id: incidentID,
+      limit: 100,
+      offset: 0,
+    });
+    expect(compositionAfterDetach.body).toEqual(expect.objectContaining({
+      total: 1,
+      department_count: 1,
+      is_composite: false,
+    }));
+
+    const reattach = await post(request, "/tickets/requests/attach", dispatcherToken, {
+      incident_id: incidentID,
+      request_id: secondRequestID,
+      reason: "Возвращаем часть для проверки автоматического закрытия",
+    });
+    expect(reattach.response.ok(), JSON.stringify(reattach.body)).toBeTruthy();
+
+    const transition = async (ticketID: string, newStatus: "assigned" | "in_progress") => {
+      const result = await post(request, "/tickets/change-status", adminToken, {
+        ticket_id: ticketID,
+        new_status: newStatus,
+        comment: `E2E transition to ${newStatus}`,
+      });
+      expect(result.response.ok(), `${ticketID} -> ${newStatus}: ${JSON.stringify(result.body)}`).toBeTruthy();
+    };
+    await transition(incidentID, "assigned");
+    await transition(incidentID, "in_progress");
+
+    const prematureCompletion = await request.post(`${gatewayUrl}/tickets/complete`, {
+      headers: bearer(adminToken),
+      data: { ticket_id: incidentID, comment: "Инцидент ещё не должен закрываться" },
+    });
+    expect(prematureCompletion.status()).toBe(409);
+
+    for (const requestID of [firstRequestID, secondRequestID]) {
+      await transition(requestID, "assigned");
+      await transition(requestID, "in_progress");
+    }
+
+    const firstCompletion = await post(request, "/tickets/complete", adminToken, {
+      ticket_id: firstRequestID,
+      comment: "Первый департамент завершил работу",
+    });
+    expect(firstCompletion.response.ok(), JSON.stringify(firstCompletion.body)).toBeTruthy();
+
+    const activeIncident = await post(request, "/tickets/get", adminToken, { ticket_id: incidentID });
+    expect(activeIncident.body.ticket.status).toBe("IN_PROGRESS");
+
+    const secondCompletion = await post(request, "/tickets/complete", adminToken, {
+      ticket_id: secondRequestID,
+      comment: "Второй департамент завершил работу",
+    });
+    expect(secondCompletion.response.ok(), JSON.stringify(secondCompletion.body)).toBeTruthy();
+
+    const completedIncident = await post(request, "/tickets/get", adminToken, { ticket_id: incidentID });
+    expect(completedIncident.body.ticket.status).toBe("DONE");
+    const completedComposition = await post(request, "/tickets/requests/list", dispatcherToken, {
+      incident_id: incidentID,
+      limit: 100,
+      offset: 0,
+    });
+    expect(completedComposition.body).toEqual(expect.objectContaining({
+      total: 2,
+      completed: 2,
+      department_count: 2,
+      is_composite: true,
+      all_parts_completed: true,
+    }));
+  });
+
   test("аналитика возвращает все блоки для расширенного экрана", async ({ request }) => {
     const token = await apiLogin(request, "admin");
     const filter = {};

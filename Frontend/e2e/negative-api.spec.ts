@@ -4,16 +4,40 @@ import { accounts, gatewayUrl, getDemoPassword } from "./support/environment";
 
 test.describe("Негативные сценарии API", () => {
   test("закрытые маршруты отклоняют отсутствующий и повреждённый JWT", async ({ request }) => {
-    const withoutToken = await request.post(`${gatewayUrl}/tickets/list`, {
-      data: { limit: 10, offset: 0 },
-    });
-    expect([401, 403]).toContain(withoutToken.status());
+    for (const path of [
+      "/tickets/list",
+      "/tickets/requests/create",
+      "/tickets/requests/attach",
+      "/tickets/requests/detach",
+      "/tickets/requests/list",
+    ]) {
+      const withoutToken = await request.post(`${gatewayUrl}${path}`, { data: {} });
+      expect([401, 403], `${path} without token`).toContain(withoutToken.status());
 
-    const malformedToken = await request.post(`${gatewayUrl}/tickets/list`, {
-      headers: bearer("not-a-jwt"),
-      data: { limit: 10, offset: 0 },
-    });
-    expect([401, 403]).toContain(malformedToken.status());
+      const malformedToken = await request.post(`${gatewayUrl}${path}`, {
+        headers: bearer("not-a-jwt"),
+        data: {},
+      });
+      expect([401, 403], `${path} with malformed token`).toContain(malformedToken.status());
+    }
+  });
+
+  test("ручки состава инцидента отклоняют некорректные идентификаторы и пустую причину", async ({ request }) => {
+    const token = await apiLogin(request, "admin");
+    const cases = [
+      ["/tickets/requests/create", {}],
+      ["/tickets/requests/attach", { incident_id: "bad", request_id: "bad", reason: "" }],
+      ["/tickets/requests/detach", { request_id: "bad", reason: "" }],
+      ["/tickets/requests/list", { incident_id: "bad", limit: 0, offset: -1 }],
+    ] as const;
+
+    for (const [path, data] of cases) {
+      const response = await request.post(`${gatewayUrl}${path}`, {
+        headers: bearer(token),
+        data,
+      });
+      expect([400, 422], `${path}: ${response.status()} ${await response.text()}`).toContain(response.status());
+    }
   });
 
   test("вход не раскрывает существование пользователя и отклоняет неверный пароль", async ({ request }) => {

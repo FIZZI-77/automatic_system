@@ -38,11 +38,21 @@ func (s *TicketServiceStruct) AttachRequest(
 		return nil, fmt.Errorf("service: AttachRequest(): get incident: %w", err)
 	}
 
-	if !canManageTicket(incident, in.ActorDepartmentID, in.ActorRoles) {
+	request, err := s.repo.GetTicketByID(ctx, in.RequestID)
+
+	if err != nil {
+		return nil, fmt.Errorf("service: AttachRequest(): get request: %w", err)
+	}
+
+	if !canManageTicket(request, in.ActorDepartmentID, in.ActorRoles) {
 		return nil, fmt.Errorf("service: AttachRequest(): %w", models.ErrPermissionDenied)
 	}
 
-	request, err := s.repo.AttachRequest(ctx, in)
+	if incident.DepartmentID == request.DepartmentID && !canManageTicket(incident, in.ActorDepartmentID, in.ActorRoles) {
+		return nil, fmt.Errorf("service: AttachRequest(): %w", models.ErrPermissionDenied)
+	}
+
+	request, err = s.repo.AttachRequest(ctx, in)
 
 	if err != nil {
 		return nil, fmt.Errorf("service: AttachRequest(): %w", err)
@@ -92,7 +102,14 @@ func (s *TicketServiceStruct) ListIncidentRequests(
 		return nil, 0, fmt.Errorf("service: ListIncidentRequests(): get incident: %w", err)
 	}
 
-	if !canManageTicket(incident, in.ActorDepartmentID, in.ActorRoles) {
+	canManageIncident := canManageTicket(incident, in.ActorDepartmentID, in.ActorRoles)
+	canManagePart, err := s.repo.IncidentHasDepartment(ctx, in.IncidentID, in.ActorDepartmentID)
+
+	if err != nil {
+		return nil, 0, fmt.Errorf("service: ListIncidentRequests(): check department access: %w", err)
+	}
+
+	if !canManageIncident && !hasRole(in.ActorRoles, "admin") && !canManagePart {
 		return nil, 0, fmt.Errorf("service: ListIncidentRequests(): %w", models.ErrPermissionDenied)
 	}
 

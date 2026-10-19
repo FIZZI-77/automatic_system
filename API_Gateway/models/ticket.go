@@ -154,8 +154,12 @@ type ListIncidentRequestsRequest struct {
 }
 
 type ListIncidentRequestsResponse struct {
-	Requests []*Ticket `json:"requests"`
-	Total    int64     `json:"total"`
+	Requests          []*Ticket `json:"requests"`
+	Total             int64     `json:"total"`
+	Completed         int64     `json:"completed"`
+	DepartmentCount   int       `json:"department_count"`
+	IsComposite       bool      `json:"is_composite"`
+	AllPartsCompleted bool      `json:"all_parts_completed"`
 }
 
 type RegisterTicketIntegrationRequest struct {

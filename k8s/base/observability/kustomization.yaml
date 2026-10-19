@@ -11,6 +11,7 @@ resources:
   - prometheus.yaml
   - prometheus-data.yaml
   - grafana.yaml
+  - pgadmin-network-policy.yaml
   - kube-state-metrics.yaml
   - node-exporter.yaml
   - infrastructure-exporters.yaml

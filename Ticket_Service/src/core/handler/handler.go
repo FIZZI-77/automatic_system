@@ -1635,7 +1635,8 @@ func ticketErrorCode(err error) codes.Code {
 	case errors.Is(err, models.ErrIntegrationInactive),
 		errors.Is(err, models.ErrInvalidTicketType),
 		errors.Is(err, models.ErrInvalidTicketRelation),
-		errors.Is(err, models.ErrRequestAlreadyAttached):
+		errors.Is(err, models.ErrRequestAlreadyAttached),
+		errors.Is(err, models.ErrIncidentPartsIncomplete):
 		return codes.FailedPrecondition
 	case errors.Is(err, models.ErrCategoryInactive),
 		errors.Is(err, models.ErrInvalidStatusTransition),

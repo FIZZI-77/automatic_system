@@ -3,7 +3,7 @@ globalImage:
   tag: sha-7e50eb65738b
   tags:
     analytics: sha-01c382909b2b
-    api-gateway: sha-02acd2cb9c27
+    api-gateway: sha-cdf57e2552fc
     asset: sha-01c382909b2b
     audit: sha-01c382909b2b
     auth: sha-01c382909b2b
@@ -11,14 +11,14 @@ globalImage:
     department: sha-01c382909b2b
     dispatch: sha-01c382909b2b
     file: sha-01c382909b2b
-    frontend: sha-02acd2cb9c27
+    frontend: sha-cdf57e2552fc
     location: sha-01c382909b2b
     notification: sha-01c382909b2b
     profile: sha-01c382909b2b
     report: sha-01c382909b2b
     routing: sha-01c382909b2b
     sla: sha-01c382909b2b
-    ticket: sha-02acd2cb9c27
+    ticket: sha-cdf57e2552fc
   pullPolicy: Always
 
 migrations:
@@ -38,7 +38,7 @@ migrations:
     report: sha-01c382909b2b
     routing: sha-01c382909b2b
     sla: sha-01c382909b2b
-    ticket: sha-02acd2cb9c27
+    ticket: sha-cdf57e2552fc
   pullPolicy: Always
 
 analyticsInit:
