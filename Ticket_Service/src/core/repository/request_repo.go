@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -207,6 +208,35 @@ func (t *TicketRepoStruct) ListIncidentRequests(
 	}
 
 	return requests, total, nil
+}
+
+func (t *TicketRepoStruct) IncidentHasDepartment(
+	ctx context.Context,
+	incidentID uuid.UUID,
+	departmentID *uuid.UUID,
+) (bool, error) {
+	if departmentID == nil {
+		return false, nil
+	}
+
+	const query = `
+		SELECT EXISTS (
+			SELECT 1
+			FROM tickets
+			WHERE incident_id = $1
+			  AND department_id = $2
+			  AND ticket_type = 'REQUEST'
+			  AND status <> 'ARCHIVED'
+		)
+	`
+
+	var exists bool
+
+	if err := t.readPool.QueryRow(ctx, query, incidentID, *departmentID).Scan(&exists); err != nil {
+		return false, fmt.Errorf("repository: IncidentHasDepartment(): query: %w", err)
+	}
+
+	return exists, nil
 }
 
 func (t *TicketRepoStruct) lockDuplicateScope(
@@ -425,10 +455,40 @@ func (t *TicketRepoStruct) changeRequestIncident(
 
 	defer rollbackTxOnCancel(ctx, tx)()
 
-	request, err := t.getTicketWithRelation(ctx, tx, requestID, true)
+	if err = lockRequestRelation(ctx, tx, requestID); err != nil {
+		return nil, fmt.Errorf("repository: changeRequestIncident(): lock request relation: %w", err)
+	}
+
+	request, err := t.getTicketWithRelation(ctx, tx, requestID, false)
 
 	if err != nil {
 		return nil, fmt.Errorf("repository: changeRequestIncident(): get request: %w", err)
+	}
+
+	incidentIDs := make([]uuid.UUID, 0, 2)
+
+	if request.IncidentID != nil {
+		incidentIDs = append(incidentIDs, *request.IncidentID)
+	}
+
+	if incidentID != nil {
+		incidentIDs = append(incidentIDs, *incidentID)
+	}
+
+	if err = lockIncidentAggregations(ctx, tx, incidentIDs...); err != nil {
+		return nil, fmt.Errorf("repository: changeRequestIncident(): lock incidents: %w", err)
+	}
+
+	request, err = t.getTicketWithRelationByDepartment(
+		ctx,
+		tx,
+		request.DepartmentID,
+		requestID,
+		true,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("repository: changeRequestIncident(): lock request: %w", err)
 	}
 
 	if request.Type != models.TicketTypeRequest {
@@ -436,14 +496,30 @@ func (t *TicketRepoStruct) changeRequestIncident(
 	}
 
 	if incidentID != nil {
-		incident, getErr := t.getTicketWithRelation(ctx, tx, *incidentID, true)
+		incident, getErr := t.getTicketWithRelation(ctx, tx, *incidentID, false)
+
+		if getErr != nil {
+			return nil, fmt.Errorf("repository: changeRequestIncident(): find incident: %w", getErr)
+		}
+
+		incident, getErr = t.getTicketWithRelationByDepartment(
+			ctx,
+			tx,
+			incident.DepartmentID,
+			*incidentID,
+			true,
+		)
 
 		if getErr != nil {
 			return nil, fmt.Errorf("repository: changeRequestIncident(): get incident: %w", getErr)
 		}
 
-		if incident.Type != models.TicketTypeIncident || incident.DepartmentID != request.DepartmentID {
+		if incident.Type != models.TicketTypeIncident {
 			return nil, models.ErrInvalidTicketRelation
+		}
+
+		if incident.Status == models.TicketStatusDone || incident.Status == models.TicketStatusCanceled {
+			return nil, models.ErrTicketTerminalState
 		}
 
 		if request.IncidentID != nil && *request.IncidentID == *incidentID {
@@ -480,11 +556,198 @@ func (t *TicketRepoStruct) changeRequestIncident(
 		return nil, fmt.Errorf("repository: changeRequestIncident(): insert event: %w", err)
 	}
 
+	if request.IncidentID != nil {
+
+		if err = t.reconcileIncidentCompletion(ctx, tx, *request.IncidentID, changedBy); err != nil {
+			return nil, fmt.Errorf("repository: changeRequestIncident(): reconcile previous incident: %w", err)
+		}
+
+	}
+
+	if incidentID != nil && (request.IncidentID == nil || *request.IncidentID != *incidentID) {
+
+		if err = t.reconcileIncidentCompletion(ctx, tx, *incidentID, changedBy); err != nil {
+			return nil, fmt.Errorf("repository: changeRequestIncident(): reconcile incident: %w", err)
+		}
+
+	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repository: changeRequestIncident(): commit: %w", err)
 	}
 
 	return updated, nil
+}
+
+func lockRequestRelation(ctx context.Context, exec Querier, requestID uuid.UUID) error {
+	key := "request-relation:" + requestID.String()
+	_, err := exec.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, key)
+
+	return err
+}
+
+func lockIncidentAggregations(ctx context.Context, exec Querier, incidentIDs ...uuid.UUID) error {
+	uniqueIDs := make(map[string]struct{}, len(incidentIDs))
+	keys := make([]string, 0, len(incidentIDs))
+
+	for _, incidentID := range incidentIDs {
+
+		if incidentID == uuid.Nil {
+			continue
+		}
+
+		key := incidentID.String()
+
+		if _, exists := uniqueIDs[key]; exists {
+			continue
+		}
+
+		uniqueIDs[key] = struct{}{}
+		keys = append(keys, key)
+	}
+
+	sort.Strings(keys)
+
+	for _, key := range keys {
+
+		if _, err := exec.Exec(
+			ctx,
+			`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`,
+			"incident-aggregation:"+key,
+		); err != nil {
+			return err
+		}
+
+	}
+
+	return nil
+}
+
+func (t *TicketRepoStruct) reconcileIncidentCompletion(
+	ctx context.Context,
+	exec Querier,
+	incidentID uuid.UUID,
+	changedBy uuid.UUID,
+) error {
+	incident, err := t.getTicketWithRelation(ctx, exec, incidentID, false)
+
+	if err != nil {
+		return err
+	}
+
+	if incident.Type != models.TicketTypeIncident {
+		return models.ErrInvalidTicketRelation
+	}
+
+	if incident.Status == models.TicketStatusDone || incident.Status == models.TicketStatusCanceled {
+		return nil
+	}
+
+	incident, err = t.getTicketWithRelationByDepartment(
+		ctx,
+		exec,
+		incident.DepartmentID,
+		incident.ID,
+		true,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	total, incomplete, err := t.incidentPartCounts(ctx, exec, incidentID)
+
+	if err != nil {
+		return err
+	}
+
+	if total == 0 || incomplete > 0 {
+		return nil
+	}
+
+	const query = `
+		UPDATE tickets
+		SET status = 'DONE',
+			completed_at = now(),
+			updated_at = now()
+		WHERE department_id = $1
+		  AND id = $2
+		  AND ticket_type = 'INCIDENT'
+		  AND status NOT IN ('DONE', 'CANCELED')
+		RETURNING
+			` + ticketWithRelationColumns + `
+	`
+
+	completed, err := scanTicketWithRelation(exec.QueryRow(
+		ctx,
+		query,
+		incident.DepartmentID,
+		incident.ID,
+	))
+
+	if err != nil {
+		return err
+	}
+
+	comment := "All incident requests completed"
+
+	if err = t.insertTicketStatusHistory(
+		ctx,
+		exec,
+		completed.ID,
+		completed.DepartmentID,
+		&incident.Status,
+		models.TicketStatusDone,
+		&changedBy,
+		&comment,
+	); err != nil {
+		return err
+	}
+
+	return t.insertOutboxEvent(ctx, exec, "ticket", completed.ID, "ticket.completed", completed)
+}
+
+func (t *TicketRepoStruct) incidentPartCounts(
+	ctx context.Context,
+	exec Querier,
+	incidentID uuid.UUID,
+) (int64, int64, error) {
+	const query = `
+		SELECT
+			COUNT(*),
+			COUNT(*) FILTER (WHERE status <> 'DONE')
+		FROM tickets
+		WHERE incident_id = $1
+		  AND ticket_type = 'REQUEST'
+		  AND status <> 'ARCHIVED'
+	`
+
+	var total int64
+	var incomplete int64
+
+	if err := exec.QueryRow(ctx, query, incidentID).Scan(&total, &incomplete); err != nil {
+		return 0, 0, err
+	}
+
+	return total, incomplete, nil
+}
+
+func (t *TicketRepoStruct) ensureIncidentPartsComplete(
+	ctx context.Context,
+	exec Querier,
+	incidentID uuid.UUID,
+) error {
+	total, incomplete, err := t.incidentPartCounts(ctx, exec, incidentID)
+
+	if err != nil {
+		return err
+	}
+
+	if total > 0 && incomplete > 0 {
+		return models.ErrIncidentPartsIncomplete
+	}
+
+	return nil
 }
 
 func (t *TicketRepoStruct) getTicketWithRelation(
@@ -506,6 +769,29 @@ func (t *TicketRepoStruct) getTicketWithRelation(
 	}
 
 	return scanTicketWithRelation(exec.QueryRow(ctx, query, ticketID))
+}
+
+func (t *TicketRepoStruct) getTicketWithRelationByDepartment(
+	ctx context.Context,
+	exec Querier,
+	departmentID uuid.UUID,
+	ticketID uuid.UUID,
+	forUpdate bool,
+) (*models.Ticket, error) {
+	query := `
+		SELECT
+			` + ticketWithRelationColumns + `
+		FROM tickets
+		WHERE department_id = $1
+		  AND id = $2
+		  AND status <> 'ARCHIVED'
+	`
+
+	if forUpdate {
+		query += " FOR UPDATE"
+	}
+
+	return scanTicketWithRelation(exec.QueryRow(ctx, query, departmentID, ticketID))
 }
 
 func scanTicketWithRelation(s scanner) (*models.Ticket, error) {

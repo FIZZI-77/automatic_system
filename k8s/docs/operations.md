@@ -165,6 +165,27 @@ kubectl get peerauthentication,destinationrule,virtualservice,gateway `
 | Prometheus | `https://fizzi.tail2c9430.ts.net/observe/prometheus/` |
 | Kibana | `https://fizzi.tail2c9430.ts.net/observe/kibana/` |
 | Kiali | `https://fizzi.tail2c9430.ts.net/observe/kiali/` |
+| pgAdmin | `https://fizzi.tail2c9430.ts.net/observe/pgadmin/` |
+
+Первичная установка или ротация pgAdmin:
+
+```powershell
+.\k8s\scripts\setup-pgadmin.ps1
+```
+
+Для автоматической генерации обоих паролей используйте `-GeneratePasswords`.
+Сгенерированные значения не печатаются и доступны только в соответствующих
+Kubernetes Secrets.
+
+Сценарий запрашивает два пароля скрытым вводом, обновляет Helm-релиз с
+существующим PVC, создает администратора pgAdmin и роль `pgadmin_viewer`.
+Роль получает `pg_read_all_data` и `pg_monitor`, а также принудительный
+`default_transaction_read_only=on`. Подключения к Platform PostgreSQL и Ticket
+Citus загружаются автоматически; их пароли передаются через Kubernetes Secret
+и pgpass, но не записываются в Git или Helm values.
+Встроенный Helm hook-тест отключен, поскольку он всегда запрашивает `/` и не
+учитывает `SCRIPT_NAME`. Сценарий настройки вместо него проверяет правильный
+health endpoint `/observe/pgadmin/misc/ping` и оба подключения к БД.
 
 Kibana хранит панели в системном индексе Elasticsearch. CronJob
 `kibana-dashboards` в `automatic-system` каждые 15 минут восстанавливает

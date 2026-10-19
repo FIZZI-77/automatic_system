@@ -340,38 +340,25 @@ func (t *TicketRepoStruct) updateTicket(ctx context.Context, q Querier, in *mode
 
 	addSet("updated_at", time.Now().UTC())
 
+	args = append(args, currentTicket.DepartmentID)
+	departmentIDArg := len(args)
+
 	args = append(args, in.TicketID)
 	ticketIDArg := len(args)
 
 	query := fmt.Sprintf(`
 		UPDATE tickets
 		SET %s
-		WHERE id = $%d
+		WHERE department_id = $%d
+		  AND id = $%d
 		  AND status NOT IN ('DONE', 'CANCELED')
 		RETURNING
-			id,
-			department_id,
-			category_id,
-			user_id,
-			brigade_id,
-			title,
-			description,
-			status,
-			priority,
-			address,
-			latitude,
-			longitude,
-			created_at,
-			updated_at,
-			assigned_at,
-			completed_at,
-			canceled_at,
-			asset_id
-	`, strings.Join(setParts, ", "), ticketIDArg)
+			`+ticketWithRelationColumns+`
+	`, strings.Join(setParts, ", "), departmentIDArg, ticketIDArg)
 
 	row := q.QueryRow(ctx, query, args...)
 
-	ticket, err := scanTicket(row)
+	ticket, err := scanTicketWithRelation(row)
 
 	if err != nil {
 		return nil, fmt.Errorf("repository: UpdateTicket(): update ticket: %w", err)
@@ -392,6 +379,10 @@ func (t *TicketRepoStruct) ChangeTicketStatus(ctx context.Context, in *models.Ch
 	}
 
 	defer rollbackTxOnCancel(ctx, tx)()
+
+	if err = lockRequestRelation(ctx, tx, in.TicketID); err != nil {
+		return nil, fmt.Errorf("repository: ChangeTicketStatus(): lock ticket: %w", err)
+	}
 
 	ticket, err := t.changeTicketStatus(ctx, tx, in)
 
@@ -417,36 +408,47 @@ func (t *TicketRepoStruct) changeTicketStatus(ctx context.Context, q Querier, in
 		return nil, fmt.Errorf("repository: ChangeTicketStatus(): %w", err)
 	}
 
+	if in.NewStatus == models.TicketStatusDone || in.NewStatus == models.TicketStatusCanceled {
+
+		if oldTicket.Type == models.TicketTypeIncident {
+
+			if err = lockIncidentAggregations(ctx, q, oldTicket.ID); err != nil {
+				return nil, fmt.Errorf("repository: ChangeTicketStatus(): lock incident: %w", err)
+			}
+
+			if err = t.ensureIncidentPartsComplete(ctx, q, oldTicket.ID); err != nil {
+				return nil, fmt.Errorf("repository: ChangeTicketStatus(): %w", err)
+			}
+
+		}
+
+		if in.NewStatus == models.TicketStatusDone && oldTicket.Type == models.TicketTypeRequest && oldTicket.IncidentID != nil {
+
+			if err = lockIncidentAggregations(ctx, q, *oldTicket.IncidentID); err != nil {
+				return nil, fmt.Errorf("repository: ChangeTicketStatus(): lock incident: %w", err)
+			}
+
+		}
+
+	}
+
 	const query = `
 		UPDATE tickets
-		SET status = $1,
-		    updated_at = now()
-		WHERE id = $2
+		SET status = $1::varchar,
+		    completed_at = CASE WHEN $1::varchar = 'DONE' THEN $4 ELSE completed_at END,
+		    updated_at = $4
+		WHERE department_id = $2
+		  AND id = $3
 		  AND status NOT IN ('DONE', 'CANCELED')
 		RETURNING
-			id,
-			department_id,
-			category_id,
-			user_id,
-			brigade_id,
-			title,
-			description,
-			status,
-			priority,
-			address,
-			latitude,
-			longitude,
-			created_at,
-			updated_at,
-			assigned_at,
-			completed_at,
-			canceled_at,
-			asset_id
+			` + ticketWithRelationColumns + `
 	`
 
-	row := q.QueryRow(ctx, query, string(in.NewStatus), in.TicketID)
+	changedAt := time.Now().UTC()
 
-	ticket, err := scanTicket(row)
+	row := q.QueryRow(ctx, query, string(in.NewStatus), oldTicket.DepartmentID, in.TicketID, changedAt)
+
+	ticket, err := scanTicketWithRelation(row)
 
 	if err != nil {
 		return nil, fmt.Errorf("repository: ChangeTicketStatus(): update ticket: %w", err)
@@ -458,6 +460,14 @@ func (t *TicketRepoStruct) changeTicketStatus(ctx context.Context, q Querier, in
 
 	if err = t.insertOutboxEvent(ctx, q, "ticket", ticket.ID, "ticket.status_changed", ticket); err != nil {
 		return nil, fmt.Errorf("repository: ChangeTicketStatus(): insert outbox event: %w", err)
+	}
+
+	if in.NewStatus == models.TicketStatusDone && ticket.Type == models.TicketTypeRequest && ticket.IncidentID != nil {
+
+		if err = t.reconcileIncidentCompletion(ctx, q, *ticket.IncidentID, in.ChangedBy); err != nil {
+			return nil, fmt.Errorf("repository: ChangeTicketStatus(): reconcile incident: %w", err)
+		}
+
 	}
 
 	return ticket, nil
@@ -527,32 +537,23 @@ func (t *TicketRepoStruct) assignBrigade(ctx context.Context, q Querier, in *mod
 		    status = $2,
 		    assigned_at = now(),
 		    updated_at = now()
-		WHERE id = $3
+		WHERE department_id = $3
+		  AND id = $4
 		  AND status NOT IN ('DONE', 'CANCELED')
 		RETURNING
-			id,
-			department_id,
-			category_id,
-			user_id,
-			brigade_id,
-			title,
-			description,
-			status,
-			priority,
-			address,
-			latitude,
-			longitude,
-			created_at,
-			updated_at,
-			assigned_at,
-			completed_at,
-			canceled_at,
-			asset_id
+			` + ticketWithRelationColumns + `
 	`
 
-	row := q.QueryRow(ctx, query, in.BrigadeID, string(models.TicketStatusAssigned), in.TicketID)
+	row := q.QueryRow(
+		ctx,
+		query,
+		in.BrigadeID,
+		string(models.TicketStatusAssigned),
+		oldTicket.DepartmentID,
+		in.TicketID,
+	)
 
-	ticket, err := scanTicket(row)
+	ticket, err := scanTicketWithRelation(row)
 
 	if err != nil {
 		return nil, fmt.Errorf("repository: AssignBrigade(): update ticket: %w", err)
@@ -578,6 +579,10 @@ func (t *TicketRepoStruct) CancelTicket(ctx context.Context, in *models.CancelTi
 
 	defer rollbackTxOnCancel(ctx, tx)()
 
+	if err = lockRequestRelation(ctx, tx, in.TicketID); err != nil {
+		return nil, fmt.Errorf("repository: CancelTicket(): lock ticket: %w", err)
+	}
+
 	ticket, err := t.cancelTicket(ctx, tx, in)
 
 	if err != nil {
@@ -602,37 +607,33 @@ func (t *TicketRepoStruct) cancelTicket(ctx context.Context, q Querier, in *mode
 		return nil, fmt.Errorf("repository: CancelTicket(): %w", err)
 	}
 
+	if oldTicket.Type == models.TicketTypeIncident {
+
+		if err = lockIncidentAggregations(ctx, q, oldTicket.ID); err != nil {
+			return nil, fmt.Errorf("repository: CancelTicket(): lock incident: %w", err)
+		}
+
+		if err = t.ensureIncidentPartsComplete(ctx, q, oldTicket.ID); err != nil {
+			return nil, fmt.Errorf("repository: CancelTicket(): %w", err)
+		}
+
+	}
+
 	const query = `
 		UPDATE tickets
 		SET status = $1,
 		    canceled_at = now(),
 		    updated_at = now()
-		WHERE id = $2
+		WHERE department_id = $2
+		  AND id = $3
 		  AND status NOT IN ('DONE', 'CANCELED')
 		RETURNING
-			id,
-			department_id,
-			category_id,
-			user_id,
-			brigade_id,
-			title,
-			description,
-			status,
-			priority,
-			address,
-			latitude,
-			longitude,
-			created_at,
-			updated_at,
-			assigned_at,
-			completed_at,
-			canceled_at
-			,asset_id
+			` + ticketWithRelationColumns + `
 	`
 
-	row := q.QueryRow(ctx, query, string(models.TicketStatusCanceled), in.TicketID)
+	row := q.QueryRow(ctx, query, string(models.TicketStatusCanceled), oldTicket.DepartmentID, in.TicketID)
 
-	ticket, err := scanTicket(row)
+	ticket, err := scanTicketWithRelation(row)
 
 	if err != nil {
 		return nil, fmt.Errorf("repository: CancelTicket(): update ticket: %w", err)
@@ -658,6 +659,10 @@ func (t *TicketRepoStruct) CompleteTicket(ctx context.Context, in *models.Comple
 
 	defer rollbackTxOnCancel(ctx, tx)()
 
+	if err = lockRequestRelation(ctx, tx, in.TicketID); err != nil {
+		return nil, fmt.Errorf("repository: CompleteTicket(): lock ticket: %w", err)
+	}
+
 	ticket, err := t.completeTicket(ctx, tx, in)
 
 	if err != nil {
@@ -682,37 +687,41 @@ func (t *TicketRepoStruct) completeTicket(ctx context.Context, q Querier, in *mo
 		return nil, fmt.Errorf("repository: CompleteTicket(): %w", err)
 	}
 
+	if oldTicket.Type == models.TicketTypeIncident {
+
+		if err = lockIncidentAggregations(ctx, q, oldTicket.ID); err != nil {
+			return nil, fmt.Errorf("repository: CompleteTicket(): lock incident: %w", err)
+		}
+
+		if err = t.ensureIncidentPartsComplete(ctx, q, oldTicket.ID); err != nil {
+			return nil, fmt.Errorf("repository: CompleteTicket(): %w", err)
+		}
+
+	}
+
+	if oldTicket.Type == models.TicketTypeRequest && oldTicket.IncidentID != nil {
+
+		if err = lockIncidentAggregations(ctx, q, *oldTicket.IncidentID); err != nil {
+			return nil, fmt.Errorf("repository: CompleteTicket(): lock incident: %w", err)
+		}
+
+	}
+
 	const query = `
 		UPDATE tickets
 		SET status = $1,
 		    completed_at = now(),
 		    updated_at = now()
-		WHERE id = $2
+		WHERE department_id = $2
+		  AND id = $3
 		  AND status NOT IN ('DONE', 'CANCELED')
 		RETURNING
-			id,
-			department_id,
-			category_id,
-			user_id,
-			brigade_id,
-			title,
-			description,
-			status,
-			priority,
-			address,
-			latitude,
-			longitude,
-			created_at,
-			updated_at,
-			assigned_at,
-			completed_at,
-			canceled_at
-			,asset_id
+			` + ticketWithRelationColumns + `
 	`
 
-	row := q.QueryRow(ctx, query, string(models.TicketStatusDone), in.TicketID)
+	row := q.QueryRow(ctx, query, string(models.TicketStatusDone), oldTicket.DepartmentID, in.TicketID)
 
-	ticket, err := scanTicket(row)
+	ticket, err := scanTicketWithRelation(row)
 
 	if err != nil {
 		return nil, fmt.Errorf("repository: CompleteTicket(): update ticket: %w", err)
@@ -724,6 +733,14 @@ func (t *TicketRepoStruct) completeTicket(ctx context.Context, q Querier, in *mo
 
 	if err = t.insertOutboxEvent(ctx, q, "ticket", ticket.ID, "ticket.completed", ticket); err != nil {
 		return nil, fmt.Errorf("repository: CompleteTicket(): insert outbox event: %w", err)
+	}
+
+	if ticket.Type == models.TicketTypeRequest && ticket.IncidentID != nil {
+
+		if err = t.reconcileIncidentCompletion(ctx, q, *ticket.IncidentID, in.CompletedBy); err != nil {
+			return nil, fmt.Errorf("repository: CompleteTicket(): reconcile incident: %w", err)
+		}
+
 	}
 
 	return ticket, nil
@@ -1011,24 +1028,7 @@ func (t *TicketRepoStruct) getTicketByIDForUpdate(ctx context.Context, exec Quer
 
 	const query = `
 		SELECT
-			id,
-			department_id,
-			category_id,
-			user_id,
-			brigade_id,
-			title,
-			description,
-			status,
-			priority,
-			address,
-			latitude,
-			longitude,
-			created_at,
-			updated_at,
-			assigned_at,
-			completed_at,
-			canceled_at
-			,asset_id
+			` + ticketWithRelationColumns + `
 		FROM tickets
 		WHERE department_id = $1 AND id = $2
 		FOR UPDATE
@@ -1036,7 +1036,7 @@ func (t *TicketRepoStruct) getTicketByIDForUpdate(ctx context.Context, exec Quer
 
 	row := exec.QueryRow(ctx, query, departmentID, ticketID)
 
-	ticket, err := scanTicket(row)
+	ticket, err := scanTicketWithRelation(row)
 
 	if err != nil {
 		return nil, err

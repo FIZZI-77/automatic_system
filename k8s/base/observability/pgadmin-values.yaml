@@ -1,0 +1,77 @@
+image:
+  repository: dpage/pgadmin4
+  tag: "9.18"
+  pullPolicy: IfNotPresent
+
+env:
+  email: admin@automatic-system.dev
+  contextPath: /observe/pgadmin
+  enhanced_cookie_protection: "True"
+  variables:
+    - name: PGADMIN_REPLACE_SERVERS_ON_STARTUP
+      value: "True"
+    - name: PGADMIN_CONFIG_UPGRADE_CHECK_ENABLED
+      value: "False"
+
+existingSecret: pgadmin-admin
+secretKeys:
+  pgadminPasswordKey: password
+
+serverDefinitions:
+  enabled: true
+  resourceType: ConfigMap
+  servers:
+    "1":
+      Name: Platform PostgreSQL
+      Group: Automatic City Services
+      Host: postgres-platform-primary.automatic-system.svc.cluster.local
+      Port: 5432
+      MaintenanceDB: postgres
+      Username: pgadmin_viewer
+      SSLMode: prefer
+      Comment: Platform databases through the current Patroni primary
+    "2":
+      Name: Ticket Citus
+      Group: Automatic City Services
+      Host: postgres-ticket-primary.automatic-system.svc.cluster.local
+      Port: 5432
+      MaintenanceDB: ticket_db
+      Username: pgadmin_viewer
+      SSLMode: prefer
+      DBRestriction: ticket_db
+      Comment: Ticket database through the current Citus coordinator primary
+
+pgpass:
+  existingSecret: pgadmin-database-viewer
+  key: pgpass
+
+persistentVolume:
+  enabled: true
+  size: 10Gi
+  accessModes:
+    - ReadWriteOnce
+
+networkPolicy:
+  enabled: false
+
+strategy:
+  type: Recreate
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+podLabels:
+  app.kubernetes.io/component: observability
+  app.kubernetes.io/part-of: automatic-system
+
+serviceAccount:
+  create: false
+  automountServiceAccountToken: false
+
+test:
+  enabled: false

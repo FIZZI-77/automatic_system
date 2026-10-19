@@ -14,6 +14,14 @@ type DispatchCandidate = { brigade_id:string; rank:number; distance_meters:numbe
 type TicketHistory = { id:string; old_status?:string; new_status:string; changed_by?:string; comment?:string; created_at:number };
 type DemoTicket = Ticket & { demo_report_description?:string };
 type TicketFeedback = { ticket_id:string; user_id:string; rating:number; problem_resolved:boolean; comment:string; updated_at:string };
+type IncidentComposition = {
+  requests: Ticket[];
+  total: number;
+  completed: number;
+  department_count: number;
+  is_composite: boolean;
+  all_parts_completed: boolean;
+};
 
 export function TicketWorkspace({tickets,session,role,onUpdate,onMap,onNotice}:{tickets:Ticket[];session:Session;role:Role;onUpdate:(ticket:Ticket)=>void;onMap:(id:string)=>void;onNotice:(text:string)=>void}) {
   const [selected,setSelected]=useState<Ticket>();
@@ -28,10 +36,14 @@ export function TicketWorkspace({tickets,session,role,onUpdate,onMap,onNotice}:{
   const [problemResolved,setProblemResolved]=useState(true);
   const [feedbackComment,setFeedbackComment]=useState("");
   const [editing,setEditing]=useState(false);
+  const [composition,setComposition]=useState<IncidentComposition>();
+  const [relationBusy,setRelationBusy]=useState(false);
   const [filters,setFilters]=useState({query:"",status:"",priority:"",assignment:"",createdFrom:"",createdTo:"",sort:"created_desc"});
   const [visibleCount,setVisibleCount]=useState(20);
   const demo=session.accessToken==="demo";
   const brigades=loadBrigades().filter(item=>!["INACTIVE","OFFLINE","ARCHIVED"].includes(item.status));
+  const selectedIncidentID=selected?.ticket_type==="INCIDENT"?selected.id:selected?.incident_id;
+  const isRequestBackedIncident=selected?.ticket_type==="INCIDENT"&&Boolean(composition?.total);
 
   const visibleTickets=useMemo(()=>{
     const query=filters.query.trim().toLocaleLowerCase("ru-RU");
@@ -63,6 +75,106 @@ export function TicketWorkspace({tickets,session,role,onUpdate,onMap,onNotice}:{
       setSelected(current=>current?.id===ticket.id?result.ticket:current);
       onUpdate(result.ticket);
     }catch(error){onNotice(error instanceof Error?error.message:"Не удалось обновить заявку")}
+  }
+
+  async function loadComposition(incidentID:string){
+    const result=await api<IncidentComposition>(
+      config.endpoints.ticketRequestsList,
+      {incident_id:incidentID,limit:100,offset:0},
+      "POST",
+      session.accessToken,
+    );
+
+    setComposition(result);
+  }
+
+  useEffect(()=>{
+    setComposition(undefined);
+
+    if(!selectedIncidentID||demo||!["admin","dispatcher"].includes(role))return;
+
+    let active=true;
+
+    api<IncidentComposition>(
+      config.endpoints.ticketRequestsList,
+      {incident_id:selectedIncidentID,limit:100,offset:0},
+      "POST",
+      session.accessToken,
+    )
+      .then(result=>{if(active)setComposition(result)})
+      .catch(error=>{if(active)onNotice(error instanceof Error?error.message:"Не удалось загрузить состав инцидента")});
+
+    return()=>{active=false};
+  },[demo,onNotice,role,selectedIncidentID,session.accessToken]);
+
+  async function attachRequest(event:FormEvent<HTMLFormElement>){
+    event.preventDefault();
+    if(!selected)return;
+
+    const form=event.currentTarget;
+    const data=new FormData(form);
+    const incidentID=selected.ticket_type==="INCIDENT"?selected.id:String(data.get("incident_id")||"").trim();
+    const requestID=selected.ticket_type==="REQUEST"?selected.id:String(data.get("request_id")||"").trim();
+    const reason=String(data.get("reason")||"").trim();
+
+    if(!incidentID||!requestID||!reason)return;
+
+    setRelationBusy(true);
+
+    try{
+      const result=await api<{request:Ticket}>(
+        config.endpoints.ticketRequestsAttach,
+        {incident_id:incidentID,request_id:requestID,reason},
+        "POST",
+        session.accessToken,
+      );
+
+      if(selected.id===requestID){
+        setSelected(result.request);
+        onUpdate(result.request);
+      }
+
+      await loadComposition(incidentID);
+      form.reset();
+      onNotice("Заявка добавлена в состав инцидента");
+    }catch(error){
+      onNotice(error instanceof Error?error.message:"Не удалось добавить заявку в инцидент");
+    }finally{
+      setRelationBusy(false);
+    }
+  }
+
+  async function detachRequest(event:FormEvent<HTMLFormElement>){
+    event.preventDefault();
+    if(!selected||selected.ticket_type!=="REQUEST"||!selected.incident_id)return;
+
+    const form=event.currentTarget;
+    const data=new FormData(form);
+    const reason=String(data.get("reason")||"").trim();
+
+    if(!reason)return;
+
+    setRelationBusy(true);
+
+    try{
+      const incidentID=selected.incident_id;
+      const result=await api<{request:Ticket}>(
+        config.endpoints.ticketRequestsDetach,
+        {request_id:selected.id,reason},
+        "POST",
+        session.accessToken,
+      );
+
+      setSelected(result.request);
+      onUpdate(result.request);
+      await loadComposition(incidentID);
+      form.reset();
+      onNotice("Заявка исключена из состава инцидента");
+    }catch(error){
+      onNotice(error instanceof Error?error.message:"Не удалось исключить заявку из инцидента");
+    }finally{
+      setRelationBusy(false);
+    }
   }
 
   useEffect(()=>{
@@ -217,18 +329,41 @@ export function TicketWorkspace({tickets,session,role,onUpdate,onMap,onNotice}:{
       <button type="button" onClick={()=>setFilters({query:"",status:"",priority:"",assignment:"",createdFrom:"",createdTo:"",sort:"created_desc"})}>Сбросить</button>
       <span className="filter-result-count">Найдено: <b>{visibleTickets.length}</b></span>
     </div>
-    <div className="work-ticket-list">{visibleTickets.slice(0,visibleCount).map(ticket=><button key={ticket.id} className={selected?.id===ticket.id?"selected":""} onClick={()=>void openTicket(ticket)}><span className={`priority ${ticket.priority.toLowerCase()}`}/><div><b>{ticket.title}</b><small>{ticket.address}</small></div><em className={`status ${ticket.status.toLowerCase()}`}>{statusNames[ticket.status]||ticket.status}</em></button>)}{!visibleTickets.length&&<p className="ticket-filter-empty">По выбранным фильтрам заявок нет.</p>}</div>
+    <div className="work-ticket-list">{visibleTickets.slice(0,visibleCount).map(ticket=><button key={ticket.id} className={selected?.id===ticket.id?"selected":""} onClick={()=>void openTicket(ticket)}><span className={`priority ${ticket.priority.toLowerCase()}`}/><div><b>{ticket.title}</b><small>{ticket.ticket_type==="REQUEST"?"Часть инцидента":ticket.ticket_type==="INCIDENT"?"Инцидент":"Заявка"} · {ticket.address}</small></div><em className={`status ${ticket.status.toLowerCase()}`}>{statusNames[ticket.status]||ticket.status}</em></button>)}{!visibleTickets.length&&<p className="ticket-filter-empty">По выбранным фильтрам заявок нет.</p>}</div>
     {visibleTickets.length>20&&<div className="list-pagination"><span>Показано {Math.min(visibleCount,visibleTickets.length)} из {visibleTickets.length}</span><button onClick={()=>setVisibleCount(current=>current>=visibleTickets.length?20:Math.min(current+20,visibleTickets.length))}>{visibleCount>=visibleTickets.length?"Свернуть":"Показать ещё"}</button></div>}
     {selected&&<div className="ticket-modal-backdrop" role="presentation" onMouseDown={event=>{if(event.currentTarget===event.target)setSelected(undefined)}}>
       <article className="ticket-modal" role="dialog" aria-modal="true" aria-label={`Заявка ${selected.id}`}>
         <button className="detail-close" onClick={()=>setSelected(undefined)} aria-label="Закрыть">×</button>
         <span className="eyebrow">Заявка {selected.id}</span>{editing?<form className="ticket-edit-form" onSubmit={updateTicket}><label>Заголовок<input name="title" defaultValue={selected.title} required/></label><label>Описание<textarea name="description" rows={4} defaultValue={selected.description} required/></label><label>Адрес<input name="address" defaultValue={selected.address} required/></label><label>Приоритет<select name="priority" defaultValue={selected.priority}><option>LOW</option><option>MEDIUM</option><option>HIGH</option><option>EMERGENCY</option></select></label><div><button type="button" onClick={()=>setEditing(false)}>Отмена</button><button className="primary" disabled={busy}>Сохранить</button></div></form>:<><h2>{selected.title}</h2><p className="ticket-description">{selected.description}</p>{["admin","dispatcher","user"].includes(role)&&<button className="link ticket-edit-link" onClick={()=>setEditing(true)}>Изменить данные заявки</button>}</>}
-        <dl className="ticket-facts"><div><dt>Адрес</dt><dd>{selected.address}</dd></div><div><dt>Статус</dt><dd>{statusNames[selected.status]||selected.status}</dd></div><div><dt>Создал</dt><dd>{selected.created_by_name||selected.user_id||"Не указан"}</dd></div><div><dt>Принял</dt><dd>{selected.brigade_id?(selected.accepted_by_name||`Бригада ${selected.brigade_id}`):"Ожидает назначения"}</dd></div></dl>
-        <div className="ticket-modal-actions"><button className="ghost" onClick={()=>onMap(selected.id)}>Показать на карте</button>{["admin","dispatcher"].includes(role)&&<label>Назначить бригаду<select value={selected.brigade_id||""} onChange={event=>assign(event.target.value)} disabled={busy||selected.status!=="NEW"}><option value="">Выберите бригаду</option>{(candidates.length?candidates.map(candidate=>brigades.find(item=>item.id===candidate.brigade_id)).filter((item):item is NonNullable<typeof item>=>Boolean(item)):brigades).map(brigade=><option key={brigade.id} value={brigade.id}>{brigade.name}</option>)}</select>{selected.status==="NEW"&&candidates.length>0&&<small>Доступные бригады отсортированы Dispatch Service</small>}{selected.status==="NEW"&&<button type="button" className="link" disabled={busy} onClick={autoAssign}>Назначить автоматически</button>}</label>}</div>
-        {selected.status==="ASSIGNED"&&["admin","dispatcher","worker"].includes(role)&&<button className="primary full-action" disabled={busy} onClick={()=>status("in_progress")}>Начать выполнение</button>}
+        <dl className="ticket-facts"><div><dt>Адрес</dt><dd>{selected.address}</dd></div><div><dt>Статус</dt><dd>{statusNames[selected.status]||selected.status}</dd></div><div><dt>Тип</dt><dd>{selected.ticket_type==="REQUEST"?"Часть инцидента":selected.ticket_type==="INCIDENT"?"Инцидент":"Заявка"}</dd></div><div><dt>Создал</dt><dd>{selected.created_by_name||selected.user_id||"Не указан"}</dd></div><div><dt>Принял</dt><dd>{selected.brigade_id?(selected.accepted_by_name||`Бригада ${selected.brigade_id}`):"Ожидает назначения"}</dd></div></dl>
+        {composition&&selectedIncidentID&&<section className="incident-composition">
+          <div className="incident-composition-heading">
+            <div><span className="eyebrow">{composition.is_composite?"Составной междепартаментный инцидент":"Состав инцидента"}</span><h3>Выполнено {composition.completed} из {composition.total}</h3></div>
+            <strong>{composition.department_count} деп.</strong>
+          </div>
+          <div className="incident-progress"><span style={{width:`${composition.total?Math.round(composition.completed/composition.total*100):0}%`}}/></div>
+          <div className="incident-parts">{composition.requests.map(part=><button type="button" key={part.id} onClick={()=>void openTicket(part)}><span><b>{part.title}</b><small>Департамент {part.department_id}</small></span><em className={`status ${part.status.toLowerCase()}`}>{statusNames[part.status]||part.status}</em></button>)}</div>
+          {composition.total>composition.requests.length&&<small>Показаны первые {composition.requests.length} из {composition.total} частей.</small>}
+          {composition.all_parts_completed&&<p className="incident-complete-note">Все части выполнены — инцидент закрывается автоматически.</p>}
+        </section>}
+        {["admin","dispatcher"].includes(role)&&<section className="incident-relations">
+          <h3>Состав инцидента</h3>
+          <form onSubmit={attachRequest}>
+            {selected.ticket_type==="INCIDENT"?<label>ID добавляемой заявки<input name="request_id" required placeholder="UUID заявки"/></label>:<label>ID целевого инцидента<input name="incident_id" defaultValue={selected.incident_id||""} required placeholder="UUID инцидента"/></label>}
+            <label>Причина изменения<input name="reason" required minLength={3} maxLength={1000} placeholder="Почему заявки относятся к одному инциденту"/></label>
+            <button type="submit" disabled={relationBusy}>{relationBusy?"Сохраняем…":"Добавить в инцидент"}</button>
+          </form>
+          {selected.ticket_type==="REQUEST"&&selected.incident_id&&<form onSubmit={detachRequest}>
+            <label>Причина исключения<input name="reason" required minLength={3} maxLength={1000} placeholder="Почему заявка больше не относится к инциденту"/></label>
+            <button type="submit" className="danger-action" disabled={relationBusy}>Исключить из инцидента</button>
+          </form>}
+        </section>}
+        <div className="ticket-modal-actions"><button className="ghost" onClick={()=>onMap(selected.id)}>Показать на карте</button>{["admin","dispatcher"].includes(role)&&!isRequestBackedIncident&&<label>Назначить бригаду<select value={selected.brigade_id||""} onChange={event=>assign(event.target.value)} disabled={busy||selected.status!=="NEW"}><option value="">Выберите бригаду</option>{(candidates.length?candidates.map(candidate=>brigades.find(item=>item.id===candidate.brigade_id)).filter((item):item is NonNullable<typeof item>=>Boolean(item)):brigades).map(brigade=><option key={brigade.id} value={brigade.id}>{brigade.name}</option>)}</select>{selected.status==="NEW"&&candidates.length>0&&<small>Доступные бригады отсортированы Dispatch Service</small>}{selected.status==="NEW"&&<button type="button" className="link" disabled={busy} onClick={autoAssign}>Назначить автоматически</button>}</label>}</div>
+        {selected.status==="ASSIGNED"&&!isRequestBackedIncident&&["admin","dispatcher","worker"].includes(role)&&<button className="primary full-action" disabled={busy} onClick={()=>status("in_progress")}>Начать выполнение</button>}
         {role === "worker" && selected.status === "IN_PROGRESS" && <TicketAssetPicker ticket={selected} session={session} demo={demo} onUpdate={ticket=>{setSelected(ticket);onUpdate(ticket)}} onNotice={onNotice}/>}
-        {!['DONE','CANCELED'].includes(selected.status)&&["admin","dispatcher","user"].includes(role)&&<form className="ticket-cancel-form" onSubmit={cancel}><label>Причина отмены<input name="reason" required minLength={3} placeholder="Укажите причину"/></label><button className="danger-action" disabled={busy}>Отменить заявку</button></form>}
-        {selected.status==="IN_PROGRESS"&&["admin","dispatcher","worker"].includes(role)&&<form className="completion-form" onSubmit={complete}><h3>Отчёт о выполнении</h3><label>Что выполнено<textarea name="description" required rows={4} placeholder="Опишите выполненные работы и результат"/></label>{demo?<p>В демо фото и PDF не сохраняются.</p>:<label className="file-drop">Фото и документы<input type="file" multiple accept="image/*,.pdf,.doc,.docx" onChange={event=>setFiles(Array.from(event.target.files||[]))}/><span>Выбрать файлы</span><small>Фотографии будут встроены в итоговый PDF</small></label>}{files.length>0&&<ul className="report-files">{files.map(file=><li key={`${file.name}-${file.size}`}><div><b>{file.name}</b><small>{(file.size/1024/1024).toFixed(2)} МБ</small></div><button type="button" onClick={()=>setFiles(value=>value.filter(item=>item!==file))}>×</button></li>)}</ul>}<button className="primary" disabled={busy} type="submit">{busy?"Формируем отчёт…":demo?"Завершить заявку (демо)":"Сформировать PDF и завершить"}</button></form>}
+        {!['DONE','CANCELED'].includes(selected.status)&&!isRequestBackedIncident&&["admin","dispatcher","user"].includes(role)&&<form className="ticket-cancel-form" onSubmit={cancel}><label>Причина отмены<input name="reason" required minLength={3} placeholder="Укажите причину"/></label><button className="danger-action" disabled={busy}>Отменить заявку</button></form>}
+        {isRequestBackedIncident&&selected.status!=="DONE"&&<p className="incident-complete-note">Инцидент нельзя закрыть вручную: он завершится после выполнения всех входящих заявок.</p>}
+        {selected.status==="IN_PROGRESS"&&!isRequestBackedIncident&&["admin","dispatcher","worker"].includes(role)&&<form className="completion-form" onSubmit={complete}><h3>Отчёт о выполнении</h3><label>Что выполнено<textarea name="description" required rows={4} placeholder="Опишите выполненные работы и результат"/></label>{demo?<p>В демо фото и PDF не сохраняются.</p>:<label className="file-drop">Фото и документы<input type="file" multiple accept="image/*,.pdf,.doc,.docx" onChange={event=>setFiles(Array.from(event.target.files||[]))}/><span>Выбрать файлы</span><small>Фотографии будут встроены в итоговый PDF</small></label>}{files.length>0&&<ul className="report-files">{files.map(file=><li key={`${file.name}-${file.size}`}><div><b>{file.name}</b><small>{(file.size/1024/1024).toFixed(2)} МБ</small></div><button type="button" onClick={()=>setFiles(value=>value.filter(item=>item!==file))}>×</button></li>)}</ul>}<button className="primary" disabled={busy} type="submit">{busy?"Формируем отчёт…":demo?"Завершить заявку (демо)":"Сформировать PDF и завершить"}</button></form>}
         {reports.length>0&&<section className="saved-reports"><h3>Сохранённые отчёты</h3>{reports.map(report=><article key={report.id}><div><b>{report.description}</b><small>Автор: {report.author_user_id}</small></div><div className="saved-report-files">{(reportFiles[report.id]||[]).map(file=><span key={file.id}><button onClick={()=>download(file)}>{file.content_type==="application/pdf"?"PDF":"Файл"} · {file.name}</button>{["admin","dispatcher"].includes(role)&&<button className="file-delete" onClick={()=>removeStoredFile(report.id,file)} aria-label={`Удалить ${file.name}`}>×</button>}</span>)}</div></article>)}</section>}
         {selected.status==="DONE"&&selected.user_id===session.user?.user_id&&<form className="ticket-feedback" onSubmit={submitFeedback}><h3>Оцените выполненную работу</h3><p>Ваша оценка поможет оценить качество работы департамента.</p><fieldset><legend>Общая оценка</legend>{[1,2,3,4,5].map(value=><button key={value} type="button" className={value<=rating?"selected":""} aria-label={`${value} из 5`} aria-pressed={rating===value} onClick={()=>setRating(value)}>★</button>)}</fieldset><label className="ticket-feedback-resolved"><input type="checkbox" checked={problemResolved} onChange={event=>setProblemResolved(event.target.checked)}/>Проблема решена</label><label>Комментарий (необязательно)<textarea value={feedbackComment} onChange={event=>setFeedbackComment(event.target.value)} maxLength={1000} rows={3} placeholder="Что понравилось или что можно улучшить?"/></label><button className="primary" disabled={busy||rating===0}>{feedback?"Обновить оценку":"Отправить оценку"}</button></form>}
         {selected.status==="DONE"&&feedback&&selected.user_id!==session.user?.user_id&&<section className="ticket-feedback"><h3>Оценка заявителя</h3><p>{feedback.rating} из 5 · {feedback.problem_resolved?"Проблема решена":"Проблема не решена"}</p>{feedback.comment&&<p>{feedback.comment}</p>}</section>}

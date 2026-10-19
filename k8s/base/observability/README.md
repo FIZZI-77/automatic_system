@@ -11,6 +11,7 @@ ConfigMap с постоянными именами.
 | Jaeger | Показывает трассировки, переданные Collector. |
 | Prometheus | Собирает `/metrics` сервисов, Istio, Flagger, Patroni, PostgreSQL, PgBouncer, Redis, Kafka, узлов и управляющего etcd. |
 | Grafana | Читает источники Prometheus и Jaeger, загружает проектные и общественные панели. |
+| pgAdmin | Показывает Platform PostgreSQL и Ticket Citus через заранее зарегистрированные подключения только для чтения. |
 | kube-state-metrics | Отдает состояния объектов Kubernetes. |
 | node-exporter | Отдает показатели узлов. |
 
@@ -30,10 +31,16 @@ control-plane. Отдельного `etcd exporter` нет. Метрики Go-с
 .\k8s\scripts\open-observability.ps1
 ```
 
-Сценарий открывает `https://fizzi.tail2c9430.ts.net/observe/` со ссылками
-на Grafana, Prometheus, Jaeger, Kibana и Kiali. Все пути требуют общий
+Сценарий открывает `https://fizzi.tail2c9430.ts.net/observe/` и выводит
+отдельный адрес pgAdmin. Grafana, Prometheus, Jaeger, Kibana, Kiali и pgAdmin требуют общий
 логин и пароль. Подробности настройки — в
 [`security-observability.md`](../../docs/security-observability.md).
+
+pgAdmin разворачивается Helm-чартом `runix/pgadmin4` с параметрами из
+`pgadmin-values.yaml`. Первичная настройка учетных данных и роли
+`pgadmin_viewer` выполняется `k8s/scripts/setup-pgadmin.ps1`. Секреты
+администратора и read-only подключения создаются только в Kubernetes и не
+хранятся в репозитории.
 
 Для производственного хранения нельзя полагаться только на готовность
 Deployment: проверьте тип тома и срок хранения каждого компонента в

@@ -299,6 +299,225 @@ func TestTicketGRPCIntegration_UpdateCategoryExplicitFalse(t *testing.T) {
 	}
 }
 
+func TestTicketGRPCIntegration_MultiDepartmentIncidentLifecycle(t *testing.T) {
+	grpcApp := newGRPCTestApp(t)
+	defer grpcApp.cleanup()
+
+	adminID := uuid.New()
+	dispatcherID := uuid.New()
+	firstDepartmentID := uuid.New()
+	secondDepartmentID := uuid.New()
+	adminCtx := actorContext(adminID, "admin")
+	dispatcherCtx := metadata.AppendToOutgoingContext(
+		actorContext(dispatcherID, "dispatcher"),
+		"x-actor-department-id",
+		secondDepartmentID.String(),
+	)
+
+	categoryResponse, err := grpcApp.client.CreateCategory(adminCtx, &ticketv1.CreateCategoryRequest{
+		Code:        uniqueCode("grpc-multidepartment"),
+		Name:        "Multi-department incident",
+		Description: "Category for the composite incident gRPC integration test",
+	})
+
+	if err != nil {
+		t.Fatalf("CreateCategory() error = %v, want nil", err)
+	}
+
+	first, err := grpcApp.client.CreateRequest(adminCtx, &ticketv1.CreateRequestRequest{
+		DepartmentId: firstDepartmentID.String(),
+		CategoryId:   categoryResponse.GetCategory().GetId(),
+		UserId:       adminID.String(),
+		Title:        "First incident part",
+		Description:  "Work owned by the first department",
+		Priority:     ticketv1.TicketPriority_TICKET_PRIORITY_HIGH,
+		Address:      "Moscow, First street 1",
+		Latitude:     55.751244,
+		Longitude:    37.618423,
+	})
+
+	if err != nil {
+		t.Fatalf("CreateRequest(first department) error = %v, want nil", err)
+	}
+
+	second, err := grpcApp.client.CreateRequest(adminCtx, &ticketv1.CreateRequestRequest{
+		DepartmentId: secondDepartmentID.String(),
+		CategoryId:   categoryResponse.GetCategory().GetId(),
+		UserId:       dispatcherID.String(),
+		Title:        "Second incident part",
+		Description:  "Work owned by the second department",
+		Priority:     ticketv1.TicketPriority_TICKET_PRIORITY_HIGH,
+		Address:      "Moscow, Second street 2",
+		Latitude:     55.761244,
+		Longitude:    37.628423,
+	})
+
+	if err != nil {
+		t.Fatalf("CreateRequest(second department) error = %v, want nil", err)
+	}
+
+	attached, err := grpcApp.client.AttachRequest(dispatcherCtx, &ticketv1.AttachRequestRequest{
+		IncidentId: first.GetIncident().GetId(),
+		RequestId:  second.GetRequest().GetId(),
+		Reason:     "Both departments resolve one city incident",
+	})
+
+	if err != nil {
+		t.Fatalf("AttachRequest(cross-department dispatcher) error = %v, want nil", err)
+	}
+
+	if attached.GetRequest().GetIncidentId() != first.GetIncident().GetId() {
+		t.Errorf(
+			"AttachRequest().Request.IncidentId = %q, want %q",
+			attached.GetRequest().GetIncidentId(),
+			first.GetIncident().GetId(),
+		)
+	}
+
+	composition, err := grpcApp.client.ListIncidentRequests(dispatcherCtx, &ticketv1.ListIncidentRequestsRequest{
+		IncidentId: first.GetIncident().GetId(),
+		Limit:      100,
+	})
+
+	if err != nil {
+		t.Fatalf("ListIncidentRequests(dispatcher part department) error = %v, want nil", err)
+	}
+
+	if composition.GetTotal() != 2 || len(composition.GetRequests()) != 2 {
+		t.Fatalf(
+			"ListIncidentRequests() = %d requests, total %d, want 2 and 2",
+			len(composition.GetRequests()),
+			composition.GetTotal(),
+		)
+	}
+
+	detached, err := grpcApp.client.DetachRequest(dispatcherCtx, &ticketv1.DetachRequestRequest{
+		RequestId: second.GetRequest().GetId(),
+		Reason:    "Verify dispatcher can remove its department part",
+	})
+
+	if err != nil {
+		t.Fatalf("DetachRequest(dispatcher part department) error = %v, want nil", err)
+	}
+
+	if detached.GetRequest().GetIncidentId() != "" {
+		t.Errorf("DetachRequest().Request.IncidentId = %q, want empty", detached.GetRequest().GetIncidentId())
+	}
+
+	_, err = grpcApp.client.AttachRequest(dispatcherCtx, &ticketv1.AttachRequestRequest{
+		IncidentId: first.GetIncident().GetId(),
+		RequestId:  second.GetRequest().GetId(),
+		Reason:     "Restore composite incident after detach verification",
+	})
+
+	if err != nil {
+		t.Fatalf("AttachRequest(restore composition) error = %v, want nil", err)
+	}
+
+	transitionTicketToInProgress(t, grpcApp.client, adminCtx, first.GetIncident().GetId(), adminID)
+
+	_, err = grpcApp.client.CompleteTicket(adminCtx, &ticketv1.CompleteTicketRequest{
+		TicketId:    first.GetIncident().GetId(),
+		CompletedBy: adminID.String(),
+		Comment:     "Must not close before all parts",
+	})
+
+	if status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("CompleteTicket(incomplete incident) code = %s, want %s; error = %v", status.Code(err), codes.FailedPrecondition, err)
+	}
+
+	transitionTicketToInProgress(t, grpcApp.client, adminCtx, first.GetRequest().GetId(), adminID)
+	transitionTicketToInProgress(t, grpcApp.client, adminCtx, second.GetRequest().GetId(), adminID)
+
+	_, err = grpcApp.client.CompleteTicket(adminCtx, &ticketv1.CompleteTicketRequest{
+		TicketId:    first.GetRequest().GetId(),
+		CompletedBy: adminID.String(),
+		Comment:     "First department completed its work",
+	})
+
+	if err != nil {
+		t.Fatalf("CompleteTicket(first part) error = %v, want nil", err)
+	}
+
+	incidentAfterFirstPart, err := grpcApp.client.GetTicket(adminCtx, &ticketv1.GetTicketRequest{
+		TicketId: first.GetIncident().GetId(),
+	})
+
+	if err != nil {
+		t.Fatalf("GetTicket(incident after first part) error = %v, want nil", err)
+	}
+
+	if incidentAfterFirstPart.GetTicket().GetStatus() != ticketv1.TicketStatus_TICKET_STATUS_IN_PROGRESS {
+		t.Errorf(
+			"GetTicket(incident after first part).Status = %s, want %s",
+			incidentAfterFirstPart.GetTicket().GetStatus(),
+			ticketv1.TicketStatus_TICKET_STATUS_IN_PROGRESS,
+		)
+	}
+
+	_, err = grpcApp.client.CompleteTicket(adminCtx, &ticketv1.CompleteTicketRequest{
+		TicketId:    second.GetRequest().GetId(),
+		CompletedBy: adminID.String(),
+		Comment:     "Second department completed its work",
+	})
+
+	if err != nil {
+		t.Fatalf("CompleteTicket(second part) error = %v, want nil", err)
+	}
+
+	completedIncident, err := grpcApp.client.GetTicket(adminCtx, &ticketv1.GetTicketRequest{
+		TicketId: first.GetIncident().GetId(),
+	})
+
+	if err != nil {
+		t.Fatalf("GetTicket(completed incident) error = %v, want nil", err)
+	}
+
+	if completedIncident.GetTicket().GetStatus() != ticketv1.TicketStatus_TICKET_STATUS_DONE {
+		t.Errorf(
+			"GetTicket(completed incident).Status = %s, want %s",
+			completedIncident.GetTicket().GetStatus(),
+			ticketv1.TicketStatus_TICKET_STATUS_DONE,
+		)
+	}
+}
+
+func transitionTicketToInProgress(
+	t *testing.T,
+	client ticketv1.TicketServiceClient,
+	ctx context.Context,
+	ticketID string,
+	changedBy uuid.UUID,
+) {
+	t.Helper()
+
+	for _, nextStatus := range []ticketv1.TicketStatus{
+		ticketv1.TicketStatus_TICKET_STATUS_ASSIGNED,
+		ticketv1.TicketStatus_TICKET_STATUS_IN_PROGRESS,
+	} {
+		response, err := client.ChangeTicketStatus(ctx, &ticketv1.ChangeTicketStatusRequest{
+			TicketId:  ticketID,
+			NewStatus: nextStatus,
+			ChangedBy: changedBy.String(),
+			Comment:   "gRPC multi-department integration transition",
+		})
+
+		if err != nil {
+			t.Fatalf("ChangeTicketStatus(%q, %s) error = %v, want nil", ticketID, nextStatus, err)
+		}
+
+		if response.GetTicket().GetStatus() != nextStatus {
+			t.Fatalf(
+				"ChangeTicketStatus(%q, %s).Status = %s, want %s",
+				ticketID,
+				nextStatus,
+				response.GetTicket().GetStatus(),
+				nextStatus,
+			)
+		}
+	}
+}
+
 func float64Ptr(value float64) *float64 {
 	return &value
 }

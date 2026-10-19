@@ -700,15 +700,55 @@ func (th *TicketHandler) ListIncidentRequests(c *gin.Context) {
 		return
 	}
 
+	allRequests := response.GetRequests()
+
+	if response.GetTotal() > int64(len(allRequests)) || int32OrZero(req.Offset) > 0 {
+		allRequests = make([]*ticketv1.Ticket, 0, int(response.GetTotal()))
+
+		for offset := int32(0); int64(offset) < response.GetTotal(); offset += 100 {
+			page, pageErr := th.ticketClient.ListIncidentRequests(ctx, &ticketv1.ListIncidentRequestsRequest{
+				IncidentId: req.IncidentID,
+				Limit:      100,
+				Offset:     offset,
+			})
+
+			if pageErr != nil {
+				handleGRPCError(c, pageErr)
+				return
+			}
+
+			allRequests = append(allRequests, page.GetRequests()...)
+
+			if len(page.GetRequests()) < 100 {
+				break
+			}
+		}
+	}
+
 	requests := make([]*models.Ticket, 0, len(response.GetRequests()))
+	departments := make(map[string]struct{})
+	var completed int64
+
+	for _, request := range allRequests {
+		mapped := FromProtoTicket(request)
+		departments[mapped.DepartmentID] = struct{}{}
+
+		if mapped.Status == "DONE" {
+			completed++
+		}
+	}
 
 	for _, request := range response.GetRequests() {
 		requests = append(requests, FromProtoTicket(request))
 	}
 
 	c.JSON(http.StatusOK, &models.ListIncidentRequestsResponse{
-		Requests: requests,
-		Total:    response.GetTotal(),
+		Requests:          requests,
+		Total:             response.GetTotal(),
+		Completed:         completed,
+		DepartmentCount:   len(departments),
+		IsComposite:       len(departments) > 1,
+		AllPartsCompleted: response.GetTotal() > 0 && completed == response.GetTotal(),
 	})
 }
 

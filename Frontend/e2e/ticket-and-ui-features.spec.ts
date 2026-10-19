@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { loginThroughUi } from "./support/auth";
+import { apiLogin, bearer, loginThroughUi } from "./support/auth";
+import { gatewayUrl } from "./support/environment";
 
 async function selectTestAddress(page: import("@playwright/test").Page) {
   await page.route("**/api/geocode**", async route => {
@@ -22,6 +23,128 @@ async function selectTestAddress(page: import("@playwright/test").Page) {
 }
 
 test.describe("Заявки и пользовательские функции", () => {
+  test("диспетчер видит составной инцидент и управляет своей частью", async ({ page, request }) => {
+    const adminToken = await apiLogin(request, "admin");
+    const dispatcherToken = await apiLogin(request, "dispatcher");
+    const dispatcherMe = await request.get(`${gatewayUrl}/auth/me`, { headers: bearer(dispatcherToken) });
+    const dispatcherUser = await dispatcherMe.json() as { user_id: string };
+    const workingDepartmentResponse = await request.post(`${gatewayUrl}/profile-checks/resolve-working-department`, {
+      headers: bearer(dispatcherToken),
+      data: { user_id: dispatcherUser.user_id },
+    });
+    await expect(workingDepartmentResponse).toBeOK();
+    const workingDepartment = await workingDepartmentResponse.json() as { department_id: string; can_operate: boolean };
+    expect(workingDepartment.can_operate).toBeTruthy();
+
+    const departmentsResponse = await request.post(`${gatewayUrl}/departments/list`, {
+      headers: bearer(adminToken),
+      data: { limit: 100, offset: 0 },
+    });
+    await expect(departmentsResponse).toBeOK();
+    const departments = await departmentsResponse.json() as { departments: Array<{ id: string }> };
+    const foreignDepartment = departments.departments.find(item => item.id !== workingDepartment.department_id);
+    expect(foreignDepartment).toBeTruthy();
+
+    const categoriesResponse = await request.post(`${gatewayUrl}/ticket-categories/list`, {
+      headers: bearer(adminToken),
+      data: { limit: 100, offset: 0 },
+    });
+    await expect(categoriesResponse).toBeOK();
+    const categories = await categoriesResponse.json() as { categories: Array<{ id: string; is_active: boolean }> };
+    const category = categories.categories.find(item => item.is_active);
+    expect(category).toBeTruthy();
+
+    const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const foreignRequestResponse = await request.post(`${gatewayUrl}/tickets/requests/create`, {
+      headers: bearer(adminToken),
+      data: {
+        department_id: foreignDepartment!.id,
+        category_id: category!.id,
+        title: `UI составной инцидент A ${suffix}`,
+        description: "Часть другого департамента",
+        priority: "HIGH",
+        address: "Москва, Тверская улица, 10",
+        latitude: 55.757393,
+        longitude: 37.613218,
+      },
+    });
+    expect(foreignRequestResponse.status()).toBe(201);
+    const foreignRequest = await foreignRequestResponse.json() as { incident: { id: string } };
+
+    const ownTitle = `UI составной инцидент B ${suffix}`;
+    const ownRequestResponse = await request.post(`${gatewayUrl}/tickets/requests/create`, {
+      headers: bearer(dispatcherToken),
+      data: {
+        department_id: workingDepartment.department_id,
+        category_id: category!.id,
+        title: ownTitle,
+        description: "Часть департамента диспетчера",
+        priority: "HIGH",
+        address: "Москва, Петровка, 12",
+        latitude: 55.761393,
+        longitude: 37.617218,
+      },
+    });
+    expect(ownRequestResponse.status()).toBe(201);
+    const ownRequest = await ownRequestResponse.json() as { request: { id: string } };
+
+    const attachResponse = await request.post(`${gatewayUrl}/tickets/requests/attach`, {
+      headers: bearer(dispatcherToken),
+      data: {
+        incident_id: foreignRequest.incident.id,
+        request_id: ownRequest.request.id,
+        reason: "UI E2E: общий городской инцидент",
+      },
+    });
+    await expect(attachResponse).toBeOK();
+
+    const compositionResponse = await request.post(`${gatewayUrl}/tickets/requests/list`, {
+      headers: bearer(dispatcherToken),
+      data: { incident_id: foreignRequest.incident.id, limit: 100, offset: 0 },
+    });
+    await expect(compositionResponse).toBeOK();
+    const composition = await compositionResponse.json() as {
+      total: number;
+      completed: number;
+      department_count: number;
+      is_composite: boolean;
+    };
+    expect(composition.total).toBeGreaterThanOrEqual(2);
+    expect(composition.department_count).toBeGreaterThanOrEqual(2);
+    expect(composition.is_composite).toBeTruthy();
+
+    await loginThroughUi(page, "dispatcher");
+    await page.locator("aside nav").getByText("Инциденты", { exact: true }).click();
+    await page.getByRole("searchbox", { name: "Поиск", exact: true }).fill(ownTitle);
+    await page.getByText(ownTitle, { exact: true }).click();
+
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByText("Составной междепартаментный инцидент", { exact: true })).toBeVisible();
+    await expect(dialog.getByRole("heading", {
+      name: `Выполнено ${composition.completed} из ${composition.total}`,
+    })).toBeVisible();
+    await expect(dialog.getByText(`${composition.department_count} деп.`, { exact: true })).toBeVisible();
+
+    await dialog.getByLabel("Причина исключения").fill("UI E2E: проверяем исключение части");
+    const detachResponse = page.waitForResponse(response =>
+      response.url().endsWith("/tickets/requests/detach") && response.request().method() === "POST",
+    );
+    await dialog.getByRole("button", { name: "Исключить из инцидента" }).click();
+    expect((await detachResponse).status()).toBe(200);
+
+    await dialog.getByLabel("ID целевого инцидента").fill(foreignRequest.incident.id);
+    await dialog.getByLabel("Причина изменения").fill("UI E2E: возвращаем часть в состав");
+    const reattachResponse = page.waitForResponse(response =>
+      response.url().endsWith("/tickets/requests/attach") && response.request().method() === "POST",
+    );
+    await dialog.getByRole("button", { name: "Добавить в инцидент" }).click();
+    expect((await reattachResponse).status()).toBe(200);
+    await expect(dialog.getByText("Составной междепартаментный инцидент", { exact: true })).toBeVisible();
+    await expect(dialog.getByRole("heading", {
+      name: `Выполнено ${composition.completed} из ${composition.total}`,
+    })).toBeVisible();
+  });
+
   test("житель создаёт заявку и находит её фильтром", async ({ page }) => {
     await loginThroughUi(page, "user");
     await page.locator("aside nav").getByText("Сообщить", { exact: true }).click();

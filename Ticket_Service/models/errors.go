@@ -17,6 +17,7 @@ var (
 	ErrInvalidTicketType       = errors.New("invalid ticket type")
 	ErrInvalidTicketRelation   = errors.New("invalid ticket relation")
 	ErrRequestAlreadyAttached  = errors.New("request is already attached to incident")
+	ErrIncidentPartsIncomplete = errors.New("incident has incomplete requests")
 	ErrIntegrationInactive     = errors.New("integration is inactive")
 	ErrIntegrationCredentials  = errors.New("invalid integration credentials")
 )
