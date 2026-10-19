@@ -9761,6 +9761,18 @@
       },
       "ListIncidentRequestsResponse": {
         "properties": {
+          "all_parts_completed": {
+            "type": "boolean"
+          },
+          "completed": {
+            "type": "integer"
+          },
+          "department_count": {
+            "type": "integer"
+          },
+          "is_composite": {
+            "type": "boolean"
+          },
           "requests": {
             "items": {
               "$ref": "#/components/schemas/Ticket"
