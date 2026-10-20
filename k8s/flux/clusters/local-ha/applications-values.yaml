@@ -3,7 +3,7 @@ globalImage:
   tag: sha-7e50eb65738b
   tags:
     analytics: sha-394aa673f267
-    api-gateway: sha-394aa673f267
+    api-gateway: sha-3f5af66abff7
     asset: sha-394aa673f267
     audit: sha-394aa673f267
     auth: sha-394aa673f267
@@ -11,14 +11,14 @@ globalImage:
     department: sha-394aa673f267
     dispatch: sha-394aa673f267
     file: sha-394aa673f267
-    frontend: sha-394aa673f267
+    frontend: sha-3f5af66abff7
     location: sha-394aa673f267
     notification: sha-394aa673f267
     profile: sha-394aa673f267
     report: sha-394aa673f267
     routing: sha-394aa673f267
     sla: sha-394aa673f267
-    ticket: sha-394aa673f267
+    ticket: sha-3f5af66abff7
   pullPolicy: Always
 
 migrations:

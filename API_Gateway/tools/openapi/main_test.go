@@ -28,6 +28,12 @@ func TestGenerateFromGatewayCode(t *testing.T) {
 		t.Fatal("public login must have a body and no bearer security")
 	}
 
+	externalTicket := doc.Paths["/integrations/tickets/requests"]["post"].(map[string]any)
+
+	if externalTicket["requestBody"] == nil || externalTicket["security"] != nil {
+		t.Fatal("public ticket integration must use its client secret and no bearer security")
+	}
+
 	asset := doc.Paths["/assets/create"]["post"].(map[string]any)
 
 	if asset["requestBody"] == nil || asset["security"] == nil {

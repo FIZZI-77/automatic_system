@@ -90,6 +90,28 @@ func main() {
 		getEnv("RATE_LIMIT_PREFIX", "gateway:ratelimit"),
 		getEnv("RATE_LIMIT_BYPASS_LOAD_TESTS", "false") == "true",
 	)
+	notificationRedisClient := redis.NewClient(&redis.Options{
+		Addr:     getEnv("NOTIFICATION_REDIS_ADDR", getEnv("REDIS_ADDR", "localhost:6379")),
+		Password: getEnv("NOTIFICATION_REDIS_PASSWORD", getEnv("REDIS_PASSWORD", "")),
+		DB:       getEnvInt("NOTIFICATION_REDIS_DB", 0),
+	})
+
+	if err := errors.Join(
+		redisotel.InstrumentTracing(notificationRedisClient),
+		redisotel.InstrumentMetrics(notificationRedisClient),
+	); err != nil {
+		log.Fatalf("instrument notification Redis: %v", err)
+	}
+
+	notificationRedisCtx, notificationRedisCancel := context.WithTimeout(context.Background(), 5*time.Second)
+
+	if err := notificationRedisClient.Ping(notificationRedisCtx).Err(); err != nil {
+		notificationRedisCancel()
+		log.Fatalf("failed to connect to notification Redis: %v", err)
+	}
+
+	notificationRedisCancel()
+	dependencies.Add("notification redis", notificationRedisClient.Close)
 
 	authServiceAddr := getEnv("AUTH_SERVICE_ADDR", "localhost:50051")
 	ticketServiceAddr := getEnv("TICKET_SERVICE_ADDR", "localhost:50052")
@@ -339,7 +361,7 @@ func main() {
 	dispatchHandler := handlers.NewDispatchHandler(dispatchClient, profileClient)
 	fileHandler := handlers.NewFileHandler(fileClient)
 	slaHandler := handlers.NewSLAHandler(slaClient)
-	notificationHandler := handlers.NewNotificationHandler(notificationClient, redisClient, getEnv("NOTIFICATION_LIVE_PREFIX", "notifications:user:"))
+	notificationHandler := handlers.NewNotificationHandler(notificationClient, notificationRedisClient, getEnv("NOTIFICATION_LIVE_PREFIX", "notifications:user:"))
 	auditHandler := handlers.NewAuditHandler(auditClient)
 	analyticsHandler := handlers.NewAnalyticsHandler(analyticsClient)
 	reportHandler := handlers.NewReportHandler(reportClient, ticketClient, brigadeClient, profileClient, getEnv("REPORT_INTERNAL_URL", "http://report-service:8084"), getEnv("REPORT_INTERNAL_TOKEN", ""))

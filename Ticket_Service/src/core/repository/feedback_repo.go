@@ -55,7 +55,8 @@ func (t *TicketRepoStruct) SubmitTicketFeedback(ctx context.Context, in *models.
 	}
 
 	feedback := &models.TicketFeedback{TicketID: in.TicketID, UserID: in.UserID, Rating: in.Rating, ProblemResolved: in.ProblemResolved, Comment: comment}
-	err = tx.QueryRow(ctx, `UPDATE tickets SET feedback_rating=$3,feedback_resolved=$4,feedback_comment=$5,feedback_created_at=COALESCE(feedback_created_at,now()),feedback_updated_at=now() WHERE department_id=$1 AND id=$2 RETURNING feedback_created_at,feedback_updated_at`, departmentID, in.TicketID, in.Rating, in.ProblemResolved, comment).Scan(&feedback.CreatedAt, &feedback.UpdatedAt)
+	now := time.Now().UTC()
+	err = tx.QueryRow(ctx, `UPDATE tickets SET feedback_rating=$3,feedback_resolved=$4,feedback_comment=$5,feedback_created_at=COALESCE(feedback_created_at,$6),feedback_updated_at=$6 WHERE department_id=$1 AND id=$2 RETURNING feedback_created_at,feedback_updated_at`, departmentID, in.TicketID, in.Rating, in.ProblemResolved, comment, now).Scan(&feedback.CreatedAt, &feedback.UpdatedAt)
 
 	if err != nil {
 		return nil, err
