@@ -6,9 +6,10 @@ import {
 } from "./support/environment";
 
 export default async function globalSetup() {
-  await Promise.all([
-    waitForUrl(frontendHealthUrl),
-    waitForUrl(`${gatewayHealthUrl}/health`),
-  ]);
+  const healthChecks = [waitForUrl(`${gatewayHealthUrl}/health`)];
+  if (process.env.E2E_API_ONLY !== "1") {
+    healthChecks.push(waitForUrl(frontendHealthUrl));
+  }
+  await Promise.all(healthChecks);
   seedDemoData();
 }

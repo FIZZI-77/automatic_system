@@ -14,6 +14,8 @@ data:
   JWT_PUBLIC_KEY_PATH: "/app/keys/public.pem"
   SWAGGER_ENABLED: "true"
   NOTIFICATION_LIVE_PREFIX: 'notifications:user:'
+  NOTIFICATION_REDIS_ADDR: "redis-notification:6379"
+  NOTIFICATION_REDIS_DB: "0"
   NOTIFICATION_SERVICE_ADDR: "notification-service:50061"
   PROFILE_SERVICE_ADDR: "profile-service:50055"
   RATE_LIMIT_PREFIX: "gateway:ratelimit"

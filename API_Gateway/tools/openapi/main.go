@@ -241,7 +241,7 @@ func generate(root string) ([]byte, error) {
 				op.Tags[0] = "system"
 			}
 
-			if group.Name != "router" && group.Name != "publicAuth" {
+			if group.Name != "router" && group.Name != "publicAuth" && group.Name != "publicTicketIntegrations" {
 				op.Security = []map[string][]string{
 					{
 						"BearerAuth": {},

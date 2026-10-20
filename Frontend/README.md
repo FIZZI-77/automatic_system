@@ -66,6 +66,35 @@ npm run e2e:report
 
 Переменные окружения: `E2E_BASE_URL`, `E2E_API_URL`, `E2E_DEMO_PASSWORD`, `E2E_SKIP_SEED=1`, `E2E_RESTORE_SEED=0`. Артефакты падений (trace, screenshot, video) сохраняются в `Frontend/test-results`, HTML-отчёт — в `Frontend/playwright-report`.
 
+Для проверки запущенного Kubernetes-кластера используется отдельный API-only runner. Если `GatewayUrl` не указан, он сам поднимает временный `kubectl port-forward`. Без demo-пароля выполняется self-contained набор для всех 199 HTTP-операций из OpenAPI: позитивные сценарии, негативные проверки, JWT-sweep и сверка фактического состояния PostgreSQL/Citus, ClickHouse, Redis и MinIO. При передаче пароля дополнительно запускаются старые сценарии на постоянных demo-аккаунтах и seed тестовых данных.
+
+```powershell
+# Безопасный базовый прогон без demo-пароля
+powershell -ExecutionPolicy Bypass -File scripts/run-api-gateway-e2e.ps1 -SecuritySweepOnly -SkipSeed
+
+# Авторизованные сценарии против кластера
+$password = Read-Host "Demo password"
+powershell -ExecutionPolicy Bypass -File scripts/run-api-gateway-e2e.ps1 -Password $password
+```
+
+Тесты `gateway-route-sweep.spec.ts` и `gateway-coverage.spec.ts` читают сгенерированный `API_Gateway/src/core/handlers/openapi.json`: новая операция автоматически требует позитивный сценарий с storage evidence, а защищённая операция попадает в проверки отсутствующего и повреждённого JWT. Storage-проверки выполняются через `kubectl exec`, сверяют фактическое состояние БД и удаляют созданные ими записи.
+
 ## Карта
 
 Карта отображает координаты заявок, машин и активный маршрут без жёсткой привязки к поставщику. URL тайлов и WebSocket вынесены в окружение. В текущем интерфейсе фон отрисовывается локально, поэтому диспетчерский экран остаётся работоспособным даже без доступа к внешнему tile-серверу.
+
+## Полный кластерный E2E API Gateway
+
+Из `API_Gateway` набор можно запускать как обычный Go-тест. Он сам поднимает
+временный `kubectl port-forward`, запускает Playwright API-сценарии и завершает
+port-forward после проверки:
+
+```powershell
+$env:API_GATEWAY_E2E = '1'
+$env:GOCACHE = 'C:\AuthomaticCityServices\.gocache'
+go test -v ./e2e -run TestAPICluster -count=1
+```
+
+SMTP-конфигурация тестом не меняется. Позитивные сценарии отправки писем требуют
+доступности настроенного SMTP-провайдера (в частности, отключённого мешающего VPN).
+Они включаются параметром `-IncludeSMTP` у `scripts/run-api-gateway-e2e.ps1`.
