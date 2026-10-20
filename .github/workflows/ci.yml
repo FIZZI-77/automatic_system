@@ -1077,6 +1077,11 @@ jobs:
             if (( attempt % 6 == 1 )); then
               echo "Flux reconciliation pending (${attempt}/480): ${READY_STATUS:-Unknown} ${READY_REASON:-Unknown}: ${READY_MESSAGE:-no message}"
               kubectl get helmrelease applications -n flux-system -o wide || true
+              kubectl get jobs -n automatic-system \
+                --sort-by=.metadata.creationTimestamp \
+                -o custom-columns='NAME:.metadata.name,STATUS:.status.conditions[-1].type,SUCCEEDED:.status.succeeded,FAILED:.status.failed,AGE:.metadata.creationTimestamp' |
+                grep -E '(^NAME|^applications-.+-migrate-[0-9]+)' |
+                tail -n 6 || true
             fi
 
             sleep 5
