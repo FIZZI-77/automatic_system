@@ -13,7 +13,9 @@ data:
       traceback_level: ERROR
     restapi:
       listen: 0.0.0.0:8008
-      connect_address: ${POD_IP}:8008
+      # StatefulSet pod DNS stays stable when Kubernetes assigns a new Pod IP.
+      # Patroni stores this address in DCS and uses it to maintain pg_dist_node.
+      connect_address: ${PATRONI_NAME}.postgres-ticket-citus-nodes.${POD_NAMESPACE}.svc.cluster.local:8008
     kubernetes:
       namespace: automatic-system
       labels:
@@ -55,7 +57,7 @@ data:
         - host all all 0.0.0.0/0 scram-sha-256
     postgresql:
       listen: 0.0.0.0:5432
-      connect_address: ${POD_IP}:5432
+      connect_address: ${PATRONI_NAME}.postgres-ticket-citus-nodes.${POD_NAMESPACE}.svc.cluster.local:5432
       data_dir: /var/lib/postgresql/data/pgdata
       bin_dir: /usr/lib/postgresql/16/bin
       authentication:
