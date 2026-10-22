@@ -182,11 +182,12 @@ func (w *Worker) ArchiveOnce(ctx context.Context) (int, error) {
 
 		result, updateErr := tx.Exec(ctx, `
 			UPDATE tickets
-			SET status='ARCHIVED', archived_at=$3, updated_at=$3
+			SET status='ARCHIVED', archived_at=$3, updated_at=$4
 			WHERE id=$1 AND status=$2
-			  AND COALESCE(completed_at, canceled_at, updated_at) <= $4`,
+			  AND COALESCE(completed_at, canceled_at, updated_at) <= $5`,
 			candidate.id,
 			candidate.status,
+			now,
 			now,
 			now.Add(-w.cfg.ArchiveAfter),
 		)

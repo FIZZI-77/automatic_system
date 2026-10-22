@@ -110,6 +110,61 @@ test.describe("Tickets API: жизненный цикл и фактически�
     expect(queryTicketPostgres(`SELECT COALESCE(incident_id::text,'') FROM tickets WHERE id='${second.request.id}'`)).toBe("");
   });
 
+  test("duplicate requests завершают общий incident только после выполнения всех частей", async ({ request }) => {
+    const latitude = -65.4321;
+    const longitude = 12.3456;
+    const createRequest = async (title: string) => post(request, admin, "/tickets/requests/create", {
+      department_id: departmentID, category_id: categoryID, title, description: "e2e incident aggregation",
+      priority: "HIGH", address: "E2E isolated location", latitude, longitude,
+    });
+
+    const first = await createRequest(`E2E incident first ${suffix}`);
+    expect(first.response.status(), JSON.stringify(first.body)).toBe(201);
+    expect(first.body.duplicate_matched).toBe(false);
+
+    const second = await createRequest(`E2E incident second ${suffix}`);
+    expect(second.response.status(), JSON.stringify(second.body)).toBe(201);
+    expect(second.body.duplicate_matched).toBe(true);
+    expect(second.body.incident.id).toBe(first.body.incident.id);
+    expect(second.body.request.id).not.toBe(first.body.request.id);
+
+    const incidentID = first.body.incident.id as string;
+    const requestIDs = [first.body.request.id, second.body.request.id] as string[];
+    ticketIDs.push(incidentID, ...requestIDs);
+
+    const moveToInProgress = async (ticketID: string) => {
+      expect((await post(request, admin, "/tickets/change-status", {
+        ticket_id: ticketID, new_status: "assigned", comment: "e2e aggregate",
+      })).response.status()).toBe(200);
+      expect((await post(request, admin, "/tickets/change-status", {
+        ticket_id: ticketID, new_status: "in_progress", comment: "e2e aggregate",
+      })).response.status()).toBe(200);
+    };
+
+    await moveToInProgress(incidentID);
+    await moveToInProgress(requestIDs[0]);
+    await moveToInProgress(requestIDs[1]);
+
+    const premature = await post(request, admin, "/tickets/complete", {
+      ticket_id: incidentID, comment: "must wait for request parts",
+    });
+    expect(premature.response.status(), JSON.stringify(premature.body)).toBe(409);
+
+    expect((await post(request, admin, "/tickets/complete", {
+      ticket_id: requestIDs[0], comment: "first part done",
+    })).response.status()).toBe(200);
+    const afterFirst = await post(request, admin, "/tickets/get", { ticket_id: incidentID });
+    expect(afterFirst.body.ticket.status).toBe("IN_PROGRESS");
+
+    expect((await post(request, admin, "/tickets/complete", {
+      ticket_id: requestIDs[1], comment: "second part done",
+    })).response.status()).toBe(200);
+    const completed = await post(request, admin, "/tickets/get", { ticket_id: incidentID });
+    expect(completed.body.ticket.status).toBe("DONE");
+    expect(queryTicketPostgres(`SELECT count(*) FROM tickets WHERE incident_id='${incidentID}' AND ticket_type='REQUEST' AND status='DONE'`)).toBe("2");
+    expect(queryTicketPostgres(`SELECT status FROM tickets WHERE id='${incidentID}' AND ticket_type='INCIDENT'`)).toBe("DONE");
+  });
+
   test("integration register + public request проверяют secret и идемпотентность записи", async ({ request }) => {
     const clientID = `e2e-${suffix}`;
     const registered = await post(request, admin, "/tickets/integrations/register", { name: "E2E", client_id: clientID, allowed_department_id: departmentID });

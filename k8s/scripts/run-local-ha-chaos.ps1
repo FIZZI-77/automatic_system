@@ -76,6 +76,36 @@ function Get-PrimaryPod {
     return $pod
 }
 
+function Wait-NewPrimaryPod {
+    param(
+        [string]$Selector,
+        [string]$PreviousPrimary,
+        [string]$Description
+    )
+
+    $deadline = (Get-Date).AddSeconds($RecoveryTimeoutSeconds)
+    do {
+        try {
+            $newPrimary = Get-PrimaryPod $Selector
+            if ($newPrimary -ne $PreviousPrimary) {
+                return $newPrimary
+            }
+        }
+        catch {
+            # Patroni briefly removes the primary label during leader election.
+        }
+        Start-Sleep -Seconds 2
+    } while ((Get-Date) -lt $deadline)
+
+    throw "$Description primary did not fail over from $PreviousPrimary"
+}
+
+function Test-TicketCitusQuery {
+    $coordinator = Get-PrimaryPod "cluster-name=postgres-ticket-citus,citus-group=0,role=primary"
+    Invoke-Kubectl exec --namespace=$namespace $coordinator --container=postgres -- `
+        psql --username=postgres --dbname=ticket_db --tuples-only --command="SELECT count(*) FROM tickets"
+}
+
 function Start-Workload {
     $loginBody = @{
         email = "demo.admin@city.local"
@@ -210,17 +240,10 @@ try {
         $script:oldPlatformPrimary = Get-PrimaryPod "cluster-name=postgres-platform,role=primary"
         Invoke-Kubectl delete pod --namespace=$namespace $script:oldPlatformPrimary
     } {
-        $deadline = (Get-Date).AddSeconds($RecoveryTimeoutSeconds)
-        do {
-            $newPrimary = Get-PrimaryPod "cluster-name=postgres-platform,role=primary"
-            if ($newPrimary -ne $script:oldPlatformPrimary) {
-                break
-            }
-            Start-Sleep -Seconds 2
-        } while ((Get-Date) -lt $deadline)
-        if ($newPrimary -eq $script:oldPlatformPrimary) {
-            throw "Platform primary did not fail over"
-        }
+        Wait-NewPrimaryPod `
+            "cluster-name=postgres-platform,role=primary" `
+            $script:oldPlatformPrimary `
+            "Platform" | Out-Null
         Wait-StatefulSetReady "postgres-platform"
         Wait-DeploymentReady "pgbouncer-platform-primary"
         Wait-DeploymentReady "pgbouncer-platform-replicas"
@@ -230,8 +253,25 @@ try {
         $script:oldTicketPrimary = Get-PrimaryPod "cluster-name=postgres-ticket-citus,citus-group=0,role=primary"
         Invoke-Kubectl delete pod --namespace=$namespace $script:oldTicketPrimary
     } {
+        Wait-NewPrimaryPod `
+            "cluster-name=postgres-ticket-citus,citus-group=0,role=primary" `
+            $script:oldTicketPrimary `
+            "Ticket Citus coordinator" | Out-Null
         Wait-StatefulSetReady "coordinator-ticket-citus"
         Wait-DeploymentReady "pgbouncer-ticket-replicas"
+        Test-TicketCitusQuery
+    }
+
+    Invoke-ChaosScenario "ticket-citus-worker-1-primary" {
+        $script:oldTicketWorkerPrimary = Get-PrimaryPod "cluster-name=postgres-ticket-citus,citus-group=1,role=primary"
+        Invoke-Kubectl delete pod --namespace=$namespace $script:oldTicketWorkerPrimary
+    } {
+        Wait-NewPrimaryPod `
+            "cluster-name=postgres-ticket-citus,citus-group=1,role=primary" `
+            $script:oldTicketWorkerPrimary `
+            "Ticket Citus worker group 1" | Out-Null
+        Wait-StatefulSetReady "worker-1-ticket-citus"
+        Test-TicketCitusQuery
     }
 
     Invoke-ChaosScenario "pgbouncer-ticket-primary" {
