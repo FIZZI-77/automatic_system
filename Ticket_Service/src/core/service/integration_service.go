@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/uuid"
+
 	"ticket/models"
 	"ticket/src/core/repository"
 )
@@ -18,6 +20,9 @@ const integrationSecretPrefix = "tki_"
 
 type IntegrationService interface {
 	RegisterIntegration(ctx context.Context, in *models.RegisterIntegrationInput) (*models.RegisterIntegrationResult, error)
+	ListIntegrations(ctx context.Context, in *models.ListIntegrationsInput) (*models.ListIntegrationsResult, error)
+	SetIntegrationActive(ctx context.Context, in *models.SetIntegrationActiveInput) (*models.TicketIntegration, error)
+	RotateIntegrationSecret(ctx context.Context, in *models.RotateIntegrationSecretInput) (*models.RegisterIntegrationResult, error)
 	CreateExternalRequest(ctx context.Context, in *models.CreateExternalRequestInput) (*models.CreateRequestResult, error)
 }
 
@@ -60,6 +65,76 @@ func (s *IntegrationServiceStruct) RegisterIntegration(
 		Integration: integration,
 		Secret:      secret,
 	}, nil
+}
+
+func (s *IntegrationServiceStruct) ListIntegrations(
+	ctx context.Context,
+	in *models.ListIntegrationsInput,
+) (*models.ListIntegrationsResult, error) {
+	if in == nil || in.Limit < 1 || in.Limit > 100 || in.Offset < 0 {
+		return nil, fmt.Errorf("service: ListIntegrations(): %w", models.ErrValidation)
+	}
+
+	if !hasRole(in.ActorRoles, "admin") {
+		return nil, fmt.Errorf("service: ListIntegrations(): %w", models.ErrPermissionDenied)
+	}
+
+	integrations, total, err := s.repo.ListIntegrations(ctx, in.Limit, in.Offset)
+	if err != nil {
+		return nil, fmt.Errorf("service: ListIntegrations(): %w", err)
+	}
+
+	return &models.ListIntegrationsResult{Integrations: integrations, Total: total}, nil
+}
+
+func (s *IntegrationServiceStruct) SetIntegrationActive(
+	ctx context.Context,
+	in *models.SetIntegrationActiveInput,
+) (*models.TicketIntegration, error) {
+	if in == nil || in.IntegrationID == uuid.Nil {
+		return nil, fmt.Errorf("service: SetIntegrationActive(): %w", models.ErrValidation)
+	}
+
+	if !hasRole(in.ActorRoles, "admin") {
+		return nil, fmt.Errorf("service: SetIntegrationActive(): %w", models.ErrPermissionDenied)
+	}
+
+	integration, err := s.repo.SetIntegrationActive(ctx, in.IntegrationID, in.IsActive)
+	if err != nil {
+		return nil, fmt.Errorf("service: SetIntegrationActive(): %w", err)
+	}
+
+	return integration, nil
+}
+
+func (s *IntegrationServiceStruct) RotateIntegrationSecret(
+	ctx context.Context,
+	in *models.RotateIntegrationSecretInput,
+) (*models.RegisterIntegrationResult, error) {
+	if in == nil || in.IntegrationID == uuid.Nil {
+		return nil, fmt.Errorf("service: RotateIntegrationSecret(): %w", models.ErrValidation)
+	}
+
+	if !hasRole(in.ActorRoles, "admin") {
+		return nil, fmt.Errorf("service: RotateIntegrationSecret(): %w", models.ErrPermissionDenied)
+	}
+
+	secret, err := newIntegrationSecret()
+	if err != nil {
+		return nil, fmt.Errorf("service: RotateIntegrationSecret(): generate secret: %w", err)
+	}
+
+	integration, err := s.repo.RotateIntegrationSecret(
+		ctx,
+		in.IntegrationID,
+		hashIntegrationSecret(secret),
+		secret[:min(len(secret), 12)],
+	)
+	if err != nil {
+		return nil, fmt.Errorf("service: RotateIntegrationSecret(): %w", err)
+	}
+
+	return &models.RegisterIntegrationResult{Integration: integration, Secret: secret}, nil
 }
 
 func (s *IntegrationServiceStruct) CreateExternalRequest(

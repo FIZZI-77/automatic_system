@@ -4,12 +4,8 @@ github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6 h1:He8af
 github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6/go.mod h1:8o94RPi1/7XTJvwPpRSzSUedZrtlirdB3r9Z20bi2f8=
 github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c h1:udKWzYgxTojEKWjV8V+WSxDXJ4NFATAsZjh8iIbsQIg=
 github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c/go.mod h1:xomTg63KZ2rFqZQzSB4Vz2SUXa1BpHTVz9L5PTmPC4E=
-github.com/FIZZI-77/automatic-system-contracts v0.0.0-20260823165728-4cdb30d82de6 h1:OXDlSAhe+JOazBSbTGHR6RPI69lc2z3a3bTsITmfOTI=
-github.com/FIZZI-77/automatic-system-contracts v0.0.0-20260823165728-4cdb30d82de6/go.mod h1:ylszYXEH6aQK/fXBJ/rULlBa0MVFKgg+TtNp8FlZT4o=
-github.com/FIZZI-77/automatic-system-contracts v0.0.0-20260930105439-b423c8f34efb h1:9tApv3hNPkobEiEkNiPkhQTBvpLDQKcD9OCnzX+jkCE=
-github.com/FIZZI-77/automatic-system-contracts v0.0.0-20260930105439-b423c8f34efb/go.mod h1:ylszYXEH6aQK/fXBJ/rULlBa0MVFKgg+TtNp8FlZT4o=
-github.com/FIZZI-77/automatic-system-contracts v0.0.0-20261013070853-8ee22eeada4f h1:lsQOPB0BKionzH1QFeaUHthSwLncZF7AmQulhDA5tMA=
-github.com/FIZZI-77/automatic-system-contracts v0.0.0-20261013070853-8ee22eeada4f/go.mod h1:ylszYXEH6aQK/fXBJ/rULlBa0MVFKgg+TtNp8FlZT4o=
+github.com/FIZZI-77/automatic-system-contracts v0.0.0-20261026063334-79b52236033f h1:qybu9m3OGbAJGyvqHfnab0UDJ62yBNbFYzcXxp8LamE=
+github.com/FIZZI-77/automatic-system-contracts v0.0.0-20261026063334-79b52236033f/go.mod h1:ylszYXEH6aQK/fXBJ/rULlBa0MVFKgg+TtNp8FlZT4o=
 github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERoyfY=
 github.com/Microsoft/go-winio v0.6.2/go.mod h1:yd8OoFMLzJbo9gZq8j5qaps8bJ9aShtEA8Ipt1oGCvU=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=

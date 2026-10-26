@@ -1395,6 +1395,77 @@ func (t *TicketHandler) RegisterIntegration(
 	}, nil
 }
 
+func (t *TicketHandler) ListIntegrations(
+	ctx context.Context,
+	req *ticketv1.ListIntegrationsRequest,
+) (*ticketv1.ListIntegrationsResponse, error) {
+	actor := actorFromContext(ctx)
+	result, err := t.service.ListIntegrations(ctx, &models.ListIntegrationsInput{
+		Limit:      req.GetLimit(),
+		Offset:     req.GetOffset(),
+		ActorRoles: actor.Roles,
+	})
+	if err != nil {
+		return nil, ticketStatusError("ListIntegrations", err)
+	}
+
+	integrations := make([]*ticketv1.TicketIntegration, 0, len(result.Integrations))
+	for _, integration := range result.Integrations {
+		integrations = append(integrations, toProtoTicketIntegration(integration))
+	}
+
+	return &ticketv1.ListIntegrationsResponse{
+		Integrations: integrations,
+		Total:        result.Total,
+	}, nil
+}
+
+func (t *TicketHandler) SetIntegrationActive(
+	ctx context.Context,
+	req *ticketv1.SetIntegrationActiveRequest,
+) (*ticketv1.SetIntegrationActiveResponse, error) {
+	integrationID, err := parseRequestUUID(req.GetIntegrationId(), "integration_id")
+	if err != nil {
+		return nil, ticketStatusError("SetIntegrationActive", err)
+	}
+
+	integration, err := t.service.SetIntegrationActive(ctx, &models.SetIntegrationActiveInput{
+		IntegrationID: integrationID,
+		IsActive:      req.GetIsActive(),
+		ActorRoles:    actorFromContext(ctx).Roles,
+	})
+	if err != nil {
+		return nil, ticketStatusError("SetIntegrationActive", err)
+	}
+
+	return &ticketv1.SetIntegrationActiveResponse{
+		Integration: toProtoTicketIntegration(integration),
+	}, nil
+}
+
+func (t *TicketHandler) RotateIntegrationSecret(
+	ctx context.Context,
+	req *ticketv1.RotateIntegrationSecretRequest,
+) (*ticketv1.RotateIntegrationSecretResponse, error) {
+	integrationID, err := parseRequestUUID(req.GetIntegrationId(), "integration_id")
+	if err != nil {
+		return nil, ticketStatusError("RotateIntegrationSecret", err)
+	}
+
+	result, err := t.service.RotateIntegrationSecret(ctx, &models.RotateIntegrationSecretInput{
+		IntegrationID: integrationID,
+		ActorRoles:    actorFromContext(ctx).Roles,
+	})
+	if err != nil {
+		return nil, ticketStatusError("RotateIntegrationSecret", err)
+	}
+
+	return &ticketv1.RotateIntegrationSecretResponse{
+		Integration: toProtoTicketIntegration(result.Integration),
+		Secret:      result.Secret,
+	}, nil
+}
+
 func (t *TicketHandler) CreateExternalRequest(
 	ctx context.Context,
 	req *ticketv1.CreateExternalRequestRequest,

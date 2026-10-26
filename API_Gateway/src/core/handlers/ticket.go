@@ -781,6 +781,92 @@ func (th *TicketHandler) RegisterIntegration(c *gin.Context) {
 	})
 }
 
+func (th *TicketHandler) ListIntegrations(c *gin.Context) {
+	var req models.ListTicketIntegrationsRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+
+	limit := int32(50)
+	if req.Limit != nil {
+		limit = *req.Limit
+	}
+	offset := int32(0)
+	if req.Offset != nil {
+		offset = *req.Offset
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
+	response, err := th.ticketClient.ListIntegrations(
+		ticketActorContext(ctx, c),
+		&ticketv1.ListIntegrationsRequest{Limit: limit, Offset: offset},
+	)
+	if err != nil {
+		handleGRPCError(c, err)
+		return
+	}
+
+	integrations := make([]*models.TicketIntegration, 0, len(response.GetIntegrations()))
+	for _, integration := range response.GetIntegrations() {
+		integrations = append(integrations, fromProtoTicketIntegration(integration))
+	}
+
+	c.JSON(http.StatusOK, &models.ListTicketIntegrationsResponse{
+		Integrations: integrations,
+		Total:        response.GetTotal(),
+	})
+}
+
+func (th *TicketHandler) SetIntegrationActive(c *gin.Context) {
+	var req models.SetTicketIntegrationActiveRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
+	response, err := th.ticketClient.SetIntegrationActive(
+		ticketActorContext(ctx, c),
+		&ticketv1.SetIntegrationActiveRequest{
+			IntegrationId: req.IntegrationID,
+			IsActive:      *req.IsActive,
+		},
+	)
+	if err != nil {
+		handleGRPCError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"integration": fromProtoTicketIntegration(response.GetIntegration())})
+}
+
+func (th *TicketHandler) RotateIntegrationSecret(c *gin.Context) {
+	var req models.RotateTicketIntegrationSecretRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
+	response, err := th.ticketClient.RotateIntegrationSecret(
+		ticketActorContext(ctx, c),
+		&ticketv1.RotateIntegrationSecretRequest{IntegrationId: req.IntegrationID},
+	)
+	if err != nil {
+		handleGRPCError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, &models.RegisterTicketIntegrationResponse{
+		Integration: fromProtoTicketIntegration(response.GetIntegration()),
+		Secret:      response.GetSecret(),
+	})
+}
+
 func (th *TicketHandler) CreateExternalRequest(c *gin.Context) {
 	var req models.CreateExternalTicketRequest
 
