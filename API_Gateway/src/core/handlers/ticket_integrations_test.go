@@ -15,9 +15,9 @@ import (
 type ticketIntegrationsClient struct {
 	ticketv1.TicketServiceClient
 
-	listFunc       func(context.Context, *ticketv1.ListIntegrationsRequest) (*ticketv1.ListIntegrationsResponse, error)
-	setActiveFunc  func(context.Context, *ticketv1.SetIntegrationActiveRequest) (*ticketv1.SetIntegrationActiveResponse, error)
-	rotateFunc     func(context.Context, *ticketv1.RotateIntegrationSecretRequest) (*ticketv1.RotateIntegrationSecretResponse, error)
+	listFunc      func(context.Context, *ticketv1.ListIntegrationsRequest) (*ticketv1.ListIntegrationsResponse, error)
+	setActiveFunc func(context.Context, *ticketv1.SetIntegrationActiveRequest) (*ticketv1.SetIntegrationActiveResponse, error)
+	rotateFunc    func(context.Context, *ticketv1.RotateIntegrationSecretRequest) (*ticketv1.RotateIntegrationSecretResponse, error)
 }
 
 func (c *ticketIntegrationsClient) ListIntegrations(
