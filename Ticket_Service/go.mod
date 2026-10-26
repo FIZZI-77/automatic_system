@@ -3,7 +3,7 @@ module ticket
 go 1.25.9
 
 require (
-	github.com/FIZZI-77/automatic-system-contracts v0.0.0-20261013070853-8ee22eeada4f
+	github.com/FIZZI-77/automatic-system-contracts v0.0.0-20261026063334-79b52236033f
 	github.com/exaring/otelpgx v0.11.1
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.9.2

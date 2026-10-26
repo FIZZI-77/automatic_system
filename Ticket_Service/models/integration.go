@@ -32,6 +32,28 @@ type RegisterIntegrationResult struct {
 	Secret      string
 }
 
+type ListIntegrationsInput struct {
+	Limit      int32
+	Offset     int32
+	ActorRoles []string
+}
+
+type ListIntegrationsResult struct {
+	Integrations []*TicketIntegration
+	Total        int64
+}
+
+type SetIntegrationActiveInput struct {
+	IntegrationID uuid.UUID
+	IsActive      bool
+	ActorRoles    []string
+}
+
+type RotateIntegrationSecretInput struct {
+	IntegrationID uuid.UUID
+	ActorRoles    []string
+}
+
 type AuthenticateIntegrationInput struct {
 	ClientID string
 	Secret   string

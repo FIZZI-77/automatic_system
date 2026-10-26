@@ -118,6 +118,92 @@ func (r *Repository) MarkIntegrationUsed(ctx context.Context, integrationID uuid
 	return nil
 }
 
+func (r *Repository) ListIntegrations(
+	ctx context.Context,
+	limit int32,
+	offset int32,
+) ([]*models.TicketIntegration, int64, error) {
+	const query = `
+		SELECT
+			id, name, client_id, secret_prefix, allowed_department_id,
+			is_active, created_by, created_at, updated_at, last_used_at,
+			count(*) OVER()
+		FROM ticket_integrations
+		ORDER BY created_at DESC, id DESC
+		LIMIT $1 OFFSET $2
+	`
+
+	rows, err := r.readPool.Query(ctx, query, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("repository: ListIntegrations(): %w", err)
+	}
+	defer rows.Close()
+
+	integrations := make([]*models.TicketIntegration, 0, limit)
+	var total int64
+
+	for rows.Next() {
+		integration, rowTotal, scanErr := scanTicketIntegrationWithTotal(rows)
+		if scanErr != nil {
+			return nil, 0, fmt.Errorf("repository: ListIntegrations(): %w", scanErr)
+		}
+
+		total = rowTotal
+		integrations = append(integrations, integration)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("repository: ListIntegrations(): %w", err)
+	}
+
+	return integrations, total, nil
+}
+
+func (r *Repository) SetIntegrationActive(
+	ctx context.Context,
+	integrationID uuid.UUID,
+	isActive bool,
+) (*models.TicketIntegration, error) {
+	const query = `
+		UPDATE ticket_integrations
+		SET is_active = $2, updated_at = now()
+		WHERE id = $1
+		RETURNING id, name, client_id, secret_prefix, allowed_department_id,
+			is_active, created_by, created_at, updated_at, last_used_at
+	`
+
+	integration, err := scanTicketIntegration(r.writePool.QueryRow(ctx, query, integrationID, isActive))
+	if err != nil {
+		return nil, fmt.Errorf("repository: SetIntegrationActive(): %w", err)
+	}
+
+	return integration, nil
+}
+
+func (r *Repository) RotateIntegrationSecret(
+	ctx context.Context,
+	integrationID uuid.UUID,
+	secretHash string,
+	secretPrefix string,
+) (*models.TicketIntegration, error) {
+	const query = `
+		UPDATE ticket_integrations
+		SET secret_hash = $2, secret_prefix = $3, updated_at = now()
+		WHERE id = $1
+		RETURNING id, name, client_id, secret_prefix, allowed_department_id,
+			is_active, created_by, created_at, updated_at, last_used_at
+	`
+
+	integration, err := scanTicketIntegration(
+		r.writePool.QueryRow(ctx, query, integrationID, secretHash, secretPrefix),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("repository: RotateIntegrationSecret(): %w", err)
+	}
+
+	return integration, nil
+}
+
 func scanTicketIntegration(s scanner) (*models.TicketIntegration, error) {
 	var integration models.TicketIntegration
 
@@ -161,6 +247,44 @@ func scanTicketIntegration(s scanner) (*models.TicketIntegration, error) {
 	}
 
 	return &integration, nil
+}
+
+func scanTicketIntegrationWithTotal(s scanner) (*models.TicketIntegration, int64, error) {
+	var integration models.TicketIntegration
+	var allowedDepartmentID sql.NullString
+	var lastUsedAt sql.NullTime
+	var total int64
+
+	err := s.Scan(
+		&integration.ID,
+		&integration.Name,
+		&integration.ClientID,
+		&integration.SecretPrefix,
+		&allowedDepartmentID,
+		&integration.IsActive,
+		&integration.CreatedBy,
+		&integration.CreatedAt,
+		&integration.UpdatedAt,
+		&lastUsedAt,
+		&total,
+	)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if allowedDepartmentID.Valid {
+		parsed, parseErr := uuid.Parse(allowedDepartmentID.String)
+		if parseErr != nil {
+			return nil, 0, parseErr
+		}
+		integration.AllowedDepartmentID = &parsed
+	}
+
+	if lastUsedAt.Valid {
+		integration.LastUsedAt = &lastUsedAt.Time
+	}
+
+	return &integration, total, nil
 }
 
 func scanIntegrationCredential(s scanner) (*integrationCredential, error) {

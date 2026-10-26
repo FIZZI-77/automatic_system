@@ -186,6 +186,25 @@ type RegisterTicketIntegrationResponse struct {
 	Secret      string             `json:"secret"`
 }
 
+type ListTicketIntegrationsRequest struct {
+	Limit  *int32 `json:"limit,omitempty" binding:"omitempty,min=1,max=100"`
+	Offset *int32 `json:"offset,omitempty" binding:"omitempty,min=0"`
+}
+
+type ListTicketIntegrationsResponse struct {
+	Integrations []*TicketIntegration `json:"integrations"`
+	Total        int64                `json:"total"`
+}
+
+type SetTicketIntegrationActiveRequest struct {
+	IntegrationID string `json:"integration_id" binding:"required,uuid"`
+	IsActive      *bool  `json:"is_active" binding:"required"`
+}
+
+type RotateTicketIntegrationSecretRequest struct {
+	IntegrationID string `json:"integration_id" binding:"required,uuid"`
+}
+
 type CreateExternalTicketRequest struct {
 	ClientID     string  `json:"client_id" binding:"required"`
 	Secret       string  `json:"secret" binding:"required"`

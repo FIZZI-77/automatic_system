@@ -5061,6 +5061,42 @@
         }
       }
     },
+    "/tickets/integrations/list": {
+      "post": {
+        "tags": [
+          "tickets"
+        ],
+        "summary": "ListIntegrations",
+        "operationId": "privateTickets.ListIntegrations",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListTicketIntegrationsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListTicketIntegrationsResponse"
+                }
+              }
+            },
+            "description": "Успешный ответ"
+          }
+        }
+      }
+    },
     "/tickets/integrations/register": {
       "post": {
         "tags": [
@@ -5092,6 +5128,71 @@
                 }
               }
             },
+            "description": "Успешный ответ"
+          }
+        }
+      }
+    },
+    "/tickets/integrations/rotate-secret": {
+      "post": {
+        "tags": [
+          "tickets"
+        ],
+        "summary": "RotateIntegrationSecret",
+        "operationId": "privateTickets.RotateIntegrationSecret",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RotateTicketIntegrationSecretRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterTicketIntegrationResponse"
+                }
+              }
+            },
+            "description": "Успешный ответ"
+          }
+        }
+      }
+    },
+    "/tickets/integrations/set-active": {
+      "post": {
+        "tags": [
+          "tickets"
+        ],
+        "summary": "SetIntegrationActive",
+        "operationId": "privateTickets.SetIntegrationActive",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetTicketIntegrationActiveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
             "description": "Успешный ответ"
           }
         }
@@ -9964,6 +10065,34 @@
         },
         "type": "object"
       },
+      "ListTicketIntegrationsRequest": {
+        "properties": {
+          "limit": {
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "ListTicketIntegrationsResponse": {
+        "properties": {
+          "integrations": {
+            "items": {
+              "$ref": "#/components/schemas/TicketIntegration"
+            },
+            "type": "array"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
       "ListTicketRequest": {
         "properties": {
           "brigade_id": {
@@ -10997,6 +11126,18 @@
         ],
         "type": "object"
       },
+      "RotateTicketIntegrationSecretRequest": {
+        "properties": {
+          "integration_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "integration_id"
+        ],
+        "type": "object"
+      },
       "RoutingCandidate": {
         "properties": {
           "brigade_id": {
@@ -11219,6 +11360,22 @@
         "required": [
           "id",
           "status"
+        ],
+        "type": "object"
+      },
+      "SetTicketIntegrationActiveRequest": {
+        "properties": {
+          "integration_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "is_active": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "integration_id",
+          "is_active"
         ],
         "type": "object"
       },
