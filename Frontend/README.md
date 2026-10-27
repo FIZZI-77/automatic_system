@@ -66,10 +66,10 @@ npm run e2e:report
 
 Переменные окружения: `E2E_BASE_URL`, `E2E_API_URL`, `E2E_DEMO_PASSWORD`, `E2E_SKIP_SEED=1`, `E2E_RESTORE_SEED=0`. Артефакты падений (trace, screenshot, video) сохраняются в `Frontend/test-results`, HTML-отчёт — в `Frontend/playwright-report`.
 
-Для проверки запущенного Kubernetes-кластера используется отдельный API-only runner. Если `GatewayUrl` не указан, он сам поднимает временный `kubectl port-forward`. Без demo-пароля выполняется self-contained набор для всех 199 HTTP-операций из OpenAPI: позитивные сценарии, негативные проверки, JWT-sweep и сверка фактического состояния PostgreSQL/Citus, ClickHouse, Redis и MinIO. При передаче пароля дополнительно запускаются старые сценарии на постоянных demo-аккаунтах и seed тестовых данных.
+Для проверки запущенного Kubernetes-кластера используется отдельный API-only runner. Если `GatewayUrl` не указан, он сам поднимает временный `kubectl port-forward`. Без demo-пароля выполняется self-contained набор API-сценариев: позитивные сценарии, негативные проверки, JWT-sweep и сверка фактического состояния PostgreSQL/Citus, ClickHouse, Redis и MinIO. При передаче пароля дополнительно запускаются старые сценарии на постоянных demo-аккаунтах и seed тестовых данных.
 
 ```powershell
-# Безопасный базовый прогон без demo-пароля
+# Базовый прогон без demo-пароля (создает и удаляет тестовые данные)
 powershell -ExecutionPolicy Bypass -File scripts/run-api-gateway-e2e.ps1 -SecuritySweepOnly -SkipSeed
 
 # Авторизованные сценарии против кластера
@@ -77,7 +77,7 @@ $password = Read-Host "Demo password"
 powershell -ExecutionPolicy Bypass -File scripts/run-api-gateway-e2e.ps1 -Password $password
 ```
 
-Тесты `gateway-route-sweep.spec.ts` и `gateway-coverage.spec.ts` читают сгенерированный `API_Gateway/src/core/handlers/openapi.json`: новая операция автоматически требует позитивный сценарий с storage evidence, а защищённая операция попадает в проверки отсутствующего и повреждённого JWT. Storage-проверки выполняются через `kubectl exec`, сверяют фактическое состояние БД и удаляют созданные ими записи.
+Тесты `gateway-route-sweep.spec.ts` и `gateway-coverage.spec.ts` читают сгенерированный `API_Gateway/src/core/handlers/openapi.json`: новая операция требует позитивный сценарий с storage evidence (текущий inventory проверяет 202 операции), а защищённая операция попадает в проверки отсутствующего и повреждённого JWT. Storage-проверки выполняются через `kubectl exec`, сверяют фактическое состояние БД и удаляют созданные ими записи.
 
 ## Карта
 
@@ -98,3 +98,26 @@ go test -v ./e2e -run TestAPICluster -count=1
 SMTP-конфигурация тестом не меняется. Позитивные сценарии отправки писем требуют
 доступности настроенного SMTP-провайдера (в частности, отключённого мешающего VPN).
 Они включаются параметром `-IncludeSMTP` у `scripts/run-api-gateway-e2e.ps1`.
+
+## Управление интеграциями
+
+Администратору в разделе «Управление» доступна вкладка «Интеграции» с карточками
+предприятий и порталов. Можно зарегистрировать источник, ограничить его одним
+департаментом, отключить/включить и обновить секрет. Карточка показывает
+`client_id`, префикс секрета, департамент и время последнего использования.
+Полный секрет после регистрации или ротации показывается один раз; интерфейс
+позволяет скопировать и скрыть его. Список загружает первые 100 записей,
+переключение страниц пока не реализовано.
+
+Компонент: `Frontend/app/integration-management.tsx`; подключение:
+`Frontend/app/management-page.tsx`. Четыре адреса API настраиваются через
+`NEXT_PUBLIC_API_TICKET_INTEGRATIONS_REGISTER`,
+`NEXT_PUBLIC_API_TICKET_INTEGRATIONS_LIST`,
+`NEXT_PUBLIC_API_TICKET_INTEGRATIONS_SET_ACTIVE`,
+`NEXT_PUBLIC_API_TICKET_INTEGRATIONS_ROTATE_SECRET`.
+Сервер проверяет права независимо от видимости вкладки.
+
+Для управления интеграциями добавлен кластерный сценарий с проверкой БД, прав,
+активности, ротации секрета и идемпотентного повтора. Статические проверки
+inventory, ESLint и TypeScript прошли 27 октября 2026; новый сценарий пока
+не запускался в кластере из-за недоступного Kubernetes API текущего контекста.

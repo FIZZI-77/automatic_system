@@ -42,8 +42,8 @@ function requestFor(
 
 test.describe("Полный security sweep маршрутов API Gateway", () => {
   test("OpenAPI содержит ожидаемый полный набор операций", () => {
-    expect(operations.length).toBeGreaterThanOrEqual(199);
-    expect(securedOperations.length).toBeGreaterThanOrEqual(188);
+    expect(operations).toHaveLength(202);
+    expect(securedOperations).toHaveLength(191);
   });
 
   test("каждая защищённая операция отклоняет запрос без JWT", async ({ request }) => {

@@ -671,3 +671,28 @@ type TicketHandler struct {
 	brigadeClient brigadev1.BrigadeServiceClient
 }
 ```
+## HTTP API внешних интеграций
+
+Все операции управления требуют JWT; роль `admin` проверяется Ticket Service.
+Методы реализованы в общем `TicketHandler`, `src/core/handlers/ticket.go`.
+
+| POST-маршрут | JSON-вход | Успешный ответ |
+|---|---|---|
+| `/tickets/integrations/register` | `name`, `client_id`, необязательный `allowed_department_id` | 201, `integration`, `secret` |
+| `/tickets/integrations/list` | `limit` (по умолчанию 50, 1–100), `offset` (по умолчанию 0) | 200, `integrations`, `total` |
+| `/tickets/integrations/set-active` | `integration_id`, обязательное `is_active` (также `false`) | 200, `integration` |
+| `/tickets/integrations/rotate-secret` | `integration_id` | 200, `integration`, новый `secret` |
+| `/integrations/tickets/requests` | `client_id`, `secret`, `external_id` и поля обращения | 201, `request`, `incident`, `duplicate_matched` |
+
+Внешний маршрут не требует JWT: Ticket Service проверяет собственные credentials,
+активность интеграции и ограничение департамента. Внутри одного департамента
+повтор пары интеграция/`external_id` возвращает уже созданное обращение.
+Новый секрет показывается только при регистрации или ротации; старый секрет
+после замены хеша не проходит проверку. Ротация не включает отключенную интеграцию.
+
+Оба ingress-манифеста `k8s/mesh/ingress/routes.yaml` и `routes-public.yaml`
+направляют префикс `/integrations` в Gateway. Это необходимо для внешнего API
+через общий вход frontend/Funnel; наличие правила не подтверждает его rollout.
+
+Актуальный OpenAPI и ограничения кластерных проверок описаны в
+[E2E coverage](e2e/COVERAGE.md).

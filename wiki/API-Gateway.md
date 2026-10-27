@@ -257,7 +257,7 @@ func isRetryable(err error) bool
 
 ### Обработчики заявок и отчетов
 
-`NewTicketHandler` сохраняет клиентов заявок и бригад. `CreateTicket`, `GetTicket`, `ListTicket`, `UpdateTicket`, `ChangeTicketStatus`, `AssignBrigade`, `CancelTicket`, `CompleteTicket`, `GetTicketStatusHistory` обслуживают рабочий lifecycle инцидента. `CreateRequest`, `AttachRequest`, `DetachRequest`, `ListIncidentRequests`, `RegisterIntegration` и `CreateExternalRequest` обслуживают обращения и внешние городские системы. Все эти HTTP-методы находятся в общем `TicketHandler` (`src/core/handlers/ticket.go`), без отдельного обработчика обращений или интеграций. `CreateWorkReport` и `ListWorkReports` при роли работника сначала определяют его активную бригаду. Методы категорий вызывают одноименные операции Ticket Service. `bindJSON`, `buildListTicketsRequest`, `buildUpdateTicketRequest` и преобразователи формируют строгий запрос.
+`NewTicketHandler` сохраняет клиентов заявок и бригад. `CreateTicket`, `GetTicket`, `ListTicket`, `UpdateTicket`, `ChangeTicketStatus`, `AssignBrigade`, `CancelTicket`, `CompleteTicket`, `GetTicketStatusHistory` обслуживают рабочий lifecycle инцидента. `CreateRequest`, `AttachRequest`, `DetachRequest`, `ListIncidentRequests`, `RegisterIntegration`, `ListIntegrations`, `SetIntegrationActive`, `RotateIntegrationSecret` и `CreateExternalRequest` обслуживают обращения и внешние городские системы. Все эти HTTP-методы находятся в общем `TicketHandler` (`src/core/handlers/ticket.go`), без отдельного обработчика обращений или интеграций. `CreateWorkReport` и `ListWorkReports` при роли работника сначала определяют его активную бригаду. Методы категорий вызывают одноименные операции Ticket Service. `bindJSON`, `buildListTicketsRequest`, `buildUpdateTicketRequest` и преобразователи формируют строгий запрос.
 
 ### Маршруты обращений и интеграций
 
@@ -266,8 +266,11 @@ func isRetryable(err error) bool
 | `POST /tickets/requests/create` | JWT | Создать обращение жителя и автоматически связать его с существующим либо новым инцидентом. `user_id` берется из подтвержденного JWT. |
 | `POST /tickets/requests/attach` | JWT, admin/dispatcher | Вручную присоединить обращение к инциденту; требуются `incident_id`, `request_id` и `reason`. |
 | `POST /tickets/requests/detach` | JWT, admin/dispatcher | Отсоединить обращение; требуются `request_id` и `reason`. |
-| `POST /tickets/requests/list` | JWT, admin/dispatcher | Получить обращения указанного инцидента с `limit`, `offset` и `total`. |
-| `POST /tickets/integrations/register` | JWT, admin | Зарегистрировать внешний сервис. Полный секрет возвращается только в этом ответе. |
+| `POST /tickets/requests/list` | JWT, admin/dispatcher | Получить обращения указанного инцидента с `limit`, `offset`, `total` и сводкой выполнения частей по департаментам. |
+| `POST /tickets/integrations/register` | JWT, admin | Зарегистрировать внешний сервис и один раз получить секрет. |
+| `POST /tickets/integrations/list` | JWT, admin | Получить `integrations` и `total`; `limit` по умолчанию 50 (1–100), `offset` по умолчанию 0. |
+| `POST /tickets/integrations/set-active` | JWT, admin | Передать `integration_id` и обязательное `is_active`, включая `false`. |
+| `POST /tickets/integrations/rotate-secret` | JWT, admin | Передать `integration_id`, заменить секрет и один раз получить новый. |
 | `POST /integrations/tickets/requests` | публичный transport endpoint | Создать обращение от внешней системы по `client_id`, `secret` и `external_id`; Ticket Service проверяет credential, активность и разрешенный департамент. |
 
 `CreateRequest` и `CreateExternalRequest` возвращают HTTP 201 и объект с полями `request`, `incident`, `duplicate_matched`. Ручные attach/detach возвращают измененное обращение. gRPC-ошибки неверных credentials переводятся в 401, недостаточных прав — в 403, неправильной связи или уже существующей связи — в 409.

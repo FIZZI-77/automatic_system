@@ -81,3 +81,25 @@ kubectl describe canary <name> -n automatic-system
 
 ### Источники
 [Operations guide](https://github.com/FIZZI-77/automatic_system/blob/test/k8s/docs/operations.md)
+
+## Устойчивые адреса Citus и архивирование Ticket
+
+В `postgres-ticket-citus` адреса REST API Patroni и PostgreSQL используют DNS
+StatefulSet pod: `<pod>.postgres-ticket-citus-nodes.<namespace>.svc.cluster.local`
+вместо изменяющегося Pod IP. Init-контейнер удаляет устаревшую аннотацию `status`,
+если записанный адрес не совпадает с ожидаемым DNS. Это устраняет зависимость
+адресов участников от смены Pod IP; фактическое восстановление проверяется
+запросами к Citus, а не только готовностью pod.
+
+`k8s/scripts/run-local-ha-chaos.ps1` после отказа coordinator и worker group 1
+ожидает новый primary и выполняет распределенный запрос Ticket. Этот сценарий
+перезапускает компоненты и предназначен для локального HA-контура.
+
+В retention worker Ticket исправлены SQL-параметры `archived_at`, `updated_at`
+и порога возраста. Есть интеграционная проверка архивации с outbox event;
+порог архивации по умолчанию — 24 часа, удаления — 30 дней. Конкретные значения
+зависят от конфигурации запуска. См. `Ticket_Service/src/infrastructure/retentionworker/worker.go`
+и `Ticket_Service/src/integration/retention_worker_test.go`.
+
+CI при ожидании Flux дополнительно выводит последние Jobs миграций. Наличие
+этой диагностики не подтверждает успешное выполнение миграции.

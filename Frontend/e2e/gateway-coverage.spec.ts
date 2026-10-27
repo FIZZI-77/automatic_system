@@ -36,7 +36,7 @@ const operations = Object.entries(openapi.paths).flatMap(([route, item]) => Obje
 const sources = suites.map((suite) => ({ ...suite, source: readFileSync(path.join(repositoryRoot, "Frontend", "e2e", suite.file), "utf8") }));
 
 test("каждая OpenAPI операция имеет позитивный сценарий, негатив и storage evidence", () => {
-  expect(operations).toHaveLength(199);
+  expect(operations).toHaveLength(202);
   const missingPositive: string[] = [];
   const missingEvidence: string[] = [];
   for (const operation of operations) {
@@ -46,5 +46,6 @@ test("каждая OpenAPI операция имеет позитивный сц
   }
   expect(missingPositive, `Нет позитивного сценария: ${missingPositive.join(", ")}`).toEqual([]);
   expect(missingEvidence, `Нет storage evidence: ${missingEvidence.join(", ")}`).toEqual([]);
-  expect(operations.filter((operation) => operation.secured).length).toBeGreaterThanOrEqual(188);
+  expect(operations.filter((operation) => operation.secured)).toHaveLength(191);
+  expect(operations.filter((operation) => !operation.secured)).toHaveLength(11);
 });

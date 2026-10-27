@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { gatewayUrl } from "./support/environment";
 import { bearer, createEphemeralAccount, deleteEphemeralAccount, type EphemeralAccount } from "./support/ephemeral-auth";
 import { queryPlatformPostgres, queryTicketPostgres } from "./support/cluster-storage";
@@ -187,5 +187,97 @@ test.describe("Tickets API: жизненный цикл и фактически�
     expect(accepted.response.status(), JSON.stringify(accepted.body)).toBe(201);
     ticketIDs.push(accepted.body.incident.id, accepted.body.request.id);
     expect(queryTicketPostgres(`SELECT count(*) FROM tickets WHERE external_id='${externalID}'`)).toBe("1");
+  });
+
+  test("integration list/set-active/rotate-secret сохраняют права, активность и замену секрета", async ({ request }) => {
+    test.setTimeout(120_000);
+    const clientID = `e2e-management-${suffix}`;
+    const registered = await post(request, admin, "/tickets/integrations/register", {
+      name: "E2E management", client_id: clientID, allowed_department_id: departmentID,
+    });
+    expect(registered.response.status()).toBe(201);
+    const integrationID = registered.body.integration.id as string;
+    const oldSecret = registered.body.secret as string;
+    integrationIDs.push(integrationID);
+    const storedState = () => queryTicketPostgres(`SELECT is_active||'|'||secret_hash FROM ticket_integrations WHERE id='${integrationID}'`);
+    const oldHash = createHash("sha256").update(oldSecret).digest("hex");
+    expect(storedState()).toBe(`true|${oldHash}`);
+
+    const listed = await post(request, admin, "/tickets/integrations/list", { limit: 100, offset: 0 });
+    expect(listed.response.status()).toBe(200);
+    expect(listed.body.total).toBeGreaterThanOrEqual(1);
+    expect(listed.body.integrations).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: integrationID, client_id: clientID, is_active: true, secret_prefix: oldSecret.slice(0, 12) }),
+    ]));
+    for (const integration of listed.body.integrations) {
+      expect(integration).not.toHaveProperty("secret");
+      expect(integration).not.toHaveProperty("secret_hash");
+    }
+
+    const user = await createEphemeralAccount(request, "user");
+    try {
+      for (const [path, data] of [
+        ["/tickets/integrations/list", { limit: 100, offset: 0 }],
+        ["/tickets/integrations/set-active", { integration_id: integrationID, is_active: false }],
+        ["/tickets/integrations/rotate-secret", { integration_id: integrationID }],
+      ] as const) {
+        expect((await post(request, user, path, data)).response.status(), path).toBe(403);
+        expect(storedState()).toBe(`true|${oldHash}`);
+      }
+    } finally {
+      deleteEphemeralAccount(user);
+    }
+
+    expect((await post(request, admin, "/tickets/integrations/list", { limit: 101 })).response.status()).toBe(400);
+    expect((await post(request, admin, "/tickets/integrations/set-active", { integration_id: integrationID })).response.status()).toBe(400);
+    expect((await post(request, admin, "/tickets/integrations/rotate-secret", { integration_id: "invalid" })).response.status()).toBe(400);
+    expect(storedState()).toBe(`true|${oldHash}`);
+
+    const disabled = await post(request, admin, "/tickets/integrations/set-active", { integration_id: integrationID, is_active: false });
+    expect(disabled.response.status()).toBe(200);
+    expect(disabled.body.integration.is_active).toBe(false);
+    expect(storedState()).toBe(`false|${oldHash}`);
+
+    const externalID = `external-management-${suffix}`;
+    const externalRequest = {
+      client_id: clientID, secret: oldSecret, external_id: externalID,
+      department_id: departmentID, category_id: categoryID, user_id: admin.userID,
+      title: "E2E managed integration", description: "e2e", priority: "HIGH", address: "E2E isolated location",
+      latitude: -63.1234, longitude: 10 + Math.random(),
+    };
+    const requestCount = () => queryTicketPostgres(`SELECT count(*) FROM tickets WHERE external_system_id='${integrationID}'`);
+    expect(requestCount()).toBe("0");
+    expect((await post(request, undefined, "/integrations/tickets/requests", externalRequest)).response.status()).toBe(409);
+    expect(requestCount()).toBe("0");
+
+    const rotated = await post(request, admin, "/tickets/integrations/rotate-secret", { integration_id: integrationID });
+    expect(rotated.response.status()).toBe(200);
+    const newSecret = rotated.body.secret as string;
+    expect(newSecret).toMatch(/^tki_/);
+    expect(newSecret).not.toBe(oldSecret);
+    expect(rotated.body.integration.is_active).toBe(false);
+    const newHash = createHash("sha256").update(newSecret).digest("hex");
+    expect(storedState()).toBe(`false|${newHash}`);
+    expect((await post(request, undefined, "/integrations/tickets/requests", { ...externalRequest, secret: newSecret })).response.status()).toBe(409);
+    expect(requestCount()).toBe("0");
+
+    const enabled = await post(request, admin, "/tickets/integrations/set-active", { integration_id: integrationID, is_active: true });
+    expect(enabled.response.status()).toBe(200);
+    expect(enabled.body.integration.is_active).toBe(true);
+    expect(storedState()).toBe(`true|${newHash}`);
+    expect((await post(request, undefined, "/integrations/tickets/requests", externalRequest)).response.status()).toBe(401);
+    expect(requestCount()).toBe("0");
+
+    const accepted = await post(request, undefined, "/integrations/tickets/requests", { ...externalRequest, secret: newSecret });
+    expect(accepted.response.status()).toBe(201);
+    ticketIDs.push(accepted.body.request.id);
+    if (!accepted.body.duplicate_matched) ticketIDs.push(accepted.body.incident.id);
+    expect(requestCount()).toBe("1");
+    expect(queryTicketPostgres(`SELECT last_used_at IS NOT NULL FROM ticket_integrations WHERE id='${integrationID}'`)).toBe("t");
+    const repeated = await post(request, undefined, "/integrations/tickets/requests", { ...externalRequest, secret: newSecret });
+    expect(repeated.response.status()).toBe(201);
+    expect(repeated.body.request.id).toBe(accepted.body.request.id);
+    expect(repeated.body.incident.id).toBe(accepted.body.incident.id);
+    expect(requestCount()).toBe("1");
   });
 });
