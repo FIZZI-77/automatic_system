@@ -11,7 +11,10 @@ import (
 
 type fakeRepository struct{ stored bool }
 
-func (f *fakeRepository) Store(context.Context, models.Event) error { f.stored = true; return nil }
+func (f *fakeRepository) Store(context.Context, models.Event) error {
+	f.stored = true
+	return nil
+}
 func (*fakeRepository) Get(context.Context, uuid.UUID) (*models.Entry, error) {
 	return &models.Entry{Action: "ticket.created"}, nil
 }

@@ -311,8 +311,16 @@ func TestMapDepartmentServiceError(t *testing.T) {
 		target error
 	}{
 		{name: "not found", err: status.Error(codes.NotFound, "missing"), target: models.ErrNotFound},
-		{name: "unavailable", err: status.Error(codes.Unavailable, "down"), target: models.ErrDependencyUnavailable},
-		{name: "deadline", err: status.Error(codes.DeadlineExceeded, "slow"), target: models.ErrDependencyUnavailable},
+		{
+			name:   "unavailable",
+			err:    status.Error(codes.Unavailable, "down"),
+			target: models.ErrDependencyUnavailable,
+		},
+		{
+			name:   "deadline",
+			err:    status.Error(codes.DeadlineExceeded, "slow"),
+			target: models.ErrDependencyUnavailable,
+		},
 	}
 
 	for _, tt := range tests {
@@ -425,7 +433,10 @@ func TestBrigadeService_ListBrigades_DispatcherScopedToDepartment(t *testing.T) 
 				t.Fatalf("expected department scope %s, got %v", departmentID, in.DepartmentID)
 			}
 
-			return &models.ListBrigadesResult{Brigades: []*models.Brigade{testBrigade(uuid.New(), departmentID, models.BrigadeStatusActive)}, Total: 1}, nil
+			return &models.ListBrigadesResult{
+				Brigades: []*models.Brigade{testBrigade(uuid.New(), departmentID, models.BrigadeStatusActive)},
+				Total:    1,
+			}, nil
 		},
 	}
 	svc := NewBrigadeService(newTestRepo(mock), nil, zap.NewNop())
@@ -655,7 +666,10 @@ func TestSkillService_ListSkills_DispatcherAllowed(t *testing.T) {
 				t.Fatalf("expected normalized limit %d, got %d", models.DefaultLimit, in.Limit)
 			}
 
-			return &models.ListSkillsResult{Skills: []*models.Skill{{ID: uuid.New(), Code: "plumbing", Name: "Plumbing", Active: true}}, Total: 1}, nil
+			return &models.ListSkillsResult{
+				Skills: []*models.Skill{{ID: uuid.New(), Code: "plumbing", Name: "Plumbing", Active: true}},
+				Total:  1,
+			}, nil
 		},
 	}
 	svc := NewSkillServiceStruct(newTestRepo(mock), zap.NewNop())
@@ -773,9 +787,19 @@ func TestPermissionHelper(t *testing.T) {
 		wantErr           bool
 	}{
 		{name: "admin without department", roles: []string{"admin"}, wantErr: false},
-		{name: "dispatcher same department", roles: []string{"dispatcher"}, actorDepartmentID: &departmentID, wantErr: false},
+		{
+			name:              "dispatcher same department",
+			roles:             []string{"dispatcher"},
+			actorDepartmentID: &departmentID,
+			wantErr:           false,
+		},
 		{name: "dispatcher missing department", roles: []string{"dispatcher"}, wantErr: true},
-		{name: "dispatcher other department", roles: []string{"dispatcher"}, actorDepartmentID: &otherDepartmentID, wantErr: true},
+		{
+			name:              "dispatcher other department",
+			roles:             []string{"dispatcher"},
+			actorDepartmentID: &otherDepartmentID,
+			wantErr:           true,
+		},
 		{name: "user denied", roles: []string{"user"}, actorDepartmentID: &departmentID, wantErr: true},
 		{name: "nil roles denied", roles: nil, actorDepartmentID: &departmentID, wantErr: true},
 	}

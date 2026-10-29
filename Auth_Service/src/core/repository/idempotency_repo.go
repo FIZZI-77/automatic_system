@@ -18,6 +18,8 @@ type IdempotencyRecord struct {
 	Error       sql.NullString
 }
 
+// beginIdempotency пытается вставить ключ операции через q и возвращает признак его захвата.
+// Существующую запись читает с FOR UPDATE; сравнение хеша и статуса оставляет вызывающему.
 func beginIdempotency(
 	ctx context.Context,
 	q DBTX,
@@ -57,6 +59,8 @@ func beginIdempotency(
 	return record, false, nil
 }
 
+// completeIdempotency сохраняет ответ и ресурс, устанавливая COMPLETED и очищая ошибку.
+// Возвращает ошибку, если изменена не ровно одна запись ключа.
 func completeIdempotency(
 	ctx context.Context,
 	q DBTX,
@@ -83,6 +87,9 @@ func completeIdempotency(
 	return nil
 }
 
+// RunIdempotentTx выполняет захват ключа, fn и сохранение JSON-ответа в одной транзакции.
+// Передаёт fn контекст общей транзакции; при занятом ключе возвращает существующую
+// запись и acquired=false без вызова fn. Ошибки нового выполнения приводят к откату.
 func (r *Repo) RunIdempotentTx(
 	ctx context.Context,
 	actorKey string,
@@ -128,6 +135,8 @@ func (r *Repo) RunIdempotentTx(
 	return result, record, true, nil
 }
 
+// BeginIdempotency отдельно занимает ключ операции со сроком ttl либо читает существующий.
+// Возвращает запись и признак успешной вставки; внешнюю операцию и ответ не сохраняет.
 func (r *Repo) BeginIdempotency(
 	ctx context.Context,
 	actorKey string,
@@ -184,6 +193,8 @@ func (r *Repo) BeginIdempotency(
 	return record, false, nil
 }
 
+// CompleteIdempotency сохраняет ответ и ресурс завершённой операции, очищая прежнюю ошибку.
+// Использует корневой пул записи; отсутствие строки по ключу отдельно не проверяет.
 func (r *Repo) CompleteIdempotency(ctx context.Context, actorKey, operation, key string, response []byte, resourceType string, resourceID any) error {
 
 	if r.writePool == nil {
@@ -211,6 +222,8 @@ func (r *Repo) CompleteIdempotency(ctx context.Context, actorKey, operation, key
 	return nil
 }
 
+// FailIdempotency помечает операцию FAILED и сохраняет текст operationErr либо пустую строку.
+// Отсутствие записи по ключу отдельно не проверяет.
 func (r *Repo) FailIdempotency(ctx context.Context, actorKey, operation, key string, operationErr error) error {
 
 	if r.writePool == nil {

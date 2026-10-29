@@ -19,10 +19,14 @@ type ScheduleRepoStruct struct {
 	readPool  *pgxpool.Pool
 }
 
+// NewScheduleRepo создаёт хранилище расписаний с заданными ненулевыми пулами записи и чтения.
 func NewScheduleRepo(writePool *pgxpool.Pool, readPool *pgxpool.Pool) *ScheduleRepoStruct {
 	return &ScheduleRepoStruct{writePool: writePool, readPool: readPool}
 }
 
+// SetBrigadeSchedule транзакционно деактивирует прежнее активное расписание,
+// вставляет все элементы in.Items и записывает событие outbox. Требует проверенные элементы;
+// права и состояние бригады самостоятельно не проверяет.
 func (s *ScheduleRepoStruct) SetBrigadeSchedule(ctx context.Context, in *models.SetBrigadeScheduleInput) (*models.SetBrigadeScheduleResult, error) {
 	tx, err := s.writePool.Begin(ctx)
 
@@ -72,6 +76,8 @@ func (s *ScheduleRepoStruct) SetBrigadeSchedule(ctx context.Context, in *models.
 	return &models.SetBrigadeScheduleResult{Schedule: schedule}, nil
 }
 
+// insertBrigadeScheduleItem вставляет элемент расписания через tx, заменяя пустой
+// часовой пояс на Europe/Moscow. Время возвращает в текстовом представлении PostgreSQL.
 func (s *ScheduleRepoStruct) insertBrigadeScheduleItem(ctx context.Context, tx pgx.Tx, brigadeID uuid.UUID, item *models.BrigadeScheduleItem) (*models.BrigadeSchedule, error) {
 	timezone := item.Timezone
 
@@ -107,6 +113,8 @@ func (s *ScheduleRepoStruct) insertBrigadeScheduleItem(ctx context.Context, tx p
 	return scanBrigadeSchedule(tx.QueryRow(ctx, query, brigadeID, item.DayOfWeek, item.StartsAt, item.EndsAt, timezone, item.ValidFrom, item.ValidTo))
 }
 
+// ListBrigadeSchedule возвращает расписание бригады с необязательным фильтром
+// активности, по дню недели и времени начала. Отсутствие записей даёт пустой срез.
 func (s *ScheduleRepoStruct) ListBrigadeSchedule(ctx context.Context, in *models.ListBrigadeScheduleInput) (*models.ListBrigadeScheduleResult, error) {
 	whereParts := []string{"brigade_id = $1"}
 	args := []any{in.BrigadeID}
@@ -162,6 +170,8 @@ func (s *ScheduleRepoStruct) ListBrigadeSchedule(ctx context.Context, in *models
 	return &models.ListBrigadeScheduleResult{Schedule: schedule}, nil
 }
 
+// scanBrigadeSchedule читает расписание и восстанавливает необязательные даты
+// действия без времени суток. pgx.ErrNoRows преобразует в ErrNotFound.
 func scanBrigadeSchedule(row scanner) (*models.BrigadeSchedule, error) {
 	var item models.BrigadeSchedule
 	var validFrom sql.NullTime
@@ -201,6 +211,7 @@ func scanBrigadeSchedule(row scanner) (*models.BrigadeSchedule, error) {
 	return &item, nil
 }
 
+// dateOnlyPtr возвращает дату value в полночь в том же часовом поясе.
 func dateOnlyPtr(value time.Time) *time.Time {
 	date := time.Date(value.Year(), value.Month(), value.Day(), 0, 0, 0, 0, value.Location())
 	return &date

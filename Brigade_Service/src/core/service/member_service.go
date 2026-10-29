@@ -21,10 +21,15 @@ type MemberServiceStruct struct {
 	requireProfile bool
 }
 
+// NewMemberServiceStruct создаёт сервис состава без внешней проверки профилей.
+// Для выполнения операций требуется ненулевой log.
 func NewMemberServiceStruct(repo *repository.Repo, log *zap.Logger) *MemberServiceStruct {
 	return &MemberServiceStruct{repo: repo, log: log}
 }
 
+// NewMemberServiceStructWithProfile создаёт сервис состава с обязательной проверкой
+// Profile Service при добавлении участника; nil клиент даст ErrDependencyUnavailable.
+// Для выполнения операций требуется ненулевой log.
 func NewMemberServiceStructWithProfile(repo *repository.Repo, profileClient profilev1.ProfileServiceClient, log *zap.Logger) *MemberServiceStruct {
 	return &MemberServiceStruct{
 		repo:           repo,
@@ -34,6 +39,10 @@ func NewMemberServiceStructWithProfile(repo *repository.Repo, profileClient prof
 	}
 }
 
+// AddBrigadeMember добавляет участника в неархивную бригаду после проверки доступа
+// и отсутствия другого активного членства. При настроенном Profile Service проверяет
+// допуск, заменяет UserID, ProfileID и InitialSkills данными профиля; при необходимости
+// заполняет ChangedByUserID из ActorUserID. Занятый участник даёт ErrAlreadyExists.
 func (m *MemberServiceStruct) AddBrigadeMember(ctx context.Context, in *models.AddBrigadeMemberInput) (*models.AddBrigadeMemberResult, error) {
 	log := m.log.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -179,6 +188,9 @@ func (m *MemberServiceStruct) AddBrigadeMember(ctx context.Context, in *models.A
 	return result, nil
 }
 
+// RemoveBrigadeMember исключает участника неархивной бригады после проверки доступа.
+// Запрещает удалять последнего активного участника рабочего состава и подставляет
+// ActorUserID в отсутствующий ChangedByUserID.
 func (m *MemberServiceStruct) RemoveBrigadeMember(ctx context.Context, in *models.RemoveBrigadeMemberInput) (*models.RemoveBrigadeMemberResult, error) {
 	log := m.log.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -226,6 +238,8 @@ func (m *MemberServiceStruct) RemoveBrigadeMember(ctx context.Context, in *model
 	return result, nil
 }
 
+// ChangeBrigadeMemberRole меняет роль участника неархивной бригады для администратора
+// или диспетчера её ведомства; отсутствующий ChangedByUserID берёт из ActorUserID.
 func (m *MemberServiceStruct) ChangeBrigadeMemberRole(ctx context.Context, in *models.ChangeBrigadeMemberRoleInput) (*models.ChangeBrigadeMemberRoleResult, error) {
 	log := m.log.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -270,6 +284,8 @@ func (m *MemberServiceStruct) ChangeBrigadeMemberRole(ctx context.Context, in *m
 	return result, nil
 }
 
+// SetBrigadeMemberAvailability меняет доступность участника неархивной бригады
+// после проверки запроса и доступа; при необходимости заполняет ChangedByUserID.
 func (m *MemberServiceStruct) SetBrigadeMemberAvailability(ctx context.Context, in *models.SetBrigadeMemberAvailabilityInput) (*models.SetBrigadeMemberAvailabilityResult, error) {
 	log := m.log.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -314,6 +330,8 @@ func (m *MemberServiceStruct) SetBrigadeMemberAvailability(ctx context.Context, 
 	return result, nil
 }
 
+// ListBrigadeMembers возвращает страницу состава неархивной бригады администратору,
+// диспетчеру её ведомства или её активному участнику; нормализует запрос через Validate.
 func (m *MemberServiceStruct) ListBrigadeMembers(ctx context.Context, in *models.ListBrigadeMembersInput) (*models.ListBrigadeMembersResult, error) {
 	log := m.log.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -335,8 +353,8 @@ func (m *MemberServiceStruct) ListBrigadeMembers(ctx context.Context, in *models
 	}
 
 	if err = checkPermissionAndDepartmentForAdminAndDispatcher(log, start, in.ActorRoles, in.ActorDepartmentID, brigade.DepartmentID); err != nil {
-		// A worker may see the composition of their own active brigade. All
-		// member mutations remain restricted to admins and dispatchers.
+		// Активный участник может просматривать состав собственной бригады;
+		// изменение состава доступно администраторам и диспетчерам.
 		if in.ActorUserID == nil {
 			return nil, err
 		}
@@ -363,6 +381,8 @@ func (m *MemberServiceStruct) ListBrigadeMembers(ctx context.Context, in *models
 	return result, nil
 }
 
+// GetBrigadeMemberHistory возвращает историю состава неархивной бригады после
+// проверки запроса и прав администратора или диспетчера её ведомства.
 func (m *MemberServiceStruct) GetBrigadeMemberHistory(ctx context.Context, in *models.GetBrigadeMemberHistoryInput) (*models.GetBrigadeMemberHistoryResult, error) {
 	log := m.log.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -401,6 +421,8 @@ func (m *MemberServiceStruct) GetBrigadeMemberHistory(ctx context.Context, in *m
 	return result, nil
 }
 
+// GetBrigadeMemberStatusHistory возвращает историю доступности участников
+// неархивной бригады администратору или диспетчеру её ведомства.
 func (m *MemberServiceStruct) GetBrigadeMemberStatusHistory(ctx context.Context, in *models.GetBrigadeMemberStatusHistoryInput) (*models.GetBrigadeMemberStatusHistoryResult, error) {
 	log := m.log.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -439,6 +461,8 @@ func (m *MemberServiceStruct) GetBrigadeMemberStatusHistory(ctx context.Context,
 	return result, nil
 }
 
+// GetBrigadeByUserID проверяет запрос и возвращает последнее членство пользователя
+// вместе с бригадой; OnlyActive ограничивает поиск активным членством.
 func (m *MemberServiceStruct) GetBrigadeByUserID(ctx context.Context, in *models.GetBrigadeByUserIDInput) (*models.GetBrigadeByUserIDResult, error) {
 	log := m.log.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -467,6 +491,8 @@ func (m *MemberServiceStruct) GetBrigadeByUserID(ctx context.Context, in *models
 	return result, nil
 }
 
+// getBrigadeForMemberOperation загружает бригаду для операции состава и запрещает
+// ARCHIVED с ErrPermissionDenied. Проверку ролей выполняет вызывающий метод.
 func (m *MemberServiceStruct) getBrigadeForMemberOperation(
 	ctx context.Context,
 	log *zap.Logger,
@@ -513,6 +539,8 @@ func (m *MemberServiceStruct) getBrigadeForMemberOperation(
 	return brigade.Brigade, nil
 }
 
+// checkCanRemoveMember возвращает ErrBrigadeUnavailable при удалении последнего
+// активного участника из бригады со статусом, требующим действующего состава.
 func (m *MemberServiceStruct) checkCanRemoveMember(ctx context.Context, log *zap.Logger, start time.Time, brigade *models.Brigade, in *models.RemoveBrigadeMemberInput) error {
 
 	if !brigadeStatusRequiresActiveMember(brigade.Status) {
@@ -546,6 +574,8 @@ func (m *MemberServiceStruct) checkCanRemoveMember(ctx context.Context, log *zap
 	return nil
 }
 
+// brigadeStatusRequiresActiveMember сообщает, требует ли статус активного состава:
+// ACTIVE, AVAILABLE, BUSY, ON_ROUTE, ON_SITE и OFFLINE возвращают true.
 func brigadeStatusRequiresActiveMember(status models.BrigadeStatus) bool {
 	switch status {
 	case models.BrigadeStatusActive,

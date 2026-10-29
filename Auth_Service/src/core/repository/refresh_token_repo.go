@@ -17,6 +17,8 @@ type RefreshTokenRepoStruct struct {
 	writePool *pgxpool.Pool
 }
 
+// NewRefreshTokenRepoStruct создаёт хранилище refresh-токенов с необязательным чтением.
+// Сохраняет writePool для ротации только при передаче *pgxpool.Pool как writeDB.
 func NewRefreshTokenRepoStruct(writeDB DBTX, readDB ...DBTX) *RefreshTokenRepoStruct {
 	reader := writeDB
 
@@ -36,6 +38,8 @@ func NewRefreshTokenRepoStruct(writeDB DBTX, readDB ...DBTX) *RefreshTokenRepoSt
 	return repo
 }
 
+// beginTx начинает транзакцию ротации через writePool; при отсутствии пула возвращает ошибку.
+// operation используется для уточнения причины ошибки в сообщении.
 func (r *RefreshTokenRepoStruct) beginTx(ctx context.Context, operation string) (pgx.Tx, error) {
 
 	if r.writePool == nil {
@@ -51,6 +55,8 @@ func (r *RefreshTokenRepoStruct) beginTx(ctx context.Context, operation string) 
 	return tx, nil
 }
 
+// CreateToken сохраняет хеш refresh-токена, его сессию, сроки и состояние.
+// UUID вставленной записи используется для журнала, но в token не записывается.
 func (r *RefreshTokenRepoStruct) CreateToken(ctx context.Context, token *models.RefreshToken) error {
 	var id uuid.UUID
 
@@ -75,6 +81,8 @@ func (r *RefreshTokenRepoStruct) CreateToken(ctx context.Context, token *models.
 	return nil
 }
 
+// GetByTokenHash читает неотозванный refresh-токен по хешу; срок действия не проверяет.
+// Для отсутствующего либо отозванного токена возвращает обёрнутую pgx.ErrNoRows.
 func (r *RefreshTokenRepoStruct) GetByTokenHash(ctx context.Context, tokenHash string) (*models.RefreshToken, error) {
 	var token models.RefreshToken
 
@@ -107,6 +115,8 @@ func (r *RefreshTokenRepoStruct) GetByTokenHash(ctx context.Context, tokenHash s
 
 }
 
+// RevokeTokenByID помечает неотозванный токен отозванным и сохраняет время отзыва.
+// Отсутствие подходящей строки допускает.
 func (r *RefreshTokenRepoStruct) RevokeTokenByID(ctx context.Context, tokenID uuid.UUID) error {
 	const query = `UPDATE refresh_tokens SET is_revoked = TRUE, revoked_at = now() WHERE id = $1 AND is_revoked = FALSE`
 	_, err := r.writeDB.Exec(ctx, query, tokenID)
@@ -119,6 +129,7 @@ func (r *RefreshTokenRepoStruct) RevokeTokenByID(ctx context.Context, tokenID uu
 	return nil
 }
 
+// RevokeTokenBySessionID отзывает все ещё действующие refresh-токены указанной сессии.
 func (r *RefreshTokenRepoStruct) RevokeTokenBySessionID(ctx context.Context, sessionID uuid.UUID) error {
 	const query = `UPDATE refresh_tokens SET is_revoked = TRUE, revoked_at = now() WHERE session_id = $1 AND is_revoked = FALSE`
 	_, err := r.writeDB.Exec(ctx, query, sessionID)
@@ -132,6 +143,7 @@ func (r *RefreshTokenRepoStruct) RevokeTokenBySessionID(ctx context.Context, ses
 
 }
 
+// RevokeAllTokenByUserID отзывает неотозванные refresh-токены пользователя во всех сессиях.
 func (r *RefreshTokenRepoStruct) RevokeAllTokenByUserID(ctx context.Context, userID uuid.UUID) error {
 	const query = `UPDATE refresh_tokens SET is_revoked = TRUE, revoked_at = now() WHERE user_id = $1 AND is_revoked = FALSE`
 	_, err := r.writeDB.Exec(ctx, query, userID)
@@ -145,6 +157,9 @@ func (r *RefreshTokenRepoStruct) RevokeAllTokenByUserID(ctx context.Context, use
 
 }
 
+// MarkUsedAndReplaceToken в одной транзакции создаёт новый refresh-токен и отзывает старый,
+// записывая время использования и связь replaced_by_token_id. Если старый токен уже
+// отозван либо отсутствует, откатывает вставку и возвращает ошибку.
 func (r *RefreshTokenRepoStruct) MarkUsedAndReplaceToken(ctx context.Context, oldTokenID uuid.UUID, newToken *models.RefreshToken) error {
 	var newTokenID uuid.UUID
 	tx, err := r.beginTx(ctx, "MarkUsedAndReplace()")

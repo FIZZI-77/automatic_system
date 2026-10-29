@@ -16,6 +16,9 @@ import (
 
 const idempotencyTTL = 24 * time.Hour
 
+// withIdempotency выполняет fn с защитой от повторного выполнения по ключу из ctx.
+// Без ключа вызывает fn напрямую; с ключом использует транзакцию и срок записи 24 часа.
+// Возвращает сохранённый ответ либо ошибки конфликта, незавершённой или неуспешной операции.
 func withIdempotency(repo *repository.Repository, ctx context.Context, operation string, actorKey string, request any, fn func(context.Context) (any, uuid.UUID, error)) (any, error) {
 	key, ok := pkg.IdempotencyKeyFromContext(ctx)
 
@@ -66,14 +69,18 @@ func withIdempotency(repo *repository.Repository, ctx context.Context, operation
 	return result, nil
 }
 
+// withIdempotency передаёт операцию общему механизму идемпотентности с репозиторием службы.
 func (s *TicketServiceStruct) withIdempotency(ctx context.Context, operation string, actorKey string, request any, fn func(context.Context) (any, uuid.UUID, error)) (any, error) {
 	return withIdempotency(s.repo, ctx, operation, actorKey, request, fn)
 }
 
+// withIdempotency передаёт операцию общему механизму идемпотентности с репозиторием службы.
 func (s *CategoryServiceStruct) withIdempotency(ctx context.Context, operation string, actorKey string, request any, fn func(context.Context) (any, uuid.UUID, error)) (any, error) {
 	return withIdempotency(s.repo, ctx, operation, actorKey, request, fn)
 }
 
+// cachedResult приводит сохранённый результат идемпотентной операции к указателю на T.
+// Если тип уже совпадает, возвращает его напрямую; иначе преобразует через JSON.
 func cachedResult[T any](result any) (*T, error) {
 
 	if typed, ok := result.(*T); ok {
@@ -95,6 +102,8 @@ func cachedResult[T any](result any) (*T, error) {
 	return &typed, nil
 }
 
+// hashRequest возвращает шестнадцатеричный SHA-256 JSON-представления запроса.
+// Если запрос не сериализуется, возвращает ошибку вместо хеша.
 func hashRequest(request any) (string, error) {
 	bytes, err := json.Marshal(request)
 
@@ -106,6 +115,8 @@ func hashRequest(request any) (string, error) {
 	return hex.EncodeToString(sum[:]), nil
 }
 
+// idempotencyActor выбирает идентификатор исполнителя для ключа идемпотентности.
+// Предпочитает actor, затем ненулевой fallback; при отсутствии обоих возвращает пустую строку.
 func idempotencyActor(actor *uuid.UUID, fallback uuid.UUID) string {
 
 	if actor != nil {

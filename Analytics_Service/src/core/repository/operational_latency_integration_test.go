@@ -137,7 +137,12 @@ func TestDispatchFailureSummaryInClickHouse(t *testing.T) {
 	}{
 		{status: "FAILED", stage: "ROUTING", code: "ENGINE_TIMEOUT", category: uuid.NewString()},
 		{status: "EXPIRED", stage: "RESERVATION", code: "RESERVATION_EXPIRED", category: uuid.NewString()},
-		{status: "FAILED", stage: "CANDIDATE_SELECTION", code: "NO_REACHABLE_BRIGADE", category: uuid.NewString()},
+		{
+			status:   "FAILED",
+			stage:    "CANDIDATE_SELECTION",
+			code:     "NO_REACHABLE_BRIGADE",
+			category: uuid.NewString(),
+		},
 		{status: "CANCELED", stage: "USER_CANCELLATION", code: "USER_REQUEST", category: uuid.NewString()},
 	}
 	for index, outcome := range terminal {
@@ -429,7 +434,13 @@ func TestAssignmentFunnelInClickHouse(t *testing.T) {
 		typeName       string
 		candidateCount int
 	}{
-		{{"dispatch.requested", 0}, {"dispatch.candidates_ranked", 3}, {"dispatch.reserved", 0}, {"dispatch.route_built", 0}, {"dispatch.assigned", 0}},
+		{
+			{"dispatch.requested", 0},
+			{"dispatch.candidates_ranked", 3},
+			{"dispatch.reserved", 0},
+			{"dispatch.route_built", 0},
+			{"dispatch.assigned", 0},
+		},
 		{{"dispatch.requested", 0}, {"dispatch.candidates_ranked", 0}},
 		{{"dispatch.requested", 0}, {"dispatch.candidates_ranked", 2}},
 	}

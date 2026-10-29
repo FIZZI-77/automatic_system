@@ -23,6 +23,7 @@ const (
 	PriorityEmergency Priority = "EMERGENCY"
 )
 
+// Valid сообщает, является ли приоритет одним из LOW, MEDIUM, HIGH или EMERGENCY.
 func (p Priority) Valid() bool {
 	return p == PriorityLow || p == PriorityMedium || p == PriorityHigh || p == PriorityEmergency
 }
@@ -63,6 +64,9 @@ type Rule struct {
 	UpdatedAt      time.Time
 }
 
+// Validate проверяет непустое имя, положительные сроки, время реакции не больше
+// времени решения, процент предупреждения 1–99 и заданный приоритет.
+// Правило не изменяет; нарушение возвращает как ErrInvalidArgument.
 func (r *Rule) Validate() error {
 
 	if strings.TrimSpace(r.Name) == "" || r.ResponseTime <= 0 || r.ResolutionTime <= 0 || r.ResponseTime > r.ResolutionTime || r.WarningPercent < 1 || r.WarningPercent > 99 {

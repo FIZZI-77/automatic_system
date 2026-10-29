@@ -7,7 +7,9 @@ import (
 	"routing/models"
 	"routing/src/core/service"
 
+	brigadev1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/brigade/v1"
 	routingv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/routing/v1"
+	ticketv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/ticket/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -15,13 +17,18 @@ import (
 
 type Handler struct {
 	routingv1.UnimplementedRoutingServiceServer
-	service service.RoutingService
+	service  service.RoutingService
+	tickets  ticketv1.TicketServiceClient
+	brigades brigadev1.BrigadeServiceClient
 }
 
-func New(value service.RoutingService) *Handler {
-	return &Handler{service: value}
+// New создаёт gRPC-обработчик маршрутизации с переданным сервисом.
+func New(value service.RoutingService, tickets ticketv1.TicketServiceClient, brigades brigadev1.BrigadeServiceClient) *Handler {
+	return &Handler{service: value, tickets: tickets, brigades: brigades}
 }
 
+// BuildRoute преобразует точки и параметры запроса, вызывает расчёт в сервисе
+// и возвращает геометрию и характеристики маршрута без самостоятельной проверки ролей.
 func (h *Handler) BuildRoute(
 	ctx context.Context,
 	request *routingv1.BuildRouteRequest,
@@ -37,6 +44,8 @@ func (h *Handler) BuildRoute(
 	}, nil
 }
 
+// BuildMatrix передаёт исходные и целевые точки и параметры сервису и возвращает
+// ячейки расстояний в метрах, длительности в секундах и достижимости.
 func (h *Handler) BuildMatrix(
 	ctx context.Context,
 	request *routingv1.BuildMatrixRequest,
@@ -64,6 +73,8 @@ func (h *Handler) BuildMatrix(
 	return &routingv1.BuildMatrixResponse{Cells: result}, nil
 }
 
+// RankCandidates преобразует кандидатов и точку назначения, передаёт лимит
+// сервису и возвращает упорядоченных кандидатов с рангом, расстоянием и ETA.
 func (h *Handler) RankCandidates(
 	ctx context.Context,
 	request *routingv1.RankCandidatesRequest,
@@ -100,10 +111,26 @@ func (h *Handler) RankCandidates(
 	return &routingv1.RankCandidatesResponse{Candidates: result}, nil
 }
 
+// CreateRoute преобразует точки и параметры и передаёт создание маршрута
+// для заявки и бригады сервису; возвращает сохранённый маршрут в protobuf.
 func (h *Handler) CreateRoute(
 	ctx context.Context,
 	request *routingv1.CreateRouteRequest,
 ) (*routingv1.CreateRouteResponse, error) {
+	ticket, err := h.authorizeTicket(ctx, request.GetTicketId(), true)
+	if err != nil {
+		return nil, err
+	}
+	if h.brigades == nil {
+		return nil, status.Error(codes.Unavailable, "brigade authorization unavailable")
+	}
+	brigade, err := h.brigades.GetBrigadeByID(actorOutgoing(ctx), &brigadev1.GetBrigadeByIDRequest{Id: request.GetBrigadeId()})
+	if err != nil {
+		return nil, err
+	}
+	if brigade.GetBrigade() == nil || brigade.GetBrigade().GetDepartmentId() != ticket.GetDepartmentId() {
+		return nil, status.Error(codes.PermissionDenied, "brigade and ticket departments differ")
+	}
 	route, err := h.service.CreateRoute(ctx, &models.CreateRouteInput{
 		TicketID:    request.GetTicketId(),
 		BrigadeID:   request.GetBrigadeId(),
@@ -120,11 +147,13 @@ func (h *Handler) CreateRoute(
 	return &routingv1.CreateRouteResponse{Route: routeToProto(route)}, nil
 }
 
+// GetRoute передаёт строковый ID сервису и возвращает маршрут в protobuf;
+// отсутствие маршрута преобразует в gRPC NotFound.
 func (h *Handler) GetRoute(
 	ctx context.Context,
 	request *routingv1.GetRouteRequest,
 ) (*routingv1.GetRouteResponse, error) {
-	route, err := h.service.GetRoute(ctx, request.GetId())
+	route, err := h.authorizeRoute(ctx, request.GetId(), false)
 
 	if err != nil {
 		return nil, mapError(err)
@@ -133,10 +162,15 @@ func (h *Handler) GetRoute(
 	return &routingv1.GetRouteResponse{Route: routeToProto(route)}, nil
 }
 
+// RecalculateRoute передаёт ID и текущую позицию сервису пересчёта и возвращает
+// обновлённый маршрут; отсутствующую позицию преобразует в нулевую точку.
 func (h *Handler) RecalculateRoute(
 	ctx context.Context,
 	request *routingv1.RecalculateRouteRequest,
 ) (*routingv1.RecalculateRouteResponse, error) {
+	if _, err := h.authorizeRoute(ctx, request.GetId(), true); err != nil {
+		return nil, err
+	}
 	route, err := h.service.RecalculateRoute(ctx, &models.RecalculateRouteInput{
 		ID:              request.GetId(),
 		CurrentPosition: pointFromProto(request.GetCurrentPosition()),
@@ -149,10 +183,15 @@ func (h *Handler) RecalculateRoute(
 	return &routingv1.RecalculateRouteResponse{Route: routeToProto(route)}, nil
 }
 
+// SetRouteStatus преобразует protobuf-статус и передаёт изменение сервису.
+// Неизвестное значение преобразуется в PLANNED до проверки сервисом.
 func (h *Handler) SetRouteStatus(
 	ctx context.Context,
 	request *routingv1.SetRouteStatusRequest,
 ) (*routingv1.SetRouteStatusResponse, error) {
+	if _, err := h.authorizeRoute(ctx, request.GetId(), true); err != nil {
+		return nil, err
+	}
 	route, err := h.service.SetRouteStatus(
 		ctx,
 		request.GetId(),
@@ -168,15 +207,22 @@ func (h *Handler) SetRouteStatus(
 	}, nil
 }
 
+// ListRoutes сохраняет необязательные фильтры заявки, бригады и статуса
+// и возвращает страницу маршрутов с общим счётчиком; ошибки переводит через mapError.
 func (h *Handler) ListRoutes(
 	ctx context.Context,
 	request *routingv1.ListRoutesRequest,
 ) (*routingv1.ListRoutesResponse, error) {
+	allowed, err := h.allowedTickets(ctx, request.TicketId)
+	if err != nil {
+		return nil, err
+	}
 	input := &models.ListRoutesInput{
-		TicketID:  request.TicketId,
-		BrigadeID: request.BrigadeId,
-		Limit:     request.GetLimit(),
-		Offset:    request.GetOffset(),
+		AllowedTicketIDs: allowed,
+		TicketID:         request.TicketId,
+		BrigadeID:        request.BrigadeId,
+		Limit:            request.GetLimit(),
+		Offset:           request.GetOffset(),
 	}
 
 	if request.Status != nil {
@@ -200,6 +246,8 @@ func (h *Handler) ListRoutes(
 	}, nil
 }
 
+// buildRouteInput преобразует начало, конец, промежуточные точки и параметры
+// расчёта в доменную модель; валидацию оставляет сервису.
 func buildRouteInput(request *routingv1.BuildRouteRequest) *models.BuildRouteInput {
 	return &models.BuildRouteInput{
 		Origin:      pointFromProto(request.GetOrigin()),
@@ -209,6 +257,7 @@ func buildRouteInput(request *routingv1.BuildRouteRequest) *models.BuildRouteInp
 	}
 }
 
+// pointFromProto преобразует координаты в доменную точку; nil даёт нулевые координаты.
 func pointFromProto(point *routingv1.Point) models.Point {
 
 	if point == nil {
@@ -221,6 +270,7 @@ func pointFromProto(point *routingv1.Point) models.Point {
 	}
 }
 
+// pointToProto создаёт protobuf-точку из широты и долготы доменной модели.
 func pointToProto(point models.Point) *routingv1.Point {
 	return &routingv1.Point{
 		Latitude:  point.Latitude,
@@ -228,6 +278,8 @@ func pointToProto(point models.Point) *routingv1.Point {
 	}
 }
 
+// pointsFromProto преобразует точки с сохранением порядка; nil-элементы дают
+// нулевые точки, пустой вход — пустой ненулевой срез.
 func pointsFromProto(points []*routingv1.Point) []models.Point {
 	result := make([]models.Point, 0, len(points))
 	for _, point := range points {
@@ -236,6 +288,8 @@ func pointsFromProto(points []*routingv1.Point) []models.Point {
 	return result
 }
 
+// optionsFromProto преобразует режим и альтернативы, сохраняя необязательные
+// время отправления и ограничения машины; nil даёт пустые параметры.
 func optionsFromProto(options *routingv1.RouteOptions) models.RouteOptions {
 
 	if options == nil {
@@ -266,6 +320,8 @@ func optionsFromProto(options *routingv1.RouteOptions) models.RouteOptions {
 	return result
 }
 
+// optionsToProto преобразует параметры маршрута в protobuf, добавляя время
+// отправления и ограничения машины только при их наличии.
 func optionsToProto(options models.RouteOptions) *routingv1.RouteOptions {
 	result := &routingv1.RouteOptions{
 		TravelMode:   modeToProto(options.TravelMode),
@@ -290,6 +346,8 @@ func optionsToProto(options models.RouteOptions) *routingv1.RouteOptions {
 	return result
 }
 
+// calculatedRouteToProto преобразует сводку, полилинию, участки и привязанные точки
+// расчёта в protobuf с именем движка; nil сохраняет как nil.
 func calculatedRouteToProto(route *models.CalculatedRoute) *routingv1.CalculatedRoute {
 
 	if route == nil {
@@ -321,6 +379,8 @@ func calculatedRouteToProto(route *models.CalculatedRoute) *routingv1.Calculated
 	}
 }
 
+// routeToProto преобразует сохранённый маршрут, параметры, расчёт, ревизию
+// и даты в protobuf; для nil возвращает nil.
 func routeToProto(route *models.Route) *routingv1.Route {
 
 	if route == nil {
@@ -347,6 +407,7 @@ func routeToProto(route *models.Route) *routingv1.Route {
 	}
 }
 
+// modeFromProto преобразует режим движения в доменный; неизвестный даёт AUTO.
 func modeFromProto(value routingv1.TravelMode) models.TravelMode {
 	switch value {
 	case routingv1.TravelMode_TRAVEL_MODE_TRUCK:
@@ -360,6 +421,7 @@ func modeFromProto(value routingv1.TravelMode) models.TravelMode {
 	}
 }
 
+// modeToProto преобразует режим движения в protobuf; неизвестный даёт AUTO.
 func modeToProto(value models.TravelMode) routingv1.TravelMode {
 	switch value {
 	case models.TravelModeTruck:
@@ -373,6 +435,7 @@ func modeToProto(value models.TravelMode) routingv1.TravelMode {
 	}
 }
 
+// statusFromProto преобразует статус маршрута в доменный; неизвестный даёт PLANNED.
 func statusFromProto(value routingv1.RouteStatus) models.RouteStatus {
 	switch value {
 	case routingv1.RouteStatus_ROUTE_STATUS_ACTIVE:
@@ -386,6 +449,7 @@ func statusFromProto(value routingv1.RouteStatus) models.RouteStatus {
 	}
 }
 
+// statusToProto преобразует статус маршрута в protobuf; неизвестный даёт PLANNED.
 func statusToProto(value models.RouteStatus) routingv1.RouteStatus {
 	switch value {
 	case models.RouteStatusActive:
@@ -399,7 +463,13 @@ func statusToProto(value models.RouteStatus) routingv1.RouteStatus {
 	}
 }
 
+// mapError переводит ошибки аргументов, отсутствия, конфликта и зависимости
+// в InvalidArgument, NotFound, AlreadyExists и Unavailable; прочие — в Internal
+// с общим сообщением, скрывающим исходный текст.
 func mapError(err error) error {
+	if _, ok := status.FromError(err); ok {
+		return err
+	}
 	switch {
 	case errors.Is(err, models.ErrInvalidArgument):
 		return status.Error(codes.InvalidArgument, err.Error())

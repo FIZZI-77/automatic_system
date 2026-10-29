@@ -131,20 +131,52 @@
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  --cube-face: linear-gradient(145deg, rgba(48, 222, 161, 0.96), rgba(8, 66, 47, 0.98));
-  --cube-side: linear-gradient(145deg, rgba(20, 145, 102, 0.98), rgba(5, 42, 31, 0.98));
-  --cube-top: linear-gradient(145deg, rgba(118, 244, 199, 0.98), rgba(20, 145, 102, 0.96));
+  --cube-face: linear-gradient(
+    145deg,
+    rgba(48, 222, 161, 0.96),
+    rgba(8, 66, 47, 0.98)
+  );
+  --cube-side: linear-gradient(
+    145deg,
+    rgba(20, 145, 102, 0.98),
+    rgba(5, 42, 31, 0.98)
+  );
+  --cube-top: linear-gradient(
+    145deg,
+    rgba(118, 244, 199, 0.98),
+    rgba(20, 145, 102, 0.96)
+  );
   --cube-line: rgba(104, 255, 205, 0.32);
 }
 
 html[data-theme="light"] .auth-page {
   background:
-    radial-gradient(circle at 78% 18%, rgba(38, 211, 151, 0.16), transparent 24%),
-    radial-gradient(circle at 15% 82%, rgba(53, 139, 255, 0.08), transparent 25%),
+    radial-gradient(
+      circle at 78% 18%,
+      rgba(38, 211, 151, 0.16),
+      transparent 24%
+    ),
+    radial-gradient(
+      circle at 15% 82%,
+      rgba(53, 139, 255, 0.08),
+      transparent 25%
+    ),
     #f2f3ee;
-  --cube-face: linear-gradient(145deg, rgba(91, 218, 172, 0.96), rgba(13, 126, 87, 0.94));
-  --cube-side: linear-gradient(145deg, rgba(26, 145, 103, 0.98), rgba(5, 77, 54, 0.98));
-  --cube-top: linear-gradient(145deg, rgba(205, 255, 237, 0.98), rgba(58, 188, 141, 0.96));
+  --cube-face: linear-gradient(
+    145deg,
+    rgba(91, 218, 172, 0.96),
+    rgba(13, 126, 87, 0.94)
+  );
+  --cube-side: linear-gradient(
+    145deg,
+    rgba(26, 145, 103, 0.98),
+    rgba(5, 77, 54, 0.98)
+  );
+  --cube-top: linear-gradient(
+    145deg,
+    rgba(205, 255, 237, 0.98),
+    rgba(58, 188, 141, 0.96)
+  );
   --cube-line: rgba(8, 94, 65, 0.36);
 }
 
@@ -196,7 +228,10 @@ html[data-theme="light"] .auth-register-callout button:hover {
   font-size: 14px;
   font-weight: 750;
   line-height: 1;
-  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
 }
 
 .auth-page .back:hover {
@@ -242,12 +277,28 @@ html[data-theme="dark"] .auth-page .back {
   backface-visibility: hidden;
 }
 
-.auth-cube i:nth-child(1) { transform: translateZ(var(--cube-depth)); }
-.auth-cube i:nth-child(2) { transform: rotateY(180deg) translateZ(var(--cube-depth)); }
-.auth-cube i:nth-child(3) { transform: rotateY(90deg) translateZ(var(--cube-depth)); background: var(--cube-side); }
-.auth-cube i:nth-child(4) { transform: rotateY(-90deg) translateZ(var(--cube-depth)); background: var(--cube-side); }
-.auth-cube i:nth-child(5) { transform: rotateX(90deg) translateZ(var(--cube-depth)); background: var(--cube-top); }
-.auth-cube i:nth-child(6) { transform: rotateX(-90deg) translateZ(var(--cube-depth)); background: var(--cube-side); }
+.auth-cube i:nth-child(1) {
+  transform: translateZ(var(--cube-depth));
+}
+.auth-cube i:nth-child(2) {
+  transform: rotateY(180deg) translateZ(var(--cube-depth));
+}
+.auth-cube i:nth-child(3) {
+  transform: rotateY(90deg) translateZ(var(--cube-depth));
+  background: var(--cube-side);
+}
+.auth-cube i:nth-child(4) {
+  transform: rotateY(-90deg) translateZ(var(--cube-depth));
+  background: var(--cube-side);
+}
+.auth-cube i:nth-child(5) {
+  transform: rotateX(90deg) translateZ(var(--cube-depth));
+  background: var(--cube-top);
+}
+.auth-cube i:nth-child(6) {
+  transform: rotateX(-90deg) translateZ(var(--cube-depth));
+  background: var(--cube-side);
+}
 
 .auth-cube.cube-one {
   --cube-size: 184px;
@@ -277,23 +328,41 @@ html[data-theme="dark"] .auth-page .back {
 }
 
 @keyframes auth-cube-spin {
-  0%, 100% {
-    transform: translate3d(0, -10px, 0) rotateX(-20deg) rotateY(22deg) rotateZ(-8deg);
+  0%,
+  100% {
+    transform: translate3d(0, -10px, 0) rotateX(-20deg) rotateY(22deg)
+      rotateZ(-8deg);
   }
   50% {
-    transform: translate3d(-14px, 18px, 0) rotateX(12deg) rotateY(76deg) rotateZ(6deg);
+    transform: translate3d(-14px, 18px, 0) rotateX(12deg) rotateY(76deg)
+      rotateZ(6deg);
   }
 }
 
 @media (max-width: 900px) {
-  .auth-cube.cube-one { right: -52px; opacity: 0.55; }
-  .auth-cube.cube-two { left: -34px; opacity: 0.42; }
-  .auth-cube.cube-three { display: none; }
+  .auth-cube.cube-one {
+    right: -52px;
+    opacity: 0.55;
+  }
+  .auth-cube.cube-two {
+    left: -34px;
+    opacity: 0.42;
+  }
+  .auth-cube.cube-three {
+    display: none;
+  }
 }
 
 @media (max-width: 600px) {
-  .auth-cubes { opacity: 0.34; }
-  .auth-page .back { left: 16px; top: 16px; min-width: 138px; height: 44px; }
+  .auth-cubes {
+    opacity: 0.34;
+  }
+  .auth-page .back {
+    left: 16px;
+    top: 16px;
+    min-width: 138px;
+    height: 44px;
+  }
 }
 
 /* KPI units must remain readable beside the large dashboard value. */
@@ -349,30 +418,39 @@ html body :where(button, input, select, textarea) {
 }
 
 /* Light analytics must not inherit the dark workspace card treatment. */
-.app-shell.theme-light :where(
-  .analytics-grid article,
-  .analytics-section,
-  .asset-analytics-card,
-  .trend-card,
-  .breakdown-card
-) {
+.app-shell.theme-light
+  :where(
+    .analytics-grid article,
+    .analytics-section,
+    .asset-analytics-card,
+    .trend-card,
+    .breakdown-card
+  ) {
   border-color: #d4d8d1 !important;
   background: #ffffff !important;
   color: #173a2e !important;
   box-shadow: 0 12px 32px rgba(26, 83, 61, 0.06) !important;
 }
 
-.app-shell.theme-light :where(.analytics-grid, .analytics-section, .asset-analytics-card) :where(h3, h4, b) {
+.app-shell.theme-light
+  :where(.analytics-grid, .analytics-section, .asset-analytics-card)
+  :where(h3, h4, b) {
   color: #0f7351 !important;
 }
 
-.app-shell.theme-light :where(.analytics-grid, .analytics-section, .asset-analytics-card) :where(p, span, small) {
+.app-shell.theme-light
+  :where(.analytics-grid, .analytics-section, .asset-analytics-card)
+  :where(p, span, small) {
   color: #65716a !important;
 }
 
 .app-shell.theme-light .trend-bars {
   border-color: #dfe5df !important;
-  background: repeating-linear-gradient(to bottom, transparent 0 58px, #e7ebe6 59px) !important;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0 58px,
+    #e7ebe6 59px
+  ) !important;
 }
 
 .app-shell.theme-light .priority-donut::before {
@@ -413,17 +491,18 @@ html body :where(button, input, select, textarea) {
   color: #ffffff !important;
 }
 
-.app-shell.theme-light :where(
-  .ops-state.active,
-  .ops-state.available,
-  .ops-state.on_shift,
-  .ops-state.verified,
-  .ops-state.completed,
-  .ops-state.assigned,
-  .person-status.active,
-  .person-status.available,
-  .person-status.on_shift
-) {
+.app-shell.theme-light
+  :where(
+    .ops-state.active,
+    .ops-state.available,
+    .ops-state.on_shift,
+    .ops-state.verified,
+    .ops-state.completed,
+    .ops-state.assigned,
+    .person-status.active,
+    .person-status.available,
+    .person-status.on_shift
+  ) {
   display: inline-flex;
   align-items: center;
   width: fit-content;
@@ -580,7 +659,10 @@ html body :where(button, input, select, textarea) {
 }
 
 .app-shell.theme-light .brigade-vehicles > button:hover :where(small, em),
-.app-shell.theme-light .brigade-vehicles > button:focus-visible :where(small, em) {
+.app-shell.theme-light
+  .brigade-vehicles
+  > button:focus-visible
+  :where(small, em) {
   color: #526d61 !important;
 }
 
@@ -627,7 +709,10 @@ html body :where(button, input, select, textarea) {
   color: var(--workspace-accent);
   font-size: 13px;
   font-weight: 750;
-  transition: border-color .2s ease, background .2s ease, color .2s ease;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    color 0.2s ease;
 }
 
 .app-shell .brigade-grid article > button:hover:not(:disabled) {
@@ -637,7 +722,7 @@ html body :where(button, input, select, textarea) {
 }
 
 .app-shell .brigade-grid article > button:disabled {
-  opacity: .55;
+  opacity: 0.55;
   cursor: default;
 }
 
@@ -664,7 +749,7 @@ html body :where(button, input, select, textarea) {
   margin-bottom: 11px;
   color: var(--workspace-accent) !important;
   font-size: 11px;
-  letter-spacing: .13em;
+  letter-spacing: 0.13em;
 }
 
 .app-shell .brigade-detail-head h2 {
@@ -697,7 +782,11 @@ html body :where(button, input, select, textarea) {
 
 .app-shell .brigade-detail-meta .brigade-status {
   border-color: color-mix(in srgb, var(--workspace-accent) 42%, transparent);
-  background: color-mix(in srgb, var(--workspace-accent) 14%, var(--workspace-surface));
+  background: color-mix(
+    in srgb,
+    var(--workspace-accent) 14%,
+    var(--workspace-surface)
+  );
   color: var(--workspace-accent) !important;
 }
 
@@ -803,7 +892,10 @@ html body :where(button, input, select, textarea) {
   border-radius: 16px !important;
   background: var(--workspace-surface-2) !important;
   color: var(--workspace-text) !important;
-  transition: border-color .2s ease, background .2s ease, transform .2s ease;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    transform 0.2s ease;
 }
 
 .app-shell .brigade-vehicles > button:hover {
@@ -818,7 +910,11 @@ html body :where(button, input, select, textarea) {
   width: 34px;
   height: 34px;
   border-radius: 10px;
-  background: color-mix(in srgb, var(--workspace-accent) 16%, var(--workspace-surface));
+  background: color-mix(
+    in srgb,
+    var(--workspace-accent) 16%,
+    var(--workspace-surface)
+  );
   color: var(--workspace-accent);
 }
 
@@ -870,11 +966,21 @@ html body :where(button, input, select, textarea) {
 }
 
 @media (max-width: 560px) {
-  .app-shell .brigade-detail { padding: 22px 18px !important; }
-  .app-shell .brigade-detail-stats { grid-template-columns: 1fr; }
-  .app-shell .brigade-detail-stats > div:first-child { grid-column: auto; }
-  .app-shell .brigade-vehicles > button { grid-template-columns: 34px minmax(0, 1fr) !important; }
-  .app-shell .brigade-vehicles em { grid-column: 2; }
+  .app-shell .brigade-detail {
+    padding: 22px 18px !important;
+  }
+  .app-shell .brigade-detail-stats {
+    grid-template-columns: 1fr;
+  }
+  .app-shell .brigade-detail-stats > div:first-child {
+    grid-column: auto;
+  }
+  .app-shell .brigade-vehicles > button {
+    grid-template-columns: 34px minmax(0, 1fr) !important;
+  }
+  .app-shell .brigade-vehicles em {
+    grid-column: 2;
+  }
 }
 
 .app-shell :where(button.primary.small, button.ghost.small) {
@@ -940,15 +1046,17 @@ html body :where(button, input, select, textarea) {
   color: var(--workspace-muted) !important;
 }
 
-.app-shell.theme-dark .ticket-modal :where(
-  .ticket-modal-actions select,
-  .ticket-edit-form input,
-  .ticket-edit-form select,
-  .ticket-edit-form textarea,
-  .ticket-cancel-form input,
-  .completion-form textarea,
-  .ticket-feedback textarea
-) {
+.app-shell.theme-dark
+  .ticket-modal
+  :where(
+    .ticket-modal-actions select,
+    .ticket-edit-form input,
+    .ticket-edit-form select,
+    .ticket-edit-form textarea,
+    .ticket-cancel-form input,
+    .completion-form textarea,
+    .ticket-feedback textarea
+  ) {
   border-color: #505158 !important;
   background: var(--workspace-surface-2) !important;
   color: var(--workspace-text) !important;
@@ -956,13 +1064,15 @@ html body :where(button, input, select, textarea) {
   color-scheme: dark;
 }
 
-.app-shell.theme-dark .ticket-modal :where(
-  .ticket-edit-form input,
-  .ticket-edit-form textarea,
-  .ticket-cancel-form input,
-  .completion-form textarea,
-  .ticket-feedback textarea
-)::placeholder {
+.app-shell.theme-dark
+  .ticket-modal
+  :where(
+    .ticket-edit-form input,
+    .ticket-edit-form textarea,
+    .ticket-cancel-form input,
+    .completion-form textarea,
+    .ticket-feedback textarea
+  )::placeholder {
   color: #85868b !important;
   opacity: 1;
 }
@@ -1084,7 +1194,10 @@ html body :where(button, input, select, textarea) {
   font-size: 14px;
 }
 
-.app-shell .catalog-rule-modal .ops-form :where(input:not([type="checkbox"]), select, textarea) {
+.app-shell
+  .catalog-rule-modal
+  .ops-form
+  :where(input:not([type="checkbox"]), select, textarea) {
   min-height: 48px;
   padding: 12px 14px;
   border-radius: 12px;

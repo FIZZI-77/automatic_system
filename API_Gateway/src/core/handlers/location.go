@@ -15,10 +15,12 @@ type LocationHandler struct {
 	client locationv1.LocationServiceClient
 }
 
+// NewLocationHandler создает обработчик геолокации с клиентом сервиса местоположения.
 func NewLocationHandler(client locationv1.LocationServiceClient) *LocationHandler {
 	return &LocationHandler{client: client}
 }
 
+// RecordPosition принимает и сохраняет координаты транспортного средства.
 func (h *LocationHandler) RecordPosition(c *gin.Context) {
 	var req models.RecordPositionRequest
 
@@ -61,6 +63,7 @@ func (h *LocationHandler) RecordPosition(c *gin.Context) {
 	})
 }
 
+// GetCurrentLocation возвращает последнюю координату указанного объекта.
 func (h *LocationHandler) GetCurrentLocation(c *gin.Context) {
 	var req models.GetCurrentLocationRequest
 
@@ -83,6 +86,7 @@ func (h *LocationHandler) GetCurrentLocation(c *gin.Context) {
 	})
 }
 
+// GetCurrentLocations возвращает последние координаты нескольких бригад и список отсутствующих.
 func (h *LocationHandler) GetCurrentLocations(c *gin.Context) {
 	var req models.GetCurrentLocationsRequest
 
@@ -111,6 +115,7 @@ func (h *LocationHandler) GetCurrentLocations(c *gin.Context) {
 	})
 }
 
+// ListPositionHistory возвращает историю координат бригады за заданный период.
 func (h *LocationHandler) ListPositionHistory(c *gin.Context) {
 	var req models.ListPositionHistoryRequest
 
@@ -157,6 +162,7 @@ func (h *LocationHandler) ListPositionHistory(c *gin.Context) {
 	})
 }
 
+// FindNearbyBrigades возвращает бригады, расположенные рядом с указанной точкой.
 func (h *LocationHandler) FindNearbyBrigades(c *gin.Context) {
 	var req models.FindNearbyBrigadesRequest
 
@@ -193,6 +199,7 @@ func (h *LocationHandler) FindNearbyBrigades(c *gin.Context) {
 	})
 }
 
+// CreateGeoZone создает геозону подразделения.
 func (h *LocationHandler) CreateGeoZone(c *gin.Context) {
 	var req models.CreateGeoZoneRequest
 
@@ -216,6 +223,7 @@ func (h *LocationHandler) CreateGeoZone(c *gin.Context) {
 	})
 }
 
+// UpdateGeoZone изменяет переданные поля геозоны.
 func (h *LocationHandler) UpdateGeoZone(c *gin.Context) {
 	var req models.UpdateGeoZoneRequest
 
@@ -245,6 +253,7 @@ func (h *LocationHandler) UpdateGeoZone(c *gin.Context) {
 	})
 }
 
+// DeleteGeoZone удаляет геозону по идентификатору.
 func (h *LocationHandler) DeleteGeoZone(c *gin.Context) {
 	var req models.DeleteGeoZoneRequest
 
@@ -266,6 +275,7 @@ func (h *LocationHandler) DeleteGeoZone(c *gin.Context) {
 	})
 }
 
+// ListGeoZones возвращает геозоны подразделения с пагинацией.
 func (h *LocationHandler) ListGeoZones(c *gin.Context) {
 	var req models.ListGeoZonesRequest
 
@@ -291,6 +301,7 @@ func (h *LocationHandler) ListGeoZones(c *gin.Context) {
 	})
 }
 
+// CheckPointInZones возвращает активные геозоны, содержащие указанную точку.
 func (h *LocationHandler) CheckPointInZones(c *gin.Context) {
 	var req models.CheckPointInZonesRequest
 
@@ -315,12 +326,14 @@ func (h *LocationHandler) CheckPointInZones(c *gin.Context) {
 	})
 }
 
+// locationRequestContext создает ограниченный по времени контекст с данными пользователя шлюза.
 func locationRequestContext(c *gin.Context) context.Context {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	c.Set("location_cancel", cancel)
 	return gatewayActorContext(ctx, c)
 }
 
+// locationResponse завершает контекст запроса и формирует ответ или преобразует ошибку gRPC.
 func locationResponse(c *gin.Context, statusCode int, err error, response any) {
 
 	if value, ok := c.Get("location_cancel"); ok {

@@ -108,9 +108,10 @@ type CancelInput struct {
 	Reason          string
 }
 type ListInput struct {
-	TicketID  *uuid.UUID
-	BrigadeID *uuid.UUID
-	Status    *Status
-	Limit     int32
-	Offset    int32
+	DepartmentID *uuid.UUID
+	TicketID     *uuid.UUID
+	BrigadeID    *uuid.UUID
+	Status       *Status
+	Limit        int32
+	Offset       int32
 }

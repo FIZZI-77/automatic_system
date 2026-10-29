@@ -2,18 +2,64 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { ApiError, api, config, type Role, type Session, type Ticket } from "./api";
+import {
+  ApiError,
+  api,
+  config,
+  type Role,
+  type Session,
+  type Ticket,
+} from "./api";
 import { loadBrigades } from "./brigade-store";
 import { TicketAssetPicker } from "./ticket-asset-picker";
 
-const statusNames: Record<string, string> = { NEW: "Новая", ASSIGNED: "Назначена", IN_PROGRESS: "В работе", DONE: "Завершена", CANCELED: "Отменена" };
+const statusNames: Record<string, string> = {
+  NEW: "Новая",
+  ASSIGNED: "Назначена",
+  IN_PROGRESS: "В работе",
+  DONE: "Завершена",
+  CANCELED: "Отменена",
+};
 
-type WorkReport = { id:string; ticket_id:string; author_user_id:string; description:string; file_ids:string[]; created_at:string|number };
-type StoredFile = { id:string; name:string; content_type:string; size:number; status:string };
-type DispatchCandidate = { brigade_id:string; rank:number; distance_meters:number; eta_seconds:number; reachable:boolean };
-type TicketHistory = { id:string; old_status?:string; new_status:string; changed_by?:string; comment?:string; created_at:number };
-type DemoTicket = Ticket & { demo_report_description?:string };
-type TicketFeedback = { ticket_id:string; user_id:string; rating:number; problem_resolved:boolean; comment:string; updated_at:string };
+type WorkReport = {
+  id: string;
+  ticket_id: string;
+  author_user_id: string;
+  description: string;
+  file_ids: string[];
+  created_at: string | number;
+};
+type StoredFile = {
+  id: string;
+  name: string;
+  content_type: string;
+  size: number;
+  status: string;
+};
+type DispatchCandidate = {
+  brigade_id: string;
+  rank: number;
+  distance_meters: number;
+  eta_seconds: number;
+  reachable: boolean;
+};
+type TicketHistory = {
+  id: string;
+  old_status?: string;
+  new_status: string;
+  changed_by?: string;
+  comment?: string;
+  created_at: number;
+};
+type DemoTicket = Ticket & { demo_report_description?: string };
+type TicketFeedback = {
+  ticket_id: string;
+  user_id: string;
+  rating: number;
+  problem_resolved: boolean;
+  comment: string;
+  updated_at: string;
+};
 type IncidentComposition = {
   requests: Ticket[];
   total: number;
@@ -23,64 +69,130 @@ type IncidentComposition = {
   all_parts_completed: boolean;
 };
 
-export function TicketWorkspace({tickets,session,role,onUpdate,onMap,onNotice}:{tickets:Ticket[];session:Session;role:Role;onUpdate:(ticket:Ticket)=>void;onMap:(id:string)=>void;onNotice:(text:string)=>void}) {
-  const [selected,setSelected]=useState<Ticket>();
-  const [files,setFiles]=useState<File[]>([]);
-  const [reports,setReports]=useState<WorkReport[]>([]);
-  const [reportFiles,setReportFiles]=useState<Record<string,StoredFile[]>>({});
-  const [busy,setBusy]=useState(false);
-  const [candidates,setCandidates]=useState<DispatchCandidate[]>([]);
-  const [history,setHistory]=useState<TicketHistory[]>([]);
-  const [feedback,setFeedback]=useState<TicketFeedback>();
-  const [rating,setRating]=useState(0);
-  const [problemResolved,setProblemResolved]=useState(true);
-  const [feedbackComment,setFeedbackComment]=useState("");
-  const [editing,setEditing]=useState(false);
-  const [composition,setComposition]=useState<IncidentComposition>();
-  const [relationBusy,setRelationBusy]=useState(false);
-  const [filters,setFilters]=useState({query:"",status:"",priority:"",assignment:"",createdFrom:"",createdTo:"",sort:"created_desc"});
-  const [visibleCount,setVisibleCount]=useState(20);
-  const demo=session.accessToken==="demo";
-  const brigades=loadBrigades().filter(item=>!["INACTIVE","OFFLINE","ARCHIVED"].includes(item.status));
-  const selectedIncidentID=selected?.ticket_type==="INCIDENT"?selected.id:selected?.incident_id;
-  const isRequestBackedIncident=selected?.ticket_type==="INCIDENT"&&Boolean(composition?.total);
+export function TicketWorkspace({
+  tickets,
+  session,
+  role,
+  onUpdate,
+  onMap,
+  onNotice,
+}: {
+  tickets: Ticket[];
+  session: Session;
+  role: Role;
+  onUpdate: (ticket: Ticket) => void;
+  onMap: (id: string) => void;
+  onNotice: (text: string) => void;
+}) {
+  const [selected, setSelected] = useState<Ticket>();
+  const [files, setFiles] = useState<File[]>([]);
+  const [reports, setReports] = useState<WorkReport[]>([]);
+  const [reportFiles, setReportFiles] = useState<Record<string, StoredFile[]>>(
+    {},
+  );
+  const [busy, setBusy] = useState(false);
+  const [candidates, setCandidates] = useState<DispatchCandidate[]>([]);
+  const [history, setHistory] = useState<TicketHistory[]>([]);
+  const [feedback, setFeedback] = useState<TicketFeedback>();
+  const [rating, setRating] = useState(0);
+  const [problemResolved, setProblemResolved] = useState(true);
+  const [feedbackComment, setFeedbackComment] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [composition, setComposition] = useState<IncidentComposition>();
+  const [relationBusy, setRelationBusy] = useState(false);
+  const [filters, setFilters] = useState({
+    query: "",
+    status: "",
+    priority: "",
+    assignment: "",
+    createdFrom: "",
+    createdTo: "",
+    sort: "created_desc",
+  });
+  const [visibleCount, setVisibleCount] = useState(20);
+  const demo = session.accessToken === "demo";
+  const brigades = loadBrigades().filter(
+    (item) => !["INACTIVE", "OFFLINE", "ARCHIVED"].includes(item.status),
+  );
+  const selectedIncidentID =
+    selected?.ticket_type === "INCIDENT" ? selected.id : selected?.incident_id;
+  const isRequestBackedIncident =
+    selected?.ticket_type === "INCIDENT" && Boolean(composition?.total);
 
-  const visibleTickets=useMemo(()=>{
-    const query=filters.query.trim().toLocaleLowerCase("ru-RU");
-    const from=filters.createdFrom?new Date(`${filters.createdFrom}T00:00:00`).getTime()/1000:0;
-    const to=filters.createdTo?new Date(`${filters.createdTo}T23:59:59`).getTime()/1000:Number.POSITIVE_INFINITY;
-    const result=tickets.filter(ticket=>{
-      if(query&&![ticket.id,ticket.title,ticket.address,ticket.description].some(value=>String(value||"").toLocaleLowerCase("ru-RU").includes(query)))return false;
-      if(filters.status&&ticket.status!==filters.status)return false;
-      if(filters.priority&&ticket.priority!==filters.priority)return false;
-      if(filters.assignment==="assigned"&&!ticket.brigade_id)return false;
-      if(filters.assignment==="unassigned"&&ticket.brigade_id)return false;
-      return Number(ticket.created_at)>=from&&Number(ticket.created_at)<=to;
+  const visibleTickets = useMemo(() => {
+    const query = filters.query.trim().toLocaleLowerCase("ru-RU");
+    const from = filters.createdFrom
+      ? new Date(`${filters.createdFrom}T00:00:00`).getTime() / 1000
+      : 0;
+    const to = filters.createdTo
+      ? new Date(`${filters.createdTo}T23:59:59`).getTime() / 1000
+      : Number.POSITIVE_INFINITY;
+    const result = tickets.filter((ticket) => {
+      if (
+        query &&
+        ![ticket.id, ticket.title, ticket.address, ticket.description].some(
+          (value) =>
+            String(value || "")
+              .toLocaleLowerCase("ru-RU")
+              .includes(query),
+        )
+      )
+        return false;
+      if (filters.status && ticket.status !== filters.status) return false;
+      if (filters.priority && ticket.priority !== filters.priority)
+        return false;
+      if (filters.assignment === "assigned" && !ticket.brigade_id) return false;
+      if (filters.assignment === "unassigned" && ticket.brigade_id)
+        return false;
+      return (
+        Number(ticket.created_at) >= from && Number(ticket.created_at) <= to
+      );
     });
-    return result.sort((left,right)=>{
-      if(filters.sort==="created_asc")return Number(left.created_at)-Number(right.created_at);
-      if(filters.sort==="updated_desc")return Number(right.updated_at)-Number(left.updated_at);
-      if(filters.sort==="priority_desc")return ({EMERGENCY:4,HIGH:3,MEDIUM:2,LOW:1}[right.priority]||0)-({EMERGENCY:4,HIGH:3,MEDIUM:2,LOW:1}[left.priority]||0);
-      if(filters.sort==="status")return (statusNames[left.status]||left.status).localeCompare(statusNames[right.status]||right.status,"ru");
-      return Number(right.created_at)-Number(left.created_at);
+    return result.sort((left, right) => {
+      if (filters.sort === "created_asc")
+        return Number(left.created_at) - Number(right.created_at);
+      if (filters.sort === "updated_desc")
+        return Number(right.updated_at) - Number(left.updated_at);
+      if (filters.sort === "priority_desc")
+        return (
+          ({ EMERGENCY: 4, HIGH: 3, MEDIUM: 2, LOW: 1 }[right.priority] || 0) -
+          ({ EMERGENCY: 4, HIGH: 3, MEDIUM: 2, LOW: 1 }[left.priority] || 0)
+        );
+      if (filters.sort === "status")
+        return (statusNames[left.status] || left.status).localeCompare(
+          statusNames[right.status] || right.status,
+          "ru",
+        );
+      return Number(right.created_at) - Number(left.created_at);
     });
-  },[filters,tickets]);
-  useEffect(()=>setVisibleCount(20),[filters]);
+  }, [filters, tickets]);
+  useEffect(() => setVisibleCount(20), [filters]);
 
-  async function openTicket(ticket:Ticket){
+  async function openTicket(ticket: Ticket) {
     setSelected(ticket);
-    if(demo)return;
-    try{
-      const result=await api<{ticket:Ticket}>(config.endpoints.ticketsGet,{ticket_id:ticket.id},"POST",session.accessToken);
-      setSelected(current=>current?.id===ticket.id?result.ticket:current);
+    if (demo) return;
+    try {
+      const result = await api<{ ticket: Ticket }>(
+        config.endpoints.ticketsGet,
+        { ticket_id: ticket.id },
+        "POST",
+        session.accessToken,
+      );
+      setSelected((current) =>
+        current?.id === ticket.id ? result.ticket : current,
+      );
       onUpdate(result.ticket);
-    }catch(error){onNotice(error instanceof Error?error.message:"Не удалось обновить заявку")}
+    } catch (error) {
+      onNotice(
+        error instanceof Error ? error.message : "Не удалось обновить заявку",
+      );
+    }
   }
 
-  async function loadComposition(incidentID:string){
-    const result=await api<IncidentComposition>(
+  async function loadComposition(incidentID: string) {
+    const result = await api<IncidentComposition>(
       config.endpoints.ticketRequestsList,
-      {incident_id:incidentID,limit:100,offset:0},
+      { incident_id: incidentID, limit: 100, offset: 0 },
       "POST",
       session.accessToken,
     );
@@ -88,48 +200,66 @@ export function TicketWorkspace({tickets,session,role,onUpdate,onMap,onNotice}:{
     setComposition(result);
   }
 
-  useEffect(()=>{
+  useEffect(() => {
     setComposition(undefined);
 
-    if(!selectedIncidentID||demo||!["admin","dispatcher"].includes(role))return;
+    if (!selectedIncidentID || demo || !["admin", "dispatcher"].includes(role))
+      return;
 
-    let active=true;
+    let active = true;
 
     api<IncidentComposition>(
       config.endpoints.ticketRequestsList,
-      {incident_id:selectedIncidentID,limit:100,offset:0},
+      { incident_id: selectedIncidentID, limit: 100, offset: 0 },
       "POST",
       session.accessToken,
     )
-      .then(result=>{if(active)setComposition(result)})
-      .catch(error=>{if(active)onNotice(error instanceof Error?error.message:"Не удалось загрузить состав инцидента")});
+      .then((result) => {
+        if (active) setComposition(result);
+      })
+      .catch((error) => {
+        if (active)
+          onNotice(
+            error instanceof Error
+              ? error.message
+              : "Не удалось загрузить состав инцидента",
+          );
+      });
 
-    return()=>{active=false};
-  },[demo,onNotice,role,selectedIncidentID,session.accessToken]);
+    return () => {
+      active = false;
+    };
+  }, [demo, onNotice, role, selectedIncidentID, session.accessToken]);
 
-  async function attachRequest(event:FormEvent<HTMLFormElement>){
+  async function attachRequest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if(!selected)return;
+    if (!selected) return;
 
-    const form=event.currentTarget;
-    const data=new FormData(form);
-    const incidentID=selected.ticket_type==="INCIDENT"?selected.id:String(data.get("incident_id")||"").trim();
-    const requestID=selected.ticket_type==="REQUEST"?selected.id:String(data.get("request_id")||"").trim();
-    const reason=String(data.get("reason")||"").trim();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const incidentID =
+      selected.ticket_type === "INCIDENT"
+        ? selected.id
+        : String(data.get("incident_id") || "").trim();
+    const requestID =
+      selected.ticket_type === "REQUEST"
+        ? selected.id
+        : String(data.get("request_id") || "").trim();
+    const reason = String(data.get("reason") || "").trim();
 
-    if(!incidentID||!requestID||!reason)return;
+    if (!incidentID || !requestID || !reason) return;
 
     setRelationBusy(true);
 
-    try{
-      const result=await api<{request:Ticket}>(
+    try {
+      const result = await api<{ request: Ticket }>(
         config.endpoints.ticketRequestsAttach,
-        {incident_id:incidentID,request_id:requestID,reason},
+        { incident_id: incidentID, request_id: requestID, reason },
         "POST",
         session.accessToken,
       );
 
-      if(selected.id===requestID){
+      if (selected.id === requestID) {
         setSelected(result.request);
         onUpdate(result.request);
       }
@@ -137,30 +267,39 @@ export function TicketWorkspace({tickets,session,role,onUpdate,onMap,onNotice}:{
       await loadComposition(incidentID);
       form.reset();
       onNotice("Заявка добавлена в состав инцидента");
-    }catch(error){
-      onNotice(error instanceof Error?error.message:"Не удалось добавить заявку в инцидент");
-    }finally{
+    } catch (error) {
+      onNotice(
+        error instanceof Error
+          ? error.message
+          : "Не удалось добавить заявку в инцидент",
+      );
+    } finally {
       setRelationBusy(false);
     }
   }
 
-  async function detachRequest(event:FormEvent<HTMLFormElement>){
+  async function detachRequest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if(!selected||selected.ticket_type!=="REQUEST"||!selected.incident_id)return;
+    if (
+      !selected ||
+      selected.ticket_type !== "REQUEST" ||
+      !selected.incident_id
+    )
+      return;
 
-    const form=event.currentTarget;
-    const data=new FormData(form);
-    const reason=String(data.get("reason")||"").trim();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const reason = String(data.get("reason") || "").trim();
 
-    if(!reason)return;
+    if (!reason) return;
 
     setRelationBusy(true);
 
-    try{
-      const incidentID=selected.incident_id;
-      const result=await api<{request:Ticket}>(
+    try {
+      const incidentID = selected.incident_id;
+      const result = await api<{ request: Ticket }>(
         config.endpoints.ticketRequestsDetach,
-        {request_id:selected.id,reason},
+        { request_id: selected.id, reason },
         "POST",
         session.accessToken,
       );
@@ -170,205 +309,1234 @@ export function TicketWorkspace({tickets,session,role,onUpdate,onMap,onNotice}:{
       await loadComposition(incidentID);
       form.reset();
       onNotice("Заявка исключена из состава инцидента");
-    }catch(error){
-      onNotice(error instanceof Error?error.message:"Не удалось исключить заявку из инцидента");
-    }finally{
+    } catch (error) {
+      onNotice(
+        error instanceof Error
+          ? error.message
+          : "Не удалось исключить заявку из инцидента",
+      );
+    } finally {
       setRelationBusy(false);
     }
   }
 
-  useEffect(()=>{
-    if(!selected){setReports([]);setReportFiles({});setHistory([]);return;}
-    if(demo){setReports(selected.status==="DONE"?[{id:"demo-report",ticket_id:selected.id,author_user_id:"demo-worker",description:(selected as DemoTicket).demo_report_description||"Работы выполнены, объект проверен и передан диспетчеру.",file_ids:[],created_at:Date.now()/1000}]:[]);setHistory([{id:"demo-history",new_status:selected.status,comment:"Текущее состояние",created_at:selected.updated_at}]);return;}
-    let active=true;
-    (async()=>{
-      try{
-        const [result,historyResult]=await Promise.all([api<{reports:WorkReport[]}>(config.endpoints.ticketReportsList,{ticket_id:selected.id},"POST",session.accessToken),api<{history:TicketHistory[]}>(config.endpoints.ticketsHistory,{ticket_id:selected.id,limit:100,offset:0},"POST",session.accessToken)]);
-        if(!active)return;
-        const items=result.reports||[];
+  useEffect(() => {
+    if (!selected) {
+      setReports([]);
+      setReportFiles({});
+      setHistory([]);
+      return;
+    }
+    if (demo) {
+      setReports(
+        selected.status === "DONE"
+          ? [
+              {
+                id: "demo-report",
+                ticket_id: selected.id,
+                author_user_id: "demo-worker",
+                description:
+                  (selected as DemoTicket).demo_report_description ||
+                  "Работы выполнены, объект проверен и передан диспетчеру.",
+                file_ids: [],
+                created_at: Date.now() / 1000,
+              },
+            ]
+          : [],
+      );
+      setHistory([
+        {
+          id: "demo-history",
+          new_status: selected.status,
+          comment: "Текущее состояние",
+          created_at: selected.updated_at,
+        },
+      ]);
+      return;
+    }
+    let active = true;
+    (async () => {
+      try {
+        const [result, historyResult] = await Promise.all([
+          api<{ reports: WorkReport[] }>(
+            config.endpoints.ticketReportsList,
+            { ticket_id: selected.id },
+            "POST",
+            session.accessToken,
+          ),
+          api<{ history: TicketHistory[] }>(
+            config.endpoints.ticketsHistory,
+            { ticket_id: selected.id, limit: 100, offset: 0 },
+            "POST",
+            session.accessToken,
+          ),
+        ]);
+        if (!active) return;
+        const items = result.reports || [];
         setReports(items);
-        setHistory(historyResult.history||[]);
-        const entries=await Promise.all(items.map(async report=>{
-          const response=await api<{files:StoredFile[]}>(config.endpoints.filesList,{resource_type:"work_report",resource_id:report.id},"POST",session.accessToken);
-          return [report.id,response.files||[]] as const;
-        }));
-        if(active)setReportFiles(Object.fromEntries(entries));
-      }catch(error){if(active)onNotice(error instanceof Error?error.message:"Не удалось загрузить отчёты")}
+        setHistory(historyResult.history || []);
+        const entries = await Promise.all(
+          items.map(async (report) => {
+            const response = await api<{ files: StoredFile[] }>(
+              config.endpoints.filesList,
+              { resource_type: "work_report", resource_id: report.id },
+              "POST",
+              session.accessToken,
+            );
+            return [report.id, response.files || []] as const;
+          }),
+        );
+        if (active) setReportFiles(Object.fromEntries(entries));
+      } catch (error) {
+        if (active)
+          onNotice(
+            error instanceof Error
+              ? error.message
+              : "Не удалось загрузить отчёты",
+          );
+      }
     })();
-    return()=>{active=false};
-  },[demo,onNotice,selected,session.accessToken]);
+    return () => {
+      active = false;
+    };
+  }, [demo, onNotice, selected, session.accessToken]);
 
-  useEffect(()=>{
+  useEffect(() => {
     setFeedback(undefined);
     setRating(0);
     setProblemResolved(true);
     setFeedbackComment("");
-    if(!selected||selected.status!=="DONE"||demo)return;
-    let active=true;
-    api<TicketFeedback>(config.endpoints.ticketFeedbackGet,{ticket_id:selected.id},"POST",session.accessToken)
-      .then(value=>{if(active){setFeedback(value);setRating(value.rating);setProblemResolved(value.problem_resolved);setFeedbackComment(value.comment)}})
-      .catch(error=>{if(active&&!(error instanceof ApiError&&error.status===404))onNotice(error instanceof Error?error.message:"Не удалось загрузить оценку")});
-    return()=>{active=false};
-  },[demo,onNotice,selected,session.accessToken]);
+    if (!selected || selected.status !== "DONE" || demo) return;
+    let active = true;
+    api<TicketFeedback>(
+      config.endpoints.ticketFeedbackGet,
+      { ticket_id: selected.id },
+      "POST",
+      session.accessToken,
+    )
+      .then((value) => {
+        if (active) {
+          setFeedback(value);
+          setRating(value.rating);
+          setProblemResolved(value.problem_resolved);
+          setFeedbackComment(value.comment);
+        }
+      })
+      .catch((error) => {
+        if (active && !(error instanceof ApiError && error.status === 404))
+          onNotice(
+            error instanceof Error
+              ? error.message
+              : "Не удалось загрузить оценку",
+          );
+      });
+    return () => {
+      active = false;
+    };
+  }, [demo, onNotice, selected, session.accessToken]);
 
-  async function submitFeedback(event:FormEvent<HTMLFormElement>){
+  async function submitFeedback(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if(!selected||rating<1||rating>5)return;
+    if (!selected || rating < 1 || rating > 5) return;
     setBusy(true);
-    try{
-      if(demo){onNotice("В демо оценка не сохраняется");return}
-      const value=await api<TicketFeedback>(config.endpoints.ticketFeedbackSubmit,{ticket_id:selected.id,rating,problem_resolved:problemResolved,comment:feedbackComment.trim()},"POST",session.accessToken);
+    try {
+      if (demo) {
+        onNotice("В демо оценка не сохраняется");
+        return;
+      }
+      const value = await api<TicketFeedback>(
+        config.endpoints.ticketFeedbackSubmit,
+        {
+          ticket_id: selected.id,
+          rating,
+          problem_resolved: problemResolved,
+          comment: feedbackComment.trim(),
+        },
+        "POST",
+        session.accessToken,
+      );
       setFeedback(value);
       onNotice("Оценка выполнения сохранена");
-    }catch(error){onNotice(error instanceof Error?error.message:"Не удалось сохранить оценку")}finally{setBusy(false)}
+    } catch (error) {
+      onNotice(
+        error instanceof Error ? error.message : "Не удалось сохранить оценку",
+      );
+    } finally {
+      setBusy(false);
+    }
   }
 
-  useEffect(()=>{
-    if(!selected||selected.status!=="NEW"||!["admin","dispatcher"].includes(role)||demo){setCandidates([]);return}
-    let active=true;
-    api<{candidates:DispatchCandidate[]}>(config.endpoints.dispatchPreview,{ticket_id:selected.id,limit:100},"POST",session.accessToken)
-      .then(result=>{if(active)setCandidates((result.candidates||[]).filter(item=>item.reachable).sort((a,b)=>a.rank-b.rank))})
-      .catch(error=>{if(active)onNotice(error instanceof Error?error.message:"Не удалось подобрать бригады")});
-    return()=>{active=false};
-  },[demo,onNotice,role,selected,session.accessToken]);
+  useEffect(() => {
+    if (
+      !selected ||
+      selected.status !== "NEW" ||
+      !["admin", "dispatcher"].includes(role) ||
+      demo
+    ) {
+      setCandidates([]);
+      return;
+    }
+    let active = true;
+    api<{ candidates: DispatchCandidate[] }>(
+      config.endpoints.dispatchPreview,
+      { ticket_id: selected.id, limit: 100 },
+      "POST",
+      session.accessToken,
+    )
+      .then((result) => {
+        if (active)
+          setCandidates(
+            (result.candidates || [])
+              .filter((item) => item.reachable)
+              .sort((a, b) => a.rank - b.rank),
+          );
+      })
+      .catch((error) => {
+        if (active)
+          onNotice(
+            error instanceof Error
+              ? error.message
+              : "Не удалось подобрать бригады",
+          );
+      });
+    return () => {
+      active = false;
+    };
+  }, [demo, onNotice, role, selected, session.accessToken]);
 
-  async function status(next:string){
-    if(!selected)return;
+  async function status(next: string) {
+    if (!selected) return;
     setBusy(true);
-    try{
-      let updated={...selected,status:next.toUpperCase()};
-      if(!demo){
-        const result=await api<{ticket:Ticket}>(config.endpoints.ticketsStatus,{ticket_id:selected.id,new_status:next,changed_by:session.user?.user_id,comment:"Изменено из рабочего окна"},"POST",session.accessToken);
-        updated=result.ticket;
+    try {
+      let updated = { ...selected, status: next.toUpperCase() };
+      if (!demo) {
+        const result = await api<{ ticket: Ticket }>(
+          config.endpoints.ticketsStatus,
+          {
+            ticket_id: selected.id,
+            new_status: next,
+            changed_by: session.user?.user_id,
+            comment: "Изменено из рабочего окна",
+          },
+          "POST",
+          session.accessToken,
+        );
+        updated = result.ticket;
       }
-      setSelected(updated);onUpdate(updated);onNotice(`Статус заявки изменён: ${statusNames[updated.status]||updated.status}`);
-    }catch(error){onNotice(error instanceof Error?error.message:"Не удалось изменить статус")}finally{setBusy(false)}
+      setSelected(updated);
+      onUpdate(updated);
+      onNotice(
+        `Статус заявки изменён: ${statusNames[updated.status] || updated.status}`,
+      );
+    } catch (error) {
+      onNotice(
+        error instanceof Error ? error.message : "Не удалось изменить статус",
+      );
+    } finally {
+      setBusy(false);
+    }
   }
 
-  async function assign(brigadeId:string){
-    if(!selected||!brigadeId)return;
+  async function assign(brigadeId: string) {
+    if (!selected || !brigadeId) return;
     setBusy(true);
-    try{
-      const updated:Ticket={...selected,brigade_id:brigadeId,status:"ASSIGNED"};
-      if(!demo){
-        const reserved=await api<{operation:{id:string;version:number}}>(config.endpoints.dispatchReserve,{ticket_id:selected.id,brigade_id:brigadeId,requested_by:session.user?.user_id,reservation_ttl_seconds:120},"POST",session.accessToken);
-        await api(config.endpoints.dispatchConfirm,{id:reserved.operation.id,confirmed_by:session.user?.user_id,expected_version:reserved.operation.version},"POST",session.accessToken);
+    try {
+      const updated: Ticket = {
+        ...selected,
+        brigade_id: brigadeId,
+        status: "ASSIGNED",
+      };
+      if (!demo) {
+        const reserved = await api<{
+          operation: { id: string; version: number };
+        }>(
+          config.endpoints.dispatchReserve,
+          {
+            ticket_id: selected.id,
+            brigade_id: brigadeId,
+            requested_by: session.user?.user_id,
+            reservation_ttl_seconds: 120,
+          },
+          "POST",
+          session.accessToken,
+        );
+        await api(
+          config.endpoints.dispatchConfirm,
+          {
+            id: reserved.operation.id,
+            confirmed_by: session.user?.user_id,
+            expected_version: reserved.operation.version,
+          },
+          "POST",
+          session.accessToken,
+        );
       }
-      setSelected(updated);onUpdate(updated);onNotice("Бригада назначена");
-    }catch(error){onNotice(error instanceof Error?error.message:"Не удалось назначить бригаду")}finally{setBusy(false)}
+      setSelected(updated);
+      onUpdate(updated);
+      onNotice("Бригада назначена");
+    } catch (error) {
+      onNotice(
+        error instanceof Error ? error.message : "Не удалось назначить бригаду",
+      );
+    } finally {
+      setBusy(false);
+    }
   }
 
-  async function autoAssign(){
-    if(!selected||demo)return;
+  async function autoAssign() {
+    if (!selected || demo) return;
     setBusy(true);
-    try{
-      const result=await api<{operation:{brigade_id:string}}>(config.endpoints.dispatchAuto,{ticket_id:selected.id,requested_by:session.user?.user_id,candidate_limit:100},"POST",session.accessToken);
-      const updated:Ticket={...selected,brigade_id:result.operation.brigade_id,status:"ASSIGNED"};
-      setSelected(updated);onUpdate(updated);onNotice("Dispatch Service автоматически назначил бригаду");
-    }catch(error){onNotice(error instanceof Error?error.message:"Не удалось выполнить автоназначение")}finally{setBusy(false)}
+    try {
+      const result = await api<{ operation: { brigade_id: string } }>(
+        config.endpoints.dispatchAuto,
+        {
+          ticket_id: selected.id,
+          requested_by: session.user?.user_id,
+          candidate_limit: 100,
+        },
+        "POST",
+        session.accessToken,
+      );
+      const updated: Ticket = {
+        ...selected,
+        brigade_id: result.operation.brigade_id,
+        status: "ASSIGNED",
+      };
+      setSelected(updated);
+      onUpdate(updated);
+      onNotice("Dispatch Service автоматически назначил бригаду");
+    } catch (error) {
+      onNotice(
+        error instanceof Error
+          ? error.message
+          : "Не удалось выполнить автоназначение",
+      );
+    } finally {
+      setBusy(false);
+    }
   }
 
-  async function complete(event:FormEvent<HTMLFormElement>){
-    event.preventDefault();if(!selected)return;
-    const description=String(new FormData(event.currentTarget).get("description")||"").trim();
+  async function complete(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selected) return;
+    const description = String(
+      new FormData(event.currentTarget).get("description") || "",
+    ).trim();
     setBusy(true);
-    try{
-      const fileIds:string[]=[];
-      if(!demo)for(const file of files){
-        const created=await api<{file:{id:string};upload_url:string}>(config.endpoints.filesUploadCreate,{name:file.name,content_type:file.type||"application/octet-stream",size:file.size},"POST",session.accessToken);
-        const uploaded=await fetch(created.upload_url,{method:"PUT",headers:{"Content-Type":file.type||"application/octet-stream"},body:file});
-        if(!uploaded.ok)throw new Error(`Не удалось загрузить ${file.name}`);
-        await api(config.endpoints.filesUploadConfirm,{file_id:created.file.id},"POST",session.accessToken);
-        fileIds.push(created.file.id);
+    try {
+      const fileIds: string[] = [];
+      if (!demo)
+        for (const file of files) {
+          const created = await api<{
+            file: { id: string };
+            upload_url: string;
+          }>(
+            config.endpoints.filesUploadCreate,
+            {
+              name: file.name,
+              content_type: file.type || "application/octet-stream",
+              size: file.size,
+            },
+            "POST",
+            session.accessToken,
+          );
+          const uploaded = await fetch(created.upload_url, {
+            method: "PUT",
+            headers: {
+              "Content-Type": file.type || "application/octet-stream",
+            },
+            body: file,
+          });
+          if (!uploaded.ok)
+            throw new Error(`Не удалось загрузить ${file.name}`);
+          await api(
+            config.endpoints.filesUploadConfirm,
+            { file_id: created.file.id },
+            "POST",
+            session.accessToken,
+          );
+          fileIds.push(created.file.id);
+        }
+      if (!demo) {
+        const generated = await api<{
+          work_report: WorkReport;
+          status: string;
+        }>(
+          config.endpoints.completionReportsCreate,
+          { ticket_id: selected.id, description, file_ids: fileIds },
+          "POST",
+          session.accessToken,
+        );
+        setReports((current) => [generated.work_report, ...current]);
+        const result = await api<{ ticket: Ticket }>(
+          config.endpoints.ticketsComplete,
+          {
+            ticket_id: selected.id,
+            completed_by: session.user?.user_id,
+            comment: description,
+          },
+          "POST",
+          session.accessToken,
+        );
+        setSelected(result.ticket);
+        onUpdate(result.ticket);
+      } else {
+        const updated: DemoTicket = {
+          ...selected,
+          status: "DONE",
+          demo_report_description: description,
+        };
+        setSelected(updated);
+        onUpdate(updated);
       }
-      if(!demo){
-        const generated=await api<{work_report:WorkReport;status:string}>(config.endpoints.completionReportsCreate,{ticket_id:selected.id,description,file_ids:fileIds},"POST",session.accessToken);
-        setReports(current=>[generated.work_report,...current]);
-        const result=await api<{ticket:Ticket}>(config.endpoints.ticketsComplete,{ticket_id:selected.id,completed_by:session.user?.user_id,comment:description},"POST",session.accessToken);
-        setSelected(result.ticket);onUpdate(result.ticket);
-      }else{
-        const updated:DemoTicket={...selected,status:"DONE",demo_report_description:description};setSelected(updated);onUpdate(updated);
+      setFiles([]);
+      onNotice(
+        demo
+          ? "Демо: заявка завершена. Фото и PDF не сохраняются"
+          : "Заявка завершена. Акт поставлен в очередь, PDF появится после обработки",
+      );
+    } catch (error) {
+      onNotice(
+        error instanceof Error ? error.message : "Не удалось завершить заявку",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function cancel(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selected) return;
+    const reason = String(
+      new FormData(event.currentTarget).get("reason") || "",
+    ).trim();
+    setBusy(true);
+    try {
+      let updated = { ...selected, status: "CANCELED" };
+      if (!demo) {
+        const result = await api<{ ticket: Ticket }>(
+          config.endpoints.ticketsCancel,
+          {
+            ticket_id: selected.id,
+            canceled_by: session.user?.user_id,
+            reason,
+          },
+          "POST",
+          session.accessToken,
+        );
+        updated = result.ticket;
       }
-      setFiles([]);onNotice(demo?"Демо: заявка завершена. Фото и PDF не сохраняются":"Заявка завершена. Акт поставлен в очередь, PDF появится после обработки");
-    }catch(error){onNotice(error instanceof Error?error.message:"Не удалось завершить заявку")}finally{setBusy(false)}
+      setSelected(updated);
+      onUpdate(updated);
+      setHistory((items) => [
+        {
+          id: `local-${Date.now()}`,
+          old_status: selected.status,
+          new_status: "CANCELED",
+          changed_by: session.user?.user_id,
+          comment: reason,
+          created_at: Date.now() / 1000,
+        },
+        ...items,
+      ]);
+      onNotice("Заявка отменена");
+    } catch (error) {
+      onNotice(
+        error instanceof Error ? error.message : "Не удалось отменить заявку",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function updateTicket(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selected) return;
+    const d = new FormData(event.currentTarget),
+      payload = {
+        ticket_id: selected.id,
+        title: String(d.get("title")),
+        description: String(d.get("description")),
+        priority: String(d.get("priority")),
+        address: String(d.get("address")),
+        asset_id: String(d.get("asset_id") || "") || undefined,
+        updated_by: session.user?.user_id,
+      };
+    setBusy(true);
+    try {
+      let updated: Ticket = {
+        ...selected,
+        title: payload.title,
+        description: payload.description,
+        priority: payload.priority,
+        address: payload.address,
+        asset_id: payload.asset_id,
+      };
+      if (!demo) {
+        const result = await api<{ ticket: Ticket }>(
+          config.endpoints.ticketsUpdate,
+          payload,
+          "POST",
+          session.accessToken,
+        );
+        updated = result.ticket;
+      }
+      setSelected(updated);
+      onUpdate(updated);
+      setEditing(false);
+      onNotice("Данные заявки обновлены");
+    } catch (error) {
+      onNotice(
+        error instanceof Error ? error.message : "Не удалось обновить заявку",
+      );
+    } finally {
+      setBusy(false);
+    }
   }
 
-  async function cancel(event:FormEvent<HTMLFormElement>){
-    event.preventDefault();if(!selected)return;const reason=String(new FormData(event.currentTarget).get("reason")||"").trim();setBusy(true);
-    try{let updated={...selected,status:"CANCELED"};if(!demo){const result=await api<{ticket:Ticket}>(config.endpoints.ticketsCancel,{ticket_id:selected.id,canceled_by:session.user?.user_id,reason},"POST",session.accessToken);updated=result.ticket}setSelected(updated);onUpdate(updated);setHistory(items=>[{id:`local-${Date.now()}`,old_status:selected.status,new_status:"CANCELED",changed_by:session.user?.user_id,comment:reason,created_at:Date.now()/1000},...items]);onNotice("Заявка отменена")}catch(error){onNotice(error instanceof Error?error.message:"Не удалось отменить заявку")}finally{setBusy(false)}
+  async function download(file: StoredFile) {
+    if (demo) {
+      onNotice("В демо файл не загружается");
+      return;
+    }
+    try {
+      const result = await api<{ download_url: string }>(
+        config.endpoints.filesDownload,
+        { file_id: file.id },
+        "POST",
+        session.accessToken,
+      );
+      window.open(result.download_url, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      onNotice(
+        error instanceof Error ? error.message : "Не удалось открыть файл",
+      );
+    }
   }
-  async function updateTicket(event:FormEvent<HTMLFormElement>){event.preventDefault();if(!selected)return;const d=new FormData(event.currentTarget),payload={ticket_id:selected.id,title:String(d.get("title")),description:String(d.get("description")),priority:String(d.get("priority")),address:String(d.get("address")),asset_id:String(d.get("asset_id")||"")||undefined,updated_by:session.user?.user_id};setBusy(true);try{let updated:Ticket={...selected,title:payload.title,description:payload.description,priority:payload.priority,address:payload.address,asset_id:payload.asset_id};if(!demo){const result=await api<{ticket:Ticket}>(config.endpoints.ticketsUpdate,payload,"POST",session.accessToken);updated=result.ticket}setSelected(updated);onUpdate(updated);setEditing(false);onNotice("Данные заявки обновлены")}catch(error){onNotice(error instanceof Error?error.message:"Не удалось обновить заявку")}finally{setBusy(false)}}
 
-  async function download(file:StoredFile){
-    if(demo){onNotice("В демо файл не загружается");return;}
-    try{
-      const result=await api<{download_url:string}>(config.endpoints.filesDownload,{file_id:file.id},"POST",session.accessToken);
-      window.open(result.download_url,"_blank","noopener,noreferrer");
-    }catch(error){onNotice(error instanceof Error?error.message:"Не удалось открыть файл")}
-  }
-
-  async function removeStoredFile(reportId:string,file:StoredFile){
-    if(demo)return;
-    try{
-      await api(config.endpoints.filesDelete,{file_id:file.id},"POST",session.accessToken);
-      setReportFiles(current=>({...current,[reportId]:(current[reportId]||[]).filter(item=>item.id!==file.id)}));
+  async function removeStoredFile(reportId: string, file: StoredFile) {
+    if (demo) return;
+    try {
+      await api(
+        config.endpoints.filesDelete,
+        { file_id: file.id },
+        "POST",
+        session.accessToken,
+      );
+      setReportFiles((current) => ({
+        ...current,
+        [reportId]: (current[reportId] || []).filter(
+          (item) => item.id !== file.id,
+        ),
+      }));
       onNotice(`Файл «${file.name}» удалён`);
-    }catch(error){onNotice(error instanceof Error?error.message:"Не удалось удалить файл")}
+    } catch (error) {
+      onNotice(
+        error instanceof Error ? error.message : "Не удалось удалить файл",
+      );
+    }
   }
 
-  return <section className="content-page ticket-workspace">
-    <div className="page-toolbar"><div><h2>Работа с заявками</h2><p>Назначение, исполнение и подтверждённые отчёты</p></div></div>
-    <div className="service-filters ticket-filters">
-      <label className="filter-search">Поиск<input type="search" value={filters.query} onChange={event=>setFilters(current=>({...current,query:event.target.value}))} placeholder="Номер, название или адрес"/></label>
-      <label>Статус<select value={filters.status} onChange={event=>setFilters(current=>({...current,status:event.target.value}))}><option value="">Все статусы</option><option value="NEW">Новая</option><option value="ASSIGNED">Назначена</option><option value="IN_PROGRESS">В работе</option><option value="DONE">Завершена</option><option value="CANCELED">Отменена</option></select></label>
-      <label>Приоритет<select value={filters.priority} onChange={event=>setFilters(current=>({...current,priority:event.target.value}))}><option value="">Все приоритеты</option><option value="EMERGENCY">Экстренный</option><option value="HIGH">Высокий</option><option value="MEDIUM">Средний</option><option value="LOW">Низкий</option></select></label>
-      <label>Назначение<select value={filters.assignment} onChange={event=>setFilters(current=>({...current,assignment:event.target.value}))}><option value="">Все заявки</option><option value="assigned">Бригада назначена</option><option value="unassigned">Без бригады</option></select></label>
-      <label>Создана с<input type="date" value={filters.createdFrom} onChange={event=>setFilters(current=>({...current,createdFrom:event.target.value}))}/></label>
-      <label>Создана до<input type="date" value={filters.createdTo} onChange={event=>setFilters(current=>({...current,createdTo:event.target.value}))}/></label>
-      <label>Сортировка<select value={filters.sort} onChange={event=>setFilters(current=>({...current,sort:event.target.value}))}><option value="created_desc">Сначала новые</option><option value="created_asc">Сначала старые</option><option value="updated_desc">Недавно изменённые</option><option value="priority_desc">По приоритету</option><option value="status">По статусу</option></select></label>
-      <button type="button" onClick={()=>setFilters({query:"",status:"",priority:"",assignment:"",createdFrom:"",createdTo:"",sort:"created_desc"})}>Сбросить</button>
-      <span className="filter-result-count">Найдено: <b>{visibleTickets.length}</b></span>
-    </div>
-    <div className="work-ticket-list">{visibleTickets.slice(0,visibleCount).map(ticket=><button key={ticket.id} className={selected?.id===ticket.id?"selected":""} onClick={()=>void openTicket(ticket)}><span className={`priority ${ticket.priority.toLowerCase()}`}/><div><b>{ticket.title}</b><small>{ticket.ticket_type==="REQUEST"?"Часть инцидента":ticket.ticket_type==="INCIDENT"?"Инцидент":"Заявка"} · {ticket.address}</small></div><em className={`status ${ticket.status.toLowerCase()}`}>{statusNames[ticket.status]||ticket.status}</em></button>)}{!visibleTickets.length&&<p className="ticket-filter-empty">По выбранным фильтрам заявок нет.</p>}</div>
-    {visibleTickets.length>20&&<div className="list-pagination"><span>Показано {Math.min(visibleCount,visibleTickets.length)} из {visibleTickets.length}</span><button onClick={()=>setVisibleCount(current=>current>=visibleTickets.length?20:Math.min(current+20,visibleTickets.length))}>{visibleCount>=visibleTickets.length?"Свернуть":"Показать ещё"}</button></div>}
-    {selected&&<div className="ticket-modal-backdrop" role="presentation" onMouseDown={event=>{if(event.currentTarget===event.target)setSelected(undefined)}}>
-      <article className="ticket-modal" role="dialog" aria-modal="true" aria-label={`Заявка ${selected.id}`}>
-        <button className="detail-close" onClick={()=>setSelected(undefined)} aria-label="Закрыть">×</button>
-        <span className="eyebrow">Заявка {selected.id}</span>{editing?<form className="ticket-edit-form" onSubmit={updateTicket}><label>Заголовок<input name="title" defaultValue={selected.title} required/></label><label>Описание<textarea name="description" rows={4} defaultValue={selected.description} required/></label><label>Адрес<input name="address" defaultValue={selected.address} required/></label><label>Приоритет<select name="priority" defaultValue={selected.priority}><option>LOW</option><option>MEDIUM</option><option>HIGH</option><option>EMERGENCY</option></select></label><div><button type="button" onClick={()=>setEditing(false)}>Отмена</button><button className="primary" disabled={busy}>Сохранить</button></div></form>:<><h2>{selected.title}</h2><p className="ticket-description">{selected.description}</p>{["admin","dispatcher","user"].includes(role)&&<button className="link ticket-edit-link" onClick={()=>setEditing(true)}>Изменить данные заявки</button>}</>}
-        <dl className="ticket-facts"><div><dt>Адрес</dt><dd>{selected.address}</dd></div><div><dt>Статус</dt><dd>{statusNames[selected.status]||selected.status}</dd></div><div><dt>Тип</dt><dd>{selected.ticket_type==="REQUEST"?"Часть инцидента":selected.ticket_type==="INCIDENT"?"Инцидент":"Заявка"}</dd></div><div><dt>Создал</dt><dd>{selected.created_by_name||selected.user_id||"Не указан"}</dd></div><div><dt>Принял</dt><dd>{selected.brigade_id?(selected.accepted_by_name||`Бригада ${selected.brigade_id}`):"Ожидает назначения"}</dd></div></dl>
-        {composition&&selectedIncidentID&&<section className="incident-composition">
-          <div className="incident-composition-heading">
-            <div><span className="eyebrow">{composition.is_composite?"Составной междепартаментный инцидент":"Состав инцидента"}</span><h3>Выполнено {composition.completed} из {composition.total}</h3></div>
-            <strong>{composition.department_count} деп.</strong>
-          </div>
-          <div className="incident-progress"><span style={{width:`${composition.total?Math.round(composition.completed/composition.total*100):0}%`}}/></div>
-          <div className="incident-parts">{composition.requests.map(part=><button type="button" key={part.id} onClick={()=>void openTicket(part)}><span><b>{part.title}</b><small>Департамент {part.department_id}</small></span><em className={`status ${part.status.toLowerCase()}`}>{statusNames[part.status]||part.status}</em></button>)}</div>
-          {composition.total>composition.requests.length&&<small>Показаны первые {composition.requests.length} из {composition.total} частей.</small>}
-          {composition.all_parts_completed&&<p className="incident-complete-note">Все части выполнены — инцидент закрывается автоматически.</p>}
-        </section>}
-        {["admin","dispatcher"].includes(role)&&<section className="incident-relations">
-          <h3>Состав инцидента</h3>
-          <form onSubmit={attachRequest}>
-            {selected.ticket_type==="INCIDENT"?<label>ID добавляемой заявки<input name="request_id" required placeholder="UUID заявки"/></label>:<label>ID целевого инцидента<input name="incident_id" defaultValue={selected.incident_id||""} required placeholder="UUID инцидента"/></label>}
-            <label>Причина изменения<input name="reason" required minLength={3} maxLength={1000} placeholder="Почему заявки относятся к одному инциденту"/></label>
-            <button type="submit" disabled={relationBusy}>{relationBusy?"Сохраняем…":"Добавить в инцидент"}</button>
-          </form>
-          {selected.ticket_type==="REQUEST"&&selected.incident_id&&<form onSubmit={detachRequest}>
-            <label>Причина исключения<input name="reason" required minLength={3} maxLength={1000} placeholder="Почему заявка больше не относится к инциденту"/></label>
-            <button type="submit" className="danger-action" disabled={relationBusy}>Исключить из инцидента</button>
-          </form>}
-        </section>}
-        <div className="ticket-modal-actions"><button className="ghost" onClick={()=>onMap(selected.id)}>Показать на карте</button>{["admin","dispatcher"].includes(role)&&!isRequestBackedIncident&&<label>Назначить бригаду<select value={selected.brigade_id||""} onChange={event=>assign(event.target.value)} disabled={busy||selected.status!=="NEW"}><option value="">Выберите бригаду</option>{(candidates.length?candidates.map(candidate=>brigades.find(item=>item.id===candidate.brigade_id)).filter((item):item is NonNullable<typeof item>=>Boolean(item)):brigades).map(brigade=><option key={brigade.id} value={brigade.id}>{brigade.name}</option>)}</select>{selected.status==="NEW"&&candidates.length>0&&<small>Доступные бригады отсортированы Dispatch Service</small>}{selected.status==="NEW"&&<button type="button" className="link" disabled={busy} onClick={autoAssign}>Назначить автоматически</button>}</label>}</div>
-        {selected.status==="ASSIGNED"&&!isRequestBackedIncident&&["admin","dispatcher","worker"].includes(role)&&<button className="primary full-action" disabled={busy} onClick={()=>status("in_progress")}>Начать выполнение</button>}
-        {role === "worker" && selected.status === "IN_PROGRESS" && <TicketAssetPicker ticket={selected} session={session} demo={demo} onUpdate={ticket=>{setSelected(ticket);onUpdate(ticket)}} onNotice={onNotice}/>}
-        {!['DONE','CANCELED'].includes(selected.status)&&!isRequestBackedIncident&&["admin","dispatcher","user"].includes(role)&&<form className="ticket-cancel-form" onSubmit={cancel}><label>Причина отмены<input name="reason" required minLength={3} placeholder="Укажите причину"/></label><button className="danger-action" disabled={busy}>Отменить заявку</button></form>}
-        {isRequestBackedIncident&&selected.status!=="DONE"&&<p className="incident-complete-note">Инцидент нельзя закрыть вручную: он завершится после выполнения всех входящих заявок.</p>}
-        {selected.status==="IN_PROGRESS"&&!isRequestBackedIncident&&["admin","dispatcher","worker"].includes(role)&&<form className="completion-form" onSubmit={complete}><h3>Отчёт о выполнении</h3><label>Что выполнено<textarea name="description" required rows={4} placeholder="Опишите выполненные работы и результат"/></label>{demo?<p>В демо фото и PDF не сохраняются.</p>:<label className="file-drop">Фото и документы<input type="file" multiple accept="image/*,.pdf,.doc,.docx" onChange={event=>setFiles(Array.from(event.target.files||[]))}/><span>Выбрать файлы</span><small>Фотографии будут встроены в итоговый PDF</small></label>}{files.length>0&&<ul className="report-files">{files.map(file=><li key={`${file.name}-${file.size}`}><div><b>{file.name}</b><small>{(file.size/1024/1024).toFixed(2)} МБ</small></div><button type="button" onClick={()=>setFiles(value=>value.filter(item=>item!==file))}>×</button></li>)}</ul>}<button className="primary" disabled={busy} type="submit">{busy?"Формируем отчёт…":demo?"Завершить заявку (демо)":"Сформировать PDF и завершить"}</button></form>}
-        {reports.length>0&&<section className="saved-reports"><h3>Сохранённые отчёты</h3>{reports.map(report=><article key={report.id}><div><b>{report.description}</b><small>Автор: {report.author_user_id}</small></div><div className="saved-report-files">{(reportFiles[report.id]||[]).map(file=><span key={file.id}><button onClick={()=>download(file)}>{file.content_type==="application/pdf"?"PDF":"Файл"} · {file.name}</button>{["admin","dispatcher"].includes(role)&&<button className="file-delete" onClick={()=>removeStoredFile(report.id,file)} aria-label={`Удалить ${file.name}`}>×</button>}</span>)}</div></article>)}</section>}
-        {selected.status==="DONE"&&selected.user_id===session.user?.user_id&&<form className="ticket-feedback" onSubmit={submitFeedback}><h3>Оцените выполненную работу</h3><p>Ваша оценка поможет оценить качество работы департамента.</p><fieldset><legend>Общая оценка</legend>{[1,2,3,4,5].map(value=><button key={value} type="button" className={value<=rating?"selected":""} aria-label={`${value} из 5`} aria-pressed={rating===value} onClick={()=>setRating(value)}>★</button>)}</fieldset><label className="ticket-feedback-resolved"><input type="checkbox" checked={problemResolved} onChange={event=>setProblemResolved(event.target.checked)}/>Проблема решена</label><label>Комментарий (необязательно)<textarea value={feedbackComment} onChange={event=>setFeedbackComment(event.target.value)} maxLength={1000} rows={3} placeholder="Что понравилось или что можно улучшить?"/></label><button className="primary" disabled={busy||rating===0}>{feedback?"Обновить оценку":"Отправить оценку"}</button></form>}
-        {selected.status==="DONE"&&feedback&&selected.user_id!==session.user?.user_id&&<section className="ticket-feedback"><h3>Оценка заявителя</h3><p>{feedback.rating} из 5 · {feedback.problem_resolved?"Проблема решена":"Проблема не решена"}</p>{feedback.comment&&<p>{feedback.comment}</p>}</section>}
-        {history.length>0&&<section className="ticket-history"><h3>История статусов</h3>{history.map(item=><div key={item.id}><i>●</i><span><b>{item.old_status?`${statusNames[item.old_status]||item.old_status} → `:""}{statusNames[item.new_status]||item.new_status}</b><small>{item.comment||"Без комментария"} · {item.changed_by||"Система"}</small></span><time>{new Date(item.created_at*1000).toLocaleString("ru-RU")}</time></div>)}</section>}
-      </article>
-    </div>}
-  </section>;
+  return (
+    <section className="content-page ticket-workspace">
+      <div className="page-toolbar">
+        <div>
+          <h2>Работа с заявками</h2>
+          <p>Назначение, исполнение и подтверждённые отчёты</p>
+        </div>
+      </div>
+      <div className="service-filters ticket-filters">
+        <label className="filter-search">
+          Поиск
+          <input
+            type="search"
+            value={filters.query}
+            onChange={(event) =>
+              setFilters((current) => ({
+                ...current,
+                query: event.target.value,
+              }))
+            }
+            placeholder="Номер, название или адрес"
+          />
+        </label>
+        <label>
+          Статус
+          <select
+            value={filters.status}
+            onChange={(event) =>
+              setFilters((current) => ({
+                ...current,
+                status: event.target.value,
+              }))
+            }
+          >
+            <option value="">Все статусы</option>
+            <option value="NEW">Новая</option>
+            <option value="ASSIGNED">Назначена</option>
+            <option value="IN_PROGRESS">В работе</option>
+            <option value="DONE">Завершена</option>
+            <option value="CANCELED">Отменена</option>
+          </select>
+        </label>
+        <label>
+          Приоритет
+          <select
+            value={filters.priority}
+            onChange={(event) =>
+              setFilters((current) => ({
+                ...current,
+                priority: event.target.value,
+              }))
+            }
+          >
+            <option value="">Все приоритеты</option>
+            <option value="EMERGENCY">Экстренный</option>
+            <option value="HIGH">Высокий</option>
+            <option value="MEDIUM">Средний</option>
+            <option value="LOW">Низкий</option>
+          </select>
+        </label>
+        <label>
+          Назначение
+          <select
+            value={filters.assignment}
+            onChange={(event) =>
+              setFilters((current) => ({
+                ...current,
+                assignment: event.target.value,
+              }))
+            }
+          >
+            <option value="">Все заявки</option>
+            <option value="assigned">Бригада назначена</option>
+            <option value="unassigned">Без бригады</option>
+          </select>
+        </label>
+        <label>
+          Создана с
+          <input
+            type="date"
+            value={filters.createdFrom}
+            onChange={(event) =>
+              setFilters((current) => ({
+                ...current,
+                createdFrom: event.target.value,
+              }))
+            }
+          />
+        </label>
+        <label>
+          Создана до
+          <input
+            type="date"
+            value={filters.createdTo}
+            onChange={(event) =>
+              setFilters((current) => ({
+                ...current,
+                createdTo: event.target.value,
+              }))
+            }
+          />
+        </label>
+        <label>
+          Сортировка
+          <select
+            value={filters.sort}
+            onChange={(event) =>
+              setFilters((current) => ({
+                ...current,
+                sort: event.target.value,
+              }))
+            }
+          >
+            <option value="created_desc">Сначала новые</option>
+            <option value="created_asc">Сначала старые</option>
+            <option value="updated_desc">Недавно изменённые</option>
+            <option value="priority_desc">По приоритету</option>
+            <option value="status">По статусу</option>
+          </select>
+        </label>
+        <button
+          type="button"
+          onClick={() =>
+            setFilters({
+              query: "",
+              status: "",
+              priority: "",
+              assignment: "",
+              createdFrom: "",
+              createdTo: "",
+              sort: "created_desc",
+            })
+          }
+        >
+          Сбросить
+        </button>
+        <span className="filter-result-count">
+          Найдено: <b>{visibleTickets.length}</b>
+        </span>
+      </div>
+      <div className="work-ticket-list">
+        {visibleTickets.slice(0, visibleCount).map((ticket) => (
+          <button
+            key={ticket.id}
+            className={selected?.id === ticket.id ? "selected" : ""}
+            onClick={() => void openTicket(ticket)}
+          >
+            <span className={`priority ${ticket.priority.toLowerCase()}`} />
+            <div>
+              <b>{ticket.title}</b>
+              <small>
+                {ticket.ticket_type === "REQUEST"
+                  ? "Часть инцидента"
+                  : ticket.ticket_type === "INCIDENT"
+                    ? "Инцидент"
+                    : "Заявка"}{" "}
+                · {ticket.address}
+              </small>
+            </div>
+            <em className={`status ${ticket.status.toLowerCase()}`}>
+              {statusNames[ticket.status] || ticket.status}
+            </em>
+          </button>
+        ))}
+        {!visibleTickets.length && (
+          <p className="ticket-filter-empty">
+            По выбранным фильтрам заявок нет.
+          </p>
+        )}
+      </div>
+      {visibleTickets.length > 20 && (
+        <div className="list-pagination">
+          <span>
+            Показано {Math.min(visibleCount, visibleTickets.length)} из{" "}
+            {visibleTickets.length}
+          </span>
+          <button
+            onClick={() =>
+              setVisibleCount((current) =>
+                current >= visibleTickets.length
+                  ? 20
+                  : Math.min(current + 20, visibleTickets.length),
+              )
+            }
+          >
+            {visibleCount >= visibleTickets.length
+              ? "Свернуть"
+              : "Показать ещё"}
+          </button>
+        </div>
+      )}
+      {selected && (
+        <div
+          className="ticket-modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.currentTarget === event.target) setSelected(undefined);
+          }}
+        >
+          <article
+            className="ticket-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Заявка ${selected.id}`}
+          >
+            <button
+              className="detail-close"
+              onClick={() => setSelected(undefined)}
+              aria-label="Закрыть"
+            >
+              ×
+            </button>
+            <span className="eyebrow">Заявка {selected.id}</span>
+            {editing ? (
+              <form className="ticket-edit-form" onSubmit={updateTicket}>
+                <label>
+                  Заголовок
+                  <input name="title" defaultValue={selected.title} required />
+                </label>
+                <label>
+                  Описание
+                  <textarea
+                    name="description"
+                    rows={4}
+                    defaultValue={selected.description}
+                    required
+                  />
+                </label>
+                <label>
+                  Адрес
+                  <input
+                    name="address"
+                    defaultValue={selected.address}
+                    required
+                  />
+                </label>
+                <label>
+                  Приоритет
+                  <select name="priority" defaultValue={selected.priority}>
+                    <option>LOW</option>
+                    <option>MEDIUM</option>
+                    <option>HIGH</option>
+                    <option>EMERGENCY</option>
+                  </select>
+                </label>
+                <div>
+                  <button type="button" onClick={() => setEditing(false)}>
+                    Отмена
+                  </button>
+                  <button className="primary" disabled={busy}>
+                    Сохранить
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <>
+                <h2>{selected.title}</h2>
+                <p className="ticket-description">{selected.description}</p>
+                {["admin", "dispatcher", "user"].includes(role) && (
+                  <button
+                    className="link ticket-edit-link"
+                    onClick={() => setEditing(true)}
+                  >
+                    Изменить данные заявки
+                  </button>
+                )}
+              </>
+            )}
+            <dl className="ticket-facts">
+              <div>
+                <dt>Адрес</dt>
+                <dd>{selected.address}</dd>
+              </div>
+              <div>
+                <dt>Статус</dt>
+                <dd>{statusNames[selected.status] || selected.status}</dd>
+              </div>
+              <div>
+                <dt>Тип</dt>
+                <dd>
+                  {selected.ticket_type === "REQUEST"
+                    ? "Часть инцидента"
+                    : selected.ticket_type === "INCIDENT"
+                      ? "Инцидент"
+                      : "Заявка"}
+                </dd>
+              </div>
+              <div>
+                <dt>Создал</dt>
+                <dd>
+                  {selected.created_by_name || selected.user_id || "Не указан"}
+                </dd>
+              </div>
+              <div>
+                <dt>Принял</dt>
+                <dd>
+                  {selected.brigade_id
+                    ? selected.accepted_by_name ||
+                      `Бригада ${selected.brigade_id}`
+                    : "Ожидает назначения"}
+                </dd>
+              </div>
+            </dl>
+            {composition && selectedIncidentID && (
+              <section className="incident-composition">
+                <div className="incident-composition-heading">
+                  <div>
+                    <span className="eyebrow">
+                      {composition.is_composite
+                        ? "Составной междепартаментный инцидент"
+                        : "Состав инцидента"}
+                    </span>
+                    <h3>
+                      Выполнено {composition.completed} из {composition.total}
+                    </h3>
+                  </div>
+                  <strong>{composition.department_count} деп.</strong>
+                </div>
+                <div className="incident-progress">
+                  <span
+                    style={{
+                      width: `${composition.total ? Math.round((composition.completed / composition.total) * 100) : 0}%`,
+                    }}
+                  />
+                </div>
+                <div className="incident-parts">
+                  {composition.requests.map((part) => (
+                    <button
+                      type="button"
+                      key={part.id}
+                      onClick={() => void openTicket(part)}
+                    >
+                      <span>
+                        <b>{part.title}</b>
+                        <small>Департамент {part.department_id}</small>
+                      </span>
+                      <em className={`status ${part.status.toLowerCase()}`}>
+                        {statusNames[part.status] || part.status}
+                      </em>
+                    </button>
+                  ))}
+                </div>
+                {composition.total > composition.requests.length && (
+                  <small>
+                    Показаны первые {composition.requests.length} из{" "}
+                    {composition.total} частей.
+                  </small>
+                )}
+                {composition.all_parts_completed && (
+                  <p className="incident-complete-note">
+                    Все части выполнены — инцидент закрывается автоматически.
+                  </p>
+                )}
+              </section>
+            )}
+            {["admin", "dispatcher"].includes(role) && (
+              <section className="incident-relations">
+                <h3>Состав инцидента</h3>
+                <form onSubmit={attachRequest}>
+                  {selected.ticket_type === "INCIDENT" ? (
+                    <label>
+                      ID добавляемой заявки
+                      <input
+                        name="request_id"
+                        required
+                        placeholder="UUID заявки"
+                      />
+                    </label>
+                  ) : (
+                    <label>
+                      ID целевого инцидента
+                      <input
+                        name="incident_id"
+                        defaultValue={selected.incident_id || ""}
+                        required
+                        placeholder="UUID инцидента"
+                      />
+                    </label>
+                  )}
+                  <label>
+                    Причина изменения
+                    <input
+                      name="reason"
+                      required
+                      minLength={3}
+                      maxLength={1000}
+                      placeholder="Почему заявки относятся к одному инциденту"
+                    />
+                  </label>
+                  <button type="submit" disabled={relationBusy}>
+                    {relationBusy ? "Сохраняем…" : "Добавить в инцидент"}
+                  </button>
+                </form>
+                {selected.ticket_type === "REQUEST" && selected.incident_id && (
+                  <form onSubmit={detachRequest}>
+                    <label>
+                      Причина исключения
+                      <input
+                        name="reason"
+                        required
+                        minLength={3}
+                        maxLength={1000}
+                        placeholder="Почему заявка больше не относится к инциденту"
+                      />
+                    </label>
+                    <button
+                      type="submit"
+                      className="danger-action"
+                      disabled={relationBusy}
+                    >
+                      Исключить из инцидента
+                    </button>
+                  </form>
+                )}
+              </section>
+            )}
+            <div className="ticket-modal-actions">
+              <button className="ghost" onClick={() => onMap(selected.id)}>
+                Показать на карте
+              </button>
+              {["admin", "dispatcher"].includes(role) &&
+                !isRequestBackedIncident && (
+                  <label>
+                    Назначить бригаду
+                    <select
+                      value={selected.brigade_id || ""}
+                      onChange={(event) => assign(event.target.value)}
+                      disabled={busy || selected.status !== "NEW"}
+                    >
+                      <option value="">Выберите бригаду</option>
+                      {(candidates.length
+                        ? candidates
+                            .map((candidate) =>
+                              brigades.find(
+                                (item) => item.id === candidate.brigade_id,
+                              ),
+                            )
+                            .filter((item): item is NonNullable<typeof item> =>
+                              Boolean(item),
+                            )
+                        : brigades
+                      ).map((brigade) => (
+                        <option key={brigade.id} value={brigade.id}>
+                          {brigade.name}
+                        </option>
+                      ))}
+                    </select>
+                    {selected.status === "NEW" && candidates.length > 0 && (
+                      <small>
+                        Доступные бригады отсортированы Dispatch Service
+                      </small>
+                    )}
+                    {selected.status === "NEW" && (
+                      <button
+                        type="button"
+                        className="link"
+                        disabled={busy}
+                        onClick={autoAssign}
+                      >
+                        Назначить автоматически
+                      </button>
+                    )}
+                  </label>
+                )}
+            </div>
+            {selected.status === "ASSIGNED" &&
+              !isRequestBackedIncident &&
+              ["admin", "dispatcher", "worker"].includes(role) && (
+                <button
+                  className="primary full-action"
+                  disabled={busy}
+                  onClick={() => status("in_progress")}
+                >
+                  Начать выполнение
+                </button>
+              )}
+            {role === "worker" && selected.status === "IN_PROGRESS" && (
+              <TicketAssetPicker
+                ticket={selected}
+                session={session}
+                demo={demo}
+                onUpdate={(ticket) => {
+                  setSelected(ticket);
+                  onUpdate(ticket);
+                }}
+                onNotice={onNotice}
+              />
+            )}
+            {!["DONE", "CANCELED"].includes(selected.status) &&
+              !isRequestBackedIncident &&
+              ["admin", "dispatcher", "user"].includes(role) && (
+                <form className="ticket-cancel-form" onSubmit={cancel}>
+                  <label>
+                    Причина отмены
+                    <input
+                      name="reason"
+                      required
+                      minLength={3}
+                      placeholder="Укажите причину"
+                    />
+                  </label>
+                  <button className="danger-action" disabled={busy}>
+                    Отменить заявку
+                  </button>
+                </form>
+              )}
+            {isRequestBackedIncident && selected.status !== "DONE" && (
+              <p className="incident-complete-note">
+                Инцидент нельзя закрыть вручную: он завершится после выполнения
+                всех входящих заявок.
+              </p>
+            )}
+            {selected.status === "IN_PROGRESS" &&
+              !isRequestBackedIncident &&
+              ["admin", "dispatcher", "worker"].includes(role) && (
+                <form className="completion-form" onSubmit={complete}>
+                  <h3>Отчёт о выполнении</h3>
+                  <label>
+                    Что выполнено
+                    <textarea
+                      name="description"
+                      required
+                      rows={4}
+                      placeholder="Опишите выполненные работы и результат"
+                    />
+                  </label>
+                  {demo ? (
+                    <p>В демо фото и PDF не сохраняются.</p>
+                  ) : (
+                    <label className="file-drop">
+                      Фото и документы
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*,.pdf,.doc,.docx"
+                        onChange={(event) =>
+                          setFiles(Array.from(event.target.files || []))
+                        }
+                      />
+                      <span>Выбрать файлы</span>
+                      <small>Фотографии будут встроены в итоговый PDF</small>
+                    </label>
+                  )}
+                  {files.length > 0 && (
+                    <ul className="report-files">
+                      {files.map((file) => (
+                        <li key={`${file.name}-${file.size}`}>
+                          <div>
+                            <b>{file.name}</b>
+                            <small>
+                              {(file.size / 1024 / 1024).toFixed(2)} МБ
+                            </small>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setFiles((value) =>
+                                value.filter((item) => item !== file),
+                              )
+                            }
+                          >
+                            ×
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <button className="primary" disabled={busy} type="submit">
+                    {busy
+                      ? "Формируем отчёт…"
+                      : demo
+                        ? "Завершить заявку (демо)"
+                        : "Сформировать PDF и завершить"}
+                  </button>
+                </form>
+              )}
+            {reports.length > 0 && (
+              <section className="saved-reports">
+                <h3>Сохранённые отчёты</h3>
+                {reports.map((report) => (
+                  <article key={report.id}>
+                    <div>
+                      <b>{report.description}</b>
+                      <small>Автор: {report.author_user_id}</small>
+                    </div>
+                    <div className="saved-report-files">
+                      {(reportFiles[report.id] || []).map((file) => (
+                        <span key={file.id}>
+                          <button onClick={() => download(file)}>
+                            {file.content_type === "application/pdf"
+                              ? "PDF"
+                              : "Файл"}{" "}
+                            · {file.name}
+                          </button>
+                          {["admin", "dispatcher"].includes(role) && (
+                            <button
+                              className="file-delete"
+                              onClick={() => removeStoredFile(report.id, file)}
+                              aria-label={`Удалить ${file.name}`}
+                            >
+                              ×
+                            </button>
+                          )}
+                        </span>
+                      ))}
+                    </div>
+                  </article>
+                ))}
+              </section>
+            )}
+            {selected.status === "DONE" &&
+              selected.user_id === session.user?.user_id && (
+                <form className="ticket-feedback" onSubmit={submitFeedback}>
+                  <h3>Оцените выполненную работу</h3>
+                  <p>
+                    Ваша оценка поможет оценить качество работы департамента.
+                  </p>
+                  <fieldset>
+                    <legend>Общая оценка</legend>
+                    {[1, 2, 3, 4, 5].map((value) => (
+                      <button
+                        key={value}
+                        type="button"
+                        className={value <= rating ? "selected" : ""}
+                        aria-label={`${value} из 5`}
+                        aria-pressed={rating === value}
+                        onClick={() => setRating(value)}
+                      >
+                        ★
+                      </button>
+                    ))}
+                  </fieldset>
+                  <label className="ticket-feedback-resolved">
+                    <input
+                      type="checkbox"
+                      checked={problemResolved}
+                      onChange={(event) =>
+                        setProblemResolved(event.target.checked)
+                      }
+                    />
+                    Проблема решена
+                  </label>
+                  <label>
+                    Комментарий (необязательно)
+                    <textarea
+                      value={feedbackComment}
+                      onChange={(event) =>
+                        setFeedbackComment(event.target.value)
+                      }
+                      maxLength={1000}
+                      rows={3}
+                      placeholder="Что понравилось или что можно улучшить?"
+                    />
+                  </label>
+                  <button className="primary" disabled={busy || rating === 0}>
+                    {feedback ? "Обновить оценку" : "Отправить оценку"}
+                  </button>
+                </form>
+              )}
+            {selected.status === "DONE" &&
+              feedback &&
+              selected.user_id !== session.user?.user_id && (
+                <section className="ticket-feedback">
+                  <h3>Оценка заявителя</h3>
+                  <p>
+                    {feedback.rating} из 5 ·{" "}
+                    {feedback.problem_resolved
+                      ? "Проблема решена"
+                      : "Проблема не решена"}
+                  </p>
+                  {feedback.comment && <p>{feedback.comment}</p>}
+                </section>
+              )}
+            {history.length > 0 && (
+              <section className="ticket-history">
+                <h3>История статусов</h3>
+                {history.map((item) => (
+                  <div key={item.id}>
+                    <i>●</i>
+                    <span>
+                      <b>
+                        {item.old_status
+                          ? `${statusNames[item.old_status] || item.old_status} → `
+                          : ""}
+                        {statusNames[item.new_status] || item.new_status}
+                      </b>
+                      <small>
+                        {item.comment || "Без комментария"} ·{" "}
+                        {item.changed_by || "Система"}
+                      </small>
+                    </span>
+                    <time>
+                      {new Date(item.created_at * 1000).toLocaleString("ru-RU")}
+                    </time>
+                  </div>
+                ))}
+              </section>
+            )}
+          </article>
+        </div>
+      )}
+    </section>
+  );
 }

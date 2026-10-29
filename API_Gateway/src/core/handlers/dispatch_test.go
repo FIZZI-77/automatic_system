@@ -7,7 +7,15 @@ import (
 )
 
 func TestDispatchStatus(t *testing.T) {
-	tests := map[string]dispatchv1.DispatchStatus{"PENDING": dispatchv1.DispatchStatus_DISPATCH_STATUS_PENDING, "reserved": dispatchv1.DispatchStatus_DISPATCH_STATUS_RESERVED, "CONFIRMING": dispatchv1.DispatchStatus_DISPATCH_STATUS_CONFIRMING, "ASSIGNED": dispatchv1.DispatchStatus_DISPATCH_STATUS_ASSIGNED, "FAILED": dispatchv1.DispatchStatus_DISPATCH_STATUS_FAILED, "CANCELLED": dispatchv1.DispatchStatus_DISPATCH_STATUS_CANCELLED, "EXPIRED": dispatchv1.DispatchStatus_DISPATCH_STATUS_EXPIRED}
+	tests := map[string]dispatchv1.DispatchStatus{
+		"PENDING":    dispatchv1.DispatchStatus_DISPATCH_STATUS_PENDING,
+		"reserved":   dispatchv1.DispatchStatus_DISPATCH_STATUS_RESERVED,
+		"CONFIRMING": dispatchv1.DispatchStatus_DISPATCH_STATUS_CONFIRMING,
+		"ASSIGNED":   dispatchv1.DispatchStatus_DISPATCH_STATUS_ASSIGNED,
+		"FAILED":     dispatchv1.DispatchStatus_DISPATCH_STATUS_FAILED,
+		"CANCELLED":  dispatchv1.DispatchStatus_DISPATCH_STATUS_CANCELLED,
+		"EXPIRED":    dispatchv1.DispatchStatus_DISPATCH_STATUS_EXPIRED,
+	}
 	for input, expected := range tests {
 
 		if actual := dispatchStatus(input); actual != expected {

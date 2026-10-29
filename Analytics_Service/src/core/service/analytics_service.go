@@ -30,6 +30,8 @@ type AnalyticsServiceStruct struct {
 	logger        *zap.Logger
 }
 
+// NewAnalyticsServiceStruct создаёт сервис приёма событий и аналитических запросов.
+// nil logger заменяет журналом без вывода.
 func NewAnalyticsServiceStruct(repo *repository.Repository, logger *zap.Logger) *AnalyticsServiceStruct {
 
 	if logger == nil {
@@ -57,12 +59,18 @@ func NewAnalyticsServiceStruct(repo *repository.Repository, logger *zap.Logger) 
 		logger:        logger,
 	}
 }
+
+// DepartmentPerformance возвращает показатели ведомств и организации по заявкам,
+// SLA и отзывам, журналируя длительность и результат запроса.
 func (s *AnalyticsServiceStruct) DepartmentPerformance(c context.Context, f models.Filter) (models.DepartmentPerformanceReport, error) {
 	start := time.Now()
 	value, err := s.departments.DepartmentPerformance(c, f)
 	s.logQuery("department performance", start, err, zap.Int("departments", len(value.Departments)))
 	return value, err
 }
+
+// BrigadePerformance возвращает показатели выполнения заявок, SLA и использования
+// смен бригадами, сохраняя ошибку хранилища.
 func (s *AnalyticsServiceStruct) BrigadePerformance(c context.Context, f models.Filter) (models.BrigadePerformance, error) {
 	start := time.Now()
 	value, err := s.performance.BrigadePerformance(c, f)
@@ -72,12 +80,18 @@ func (s *AnalyticsServiceStruct) BrigadePerformance(c context.Context, f models.
 	)
 	return value, err
 }
+
+// DispatchOperations возвращает последние операции диспетчеризации по фильтрам
+// с ограничением limit, журналируя результат запроса.
 func (s *AnalyticsServiceStruct) DispatchOperations(c context.Context, f models.Filter, limit uint32) ([]models.DispatchOperationItem, error) {
 	start := time.Now()
 	value, err := s.operations.DispatchOperations(c, f, limit)
 	s.logQuery("dispatch operations", start, err, zap.Int("items", len(value)))
 	return value, err
 }
+
+// ProjectionHealth возвращает состояние событий и проекции: полноту, версии,
+// свежесть и задержки поступления, включая разрез топиков.
 func (s *AnalyticsServiceStruct) ProjectionHealth(c context.Context) (models.ProjectionHealth, error) {
 	start := time.Now()
 	value, err := s.health.ProjectionHealth(c)
@@ -87,6 +101,9 @@ func (s *AnalyticsServiceStruct) ProjectionHealth(c context.Context) (models.Pro
 	)
 	return value, err
 }
+
+// OperationalInsights возвращает время выезда, возраст очереди, показатели маршрутов
+// и расчёт потребности в бригадах по данным хранилища.
 func (s *AnalyticsServiceStruct) OperationalInsights(c context.Context, f models.Filter) (models.OperationalInsights, error) {
 	start := time.Now()
 	value, err := s.insights.OperationalInsights(c, f)
@@ -96,6 +113,9 @@ func (s *AnalyticsServiceStruct) OperationalInsights(c context.Context, f models
 	)
 	return value, err
 }
+
+// DispatchEffectiveness возвращает успешность и длительность автоматических
+// и ручных назначений по фильтрам.
 func (s *AnalyticsServiceStruct) DispatchEffectiveness(c context.Context, f models.Filter) (models.DispatchEffectiveness, error) {
 	start := time.Now()
 	v, err := s.effectiveness.DispatchEffectiveness(c, f)
@@ -105,30 +125,45 @@ func (s *AnalyticsServiceStruct) DispatchEffectiveness(c context.Context, f mode
 	)
 	return v, err
 }
+
+// AssignmentFunnel возвращает этапы назначения со счётчиками, конверсией
+// и распределением времени переходов.
 func (s *AnalyticsServiceStruct) AssignmentFunnel(c context.Context, f models.Filter) (models.AssignmentFunnel, error) {
 	start := time.Now()
 	v, err := s.funnel.AssignmentFunnel(c, f)
 	s.logQuery("assignment funnel", start, err, zap.Int("stages", len(v.Stages)))
 	return v, err
 }
+
+// ActiveWorkers возвращает число активных, доступных и находящихся на смене
+// сотрудников с разрезами ведомств и бригад.
 func (s *AnalyticsServiceStruct) ActiveWorkers(c context.Context, f models.Filter) (models.ActiveWorkers, error) {
 	start := time.Now()
 	v, err := s.workers.ActiveWorkers(c, f)
 	s.logQuery("active workers", start, err, zap.Uint64("active_members", v.ActiveMembers), zap.Uint64("available", v.Available))
 	return v, err
 }
+
+// BrigadeWorkload возвращает нагрузку бригад, неназначенную очередь
+// и показатели неравномерности распределения активных задач.
 func (s *AnalyticsServiceStruct) BrigadeWorkload(c context.Context, f models.Filter) (models.BrigadeWorkload, error) {
 	start := time.Now()
 	v, err := s.workload.BrigadeWorkload(c, f)
 	s.logQuery("brigade workload", start, err, zap.Uint64("active", v.Active), zap.Int("brigades", len(v.Brigades)))
 	return v, err
 }
+
+// DispatchFailures возвращает частоту и классификацию неуспешных операций
+// диспетчеризации по фильтрам.
 func (s *AnalyticsServiceStruct) DispatchFailures(c context.Context, f models.Filter) (models.DispatchFailureSummary, error) {
 	start := time.Now()
 	v, err := s.failures.DispatchFailures(c, f)
 	s.logQuery("dispatch failures", start, err, zap.Uint64("requested", v.Requested), zap.Uint64("failed", v.Failed+v.Expired+v.Canceled))
 	return v, err
 }
+
+// OperationalLatency возвращает распределения времени назначения и расчёта маршрута
+// в секундах с необязательной группировкой groupBy.
 func (s *AnalyticsServiceStruct) OperationalLatency(c context.Context, f models.Filter, groupBy string) (models.OperationalLatency, error) {
 	start := time.Now()
 	v, err := s.latency.OperationalLatency(c, f, groupBy)
@@ -141,12 +176,19 @@ func (s *AnalyticsServiceStruct) OperationalLatency(c context.Context, f models.
 	)
 	return v, err
 }
+
+// AssetSummary возвращает показатели событий объектов и разрезы по типу и району.
+// t и d ограничивают соответствующие разрезы, не общие счётчики.
 func (s *AnalyticsServiceStruct) AssetSummary(c context.Context, f models.Filter, t, d *string) (models.AssetSummary, error) {
 	start := time.Now()
 	v, e := s.assets.AssetSummary(c, f, t, d)
 	s.logQuery("asset summary", start, e, zap.Uint64("incidents", v.Incidents))
 	return v, e
 }
+
+// Consume сохраняет событие, считая отсутствующую версию равной 1 и разрешая
+// проекцию только для версии 1. Неизвестную версию тоже сохраняет, регистрируя
+// метрику и предупреждение; изменяет только локальную копию e.
 func (s *AnalyticsServiceStruct) Consume(c context.Context, e models.Event) error {
 	start := time.Now()
 
@@ -171,30 +213,42 @@ func (s *AnalyticsServiceStruct) Consume(c context.Context, e models.Event) erro
 	s.logger.Debug("analytics event stored", zap.String("topic", e.Topic), zap.Duration("duration", time.Since(start)))
 	return nil
 }
+
+// Overview возвращает сводку заявок с долей завершения и средним временем реакции
+// и решения в секундах.
 func (s *AnalyticsServiceStruct) Overview(c context.Context, f models.Filter) (models.Overview, error) {
 	start := time.Now()
 	v, err := s.overview.Overview(c, f)
 	s.logQuery("ticket overview", start, err, zap.Uint64("created", v.Created))
 	return v, err
 }
+
+// SLA возвращает счётчики предупреждений, нарушений и завершений по событиям SLA.
 func (s *AnalyticsServiceStruct) SLA(c context.Context, f models.Filter) (models.SLA, error) {
 	start := time.Now()
 	v, err := s.sla.SLA(c, f)
 	s.logQuery("SLA summary", start, err, zap.Uint64("breaches", v.ResponseBreaches+v.ResolutionBreaches))
 	return v, err
 }
+
+// Breakdown возвращает распределение событий создания заявок по измерению d
+// с лимитом l, процентами и общим количеством.
 func (s *AnalyticsServiceStruct) Breakdown(c context.Context, f models.Filter, d string, l int32) ([]models.Breakdown, uint64, error) {
 	start := time.Now()
 	v, total, err := s.breakdown.Breakdown(c, f, d, l)
 	s.logQuery("ticket breakdown", start, err, zap.String("dimension", d), zap.Int("items", len(v)))
 	return v, total, err
 }
+
+// Daily возвращает дневные счётчики создания, завершения и отмены заявок и нарушений SLA.
 func (s *AnalyticsServiceStruct) Daily(c context.Context, f models.Filter) ([]models.Daily, error) {
 	start := time.Now()
 	v, err := s.daily.Daily(c, f)
 	s.logQuery("daily metrics", start, err, zap.Int("items", len(v)))
 	return v, err
 }
+
+// logQuery добавляет длительность запроса и пишет Info при успехе либо Error с причиной сбоя.
 func (s *AnalyticsServiceStruct) logQuery(name string, start time.Time, err error, fields ...zap.Field) {
 	fields = append(fields, zap.Duration("duration", time.Since(start)))
 

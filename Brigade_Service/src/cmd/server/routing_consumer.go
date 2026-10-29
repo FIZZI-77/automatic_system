@@ -32,7 +32,10 @@ func startRoutingConsumer(db *pgxpool.Pool, dependencies *closer.Closer, logger 
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	dependencies.Add("routing consumer", func() error { cancel(); return worker.Close() })
+	dependencies.Add("routing consumer", func() error {
+		cancel()
+		return worker.Close()
+	})
 	go func() {
 
 		if err := worker.Run(ctx); err != nil {

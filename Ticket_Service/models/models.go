@@ -16,6 +16,7 @@ const (
 	TicketStatusCanceled   TicketStatus = "CANCELED"
 )
 
+// IsValid проверяет принадлежность статуса публичному жизненному циклу заявки.
 func (s TicketStatus) IsValid() bool {
 	switch s {
 	case TicketStatusNew,
@@ -38,6 +39,7 @@ const (
 	TicketPriorityEmergency TicketPriority = "EMERGENCY"
 )
 
+// IsValid сообщает, поддерживается ли указанный приоритет заявки.
 func (p TicketPriority) IsValid() bool {
 	switch p {
 	case TicketPriorityLow,
@@ -59,6 +61,7 @@ const (
 	TicketSortByStatus    TicketSortBy = "status"
 )
 
+// IsValid проверяет, разрешено ли указанное поле для сортировки заявок.
 func (s TicketSortBy) IsValid() bool {
 	switch s {
 	case TicketSortByCreatedAt,
@@ -78,6 +81,7 @@ const (
 	SortOrderDesc SortOrder = "desc"
 )
 
+// IsValid допускает только поддерживаемые направления сортировки.
 func (s SortOrder) IsValid() bool {
 	switch s {
 	case SortOrderAsc, SortOrderDesc:

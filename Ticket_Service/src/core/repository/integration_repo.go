@@ -17,6 +17,8 @@ type integrationCredential struct {
 	SecretHash  string
 }
 
+// RegisterIntegration сохраняет активный внешний источник с новым UUID.
+// Принимает уже вычисленные хеш и префикс секрета; возвращает публичные метаданные.
 func (r *Repository) RegisterIntegration(
 	ctx context.Context,
 	in *models.RegisterIntegrationInput,
@@ -71,6 +73,8 @@ func (r *Repository) RegisterIntegration(
 	return integration, nil
 }
 
+// GetIntegrationCredential загружает источник по clientID вместе с хешем секрета.
+// Используется для аутентификации; при отсутствии записи возвращает ErrNotFound.
 func (r *Repository) GetIntegrationCredential(
 	ctx context.Context,
 	clientID string,
@@ -101,6 +105,8 @@ func (r *Repository) GetIntegrationCredential(
 	return credential, nil
 }
 
+// MarkIntegrationUsed устанавливает last_used_at и updated_at в текущее время БД.
+// Отсутствие записи не считается ошибкой: количество обновлённых строк не проверяется.
 func (r *Repository) MarkIntegrationUsed(ctx context.Context, integrationID uuid.UUID) error {
 	const query = `
 		UPDATE ticket_integrations
@@ -118,6 +124,8 @@ func (r *Repository) MarkIntegrationUsed(ctx context.Context, integrationID uuid
 	return nil
 }
 
+// ListIntegrations читает страницу источников от новых к старым без хешей секретов.
+// Общее количество берёт из оконного COUNT; для пустой страницы возвращает ноль.
 func (r *Repository) ListIntegrations(
 	ctx context.Context,
 	limit int32,
@@ -159,6 +167,8 @@ func (r *Repository) ListIntegrations(
 	return integrations, total, nil
 }
 
+// SetIntegrationActive меняет активность источника и возвращает обновлённые метаданные.
+// При отсутствии integrationID возвращает ErrNotFound; секрет не изменяет.
 func (r *Repository) SetIntegrationActive(
 	ctx context.Context,
 	integrationID uuid.UUID,
@@ -180,6 +190,8 @@ func (r *Repository) SetIntegrationActive(
 	return integration, nil
 }
 
+// RotateIntegrationSecret заменяет хеш и префикс секрета, сохраняя активность источника.
+// Возвращает обновлённые метаданные либо ErrNotFound, если integrationID отсутствует.
 func (r *Repository) RotateIntegrationSecret(
 	ctx context.Context,
 	integrationID uuid.UUID,
@@ -204,6 +216,8 @@ func (r *Repository) RotateIntegrationSecret(
 	return integration, nil
 }
 
+// scanTicketIntegration считывает метаданные источника с необязательными департаментом
+// и временем использования. Преобразует pgx.ErrNoRows в ErrNotFound.
 func scanTicketIntegration(s scanner) (*models.TicketIntegration, error) {
 	var integration models.TicketIntegration
 
@@ -249,6 +263,8 @@ func scanTicketIntegration(s scanner) (*models.TicketIntegration, error) {
 	return &integration, nil
 }
 
+// scanTicketIntegrationWithTotal считывает метаданные источника и оконный COUNT.
+// Ошибки сканирования и разбора UUID возвращает без преобразования.
 func scanTicketIntegrationWithTotal(s scanner) (*models.TicketIntegration, int64, error) {
 	var integration models.TicketIntegration
 	var allowedDepartmentID sql.NullString
@@ -287,6 +303,8 @@ func scanTicketIntegrationWithTotal(s scanner) (*models.TicketIntegration, int64
 	return &integration, total, nil
 }
 
+// scanIntegrationCredential считывает источник вместе с хешем секрета для проверки доступа.
+// Преобразует pgx.ErrNoRows в ErrNotFound и сохраняет NULL-поля как nil.
 func scanIntegrationCredential(s scanner) (*integrationCredential, error) {
 	var integration models.TicketIntegration
 	var secretHash string

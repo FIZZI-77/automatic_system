@@ -9,7 +9,11 @@ import (
 )
 
 func TestNewValidationAndDefaults(t *testing.T) {
-	for _, cfg := range []Config{{Topic: "events"}, {Brokers: []string{" "}, Topic: "events"}, {Brokers: []string{"kafka:9092"}, Topic: " "}} {
+	for _, cfg := range []Config{
+		{Topic: "events"},
+		{Brokers: []string{" "}, Topic: "events"},
+		{Brokers: []string{"kafka:9092"}, Topic: " "},
+	} {
 
 		if worker, err := New(nil, cfg, zap.NewNop()); err == nil || worker != nil {
 			t.Fatalf("New(%+v) = (%v, %v), want error", cfg, worker, err)
@@ -35,7 +39,15 @@ func TestNewValidationAndDefaults(t *testing.T) {
 }
 
 func TestNewPreservesPositiveConfiguration(t *testing.T) {
-	cfg := Config{Brokers: []string{"kafka:9092"}, Topic: "events", BatchSize: 9, PollInterval: 2 * time.Second, MaxAttempts: 3, LockTimeout: time.Minute, WorkerCount: 7}
+	cfg := Config{
+		Brokers:      []string{"kafka:9092"},
+		Topic:        "events",
+		BatchSize:    9,
+		PollInterval: 2 * time.Second,
+		MaxAttempts:  3,
+		LockTimeout:  time.Minute,
+		WorkerCount:  7,
+	}
 	worker, err := New(nil, cfg, zap.NewNop())
 
 	if err != nil {

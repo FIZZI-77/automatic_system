@@ -25,6 +25,7 @@ type userRegisteredEventPayload struct {
 	EmailVerified bool      `json:"email_verified"`
 }
 
+// NewUserRepoStruct создаёт хранилище пользователей; без отдельного readDB читает через writeDB.
 func NewUserRepoStruct(writeDB DBTX, readDB ...DBTX) *UserRepoStruct {
 	reader := writeDB
 
@@ -38,6 +39,8 @@ func NewUserRepoStruct(writeDB DBTX, readDB ...DBTX) *UserRepoStruct {
 	}
 }
 
+// CreateUser создаёт пользователя, назначает роль user и записывает событие регистрации
+// в общей транзакции. Возвращает новый UUID либо откатывает изменения при ошибке.
 func (u *UserRepoStruct) CreateUser(ctx context.Context, user *models.User) (uuid.UUID, error) {
 	var id uuid.UUID
 	err := withTransaction(ctx, u.writeDB, "CreateUser()", func(txExec DBTX) error {
@@ -54,6 +57,8 @@ func (u *UserRepoStruct) CreateUser(ctx context.Context, user *models.User) (uui
 	return id, nil
 }
 
+// DeleteUserRegistration компенсирует регистрацию, удаляя пользователя и ещё не отправленные
+// события auth.user.registered в одной транзакции. Ошибку возвращает и при отсутствии пользователя.
 func (u *UserRepoStruct) DeleteUserRegistration(ctx context.Context, userID uuid.UUID) error {
 	return withTransaction(ctx, u.writeDB, "DeleteUserRegistration()", func(txExec DBTX) error {
 
@@ -80,6 +85,8 @@ func (u *UserRepoStruct) DeleteUserRegistration(ctx context.Context, userID uuid
 	})
 }
 
+// createUser вставляет пользователя, роль user и событие outbox через текущий исполнитель.
+// Требует заранее созданную роль user; границы транзакции задаёт вызывающий.
 func (u *UserRepoStruct) createUser(ctx context.Context, user *models.User) (uuid.UUID, error) {
 	var id uuid.UUID
 	const query = `INSERT INTO users (
@@ -130,6 +137,9 @@ func (u *UserRepoStruct) createUser(ctx context.Context, user *models.User) (uui
 
 	return id, nil
 }
+
+// GetUserByID читает учётную запись вместе с хешем пароля по UUID.
+// При отсутствии записи возвращает обёрнутую pgx.ErrNoRows.
 func (u *UserRepoStruct) GetUserByID(ctx context.Context, id uuid.UUID) (*models.User, error) {
 	var user models.User
 
@@ -156,6 +166,9 @@ func (u *UserRepoStruct) GetUserByID(ctx context.Context, id uuid.UUID) (*models
 
 	return &user, nil
 }
+
+// GetUserByEmail читает учётную запись вместе с хешем пароля по точному адресу почты.
+// Адрес не нормализует; при отсутствии записи возвращает обёрнутую pgx.ErrNoRows.
 func (u *UserRepoStruct) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
 	var user models.User
 
@@ -182,6 +195,9 @@ func (u *UserRepoStruct) GetUserByEmail(ctx context.Context, email string) (*mod
 
 	return &user, nil
 }
+
+// UpdateUser заменяет учётные поля пользователя по ID переданными значениями.
+// Отсутствие строки не выявляет: количество обновлённых записей не проверяется.
 func (u *UserRepoStruct) UpdateUser(ctx context.Context, user *models.User) error {
 	const query = `UPDATE users SET email=$1, username=$2, password_hash=$3, is_active=$4, email_verified=$5 WHERE id = $6;`
 

@@ -13,10 +13,12 @@ type AuthHandler struct {
 	authClient v1.AuthServiceClient
 }
 
+// NewAuthHandler создает HTTP-обработчик, использующий клиент сервиса аутентификации.
 func NewAuthHandler(authClient v1.AuthServiceClient) *AuthHandler {
 	return &AuthHandler{authClient: authClient}
 }
 
+// Login проверяет учетные данные и возвращает пару токенов новой сессии.
 func (ah *AuthHandler) Login(c *gin.Context) {
 
 	var req models.LoginRequest
@@ -56,6 +58,7 @@ func (ah *AuthHandler) Login(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+// Logout завершает текущую пользовательскую сессию.
 func (ah *AuthHandler) Logout(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
@@ -77,6 +80,7 @@ func (ah *AuthHandler) Logout(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+// LogoutAll завершает все сессии текущего пользователя и сообщает их количество.
 func (ah *AuthHandler) LogoutAll(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
@@ -98,6 +102,7 @@ func (ah *AuthHandler) LogoutAll(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+// Register регистрирует пользователя и возвращает созданный идентификатор.
 func (ah *AuthHandler) Register(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 15*time.Second)
 	defer cancel()
@@ -131,6 +136,7 @@ func (ah *AuthHandler) Register(c *gin.Context) {
 	c.JSON(http.StatusCreated, result)
 }
 
+// Refresh обновляет access- и refresh-токены по переданному refresh-токену.
 func (ah *AuthHandler) Refresh(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
@@ -168,6 +174,7 @@ func (ah *AuthHandler) Refresh(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+// GetUserAuthInfo возвращает профиль, роли и разрешения текущего пользователя.
 func (ah *AuthHandler) GetUserAuthInfo(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
@@ -193,6 +200,7 @@ func (ah *AuthHandler) GetUserAuthInfo(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+// GetJWKS возвращает JSON-набор публичных ключей для проверки токенов.
 func (ah *AuthHandler) GetJWKS(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
@@ -211,6 +219,7 @@ func (ah *AuthHandler) GetJWKS(c *gin.Context) {
 	)
 }
 
+// ChangePassword меняет пароль текущего пользователя и при необходимости отзывает другие сессии.
 func (ah *AuthHandler) ChangePassword(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
@@ -246,6 +255,7 @@ func (ah *AuthHandler) ChangePassword(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+// SendVerificationEmail отправляет письмо для подтверждения адреса текущего пользователя.
 func (ah *AuthHandler) SendVerificationEmail(c *gin.Context) {
 	userID := c.GetString("user_id")
 
@@ -284,6 +294,7 @@ func (ah *AuthHandler) SendVerificationEmail(c *gin.Context) {
 	})
 }
 
+// VerifyEmail подтверждает адрес электронной почты по одноразовому токену.
 func (ah *AuthHandler) VerifyEmail(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
@@ -317,6 +328,7 @@ func (ah *AuthHandler) VerifyEmail(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+// RequestPasswordReset создает запрос на восстановление пароля по адресу электронной почты.
 func (ah *AuthHandler) RequestPasswordReset(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
@@ -347,6 +359,7 @@ func (ah *AuthHandler) RequestPasswordReset(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+// ResetPassword устанавливает новый пароль по токену восстановления.
 func (ah *AuthHandler) ResetPassword(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()

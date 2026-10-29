@@ -23,6 +23,7 @@ automatic_system/
 ├── docs/
 ├── k8s/
 ├── load-tests/
+├── postman/
 ├── scripts/
 ├── .github/workflows/
 ├── docker-compose.yml

@@ -14,6 +14,7 @@ const (
 	DepartmentStatusArchived DepartmentStatus = "ARCHIVED"
 )
 
+// IsValid сообщает, является ли статус одним из ACTIVE, INACTIVE или ARCHIVED.
 func (s DepartmentStatus) IsValid() bool {
 	switch s {
 	case DepartmentStatusActive, DepartmentStatusInactive, DepartmentStatusArchived:
@@ -32,6 +33,7 @@ const (
 	DepartmentSortByStatus    DepartmentSortBy = "status"
 )
 
+// IsValid проверяет поле сортировки: created_at, updated_at, name или status.
 func (s DepartmentSortBy) IsValid() bool {
 	switch s {
 	case DepartmentSortByCreatedAt, DepartmentSortByUpdatedAt, DepartmentSortByName, DepartmentSortByStatus:
@@ -48,6 +50,7 @@ const (
 	SortOrderDesc SortOrder = "desc"
 )
 
+// IsValid проверяет направление сортировки: asc или desc с учётом регистра.
 func (s SortOrder) IsValid() bool {
 	switch s {
 	case SortOrderAsc, SortOrderDesc:

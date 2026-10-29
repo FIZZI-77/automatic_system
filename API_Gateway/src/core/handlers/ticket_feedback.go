@@ -11,6 +11,8 @@ import (
 	"gateway/models"
 )
 
+// SubmitFeedback разбирает JSON оценки и комментария и передаёт отзыв Ticket Service
+// с метаданными пользователя и таймаутом 5 секунд; успех даёт HTTP 200 с отзывом.
 func (th *TicketHandler) SubmitFeedback(c *gin.Context) {
 	var request models.SubmitTicketFeedbackRequest
 
@@ -33,6 +35,8 @@ func (th *TicketHandler) SubmitFeedback(c *gin.Context) {
 	c.JSON(http.StatusOK, feedbackFromProto(response.GetFeedback()))
 }
 
+// GetFeedback разбирает ID заявки из JSON и запрашивает отзыв с метаданными
+// пользователя и таймаутом 5 секунд; успешный ответ возвращает с HTTP 200.
 func (th *TicketHandler) GetFeedback(c *gin.Context) {
 	var request models.GetTicketFeedbackRequest
 
@@ -52,6 +56,8 @@ func (th *TicketHandler) GetFeedback(c *gin.Context) {
 	c.JSON(http.StatusOK, feedbackFromProto(response.GetFeedback()))
 }
 
+// feedbackFromProto преобразует отзыв и временные метки в HTTP-модель;
+// nil сохраняет как nil.
 func feedbackFromProto(value *ticketv1.TicketFeedback) *models.TicketFeedback {
 
 	if value == nil {

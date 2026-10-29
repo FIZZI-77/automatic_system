@@ -16,11 +16,27 @@ func TestCreateBrigadeInputValidate(t *testing.T) {
 		input   *CreateBrigadeInput
 		wantErr bool
 	}{
-		{name: "valid", input: &CreateBrigadeInput{DepartmentID: departmentID, Name: "North crew"}, wantErr: false},
+		{
+			name:    "valid",
+			input:   &CreateBrigadeInput{DepartmentID: departmentID, Name: "North crew"},
+			wantErr: false,
+		},
 		{name: "nil", input: nil, wantErr: true},
-		{name: "empty department", input: &CreateBrigadeInput{DepartmentID: uuid.Nil, Name: "North crew"}, wantErr: true},
-		{name: "empty name", input: &CreateBrigadeInput{DepartmentID: departmentID, Name: ""}, wantErr: true},
-		{name: "long specialization", input: &CreateBrigadeInput{DepartmentID: departmentID, Name: "North crew", Specialization: &long}, wantErr: true},
+		{
+			name:    "empty department",
+			input:   &CreateBrigadeInput{DepartmentID: uuid.Nil, Name: "North crew"},
+			wantErr: true,
+		},
+		{
+			name:    "empty name",
+			input:   &CreateBrigadeInput{DepartmentID: departmentID, Name: ""},
+			wantErr: true,
+		},
+		{
+			name:    "long specialization",
+			input:   &CreateBrigadeInput{DepartmentID: departmentID, Name: "North crew", Specialization: &long},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -44,11 +60,26 @@ func TestListBrigadesInputValidate(t *testing.T) {
 		wantErr bool
 	}{
 		{name: "valid defaults", input: &ListBrigadesInput{}, wantErr: false},
-		{name: "valid filters", input: &ListBrigadesInput{DepartmentID: &departmentID, Status: ptrBrigadeStatus(BrigadeStatusActive), CreatedFrom: &before, CreatedTo: &now, SortBy: BrigadeSortByName, SortOrder: SortOrderAsc}, wantErr: false},
+		{
+			name: "valid filters",
+			input: &ListBrigadesInput{
+				DepartmentID: &departmentID,
+				Status:       ptrBrigadeStatus(BrigadeStatusActive),
+				CreatedFrom:  &before,
+				CreatedTo:    &now,
+				SortBy:       BrigadeSortByName,
+				SortOrder:    SortOrderAsc,
+			},
+			wantErr: false,
+		},
 		{name: "nil", input: nil, wantErr: true},
 		{name: "empty department", input: &ListBrigadesInput{DepartmentID: &emptyDepartment}, wantErr: true},
 		{name: "invalid status", input: &ListBrigadesInput{Status: &invalidStatus}, wantErr: true},
-		{name: "invalid range", input: &ListBrigadesInput{CreatedFrom: &now, CreatedTo: &before}, wantErr: true},
+		{
+			name:    "invalid range",
+			input:   &ListBrigadesInput{CreatedFrom: &now, CreatedTo: &before},
+			wantErr: true,
+		},
 		{name: "invalid sort by", input: &ListBrigadesInput{SortBy: BrigadeSortBy("bad")}, wantErr: true},
 		{name: "invalid sort order", input: &ListBrigadesInput{SortOrder: SortOrder("bad")}, wantErr: true},
 	}
@@ -96,13 +127,33 @@ func TestBrigadeStatusInputsValidate(t *testing.T) {
 		wantErr bool
 	}{
 		{name: "deactivate valid", err: (&DeactivateBrigadeInput{ID: brigadeID}).Validate(), wantErr: false},
-		{name: "deactivate empty id", err: (&DeactivateBrigadeInput{ID: uuid.Nil}).Validate(), wantErr: true},
+		{
+			name:    "deactivate empty id",
+			err:     (&DeactivateBrigadeInput{ID: uuid.Nil}).Validate(),
+			wantErr: true,
+		},
 		{name: "archive valid", err: (&ArchiveBrigadeInput{ID: brigadeID}).Validate(), wantErr: false},
 		{name: "archive empty id", err: (&ArchiveBrigadeInput{ID: uuid.Nil}).Validate(), wantErr: true},
-		{name: "set status valid", err: (&SetBrigadeStatusInput{BrigadeID: brigadeID, Status: BrigadeStatusActive}).Validate(), wantErr: false},
-		{name: "set status invalid", err: (&SetBrigadeStatusInput{BrigadeID: brigadeID, Status: invalidStatus}).Validate(), wantErr: true},
-		{name: "status history valid", err: (&GetBrigadeStatusHistoryInput{BrigadeID: brigadeID}).Validate(), wantErr: false},
-		{name: "status history empty id", err: (&GetBrigadeStatusHistoryInput{BrigadeID: uuid.Nil}).Validate(), wantErr: true},
+		{
+			name:    "set status valid",
+			err:     (&SetBrigadeStatusInput{BrigadeID: brigadeID, Status: BrigadeStatusActive}).Validate(),
+			wantErr: false,
+		},
+		{
+			name:    "set status invalid",
+			err:     (&SetBrigadeStatusInput{BrigadeID: brigadeID, Status: invalidStatus}).Validate(),
+			wantErr: true,
+		},
+		{
+			name:    "status history valid",
+			err:     (&GetBrigadeStatusHistoryInput{BrigadeID: brigadeID}).Validate(),
+			wantErr: false,
+		},
+		{
+			name:    "status history empty id",
+			err:     (&GetBrigadeStatusHistoryInput{BrigadeID: uuid.Nil}).Validate(),
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -124,16 +175,56 @@ func TestMemberInputsValidate(t *testing.T) {
 		err     error
 		wantErr bool
 	}{
-		{name: "add valid", err: (&AddBrigadeMemberInput{BrigadeID: brigadeID, UserID: userID, Role: BrigadeMemberRoleLead}).Validate(), wantErr: false},
-		{name: "add invalid role", err: (&AddBrigadeMemberInput{BrigadeID: brigadeID, UserID: userID, Role: invalidRole}).Validate(), wantErr: true},
-		{name: "remove valid", err: (&RemoveBrigadeMemberInput{BrigadeID: brigadeID, MemberID: memberID}).Validate(), wantErr: false},
-		{name: "change role valid", err: (&ChangeBrigadeMemberRoleInput{BrigadeID: brigadeID, MemberID: memberID, Role: BrigadeMemberRoleDriver}).Validate(), wantErr: false},
-		{name: "availability valid", err: (&SetBrigadeMemberAvailabilityInput{BrigadeID: brigadeID, MemberID: memberID, Status: BrigadeMemberAvailabilityAvailable}).Validate(), wantErr: false},
-		{name: "availability invalid", err: (&SetBrigadeMemberAvailabilityInput{BrigadeID: brigadeID, MemberID: memberID, Status: invalidAvailability}).Validate(), wantErr: true},
-		{name: "list valid", err: (&ListBrigadeMembersInput{BrigadeID: brigadeID}).Validate(), wantErr: false},
-		{name: "list invalid role", err: (&ListBrigadeMembersInput{BrigadeID: brigadeID, Role: &invalidRole}).Validate(), wantErr: true},
-		{name: "history valid", err: (&GetBrigadeMemberHistoryInput{BrigadeID: brigadeID}).Validate(), wantErr: false},
-		{name: "status history valid", err: (&GetBrigadeMemberStatusHistoryInput{BrigadeID: brigadeID}).Validate(), wantErr: false},
+		{
+			name:    "add valid",
+			err:     (&AddBrigadeMemberInput{BrigadeID: brigadeID, UserID: userID, Role: BrigadeMemberRoleLead}).Validate(),
+			wantErr: false,
+		},
+		{
+			name:    "add invalid role",
+			err:     (&AddBrigadeMemberInput{BrigadeID: brigadeID, UserID: userID, Role: invalidRole}).Validate(),
+			wantErr: true,
+		},
+		{
+			name:    "remove valid",
+			err:     (&RemoveBrigadeMemberInput{BrigadeID: brigadeID, MemberID: memberID}).Validate(),
+			wantErr: false,
+		},
+		{
+			name:    "change role valid",
+			err:     (&ChangeBrigadeMemberRoleInput{BrigadeID: brigadeID, MemberID: memberID, Role: BrigadeMemberRoleDriver}).Validate(),
+			wantErr: false,
+		},
+		{
+			name:    "availability valid",
+			err:     (&SetBrigadeMemberAvailabilityInput{BrigadeID: brigadeID, MemberID: memberID, Status: BrigadeMemberAvailabilityAvailable}).Validate(),
+			wantErr: false,
+		},
+		{
+			name:    "availability invalid",
+			err:     (&SetBrigadeMemberAvailabilityInput{BrigadeID: brigadeID, MemberID: memberID, Status: invalidAvailability}).Validate(),
+			wantErr: true,
+		},
+		{
+			name:    "list valid",
+			err:     (&ListBrigadeMembersInput{BrigadeID: brigadeID}).Validate(),
+			wantErr: false,
+		},
+		{
+			name:    "list invalid role",
+			err:     (&ListBrigadeMembersInput{BrigadeID: brigadeID, Role: &invalidRole}).Validate(),
+			wantErr: true,
+		},
+		{
+			name:    "history valid",
+			err:     (&GetBrigadeMemberHistoryInput{BrigadeID: brigadeID}).Validate(),
+			wantErr: false,
+		},
+		{
+			name:    "status history valid",
+			err:     (&GetBrigadeMemberStatusHistoryInput{BrigadeID: brigadeID}).Validate(),
+			wantErr: false,
+		},
 		{name: "by user valid", err: (&GetBrigadeByUserIDInput{UserID: userID}).Validate(), wantErr: false},
 		{name: "by user empty", err: (&GetBrigadeByUserIDInput{UserID: uuid.Nil}).Validate(), wantErr: true},
 	}
@@ -157,15 +248,39 @@ func TestSkillInputsValidate(t *testing.T) {
 		wantErr bool
 	}{
 		{name: "create valid", err: (&CreateSkillInput{Code: code, Name: name}).Validate(), wantErr: false},
-		{name: "create empty code", err: (&CreateSkillInput{Code: "", Name: name}).Validate(), wantErr: true},
-		{name: "update valid code", err: (&UpdateSkillInput{ID: id, Code: &code}).Validate(), wantErr: false},
-		{name: "update valid active", err: (&UpdateSkillInput{ID: id, Active: &active}).Validate(), wantErr: false},
+		{
+			name:    "create empty code",
+			err:     (&CreateSkillInput{Code: "", Name: name}).Validate(),
+			wantErr: true,
+		},
+		{
+			name:    "update valid code",
+			err:     (&UpdateSkillInput{ID: id, Code: &code}).Validate(),
+			wantErr: false,
+		},
+		{
+			name:    "update valid active",
+			err:     (&UpdateSkillInput{ID: id, Active: &active}).Validate(),
+			wantErr: false,
+		},
 		{name: "update no fields", err: (&UpdateSkillInput{ID: id}).Validate(), wantErr: true},
 		{name: "deactivate valid", err: (&DeactivateSkillInput{ID: id}).Validate(), wantErr: false},
 		{name: "list valid", err: (&ListSkillsInput{}).Validate(), wantErr: false},
-		{name: "add brigade skill valid", err: (&AddBrigadeSkillInput{BrigadeID: uuid.New(), SkillID: id}).Validate(), wantErr: false},
-		{name: "remove brigade skill valid", err: (&RemoveBrigadeSkillInput{BrigadeID: uuid.New(), SkillID: id}).Validate(), wantErr: false},
-		{name: "list brigade skills valid", err: (&ListBrigadeSkillsInput{BrigadeID: uuid.New()}).Validate(), wantErr: false},
+		{
+			name:    "add brigade skill valid",
+			err:     (&AddBrigadeSkillInput{BrigadeID: uuid.New(), SkillID: id}).Validate(),
+			wantErr: false,
+		},
+		{
+			name:    "remove brigade skill valid",
+			err:     (&RemoveBrigadeSkillInput{BrigadeID: uuid.New(), SkillID: id}).Validate(),
+			wantErr: false,
+		},
+		{
+			name:    "list brigade skills valid",
+			err:     (&ListBrigadeSkillsInput{BrigadeID: uuid.New()}).Validate(),
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -185,12 +300,44 @@ func TestScheduleInputsValidate(t *testing.T) {
 		input   *SetBrigadeScheduleInput
 		wantErr bool
 	}{
-		{name: "valid", input: &SetBrigadeScheduleInput{BrigadeID: brigadeID, Items: []*BrigadeScheduleItem{{DayOfWeek: 1, StartsAt: "09:00", EndsAt: "18:00", Timezone: "UTC"}}}, wantErr: false},
+		{
+			name: "valid",
+			input: &SetBrigadeScheduleInput{
+				BrigadeID: brigadeID,
+				Items:     []*BrigadeScheduleItem{{DayOfWeek: 1, StartsAt: "09:00", EndsAt: "18:00", Timezone: "UTC"}},
+			},
+			wantErr: false,
+		},
 		{name: "empty items", input: &SetBrigadeScheduleInput{BrigadeID: brigadeID}, wantErr: true},
-		{name: "nil item", input: &SetBrigadeScheduleInput{BrigadeID: brigadeID, Items: []*BrigadeScheduleItem{nil}}, wantErr: true},
-		{name: "bad day", input: &SetBrigadeScheduleInput{BrigadeID: brigadeID, Items: []*BrigadeScheduleItem{{DayOfWeek: 8, StartsAt: "09:00", EndsAt: "18:00"}}}, wantErr: true},
-		{name: "same time", input: &SetBrigadeScheduleInput{BrigadeID: brigadeID, Items: []*BrigadeScheduleItem{{DayOfWeek: 1, StartsAt: "09:00", EndsAt: "09:00"}}}, wantErr: true},
-		{name: "bad valid range", input: &SetBrigadeScheduleInput{BrigadeID: brigadeID, Items: []*BrigadeScheduleItem{{DayOfWeek: 1, StartsAt: "09:00", EndsAt: "18:00", ValidFrom: &from, ValidTo: &to}}}, wantErr: true},
+		{
+			name:    "nil item",
+			input:   &SetBrigadeScheduleInput{BrigadeID: brigadeID, Items: []*BrigadeScheduleItem{nil}},
+			wantErr: true,
+		},
+		{
+			name: "bad day",
+			input: &SetBrigadeScheduleInput{
+				BrigadeID: brigadeID,
+				Items:     []*BrigadeScheduleItem{{DayOfWeek: 8, StartsAt: "09:00", EndsAt: "18:00"}},
+			},
+			wantErr: true,
+		},
+		{
+			name: "same time",
+			input: &SetBrigadeScheduleInput{
+				BrigadeID: brigadeID,
+				Items:     []*BrigadeScheduleItem{{DayOfWeek: 1, StartsAt: "09:00", EndsAt: "09:00"}},
+			},
+			wantErr: true,
+		},
+		{
+			name: "bad valid range",
+			input: &SetBrigadeScheduleInput{
+				BrigadeID: brigadeID,
+				Items:     []*BrigadeScheduleItem{{DayOfWeek: 1, StartsAt: "09:00", EndsAt: "18:00", ValidFrom: &from, ValidTo: &to}},
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -212,20 +359,87 @@ func TestZoneAndAvailabilityInputsValidate(t *testing.T) {
 		err     error
 		wantErr bool
 	}{
-		{name: "create zone valid", err: (&CreateBrigadeZoneInput{BrigadeID: brigadeID, DepartmentID: departmentID, Name: "North", GeoJSON: "{}"}).Validate(), wantErr: false},
-		{name: "create zone empty geo", err: (&CreateBrigadeZoneInput{BrigadeID: brigadeID, DepartmentID: departmentID, Name: "North", GeoJSON: ""}).Validate(), wantErr: true},
-		{name: "update zone valid", err: (&UpdateBrigadeZoneInput{ID: uuid.New(), Name: ptrString("South")}).Validate(), wantErr: false},
-		{name: "update zone no fields", err: (&UpdateBrigadeZoneInput{ID: uuid.New()}).Validate(), wantErr: true},
-		{name: "delete zone valid", err: (&DeleteBrigadeZoneInput{ID: uuid.New()}).Validate(), wantErr: false},
-		{name: "list zones valid", err: (&ListBrigadeZonesInput{BrigadeID: brigadeID}).Validate(), wantErr: false},
-		{name: "covers point valid", err: (&CheckBrigadeCoversPointInput{BrigadeID: brigadeID, Longitude: 37.62, Latitude: 55.75}).Validate(), wantErr: false},
-		{name: "covers point bad longitude", err: (&CheckBrigadeCoversPointInput{BrigadeID: brigadeID, Longitude: 181, Latitude: 55.75}).Validate(), wantErr: true},
-		{name: "find by point valid", err: (&FindBrigadesByPointInput{DepartmentID: departmentID, Longitude: 37.62, Latitude: 55.75}).Validate(), wantErr: false},
-		{name: "find by point invalid role", err: (&FindBrigadesByPointInput{DepartmentID: departmentID, Longitude: 37.62, Latitude: 55.75, RequiredRoles: []BrigadeMemberRole{invalidRole}}).Validate(), wantErr: true},
-		{name: "available valid", err: (&GetAvailableBrigadesInput{DepartmentID: departmentID, RequiredSkillIDs: []uuid.UUID{skillID}}).Validate(), wantErr: false},
-		{name: "available missing latitude", err: (&GetAvailableBrigadesInput{DepartmentID: departmentID, Longitude: ptrFloat64(37.62)}).Validate(), wantErr: true},
-		{name: "can handle valid", err: (&CheckBrigadeCanHandleTicketInput{BrigadeID: brigadeID, DepartmentID: departmentID, Longitude: 37.62, Latitude: 55.75}).Validate(), wantErr: false},
-		{name: "can handle nil skill", err: (&CheckBrigadeCanHandleTicketInput{BrigadeID: brigadeID, DepartmentID: departmentID, Longitude: 37.62, Latitude: 55.75, RequiredSkillIDs: []uuid.UUID{uuid.Nil}}).Validate(), wantErr: true},
+		{
+			name:    "create zone valid",
+			err:     (&CreateBrigadeZoneInput{BrigadeID: brigadeID, DepartmentID: departmentID, Name: "North", GeoJSON: "{}"}).Validate(),
+			wantErr: false,
+		},
+		{
+			name:    "create zone empty geo",
+			err:     (&CreateBrigadeZoneInput{BrigadeID: brigadeID, DepartmentID: departmentID, Name: "North", GeoJSON: ""}).Validate(),
+			wantErr: true,
+		},
+		{
+			name:    "update zone valid",
+			err:     (&UpdateBrigadeZoneInput{ID: uuid.New(), Name: ptrString("South")}).Validate(),
+			wantErr: false,
+		},
+		{
+			name:    "update zone no fields",
+			err:     (&UpdateBrigadeZoneInput{ID: uuid.New()}).Validate(),
+			wantErr: true,
+		},
+		{
+			name:    "delete zone valid",
+			err:     (&DeleteBrigadeZoneInput{ID: uuid.New()}).Validate(),
+			wantErr: false,
+		},
+		{
+			name:    "list zones valid",
+			err:     (&ListBrigadeZonesInput{BrigadeID: brigadeID}).Validate(),
+			wantErr: false,
+		},
+		{
+			name:    "covers point valid",
+			err:     (&CheckBrigadeCoversPointInput{BrigadeID: brigadeID, Longitude: 37.62, Latitude: 55.75}).Validate(),
+			wantErr: false,
+		},
+		{
+			name:    "covers point bad longitude",
+			err:     (&CheckBrigadeCoversPointInput{BrigadeID: brigadeID, Longitude: 181, Latitude: 55.75}).Validate(),
+			wantErr: true,
+		},
+		{
+			name:    "find by point valid",
+			err:     (&FindBrigadesByPointInput{DepartmentID: departmentID, Longitude: 37.62, Latitude: 55.75}).Validate(),
+			wantErr: false,
+		},
+		{
+			name: "find by point invalid role",
+			err: (&FindBrigadesByPointInput{
+				DepartmentID:  departmentID,
+				Longitude:     37.62,
+				Latitude:      55.75,
+				RequiredRoles: []BrigadeMemberRole{invalidRole},
+			}).Validate(),
+			wantErr: true,
+		},
+		{
+			name:    "available valid",
+			err:     (&GetAvailableBrigadesInput{DepartmentID: departmentID, RequiredSkillIDs: []uuid.UUID{skillID}}).Validate(),
+			wantErr: false,
+		},
+		{
+			name:    "available missing latitude",
+			err:     (&GetAvailableBrigadesInput{DepartmentID: departmentID, Longitude: ptrFloat64(37.62)}).Validate(),
+			wantErr: true,
+		},
+		{
+			name:    "can handle valid",
+			err:     (&CheckBrigadeCanHandleTicketInput{BrigadeID: brigadeID, DepartmentID: departmentID, Longitude: 37.62, Latitude: 55.75}).Validate(),
+			wantErr: false,
+		},
+		{
+			name: "can handle nil skill",
+			err: (&CheckBrigadeCanHandleTicketInput{
+				BrigadeID:        brigadeID,
+				DepartmentID:     departmentID,
+				Longitude:        37.62,
+				Latitude:         55.75,
+				RequiredSkillIDs: []uuid.UUID{uuid.Nil},
+			}).Validate(),
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {

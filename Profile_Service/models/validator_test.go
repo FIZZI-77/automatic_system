@@ -36,15 +36,54 @@ func TestCreateUserProfileInputValidate(t *testing.T) {
 		input   *CreateUserProfileInput
 		wantErr bool
 	}{
-		{name: "valid defaults", input: &CreateUserProfileInput{UserID: uuid.New(), FullName: "Иван Иванов"}},
-		{name: "valid phone contact", input: &CreateUserProfileInput{UserID: uuid.New(), FullName: "Иван Иванов", Phone: &phone, PreferredContactMethod: PreferredContactMethodPhone}},
+		{
+			name:  "valid defaults",
+			input: &CreateUserProfileInput{UserID: uuid.New(), FullName: "Иван Иванов"},
+		},
+		{
+			name: "valid phone contact",
+			input: &CreateUserProfileInput{
+				UserID:                 uuid.New(),
+				FullName:               "Иван Иванов",
+				Phone:                  &phone,
+				PreferredContactMethod: PreferredContactMethodPhone,
+			},
+		},
 		{name: "nil", input: nil, wantErr: true},
-		{name: "missing user id", input: &CreateUserProfileInput{FullName: "Иван Иванов"}, wantErr: true},
-		{name: "short full name", input: &CreateUserProfileInput{UserID: uuid.New(), FullName: "A"}, wantErr: true},
-		{name: "long full name", input: &CreateUserProfileInput{UserID: uuid.New(), FullName: strings.Repeat("a", 256)}, wantErr: true},
-		{name: "invalid phone", input: &CreateUserProfileInput{UserID: uuid.New(), FullName: "Иван Иванов", Phone: &badPhone}, wantErr: true},
-		{name: "phone contact without phone", input: &CreateUserProfileInput{UserID: uuid.New(), FullName: "Иван Иванов", PreferredContactMethod: PreferredContactMethodPhone}, wantErr: true},
-		{name: "invalid contact method", input: &CreateUserProfileInput{UserID: uuid.New(), FullName: "Иван Иванов", PreferredContactMethod: "SMS"}, wantErr: true},
+		{
+			name:    "missing user id",
+			input:   &CreateUserProfileInput{FullName: "Иван Иванов"},
+			wantErr: true,
+		},
+		{
+			name:    "short full name",
+			input:   &CreateUserProfileInput{UserID: uuid.New(), FullName: "A"},
+			wantErr: true,
+		},
+		{
+			name:    "long full name",
+			input:   &CreateUserProfileInput{UserID: uuid.New(), FullName: strings.Repeat("a", 256)},
+			wantErr: true,
+		},
+		{
+			name:    "invalid phone",
+			input:   &CreateUserProfileInput{UserID: uuid.New(), FullName: "Иван Иванов", Phone: &badPhone},
+			wantErr: true,
+		},
+		{
+			name: "phone contact without phone",
+			input: &CreateUserProfileInput{
+				UserID:                 uuid.New(),
+				FullName:               "Иван Иванов",
+				PreferredContactMethod: PreferredContactMethodPhone,
+			},
+			wantErr: true,
+		},
+		{
+			name:    "invalid contact method",
+			input:   &CreateUserProfileInput{UserID: uuid.New(), FullName: "Иван Иванов", PreferredContactMethod: "SMS"},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -80,12 +119,23 @@ func TestUpdateUserProfileInputValidate(t *testing.T) {
 		{name: "valid phone", input: &UpdateUserProfileInput{ID: uuid.New(), Phone: &phone}},
 		{name: "valid clear phone", input: &UpdateUserProfileInput{ID: uuid.New(), ClearPhone: true}},
 		{name: "valid avatar", input: &UpdateUserProfileInput{ID: uuid.New(), AvatarFileID: &avatarID}},
-		{name: "valid method", input: &UpdateUserProfileInput{ID: uuid.New(), PreferredContactMethod: &method}},
+		{
+			name:  "valid method",
+			input: &UpdateUserProfileInput{ID: uuid.New(), PreferredContactMethod: &method},
+		},
 		{name: "nil", input: nil, wantErr: true},
 		{name: "missing id", input: &UpdateUserProfileInput{FullName: &name}, wantErr: true},
 		{name: "no fields", input: &UpdateUserProfileInput{ID: uuid.New()}, wantErr: true},
-		{name: "phone clear conflict", input: &UpdateUserProfileInput{ID: uuid.New(), Phone: &phone, ClearPhone: true}, wantErr: true},
-		{name: "avatar clear conflict", input: &UpdateUserProfileInput{ID: uuid.New(), AvatarFileID: &avatarID, ClearAvatarFileID: true}, wantErr: true},
+		{
+			name:    "phone clear conflict",
+			input:   &UpdateUserProfileInput{ID: uuid.New(), Phone: &phone, ClearPhone: true},
+			wantErr: true,
+		},
+		{
+			name:    "avatar clear conflict",
+			input:   &UpdateUserProfileInput{ID: uuid.New(), AvatarFileID: &avatarID, ClearAvatarFileID: true},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -130,12 +180,41 @@ func TestCreateWorkProfileInputValidate(t *testing.T) {
 		input   *CreateWorkProfileInput
 		wantErr bool
 	}{
-		{name: "valid", input: &CreateWorkProfileInput{UserProfileID: uuid.New(), DepartmentID: uuid.New(), EmployeeNumber: &employeeNumber, Position: "Инженер"}},
+		{
+			name: "valid",
+			input: &CreateWorkProfileInput{
+				UserProfileID:  uuid.New(),
+				DepartmentID:   uuid.New(),
+				EmployeeNumber: &employeeNumber,
+				Position:       "Инженер",
+			},
+		},
 		{name: "nil", input: nil, wantErr: true},
-		{name: "missing user profile", input: &CreateWorkProfileInput{DepartmentID: uuid.New(), Position: "Инженер"}, wantErr: true},
-		{name: "missing department", input: &CreateWorkProfileInput{UserProfileID: uuid.New(), Position: "Инженер"}, wantErr: true},
-		{name: "blank position", input: &CreateWorkProfileInput{UserProfileID: uuid.New(), DepartmentID: uuid.New(), Position: " "}, wantErr: true},
-		{name: "long employee number", input: &CreateWorkProfileInput{UserProfileID: uuid.New(), DepartmentID: uuid.New(), EmployeeNumber: stringPtr(strings.Repeat("a", 65)), Position: "Инженер"}, wantErr: true},
+		{
+			name:    "missing user profile",
+			input:   &CreateWorkProfileInput{DepartmentID: uuid.New(), Position: "Инженер"},
+			wantErr: true,
+		},
+		{
+			name:    "missing department",
+			input:   &CreateWorkProfileInput{UserProfileID: uuid.New(), Position: "Инженер"},
+			wantErr: true,
+		},
+		{
+			name:    "blank position",
+			input:   &CreateWorkProfileInput{UserProfileID: uuid.New(), DepartmentID: uuid.New(), Position: " "},
+			wantErr: true,
+		},
+		{
+			name: "long employee number",
+			input: &CreateWorkProfileInput{
+				UserProfileID:  uuid.New(),
+				DepartmentID:   uuid.New(),
+				EmployeeNumber: stringPtr(strings.Repeat("a", 65)),
+				Position:       "Инженер",
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -155,12 +234,22 @@ func TestUpdateWorkProfileInputValidate(t *testing.T) {
 		wantErr bool
 	}{
 		{name: "valid position", input: &UpdateWorkProfileInput{ID: uuid.New(), Position: &position}},
-		{name: "valid employee number", input: &UpdateWorkProfileInput{ID: uuid.New(), EmployeeNumber: &employeeNumber}},
-		{name: "valid clear employee number", input: &UpdateWorkProfileInput{ID: uuid.New(), ClearEmployeeNumber: true}},
+		{
+			name:  "valid employee number",
+			input: &UpdateWorkProfileInput{ID: uuid.New(), EmployeeNumber: &employeeNumber},
+		},
+		{
+			name:  "valid clear employee number",
+			input: &UpdateWorkProfileInput{ID: uuid.New(), ClearEmployeeNumber: true},
+		},
 		{name: "nil", input: nil, wantErr: true},
 		{name: "missing id", input: &UpdateWorkProfileInput{Position: &position}, wantErr: true},
 		{name: "no fields", input: &UpdateWorkProfileInput{ID: uuid.New()}, wantErr: true},
-		{name: "clear conflict", input: &UpdateWorkProfileInput{ID: uuid.New(), EmployeeNumber: &employeeNumber, ClearEmployeeNumber: true}, wantErr: true},
+		{
+			name:    "clear conflict",
+			input:   &UpdateWorkProfileInput{ID: uuid.New(), EmployeeNumber: &employeeNumber, ClearEmployeeNumber: true},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -191,12 +280,30 @@ func TestCheckProfileCanJoinBrigadeInputValidate(t *testing.T) {
 		input   *CheckProfileCanJoinBrigadeInput
 		wantErr bool
 	}{
-		{name: "valid user id", input: &CheckProfileCanJoinBrigadeInput{UserID: &userID, BrigadeDepartmentID: departmentID}},
-		{name: "valid work profile id", input: &CheckProfileCanJoinBrigadeInput{WorkProfileID: &workProfileID, BrigadeDepartmentID: departmentID}},
+		{
+			name:  "valid user id",
+			input: &CheckProfileCanJoinBrigadeInput{UserID: &userID, BrigadeDepartmentID: departmentID},
+		},
+		{
+			name:  "valid work profile id",
+			input: &CheckProfileCanJoinBrigadeInput{WorkProfileID: &workProfileID, BrigadeDepartmentID: departmentID},
+		},
 		{name: "nil", input: nil, wantErr: true},
-		{name: "neither identifier", input: &CheckProfileCanJoinBrigadeInput{BrigadeDepartmentID: departmentID}, wantErr: true},
-		{name: "both identifiers", input: &CheckProfileCanJoinBrigadeInput{UserID: &userID, WorkProfileID: &workProfileID, BrigadeDepartmentID: departmentID}, wantErr: true},
-		{name: "missing department", input: &CheckProfileCanJoinBrigadeInput{UserID: &userID}, wantErr: true},
+		{
+			name:    "neither identifier",
+			input:   &CheckProfileCanJoinBrigadeInput{BrigadeDepartmentID: departmentID},
+			wantErr: true,
+		},
+		{
+			name:    "both identifiers",
+			input:   &CheckProfileCanJoinBrigadeInput{UserID: &userID, WorkProfileID: &workProfileID, BrigadeDepartmentID: departmentID},
+			wantErr: true,
+		},
+		{
+			name:    "missing department",
+			input:   &CheckProfileCanJoinBrigadeInput{UserID: &userID},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {

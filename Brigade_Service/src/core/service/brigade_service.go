@@ -29,6 +29,8 @@ type BrigadeServiceStruct struct {
 	log              *zap.Logger
 }
 
+// NewBrigadeService создаёт сервис бригад с хранилищем и клиентом ведомств.
+// Для выполнения операций требуется ненулевой log.
 func NewBrigadeService(repo *repository.Repo, departmentClient departmentv1.DepartmentServiceClient, log *zap.Logger) *BrigadeServiceStruct {
 	return &BrigadeServiceStruct{
 		repo:             repo,
@@ -37,6 +39,9 @@ func NewBrigadeService(repo *repository.Repo, departmentClient departmentv1.Depa
 	}
 }
 
+// CreateBrigade проверяет запрос, права администратора или диспетчера ведомства
+// и активность ведомства через Department Service, затем сохраняет бригаду.
+// Неактивное ведомство даёт ErrDepartmentInactive, дубликат — ErrAlreadyExists.
 func (b *BrigadeServiceStruct) CreateBrigade(ctx context.Context, in *models.CreateBrigadeInput) (*models.CreateBrigadeResult, error) {
 	log := b.log.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -119,6 +124,9 @@ func (b *BrigadeServiceStruct) CreateBrigade(ctx context.Context, in *models.Cre
 	return result, nil
 }
 
+// getDepartmentByIDWithRetry запрашивает ведомство до трёх раз с таймаутом 2 секунды
+// на попытку. Временные ошибки gRPC повторяет с растущей задержкой и случайной
+// добавкой; ожидание прерывается отменой ctx, итоговая ошибка преобразуется в доменную.
 func (b *BrigadeServiceStruct) getDepartmentByIDWithRetry(ctx context.Context, log *zap.Logger, departmentID uuid.UUID) (*departmentv1.GetDepartmentByIDResponse, error) {
 	var lastErr error
 	backoff := departmentCheckInitialBackoff
@@ -164,6 +172,8 @@ func (b *BrigadeServiceStruct) getDepartmentByIDWithRetry(ctx context.Context, l
 	return nil, mapDepartmentServiceError(lastErr)
 }
 
+// mapDepartmentServiceError преобразует gRPC NotFound в ErrNotFound, а временные
+// ошибки доступности — в ErrDependencyUnavailable; остальные ошибки сохраняет.
 func mapDepartmentServiceError(err error) error {
 
 	if err == nil {
@@ -180,6 +190,8 @@ func mapDepartmentServiceError(err error) error {
 	}
 }
 
+// isRetryableDepartmentError распознаёт коды gRPC Unavailable, DeadlineExceeded
+// и ResourceExhausted, при которых запрос ведомства можно повторить.
 func isRetryableDepartmentError(err error) bool {
 	switch status.Code(err) {
 	case codes.Unavailable, codes.DeadlineExceeded, codes.ResourceExhausted:
@@ -189,6 +201,8 @@ func isRetryableDepartmentError(err error) bool {
 	}
 }
 
+// GetBrigadeByID возвращает бригаду администратору, диспетчеру её ведомства
+// или её активному участнику. Отсутствие бригады даёт ErrNotFound.
 func (b *BrigadeServiceStruct) GetBrigadeByID(ctx context.Context, in *models.GetBrigadeByIDInput) (*models.GetBrigadeByIDResult, error) {
 	log := b.log.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -241,6 +255,8 @@ func (b *BrigadeServiceStruct) GetBrigadeByID(ctx context.Context, in *models.Ge
 
 }
 
+// ListBrigades проверяет запрос и возвращает страницу бригад администратору
+// или диспетчеру. Для диспетчера заменяет in.DepartmentID его ведомством.
 func (b *BrigadeServiceStruct) ListBrigades(ctx context.Context, in *models.ListBrigadesInput) (*models.ListBrigadesResult, error) {
 	log := b.log.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -315,6 +331,8 @@ func (b *BrigadeServiceStruct) ListBrigades(ctx context.Context, in *models.List
 	return result, nil
 }
 
+// UpdateBrigade меняет заданные поля бригады после проверки запроса и прав
+// администратора или диспетчера её текущего ведомства.
 func (b *BrigadeServiceStruct) UpdateBrigade(ctx context.Context, in *models.UpdateBrigadeInput) (*models.UpdateBrigadeResult, error) {
 	log := b.log.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -373,6 +391,8 @@ func (b *BrigadeServiceStruct) UpdateBrigade(ctx context.Context, in *models.Upd
 	return result, nil
 }
 
+// DeactivateBrigade переводит бригаду в INACTIVE после проверки запроса и доступа.
+// При отсутствии ChangedByUserID записывает в него ActorUserID.
 func (b *BrigadeServiceStruct) DeactivateBrigade(ctx context.Context, in *models.DeactivateBrigadeInput) (*models.DeactivateBrigadeResult, error) {
 	log := b.log.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -425,6 +445,8 @@ func (b *BrigadeServiceStruct) DeactivateBrigade(ctx context.Context, in *models
 	return result, nil
 }
 
+// ArchiveBrigade переводит бригаду в ARCHIVED для администратора или диспетчера
+// её ведомства. При отсутствии ChangedByUserID подставляет ActorUserID.
 func (b *BrigadeServiceStruct) ArchiveBrigade(ctx context.Context, in *models.ArchiveBrigadeInput) (*models.ArchiveBrigadeResult, error) {
 	log := b.log.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -477,6 +499,9 @@ func (b *BrigadeServiceStruct) ArchiveBrigade(ctx context.Context, in *models.Ar
 	return result, nil
 }
 
+// SetBrigadeStatus проверяет запрос, доступ и готовность к ACTIVE или AVAILABLE,
+// затем меняет статус. Недостаточная готовность даёт ErrBrigadeUnavailable;
+// отсутствующий ChangedByUserID заполняется из ActorUserID.
 func (b *BrigadeServiceStruct) SetBrigadeStatus(ctx context.Context, in *models.SetBrigadeStatusInput) (*models.SetBrigadeStatusResult, error) {
 	log := b.log.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -558,6 +583,8 @@ func (b *BrigadeServiceStruct) SetBrigadeStatus(ctx context.Context, in *models.
 	return result, nil
 }
 
+// GetBrigadeStatusHistory возвращает страницу истории статусов после проверки
+// запроса и прав администратора или диспетчера ведомства бригады.
 func (b *BrigadeServiceStruct) GetBrigadeStatusHistory(ctx context.Context, in *models.GetBrigadeStatusHistoryInput) (*models.GetBrigadeStatusHistoryResult, error) {
 	log := b.log.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -606,6 +633,8 @@ func (b *BrigadeServiceStruct) GetBrigadeStatusHistory(ctx context.Context, in *
 	return result, nil
 }
 
+// GetAvailableBrigades проверяет и нормализует запрос и подбирает доступные
+// бригады по ведомству, координатам, ролям и навыкам через репозиторий.
 func (b *BrigadeServiceStruct) GetAvailableBrigades(ctx context.Context, in *models.GetAvailableBrigadesInput) (*models.GetAvailableBrigadesResult, error) {
 	log := b.log.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -645,6 +674,8 @@ func (b *BrigadeServiceStruct) GetAvailableBrigades(ctx context.Context, in *mod
 	return result, nil
 }
 
+// CheckBrigadeCanHandleTicket проверяет запрос и возвращает возможность назначения
+// бригады на заявку вместе с причинами отказа, вычисленными репозиторием.
 func (b *BrigadeServiceStruct) CheckBrigadeCanHandleTicket(ctx context.Context, in *models.CheckBrigadeCanHandleTicketInput) (*models.CheckBrigadeCanHandleTicketResult, error) {
 	log := b.log.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -674,6 +705,9 @@ func (b *BrigadeServiceStruct) CheckBrigadeCanHandleTicket(ctx context.Context, 
 	return result, nil
 }
 
+// checkPermissionAndDepartmentForAdminAndDispatcher разрешает admin любое ведомство,
+// а dispatcher — только собственное; роли сравниваются точно, без нормализации.
+// При отказе пишет предупреждение и возвращает ErrPermissionDenied.
 func checkPermissionAndDepartmentForAdminAndDispatcher(log *zap.Logger, start time.Time, actorRoles []string, actorDepartmentID *uuid.UUID, departmentID uuid.UUID) error {
 
 	if actorRoles == nil {
@@ -730,6 +764,9 @@ func checkPermissionAndDepartmentForAdminAndDispatcher(log *zap.Logger, start ti
 
 }
 
+// checkStatusReadiness проверяет состав для ACTIVE, а для AVAILABLE — также
+// текущую смену; переход в AVAILABLE из INACTIVE или ARCHIVED запрещён.
+// Причины неготовности дают ErrBrigadeUnavailable; прочие целевые статусы пропускаются.
 func (b *BrigadeServiceStruct) checkStatusReadiness(ctx context.Context, log *zap.Logger, start time.Time, brigade *models.Brigade, targetStatus models.BrigadeStatus) error {
 	switch targetStatus {
 	case models.BrigadeStatusActive:

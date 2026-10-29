@@ -3,9 +3,9 @@ interface Fetcher {
 }
 
 interface D1Database {
-  prepare(query:string): unknown;
+  prepare(query: string): unknown;
 }
 
 declare module "cloudflare:workers" {
-  export const env: { DB:D1Database; [key:string]:unknown };
+  export const env: { DB: D1Database; [key: string]: unknown };
 }

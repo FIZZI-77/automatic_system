@@ -9,6 +9,7 @@ import (
 	"brigade/models"
 )
 
+// ToProtoBrigadeStatus преобразует статус бригады в protobuf; неизвестный даёт UNSPECIFIED.
 func ToProtoBrigadeStatus(status models.BrigadeStatus) brigadev1.BrigadeStatus {
 	switch status {
 	case models.BrigadeStatusActive:
@@ -32,6 +33,8 @@ func ToProtoBrigadeStatus(status models.BrigadeStatus) brigadev1.BrigadeStatus {
 	}
 }
 
+// FromProtoBrigadeStatus преобразует статус бригады в доменный;
+// неизвестное значение возвращает как пустую строку.
 func FromProtoBrigadeStatus(status brigadev1.BrigadeStatus) models.BrigadeStatus {
 	switch status {
 	case brigadev1.BrigadeStatus_BRIGADE_STATUS_ACTIVE:
@@ -55,6 +58,7 @@ func FromProtoBrigadeStatus(status brigadev1.BrigadeStatus) models.BrigadeStatus
 	}
 }
 
+// ToProtoMemberRole преобразует роль участника в protobuf; неизвестная даёт UNSPECIFIED.
 func ToProtoMemberRole(role models.BrigadeMemberRole) brigadev1.BrigadeMemberRole {
 	switch role {
 	case models.BrigadeMemberRoleLead:
@@ -70,6 +74,8 @@ func ToProtoMemberRole(role models.BrigadeMemberRole) brigadev1.BrigadeMemberRol
 	}
 }
 
+// FromProtoMemberRole преобразует роль участника в доменную;
+// неизвестное значение возвращает как пустую строку.
 func FromProtoMemberRole(role brigadev1.BrigadeMemberRole) models.BrigadeMemberRole {
 	switch role {
 	case brigadev1.BrigadeMemberRole_BRIGADE_MEMBER_ROLE_LEAD:
@@ -85,6 +91,8 @@ func FromProtoMemberRole(role brigadev1.BrigadeMemberRole) models.BrigadeMemberR
 	}
 }
 
+// ToProtoMemberAvailabilityStatus преобразует доступность участника в protobuf;
+// неизвестное значение даёт UNSPECIFIED.
 func ToProtoMemberAvailabilityStatus(status models.BrigadeMemberAvailabilityStatus) brigadev1.BrigadeMemberAvailabilityStatus {
 	switch status {
 	case models.BrigadeMemberAvailabilityAvailable:
@@ -96,6 +104,8 @@ func ToProtoMemberAvailabilityStatus(status models.BrigadeMemberAvailabilityStat
 	}
 }
 
+// FromProtoMemberAvailabilityStatus преобразует доступность участника в доменную;
+// неизвестное значение возвращает как пустую строку.
 func FromProtoMemberAvailabilityStatus(status brigadev1.BrigadeMemberAvailabilityStatus) models.BrigadeMemberAvailabilityStatus {
 	switch status {
 	case brigadev1.BrigadeMemberAvailabilityStatus_BRIGADE_MEMBER_AVAILABILITY_STATUS_AVAILABLE:
@@ -107,6 +117,8 @@ func FromProtoMemberAvailabilityStatus(status brigadev1.BrigadeMemberAvailabilit
 	}
 }
 
+// ToProtoMemberHistoryAction преобразует добавление, исключение или смену роли
+// в protobuf; неизвестное действие даёт UNSPECIFIED.
 func ToProtoMemberHistoryAction(action models.BrigadeMemberHistoryAction) brigadev1.BrigadeMemberHistoryAction {
 	switch action {
 	case models.BrigadeMemberHistoryActionAdded:
@@ -120,6 +132,8 @@ func ToProtoMemberHistoryAction(action models.BrigadeMemberHistoryAction) brigad
 	}
 }
 
+// FromProtoBrigadeSortBy преобразует поле сортировки бригад в доменное;
+// неизвестное значение возвращает как пустую строку.
 func FromProtoBrigadeSortBy(sortBy brigadev1.BrigadeSortBy) models.BrigadeSortBy {
 	switch sortBy {
 	case brigadev1.BrigadeSortBy_BRIGADE_SORT_BY_CREATED_AT:
@@ -135,6 +149,8 @@ func FromProtoBrigadeSortBy(sortBy brigadev1.BrigadeSortBy) models.BrigadeSortBy
 	}
 }
 
+// FromProtoSortOrder преобразует ASC или DESC в доменный порядок;
+// неизвестное значение возвращает как пустую строку.
 func FromProtoSortOrder(order brigadev1.SortOrder) models.SortOrder {
 	switch order {
 	case brigadev1.SortOrder_SORT_ORDER_ASC:
@@ -146,6 +162,7 @@ func FromProtoSortOrder(order brigadev1.SortOrder) models.SortOrder {
 	}
 }
 
+// ToProtoTimestamp преобразует время в protobuf; нулевое время даёт nil.
 func ToProtoTimestamp(t time.Time) *timestamppb.Timestamp {
 
 	if t.IsZero() {
@@ -155,6 +172,8 @@ func ToProtoTimestamp(t time.Time) *timestamppb.Timestamp {
 	return timestamppb.New(t)
 }
 
+// ToProtoTimestampPtr преобразует необязательное время в protobuf;
+// nil и указатель на нулевое время дают nil.
 func ToProtoTimestampPtr(t *time.Time) *timestamppb.Timestamp {
 
 	if t == nil || t.IsZero() {
@@ -164,6 +183,8 @@ func ToProtoTimestampPtr(t *time.Time) *timestamppb.Timestamp {
 	return timestamppb.New(*t)
 }
 
+// FromProtoTimestamp преобразует timestamp в указатель time.Time;
+// nil сохраняет как nil без дополнительной проверки корректности timestamp.
 func FromProtoTimestamp(ts *timestamppb.Timestamp) *time.Time {
 
 	if ts == nil {
@@ -174,6 +195,8 @@ func FromProtoTimestamp(ts *timestamppb.Timestamp) *time.Time {
 	return &t
 }
 
+// ToProtoBrigade преобразует бригаду, статус и даты в protobuf;
+// отсутствующая специализация даёт пустую строку, nil бригада — nil.
 func ToProtoBrigade(brigade *models.Brigade) *brigadev1.Brigade {
 
 	if brigade == nil {
@@ -200,6 +223,8 @@ func ToProtoBrigade(brigade *models.Brigade) *brigadev1.Brigade {
 	}
 }
 
+// ToProtoBrigadeMember преобразует участника, роль, доступность и даты в protobuf;
+// отсутствующий профиль даёт пустую строку, nil участник — nil.
 func ToProtoBrigadeMember(member *models.BrigadeMember) *brigadev1.BrigadeMember {
 
 	if member == nil {
@@ -228,6 +253,8 @@ func ToProtoBrigadeMember(member *models.BrigadeMember) *brigadev1.BrigadeMember
 	}
 }
 
+// ToProtoSkill преобразует навык каталога с активностью и датами в protobuf;
+// nil сохраняет как nil.
 func ToProtoSkill(skill *models.Skill) *brigadev1.Skill {
 
 	if skill == nil {
@@ -245,6 +272,8 @@ func ToProtoSkill(skill *models.Skill) *brigadev1.Skill {
 	}
 }
 
+// ToProtoBrigadeSkill преобразует связь бригады с навыком и вложенные данные
+// каталога в protobuf; nil сохраняет как nil.
 func ToProtoBrigadeSkill(skill *models.BrigadeSkill) *brigadev1.BrigadeSkill {
 
 	if skill == nil {
@@ -261,6 +290,8 @@ func ToProtoBrigadeSkill(skill *models.BrigadeSkill) *brigadev1.BrigadeSkill {
 	}
 }
 
+// ToProtoBrigadeSchedule преобразует расписание в protobuf с часовым поясом
+// и датами действия в формате YYYY-MM-DD; nil сохраняет как nil.
 func ToProtoBrigadeSchedule(schedule *models.BrigadeSchedule) *brigadev1.BrigadeSchedule {
 
 	if schedule == nil {
@@ -282,6 +313,8 @@ func ToProtoBrigadeSchedule(schedule *models.BrigadeSchedule) *brigadev1.Brigade
 	}
 }
 
+// ToProtoBrigadeZone преобразует зону с ведомством, GeoJSON, приоритетом,
+// активностью и датами в protobuf; для nil возвращает nil.
 func ToProtoBrigadeZone(zone *models.BrigadeZone) *brigadev1.BrigadeZone {
 
 	if zone == nil {
@@ -301,6 +334,9 @@ func ToProtoBrigadeZone(zone *models.BrigadeZone) *brigadev1.BrigadeZone {
 	}
 }
 
+// ToProtoBrigadeStatusHistory преобразует переход статуса бригады в protobuf;
+// отсутствующий исходный статус даёт UNSPECIFIED, автор и request ID — пустые строки.
+// nil запись сохраняется как nil.
 func ToProtoBrigadeStatusHistory(item *models.BrigadeStatusHistory) *brigadev1.BrigadeStatusHistory {
 
 	if item == nil {
@@ -337,6 +373,9 @@ func ToProtoBrigadeStatusHistory(item *models.BrigadeStatusHistory) *brigadev1.B
 	}
 }
 
+// ToProtoBrigadeMemberHistory преобразует историю состава в protobuf;
+// отсутствующие роли даёт как UNSPECIFIED, необязательные ID — как пустые строки,
+// nil запись — как nil.
 func ToProtoBrigadeMemberHistory(item *models.BrigadeMemberHistory) *brigadev1.BrigadeMemberHistory {
 
 	if item == nil {
@@ -394,6 +433,9 @@ func ToProtoBrigadeMemberHistory(item *models.BrigadeMemberHistory) *brigadev1.B
 	}
 }
 
+// ToProtoBrigadeMemberStatusHistory преобразует переход доступности участника
+// в protobuf; отсутствующий исходный статус даёт UNSPECIFIED, необязательные ID —
+// пустые строки. nil запись сохраняется как nil.
 func ToProtoBrigadeMemberStatusHistory(item *models.BrigadeMemberStatusHistory) *brigadev1.BrigadeMemberStatusHistory {
 
 	if item == nil {
@@ -438,6 +480,7 @@ func ToProtoBrigadeMemberStatusHistory(item *models.BrigadeMemberStatusHistory) 
 	}
 }
 
+// formatDatePtr форматирует дату как YYYY-MM-DD; nil и нулевое время дают пустую строку.
 func formatDatePtr(t *time.Time) string {
 
 	if t == nil || t.IsZero() {

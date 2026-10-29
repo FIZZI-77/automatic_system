@@ -18,6 +18,7 @@ const (
 
 var phonePattern = regexp.MustCompile(`^\+[0-9]{8,15}$`)
 
+// IsValid проверяет способ связи: EMAIL, PHONE или PUSH.
 func (m PreferredContactMethod) IsValid() bool {
 	switch m {
 	case PreferredContactMethodEmail, PreferredContactMethodPhone, PreferredContactMethodPush:
@@ -27,6 +28,7 @@ func (m PreferredContactMethod) IsValid() bool {
 	}
 }
 
+// IsValid проверяет статус рабочего профиля: ACTIVE, INACTIVE, ON_SHIFT, OFF_SHIFT или SUSPENDED.
 func (s WorkProfileStatus) IsValid() bool {
 	switch s {
 	case WorkProfileStatusActive,
@@ -40,6 +42,7 @@ func (s WorkProfileStatus) IsValid() bool {
 	}
 }
 
+// IsValid проверяет поле сортировки пользовательских профилей: время создания, обновления или полное имя.
 func (s UserProfileSortBy) IsValid() bool {
 	switch s {
 	case UserProfileSortByCreatedAt, UserProfileSortByUpdatedAt, UserProfileSortByFullName:
@@ -49,6 +52,8 @@ func (s UserProfileSortBy) IsValid() bool {
 	}
 }
 
+// IsValid проверяет поле сортировки рабочих профилей: время создания, обновления,
+// полное имя, должность, статус или табельный номер.
 func (s WorkProfileSortBy) IsValid() bool {
 	switch s {
 	case WorkProfileSortByCreatedAt,
@@ -63,6 +68,7 @@ func (s WorkProfileSortBy) IsValid() bool {
 	}
 }
 
+// IsValid проверяет направление asc или desc с учётом регистра.
 func (s SortOrder) IsValid() bool {
 	switch s {
 	case SortOrderAsc, SortOrderDesc:
@@ -72,6 +78,8 @@ func (s SortOrder) IsValid() bool {
 	}
 }
 
+// IsValid проверяет известную причину разрешения или отказа во включении в бригаду:
+// допуск, отсутствие профиля, неактивность, приостановка, отсутствие смены или другое ведомство.
 func (r CanJoinBrigadeReason) IsValid() bool {
 	switch r {
 	case CanJoinBrigadeReasonAllowed,
@@ -86,6 +94,7 @@ func (r CanJoinBrigadeReason) IsValid() bool {
 	}
 }
 
+// IsValid проверяет статус outbox: PENDING, PROCESSING, SENT или FAILED.
 func (s OutboxEventStatus) IsValid() bool {
 	switch s {
 	case OutboxEventStatusPending,
@@ -98,6 +107,7 @@ func (s OutboxEventStatus) IsValid() bool {
 	}
 }
 
+// IsValid проверяет статус сертификата: PENDING, VERIFIED, REJECTED, EXPIRED или REVOKED.
 func (s CertificationStatus) IsValid() bool {
 	switch s {
 	case CertificationStatusPending,
@@ -111,6 +121,7 @@ func (s CertificationStatus) IsValid() bool {
 	}
 }
 
+// IsValid проверяет источник навыка: MANUAL или CERTIFICATION.
 func (s SkillGrantSourceType) IsValid() bool {
 	switch s {
 	case SkillGrantSourceTypeManual, SkillGrantSourceTypeCertification:
@@ -120,6 +131,7 @@ func (s SkillGrantSourceType) IsValid() bool {
 	}
 }
 
+// validateUUID отклоняет нулевой UUID, указывая обязательное поле field в ошибке.
 func validateUUID(value uuid.UUID, field string) error {
 
 	if value == uuid.Nil {
@@ -129,6 +141,7 @@ func validateUUID(value uuid.UUID, field string) error {
 	return nil
 }
 
+// validateOptionalUUID допускает nil, а заданный UUID требует ненулевым.
 func validateOptionalUUID(value *uuid.UUID, field string) error {
 
 	if value == nil {
@@ -138,6 +151,8 @@ func validateOptionalUUID(value *uuid.UUID, field string) error {
 	return validateUUID(*value, field)
 }
 
+// validateText проверяет число Unicode-символов после удаления крайних пробелов
+// в пределах [minLen, maxLen]. Исходную строку не изменяет.
 func validateText(value string, field string, minLen int, maxLen int) error {
 	value = strings.TrimSpace(value)
 	length := utf8.RuneCountInString(value)
@@ -158,6 +173,7 @@ func validateText(value string, field string, minLen int, maxLen int) error {
 	return nil
 }
 
+// validateOptionalText допускает nil, а заданную строку проверяет через validateText.
 func validateOptionalText(value *string, field string, minLen int, maxLen int) error {
 
 	if value == nil {
@@ -167,6 +183,8 @@ func validateOptionalText(value *string, field string, minLen int, maxLen int) e
 	return validateText(*value, field, minLen, maxLen)
 }
 
+// validatePhone допускает nil, иначе требует плюс и 8–15 цифр после удаления
+// крайних пробелов. Исходную строку телефона не изменяет.
 func validatePhone(value *string, field string) error {
 
 	if value == nil {
@@ -182,6 +200,7 @@ func validatePhone(value *string, field string) error {
 	return nil
 }
 
+// validateOptionalPositiveInt32 допускает nil, а заданное значение требует больше нуля.
 func validateOptionalPositiveInt32(value *int32, field string) error {
 
 	if value == nil {
@@ -195,6 +214,8 @@ func validateOptionalPositiveInt32(value *int32, field string) error {
 	return nil
 }
 
+// validateDateRange отклоняет конец раньше начала, если обе даты заданы.
+// Равные даты и отсутствие одной из границ допустимы.
 func validateDateRange(from *time.Time, to *time.Time, fromField string, toField string) error {
 
 	if from != nil && to != nil && to.Before(*from) {
@@ -204,6 +225,8 @@ func validateDateRange(from *time.Time, to *time.Time, fromField string, toField
 	return nil
 }
 
+// normalizeLimitOffset задаёт DefaultLimit для неположительного лимита,
+// ограничивает его MaxLimit и заменяет отрицательное смещение нулём.
 func normalizeLimitOffset(limit int32, offset int32) (int32, int32) {
 
 	if limit <= 0 {
@@ -221,6 +244,8 @@ func normalizeLimitOffset(limit int32, offset int32) (int32, int32) {
 	return limit, offset
 }
 
+// Validate проверяет пользователя, имя 2–255 символов, телефон и аватар.
+// Пустой способ связи в in заменяет на EMAIL; PHONE требует заданный телефон.
 func (in *CreateUserProfileInput) Validate() error {
 
 	if in == nil {
@@ -258,6 +283,7 @@ func (in *CreateUserProfileInput) Validate() error {
 	return nil
 }
 
+// Validate требует ненулевой запрос и ID пользовательского профиля.
 func (in *GetUserProfileByIDInput) Validate() error {
 
 	if in == nil {
@@ -267,6 +293,7 @@ func (in *GetUserProfileByIDInput) Validate() error {
 	return validateUUID(in.ID, "id")
 }
 
+// Validate требует ненулевой запрос и ID пользователя.
 func (in *GetUserProfileByUserIDInput) Validate() error {
 
 	if in == nil {
@@ -276,6 +303,7 @@ func (in *GetUserProfileByUserIDInput) Validate() error {
 	return validateUUID(in.UserID, "user_id")
 }
 
+// Validate требует ненулевой запрос и заданный ненулевой ActorUserID.
 func (in *GetMyUserProfileInput) Validate() error {
 
 	if in == nil {
@@ -289,6 +317,9 @@ func (in *GetMyUserProfileInput) Validate() error {
 	return validateUUID(*in.ActorUserID, "actor_user_id")
 }
 
+// Validate проверяет поисковую строку 1–255 символов и сортировку.
+// Задаёт в in пустую сортировку по времени создания DESC и нормализует пагинацию;
+// при поздней ошибке ранее внесённые значения сохраняются.
 func (in *ListUserProfilesInput) Validate() error {
 
 	if in == nil {
@@ -319,6 +350,9 @@ func (in *ListUserProfilesInput) Validate() error {
 	return nil
 }
 
+// Validate проверяет ID и заданные поля профиля, требует хотя бы одно изменение.
+// Запрещает одновременно задавать и очищать телефон или аватар, а также очищать
+// телефон при явно выбранном способе PHONE. in не изменяет.
 func (in *UpdateUserProfileInput) Validate() error {
 
 	if in == nil {
@@ -364,6 +398,8 @@ func (in *UpdateUserProfileInput) Validate() error {
 	return nil
 }
 
+// Validate требует ID пользовательского профиля и ведомства, должность 2–128 символов
+// и, если задан, табельный номер 1–64 символа. in не изменяет.
 func (in *CreateWorkProfileInput) Validate() error {
 
 	if in == nil {
@@ -385,6 +421,7 @@ func (in *CreateWorkProfileInput) Validate() error {
 	return validateText(in.Position, "position", 2, 128)
 }
 
+// Validate требует ненулевой запрос и ID рабочего профиля.
 func (in *GetWorkProfileByIDInput) Validate() error {
 
 	if in == nil {
@@ -394,6 +431,7 @@ func (in *GetWorkProfileByIDInput) Validate() error {
 	return validateUUID(in.ID, "id")
 }
 
+// Validate требует ненулевой запрос и ID пользователя рабочего профиля.
 func (in *GetWorkProfileByUserIDInput) Validate() error {
 
 	if in == nil {
@@ -403,6 +441,9 @@ func (in *GetWorkProfileByUserIDInput) Validate() error {
 	return validateUUID(in.UserID, "user_id")
 }
 
+// Validate проверяет ведомство, статус, поисковую строку и сортировку.
+// Задаёт в in пустую сортировку по времени создания DESC и нормализует пагинацию;
+// при поздней ошибке ранее внесённые значения сохраняются.
 func (in *ListWorkProfilesInput) Validate() error {
 
 	if in == nil {
@@ -441,6 +482,8 @@ func (in *ListWorkProfilesInput) Validate() error {
 	return nil
 }
 
+// Validate требует ID и изменение должности либо табельного номера, проверяя длины.
+// Одновременные EmployeeNumber и ClearEmployeeNumber отклоняет; in не изменяет.
 func (in *UpdateWorkProfileInput) Validate() error {
 
 	if in == nil {
@@ -470,6 +513,7 @@ func (in *UpdateWorkProfileInput) Validate() error {
 	return nil
 }
 
+// Validate требует ID рабочего профиля и причину деактивации длиной 1–1000 символов.
 func (in *DeactivateWorkProfileInput) Validate() error {
 
 	if in == nil {
@@ -483,6 +527,7 @@ func (in *DeactivateWorkProfileInput) Validate() error {
 	return validateText(in.Reason, "reason", 1, 1000)
 }
 
+// Validate требует ID профиля, нового ведомства и причину длиной 1–1000 символов.
 func (in *ChangeWorkProfileDepartmentInput) Validate() error {
 
 	if in == nil {
@@ -500,6 +545,8 @@ func (in *ChangeWorkProfileDepartmentInput) Validate() error {
 	return validateText(in.Reason, "reason", 1, 1000)
 }
 
+// Validate требует ID профиля, известный статус и причину длиной 1–1000 символов.
+// Допустимость перехода между статусами не проверяет.
 func (in *SetWorkProfileStatusInput) Validate() error {
 
 	if in == nil {
@@ -517,6 +564,7 @@ func (in *SetWorkProfileStatusInput) Validate() error {
 	return validateText(in.Reason, "reason", 1, 1000)
 }
 
+// Validate требует ID рабочего профиля и нормализует Limit и Offset непосредственно в in.
 func (in *GetWorkProfileStatusHistoryInput) Validate() error {
 
 	if in == nil {
@@ -531,6 +579,7 @@ func (in *GetWorkProfileStatusHistoryInput) Validate() error {
 	return nil
 }
 
+// Validate требует ненулевой запрос и ID пользователя для определения рабочего ведомства.
 func (in *ResolveWorkingDepartmentInput) Validate() error {
 
 	if in == nil {
@@ -540,6 +589,8 @@ func (in *ResolveWorkingDepartmentInput) Validate() error {
 	return validateUUID(in.UserID, "user_id")
 }
 
+// Validate требует ровно один ненулевой идентификатор пользователя или рабочего
+// профиля и ненулевой ID ведомства бригады. Возможность вступления не проверяет.
 func (in *CheckProfileCanJoinBrigadeInput) Validate() error {
 
 	if in == nil {
@@ -561,6 +612,8 @@ func (in *CheckProfileCanJoinBrigadeInput) Validate() error {
 	return validateUUID(in.BrigadeDepartmentID, "brigade_department_id")
 }
 
+// Validate проверяет код 2–64, имя 2–255 и необязательное описание 1–2000 символов,
+// а также положительный заданный срок действия в днях. in не изменяет.
 func (in *CreateCertificationTypeInput) Validate() error {
 
 	if in == nil {
@@ -582,6 +635,9 @@ func (in *CreateCertificationTypeInput) Validate() error {
 	return validateOptionalPositiveInt32(in.DefaultValidityDays, "default_validity_days")
 }
 
+// Validate требует ID типа сертификата и хотя бы одно изменение, проверяет длины
+// текста и положительный заданный срок действия. Запрещает одновременно задавать
+// и очищать описание или срок; in не изменяет.
 func (in *UpdateCertificationTypeInput) Validate() error {
 
 	if in == nil {
@@ -624,6 +680,8 @@ func (in *UpdateCertificationTypeInput) Validate() error {
 	return nil
 }
 
+// Validate проверяет необязательную поисковую строку 1–255 символов
+// и нормализует Limit и Offset в in.
 func (in *ListCertificationTypesInput) Validate() error {
 
 	if in == nil {
@@ -638,6 +696,8 @@ func (in *ListCertificationTypesInput) Validate() error {
 	return nil
 }
 
+// Validate требует ID типа сертификата и навыка и проверяет необязательный
+// уровень владения длиной 1–64 символа.
 func (in *AddCertificationTypeSkillInput) Validate() error {
 
 	if in == nil {
@@ -655,6 +715,7 @@ func (in *AddCertificationTypeSkillInput) Validate() error {
 	return validateOptionalText(in.ProficiencyLevel, "proficiency_level", 1, 64)
 }
 
+// Validate требует ненулевые ID типа сертификата и удаляемой связи с навыком.
 func (in *RemoveCertificationTypeSkillInput) Validate() error {
 
 	if in == nil {
@@ -668,6 +729,7 @@ func (in *RemoveCertificationTypeSkillInput) Validate() error {
 	return validateUUID(in.SkillID, "skill_id")
 }
 
+// Validate требует ненулевой запрос и ID типа сертификата для списка навыков.
 func (in *ListCertificationTypeSkillsInput) Validate() error {
 
 	if in == nil {
@@ -677,6 +739,8 @@ func (in *ListCertificationTypeSkillsInput) Validate() error {
 	return validateUUID(in.CertificationTypeID, "certification_type_id")
 }
 
+// Validate требует ID рабочего профиля и типа сертификата, проверяет номер,
+// издателя, заданный ID файла и порядок дат выдачи и окончания. in не изменяет.
 func (in *UploadWorkProfileCertificationInput) Validate() error {
 
 	if in == nil {
@@ -706,6 +770,7 @@ func (in *UploadWorkProfileCertificationInput) Validate() error {
 	return validateDateRange(in.IssuedAt, in.ExpiresAt, "issued_at", "expires_at")
 }
 
+// Validate требует ID сертификата и заданный ненулевой ActorUserID подтверждающего пользователя.
 func (in *VerifyWorkProfileCertificationInput) Validate() error {
 
 	if in == nil {
@@ -723,6 +788,7 @@ func (in *VerifyWorkProfileCertificationInput) Validate() error {
 	return validateUUID(*in.ActorUserID, "actor_user_id")
 }
 
+// Validate требует ID сертификата и причину отклонения длиной 1–1000 символов.
 func (in *RejectWorkProfileCertificationInput) Validate() error {
 
 	if in == nil {
@@ -736,6 +802,7 @@ func (in *RejectWorkProfileCertificationInput) Validate() error {
 	return validateText(in.RejectionReason, "rejection_reason", 1, 1000)
 }
 
+// Validate требует ID сертификата и причину отзыва длиной 1–1000 символов.
 func (in *RevokeWorkProfileCertificationInput) Validate() error {
 
 	if in == nil {
@@ -749,6 +816,7 @@ func (in *RevokeWorkProfileCertificationInput) Validate() error {
 	return validateText(in.Reason, "reason", 1, 1000)
 }
 
+// Validate требует ненулевой запрос и нормализует Limit пакета непосредственно в in.
 func (in *ExpireWorkProfileCertificationsInput) Validate() error {
 
 	if in == nil {
@@ -759,6 +827,8 @@ func (in *ExpireWorkProfileCertificationsInput) Validate() error {
 	return nil
 }
 
+// Validate проверяет ID рабочего профиля, заданные тип и статус сертификата
+// и нормализует Limit и Offset в in.
 func (in *ListWorkProfileCertificationsInput) Validate() error {
 
 	if in == nil {
@@ -781,6 +851,8 @@ func (in *ListWorkProfileCertificationsInput) Validate() error {
 	return nil
 }
 
+// Validate требует ID профиля и навыка, причину 1–1000 символов, проверяет
+// необязательный уровень 1–64 символа и срок ValidUntil строго в будущем.
 func (in *GrantManualWorkProfileSkillInput) Validate() error {
 
 	if in == nil {
@@ -806,6 +878,7 @@ func (in *GrantManualWorkProfileSkillInput) Validate() error {
 	return validateText(in.Reason, "reason", 1, 1000)
 }
 
+// Validate требует ID назначения навыка и причину отзыва длиной 1–1000 символов.
 func (in *RevokeWorkProfileSkillGrantInput) Validate() error {
 
 	if in == nil {
@@ -819,6 +892,7 @@ func (in *RevokeWorkProfileSkillGrantInput) Validate() error {
 	return validateText(in.Reason, "reason", 1, 1000)
 }
 
+// Validate требует ненулевой запрос и ID рабочего профиля для списка действующих навыков.
 func (in *ListEffectiveWorkProfileSkillsInput) Validate() error {
 
 	if in == nil {
@@ -828,6 +902,8 @@ func (in *ListEffectiveWorkProfileSkillsInput) Validate() error {
 	return validateUUID(in.WorkProfileID, "work_profile_id")
 }
 
+// Validate требует от 1 до MaxLimit уникальных ненулевых ID рабочих профилей.
+// Исходный список не изменяет; повторный ID возвращает как ошибку.
 func (in *BatchListEffectiveWorkProfileSkillsInput) Validate() error {
 
 	if in == nil {
@@ -858,6 +934,8 @@ func (in *BatchListEffectiveWorkProfileSkillsInput) Validate() error {
 	return nil
 }
 
+// Validate требует ID рабочего профиля и непустой список уникальных ненулевых ID навыков.
+// Наличие самих навыков не проверяет и in не изменяет.
 func (in *CheckWorkProfileHasSkillsInput) Validate() error {
 
 	if in == nil {

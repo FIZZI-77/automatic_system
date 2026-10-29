@@ -33,7 +33,10 @@ func startOutboxRelay(db *pgxpool.Pool, dependencies *closer.Closer, logger *zap
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	dependencies.Add("outbox relay", func() error { cancel(); return worker.Close() })
+	dependencies.Add("outbox relay", func() error {
+		cancel()
+		return worker.Close()
+	})
 	go func() {
 
 		if err := worker.Run(ctx); err != nil {

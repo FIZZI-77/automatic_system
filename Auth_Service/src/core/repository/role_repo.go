@@ -12,6 +12,7 @@ type RoleRepoStruct struct {
 	readDB  DBTX
 }
 
+// NewRoleRepoStruct создаёт хранилище ролей, используя writeDB для чтения по умолчанию.
 func NewRoleRepoStruct(writeDB DBTX, readDB ...DBTX) *RoleRepoStruct {
 	reader := writeDB
 
@@ -25,6 +26,8 @@ func NewRoleRepoStruct(writeDB DBTX, readDB ...DBTX) *RoleRepoStruct {
 	}
 }
 
+// GetRolesByUserID возвращает имена ролей пользователя из связей user_roles.
+// При отсутствии назначений возвращает nil-список без ошибки.
 func (r *RoleRepoStruct) GetRolesByUserID(ctx context.Context, userID uuid.UUID) ([]string, error) {
 	var roles []string
 
@@ -58,6 +61,8 @@ func (r *RoleRepoStruct) GetRolesByUserID(ctx context.Context, userID uuid.UUID)
 
 	return roles, nil
 }
+
+// AssignRoleToUser сохраняет связь пользователя с ролью; существующую связь оставляет без изменений.
 func (r *RoleRepoStruct) AssignRoleToUser(ctx context.Context, userID uuid.UUID, roleID uuid.UUID) error {
 	const query = `INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2) ON CONFLICT (user_id, role_id) DO NOTHING`
 	_, err := r.writeDB.Exec(ctx, query, userID, roleID)

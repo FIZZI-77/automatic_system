@@ -38,5 +38,13 @@ func K6Summary(reader io.Reader, throughput float64) (capacity.Stage, error) {
 	}
 
 	failed := failedMetric.Values["rate"]
-	return capacity.Stage{Throughput: throughput, AverageLatencyMS: duration.Values["avg"], P50MS: duration.Values["med"], P95MS: duration.Values["p(95)"], P99MS: duration.Values["p(99)"], ErrorRate: failed, Measurement: true}, nil
+	return capacity.Stage{
+		Throughput:       throughput,
+		AverageLatencyMS: duration.Values["avg"],
+		P50MS:            duration.Values["med"],
+		P95MS:            duration.Values["p(95)"],
+		P99MS:            duration.Values["p(99)"],
+		ErrorRate:        failed,
+		Measurement:      true,
+	}, nil
 }

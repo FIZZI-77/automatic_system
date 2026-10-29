@@ -68,14 +68,15 @@ func (s *S3) EnsureBucket(ctx context.Context) error {
 	return err
 }
 
-func (s *S3) UploadURL(ctx context.Context, key, contentType, checksum string, ttl time.Duration) (string, error) {
+func (s *S3) UploadURL(ctx context.Context, key, contentType, checksum string, size int64, ttl time.Duration) (string, error) {
 	ctx, span := s.startSpan(ctx, "S3.PresignPutObject")
 	defer span.End()
 
 	in := &s3.PutObjectInput{
-		Bucket:      &s.bucket,
-		Key:         &key,
-		ContentType: &contentType,
+		Bucket:        &s.bucket,
+		Key:           &key,
+		ContentType:   &contentType,
+		ContentLength: &size,
 	}
 
 	if checksum != "" {

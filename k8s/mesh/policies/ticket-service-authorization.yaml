@@ -36,6 +36,17 @@ spec:
             methods: ["POST"]
             paths:
               - /ticket.v1.TicketService/CreateTicket
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/automatic-system/sa/routing-service
+      to:
+        - operation:
+            ports: ["50052"]
+            methods: ["POST"]
+            paths:
+              - /ticket.v1.TicketService/GetTicket
+              - /ticket.v1.TicketService/ListTickets
     - to:
         - operation:
             ports: ["50052"]

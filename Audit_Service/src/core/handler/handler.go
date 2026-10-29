@@ -20,10 +20,13 @@ type Handler struct {
 	service service.AuditService
 }
 
+// New создаёт gRPC-обработчик журнала аудита с переданным сервисом.
 func New(service service.AuditService) *Handler {
 	return &Handler{service: service}
 }
 
+// GetAuditEntry требует admin или dispatcher, разбирает UUID записи и возвращает
+// её в protobuf. Неверный UUID даёт InvalidArgument, отсутствие записи — NotFound.
 func (h *Handler) GetAuditEntry(ctx context.Context, req *auditv1.GetAuditEntryRequest) (*auditv1.GetAuditEntryResponse, error) {
 
 	if err := authorize(ctx); err != nil {
@@ -45,6 +48,8 @@ func (h *Handler) GetAuditEntry(ctx context.Context, req *auditv1.GetAuditEntryR
 	return &auditv1.GetAuditEntryResponse{Entry: toProto(entry)}, nil
 }
 
+// ListAuditEntries требует admin или dispatcher, преобразует фильтры и временные
+// границы и возвращает страницу аудита с общим счётчиком. Неверный ActorId даёт InvalidArgument.
 func (h *Handler) ListAuditEntries(ctx context.Context, req *auditv1.ListAuditEntriesRequest) (*auditv1.ListAuditEntriesResponse, error) {
 
 	if err := authorize(ctx); err != nil {
@@ -95,6 +100,8 @@ func (h *Handler) ListAuditEntries(ctx context.Context, req *auditv1.ListAuditEn
 	return &auditv1.ListAuditEntriesResponse{Entries: result, Total: total}, nil
 }
 
+// authorize разрешает роли admin и dispatcher из x-actor-roles, игнорируя регистр
+// и крайние пробелы; иначе возвращает gRPC PermissionDenied.
 func authorize(ctx context.Context) error {
 	values, _ := metadata.FromIncomingContext(ctx)
 	roles := strings.Split(strings.Join(values.Get("x-actor-roles"), ","), ",")
@@ -107,6 +114,8 @@ func authorize(ctx context.Context) error {
 	return status.Error(codes.PermissionDenied, "admin or dispatcher role required")
 }
 
+// toProto преобразует запись аудита в protobuf с необязательным автором и данными
+// Struct; nil сохраняет как nil, ошибку преобразования Data игнорирует.
 func toProto(entry *models.Entry) *auditv1.AuditEntry {
 
 	if entry == nil {
@@ -136,6 +145,8 @@ func toProto(entry *models.Entry) *auditv1.AuditEntry {
 	return result
 }
 
+// mapError преобразует отсутствие записи в NotFound, прочие ошибки — в Internal
+// с общим сообщением без раскрытия исходного текста.
 func mapError(err error) error {
 
 	if service.IsNotFound(err) {

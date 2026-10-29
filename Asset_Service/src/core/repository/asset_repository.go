@@ -14,17 +14,23 @@ import (
 
 type AssetRepoStruct struct{ db *pgxpool.Pool }
 
+// NewAssetRepoStruct создаёт хранилище объектов, обслуживания и рисков с пулом db.
 func NewAssetRepoStruct(db *pgxpool.Pool) *AssetRepoStruct {
 	return &AssetRepoStruct{db: db}
 }
 
 const cols = `id,external_id,department_id,type,name,address,district,municipality,ST_AsGeoJSON(geometry),status,model,serial_number,installation_year,service_life_years,warranty_until,owner,service_organization,contractor,inspection_interval_days,response_norm_minutes,repair_norm_minutes,criticality,risk_score,risk_level,last_repair_at,next_inspection_at,created_at,updated_at`
 
+// scan читает объект в порядке cols и возвращает модель вместе с исходной ошибкой Scan.
+// Геометрия ожидается в формате GeoJSON.
 func scan(r pgx.Row) (*models.Asset, error) {
 	var x models.Asset
 	e := r.Scan(&x.ID, &x.ExternalID, &x.DepartmentID, &x.Type, &x.Name, &x.Address, &x.District, &x.Municipality, &x.Geometry, &x.Status, &x.Model, &x.SerialNumber, &x.InstallationYear, &x.ServiceLifeYears, &x.WarrantyUntil, &x.Owner, &x.ServiceOrganization, &x.Contractor, &x.InspectionIntervalDays, &x.ResponseNormMinutes, &x.RepairNormMinutes, &x.Criticality, &x.RiskScore, &x.RiskLevel, &x.LastRepairAt, &x.NextInspectionAt, &x.CreatedAt, &x.UpdatedAt)
 	return &x, e
 }
+
+// Create транзакционно сохраняет объект с GeoJSON-геометрией в SRID 4326,
+// следующим осмотром через InspectionIntervalDays и событием asset.CREATED.
 func (r *AssetRepoStruct) Create(c context.Context, v models.CreateInput) (*models.Asset, error) {
 	tx, e := r.db.Begin(c)
 
@@ -45,9 +51,14 @@ func (r *AssetRepoStruct) Create(c context.Context, v models.CreateInput) (*mode
 
 	return x, e
 }
+
+// Get читает объект по ID; отсутствие записи возвращает как pgx.ErrNoRows.
 func (r *AssetRepoStruct) Get(c context.Context, id uuid.UUID) (*models.Asset, error) {
 	return scan(r.db.QueryRow(c, `SELECT `+cols+` FROM assets WHERE id=$1`, id))
 }
+
+// Update заменяет ненулевые имя, адрес, геометрию, подрядчика и критичность объекта
+// вместе с событием outbox в одной транзакции. Отсутствие даёт pgx.ErrNoRows.
 func (r *AssetRepoStruct) Update(c context.Context, v models.UpdateInput) (*models.Asset, error) {
 	tx, e := r.db.Begin(c)
 
@@ -72,10 +83,16 @@ func (r *AssetRepoStruct) Update(c context.Context, v models.UpdateInput) (*mode
 
 	return x, e
 }
+
+// List возвращает страницу объектов по ведомству, типу, району, статусу и уровню
+// риска от новых к старым с отдельным общим счётчиком. Пагинацию не нормализует.
 func (r *AssetRepoStruct) List(c context.Context, f models.Filter) ([]*models.Asset, int64, error) {
 	w := []string{"true"}
 	a := []any{}
-	add := func(col string, v any) { a = append(a, v); w = append(w, fmt.Sprintf("%s=$%d", col, len(a))) }
+	add := func(col string, v any) {
+		a = append(a, v)
+		w = append(w, fmt.Sprintf("%s=$%d", col, len(a)))
+	}
 
 	if f.DepartmentID != nil {
 		add("department_id", *f.DepartmentID)
@@ -112,7 +129,7 @@ func (r *AssetRepoStruct) List(c context.Context, f models.Filter) ([]*models.As
 	}
 
 	defer rows.Close()
-	out := []*models.Asset{}
+	var out []*models.Asset
 	for rows.Next() {
 		x, e := scan(rows)
 
@@ -124,6 +141,10 @@ func (r *AssetRepoStruct) List(c context.Context, f models.Filter) ([]*models.As
 	}
 	return out, total, rows.Err()
 }
+
+// ChangeStatus блокирует объект и транзакционно сохраняет статус, историю с автором
+// и причиной и событие outbox. Допустимость перехода не проверяет;
+// отсутствие объекта даёт pgx.ErrNoRows.
 func (r *AssetRepoStruct) ChangeStatus(c context.Context, id uuid.UUID, s models.Status, actor uuid.UUID, reason string) (*models.Asset, error) {
 	tx, e := r.db.Begin(c)
 
@@ -155,6 +176,10 @@ func (r *AssetRepoStruct) ChangeStatus(c context.Context, id uuid.UUID, s models
 
 	return x, e
 }
+
+// Nearby ищет объекты в пределах radius метров от широты lat и долготы lon,
+// используя PostGIS geography и сортировку по расстоянию. nil t снимает фильтр типа;
+// координаты, радиус и limit проверяет вызывающий код.
 func (r *AssetRepoStruct) Nearby(c context.Context, lat, lon, radius float64, t *string, limit int32) ([]*models.Asset, error) {
 	rows, e := r.db.Query(c, "SELECT "+cols+` FROM assets WHERE($4::text IS NULL OR type=$4)AND ST_DWithin(geometry::geography,ST_SetSRID(ST_Point($2,$1),4326)::geography,$3)ORDER BY ST_Distance(geometry::geography,ST_SetSRID(ST_Point($2,$1),4326)::geography)LIMIT $5`, lat, lon, radius, t, limit)
 
@@ -175,6 +200,10 @@ func (r *AssetRepoStruct) Nearby(c context.Context, lat, lon, radius float64, t 
 	}
 	return out, rows.Err()
 }
+
+// RecordIncident транзакционно сохраняет инцидент, переводит объект в DAMAGED
+// и записывает outbox. Repeated определяет по наличию такого же типа отказа
+// у объекта после OccurredAt−90 дней; возвращает копию v с ID и признаком повтора.
 func (r *AssetRepoStruct) RecordIncident(c context.Context, v models.Incident) (*models.Incident, error) {
 	tx, e := r.db.Begin(c)
 
@@ -203,6 +232,9 @@ func (r *AssetRepoStruct) RecordIncident(c context.Context, v models.Incident) (
 
 	return &v, e
 }
+
+// CompleteRepair транзакционно сохраняет ремонт, переводит объект в ACTIVE,
+// обновляет last_repair_at и записывает событие outbox. Возвращает копию v с ID ремонта.
 func (r *AssetRepoStruct) CompleteRepair(c context.Context, v models.Repair) (*models.Repair, error) {
 	tx, e := r.db.Begin(c)
 
@@ -227,6 +259,9 @@ func (r *AssetRepoStruct) CompleteRepair(c context.Context, v models.Repair) (*m
 
 	return &v, e
 }
+
+// RecordInspection транзакционно сохраняет осмотр, сдвигает следующий осмотр
+// на интервал объекта от InspectedAt и записывает outbox. Возвращает копию v с ID осмотра.
 func (r *AssetRepoStruct) RecordInspection(c context.Context, v models.Inspection) (*models.Inspection, error) {
 	tx, e := r.db.Begin(c)
 
@@ -251,8 +286,17 @@ func (r *AssetRepoStruct) RecordInspection(c context.Context, v models.Inspectio
 
 	return &v, e
 }
+
+// emit сохраняет событие объекта в outbox через tx со снимком v в поле data,
+// новым UUID и текущим UTC-временем. Ошибку JSON-сериализации не возвращает.
 func emit(c context.Context, tx pgx.Tx, id uuid.UUID, kind string, v any) error {
-	raw, _ := json.Marshal(map[string]any{"event_id": uuid.New(), "event_type": kind, "occurred_at": time.Now().UTC(), "aggregate_id": id, "data": v})
+	raw, _ := json.Marshal(map[string]any{
+		"event_id":     uuid.New(),
+		"event_type":   kind,
+		"occurred_at":  time.Now().UTC(),
+		"aggregate_id": id,
+		"data":         v,
+	})
 	_, e := tx.Exec(c, "INSERT INTO outbox_events(aggregate_id,event_type,payload)VALUES($1,$2,$3)", id, kind, raw)
 	return e
 }

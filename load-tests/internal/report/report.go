@@ -64,7 +64,19 @@ func WriteJSON(writer io.Writer, summary Summary) error {
 }
 func WriteCSV(writer io.Writer, summary Summary) error {
 	csvWriter := csv.NewWriter(writer)
-	rows := [][]string{{"scenario", "sustainable", "knee", "failure", "p95_ms", "p99_ms", "bottleneck", "confidence"}, {summary.Scenario, optional(summary.SustainableThroughput), optional(summary.KneePoint), optional(summary.FailurePoint), strconv.FormatFloat(summary.Latency.P95MS, 'f', 3, 64), strconv.FormatFloat(summary.Latency.P99MS, 'f', 3, 64), summary.Bottleneck.Component, summary.Bottleneck.Confidence}}
+	rows := [][]string{
+		{"scenario", "sustainable", "knee", "failure", "p95_ms", "p99_ms", "bottleneck", "confidence"},
+		{
+			summary.Scenario,
+			optional(summary.SustainableThroughput),
+			optional(summary.KneePoint),
+			optional(summary.FailurePoint),
+			strconv.FormatFloat(summary.Latency.P95MS, 'f', 3, 64),
+			strconv.FormatFloat(summary.Latency.P99MS, 'f', 3, 64),
+			summary.Bottleneck.Component,
+			summary.Bottleneck.Confidence,
+		},
+	}
 
 	if err := csvWriter.WriteAll(rows); err != nil {
 		return fmt.Errorf("encode summary CSV: %w", err)

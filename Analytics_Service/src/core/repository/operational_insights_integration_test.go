@@ -46,29 +46,97 @@ func TestOperationalInsightsInClickHouse(t *testing.T) {
 
 	events := []models.Event{
 		analyticsEvent(ticketAssigned, "ticket.created", start, map[string]any{"ticket_id": ticketAssigned, "department_id": departmentID, "asset_id": assetID, "status": "NEW"}),
-		analyticsEvent(ticketAssigned, "ticket.assigned", start.Add(time.Minute), map[string]any{"ticket_id": ticketAssigned, "department_id": departmentID, "brigade_id": brigadeID, "status": "ASSIGNED"}),
-		analyticsEvent(ticketAssigned, "ticket.status_changed", start.Add(4*time.Minute), map[string]any{"ticket_id": ticketAssigned, "department_id": departmentID, "brigade_id": brigadeID, "status": "IN_PROGRESS"}),
-		analyticsEvent(ticketAssigned, "ticket.completed", start.Add(10*time.Minute), map[string]any{"ticket_id": ticketAssigned, "department_id": departmentID, "brigade_id": brigadeID, "status": "DONE"}),
+		analyticsEvent(ticketAssigned, "ticket.assigned", start.Add(time.Minute), map[string]any{
+			"ticket_id":     ticketAssigned,
+			"department_id": departmentID,
+			"brigade_id":    brigadeID,
+			"status":        "ASSIGNED",
+		}),
+		analyticsEvent(ticketAssigned, "ticket.status_changed", start.Add(4*time.Minute), map[string]any{
+			"ticket_id":     ticketAssigned,
+			"department_id": departmentID,
+			"brigade_id":    brigadeID,
+			"status":        "IN_PROGRESS",
+		}),
+		analyticsEvent(ticketAssigned, "ticket.completed", start.Add(10*time.Minute), map[string]any{
+			"ticket_id":     ticketAssigned,
+			"department_id": departmentID,
+			"brigade_id":    brigadeID,
+			"status":        "DONE",
+		}),
 		analyticsEvent(ticketQueued, "ticket.created", start.Add(2*time.Minute), map[string]any{"ticket_id": ticketQueued, "department_id": departmentID, "status": "NEW"}),
 		analyticsEvent(ticketRepeated, "ticket.created", start.Add(time.Minute), map[string]any{"ticket_id": ticketRepeated, "department_id": departmentID, "asset_id": assetID, "status": "NEW"}),
-		analyticsEvent(ticketRepeated, "ticket.assigned", start.Add(2*time.Minute), map[string]any{"ticket_id": ticketRepeated, "department_id": departmentID, "asset_id": assetID, "brigade_id": brigadeID, "status": "ASSIGNED"}),
-		analyticsEvent(ticketRepeated, "ticket.status_changed", start.Add(3*time.Minute), map[string]any{"ticket_id": ticketRepeated, "department_id": departmentID, "asset_id": assetID, "brigade_id": brigadeID, "status": "IN_PROGRESS"}),
-		analyticsEvent(ticketRepeated, "ticket.completed", start.Add(8*time.Minute), map[string]any{"ticket_id": ticketRepeated, "department_id": departmentID, "asset_id": assetID, "brigade_id": brigadeID, "status": "DONE"}),
-		analyticsEvent(routeID, "routing.route.created.v1", start.Add(2*time.Minute), map[string]any{"id": routeID, "ticket_id": ticketAssigned, "brigade_id": brigadeID, "status": "PLANNED", "revision": 0, "distance_meters": 12000.0, "duration_seconds": 900.0, "destination": map[string]any{"latitude": 55.75, "longitude": 37.61}}),
-		analyticsEvent(routeID, "routing.route.recalculated.v1", start.Add(3*time.Minute), map[string]any{"id": routeID, "ticket_id": ticketAssigned, "brigade_id": brigadeID, "status": "PLANNED", "revision": 1, "distance_meters": 10000.0, "duration_seconds": 800.0, "destination": map[string]any{"latitude": 55.75, "longitude": 37.61}}),
+		analyticsEvent(ticketRepeated, "ticket.assigned", start.Add(2*time.Minute), map[string]any{
+			"ticket_id":     ticketRepeated,
+			"department_id": departmentID,
+			"asset_id":      assetID,
+			"brigade_id":    brigadeID,
+			"status":        "ASSIGNED",
+		}),
+		analyticsEvent(ticketRepeated, "ticket.status_changed", start.Add(3*time.Minute), map[string]any{
+			"ticket_id":     ticketRepeated,
+			"department_id": departmentID,
+			"asset_id":      assetID,
+			"brigade_id":    brigadeID,
+			"status":        "IN_PROGRESS",
+		}),
+		analyticsEvent(ticketRepeated, "ticket.completed", start.Add(8*time.Minute), map[string]any{
+			"ticket_id":     ticketRepeated,
+			"department_id": departmentID,
+			"asset_id":      assetID,
+			"brigade_id":    brigadeID,
+			"status":        "DONE",
+		}),
+		analyticsEvent(routeID, "routing.route.created.v1", start.Add(2*time.Minute), map[string]any{
+			"id":               routeID,
+			"ticket_id":        ticketAssigned,
+			"brigade_id":       brigadeID,
+			"status":           "PLANNED",
+			"revision":         0,
+			"distance_meters":  12000.0,
+			"duration_seconds": 900.0,
+			"destination":      map[string]any{"latitude": 55.75, "longitude": 37.61},
+		}),
+		analyticsEvent(routeID, "routing.route.recalculated.v1", start.Add(3*time.Minute), map[string]any{
+			"id":               routeID,
+			"ticket_id":        ticketAssigned,
+			"brigade_id":       brigadeID,
+			"status":           "PLANNED",
+			"revision":         1,
+			"distance_meters":  10000.0,
+			"duration_seconds": 800.0,
+			"destination":      map[string]any{"latitude": 55.75, "longitude": 37.61},
+		}),
 		analyticsEvent(shiftID, "BrigadeShiftStarted", start, map[string]any{"shift_id": shiftID, "brigade_id": brigadeID, "department_id": departmentID}),
 		analyticsEvent(shiftID, "BrigadeShiftEnded", start.Add(15*time.Minute), map[string]any{"shift_id": shiftID, "brigade_id": brigadeID, "department_id": departmentID}),
 	}
-	orphanCompletion := analyticsEvent(uuid.NewString(), "ticket.completed", start.Add(11*time.Minute), map[string]any{"ticket_id": uuid.NewString(), "department_id": departmentID, "brigade_id": brigadeID, "status": "DONE"})
+	orphanCompletion := analyticsEvent(uuid.NewString(), "ticket.completed", start.Add(11*time.Minute), map[string]any{
+		"ticket_id":     uuid.NewString(),
+		"department_id": departmentID,
+		"brigade_id":    brigadeID,
+		"status":        "DONE",
+	})
 	events = append(events, orphanCompletion)
 	positionEvent := models.Event{
 		ID: uuid.NewString(), Type: "VehiclePositionUpdated", Topic: "locations.events.v1",
-		Payload:   map[string]any{"brigade_id": brigadeID, "speed_kmh": "12.5", "accuracy_meters": "8", "occurred_at": start.Add(2 * time.Minute).Format(time.RFC3339Nano)},
+		Payload: map[string]any{
+			"brigade_id":      brigadeID,
+			"speed_kmh":       "12.5",
+			"accuracy_meters": "8",
+			"occurred_at":     start.Add(2 * time.Minute).Format(time.RFC3339Nano),
+		},
 		Timestamp: start.Add(2 * time.Minute), Version: 1, ProjectionEligible: true,
 	}
 	arrivalEvent := models.Event{
 		ID: uuid.NewString(), Type: "VehiclePositionUpdated", Topic: "locations.events.v1",
-		Payload:   map[string]any{"brigade_id": brigadeID, "latitude": "55.7501", "longitude": "37.6101", "speed_kmh": "0", "accuracy_meters": "8", "occurred_at": start.Add(14 * time.Minute).Format(time.RFC3339Nano)},
+		Payload: map[string]any{
+			"brigade_id":      brigadeID,
+			"latitude":        "55.7501",
+			"longitude":       "37.6101",
+			"speed_kmh":       "0",
+			"accuracy_meters": "8",
+			"occurred_at":     start.Add(14 * time.Minute).Format(time.RFC3339Nano),
+		},
 		Timestamp: start.Add(14 * time.Minute), Version: 1, ProjectionEligible: true,
 	}
 	slaEvent := models.Event{

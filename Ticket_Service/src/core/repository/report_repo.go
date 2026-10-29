@@ -17,8 +17,13 @@ type ReportRepository struct{ repo *Repository }
 
 const completionAttemptTimeout = 10 * time.Minute
 
+// NewReportRepository создаёт хранилище отчётов с пулами чтения и записи repo.
 func NewReportRepository(repo *Repository) *ReportRepository { return &ReportRepository{repo: repo} }
 
+// Create сохраняет отчёт, связи с файлами и событие outbox в одной транзакции.
+// Новый отчёт доступен для ASSIGNED и IN_PROGRESS с проверкой роли и бригады;
+// повтор ключа для той же заявки и автора возвращает существующий отчёт.
+// При Completion запускает подготовку итогового отчёта со статусом PENDING и сроком 10 минут.
 func (r *ReportRepository) Create(ctx context.Context, in *models.CreateWorkReportInput) (report *models.WorkReport, err error) {
 	tx, err := r.repo.writePool.BeginTx(ctx, pgx.TxOptions{})
 
@@ -200,6 +205,8 @@ func (r *ReportRepository) Create(ctx context.Context, in *models.CreateWorkRepo
 	return report, nil
 }
 
+// canCreateWorkReport разрешает отчёт администратору, диспетчеру либо работнику
+// назначенной бригады. Роли сравниваются без учёта регистра и крайних пробелов.
 func canCreateWorkReport(in *models.CreateWorkReportInput, assignedBrigadeID *uuid.UUID) bool {
 	for _, role := range in.ActorRoles {
 		normalized := strings.ToLower(strings.TrimSpace(role))
@@ -224,6 +231,8 @@ func canCreateWorkReport(in *models.CreateWorkReportInput, assignedBrigadeID *uu
 	return false
 }
 
+// List возвращает отчёты заявки от новых к старым с файлами и состоянием подготовки
+// итогового документа. Если отчётов нет, возвращает пустой срез без ошибки.
 func (r *ReportRepository) List(ctx context.Context, ticketID uuid.UUID) ([]*models.WorkReport, error) {
 	rows, err := r.repo.readPool.Query(ctx, listReportsQuery, ticketID)
 

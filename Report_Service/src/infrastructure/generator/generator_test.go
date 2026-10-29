@@ -49,11 +49,25 @@ func TestCompletionReport(t *testing.T) {
 	artifact, err := New().GenerateCompletion(models.CompletionReport{
 		WorkReportID: "8e5758f0-8cc4-4404-b879-25aac8a77c5f",
 		RequestedBy:  "83e3752a-6ca4-4bdd-9e0d-581493f140c7",
-		Ticket:       models.CompletionTicket{ID: "INC-1042", Title: "Повреждение водопровода", Address: "Москва, ул. Большая Дмитровка, 18"},
-		Brigade:      models.CompletionBrigade{ID: "BR-14", Name: "Аварийная бригада №14", Members: []models.CompletionBrigadeMember{{FullName: "Сергей Петров", Role: "руководитель"}, {FullName: "Антон Волков", Role: "специалист"}}},
-		OpenedBy:     "Анна Соколова",
-		Description:  "Перекрыта подача воды, заменён повреждённый участок трубы, соединения проверены под рабочим давлением. Течь устранена.",
-	}, []models.EmbeddedImage{{Name: "результат-работ.png", ContentType: "image/png", Data: encoded.Bytes()}, {Name: "результат-работ.gif", ContentType: "image/gif", Data: encodedGIF.Bytes()}})
+		Ticket: models.CompletionTicket{
+			ID:      "INC-1042",
+			Title:   "Повреждение водопровода",
+			Address: "Москва, ул. Большая Дмитровка, 18",
+		},
+		Brigade: models.CompletionBrigade{
+			ID:   "BR-14",
+			Name: "Аварийная бригада №14",
+			Members: []models.CompletionBrigadeMember{
+				{FullName: "Сергей Петров", Role: "руководитель"},
+				{FullName: "Антон Волков", Role: "специалист"},
+			},
+		},
+		OpenedBy:    "Анна Соколова",
+		Description: "Перекрыта подача воды, заменён повреждённый участок трубы, соединения проверены под рабочим давлением. Течь устранена.",
+	}, []models.EmbeddedImage{
+		{Name: "результат-работ.png", ContentType: "image/png", Data: encoded.Bytes()},
+		{Name: "результат-работ.gif", ContentType: "image/gif", Data: encodedGIF.Bytes()},
+	})
 
 	if err != nil {
 		t.Fatal(err)

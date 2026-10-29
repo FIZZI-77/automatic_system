@@ -16,6 +16,8 @@ type CertificationServiceStruct struct {
 	logger *zap.Logger
 }
 
+// NewCertificationServiceStruct создаёт сервис сертификатов и навыков;
+// nil logger заменяет журналом без вывода.
 func NewCertificationServiceStruct(repo *repository.Repository, logger *zap.Logger) *CertificationServiceStruct {
 
 	if logger == nil {
@@ -25,6 +27,8 @@ func NewCertificationServiceStruct(repo *repository.Repository, logger *zap.Logg
 	return &CertificationServiceStruct{repo: repo, logger: logger}
 }
 
+// CreateCertificationType проверяет данные и создаёт тип сертификата для администратора
+// с идемпотентностью. Требует ненулевой in.
 func (s *CertificationServiceStruct) CreateCertificationType(ctx context.Context, in *models.CreateCertificationTypeInput) (*models.CreateCertificationTypeResult, error) {
 	const method = "CreateCertificationType"
 	fields := []zap.Field{zap.String("code", in.Code), zap.String("name", in.Name)}
@@ -59,6 +63,8 @@ func (s *CertificationServiceStruct) CreateCertificationType(ctx context.Context
 	return result, nil
 }
 
+// UpdateCertificationType проверяет изменения и обновляет тип сертификата
+// для администратора с идемпотентностью. Требует ненулевой in.
 func (s *CertificationServiceStruct) UpdateCertificationType(ctx context.Context, in *models.UpdateCertificationTypeInput) (*models.UpdateCertificationTypeResult, error) {
 	const method = "UpdateCertificationType"
 	fields := []zap.Field{zap.String("certification_type_id", in.ID.String())}
@@ -93,6 +99,8 @@ func (s *CertificationServiceStruct) UpdateCertificationType(ctx context.Context
 	return result, nil
 }
 
+// ListCertificationTypes проверяет право чтения каталога, нормализует пагинацию в in
+// и возвращает страницу типов с общим счётчиком. Требует ненулевой in.
 func (s *CertificationServiceStruct) ListCertificationTypes(ctx context.Context, in *models.ListCertificationTypesInput) (*models.ListCertificationTypesResult, error) {
 	const method = "ListCertificationTypes"
 	fields := []zap.Field{zap.Int32("limit", in.Limit), zap.Int32("offset", in.Offset)}
@@ -119,6 +127,8 @@ func (s *CertificationServiceStruct) ListCertificationTypes(ctx context.Context,
 	return result, nil
 }
 
+// AddCertificationTypeSkill проверяет данные и связывает тип сертификата с навыком
+// для администратора с идемпотентностью. Требует ненулевой in.
 func (s *CertificationServiceStruct) AddCertificationTypeSkill(ctx context.Context, in *models.AddCertificationTypeSkillInput) (*models.AddCertificationTypeSkillResult, error) {
 	const method = "AddCertificationTypeSkill"
 	fields := []zap.Field{
@@ -156,6 +166,8 @@ func (s *CertificationServiceStruct) AddCertificationTypeSkill(ctx context.Conte
 	return result, nil
 }
 
+// RemoveCertificationTypeSkill проверяет ID и удаляет связь типа сертификата
+// с навыком для администратора с идемпотентностью. Требует ненулевой in.
 func (s *CertificationServiceStruct) RemoveCertificationTypeSkill(ctx context.Context, in *models.RemoveCertificationTypeSkillInput) error {
 	const method = "RemoveCertificationTypeSkill"
 	fields := []zap.Field{
@@ -192,6 +204,8 @@ func (s *CertificationServiceStruct) RemoveCertificationTypeSkill(ctx context.Co
 	return err
 }
 
+// ListCertificationTypeSkills проверяет ID и право чтения каталога и возвращает
+// навыки типа сертификата. Требует ненулевой in.
 func (s *CertificationServiceStruct) ListCertificationTypeSkills(ctx context.Context, in *models.ListCertificationTypeSkillsInput) (*models.ListCertificationTypeSkillsResult, error) {
 	const method = "ListCertificationTypeSkills"
 	fields := []zap.Field{zap.String("certification_type_id", in.CertificationTypeID.String())}
@@ -218,6 +232,9 @@ func (s *CertificationServiceStruct) ListCertificationTypeSkills(ctx context.Con
 	return result, nil
 }
 
+// UploadWorkProfileCertification проверяет данные, активность типа, требование файла,
+// срок и право владельца, администратора или кадрового проверяющего. Сохраняет
+// сертификат с идемпотентностью, отклоняя INACTIVE/SUSPENDED-профиль. Требует ненулевой in.
 func (s *CertificationServiceStruct) UploadWorkProfileCertification(ctx context.Context, in *models.UploadWorkProfileCertificationInput) (*models.UploadWorkProfileCertificationResult, error) {
 	const method = "UploadWorkProfileCertification"
 	fields := []zap.Field{
@@ -255,6 +272,9 @@ func (s *CertificationServiceStruct) UploadWorkProfileCertification(ctx context.
 	return result, nil
 }
 
+// VerifyWorkProfileCertification проверяет ID и инициатора и подтверждает сертификат
+// через хранилище для администратора или кадрового проверяющего с идемпотентностью.
+// Требует ненулевой in.
 func (s *CertificationServiceStruct) VerifyWorkProfileCertification(ctx context.Context, in *models.VerifyWorkProfileCertificationInput) (*models.VerifyWorkProfileCertificationResult, error) {
 	const method = "VerifyWorkProfileCertification"
 	fields := []zap.Field{zap.String("certification_id", in.ID.String())}
@@ -289,6 +309,8 @@ func (s *CertificationServiceStruct) VerifyWorkProfileCertification(ctx context.
 	return result, nil
 }
 
+// RejectWorkProfileCertification проверяет ID и причину и отклоняет сертификат
+// для администратора или кадрового проверяющего с идемпотентностью. Требует ненулевой in.
 func (s *CertificationServiceStruct) RejectWorkProfileCertification(ctx context.Context, in *models.RejectWorkProfileCertificationInput) (*models.RejectWorkProfileCertificationResult, error) {
 	const method = "RejectWorkProfileCertification"
 	fields := []zap.Field{zap.String("certification_id", in.ID.String())}
@@ -323,6 +345,8 @@ func (s *CertificationServiceStruct) RejectWorkProfileCertification(ctx context.
 	return result, nil
 }
 
+// RevokeWorkProfileCertification проверяет ID и причину и отзывает сертификат
+// для администратора или кадрового проверяющего с идемпотентностью. Требует ненулевой in.
 func (s *CertificationServiceStruct) RevokeWorkProfileCertification(ctx context.Context, in *models.RevokeWorkProfileCertificationInput) (*models.RevokeWorkProfileCertificationResult, error) {
 	const method = "RevokeWorkProfileCertification"
 	fields := []zap.Field{zap.String("certification_id", in.ID.String())}
@@ -357,6 +381,9 @@ func (s *CertificationServiceStruct) RevokeWorkProfileCertification(ctx context.
 	return result, nil
 }
 
+// ExpireWorkProfileCertifications нормализует in.Limit и обрабатывает истёкшие
+// сертификаты для администратора или внутреннего вызова без пользователя и ролей.
+// Требует ненулевой in; возвращает сертификаты и отозванные назначения навыков из хранилища.
 func (s *CertificationServiceStruct) ExpireWorkProfileCertifications(ctx context.Context, in *models.ExpireWorkProfileCertificationsInput) (*models.ExpireWorkProfileCertificationsResult, error) {
 	const method = "ExpireWorkProfileCertifications"
 	fields := []zap.Field{zap.Int32("limit", in.Limit)}
@@ -386,9 +413,15 @@ func (s *CertificationServiceStruct) ExpireWorkProfileCertifications(ctx context
 	return result, nil
 }
 
+// ListWorkProfileCertifications проверяет параметры и доступ к квалификациям профиля,
+// нормализует пагинацию в in и возвращает страницу сертификатов. Требует ненулевой in.
 func (s *CertificationServiceStruct) ListWorkProfileCertifications(ctx context.Context, in *models.ListWorkProfileCertificationsInput) (*models.ListWorkProfileCertificationsResult, error) {
 	const method = "ListWorkProfileCertifications"
-	fields := []zap.Field{zap.String("work_profile_id", in.WorkProfileID.String()), zap.Int32("limit", in.Limit), zap.Int32("offset", in.Offset)}
+	fields := []zap.Field{
+		zap.String("work_profile_id", in.WorkProfileID.String()),
+		zap.Int32("limit", in.Limit),
+		zap.Int32("offset", in.Offset),
+	}
 	logger, start := startOperation(ctx, s.logger, method, fields...)
 
 	if err := in.Validate(); err != nil {
@@ -412,6 +445,8 @@ func (s *CertificationServiceStruct) ListWorkProfileCertifications(ctx context.C
 	return result, nil
 }
 
+// GrantManualWorkProfileSkill проверяет параметры и вручную назначает навык
+// для администратора или кадрового проверяющего с идемпотентностью. Требует ненулевой in.
 func (s *CertificationServiceStruct) GrantManualWorkProfileSkill(ctx context.Context, in *models.GrantManualWorkProfileSkillInput) (*models.GrantManualWorkProfileSkillResult, error) {
 	const method = "GrantManualWorkProfileSkill"
 	fields := []zap.Field{
@@ -449,6 +484,8 @@ func (s *CertificationServiceStruct) GrantManualWorkProfileSkill(ctx context.Con
 	return result, nil
 }
 
+// RevokeWorkProfileSkillGrant проверяет ID и причину и отзывает назначение навыка
+// для администратора или кадрового проверяющего с идемпотентностью. Требует ненулевой in.
 func (s *CertificationServiceStruct) RevokeWorkProfileSkillGrant(ctx context.Context, in *models.RevokeWorkProfileSkillGrantInput) (*models.RevokeWorkProfileSkillGrantResult, error) {
 	const method = "RevokeWorkProfileSkillGrant"
 	fields := []zap.Field{zap.String("skill_grant_id", in.ID.String())}
@@ -483,6 +520,8 @@ func (s *CertificationServiceStruct) RevokeWorkProfileSkillGrant(ctx context.Con
 	return result, nil
 }
 
+// ListEffectiveWorkProfileSkills проверяет ID и доступ к квалификациям профиля
+// и возвращает действующие назначения навыков из хранилища. Требует ненулевой in.
 func (s *CertificationServiceStruct) ListEffectiveWorkProfileSkills(ctx context.Context, in *models.ListEffectiveWorkProfileSkillsInput) (*models.ListEffectiveWorkProfileSkillsResult, error) {
 	const method = "ListEffectiveWorkProfileSkills"
 	fields := []zap.Field{zap.String("work_profile_id", in.WorkProfileID.String())}
@@ -509,6 +548,9 @@ func (s *CertificationServiceStruct) ListEffectiveWorkProfileSkills(ctx context.
 	return result, nil
 }
 
+// BatchListEffectiveWorkProfileSkills проверяет список профилей и возвращает карту
+// действующих навыков для администратора или внутреннего вызова без пользователя и ролей.
+// Требует ненулевой in.
 func (s *CertificationServiceStruct) BatchListEffectiveWorkProfileSkills(ctx context.Context, in *models.BatchListEffectiveWorkProfileSkillsInput) (*models.BatchListEffectiveWorkProfileSkillsResult, error) {
 	const method = "BatchListEffectiveWorkProfileSkills"
 	fields := []zap.Field{zap.Int("work_profile_ids_count", len(in.WorkProfileIDs))}
@@ -535,6 +577,8 @@ func (s *CertificationServiceStruct) BatchListEffectiveWorkProfileSkills(ctx con
 	return result, nil
 }
 
+// CheckWorkProfileHasSkills проверяет запрос и доступ к квалификациям профиля,
+// затем возвращает решение и недостающие навыки из хранилища. Требует ненулевой in.
 func (s *CertificationServiceStruct) CheckWorkProfileHasSkills(ctx context.Context, in *models.CheckWorkProfileHasSkillsInput) (*models.CheckWorkProfileHasSkillsResult, error) {
 	const method = "CheckWorkProfileHasSkills"
 	fields := []zap.Field{
@@ -564,6 +608,8 @@ func (s *CertificationServiceStruct) CheckWorkProfileHasSkills(ctx context.Conte
 	return result, nil
 }
 
+// ensureCertificationCanBeUploaded читает тип и профиль, проверяет условия загрузки,
+// доступ инициатора и допустимость статуса профиля. Сохранение не выполняет.
 func (s *CertificationServiceStruct) ensureCertificationCanBeUploaded(ctx context.Context, method string, in *models.UploadWorkProfileCertificationInput) error {
 	certificationType, err := s.repo.GetCertificationTypeByID(ctx, in.CertificationTypeID)
 
@@ -588,6 +634,8 @@ func (s *CertificationServiceStruct) ensureCertificationCanBeUploaded(ctx contex
 	return ensureWorkProfileAcceptsCertification(method, details.Details.WorkProfile)
 }
 
+// ensureCertificationTypeAcceptsUpload требует активный тип, заданный файл при
+// RequiresFile и будущий ExpiresAt, если он указан. Обе модели должны быть ненулевыми.
 func ensureCertificationTypeAcceptsUpload(certificationType *models.CertificationType, in *models.UploadWorkProfileCertificationInput) error {
 
 	if !certificationType.Active {
@@ -605,6 +653,8 @@ func ensureCertificationTypeAcceptsUpload(certificationType *models.Certificatio
 	return nil
 }
 
+// ensureCanUploadCertification разрешает загрузку администратору, кадровому
+// проверяющему или владельцу профиля; иначе возвращает ErrPermissionDenied с именем метода.
 func ensureCanUploadCertification(method string, actorUserID *uuid.UUID, roles []string, details *models.WorkProfileDetails) error {
 
 	if isAdmin(roles) || isHR(roles) || isSelf(actorUserID, details.UserProfile.UserID) {
@@ -614,6 +664,8 @@ func ensureCanUploadCertification(method string, actorUserID *uuid.UUID, roles [
 	return permissionDenied(method)
 }
 
+// ensureWorkProfileAcceptsCertification отклоняет INACTIVE и SUSPENDED
+// с ErrWorkProfileInactive; для остальных статусов возвращает nil.
 func ensureWorkProfileAcceptsCertification(method string, workProfile *models.WorkProfile) error {
 	switch workProfile.Status {
 	case models.WorkProfileStatusInactive, models.WorkProfileStatusSuspended:
@@ -623,6 +675,9 @@ func ensureWorkProfileAcceptsCertification(method string, workProfile *models.Wo
 	}
 }
 
+// ensureCanReadWorkProfile допускает внутренний вызов, администратора, кадрового
+// проверяющего, владельца или диспетчера своего ведомства. Для внутреннего вызова
+// профиль не читает; остальные случаи требуют существующий профиль.
 func (s *CertificationServiceStruct) ensureCanReadWorkProfile(ctx context.Context, workProfileID uuid.UUID, actorUserID *uuid.UUID, roles []string) error {
 
 	if isInternalCall(actorUserID, roles) {
@@ -656,6 +711,8 @@ func (s *CertificationServiceStruct) ensureCanReadWorkProfile(ctx context.Contex
 	return nil
 }
 
+// requireCatalogReader допускает администратора, кадрового проверяющего, диспетчера
+// или внутренний вызов; иначе возвращает ErrPermissionDenied с именем метода.
 func requireCatalogReader(method string, actorUserID *uuid.UUID, roles []string) error {
 
 	if isAdmin(roles) || isHR(roles) || isDispatcher(roles) || isInternalCall(actorUserID, roles) {
@@ -665,6 +722,7 @@ func requireCatalogReader(method string, actorUserID *uuid.UUID, roles []string)
 	return permissionDenied(method)
 }
 
+// requireAdmin требует роль admin; иначе возвращает ErrPermissionDenied с именем метода.
 func requireAdmin(method string, roles []string) error {
 
 	if isAdmin(roles) {
@@ -674,6 +732,8 @@ func requireAdmin(method string, roles []string) error {
 	return permissionDenied(method)
 }
 
+// requireAdminOrHR допускает admin, hr или qualification_verifier;
+// остальные роли дают ErrPermissionDenied с именем метода.
 func requireAdminOrHR(method string, roles []string) error {
 
 	if isAdmin(roles) || isHR(roles) {
@@ -683,6 +743,8 @@ func requireAdminOrHR(method string, roles []string) error {
 	return permissionDenied(method)
 }
 
+// actorDepartmentID читает рабочее ведомство инициатора без проверки CanOperate.
+// nil или нулевой ID даёт ErrPermissionDenied; ошибки хранилища сохраняются.
 func (s *CertificationServiceStruct) actorDepartmentID(ctx context.Context, actorUserID *uuid.UUID) (uuid.UUID, error) {
 
 	if actorUserID == nil || *actorUserID == uuid.Nil {
@@ -698,6 +760,8 @@ func (s *CertificationServiceStruct) actorDepartmentID(ctx context.Context, acto
 	return result.DepartmentID, nil
 }
 
+// isInternalCall распознаёт внутренний вызов по отсутствующему или нулевому
+// ActorUserID и пустому списку ролей.
 func isInternalCall(actorUserID *uuid.UUID, roles []string) bool {
 	return (actorUserID == nil || *actorUserID == uuid.Nil) && len(roles) == 0
 }

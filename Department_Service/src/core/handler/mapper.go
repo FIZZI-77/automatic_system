@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+// ToProtoStatus преобразует статус ведомства в protobuf; неизвестный даёт UNSPECIFIED.
 func ToProtoStatus(status models.DepartmentStatus) departmentv1.DepartmentStatus {
 	switch status {
 	case models.DepartmentStatusActive:
@@ -20,6 +21,8 @@ func ToProtoStatus(status models.DepartmentStatus) departmentv1.DepartmentStatus
 	}
 }
 
+// FromProtoStatus преобразует protobuf-статус ведомства в доменный;
+// неизвестное значение возвращает как пустую строку.
 func FromProtoStatus(status departmentv1.DepartmentStatus) models.DepartmentStatus {
 	switch status {
 	case departmentv1.DepartmentStatus_DEPARTMENT_STATUS_ACTIVE:
@@ -33,6 +36,8 @@ func FromProtoStatus(status departmentv1.DepartmentStatus) models.DepartmentStat
 	}
 }
 
+// FromProtoSortBy преобразует поле сортировки в доменное;
+// неизвестное значение возвращает как пустую строку.
 func FromProtoSortBy(sortBy departmentv1.DepartmentSortBy) models.DepartmentSortBy {
 	switch sortBy {
 	case departmentv1.DepartmentSortBy_DEPARTMENT_SORT_BY_CREATED_AT:
@@ -48,6 +53,8 @@ func FromProtoSortBy(sortBy departmentv1.DepartmentSortBy) models.DepartmentSort
 	}
 }
 
+// FromProtoSortOrder преобразует ASC или DESC в доменный порядок;
+// неизвестное значение возвращает как пустую строку.
 func FromProtoSortOrder(order departmentv1.SortOrder) models.SortOrder {
 	switch order {
 	case departmentv1.SortOrder_SORT_ORDER_ASC:
@@ -59,6 +66,7 @@ func FromProtoSortOrder(order departmentv1.SortOrder) models.SortOrder {
 	}
 }
 
+// ToProtoTimestamp преобразует время в protobuf; нулевое время возвращает как nil.
 func ToProtoTimestamp(t time.Time) *timestamppb.Timestamp {
 
 	if t.IsZero() {
@@ -68,6 +76,8 @@ func ToProtoTimestamp(t time.Time) *timestamppb.Timestamp {
 	return timestamppb.New(t)
 }
 
+// FromProtoTimestamp преобразует protobuf-время в указатель time.Time;
+// nil сохраняет как nil без дополнительной проверки корректности timestamp.
 func FromProtoTimestamp(ts *timestamppb.Timestamp) *time.Time {
 
 	if ts == nil {
@@ -78,6 +88,8 @@ func FromProtoTimestamp(ts *timestamppb.Timestamp) *time.Time {
 	return &t
 }
 
+// ToProtoDepartment преобразует ведомство, статус и даты в protobuf;
+// nil сохраняет как nil, нулевые даты не включает в ответ.
 func ToProtoDepartment(department *models.Department) *departmentv1.Department {
 
 	if department == nil {

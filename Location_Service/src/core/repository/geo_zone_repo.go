@@ -13,6 +13,7 @@ import (
 
 type GeoZoneRepoStruct struct{ writePool, readPool *pgxpool.Pool }
 
+// NewGeoZoneRepo создаёт хранилище геозон; при nil readPool использует writePool для чтения.
 func NewGeoZoneRepo(writePool, readPool *pgxpool.Pool) *GeoZoneRepoStruct {
 
 	if readPool == nil {
@@ -22,6 +23,8 @@ func NewGeoZoneRepo(writePool, readPool *pgxpool.Pool) *GeoZoneRepoStruct {
 	return &GeoZoneRepoStruct{writePool: writePool, readPool: readPool}
 }
 
+// CreateGeoZone сохраняет геозону из GeoJSON как PostGIS geography с SRID 4326,
+// обрезая пробелы имени в SQL. Ошибки геометрии и уникальности преобразует в доменные.
 func (r *GeoZoneRepoStruct) CreateGeoZone(
 	ctx context.Context,
 	in *models.CreateGeoZoneInput,
@@ -42,6 +45,8 @@ func (r *GeoZoneRepoStruct) CreateGeoZone(
 	return &models.CreateGeoZoneResult{Zone: zone}, nil
 }
 
+// UpdateGeoZone заменяет заданные имя, геометрию и активность зоны; nil поля сохраняет.
+// Отсутствие возвращает как ErrNotFound, ошибки геометрии — как ErrInvalidGeometry.
 func (r *GeoZoneRepoStruct) UpdateGeoZone(
 	ctx context.Context,
 	in *models.UpdateGeoZoneInput,
@@ -64,6 +69,8 @@ func (r *GeoZoneRepoStruct) UpdateGeoZone(
 	return &models.UpdateGeoZoneResult{Zone: zone}, nil
 }
 
+// DeleteGeoZone деактивирует зону и возвращает её, не удаляя строку.
+// Повторная деактивация допустима; отсутствие даёт ErrNotFound.
 func (r *GeoZoneRepoStruct) DeleteGeoZone(
 	ctx context.Context,
 	in *models.DeleteGeoZoneInput,
@@ -79,6 +86,8 @@ func (r *GeoZoneRepoStruct) DeleteGeoZone(
 	return &models.DeleteGeoZoneResult{Zone: zone}, nil
 }
 
+// ListGeoZones возвращает страницу зон по ведомству и активности от новых к старым
+// с отдельным общим счётчиком. Неположительный лимит заменяет на DefaultLimit.
 func (r *GeoZoneRepoStruct) ListGeoZones(
 	ctx context.Context,
 	in *models.ListGeoZonesInput,
@@ -138,6 +147,8 @@ func (r *GeoZoneRepoStruct) ListGeoZones(
 	return result, rows.Err()
 }
 
+// CheckPointInZones возвращает активные зоны, покрывающие точку, включая границу,
+// по имени зоны. Учитывает необязательное ведомство и непустой список ID зон.
 func (r *GeoZoneRepoStruct) CheckPointInZones(
 	ctx context.Context,
 	in *models.CheckPointInZonesInput,
@@ -185,8 +196,12 @@ func (r *GeoZoneRepoStruct) CheckPointInZones(
 	return result, rows.Err()
 }
 
-type rowScanner interface{ Scan(...any) error }
+type rowScanner interface {
+	// Scan переносит значения строки в переданные указатели и возвращает ошибку чтения или преобразования.
+	Scan(...any) error
+}
 
+// scanGeoZone читает поля геозоны; ошибку Scan, включая pgx.ErrNoRows, возвращает без замены.
 func scanGeoZone(row rowScanner) (*models.GeoZone, error) {
 	zone := new(models.GeoZone)
 
@@ -204,6 +219,10 @@ func scanGeoZone(row rowScanner) (*models.GeoZone, error) {
 
 	return zone, nil
 }
+
+// mapGeoZoneError добавляет имя операции и преобразует отсутствие, ошибки
+// геометрии и дубликаты в доменные ошибки. Требует ненулевой err;
+// геометрию и дубликаты распознаёт по тексту, прочие ошибки оборачивает без замены.
 func mapGeoZoneError(operation string, err error) error {
 
 	if err == pgx.ErrNoRows {

@@ -151,7 +151,7 @@ func (s *TicketServiceStruct) CreateRequest(ctx context.Context, in *models.Crea
 func (s *TicketServiceStruct) AttachRequest(ctx context.Context, in *models.AttachRequestInput) (*models.Ticket, error)
 ```
 
-Разрешает администратору либо диспетчеру департамента инцидента перенести `REQUEST` в указанный `INCIDENT`. Оба объекта должны принадлежать одному департаменту; повторное присоединение к тому же инциденту отклоняется. Обязательная причина и исполнитель записываются в событие `ticket.request_attached`.
+Разрешает администратору либо диспетчеру департамента обращения перенести `REQUEST` в указанный `INCIDENT`, в том числе другого департамента. Для объектов одного департамента дополнительно проверяется право управления инцидентом. Повторное присоединение к тому же инциденту отклоняется. Обязательная причина и исполнитель записываются в событие `ticket.request_attached`.
 
 ### `TicketServiceStruct.DetachRequest`
 
@@ -167,7 +167,7 @@ func (s *TicketServiceStruct) DetachRequest(ctx context.Context, in *models.Deta
 func (s *TicketServiceStruct) ListIncidentRequests(ctx context.Context, in *models.ListIncidentRequestsInput) ([]*models.Ticket, int64, error)
 ```
 
-Проверяет право управления инцидентом, нормализует страницу и возвращает связанные обращения и общее количество. Администратор видит любой департамент; диспетчер — только свой.
+Проверяет доступ к инциденту или наличие части департамента исполнителя, нормализует страницу и возвращает связанные обращения и общее количество. Администратор видит любой департамент; диспетчер получает состав инцидента, если управляет самим инцидентом или одной из его частей.
 
 ### `IntegrationServiceStruct.RegisterIntegration`
 
@@ -315,3 +315,22 @@ func idempotencyActor(actor *uuid.UUID, fallback uuid.UUID) string
 - [README сервиса](https://github.com/FIZZI-77/automatic_system/blob/test/Ticket_Service/README.md)
 - [Точка запуска и реализации](https://github.com/FIZZI-77/automatic_system/blob/test/Ticket_Service/src/cmd/server/main.go)
 - [Проверенная карта взаимодействий](https://github.com/FIZZI-77/automatic_system/blob/test/docs/architecture/code-interactions.md)
+
+## Управление внешними интеграциями
+
+`IntegrationServiceStruct` предоставляет только администратору следующие методы:
+
+| Метод | Вход и результат |
+|---|---|
+| `ListIntegrations(ctx, *models.ListIntegrationsInput)` | `Limit` от 1 до 100, `Offset` от 0; возвращает `*models.ListIntegrationsResult` с `Integrations` и `Total`. Сортировка: `created_at DESC, id DESC`. |
+| `SetIntegrationActive(ctx, *models.SetIntegrationActiveInput)` | Ненулевой `IntegrationID` и `IsActive`; возвращает `*models.TicketIntegration`. Отключенная интеграция не может создавать внешние обращения. |
+| `RotateIntegrationSecret(ctx, *models.RotateIntegrationSecretInput)` | Ненулевой `IntegrationID`; возвращает `*models.RegisterIntegrationResult` с новым `Secret` и метаданными. Старый хеш заменяется, состояние активности сохраняется. |
+
+Каждый метод также возвращает `error`. Полный секрет с префиксом `tki_`
+возвращается при регистрации и ротации; список содержит только `secret_prefix`.
+`last_used_at` обновляется после успешного внешнего обращения; ошибка этой
+служебной записи не отменяет создание обращения.
+
+Реализация: `src/core/service/integration_service.go`,
+`src/core/repository/integration_repo.go`, `models/integration.go`.
+Все gRPC-методы находятся в общем `TicketHandler`.

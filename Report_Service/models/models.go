@@ -128,6 +128,8 @@ type Download struct {
 	ExpiresAt time.Time
 }
 
+// Validate проверяет ненулевого инициатора, имя длиной 3–160 байт, поддерживаемые
+// тип и формат отчёта, а также порядок дат фильтра. Исходные данные не изменяет.
 func (v CreateInput) Validate() error {
 
 	if v.RequestedBy == uuid.Nil || len(v.Name) < 3 || len(v.Name) > 160 {

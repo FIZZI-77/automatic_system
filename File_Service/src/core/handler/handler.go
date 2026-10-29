@@ -2,8 +2,10 @@ package handler
 
 import (
 	"context"
+	"crypto/subtle"
 	"errors"
 	"fmt"
+	"strings"
 
 	"file/models"
 	"file/pkg"
@@ -12,20 +14,25 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type Handler struct {
 	filev1.UnimplementedFileServiceServer
-	service *service.Service
-	logger  *zap.Logger
+	service   *service.Service
+	logger    *zap.Logger
+	linkToken string
 }
 
-func New(fileService *service.Service, logger *zap.Logger) *Handler {
-	return &Handler{service: fileService, logger: logger}
+// New создаёт gRPC-обработчик файлов с сервисом и журналом запросов.
+func New(fileService *service.Service, logger *zap.Logger, linkToken string) *Handler {
+	return &Handler{service: fileService, logger: logger, linkToken: strings.TrimSpace(linkToken)}
 }
 
+// CreateUpload разбирает UUID владельца и передаёт метаданные файла сервису.
+// Возвращает файл, URL загрузки и срок действия; неверный UUID даёт InvalidArgument.
 func (h *Handler) CreateUpload(ctx context.Context, req *filev1.CreateUploadRequest) (*filev1.CreateUploadResponse, error) {
 	logger := h.logger.With(pkg.RequestIDField(ctx), zap.String("method", "CreateUpload"))
 	ownerID, err := parseUUID(req.GetOwnerUserId(), "owner_user_id")
@@ -57,6 +64,8 @@ func (h *Handler) CreateUpload(ctx context.Context, req *filev1.CreateUploadRequ
 	}, nil
 }
 
+// ConfirmUpload разбирает ID файла и пользователя и подтверждает загрузку через сервис,
+// передавая признак роли admin или dispatcher для проверки доступа.
 func (h *Handler) ConfirmUpload(ctx context.Context, req *filev1.ConfirmUploadRequest) (*filev1.ConfirmUploadResponse, error) {
 	fileID, actorID, err := parseFileAndActor(req.GetFileId(), req.GetActorUserId())
 
@@ -73,7 +82,15 @@ func (h *Handler) ConfirmUpload(ctx context.Context, req *filev1.ConfirmUploadRe
 	return &filev1.ConfirmUploadResponse{File: toProtoFile(file)}, nil
 }
 
+// LinkFile разбирает UUID файла, пользователя и ресурса и передаёт связь сервису.
+// Ошибки UUID возвращает как InvalidArgument, ошибки сервиса — через serviceError.
 func (h *Handler) LinkFile(ctx context.Context, req *filev1.LinkFileRequest) (*filev1.LinkFileResponse, error) {
+	if !h.canLink(ctx, req.GetActorRoles()) {
+		return nil, status.Error(codes.PermissionDenied, "resource linking requires the report workflow or admin")
+	}
+	if req.GetResourceType() != "report" && req.GetResourceType() != "work_report" {
+		return nil, status.Error(codes.InvalidArgument, "unsupported resource type")
+	}
 	fileID, actorID, err := parseFileAndActor(req.GetFileId(), req.GetActorUserId())
 
 	if err != nil {
@@ -98,6 +115,20 @@ func (h *Handler) LinkFile(ctx context.Context, req *filev1.LinkFileRequest) (*f
 	return &filev1.LinkFileResponse{File: toProtoFile(file)}, nil
 }
 
+// canLink разрешает связывание файла для администратора или по доверенному токену отчета.
+func (h *Handler) canLink(ctx context.Context, roles []string) bool {
+	for _, role := range roles {
+		if role == "admin" {
+			return true
+		}
+	}
+	md, _ := metadata.FromIncomingContext(ctx)
+	values := md.Get("x-report-link-token")
+	return h.linkToken != "" && len(values) == 1 && subtle.ConstantTimeCompare([]byte(values[0]), []byte(h.linkToken)) == 1
+}
+
+// GetDownloadURL запрашивает у сервиса ссылку скачивания с данными пользователя
+// и признаком привилегированной роли; возвращает файл, URL и срок действия.
 func (h *Handler) GetDownloadURL(ctx context.Context, req *filev1.GetDownloadURLRequest) (*filev1.GetDownloadURLResponse, error) {
 	fileID, actorID, err := parseFileAndActor(req.GetFileId(), req.GetActorUserId())
 
@@ -118,6 +149,8 @@ func (h *Handler) GetDownloadURL(ctx context.Context, req *filev1.GetDownloadURL
 	}, nil
 }
 
+// ListResourceFiles разбирает UUID ресурса и пользователя, передаёт проверку
+// доступа сервису и преобразует список файлов в protobuf.
 func (h *Handler) ListResourceFiles(ctx context.Context, req *filev1.ListResourceFilesRequest) (*filev1.ListResourceFilesResponse, error) {
 	resourceID, err := parseUUID(req.GetResourceId(), "resource_id")
 
@@ -151,6 +184,8 @@ func (h *Handler) ListResourceFiles(ctx context.Context, req *filev1.ListResourc
 	return &filev1.ListResourceFilesResponse{Files: result}, nil
 }
 
+// DeleteFile разбирает ID файла и пользователя и вызывает удаление в сервисе
+// с признаком привилегированной роли; при успехе возвращает пустой ответ.
 func (h *Handler) DeleteFile(ctx context.Context, req *filev1.DeleteFileRequest) (*filev1.DeleteFileResponse, error) {
 	fileID, actorID, err := parseFileAndActor(req.GetFileId(), req.GetActorUserId())
 
@@ -165,6 +200,8 @@ func (h *Handler) DeleteFile(ctx context.Context, req *filev1.DeleteFileRequest)
 	return &filev1.DeleteFileResponse{}, nil
 }
 
+// parseFileAndActor разбирает UUID файла и пользователя в этом порядке;
+// при первой ошибке возвращает два uuid.Nil и ошибку с именем поля.
 func parseFileAndActor(fileID, actorID string) (uuid.UUID, uuid.UUID, error) {
 	parsedFileID, err := parseUUID(fileID, "file_id")
 
@@ -181,6 +218,7 @@ func parseFileAndActor(fileID, actorID string) (uuid.UUID, uuid.UUID, error) {
 	return parsedFileID, parsedActorID, nil
 }
 
+// parseUUID разбирает UUID и добавляет имя field к ошибке формата.
 func parseUUID(value, field string) (uuid.UUID, error) {
 	parsed, err := uuid.Parse(value)
 
@@ -191,6 +229,7 @@ func parseUUID(value, field string) (uuid.UUID, error) {
 	return parsed, nil
 }
 
+// hasPrivilegedRole распознаёт точные значения admin и dispatcher без нормализации.
 func hasPrivilegedRole(roles []string) bool {
 	for _, role := range roles {
 
@@ -202,10 +241,13 @@ func hasPrivilegedRole(roles []string) bool {
 	return false
 }
 
+// invalidArgument преобразует ненулевую ошибку в gRPC InvalidArgument с её текстом.
 func invalidArgument(err error) error {
 	return status.Error(codes.InvalidArgument, err.Error())
 }
 
+// serviceError переводит ошибки отсутствия файла, таймаута, доступа и валидации
+// в соответствующие коды gRPC; остальные ошибки даёт как FailedPrecondition.
 func serviceError(err error) error {
 	switch {
 	case service.IsNotFound(err):
@@ -221,6 +263,8 @@ func serviceError(err error) error {
 	}
 }
 
+// toProtoFile преобразует файл в protobuf с временными метками и необязательной
+// связью ресурса; для nil возвращает nil.
 func toProtoFile(file *models.File) *filev1.File {
 
 	if file == nil {
@@ -251,6 +295,7 @@ func toProtoFile(file *models.File) *filev1.File {
 	return result
 }
 
+// toProtoStatus преобразует статус файла в protobuf; неизвестный даёт UNSPECIFIED.
 func toProtoStatus(fileStatus models.Status) filev1.FileStatus {
 	switch fileStatus {
 	case models.StatusPendingUpload:

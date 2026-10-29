@@ -16,6 +16,9 @@ import (
 
 const idempotencyTTL = 24 * time.Hour
 
+// withIdempotency выполняет fn и сохраняет её результат в общей транзакции по ключу из ctx.
+// Запись действует 24 часа; повтор с другим запросом вызывает ErrIdempotencyConflict.
+// Без ключа вызывает fn напрямую, без сохранения ответа.
 func (a *AuthServiceStruct) withIdempotency(
 	ctx context.Context,
 	operation string,
@@ -72,8 +75,9 @@ func (a *AuthServiceStruct) withIdempotency(
 	return result, nil
 }
 
-// withExternalSideEffectIdempotency keeps SMTP outside a database transaction.
-// It is used until email delivery is moved to a persistent email outbox.
+// withExternalSideEffectIdempotency защищает fn от повторов, выполняя SMTP вне транзакции БД.
+// Занимает ключ на 24 часа и отдельно сохраняет результат либо состояние FAILED.
+// Используется до переноса отправки писем в постоянный почтовый outbox.
 func (a *AuthServiceStruct) withExternalSideEffectIdempotency(
 	ctx context.Context,
 	operation string,
@@ -145,6 +149,8 @@ func (a *AuthServiceStruct) withExternalSideEffectIdempotency(
 	return result, nil
 }
 
+// cachedResult возвращает результат как *T либо восстанавливает этот тип через JSON.
+// Ошибки сериализации и разбора передаёт вызывающему без подмены результата.
 func cachedResult[T any](result any) (*T, error) {
 
 	if typed, ok := result.(*T); ok {
@@ -166,6 +172,8 @@ func cachedResult[T any](result any) (*T, error) {
 	return &typed, nil
 }
 
+// hashRequest вычисляет шестнадцатеричный SHA-256 JSON-представления запроса.
+// Возвращает ошибку, если значение не удаётся сериализовать.
 func hashRequest(request any) (string, error) {
 	bytes, err := json.Marshal(request)
 

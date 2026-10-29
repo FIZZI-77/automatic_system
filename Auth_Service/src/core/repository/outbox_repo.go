@@ -8,6 +8,8 @@ import (
 	"github.com/google/uuid"
 )
 
+// insertOutboxEvent сериализует payload в JSON и добавляет событие с новым UUID в outbox.
+// Устанавливает статус PENDING и ноль попыток; использует переданный исполнитель транзакции.
 func insertOutboxEvent(
 	ctx context.Context,
 	exec DBTX,

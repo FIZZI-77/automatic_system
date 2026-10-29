@@ -22,6 +22,7 @@ type RouteRepo struct {
 	readPool  *pgxpool.Pool
 }
 
+// NewRouteRepo создаёт хранилище маршрутов; при nil readPool читает через writePool.
 func NewRouteRepo(
 	writePool *pgxpool.Pool,
 	readPool *pgxpool.Pool,
@@ -37,6 +38,9 @@ func NewRouteRepo(
 	}
 }
 
+// CreateRoute сохраняет маршрут и событие создания в одной транзакции.
+// При конфликте единственного открытого маршрута заявки возвращает существующий
+// для той же бригады либо ErrConflict для другой; route не изменяет.
 func (r *RouteRepo) CreateRoute(
 	ctx context.Context,
 	route *models.Route,
@@ -81,6 +85,8 @@ func (r *RouteRepo) CreateRoute(
 	return route, nil
 }
 
+// GetRoute читает маршрут по ID из пула чтения и декодирует JSON-поля.
+// Отсутствие записи возвращает как ErrNotFound.
 func (r *RouteRepo) GetRoute(
 	ctx context.Context,
 	id string,
@@ -114,6 +120,8 @@ func (r *RouteRepo) GetRoute(
 	return route, nil
 }
 
+// GetOpenRouteByTicket возвращает новейший маршрут заявки в PLANNED или ACTIVE
+// из пула чтения. Отсутствие открытого маршрута даёт ErrNotFound.
 func (r *RouteRepo) GetOpenRouteByTicket(ctx context.Context, ticketID string) (*models.Route, error) {
 	const query = `SELECT
   id, ticket_id, brigade_id, status, origin, destination, waypoints,
@@ -135,6 +143,10 @@ func (r *RouteRepo) GetOpenRouteByTicket(ctx context.Context, ticketID string) (
 
 	return route, nil
 }
+
+// UpdateCalculation транзакционно заменяет начало, расчёт, ревизию и время обновления
+// маршрута значениями route, затем записывает событие перерасчёта.
+// Отсутствие даёт ErrNotFound; статус и предыдущее значение ревизии не проверяет.
 func (r *RouteRepo) UpdateCalculation(
 	ctx context.Context,
 	route *models.Route,
@@ -211,6 +223,8 @@ func (r *RouteRepo) UpdateCalculation(
 	return updated, nil
 }
 
+// ListRoutes возвращает страницу маршрутов по заявке, бригаде и статусу от новых
+// к старым с отдельным общим счётчиком. Требует ненулевой in с подготовленной пагинацией.
 func (r *RouteRepo) ListRoutes(
 	ctx context.Context,
 	in *models.ListRoutesInput,
@@ -228,6 +242,9 @@ func (r *RouteRepo) ListRoutes(
 
 	if in.TicketID != nil {
 		add("ticket_id = $%d", *in.TicketID)
+	}
+	if in.AllowedTicketIDs != nil {
+		add("ticket_id = ANY($%d::uuid[])", in.AllowedTicketIDs)
 	}
 
 	if in.BrigadeID != nil {
@@ -299,6 +316,8 @@ func (r *RouteRepo) ListRoutes(
 	return result, nil
 }
 
+// writeRoute сериализует точки, опции и расчёт в JSON и вставляет маршрут через tx.
+// Историю событий не записывает; возвращает ошибки сериализации или вставки.
 func writeRoute(
 	ctx context.Context,
 	tx pgx.Tx,
@@ -374,6 +393,8 @@ func writeRoute(
 	return nil
 }
 
+// appendEvent сохраняет через tx событие со снимком маршрута, показателями расчёта,
+// версией схемы и trace ID. Время события берёт из route.UpdatedAt.
 func appendEvent(
 	ctx context.Context,
 	tx pgx.Tx,
@@ -435,6 +456,8 @@ func appendEvent(
 	return nil
 }
 
+// RecordCalculationFailure сохраняет событие routing.calculation.failed.v1
+// в outbox с trace ID и временем завершения расчёта. Требует AggregateID в формате UUID.
 func (r *RouteRepo) RecordCalculationFailure(ctx context.Context, failure models.CalculationFailure) error {
 	eventID := uuid.New()
 	payload, err := json.Marshal(struct {
@@ -476,6 +499,7 @@ func (r *RouteRepo) RecordCalculationFailure(ctx context.Context, failure models
 	return nil
 }
 
+// traceID возвращает ID действующего span-контекста либо пустую строку, если его нет.
 func traceID(ctx context.Context) string {
 	spanContext := trace.SpanContextFromContext(ctx)
 
@@ -487,9 +511,12 @@ func traceID(ctx context.Context) string {
 }
 
 type rowScanner interface {
+	// Scan переносит значения строки в dest и возвращает ошибку чтения или преобразования.
 	Scan(dest ...any) error
 }
 
+// scanRoute читает маршрут и декодирует JSON точек, опций и расчёта.
+// Ошибку чтения, включая pgx.ErrNoRows, возвращает без замены.
 func scanRoute(row rowScanner) (*models.Route, error) {
 	route := new(models.Route)
 	var origin []byte

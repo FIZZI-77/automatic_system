@@ -18,7 +18,11 @@ func TestCreateDepartmentInputValidate(t *testing.T) {
 		{name: "empty name", input: &CreateDepartmentInput{Name: ""}, wantErr: true},
 		{name: "spaces name", input: &CreateDepartmentInput{Name: "   "}, wantErr: true},
 		{name: "long name", input: &CreateDepartmentInput{Name: repeatString("a", 256)}, wantErr: true},
-		{name: "long description", input: &CreateDepartmentInput{Name: "Roads", Description: repeatString("a", 1001)}, wantErr: true},
+		{
+			name:    "long description",
+			input:   &CreateDepartmentInput{Name: "Roads", Description: repeatString("a", 1001)},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -59,12 +63,36 @@ func TestListDepartmentsInputValidate(t *testing.T) {
 		wantErr bool
 	}{
 		{name: "valid defaults", input: &ListDepartmentsInput{}, wantErr: false},
-		{name: "valid filters", input: &ListDepartmentsInput{Status: ptrDepartmentStatus(DepartmentStatusActive), CreatedFrom: &before, CreatedTo: &now, SortBy: DepartmentSortByName, SortOrder: SortOrderAsc, Limit: 10, Offset: 5}, wantErr: false},
+		{
+			name: "valid filters",
+			input: &ListDepartmentsInput{
+				Status:      ptrDepartmentStatus(DepartmentStatusActive),
+				CreatedFrom: &before,
+				CreatedTo:   &now,
+				SortBy:      DepartmentSortByName,
+				SortOrder:   SortOrderAsc,
+				Limit:       10,
+				Offset:      5,
+			},
+			wantErr: false,
+		},
 		{name: "nil", input: nil, wantErr: true},
 		{name: "invalid status", input: &ListDepartmentsInput{Status: &invalidStatus}, wantErr: true},
-		{name: "invalid range", input: &ListDepartmentsInput{CreatedFrom: &now, CreatedTo: &before}, wantErr: true},
-		{name: "invalid sort by", input: &ListDepartmentsInput{SortBy: DepartmentSortBy("bad")}, wantErr: true},
-		{name: "invalid sort order", input: &ListDepartmentsInput{SortOrder: SortOrder("bad")}, wantErr: true},
+		{
+			name:    "invalid range",
+			input:   &ListDepartmentsInput{CreatedFrom: &now, CreatedTo: &before},
+			wantErr: true,
+		},
+		{
+			name:    "invalid sort by",
+			input:   &ListDepartmentsInput{SortBy: DepartmentSortBy("bad")},
+			wantErr: true,
+		},
+		{
+			name:    "invalid sort order",
+			input:   &ListDepartmentsInput{SortOrder: SortOrder("bad")},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -108,12 +136,20 @@ func TestUpdateDepartmentInputValidate(t *testing.T) {
 		wantErr bool
 	}{
 		{name: "valid name", input: &UpdateDepartmentInput{ID: validID, Name: &name}, wantErr: false},
-		{name: "valid description", input: &UpdateDepartmentInput{ID: validID, Description: &description}, wantErr: false},
+		{
+			name:    "valid description",
+			input:   &UpdateDepartmentInput{ID: validID, Description: &description},
+			wantErr: false,
+		},
 		{name: "valid status", input: &UpdateDepartmentInput{ID: validID, Status: &status}, wantErr: false},
 		{name: "nil", input: nil, wantErr: true},
 		{name: "empty id", input: &UpdateDepartmentInput{ID: uuid.Nil, Name: &name}, wantErr: true},
 		{name: "blank name", input: &UpdateDepartmentInput{ID: validID, Name: &blank}, wantErr: true},
-		{name: "invalid status", input: &UpdateDepartmentInput{ID: validID, Status: &invalidStatus}, wantErr: true},
+		{
+			name:    "invalid status",
+			input:   &UpdateDepartmentInput{ID: validID, Status: &invalidStatus},
+			wantErr: true,
+		},
 		{name: "no fields", input: &UpdateDepartmentInput{ID: validID}, wantErr: true},
 	}
 

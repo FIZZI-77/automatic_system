@@ -8,7 +8,12 @@ import (
 )
 
 func TestCreateWorkReportInputValidate(t *testing.T) {
-	in := &models.CreateWorkReportInput{TicketID: uuid.New(), AuthorUserID: uuid.New(), Description: " completed ", FileIDs: []uuid.UUID{uuid.New(), uuid.New()}}
+	in := &models.CreateWorkReportInput{
+		TicketID:     uuid.New(),
+		AuthorUserID: uuid.New(),
+		Description:  " completed ",
+		FileIDs:      []uuid.UUID{uuid.New(), uuid.New()},
+	}
 
 	if err := in.Validate(); err != nil {
 		t.Fatalf("expected valid report: %v", err)

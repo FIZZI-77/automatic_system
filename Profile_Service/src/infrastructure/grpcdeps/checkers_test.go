@@ -44,8 +44,18 @@ func TestUserChecker(t *testing.T) {
 		wantErr  string
 	}{
 		{"active user", &authv1.GetUserAuthInfoResponse{UserId: userID.String(), IsActive: true}, nil, ""},
-		{"inactive user", &authv1.GetUserAuthInfoResponse{UserId: userID.String(), IsActive: false}, nil, "inactive"},
-		{"different user", &authv1.GetUserAuthInfoResponse{UserId: uuid.NewString(), IsActive: true}, nil, "does not exist"},
+		{
+			"inactive user",
+			&authv1.GetUserAuthInfoResponse{UserId: userID.String(), IsActive: false},
+			nil,
+			"inactive",
+		},
+		{
+			"different user",
+			&authv1.GetUserAuthInfoResponse{UserId: uuid.NewString(), IsActive: true},
+			nil,
+			"does not exist",
+		},
 		{"nil response", nil, nil, "does not exist"},
 		{"upstream error", nil, upstreamErr, "auth GetUserAuthInfo"},
 	}
@@ -88,9 +98,27 @@ func TestDepartmentChecker(t *testing.T) {
 		wantErr      string
 		wantNotFound bool
 	}{
-		{"active department", &departmentv1.GetDepartmentByIDResponse{Department: &departmentv1.Department{Id: departmentID.String(), Status: departmentv1.DepartmentStatus_DEPARTMENT_STATUS_ACTIVE}}, nil, "", false},
-		{"inactive department", &departmentv1.GetDepartmentByIDResponse{Department: &departmentv1.Department{Id: departmentID.String()}}, nil, "inactive", true},
-		{"different department", &departmentv1.GetDepartmentByIDResponse{Department: &departmentv1.Department{Id: uuid.NewString(), Status: departmentv1.DepartmentStatus_DEPARTMENT_STATUS_ACTIVE}}, nil, "does not exist", true},
+		{
+			"active department",
+			&departmentv1.GetDepartmentByIDResponse{Department: &departmentv1.Department{Id: departmentID.String(), Status: departmentv1.DepartmentStatus_DEPARTMENT_STATUS_ACTIVE}},
+			nil,
+			"",
+			false,
+		},
+		{
+			"inactive department",
+			&departmentv1.GetDepartmentByIDResponse{Department: &departmentv1.Department{Id: departmentID.String()}},
+			nil,
+			"inactive",
+			true,
+		},
+		{
+			"different department",
+			&departmentv1.GetDepartmentByIDResponse{Department: &departmentv1.Department{Id: uuid.NewString(), Status: departmentv1.DepartmentStatus_DEPARTMENT_STATUS_ACTIVE}},
+			nil,
+			"does not exist",
+			true,
+		},
 		{"missing department", &departmentv1.GetDepartmentByIDResponse{}, nil, "does not exist", true},
 		{"nil response", nil, nil, "does not exist", true},
 		{"upstream not found", nil, notFoundErr, "department GetDepartmentByID", true},

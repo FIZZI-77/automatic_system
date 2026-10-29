@@ -11,12 +11,20 @@ const entryColumns = `id,event_id,topic,action,actor_id,entity_type,entity_id,re
 
 type EntryReaderRepoStruct struct{ db *pgxpool.Pool }
 
+// NewEntryReaderRepoStruct создаёт хранилище чтения аудита с пулом db.
 func NewEntryReaderRepoStruct(db *pgxpool.Pool) *EntryReaderRepoStruct {
 	return &EntryReaderRepoStruct{db: db}
 }
+
+// Get читает запись аудита по ID и декодирует её JSON-данные.
+// Если записи нет, возвращает pgx.ErrNoRows.
 func (r *EntryReaderRepoStruct) Get(ctx context.Context, id uuid.UUID) (*models.Entry, error) {
 	return scanEntry(r.db.QueryRow(ctx, `SELECT `+entryColumns+` FROM audit_entries WHERE id=$1`, id))
 }
+
+// List возвращает страницу аудита по фильтрам от новых событий к старым и оконный
+// общий счётчик, равный нулю на пустой странице. Лимит вне 1–100 заменяет на 50,
+// отрицательное смещение — на ноль; f не изменяет.
 func (r *EntryReaderRepoStruct) List(ctx context.Context, f models.Filter) ([]*models.Entry, int64, error) {
 	limit := f.Limit
 

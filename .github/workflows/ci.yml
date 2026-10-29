@@ -433,6 +433,10 @@ jobs:
 
       - name: Validate Compose
         shell: bash
+        # Validation only: this step does not start containers or deploy services.
+        env:
+          TRANSPONDER_API_KEY: ci-compose-validation-only
+          REPORT_INTERNAL_TOKEN: ci-compose-validation-only
         run: |
           set -euo pipefail
           docker compose config --quiet

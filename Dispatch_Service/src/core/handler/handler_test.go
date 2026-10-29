@@ -29,7 +29,15 @@ func TestAuthorize(t *testing.T) {
 }
 
 func TestDispatchStatusMappings(t *testing.T) {
-	values := []models.Status{models.StatusPending, models.StatusReserved, models.StatusConfirming, models.StatusAssigned, models.StatusFailed, models.StatusCancelled, models.StatusExpired}
+	values := []models.Status{
+		models.StatusPending,
+		models.StatusReserved,
+		models.StatusConfirming,
+		models.StatusAssigned,
+		models.StatusFailed,
+		models.StatusCancelled,
+		models.StatusExpired,
+	}
 	for _, value := range values {
 		protoValue := statusToProto(value)
 		restored, ok := statusFromProto(protoValue)
@@ -47,7 +55,14 @@ func TestDispatchStatusMappings(t *testing.T) {
 }
 
 func TestToProtoIncludesConcurrencyFields(t *testing.T) {
-	op := &models.Operation{ID: uuid.New(), TicketID: uuid.New(), Mode: models.ModeManual, Status: models.StatusReserved, Version: 2, RequestedBy: uuid.New()}
+	op := &models.Operation{
+		ID:          uuid.New(),
+		TicketID:    uuid.New(),
+		Mode:        models.ModeManual,
+		Status:      models.StatusReserved,
+		Version:     2,
+		RequestedBy: uuid.New(),
+	}
 	result := toProto(op)
 
 	if result.GetVersion() != 2 || result.GetMode() != dispatchv1.DispatchMode_DISPATCH_MODE_MANUAL || result.GetStatus() != dispatchv1.DispatchStatus_DISPATCH_STATUS_RESERVED {

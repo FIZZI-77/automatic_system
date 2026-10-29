@@ -43,7 +43,20 @@ func TestLocationEnumMappers(t *testing.T) {
 func TestFromProtoCurrentLocation(t *testing.T) {
 	now := time.Date(2026, 8, 7, 12, 0, 0, 0, time.UTC)
 	altitude := 150.5
-	value := &locationv1.CurrentLocation{SignalStatus: locationv1.SignalStatus_SIGNAL_STATUS_ONLINE, StaleAfter: timestamppb.New(now.Add(time.Minute)), Position: &locationv1.Position{Id: "position", EventId: "event", BrigadeId: "brigade", Latitude: 55.75, Longitude: 37.61, AltitudeMeters: &altitude, RecordedAt: timestamppb.New(now), ReceivedAt: timestamppb.New(now)}}
+	value := &locationv1.CurrentLocation{
+		SignalStatus: locationv1.SignalStatus_SIGNAL_STATUS_ONLINE,
+		StaleAfter:   timestamppb.New(now.Add(time.Minute)),
+		Position: &locationv1.Position{
+			Id:             "position",
+			EventId:        "event",
+			BrigadeId:      "brigade",
+			Latitude:       55.75,
+			Longitude:      37.61,
+			AltitudeMeters: &altitude,
+			RecordedAt:     timestamppb.New(now),
+			ReceivedAt:     timestamppb.New(now),
+		},
+	}
 	result := fromProtoCurrentLocation(value)
 
 	if result == nil || result.Position == nil {

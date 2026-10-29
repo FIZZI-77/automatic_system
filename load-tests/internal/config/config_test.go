@@ -9,7 +9,11 @@ func TestValidateDestructive(t *testing.T) {
 		environment Environment
 		allowed     bool
 		wantErr     bool
-	}{{"test allowed", Environment{Name: "local-test", Namespace: "automatic-system-load"}, true, false}, {"flag required", Environment{Name: "local-test", Namespace: "automatic-system-load"}, false, true}, {"production forbidden", Environment{Name: "production", Namespace: "automatic-system"}, true, true}}
+	}{
+		{"test allowed", Environment{Name: "local-test", Namespace: "automatic-system-load"}, true, false},
+		{"flag required", Environment{Name: "local-test", Namespace: "automatic-system-load"}, false, true},
+		{"production forbidden", Environment{Name: "production", Namespace: "automatic-system"}, true, true},
+	}
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {

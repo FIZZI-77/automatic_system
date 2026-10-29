@@ -8,8 +8,11 @@ import (
 
 type PositionBuffer interface {
 	PositionHistorySink
+	// TakeBatch удаляет и возвращает первые maxSize точек; неположительный размер означает все точки.
 	TakeBatch(maxSize int) []*models.Position
+	// Prepend возвращает пакет в начало очереди для повторной записи истории.
 	Prepend(batch []*models.Position)
+	// Len возвращает текущее количество точек в очереди.
 	Len() int
 }
 
@@ -19,6 +22,8 @@ type MemoryPositionBuffer struct {
 	capacity int
 }
 
+// NewMemoryPositionBuffer создаёт безопасный для параллельных вызовов буфер точек.
+// Неположительную capacity заменяет на 10 000.
 func NewMemoryPositionBuffer(capacity int) *MemoryPositionBuffer {
 
 	if capacity <= 0 {
@@ -28,6 +33,8 @@ func NewMemoryPositionBuffer(capacity int) *MemoryPositionBuffer {
 	return &MemoryPositionBuffer{items: make([]*models.Position, 0, capacity), capacity: capacity}
 }
 
+// Add добавляет указатель на точку в конец очереди без копирования модели.
+// nil точка даёт ErrValidation, достижение capacity — ErrPositionBufferFull.
 func (b *MemoryPositionBuffer) Add(position *models.Position) error {
 
 	if position == nil {
@@ -45,6 +52,8 @@ func (b *MemoryPositionBuffer) Add(position *models.Position) error {
 	return nil
 }
 
+// TakeBatch удаляет из очереди до maxSize первых точек и возвращает новый срез указателей.
+// Неположительный или превышающий длину размер означает весь буфер; пустой буфер даёт nil.
 func (b *MemoryPositionBuffer) TakeBatch(maxSize int) []*models.Position {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -63,6 +72,8 @@ func (b *MemoryPositionBuffer) TakeBatch(maxSize int) []*models.Position {
 	return batch
 }
 
+// Prepend добавляет указатели batch в начало очереди в исходном порядке.
+// Лимит capacity и nil элементы не проверяет, позволяя вернуть неудачно записанный пакет.
 func (b *MemoryPositionBuffer) Prepend(batch []*models.Position) {
 
 	if len(batch) == 0 {
@@ -77,6 +88,7 @@ func (b *MemoryPositionBuffer) Prepend(batch []*models.Position) {
 	b.items = items
 }
 
+// Len возвращает число точек в очереди под блокировкой буфера.
 func (b *MemoryPositionBuffer) Len() int {
 	b.mu.Lock()
 	defer b.mu.Unlock()

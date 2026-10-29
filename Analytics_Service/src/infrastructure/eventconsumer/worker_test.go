@@ -15,7 +15,12 @@ func TestEventVersion(t *testing.T) {
 		payload map[string]any
 		want    uint32
 	}{
-		{name: "header wins", headers: map[string]string{"event_version": "3"}, payload: map[string]any{"event_version": float64(2)}, want: 3},
+		{
+			name:    "header wins",
+			headers: map[string]string{"event_version": "3"},
+			payload: map[string]any{"event_version": float64(2)},
+			want:    3,
+		},
 		{name: "snake case payload", payload: map[string]any{"event_version": float64(2)}, want: 2},
 		{name: "camel case payload", payload: map[string]any{"EventVersion": float64(4)}, want: 4},
 		{name: "legacy defaults to one", payload: map[string]any{}, want: 1},
@@ -71,7 +76,14 @@ func TestDeadLetterMessagePreservesSourceAndDiagnostics(t *testing.T) {
 
 func TestProcessingRetryDelayIsBounded(t *testing.T) {
 	t.Parallel()
-	want := []time.Duration{100 * time.Millisecond, 200 * time.Millisecond, 400 * time.Millisecond, 800 * time.Millisecond, 1600 * time.Millisecond, 2 * time.Second}
+	want := []time.Duration{
+		100 * time.Millisecond,
+		200 * time.Millisecond,
+		400 * time.Millisecond,
+		800 * time.Millisecond,
+		1600 * time.Millisecond,
+		2 * time.Second,
+	}
 	for index, expected := range want {
 
 		if got := processingRetryDelay(index + 1); got != expected {

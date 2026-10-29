@@ -36,14 +36,18 @@ const (
 	maxUsernameLength = 100
 )
 
+// normalizeEmail удаляет пробелы по краям адреса и приводит его к нижнему регистру.
 func normalizeEmail(email string) string {
 	return strings.ToLower(strings.TrimSpace(email))
 }
 
+// normalizeString возвращает строку без окружающих пробельных символов.
 func normalizeString(s string) string {
 	return strings.TrimSpace(s)
 }
 
+// isEmailValid принимает только адрес без отображаемого имени и дополнительных частей.
+// Сравнивает результат mail.ParseAddress с исходной строкой; пустой адрес отклоняет.
 func isEmailValid(email string) bool {
 
 	if email == "" {
@@ -59,10 +63,13 @@ func isEmailValid(email string) bool {
 	return addr.Address == email
 }
 
+// isIPValid проверяет строковое представление адреса IPv4 или IPv6 через net.ParseIP.
 func isIPValid(ip string) bool {
 	return net.ParseIP(ip) != nil
 }
 
+// validatePassword требует непустой пароль длиной не менее восьми Unicode-символов.
+// Возвращает ErrPasswordRequired или ErrPasswordTooShort; пароль не изменяет.
 func validatePassword(password string) error {
 
 	if strings.TrimSpace(password) == "" {
@@ -76,6 +83,8 @@ func validatePassword(password string) error {
 	return nil
 }
 
+// validateUsername проверяет длину имени после удаления окружающих пробелов: 3–100
+// Unicode-символов. Исходную строку не изменяет и возвращает соответствующую ошибку имени.
 func validateUsername(username string) error {
 	username = strings.TrimSpace(username)
 
@@ -96,6 +105,8 @@ func validateUsername(username string) error {
 	return nil
 }
 
+// Validate нормализует Email и Username, затем проверяет адрес, имя и пароль регистрации.
+// Изменяет поля in и возвращает первую ошибку проверки.
 func (in *RegisterInput) Validate() error {
 	in.Email = normalizeEmail(in.Email)
 	in.Username = normalizeString(in.Username)
@@ -119,6 +130,8 @@ func (in *RegisterInput) Validate() error {
 	return nil
 }
 
+// Validate нормализует Email, ClientID, IP и UserAgent и проверяет обязательные данные входа.
+// Проверяет формат адреса почты и IP; совпадение пароля с учётной записью здесь не проверяет.
 func (in *LoginInput) Validate() error {
 	in.Email = normalizeEmail(in.Email)
 	in.ClientID = normalizeString(in.ClientID)
@@ -156,6 +169,8 @@ func (in *LoginInput) Validate() error {
 	return nil
 }
 
+// Validate удаляет пробелы в данных обновления токенов и проверяет наличие токена,
+// клиента, IP и UserAgent. Формат IP проверяет, подлинность токена — нет.
 func (in *RefreshInput) Validate() error {
 	in.RefreshToken = normalizeString(in.RefreshToken)
 	in.ClientID = normalizeString(in.ClientID)
@@ -185,6 +200,7 @@ func (in *RefreshInput) Validate() error {
 	return nil
 }
 
+// Validate требует ненулевые идентификаторы пользователя и закрываемой сессии.
 func (in *LogoutInput) Validate() error {
 
 	if in.UserID == uuid.Nil {
@@ -198,6 +214,7 @@ func (in *LogoutInput) Validate() error {
 	return nil
 }
 
+// Validate требует ненулевой идентификатор пользователя для закрытия всех сессий.
 func (in *LogoutAllInput) Validate() error {
 
 	if in.UserID == uuid.Nil {
@@ -207,6 +224,8 @@ func (in *LogoutAllInput) Validate() error {
 	return nil
 }
 
+// Validate проверяет пользователя, сессию и непустые старый и новый пароли.
+// Новый пароль должен содержать не менее восьми Unicode-символов и отличаться от старого.
 func (in *ChangePasswordInput) Validate() error {
 
 	if in.UserID == uuid.Nil {
@@ -236,6 +255,8 @@ func (in *ChangePasswordInput) Validate() error {
 	return nil
 }
 
+// Validate требует идентификатор пользователя и нормализует необязательный Email.
+// Если адрес задан, проверяет его формат; пустой адрес допускает.
 func (in *SendVerificationEmailInput) Validate() error {
 
 	if in.UserID == uuid.Nil {
@@ -251,6 +272,8 @@ func (in *SendVerificationEmailInput) Validate() error {
 	return nil
 }
 
+// Validate удаляет окружающие пробелы в Token и требует непустое значение.
+// Существование, срок и одноразовость токена проверяются при подтверждении почты.
 func (in *VerifyEmailInput) Validate() error {
 	in.Token = normalizeString(in.Token)
 
@@ -261,6 +284,7 @@ func (in *VerifyEmailInput) Validate() error {
 	return nil
 }
 
+// Validate приводит Email к нижнему регистру без окружающих пробелов и проверяет его формат.
 func (in *RequestPasswordResetInput) Validate() error {
 	in.Email = normalizeEmail(in.Email)
 
@@ -275,6 +299,8 @@ func (in *RequestPasswordResetInput) Validate() error {
 	return nil
 }
 
+// Validate нормализует токен сброса и проверяет его наличие и новый пароль.
+// Пароль должен быть непустым и содержать не менее восьми Unicode-символов.
 func (in *ResetPasswordInput) Validate() error {
 	in.Token = normalizeString(in.Token)
 

@@ -9,6 +9,9 @@ import (
 	"profile/models"
 )
 
+// mapDatabaseError добавляет имя операции и переводит ошибки отсутствия, уникальности,
+// внешнего ключа и некорректных данных в доменные ошибки. Прочие ошибки оборачивает,
+// nil возвращает без изменений.
 func mapDatabaseError(operation string, err error) error {
 
 	if err == nil {
@@ -35,6 +38,7 @@ func mapDatabaseError(operation string, err error) error {
 	return fmt.Errorf("repository: %s: %w", operation, err)
 }
 
+// sortOrderSQL возвращает ASC только для SortOrderAsc, иначе — DESC.
 func sortOrderSQL(order models.SortOrder) string {
 
 	if order == models.SortOrderAsc {

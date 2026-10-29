@@ -74,7 +74,15 @@ func (filesMock) Download(context.Context, uuid.UUID, uuid.UUID, []string) (stri
 	return "url", time.Now(), nil
 }
 func TestProcessNextCompletesReport(t *testing.T) {
-	r := &repoMock{item: &models.Report{ID: uuid.New(), RequestedBy: uuid.New(), Name: "Report", Type: models.TypeTicketOverview, Format: models.FormatCSV, Status: models.StatusProcessing, Attempts: 2}}
+	r := &repoMock{item: &models.Report{
+		ID:          uuid.New(),
+		RequestedBy: uuid.New(),
+		Name:        "Report",
+		Type:        models.TypeTicketOverview,
+		Format:      models.FormatCSV,
+		Status:      models.StatusProcessing,
+		Attempts:    2,
+	}}
 	s := NewService(r, sourceMock{}, filesMock{}, genMock{}, nil)
 	ok, e := s.ProcessNext(context.Background())
 

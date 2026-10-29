@@ -16,10 +16,13 @@ type AnalyticsHandler struct {
 	client analyticsv1.AnalyticsServiceClient
 }
 
+// NewAnalyticsHandler создаёт HTTP-обработчик аналитики с переданным gRPC-клиентом.
 func NewAnalyticsHandler(c analyticsv1.AnalyticsServiceClient) *AnalyticsHandler {
 	return &AnalyticsHandler{client: c}
 }
 
+// Overview разбирает JSON фильтра и запрашивает сводку заявок с метаданными
+// пользователя; успешный ответ возвращает с HTTP 200 через dispatchResponse.
 func (h *AnalyticsHandler) Overview(c *gin.Context) {
 	var v models.AnalyticsRequest
 
@@ -33,6 +36,8 @@ func (h *AnalyticsHandler) Overview(c *gin.Context) {
 	dispatchResponse(c, http.StatusOK, e, x)
 }
 
+// SLA преобразует JSON фильтра и запрашивает сводку SLA у Analytics Service;
+// проверку ролей выполняет сервис, успех даёт HTTP 200.
 func (h *AnalyticsHandler) SLA(c *gin.Context) {
 	var v models.AnalyticsRequest
 
@@ -46,6 +51,8 @@ func (h *AnalyticsHandler) SLA(c *gin.Context) {
 	dispatchResponse(c, http.StatusOK, e, x)
 }
 
+// Breakdown преобразует JSON фильтра, измерение и лимит и запрашивает группировку
+// заявок; неизвестное измерение даёт нулевой enum для проверки сервисом.
 func (h *AnalyticsHandler) Breakdown(c *gin.Context) {
 	var v models.AnalyticsBreakdownRequest
 
@@ -62,6 +69,8 @@ func (h *AnalyticsHandler) Breakdown(c *gin.Context) {
 	dispatchResponse(c, http.StatusOK, e, x)
 }
 
+// Daily разбирает JSON фильтра и возвращает дневные метрики Analytics Service
+// с HTTP 200 при успехе, преобразуя gRPC-ошибки через dispatchResponse.
 func (h *AnalyticsHandler) Daily(c *gin.Context) {
 	var v models.AnalyticsRequest
 
@@ -75,6 +84,8 @@ func (h *AnalyticsHandler) Daily(c *gin.Context) {
 	dispatchResponse(c, http.StatusOK, e, x)
 }
 
+// Assets передаёт JSON фильтра, типа объекта и района в Analytics Service
+// и возвращает сводку объектов с HTTP 200 при успехе.
 func (h *AnalyticsHandler) Assets(c *gin.Context) {
 	var v models.AssetAnalyticsRequest
 
@@ -90,6 +101,8 @@ func (h *AnalyticsHandler) Assets(c *gin.Context) {
 	dispatchResponse(c, http.StatusOK, e, x)
 }
 
+// OperationalLatency преобразует JSON фильтра и измерение группировки и запрашивает
+// распределения задержек; ответ и ошибки отдаёт через dispatchResponse.
 func (h *AnalyticsHandler) OperationalLatency(c *gin.Context) {
 	var request models.OperationalLatencyRequest
 
@@ -107,6 +120,8 @@ func (h *AnalyticsHandler) OperationalLatency(c *gin.Context) {
 	dispatchResponse(c, http.StatusOK, err, response)
 }
 
+// DispatchFailures запрашивает сводку отказов назначения по JSON-фильтру
+// с метаданными пользователя; успех даёт HTTP 200.
 func (h *AnalyticsHandler) DispatchFailures(c *gin.Context) {
 	var request models.AnalyticsRequest
 
@@ -120,6 +135,8 @@ func (h *AnalyticsHandler) DispatchFailures(c *gin.Context) {
 	dispatchResponse(c, http.StatusOK, err, response)
 }
 
+// BrigadeWorkload запрашивает нагрузку бригад по JSON-фильтру
+// и возвращает ответ сервиса с HTTP 200 при успехе.
 func (h *AnalyticsHandler) BrigadeWorkload(c *gin.Context) {
 	var request models.AnalyticsRequest
 
@@ -133,6 +150,8 @@ func (h *AnalyticsHandler) BrigadeWorkload(c *gin.Context) {
 	dispatchResponse(c, http.StatusOK, err, response)
 }
 
+// ActiveWorkers запрашивает численность активных участников по JSON-фильтру
+// и возвращает ответ сервиса с HTTP 200 при успехе.
 func (h *AnalyticsHandler) ActiveWorkers(c *gin.Context) {
 	var request models.AnalyticsRequest
 
@@ -146,6 +165,8 @@ func (h *AnalyticsHandler) ActiveWorkers(c *gin.Context) {
 	dispatchResponse(c, http.StatusOK, err, response)
 }
 
+// AssignmentFunnel запрашивает воронку назначения по JSON-фильтру;
+// ответ и gRPC-ошибки отдаёт через dispatchResponse.
 func (h *AnalyticsHandler) AssignmentFunnel(c *gin.Context) {
 	var request models.AnalyticsRequest
 
@@ -159,6 +180,8 @@ func (h *AnalyticsHandler) AssignmentFunnel(c *gin.Context) {
 	dispatchResponse(c, http.StatusOK, err, response)
 }
 
+// DispatchEffectiveness передаёт JSON-фильтр сервису сравнения режимов назначения
+// и возвращает его ответ с HTTP 200 при успехе.
 func (h *AnalyticsHandler) DispatchEffectiveness(c *gin.Context) {
 	var request models.AnalyticsRequest
 
@@ -175,6 +198,8 @@ func (h *AnalyticsHandler) DispatchEffectiveness(c *gin.Context) {
 	dispatchResponse(c, http.StatusOK, err, response)
 }
 
+// OperationalInsights запрашивает операционные показатели и прогноз по JSON-фильтру;
+// вычисления выполняет Analytics Service, успешный ответ получает HTTP 200.
 func (h *AnalyticsHandler) OperationalInsights(c *gin.Context) {
 	var request models.AnalyticsRequest
 
@@ -191,11 +216,15 @@ func (h *AnalyticsHandler) OperationalInsights(c *gin.Context) {
 	dispatchResponse(c, http.StatusOK, err, response)
 }
 
+// ProjectionHealth без разбора тела запрашивает состояние проекций событий
+// с метаданными пользователя; успешный ответ получает HTTP 200.
 func (h *AnalyticsHandler) ProjectionHealth(c *gin.Context) {
 	response, err := h.client.GetProjectionHealth(analyticsContext(c), &analyticsv1.GetProjectionHealthRequest{})
 	dispatchResponse(c, http.StatusOK, err, response)
 }
 
+// DispatchOperations запрашивает операции назначения по JSON-фильтру
+// с фиксированным лимитом 25; успешный ответ получает HTTP 200.
 func (h *AnalyticsHandler) DispatchOperations(c *gin.Context) {
 	var request models.AnalyticsRequest
 
@@ -213,6 +242,8 @@ func (h *AnalyticsHandler) DispatchOperations(c *gin.Context) {
 	dispatchResponse(c, http.StatusOK, err, response)
 }
 
+// BrigadePerformance запрашивает результативность бригад по JSON-фильтру
+// и возвращает ответ сервиса с HTTP 200 при успехе.
 func (h *AnalyticsHandler) BrigadePerformance(c *gin.Context) {
 	var request models.AnalyticsRequest
 
@@ -229,6 +260,8 @@ func (h *AnalyticsHandler) BrigadePerformance(c *gin.Context) {
 	dispatchResponse(c, http.StatusOK, err, response)
 }
 
+// DepartmentPerformance запрашивает результативность ведомств по JSON-фильтру;
+// проверку административной роли выполняет Analytics Service по метаданным пользователя.
 func (h *AnalyticsHandler) DepartmentPerformance(c *gin.Context) {
 	var request models.AnalyticsRequest
 
@@ -244,15 +277,21 @@ func (h *AnalyticsHandler) DepartmentPerformance(c *gin.Context) {
 	dispatchResponse(c, http.StatusOK, err, response)
 }
 
+// analyticsContext создаёт через dispatchContext RPC-контекст с таймаутом 20 секунд
+// и метаданными пользователя; cancel затем вызывает dispatchResponse.
 func analyticsContext(c *gin.Context) context.Context {
 	return dispatchContext(c)
 }
 
+// operationalLatencyDimension нормализует регистр и пробелы измерения задержек;
+// неизвестное значение даёт нулевой enum.
 func operationalLatencyDimension(value string) analyticsv1.OperationalLatencyDimension {
 	key := "OPERATIONAL_LATENCY_DIMENSION_" + strings.ToUpper(strings.TrimSpace(value))
 	return analyticsv1.OperationalLatencyDimension(analyticsv1.OperationalLatencyDimension_value[key])
 }
 
+// analyticsFilter преобразует временные границы в protobuf и сохраняет
+// необязательные условия без проверки форматов; nil сохраняет как nil.
 func analyticsFilter(v *models.AnalyticsFilter) *analyticsv1.AnalyticsFilter {
 
 	if v == nil {

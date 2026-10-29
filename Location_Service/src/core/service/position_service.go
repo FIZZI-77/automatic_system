@@ -12,6 +12,7 @@ import (
 )
 
 type PositionHistorySink interface {
+	// Add принимает точку для последующей записи истории и возвращает ошибку при отказе.
 	Add(position *models.Position) error
 }
 
@@ -21,10 +22,13 @@ type PositionServiceStruct struct {
 	log     *zap.Logger
 }
 
+// NewPositionServiceStruct создаёт сервис позиций без передачи точек в историю и вывода журнала.
 func NewPositionServiceStruct(repo *repository.Repository) *PositionServiceStruct {
 	return NewPositionServiceStructWithHistory(repo, nil)
 }
 
+// NewPositionServiceStructWithHistory создаёт сервис позиций с приёмником истории.
+// nil history отключает передачу точек в историю; вывод журнала отключён.
 func NewPositionServiceStructWithHistory(
 	repo *repository.Repository,
 	history PositionHistorySink,
@@ -32,6 +36,8 @@ func NewPositionServiceStructWithHistory(
 	return NewPositionServiceStructWithLogger(repo, history, zap.NewNop())
 }
 
+// NewPositionServiceStructWithLogger создаёт сервис позиций с приёмником истории
+// и журналом. nil history отключает передачу точек, nil logger — вывод журнала.
 func NewPositionServiceStructWithLogger(
 	repo *repository.Repository,
 	history PositionHistorySink,
@@ -45,6 +51,9 @@ func NewPositionServiceStructWithLogger(
 	return &PositionServiceStruct{repo: repo, history: history, log: logger}
 }
 
+// RecordPosition проверяет и сохраняет текущую позицию с защитой от повторов
+// и устаревшей последовательности. Новую точку передаёт history, если он задан;
+// отказ приёмника истории журналирует, но успешную запись позиции не отменяет.
 func (s *PositionServiceStruct) RecordPosition(
 	ctx context.Context,
 	in *models.RecordPositionInput,
@@ -85,6 +94,8 @@ func (s *PositionServiceStruct) RecordPosition(
 	return result, nil
 }
 
+// GetCurrentLocation проверяет субъект и возвращает последнюю позицию бригады,
+// автомобиля или устройства вместе с актуальным состоянием сигнала.
 func (s *PositionServiceStruct) GetCurrentLocation(
 	ctx context.Context,
 	in *models.GetCurrentLocationInput,
@@ -103,6 +114,8 @@ func (s *PositionServiceStruct) GetCurrentLocation(
 	return result, nil
 }
 
+// GetCurrentLocations проверяет список бригад и возвращает карту позиций
+// и список отсутствующих; без AllowStale устаревшие позиции считаются отсутствующими.
 func (s *PositionServiceStruct) GetCurrentLocations(
 	ctx context.Context,
 	in *models.GetCurrentLocationsInput,
@@ -121,6 +134,8 @@ func (s *PositionServiceStruct) GetCurrentLocations(
 	return result, nil
 }
 
+// ListPositionHistory проверяет ID бригады, временной интервал и пагинацию
+// и возвращает страницу истории за [From, To) с общим счётчиком.
 func (s *PositionServiceStruct) ListPositionHistory(
 	ctx context.Context,
 	in *models.ListPositionHistoryInput,
@@ -139,6 +154,8 @@ func (s *PositionServiceStruct) ListPositionHistory(
 	return result, nil
 }
 
+// FindNearbyBrigades проверяет координаты, радиус и лимит и возвращает ближайшие
+// бригады с расстояниями, учитывая заданные ID и фильтр свежести.
 func (s *PositionServiceStruct) FindNearbyBrigades(
 	ctx context.Context,
 	in *models.FindNearbyBrigadesInput,
@@ -157,6 +174,8 @@ func (s *PositionServiceStruct) FindNearbyBrigades(
 	return result, nil
 }
 
+// DetectLostSignals проверяет пороги и обновляет состояния устаревших сигналов,
+// возвращая фактические изменения. Переход OFFLINE сопровождается событием в Redis.
 func (s *PositionServiceStruct) DetectLostSignals(
 	ctx context.Context,
 	in *models.DetectLostSignalsInput,
@@ -181,6 +200,8 @@ func (s *PositionServiceStruct) DetectLostSignals(
 	return result, nil
 }
 
+// validationError добавляет имя операции и оборачивает ErrValidation.
+// Исходную err включает как текст, не добавляя её в цепочку ошибок.
 func validationError(operation string, err error) error {
 	return fmt.Errorf("service: %s: %w: %v", operation, models.ErrValidation, err)
 }

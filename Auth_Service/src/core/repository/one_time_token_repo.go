@@ -17,6 +17,7 @@ type OneTimeTokenRepoStruct struct {
 	readDB  DBTX
 }
 
+// NewOneTimeTokenRepoStruct создаёт хранилище одноразовых токенов с отдельным чтением при его наличии.
 func NewOneTimeTokenRepoStruct(writeDB DBTX, readDB ...DBTX) *OneTimeTokenRepoStruct {
 	reader := writeDB
 
@@ -30,6 +31,8 @@ func NewOneTimeTokenRepoStruct(writeDB DBTX, readDB ...DBTX) *OneTimeTokenRepoSt
 	}
 }
 
+// CreateOneTimeToken сохраняет хеш, назначение и срок токена, дополняя token полями ID и CreatedAt.
+// При наличии транзакции в ctx использует её для вставки.
 func (r *OneTimeTokenRepoStruct) CreateOneTimeToken(ctx context.Context, token *models.OneTimeToken) error {
 	const query = `
 		INSERT INTO one_time_tokens (
@@ -56,6 +59,8 @@ func (r *OneTimeTokenRepoStruct) CreateOneTimeToken(ctx context.Context, token *
 	return nil
 }
 
+// GetOneTimeTokenByHashAndType читает токен по хешу и назначению без проверки срока и used_at.
+// При отсутствии записи возвращает обёрнутую pgx.ErrNoRows.
 func (r *OneTimeTokenRepoStruct) GetOneTimeTokenByHashAndType(ctx context.Context, tokenHash string, tokenType models.TokenType) (*models.OneTimeToken, error) {
 	var token models.OneTimeToken
 
@@ -87,6 +92,8 @@ func (r *OneTimeTokenRepoStruct) GetOneTimeTokenByHashAndType(ctx context.Contex
 	return &token, nil
 }
 
+// MarkOneTimeTokenUsed устанавливает used_at только для ещё не использованного токена.
+// Возвращает ошибку при отсутствующем либо уже использованном токене; срок не проверяет.
 func (r *OneTimeTokenRepoStruct) MarkOneTimeTokenUsed(ctx context.Context, tokenID uuid.UUID) error {
 	const query = `
 		UPDATE one_time_tokens
@@ -109,6 +116,8 @@ func (r *OneTimeTokenRepoStruct) MarkOneTimeTokenUsed(ctx context.Context, token
 	return nil
 }
 
+// RevokeUnusedTokensByUserIDAndType помечает использованными все неистёкшие токены
+// пользователя указанного назначения. Отсутствие подходящих записей допускает.
 func (r *OneTimeTokenRepoStruct) RevokeUnusedTokensByUserIDAndType(ctx context.Context, userID uuid.UUID, tokenType models.TokenType) error {
 	const query = `
 		UPDATE one_time_tokens

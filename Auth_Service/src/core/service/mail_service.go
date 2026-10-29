@@ -36,6 +36,8 @@ type SMTPMailService struct {
 	logger *zap.Logger
 }
 
+// NewSMTPMailService создаёт SMTP-отправитель после проверки адреса сервера, порта,
+// отправителя и базового URL интерфейса. При неположительном Timeout использует десять секунд.
 func NewSMTPMailService(cfg SMTPMailConfig, logger *zap.Logger) (*SMTPMailService, error) {
 
 	if cfg.Host == "" {
@@ -64,6 +66,8 @@ func NewSMTPMailService(cfg SMTPMailConfig, logger *zap.Logger) (*SMTPMailServic
 	}, nil
 }
 
+// SendVerificationEmail формирует текстовое и HTML-письмо со ссылкой /verify-email
+// и переданным токеном, затем отправляет его через SMTP.
 func (s *SMTPMailService) SendVerificationEmail(ctx context.Context, toEmail string, token string) error {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 
@@ -106,6 +110,8 @@ func (s *SMTPMailService) SendVerificationEmail(ctx context.Context, toEmail str
 	return s.send(ctx, []string{toEmail}, subject, textBody, htmlBody)
 }
 
+// SendPasswordResetEmail отправляет текстовую и HTML-версии письма со ссылкой
+// /reset-password и токеном сброса. Ошибки построения ссылки и SMTP возвращает вызывающему.
 func (s *SMTPMailService) SendPasswordResetEmail(ctx context.Context, toEmail string, token string) error {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 
@@ -148,6 +154,8 @@ func (s *SMTPMailService) SendPasswordResetEmail(ctx context.Context, toEmail st
 	return s.send(ctx, []string{toEmail}, subject, textBody, htmlBody)
 }
 
+// buildURL дополняет FrontendBaseURL путём и URL-кодированными параметрами.
+// Существующие параметры сохраняет; одноимённые значения заменяет переданными.
 func (s *SMTPMailService) buildURL(ctx context.Context, path string, params map[string]string) (string, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 
@@ -173,6 +181,8 @@ func (s *SMTPMailService) buildURL(ctx context.Context, path string, params map[
 	return base.String(), nil
 }
 
+// send собирает MIME-сообщение и передаёт его SMTP-серверу.
+// Возвращает ошибку с указанием этапа сборки или отправки.
 func (s *SMTPMailService) send(ctx context.Context, to []string, subject string, textBody string, htmlBody string) error {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 
@@ -193,6 +203,8 @@ func (s *SMTPMailService) send(ctx context.Context, to []string, subject string,
 	return nil
 }
 
+// buildMessage собирает multipart/alternative с текстом и HTML в UTF-8.
+// Кодирует тему и отображаемое имя отправителя MIME Q-кодированием; сеть не использует.
 func (s *SMTPMailService) buildMessage(to []string, subject string, textBody string, htmlBody string) ([]byte, error) {
 
 	boundary := fmt.Sprintf("mixed_%d", time.Now().UnixNano())
@@ -233,6 +245,9 @@ func (s *SMTPMailService) buildMessage(to []string, subject string, textBody str
 	return []byte(sb.String()), nil
 }
 
+// sendSMTP устанавливает SMTP-соединение, при настройке включает TLS или STARTTLS,
+// выполняет аутентификацию и отправляет сообщение каждому адресату. Закрывает соединение;
+// при требуемом, но недоступном STARTTLS возвращает ошибку.
 func (s *SMTPMailService) sendSMTP(ctx context.Context, to []string, msg []byte) error {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 

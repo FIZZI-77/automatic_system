@@ -18,10 +18,13 @@ type SkillRepoStruct struct {
 	readPool  *pgxpool.Pool
 }
 
+// NewSkillRepo создаёт хранилище навыков с заданными ненулевыми пулами записи и чтения.
 func NewSkillRepo(writePool *pgxpool.Pool, readPool *pgxpool.Pool) *SkillRepoStruct {
 	return &SkillRepoStruct{writePool: writePool, readPool: readPool}
 }
 
+// CreateSkill сохраняет навык каталога и событие создания в одной транзакции.
+// Нарушение уникальности кода преобразует в ErrAlreadyExists.
 func (s *SkillRepoStruct) CreateSkill(ctx context.Context, in *models.CreateSkillInput) (*models.CreateSkillResult, error) {
 	tx, err := s.writePool.Begin(ctx)
 
@@ -68,6 +71,8 @@ func (s *SkillRepoStruct) CreateSkill(ctx context.Context, in *models.CreateSkil
 	return &models.CreateSkillResult{Skill: skill}, nil
 }
 
+// UpdateSkill транзакционно меняет ненулевые поля навыка и записывает outbox.
+// Отсутствие даёт ErrNotFound, дубликат кода — ErrAlreadyExists; nil поля сохраняет.
 func (s *SkillRepoStruct) UpdateSkill(ctx context.Context, in *models.UpdateSkillInput) (*models.UpdateSkillResult, error) {
 	tx, err := s.writePool.Begin(ctx)
 
@@ -121,6 +126,8 @@ func (s *SkillRepoStruct) UpdateSkill(ctx context.Context, in *models.UpdateSkil
 	return &models.UpdateSkillResult{Skill: skill}, nil
 }
 
+// DeactivateSkill транзакционно выключает навык и записывает outbox, не удаляя строку.
+// Повтор допустим; отсутствие даёт ErrNotFound, связи бригад не изменяются.
 func (s *SkillRepoStruct) DeactivateSkill(ctx context.Context, in *models.DeactivateSkillInput) (*models.DeactivateSkillResult, error) {
 	tx, err := s.writePool.Begin(ctx)
 
@@ -162,6 +169,9 @@ func (s *SkillRepoStruct) DeactivateSkill(ctx context.Context, in *models.Deacti
 	return &models.DeactivateSkillResult{Skill: skill}, nil
 }
 
+// ListSkills возвращает страницу каталога по активности и поиску ILIKE по коду
+// или имени, сортируя по коду ASC, с отдельным общим счётчиком.
+// Пагинацию должен подготовить вызывающий код.
 func (s *SkillRepoStruct) ListSkills(ctx context.Context, in *models.ListSkillsInput) (*models.ListSkillsResult, error) {
 	whereParts := make([]string, 0)
 	args := make([]any, 0)
@@ -228,6 +238,8 @@ func (s *SkillRepoStruct) ListSkills(ctx context.Context, in *models.ListSkillsI
 	return &models.ListSkillsResult{Skills: skills, Total: total}, nil
 }
 
+// AddBrigadeSkill вставляет связь бригады с навыком и событие outbox в одной транзакции.
+// Конфликт активной связи даёт ErrAlreadyExists; прежнюю неактивную строку не восстанавливает.
 func (s *SkillRepoStruct) AddBrigadeSkill(ctx context.Context, in *models.AddBrigadeSkillInput) (*models.AddBrigadeSkillResult, error) {
 	tx, err := s.writePool.Begin(ctx)
 
@@ -273,6 +285,8 @@ func (s *SkillRepoStruct) AddBrigadeSkill(ctx context.Context, in *models.AddBri
 	return &models.AddBrigadeSkillResult{BrigadeSkill: brigadeSkill}, nil
 }
 
+// RemoveBrigadeSkill деактивирует связи по паре бригада–навык и записывает outbox
+// в одной транзакции. Повторное выключение допустимо; отсутствие даёт ErrNotFound.
 func (s *SkillRepoStruct) RemoveBrigadeSkill(ctx context.Context, in *models.RemoveBrigadeSkillInput) (*models.RemoveBrigadeSkillResult, error) {
 	tx, err := s.writePool.Begin(ctx)
 
@@ -314,6 +328,8 @@ func (s *SkillRepoStruct) RemoveBrigadeSkill(ctx context.Context, in *models.Rem
 	return &models.RemoveBrigadeSkillResult{BrigadeSkill: brigadeSkill}, nil
 }
 
+// ListBrigadeSkills возвращает связи бригады с вложенными данными навыков по коду ASC.
+// Фильтр Active применяется к связи, а не активности самого навыка.
 func (s *SkillRepoStruct) ListBrigadeSkills(ctx context.Context, in *models.ListBrigadeSkillsInput) (*models.ListBrigadeSkillsResult, error) {
 	whereParts := []string{"bs.brigade_id = $1"}
 	args := []any{in.BrigadeID}
@@ -372,6 +388,7 @@ func (s *SkillRepoStruct) ListBrigadeSkills(ctx context.Context, in *models.List
 	return &models.ListBrigadeSkillsResult{Skills: skills}, nil
 }
 
+// scanSkill читает навык и преобразует pgx.ErrNoRows в ErrNotFound.
 func scanSkill(row scanner) (*models.Skill, error) {
 	var skill models.Skill
 	err := row.Scan(&skill.ID, &skill.Code, &skill.Name, &skill.Description, &skill.Active, &skill.CreatedAt, &skill.UpdatedAt)
@@ -388,6 +405,7 @@ func scanSkill(row scanner) (*models.Skill, error) {
 	return &skill, nil
 }
 
+// scanBrigadeSkill читает связь бригады с навыком и преобразует pgx.ErrNoRows в ErrNotFound.
 func scanBrigadeSkill(row scanner) (*models.BrigadeSkill, error) {
 	var item models.BrigadeSkill
 	err := row.Scan(&item.ID, &item.BrigadeID, &item.SkillID, &item.Active, &item.CreatedAt, &item.UpdatedAt)
@@ -404,6 +422,8 @@ func scanBrigadeSkill(row scanner) (*models.BrigadeSkill, error) {
 	return &item, nil
 }
 
+// scanBrigadeSkillWithSkill читает связь с данными навыка в поле Skill.
+// pgx.ErrNoRows преобразует в ErrNotFound.
 func scanBrigadeSkillWithSkill(row scanner) (*models.BrigadeSkill, error) {
 	item, skill, err := scanBrigadeSkillWithSkillRaw(row)
 
@@ -420,6 +440,8 @@ func scanBrigadeSkillWithSkill(row scanner) (*models.BrigadeSkill, error) {
 	return item, nil
 }
 
+// scanBrigadeSkillWithSkillRaw читает связь и навык в отдельные модели.
+// Ошибку Scan, включая pgx.ErrNoRows, возвращает без замены.
 func scanBrigadeSkillWithSkillRaw(row scanner) (*models.BrigadeSkill, *models.Skill, error) {
 	var item models.BrigadeSkill
 	var skill models.Skill
@@ -446,6 +468,9 @@ func scanBrigadeSkillWithSkillRaw(row scanner) (*models.BrigadeSkill, *models.Sk
 	return &item, &skill, nil
 }
 
+// brigadeHasSkills сравнивает число уникальных активных связей с длиной skillIDs.
+// Пустой список даёт true без запроса; повтор ID может привести к false,
+// активность самого навыка не учитывается.
 func (s *SkillRepoStruct) brigadeHasSkills(ctx context.Context, brigadeID uuid.UUID, skillIDs []uuid.UUID) (bool, error) {
 
 	if len(skillIDs) == 0 {
@@ -469,6 +494,8 @@ func (s *SkillRepoStruct) brigadeHasSkills(ctx context.Context, brigadeID uuid.U
 	return count == len(skillIDs), nil
 }
 
+// isSkillUniqueViolation распознаёт PostgreSQL 23505 без имени ограничения
+// либо с именем skills_code_uidx в цепочке err.
 func isSkillUniqueViolation(err error) bool {
 	var pgErr *pgconn.PgError
 
@@ -479,6 +506,8 @@ func isSkillUniqueViolation(err error) bool {
 	return false
 }
 
+// isBrigadeSkillUniqueViolation распознаёт PostgreSQL 23505 без имени ограничения
+// либо с именем brigade_skills_active_uidx в цепочке err.
 func isBrigadeSkillUniqueViolation(err error) bool {
 	var pgErr *pgconn.PgError
 

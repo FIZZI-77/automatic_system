@@ -15,6 +15,8 @@ type UserProfileServiceStruct struct {
 	logger      *zap.Logger
 }
 
+// NewUserProfileServiceStruct создаёт сервис пользовательских профилей.
+// nil userChecker отключает внешнюю проверку аккаунта, nil logger — вывод журнала.
 func NewUserProfileServiceStruct(repo *repository.Repository, userChecker UserAccountChecker, logger *zap.Logger) *UserProfileServiceStruct {
 
 	if logger == nil {
@@ -24,6 +26,9 @@ func NewUserProfileServiceStruct(repo *repository.Repository, userChecker UserAc
 	return &UserProfileServiceStruct{repo: repo, userChecker: userChecker, logger: logger}
 }
 
+// CreateUserProfile проверяет данные и создаёт профиль для себя или администратора
+// с поддержкой идемпотентности. При создании чужого профиля вызывает userChecker,
+// если он задан. Требует ненулевой in; проверка может задать способ связи EMAIL в in.
 func (s *UserProfileServiceStruct) CreateUserProfile(ctx context.Context, in *models.CreateUserProfileInput) (*models.CreateUserProfileResult, error) {
 	const method = "CreateUserProfile"
 	fields := []zap.Field{zap.String("user_id", in.UserID.String())}
@@ -67,6 +72,8 @@ func (s *UserProfileServiceStruct) CreateUserProfile(ctx context.Context, in *mo
 	return result, nil
 }
 
+// GetUserProfileByID проверяет ID и возвращает профиль владельцу или администратору.
+// Требует ненулевой in; чтение профиля предшествует проверке доступа.
 func (s *UserProfileServiceStruct) GetUserProfileByID(ctx context.Context, in *models.GetUserProfileByIDInput) (*models.GetUserProfileByIDResult, error) {
 	const method = "GetUserProfileByID"
 	fields := []zap.Field{zap.String("user_profile_id", in.ID.String())}
@@ -93,6 +100,8 @@ func (s *UserProfileServiceStruct) GetUserProfileByID(ctx context.Context, in *m
 	return result, nil
 }
 
+// GetUserProfileByUserID возвращает профиль по ID пользователя после проверки
+// доступа владельца или администратора. Требует ненулевой in.
 func (s *UserProfileServiceStruct) GetUserProfileByUserID(ctx context.Context, in *models.GetUserProfileByUserIDInput) (*models.GetUserProfileByUserIDResult, error) {
 	const method = "GetUserProfileByUserID"
 	fields := []zap.Field{zap.String("user_id", in.UserID.String())}
@@ -119,6 +128,8 @@ func (s *UserProfileServiceStruct) GetUserProfileByUserID(ctx context.Context, i
 	return result, nil
 }
 
+// GetMyUserProfile проверяет ActorUserID и возвращает профиль текущего пользователя.
+// Требует ненулевой in; отсутствие профиля возвращает как ошибку хранилища с контекстом операции.
 func (s *UserProfileServiceStruct) GetMyUserProfile(ctx context.Context, in *models.GetMyUserProfileInput) (*models.GetMyUserProfileResult, error) {
 	const method = "GetMyUserProfile"
 	fields := []zap.Field{}
@@ -145,6 +156,8 @@ func (s *UserProfileServiceStruct) GetMyUserProfile(ctx context.Context, in *mod
 	return &models.GetMyUserProfileResult{UserProfile: result.UserProfile}, nil
 }
 
+// ListUserProfiles возвращает страницу профилей только администратору, предварительно
+// проверяя и нормализуя сортировку и пагинацию в in. Требует ненулевой in.
 func (s *UserProfileServiceStruct) ListUserProfiles(ctx context.Context, in *models.ListUserProfilesInput) (*models.ListUserProfilesResult, error) {
 	const method = "ListUserProfiles"
 	fields := []zap.Field{zap.Int32("limit", in.Limit), zap.Int32("offset", in.Offset)}
@@ -171,6 +184,8 @@ func (s *UserProfileServiceStruct) ListUserProfiles(ctx context.Context, in *mod
 	return result, nil
 }
 
+// UpdateUserProfile проверяет изменения и доступ владельца или администратора,
+// затем обновляет профиль с поддержкой идемпотентности. Требует ненулевой in.
 func (s *UserProfileServiceStruct) UpdateUserProfile(ctx context.Context, in *models.UpdateUserProfileInput) (*models.UpdateUserProfileResult, error) {
 	const method = "UpdateUserProfile"
 	fields := []zap.Field{zap.String("user_profile_id", in.ID.String())}

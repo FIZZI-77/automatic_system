@@ -21,10 +21,13 @@ type Handler struct {
 	service *service.Service
 }
 
+// New создаёт gRPC-обработчик назначения бригад с переданным сервисом.
 func New(value *service.Service) *Handler {
 	return &Handler{service: value}
 }
 
+// PreviewDispatch требует admin или dispatcher, разбирает UUID заявки и навыков
+// и возвращает рекомендации с рангом, расстоянием, ETA и координатами.
 func (h *Handler) PreviewDispatch(ctx context.Context, req *dispatchv1.PreviewDispatchRequest) (*dispatchv1.PreviewDispatchResponse, error) {
 
 	if err := authorize(ctx); err != nil {
@@ -65,6 +68,8 @@ func (h *Handler) PreviewDispatch(ctx context.Context, req *dispatchv1.PreviewDi
 	}, nil
 }
 
+// ReserveBrigade требует admin или dispatcher, разбирает UUID заявки, бригады,
+// автора и навыков и передаёт резервирование сервису; необязательный TTL переводит из секунд.
 func (h *Handler) ReserveBrigade(ctx context.Context, req *dispatchv1.ReserveBrigadeRequest) (*dispatchv1.ReserveBrigadeResponse, error) {
 
 	if err := authorize(ctx); err != nil {
@@ -112,6 +117,8 @@ func (h *Handler) ReserveBrigade(ctx context.Context, req *dispatchv1.ReserveBri
 	}, nil
 }
 
+// ConfirmDispatch требует admin или dispatcher, разбирает UUID операции и автора
+// и передаёт подтверждение с ExpectedVersion сервису. Конфликт версии даёт Aborted.
 func (h *Handler) ConfirmDispatch(ctx context.Context, req *dispatchv1.ConfirmDispatchRequest) (*dispatchv1.ConfirmDispatchResponse, error) {
 
 	if err := authorize(ctx); err != nil {
@@ -145,6 +152,8 @@ func (h *Handler) ConfirmDispatch(ctx context.Context, req *dispatchv1.ConfirmDi
 	}, nil
 }
 
+// AutoDispatch требует admin или dispatcher и передаёт автоматическое назначение
+// сервису после разбора UUID заявки, автора и навыков, сохраняя лимит кандидатов.
 func (h *Handler) AutoDispatch(ctx context.Context, req *dispatchv1.AutoDispatchRequest) (*dispatchv1.AutoDispatchResponse, error) {
 
 	if err := authorize(ctx); err != nil {
@@ -179,6 +188,8 @@ func (h *Handler) AutoDispatch(ctx context.Context, req *dispatchv1.AutoDispatch
 	}, nil
 }
 
+// GetDispatch требует admin или dispatcher, разбирает UUID операции и возвращает
+// её в protobuf; ошибки формата и отсутствия дают InvalidArgument и NotFound.
 func (h *Handler) GetDispatch(ctx context.Context, req *dispatchv1.GetDispatchRequest) (*dispatchv1.GetDispatchResponse, error) {
 
 	if err := authorize(ctx); err != nil {
@@ -202,6 +213,8 @@ func (h *Handler) GetDispatch(ctx context.Context, req *dispatchv1.GetDispatchRe
 	}, nil
 }
 
+// ListDispatches требует admin или dispatcher и возвращает страницу операций
+// с общим счётчиком. Необязательные UUID и статус проверяет до вызова сервиса.
 func (h *Handler) ListDispatches(ctx context.Context, req *dispatchv1.ListDispatchesRequest) (*dispatchv1.ListDispatchesResponse, error) {
 
 	if err := authorize(ctx); err != nil {
@@ -260,6 +273,8 @@ func (h *Handler) ListDispatches(ctx context.Context, req *dispatchv1.ListDispat
 	}, nil
 }
 
+// CancelDispatch требует admin или dispatcher, разбирает UUID операции и автора
+// и передаёт отмену с причиной и ExpectedVersion сервису.
 func (h *Handler) CancelDispatch(ctx context.Context, req *dispatchv1.CancelDispatchRequest) (*dispatchv1.CancelDispatchResponse, error) {
 
 	if err := authorize(ctx); err != nil {
@@ -294,6 +309,8 @@ func (h *Handler) CancelDispatch(ctx context.Context, req *dispatchv1.CancelDisp
 	}, nil
 }
 
+// authorize разрешает admin или dispatcher из x-actor-roles, разделяя значения
+// запятыми и игнорируя регистр и крайние пробелы; иначе даёт PermissionDenied.
 func authorize(ctx context.Context) error {
 	md, _ := metadata.FromIncomingContext(ctx)
 	for _, value := range md.Get("x-actor-roles") {
@@ -309,6 +326,7 @@ func authorize(ctx context.Context) error {
 	return status.Error(codes.PermissionDenied, "dispatcher or admin role required")
 }
 
+// parseID разбирает UUID либо возвращает InvalidArgument с именем ошибочного поля.
 func parseID(raw, field string) (uuid.UUID, error) {
 	value, err := uuid.Parse(raw)
 
@@ -319,6 +337,8 @@ func parseID(raw, field string) (uuid.UUID, error) {
 	return value, nil
 }
 
+// parseInputIDs разбирает UUID заявки и навыков в исходном порядке, сохраняя повторы;
+// первая ошибка возвращается как InvalidArgument без частичного результата.
 func parseInputIDs(ticket string, rawSkills []string) (uuid.UUID, []uuid.UUID, error) {
 	ticketID, err := parseID(ticket, "ticket_id")
 
@@ -340,6 +360,8 @@ func parseInputIDs(ticket string, rawSkills []string) (uuid.UUID, []uuid.UUID, e
 	return ticketID, skills, nil
 }
 
+// toProto преобразует операцию в protobuf, переводя даты в Unix-миллисекунды
+// и добавляя имеющиеся бригаду, маршрут и причину отказа; nil сохраняет как nil.
 func toProto(value *models.Operation) *dispatchv1.DispatchOperation {
 
 	if value == nil {
@@ -373,6 +395,8 @@ func toProto(value *models.Operation) *dispatchv1.DispatchOperation {
 	return result
 }
 
+// modeToProto преобразует ручной или автоматический режим в enum;
+// неизвестный режим даёт UNSPECIFIED.
 func modeToProto(value models.Mode) dispatchv1.DispatchMode {
 
 	if value == models.ModeManual {
@@ -386,6 +410,8 @@ func modeToProto(value models.Mode) dispatchv1.DispatchMode {
 	return dispatchv1.DispatchMode_DISPATCH_MODE_UNSPECIFIED
 }
 
+// statusToProto преобразует доменный статус назначения в enum;
+// неизвестный статус даёт UNSPECIFIED.
 func statusToProto(value models.Status) dispatchv1.DispatchStatus {
 	switch value {
 	case models.StatusPending:
@@ -406,6 +432,8 @@ func statusToProto(value models.Status) dispatchv1.DispatchStatus {
 	return dispatchv1.DispatchStatus_DISPATCH_STATUS_UNSPECIFIED
 }
 
+// statusFromProto преобразует известный protobuf-статус в доменный;
+// для неизвестного значения возвращает пустую строку и false.
 func statusFromProto(value dispatchv1.DispatchStatus) (models.Status, bool) {
 	switch value {
 	case dispatchv1.DispatchStatus_DISPATCH_STATUS_PENDING:
@@ -426,6 +454,8 @@ func statusFromProto(value dispatchv1.DispatchStatus) (models.Status, bool) {
 	return "", false
 }
 
+// mapError переводит ошибки аргументов, отсутствия, конфликта и доступа
+// в InvalidArgument, NotFound, Aborted и PermissionDenied; остальные — в Unavailable.
 func mapError(err error) error {
 	switch {
 	case errors.Is(err, models.ErrInvalidArgument):

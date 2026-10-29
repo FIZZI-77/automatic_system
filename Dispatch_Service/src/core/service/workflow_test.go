@@ -17,11 +17,41 @@ func TestWorkflowRejectsInvalidInputsBeforeSideEffects(t *testing.T) {
 		name string
 		run  func() error
 	}{
-		{"preview", func() error { _, err := s.Preview(context.Background(), &models.RecommendInput{}); return err }},
-		{"reserve", func() error { _, err := s.Reserve(context.Background(), &models.ReserveInput{}); return err }},
-		{"confirm", func() error { _, err := s.Confirm(context.Background(), &models.ConfirmInput{}); return err }},
-		{"auto", func() error { _, err := s.AutoDispatch(context.Background(), &models.AutoInput{}); return err }},
-		{"cancel", func() error { _, err := s.Cancel(context.Background(), &models.CancelInput{}); return err }},
+		{
+			"preview",
+			func() error {
+				_, err := s.Preview(context.Background(), &models.RecommendInput{})
+				return err
+			},
+		},
+		{
+			"reserve",
+			func() error {
+				_, err := s.Reserve(context.Background(), &models.ReserveInput{})
+				return err
+			},
+		},
+		{
+			"confirm",
+			func() error {
+				_, err := s.Confirm(context.Background(), &models.ConfirmInput{})
+				return err
+			},
+		},
+		{
+			"auto",
+			func() error {
+				_, err := s.AutoDispatch(context.Background(), &models.AutoInput{})
+				return err
+			},
+		},
+		{
+			"cancel",
+			func() error {
+				_, err := s.Cancel(context.Background(), &models.CancelInput{})
+				return err
+			},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

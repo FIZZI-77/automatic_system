@@ -52,6 +52,9 @@ type CompletionBrigadeMemberInput struct {
 	Role     string
 }
 
+// Validate удаляет пробелы по краям Description и проверяет параметры отчёта.
+// Требует заявку, автора, описание длиной 1–4000 байтов и не более 20 уникальных
+// ненулевых идентификаторов файлов. Изменяет in.Description.
 func (in *CreateWorkReportInput) Validate() error {
 	in.Description = strings.TrimSpace(in.Description)
 

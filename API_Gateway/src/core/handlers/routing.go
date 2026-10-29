@@ -17,12 +17,15 @@ type RoutingHandler struct {
 	client routingv1.RoutingServiceClient
 }
 
+// NewRoutingHandler создаёт HTTP-обработчик маршрутов с переданным gRPC-клиентом.
 func NewRoutingHandler(
 	client routingv1.RoutingServiceClient,
 ) *RoutingHandler {
 	return &RoutingHandler{client: client}
 }
 
+// BuildRoute разбирает JSON точек и параметров, вызывает расчёт маршрута
+// с контекстом routingContext и возвращает HTTP 200 через routingResponse.
 func (h *RoutingHandler) BuildRoute(c *gin.Context) {
 	var input models.BuildRouteRequest
 
@@ -42,6 +45,8 @@ func (h *RoutingHandler) BuildRoute(c *gin.Context) {
 	routingResponse(c, http.StatusOK, err, response)
 }
 
+// BuildMatrix преобразует источники, цели и параметры из JSON и вызывает
+// расчёт матрицы; при успехе возвращает HTTP 200 с ответом Routing Service.
 func (h *RoutingHandler) BuildMatrix(c *gin.Context) {
 	var input models.BuildMatrixRequest
 
@@ -60,6 +65,8 @@ func (h *RoutingHandler) BuildMatrix(c *gin.Context) {
 	routingResponse(c, http.StatusOK, err, response)
 }
 
+// RankCandidates преобразует кандидатов и точку назначения из JSON, передаёт
+// параметры и лимит сервису ранжирования и возвращает HTTP 200 при успехе.
 func (h *RoutingHandler) RankCandidates(c *gin.Context) {
 	var input models.RankCandidatesRequest
 
@@ -86,6 +93,8 @@ func (h *RoutingHandler) RankCandidates(c *gin.Context) {
 	routingResponse(c, http.StatusOK, err, response)
 }
 
+// CreateRoute преобразует JSON маршрута с заявкой, бригадой и параметрами
+// и вызывает создание в Routing Service; при успехе возвращает HTTP 201.
 func (h *RoutingHandler) CreateRoute(c *gin.Context) {
 	var input models.CreateRoutingRouteRequest
 
@@ -107,6 +116,8 @@ func (h *RoutingHandler) CreateRoute(c *gin.Context) {
 	routingResponse(c, http.StatusCreated, err, response)
 }
 
+// GetRoute разбирает ID из JSON и запрашивает маршрут у Routing Service;
+// при успехе возвращает HTTP 200, gRPC-ошибки переводит через routingResponse.
 func (h *RoutingHandler) GetRoute(c *gin.Context) {
 	var input models.GetRoutingRouteRequest
 
@@ -121,6 +132,8 @@ func (h *RoutingHandler) GetRoute(c *gin.Context) {
 	routingResponse(c, http.StatusOK, err, response)
 }
 
+// RecalculateRoute разбирает ID и текущую позицию из JSON и передаёт пересчёт
+// Routing Service; при успехе возвращает HTTP 200 с обновлённым маршрутом.
 func (h *RoutingHandler) RecalculateRoute(c *gin.Context) {
 	var input models.RecalculateRoutingRouteRequest
 
@@ -138,6 +151,8 @@ func (h *RoutingHandler) RecalculateRoute(c *gin.Context) {
 	routingResponse(c, http.StatusOK, err, response)
 }
 
+// SetRouteStatus преобразует статус из JSON и вызывает смену в Routing Service;
+// неизвестное значение преобразуется в PLANNED, успешный ответ получает HTTP 200.
 func (h *RoutingHandler) SetRouteStatus(c *gin.Context) {
 	var input models.SetRoutingRouteStatusRequest
 
@@ -155,6 +170,8 @@ func (h *RoutingHandler) SetRouteStatus(c *gin.Context) {
 	routingResponse(c, http.StatusOK, err, response)
 }
 
+// ListRoutes сохраняет необязательные фильтры заявки, бригады и статуса из JSON
+// и передаёт пагинацию сервису; при успехе возвращает HTTP 200 с его ответом.
 func (h *RoutingHandler) ListRoutes(c *gin.Context) {
 	var input models.ListRoutingRoutesRequest
 
@@ -178,6 +195,7 @@ func (h *RoutingHandler) ListRoutes(c *gin.Context) {
 	routingResponse(c, http.StatusOK, err, response)
 }
 
+// routingPoint преобразует широту и долготу HTTP-модели в protobuf-точку.
 func routingPoint(value models.RoutingPoint) *routingv1.Point {
 	return &routingv1.Point{
 		Latitude:  value.Latitude,
@@ -185,6 +203,8 @@ func routingPoint(value models.RoutingPoint) *routingv1.Point {
 	}
 }
 
+// routingPoints преобразует точки с сохранением порядка;
+// пустой вход даёт пустой ненулевой срез.
 func routingPoints(values []models.RoutingPoint) []*routingv1.Point {
 	result := make([]*routingv1.Point, 0, len(values))
 	for _, value := range values {
@@ -193,6 +213,8 @@ func routingPoints(values []models.RoutingPoint) []*routingv1.Point {
 	return result
 }
 
+// routingOptions преобразует режим, альтернативы и ограничения машины в protobuf.
+// DepartureAt добавляет только при успешном разборе RFC3339; неверную дату пропускает.
 func routingOptions(value models.RoutingOptions) *routingv1.RouteOptions {
 	result := &routingv1.RouteOptions{
 		TravelMode:   routingMode(value.TravelMode),
@@ -222,6 +244,8 @@ func routingOptions(value models.RoutingOptions) *routingv1.RouteOptions {
 	return result
 }
 
+// routingMode нормализует регистр и пробелы режима движения;
+// неизвестное значение даёт AUTO.
 func routingMode(value string) routingv1.TravelMode {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "truck":
@@ -235,6 +259,8 @@ func routingMode(value string) routingv1.TravelMode {
 	}
 }
 
+// routingStatus нормализует регистр и пробелы статуса маршрута;
+// неизвестное значение даёт PLANNED.
 func routingStatus(value string) routingv1.RouteStatus {
 	switch strings.ToUpper(strings.TrimSpace(value)) {
 	case "ACTIVE":
@@ -248,15 +274,20 @@ func routingStatus(value string) routingv1.RouteStatus {
 	}
 }
 
+// routingContext создаёт RPC-контекст с таймаутом 15 секунд и метаданными
+// пользователя; cancel сохраняет для последующего вызова routingResponse.
 func routingContext(c *gin.Context) context.Context {
 	ctx, cancel := context.WithTimeout(
 		c.Request.Context(),
 		15*time.Second,
 	)
 	c.Set("routing_cancel", cancel)
-	return gatewayActorContext(ctx, c)
+	// The route-group middleware already resolved the actor's department/brigade.
+	return ctx
 }
 
+// routingResponse вызывает сохранённый routing_cancel и переводит gRPC-ошибку
+// в HTTP либо сериализует response обычным JSON с заданным статусом.
 func routingResponse(
 	c *gin.Context,
 	statusCode int,

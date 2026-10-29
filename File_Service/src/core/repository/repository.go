@@ -16,10 +16,14 @@ type Repository struct {
 	readDB  *pgxpool.Pool
 }
 
+// New создаёт хранилище метаданных файлов с заданными пулами записи и чтения.
+// Оба пула должны быть заданы вызывающим кодом.
 func New(writeDB, readDB *pgxpool.Pool) *Repository {
 	return &Repository{writeDB: writeDB, readDB: readDB}
 }
 
+// Create сохраняет метаданные файла с новым UUID и ключом объекта key.
+// Возвращает запись с установленными базой статусом и временными метками.
 func (r *Repository) Create(ctx context.Context, in models.CreateInput, key string) (*models.File, error) {
 	id := uuid.New()
 	row := r.writeDB.QueryRow(ctx, `INSERT INTO files(id,owner_user_id,name,content_type,size,checksum,object_key)
@@ -34,15 +38,21 @@ func (r *Repository) Create(ctx context.Context, in models.CreateInput, key stri
 	return f, nil
 }
 
+// Get возвращает метаданные неудалённого файла по ID, включая карантинные записи.
+// Отсутствие или статус DELETED возвращает как pgx.ErrNoRows.
 func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*models.File, error) {
 	return scan(r.readDB.QueryRow(ctx, `SELECT id,owner_user_id,resource_type,resource_id,name,content_type,size,checksum,object_key,status,created_at,updated_at FROM files WHERE id=$1 AND status<>'DELETED'`, id))
 }
 
+// Confirm переводит PENDING_UPLOAD в UPLOADED и возвращает обновлённые метаданные.
+// Отсутствие файла или другой исходный статус даёт pgx.ErrNoRows.
 func (r *Repository) Confirm(ctx context.Context, id uuid.UUID) (*models.File, error) {
 	f, err := scan(r.writeDB.QueryRow(ctx, `UPDATE files SET status='UPLOADED',updated_at=now() WHERE id=$1 AND status='PENDING_UPLOAD' RETURNING id,owner_user_id,resource_type,resource_id,name,content_type,size,checksum,object_key,status,created_at,updated_at`, id))
 	return f, err
 }
 
+// Quarantine переводит ожидающий загрузки файл в QUARANTINED.
+// Если файл отсутствует или уже имеет другой статус, возвращает nil без изменений.
 func (r *Repository) Quarantine(ctx context.Context, id uuid.UUID) error {
 	_, err := r.writeDB.Exec(ctx, `
 		UPDATE files
@@ -51,11 +61,15 @@ func (r *Repository) Quarantine(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+// Link задаёт ресурс и статус LINKED для файла UPLOADED или LINKED, допуская смену ресурса.
+// Отсутствие файла или иной статус возвращает как pgx.ErrNoRows.
 func (r *Repository) Link(ctx context.Context, id uuid.UUID, in models.LinkInput) (*models.File, error) {
 	f, err := scan(r.writeDB.QueryRow(ctx, `UPDATE files SET resource_type=$2,resource_id=$3,status='LINKED',updated_at=now() WHERE id=$1 AND status IN ('UPLOADED','LINKED') RETURNING id,owner_user_id,resource_type,resource_id,name,content_type,size,checksum,object_key,status,created_at,updated_at`, id, in.ResourceType, in.ResourceID))
 	return f, err
 }
 
+// List возвращает файлы LINKED заданного ресурса от старых к новым.
+// Если файлов нет, возвращает пустой срез без ошибки.
 func (r *Repository) List(ctx context.Context, typ string, id uuid.UUID) ([]*models.File, error) {
 	rows, err := r.readDB.Query(ctx, `SELECT id,owner_user_id,resource_type,resource_id,name,content_type,size,checksum,object_key,status,created_at,updated_at FROM files WHERE resource_type=$1 AND resource_id=$2 AND status='LINKED' ORDER BY created_at`, typ, id)
 
@@ -77,6 +91,8 @@ func (r *Repository) List(ctx context.Context, typ string, id uuid.UUID) ([]*mod
 	return result, rows.Err()
 }
 
+// Delete помечает файл DELETED и устанавливает время удаления, сохраняя строку.
+// Для отсутствующего или уже удалённого файла возвращает pgx.ErrNoRows.
 func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
 	tag, err := r.writeDB.Exec(ctx, `UPDATE files SET status='DELETED',deleted_at=now(),updated_at=now() WHERE id=$1 AND status<>'DELETED'`, id)
 
@@ -91,8 +107,13 @@ func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-type scanner interface{ Scan(...any) error }
+type scanner interface {
+	// Scan переносит значения строки в переданные указатели и возвращает ошибку чтения или преобразования.
+	Scan(...any) error
+}
 
+// scan читает метаданные файла в порядке SQL-выборок хранилища.
+// Для pgx.ErrNoRows возвращает nil; при иной ошибке возвращает также частично заполненную модель.
 func scan(s scanner) (*models.File, error) {
 	f := new(models.File)
 	err := s.Scan(&f.ID, &f.OwnerUserID, &f.ResourceType, &f.ResourceID, &f.Name, &f.ContentType, &f.Size, &f.Checksum, &f.ObjectKey, &f.Status, &f.CreatedAt, &f.UpdatedAt)

@@ -20,10 +20,16 @@ type CriticalRiskTicketPayload struct {
 	Prediction   models.Prediction `json:"prediction"`
 }
 
+// CreatePlan создаёт или обновляет план для пары объект–вид обслуживания,
+// активируя существующий план. Возвращает копию v с ID, Active и LastCompletedAt из базы.
 func (r *AssetRepoStruct) CreatePlan(c context.Context, v models.Plan) (*models.Plan, error) {
 	e := r.db.QueryRow(c, `INSERT INTO maintenance_plans(asset_id,kind,interval_days,next_due_at)VALUES($1,$2,$3,$4)ON CONFLICT(asset_id,kind)DO UPDATE SET interval_days=$3,next_due_at=$4,active=true RETURNING id,active,last_completed_at`, v.AssetID, v.Kind, v.IntervalDays, v.NextDueAt).Scan(&v.ID, &v.Active, &v.LastCompletedAt)
 	return &v, e
 }
+
+// DuePlans возвращает страницу активных планов со сроком не позднее due
+// по возрастанию срока и отдельный общий счётчик. nil d снимает фильтр ведомства;
+// пагинацию не нормализует.
 func (r *AssetRepoStruct) DuePlans(c context.Context, d *uuid.UUID, due time.Time, limit, offset int32) ([]*models.Plan, int64, error) {
 	var total int64
 	e := r.db.QueryRow(c, `SELECT count(*) FROM maintenance_plans p JOIN assets a ON a.id=p.asset_id WHERE p.active AND p.next_due_at<=$1 AND($2::uuid IS NULL OR a.department_id=$2)`, due, d).Scan(&total)
@@ -39,7 +45,7 @@ func (r *AssetRepoStruct) DuePlans(c context.Context, d *uuid.UUID, due time.Tim
 	}
 
 	defer rows.Close()
-	out := []*models.Plan{}
+	var out []*models.Plan
 	for rows.Next() {
 		var x models.Plan
 
@@ -51,6 +57,10 @@ func (r *AssetRepoStruct) DuePlans(c context.Context, d *uuid.UUID, due time.Tim
 	}
 	return out, total, rows.Err()
 }
+
+// RiskFacts собирает характеристики объекта, инциденты после now−90 дней и now−1 год,
+// повторы, приоритетные отказы и последнюю оценку осмотра. От now вычисляет полные дни
+// после ремонта и просрочки осмотра; отсутствие объекта даёт pgx.ErrNoRows.
 func (r *AssetRepoStruct) RiskFacts(c context.Context, id uuid.UUID, now time.Time) (RiskFacts, error) {
 	var f RiskFacts
 	var repair, inspection *time.Time
@@ -67,6 +77,10 @@ func (r *AssetRepoStruct) RiskFacts(c context.Context, id uuid.UUID, now time.Ti
 
 	return f, e
 }
+
+// SavePrediction транзакционно добавляет расчёт риска, обновляет риск объекта
+// и записывает asset.RISK_UPDATED. При входе в CRITICAL дополнительно записывает
+// asset.RISK_BECAME_CRITICAL со снимком объекта; повтор CRITICAL такого события не создаёт.
 func (r *AssetRepoStruct) SavePrediction(c context.Context, p models.Prediction) error {
 	raw, _ := json.Marshal(p.Factors)
 	tx, e := r.db.Begin(c)
@@ -104,6 +118,9 @@ func (r *AssetRepoStruct) SavePrediction(c context.Context, p models.Prediction)
 	return e
 }
 
+// criticalRiskPayload для CRITICAL блокирует объект и возвращает снимок с точкой
+// на его геометрии, если прежний риск не был критическим. Иначе возвращает nil, nil;
+// отсутствие объекта при критическом расчёте даёт ошибку чтения.
 func (r *AssetRepoStruct) criticalRiskPayload(c context.Context, tx pgx.Tx, p models.Prediction) (*CriticalRiskTicketPayload, error) {
 
 	if p.Level != models.RiskCritical {
@@ -124,6 +141,9 @@ func (r *AssetRepoStruct) criticalRiskPayload(c context.Context, tx pgx.Tx, p mo
 
 	return &payload, nil
 }
+
+// GetPrediction возвращает новейший расчёт риска объекта по calculated_at
+// с декодированными факторами; отсутствие даёт pgx.ErrNoRows вместе с выделенной моделью.
 func (r *AssetRepoStruct) GetPrediction(c context.Context, id uuid.UUID) (*models.Prediction, error) {
 	var p models.Prediction
 	var raw []byte
@@ -135,6 +155,9 @@ func (r *AssetRepoStruct) GetPrediction(c context.Context, id uuid.UUID) (*model
 
 	return &p, e
 }
+
+// ListIDs возвращает ID объектов ведомства либо всех объектов при nil d.
+// Порядок не задан; отсутствие объектов возвращает как nil без ошибки.
 func (r *AssetRepoStruct) ListIDs(c context.Context, d *uuid.UUID) ([]uuid.UUID, error) {
 	rows, e := r.db.Query(c, "SELECT id FROM assets WHERE($1::uuid IS NULL OR department_id=$1)", d)
 

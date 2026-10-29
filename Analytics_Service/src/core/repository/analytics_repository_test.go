@@ -23,8 +23,24 @@ func TestApplyWorkloadBalance(t *testing.T) {
 		{name: "empty"},
 		{name: "all idle", active: []uint64{0, 0}},
 		{name: "equal", active: []uint64{2, 2}, average: 2, max: 2},
-		{name: "idle and overloaded", active: []uint64{0, 2}, average: 1, deviation: 1, cv: 1, gini: 0.5, max: 2},
-		{name: "distributed", active: []uint64{1, 2, 3}, average: 2, deviation: math.Sqrt(2.0 / 3.0), cv: math.Sqrt(2.0/3.0) / 2, gini: 2.0 / 9.0, max: 3},
+		{
+			name:      "idle and overloaded",
+			active:    []uint64{0, 2},
+			average:   1,
+			deviation: 1,
+			cv:        1,
+			gini:      0.5,
+			max:       2,
+		},
+		{
+			name:      "distributed",
+			active:    []uint64{1, 2, 3},
+			average:   2,
+			deviation: math.Sqrt(2.0 / 3.0),
+			cv:        math.Sqrt(2.0/3.0) / 2,
+			gini:      2.0 / 9.0,
+			max:       3,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -189,9 +205,19 @@ func TestCrossServicePayloadContract(t *testing.T) {
 		fields  map[string]string
 	}{
 		{
-			name:    "dispatch snake case",
-			payload: map[string]any{"operation_id": "operation-1", "ticket_id": "ticket-1", "department_id": "department-1", "failure_stage": "ROUTING"},
-			fields:  map[string]string{"aggregate_id": "operation-1", "ticket_id": "ticket-1", "department_id": "department-1", "failure_stage": "ROUTING"},
+			name: "dispatch snake case",
+			payload: map[string]any{
+				"operation_id":  "operation-1",
+				"ticket_id":     "ticket-1",
+				"department_id": "department-1",
+				"failure_stage": "ROUTING",
+			},
+			fields: map[string]string{
+				"aggregate_id":  "operation-1",
+				"ticket_id":     "ticket-1",
+				"department_id": "department-1",
+				"failure_stage": "ROUTING",
+			},
 		},
 		{
 			name:    "routing camel case",
@@ -253,7 +279,12 @@ func TestPublishedEventTypeFixtures(t *testing.T) {
 		})
 	}
 
-	for _, eventType := range []string{"routing.route.created.v1", "routing.route.recalculated.v1", "routing.route.status_changed.v1", "routing.calculation.failed.v1"} {
+	for _, eventType := range []string{
+		"routing.route.created.v1",
+		"routing.route.recalculated.v1",
+		"routing.route.status_changed.v1",
+		"routing.calculation.failed.v1",
+	} {
 		t.Run(eventType, func(t *testing.T) {
 			payload := map[string]any{
 				"event_type": eventType, "id": "route-1", "ticket_id": "ticket-1", "brigade_id": "brigade-1",
@@ -317,7 +348,17 @@ func TestOperationalLatencyGroupDimensions(t *testing.T) {
 		}
 
 	}
-	routing := []string{"DEPARTMENT", "CATEGORY", "PRIORITY", "ASSIGNMENT_MODE", "BRIGADE", "ENGINE", "TRAVEL_MODE", "SUCCESS", "FAILURE_CODE"}
+	routing := []string{
+		"DEPARTMENT",
+		"CATEGORY",
+		"PRIORITY",
+		"ASSIGNMENT_MODE",
+		"BRIGADE",
+		"ENGINE",
+		"TRAVEL_MODE",
+		"SUCCESS",
+		"FAILURE_CODE",
+	}
 	for _, dimension := range routing {
 
 		if _, ok := routingGroupExpression(dimension); !ok {
@@ -384,10 +425,30 @@ func TestEventEntityIDUsesTopicAggregate(t *testing.T) {
 		want    string
 		payload map[string]any
 	}{
-		{name: "brigade does not collapse into department", topic: "brigades.events.v1", payload: map[string]any{"department_id": "department-1", "brigade_id": "brigade-1"}, want: "brigade-1"},
-		{name: "dispatch operation", topic: "dispatch.events.v1", payload: map[string]any{"ticket_id": "ticket-1", "operation_id": "operation-1"}, want: "operation-1"},
-		{name: "ticket", topic: "tickets.events.v1", payload: map[string]any{"department_id": "department-1", "ticket_id": "ticket-1"}, want: "ticket-1"},
-		{name: "explicit aggregate wins", topic: "brigades.events.v1", payload: map[string]any{"aggregate_id": "aggregate-1", "brigade_id": "brigade-1"}, want: "aggregate-1"},
+		{
+			name:    "brigade does not collapse into department",
+			topic:   "brigades.events.v1",
+			payload: map[string]any{"department_id": "department-1", "brigade_id": "brigade-1"},
+			want:    "brigade-1",
+		},
+		{
+			name:    "dispatch operation",
+			topic:   "dispatch.events.v1",
+			payload: map[string]any{"ticket_id": "ticket-1", "operation_id": "operation-1"},
+			want:    "operation-1",
+		},
+		{
+			name:    "ticket",
+			topic:   "tickets.events.v1",
+			payload: map[string]any{"department_id": "department-1", "ticket_id": "ticket-1"},
+			want:    "ticket-1",
+		},
+		{
+			name:    "explicit aggregate wins",
+			topic:   "brigades.events.v1",
+			payload: map[string]any{"aggregate_id": "aggregate-1", "brigade_id": "brigade-1"},
+			want:    "aggregate-1",
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

@@ -151,11 +151,12 @@ type RecalculateRouteInput struct {
 }
 
 type ListRoutesInput struct {
-	TicketID  *string
-	BrigadeID *string
-	Status    *RouteStatus
-	Limit     int32
-	Offset    int32
+	AllowedTicketIDs []string
+	TicketID         *string
+	BrigadeID        *string
+	Status           *RouteStatus
+	Limit            int32
+	Offset           int32
 }
 
 type ListRoutesResult struct {

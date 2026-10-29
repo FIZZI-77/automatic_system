@@ -227,7 +227,7 @@ func NewService(repo *repository.Repository, logger *zap.Logger) *Service
 
 Типы: [Repository](#type-repository), [Service](#type-service).
 
-При отсутствии журнала подставляет `zap.NewNop()`, создает службы заявок и категорий с общим хранилищем и добавляет `ReportService`. Возвращает единый `Service`.
+При отсутствии журнала подставляет `zap.NewNop()`, создает службы заявок, категорий и интеграций с общим хранилищем и добавляет `ReportService`. Возвращает единый `Service`.
 
 ### func [NewTicketServiceStruct](https://github.com/FIZZI-77/automatic_system/blob/test/Ticket_Service/src/core/service/ticket_service.go#L21)
 
@@ -1097,3 +1097,22 @@ type WorkReport struct {
 	CompletionError  string      `json:"completion_error,omitempty"`
 }
 ```
+
+## Управление внешними интеграциями
+
+`IntegrationServiceStruct` предоставляет только администратору следующие методы:
+
+| Метод | Вход и результат |
+|---|---|
+| `ListIntegrations(ctx, *models.ListIntegrationsInput)` | `Limit` от 1 до 100, `Offset` от 0; возвращает `*models.ListIntegrationsResult` с `Integrations` и `Total`. Сортировка: `created_at DESC, id DESC`. |
+| `SetIntegrationActive(ctx, *models.SetIntegrationActiveInput)` | Ненулевой `IntegrationID` и `IsActive`; возвращает `*models.TicketIntegration`. Отключенная интеграция не может создавать внешние обращения. |
+| `RotateIntegrationSecret(ctx, *models.RotateIntegrationSecretInput)` | Ненулевой `IntegrationID`; возвращает `*models.RegisterIntegrationResult` с новым `Secret` и метаданными. Старый хеш заменяется, состояние активности сохраняется. |
+
+Каждый метод также возвращает `error`. Полный секрет с префиксом `tki_`
+возвращается при регистрации и ротации; список содержит только `secret_prefix`.
+`last_used_at` обновляется после успешного внешнего обращения; ошибка этой
+служебной записи не отменяет создание обращения.
+
+Реализация: `src/core/service/integration_service.go`,
+`src/core/repository/integration_repo.go`, `models/integration.go`.
+Все gRPC-методы находятся в общем `TicketHandler`.

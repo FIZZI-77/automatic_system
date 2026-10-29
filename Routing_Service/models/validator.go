@@ -7,6 +7,8 @@ import (
 	"github.com/google/uuid"
 )
 
+// Validate проверяет диапазоны широты [-90, 90] и долготы [-180, 180].
+// Ошибка оборачивает ErrInvalidArgument и содержит название поля field.
 func (p Point) Validate(field string) error {
 
 	if p.Latitude < -90 || p.Latitude > 90 {
@@ -20,6 +22,8 @@ func (p Point) Validate(field string) error {
 	return nil
 }
 
+// Normalize возвращает копию опций с режимом AUTO вместо пустого TravelMode.
+// Исходные опции не изменяет; вложенные указатели не копирует.
 func (o RouteOptions) Normalize() RouteOptions {
 
 	if o.TravelMode == "" {
@@ -29,6 +33,8 @@ func (o RouteOptions) Normalize() RouteOptions {
 	return o
 }
 
+// Validate проверяет допустимый режим движения и положительность заданных
+// ограничений транспорта. Пустой режим допустим; нарушение даёт ErrInvalidArgument.
 func (o RouteOptions) Validate() error {
 	switch o.TravelMode {
 	case "", TravelModeAuto, TravelModeTruck, TravelModeBicycle, TravelModePedestrian:
@@ -56,6 +62,8 @@ func (o RouteOptions) Validate() error {
 	return nil
 }
 
+// Validate проверяет ненулевой запрос, координаты начала, конца, промежуточных
+// точек и опции маршрута. Возвращает первую ошибку без изменения in.
 func (in *BuildRouteInput) Validate() error {
 
 	if in == nil {
@@ -80,6 +88,8 @@ func (in *BuildRouteInput) Validate() error {
 	return in.Options.Validate()
 }
 
+// Validate требует от 1 до 100 источников и целей, проверяет их координаты
+// и опции. nil запрос и нарушение ограничений дают ErrInvalidArgument.
 func (in *BuildMatrixInput) Validate() error {
 
 	if in == nil || len(in.Sources) == 0 || len(in.Targets) == 0 {
@@ -107,6 +117,8 @@ func (in *BuildMatrixInput) Validate() error {
 	return in.Options.Validate()
 }
 
+// Validate проверяет UUID заявки и бригады, точки и опции маршрута.
+// Пробелы вокруг UUID учитывает только при проверке, исходные строки не изменяет.
 func (in *CreateRouteInput) Validate() error {
 
 	if in == nil {

@@ -20,6 +20,8 @@ type Service struct {
 	log    *zap.Logger
 }
 
+// New создаёт сервис маршрутизации с хранилищем и расчётным движком.
+// nil logger заменяет журналом без вывода.
 func New(
 	repo RouteRepository,
 	engine RoutingEngine,
@@ -37,6 +39,8 @@ func New(
 	}
 }
 
+// BuildRoute проверяет точки и опции, нормализует in.Options и рассчитывает маршрут
+// через движок без сохранения. Ошибку расчёта журналирует и возвращает вызывающему коду.
 func (s *Service) BuildRoute(
 	ctx context.Context,
 	in *models.BuildRouteInput,
@@ -57,6 +61,8 @@ func (s *Service) BuildRoute(
 	return route, nil
 }
 
+// BuildMatrix проверяет источники, цели и опции, нормализует in.Options
+// и возвращает матрицу расстояний, времени и достижимости из движка без сохранения.
 func (s *Service) BuildMatrix(
 	ctx context.Context,
 	in *models.BuildMatrixInput,
@@ -70,6 +76,9 @@ func (s *Service) BuildMatrix(
 	return s.engine.BuildMatrix(ctx, in)
 }
 
+// RankCandidates рассчитывает матрицу до точки назначения и стабильно сортирует
+// бригады: достижимые первыми, затем по ETA и расстоянию. Положительный Limit
+// ограничивает результат; ранги начинаются с 1, недостижимые кандидаты не исключаются.
 func (s *Service) RankCandidates(
 	ctx context.Context,
 	in *models.RankCandidatesInput,
@@ -144,6 +153,10 @@ func (s *Service) RankCandidates(
 	return ranked, nil
 }
 
+// CreateRoute проверяет входные данные, рассчитывает и сохраняет маршрут PLANNED
+// с ревизией 1. При поддержке поиска открытого маршрута возвращает существующий
+// для той же бригады либо ErrConflict для другой. Сбой расчёта записывает в outbox,
+// если хранилище поддерживает такую операцию, объединяя ошибки расчёта и записи.
 func (s *Service) CreateRoute(
 	ctx context.Context,
 	in *models.CreateRouteInput,
@@ -154,6 +167,7 @@ func (s *Service) CreateRoute(
 	}
 
 	if lookup, ok := s.repo.(interface {
+		// GetOpenRouteByTicket возвращает открытый маршрут заявки либо ErrNotFound.
 		GetOpenRouteByTicket(context.Context, string) (*models.Route, error)
 	}); ok {
 
@@ -222,6 +236,8 @@ func (s *Service) CreateRoute(
 	return s.repo.CreateRoute(ctx, route)
 }
 
+// GetRoute проверяет формат UUID и возвращает сохранённый маршрут по ID.
+// Неверный формат даёт ErrInvalidArgument; строку id не нормализует.
 func (s *Service) GetRoute(
 	ctx context.Context,
 	id string,
@@ -234,6 +250,9 @@ func (s *Service) GetRoute(
 	return s.repo.GetRoute(ctx, id)
 }
 
+// RecalculateRoute рассчитывает маршрут от текущей позиции к прежней цели
+// с сохранёнными промежуточными точками и опциями, увеличивает ревизию и сохраняет расчёт.
+// Сбой расчёта пытается записать через необязательную возможность хранилища.
 func (s *Service) RecalculateRoute(
 	ctx context.Context,
 	in *models.RecalculateRouteInput,
@@ -294,8 +313,11 @@ func (s *Service) RecalculateRoute(
 	return s.repo.UpdateCalculation(ctx, route)
 }
 
+// recordCalculationFailure записывает сбой расчёта, если хранилище поддерживает
+// RecordCalculationFailure; иначе возвращает nil без действий.
 func (s *Service) recordCalculationFailure(ctx context.Context, failure models.CalculationFailure) error {
 	recorder, ok := s.repo.(interface {
+		// RecordCalculationFailure сохраняет событие сбоя расчёта в outbox.
 		RecordCalculationFailure(context.Context, models.CalculationFailure) error
 	})
 
@@ -306,8 +328,13 @@ func (s *Service) recordCalculationFailure(ctx context.Context, failure models.C
 	return recorder.RecordCalculationFailure(ctx, failure)
 }
 
+// routingEngineName возвращает имя движка в нижнем регистре без крайних пробелов.
+// Если движок не предоставляет имя или оно пустое, возвращает unknown.
 func routingEngineName(engine RoutingEngine) string {
-	named, ok := engine.(interface{ Name() string })
+	named, ok := engine.(interface {
+		// Name возвращает название расчётного движка.
+		Name() string
+	})
 
 	if !ok || strings.TrimSpace(named.Name()) == "" {
 		return "unknown"
@@ -316,6 +343,8 @@ func routingEngineName(engine RoutingEngine) string {
 	return strings.ToLower(strings.TrimSpace(named.Name()))
 }
 
+// routingFailureCode сопоставляет ошибку тайм-аута, отмены или неверного запроса
+// с кодом сбоя расчёта; для прочих ошибок возвращает ENGINE_ERROR.
 func routingFailureCode(err error) string {
 	switch {
 	case errors.Is(err, context.DeadlineExceeded):
@@ -329,6 +358,9 @@ func routingFailureCode(err error) string {
 	}
 }
 
+// ListRoutes возвращает страницу маршрутов по фильтрам с общим счётчиком.
+// nil in заменяет пустым фильтром, неположительный in.Limit — на 50;
+// лимит выше 500 и отрицательное смещение отклоняет.
 func (s *Service) ListRoutes(
 	ctx context.Context,
 	in *models.ListRoutesInput,

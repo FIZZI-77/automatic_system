@@ -20,6 +20,8 @@ type ReportServiceStruct struct {
 	logger    *zap.Logger
 }
 
+// Create проверяет параметры и ставит отчёт в очередь через хранилище,
+// записывая успешное создание в журнал. Генерацию файла выполняет фоновый обработчик.
 func (s *ReportServiceStruct) Create(c context.Context, v models.CreateInput) (*models.Report, error) {
 
 	if e := v.Validate(); e != nil {
@@ -34,6 +36,9 @@ func (s *ReportServiceStruct) Create(c context.Context, v models.CreateInput) (*
 
 	return x, e
 }
+
+// Get возвращает отчёт его инициатору или привилегированному пользователю.
+// Доступ другого пользователя отклоняет с ErrForbidden.
 func (s *ReportServiceStruct) Get(c context.Context, id, actor uuid.UUID, privileged bool) (*models.Report, error) {
 	x, e := s.repo.Get(c, id)
 
@@ -43,6 +48,9 @@ func (s *ReportServiceStruct) Get(c context.Context, id, actor uuid.UUID, privil
 
 	return x, e
 }
+
+// List возвращает страницу отчётов и общий счётчик; обычному пользователю — только
+// его задания. Неположительный limit заменяет на 20, превышение 100 ограничивает до 100.
 func (s *ReportServiceStruct) List(c context.Context, actor uuid.UUID, privileged bool, status *models.Status, limit, offset int32) ([]*models.Report, int64, error) {
 
 	if limit <= 0 {
@@ -61,6 +69,9 @@ func (s *ReportServiceStruct) List(c context.Context, actor uuid.UUID, privilege
 
 	return s.repo.List(c, f)
 }
+
+// Cancel проверяет доступ и отменяет отчёт PENDING или FAILED.
+// Отсутствие подходящей строки при переходе возвращает как ErrInvalidState.
 func (s *ReportServiceStruct) Cancel(c context.Context, id, actor uuid.UUID, p bool) (*models.Report, error) {
 
 	if _, e := s.Get(c, id, actor, p); e != nil {
@@ -75,6 +86,9 @@ func (s *ReportServiceStruct) Cancel(c context.Context, id, actor uuid.UUID, p b
 
 	return x, e
 }
+
+// Retry проверяет доступ и повторно ставит FAILED-отчёт в очередь.
+// Отсутствие подходящей строки при переходе возвращает как ErrInvalidState.
 func (s *ReportServiceStruct) Retry(c context.Context, id, actor uuid.UUID, p bool) (*models.Report, error) {
 
 	if _, e := s.Get(c, id, actor, p); e != nil {
@@ -89,6 +103,9 @@ func (s *ReportServiceStruct) Retry(c context.Context, id, actor uuid.UUID, p bo
 
 	return x, e
 }
+
+// Download проверяет доступ, статус COMPLETED и наличие FileID, затем запрашивает
+// ссылку и срок скачивания от имени actor с roles. Неготовый отчёт даёт ErrInvalidState.
 func (s *ReportServiceStruct) Download(c context.Context, id, actor uuid.UUID, roles []string, p bool) (models.Download, error) {
 	x, e := s.Get(c, id, actor, p)
 
@@ -103,6 +120,10 @@ func (s *ReportServiceStruct) Download(c context.Context, id, actor uuid.UUID, r
 	url, expires, e := s.files.Download(c, *x.FileID, actor, roles)
 	return models.Download{Report: x, URL: url, ExpiresAt: expires}, e
 }
+
+// ProcessNext захватывает одно задание, получает аналитику, генерирует и загружает
+// файл, затем фиксирует результат для захваченной попытки. При сбое пытается отметить
+// FAILED и возвращает исходную ошибку. bool сообщает о захвате задания; пустая очередь даёт false, nil.
 func (s *ReportServiceStruct) ProcessNext(c context.Context) (bool, error) {
 	x, e := s.repo.Claim(c)
 
@@ -146,6 +167,8 @@ func (s *ReportServiceStruct) ProcessNext(c context.Context) (bool, error) {
 	s.log().Info("report generated", zap.String("report_id", x.ID.String()), zap.Duration("duration", time.Since(start)))
 	return true, nil
 }
+
+// log возвращает настроенный журнал либо журнал без вывода при nil logger.
 func (s *ReportServiceStruct) log() *zap.Logger {
 
 	if s.logger == nil {

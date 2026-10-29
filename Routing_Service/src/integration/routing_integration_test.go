@@ -110,6 +110,22 @@ func TestRouteRepositoryPersistsRouteAndOutbox(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create route: %v", err)
 	}
+	for _, test := range []struct {
+		name    string
+		allowed []string
+		total   int64
+	}{
+		{"own ticket", []string{route.TicketID}, 1},
+		{"foreign ticket", []string{uuid.NewString()}, 0},
+		{"no accessible tickets", []string{}, 0},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			page, err := repo.ListRoutes(ctx, &models.ListRoutesInput{AllowedTicketIDs: test.allowed, Limit: 1})
+			if err != nil || page.Total != test.total || int64(len(page.Routes)) != test.total {
+				t.Fatalf("scoped routes=%+v err=%v, want total=%d", page, err, test.total)
+			}
+		})
+	}
 
 	loaded, err := repo.GetRoute(ctx, created.ID)
 

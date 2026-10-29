@@ -17,6 +17,7 @@ type ScheduleServiceStruct struct {
 	log  *zap.Logger
 }
 
+// NewScheduleServiceStruct создаёт сервис расписаний с хранилищем и обязательным журналом log.
 func NewScheduleServiceStruct(repo *repository.Repo, log *zap.Logger) *ScheduleServiceStruct {
 	return &ScheduleServiceStruct{
 		repo: repo,
@@ -24,6 +25,8 @@ func NewScheduleServiceStruct(repo *repository.Repo, log *zap.Logger) *ScheduleS
 	}
 }
 
+// SetBrigadeSchedule проверяет элементы и заменяет расписание неархивной бригады
+// для администратора или диспетчера её ведомства. Ошибки входа оборачивает в ErrValidation.
 func (s *ScheduleServiceStruct) SetBrigadeSchedule(ctx context.Context, in *models.SetBrigadeScheduleInput) (*models.SetBrigadeScheduleResult, error) {
 	log := s.log.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -62,6 +65,8 @@ func (s *ScheduleServiceStruct) SetBrigadeSchedule(ctx context.Context, in *mode
 	return result, nil
 }
 
+// ListBrigadeSchedule возвращает расписание неархивной бригады администратору,
+// диспетчеру её ведомства или активному участнику этой бригады.
 func (s *ScheduleServiceStruct) ListBrigadeSchedule(ctx context.Context, in *models.ListBrigadeScheduleInput) (*models.ListBrigadeScheduleResult, error) {
 	log := s.log.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -83,8 +88,8 @@ func (s *ScheduleServiceStruct) ListBrigadeSchedule(ctx context.Context, in *mod
 	}
 
 	if err = checkPermissionAndDepartmentForAdminAndDispatcher(log, start, in.ActorRoles, in.ActorDepartmentID, brigade.DepartmentID); err != nil {
-		// A worker may read the schedule of the brigade they actively belong to.
-		// Schedule modification remains restricted to an admin or dispatcher.
+		// Активный участник может читать расписание своей бригады.
+		// Изменять его вправе только администратор или диспетчер.
 		if in.ActorUserID == nil {
 			return nil, err
 		}
@@ -111,6 +116,8 @@ func (s *ScheduleServiceStruct) ListBrigadeSchedule(ctx context.Context, in *mod
 	return result, nil
 }
 
+// getBrigadeForScheduleOperation читает бригаду и отклоняет ARCHIVED с ErrPermissionDenied.
+// Ошибку чтения дополняет именем operation; права на конкретное действие проверяются снаружи.
 func (s *ScheduleServiceStruct) getBrigadeForScheduleOperation(
 	ctx context.Context,
 	log *zap.Logger,
