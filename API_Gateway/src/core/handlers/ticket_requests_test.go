@@ -88,7 +88,7 @@ func TestTicketHandlerCreateRequest(t *testing.T) {
 			}, nil
 		},
 	}
-	handler := NewTicketHandler(client, nil, nil)
+	handler := NewTicketHandler(client, nil, nil, nil)
 	recorder, ctx := ticketRequestContext(
 		t,
 		userID,
@@ -147,7 +147,7 @@ func TestTicketHandlerAttachAndDetachRequest(t *testing.T) {
 			}, nil
 		},
 	}
-	handler := NewTicketHandler(client, nil, nil)
+	handler := NewTicketHandler(client, nil, nil, nil)
 
 	attachRecorder, attachContext := ticketRequestContext(
 		t,
@@ -231,7 +231,7 @@ func TestTicketHandlerListIncidentRequestsAggregatesAllPages(t *testing.T) {
 			return &ticketv1.ListIncidentRequestsResponse{Requests: requests, Total: 3}, nil
 		},
 	}
-	handler := NewTicketHandler(client, nil, nil)
+	handler := NewTicketHandler(client, nil, nil, nil)
 	recorder, ctx := ticketRequestContext(
 		t,
 		userID,

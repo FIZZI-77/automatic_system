@@ -37,15 +37,29 @@ test.describe("Tickets API: жизненный цикл и фактически�
   let admin: EphemeralAccount;
   const ticketIDs: string[] = [];
   const integrationIDs: string[] = [];
-  let brigadeID = "";
+  const brigadeID = "30000000-0000-4000-8000-000000000004";
+  let brigadeStatus = "";
+  const locationEventIDs: string[] = [];
   const suffix = randomUUID();
 
   test.beforeAll(async ({ request }) => {
     admin = await createEphemeralAccount(request, "admin");
+    brigadeStatus = queryPlatformPostgres(
+      "brigade_db",
+      `SELECT status FROM brigades WHERE id='${brigadeID}'`,
+    );
   });
   test.afterAll(() => {
     if (ticketIDs.length) {
       const ids = ticketIDs.map((value) => `'${value}'`).join(",");
+      queryPlatformPostgres(
+        "dispatch",
+        `DELETE FROM dispatch_outbox_events WHERE aggregate_id IN (SELECT id FROM dispatch_operations WHERE ticket_id IN (${ids})); DELETE FROM dispatch_operations WHERE ticket_id IN (${ids})`,
+      );
+      queryPlatformPostgres(
+        "routing",
+        `DELETE FROM outbox_events WHERE aggregate_id IN (SELECT id FROM routes WHERE ticket_id IN (${ids})); DELETE FROM routes WHERE ticket_id IN (${ids})`,
+      );
       queryTicketPostgres(
         `DELETE FROM ticket_report_files WHERE report_id IN (SELECT id FROM ticket_reports WHERE ticket_id IN (${ids})); DELETE FROM ticket_reports WHERE ticket_id IN (${ids}); DELETE FROM ticket_status_history WHERE ticket_id IN (${ids}); DELETE FROM outbox_events WHERE aggregate_id IN (${ids}); DELETE FROM tickets WHERE id IN (${ids});`,
       );
@@ -54,10 +68,15 @@ test.describe("Tickets API: жизненный цикл и фактически�
       queryTicketPostgres(
         `DELETE FROM ticket_integrations WHERE id IN (${integrationIDs.map((value) => `'${value}'`).join(",")})`,
       );
-    if (brigadeID)
+    if (brigadeStatus)
       queryPlatformPostgres(
         "brigade_db",
-        `DELETE FROM brigade_status_history WHERE brigade_id='${brigadeID}'; DELETE FROM brigades WHERE id='${brigadeID}'`,
+        `UPDATE brigades SET status='${brigadeStatus}',updated_at=now() WHERE id='${brigadeID}'; DELETE FROM brigade_status_history WHERE brigade_id='${brigadeID}' AND changed_by_user_id='${admin?.userID}'`,
+      );
+    if (locationEventIDs.length)
+      queryPlatformPostgres(
+        "location",
+        `DELETE FROM position_history WHERE event_id IN (${locationEventIDs.map((id) => `'${id}'`).join(",")})`,
       );
     if (admin) deleteEphemeralAccount(admin);
   });
@@ -92,13 +111,40 @@ test.describe("Tickets API: жизненный цикл и фактически�
       queryTicketPostgres(`SELECT title FROM tickets WHERE id='${ticketID}'`),
     ).toBe(`E2E ticket ${suffix}`);
 
-    const brigade = await post(request, admin, "/brigades/create", {
-      department_id: departmentID,
-      name: `E2E ticket brigade ${suffix}`,
-      description: "isolated",
+    // Назначение теперь требует готовую бригаду со сменой, составом и зоной.
+    // Используем ту же полную seed-фикстуру, что и stateful-тест Dispatch.
+    const eligibility = await post(
+      request,
+      admin,
+      "/brigades/can-handle-ticket",
+      {
+        brigade_id: brigadeID,
+        department_id: departmentID,
+        latitude: 55.76,
+        longitude: 37.61,
+      },
+    );
+    expect(
+      eligibility.response.status(),
+      JSON.stringify(eligibility.body),
+    ).toBe(200);
+    expect(eligibility.body.can_handle, JSON.stringify(eligibility.body)).toBe(
+      true,
+    );
+    const eventID = randomUUID();
+    locationEventIDs.push(eventID);
+    const location = await post(request, admin, "/locations/record", {
+      event_id: eventID,
+      event_version: 1,
+      occurred_at: new Date().toISOString(),
+      device_id: `ticket-e2e-${suffix}`,
+      vehicle_id: randomUUID(),
+      brigade_id: brigadeID,
+      sequence: Date.now(),
+      latitude: 55.7596,
+      longitude: 37.615,
     });
-    expect(brigade.response.status(), JSON.stringify(brigade.body)).toBe(201);
-    brigadeID = brigade.body.brigade.id;
+    expect(location.response.status(), JSON.stringify(location.body)).toBe(201);
     expect(
       queryPlatformPostgres(
         "brigade_db",

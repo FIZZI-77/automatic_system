@@ -38,11 +38,12 @@ type File struct {
 }
 
 type CreateInput struct {
-	OwnerUserID uuid.UUID `json:"owner_user_id"`
-	Name        string    `json:"name"`
-	ContentType string    `json:"content_type"`
-	Size        int64     `json:"size"`
-	Checksum    string    `json:"checksum"`
+	OwnerUserID     uuid.UUID `json:"owner_user_id"`
+	Name            string    `json:"name"`
+	ContentType     string    `json:"content_type"`
+	Size            int64     `json:"size"`
+	Checksum        string    `json:"checksum"`
+	UploadExpiresAt time.Time `json:"-"`
 }
 
 type LinkInput struct {

@@ -313,7 +313,7 @@ type AssignBrigadeRequest struct {
 	TicketID   string `json:"ticket_id" binding:"required,uuid"`
 	BrigadeID  string `json:"brigade_id" binding:"required,uuid"`
 	AssignedBy string `json:"assigned_by,omitempty" binding:"omitempty,uuid"`
-	Comment    string `json:"comment" binding:"omitempty"`
+	Comment    string `json:"comment" binding:"omitempty,max=1000"`
 }
 
 type AssignBrigadeResponse struct {

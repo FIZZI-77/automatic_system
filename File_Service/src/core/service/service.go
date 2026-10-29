@@ -11,7 +11,6 @@ import (
 	"file/models"
 	"file/pkg"
 	"file/src/core/repository"
-	"file/src/infrastructure/storage"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
@@ -31,13 +30,13 @@ var allowedTypes = map[string]bool{
 
 type Service struct {
 	repo   *repository.Repository
-	store  *storage.S3
+	store  objectStorage
 	ttl    time.Duration
 	logger *zap.Logger
 }
 
 // New создаёт сервис файлов с хранилищем метаданных, S3 и сроком действия подписанных ссылок ttl.
-func New(repo *repository.Repository, store *storage.S3, ttl time.Duration, logger *zap.Logger) *Service {
+func New(repo *repository.Repository, store objectStorage, ttl time.Duration, logger *zap.Logger) *Service {
 	return &Service{
 		repo:   repo,
 		store:  store,
@@ -47,8 +46,8 @@ func New(repo *repository.Repository, store *storage.S3, ttl time.Duration, logg
 }
 
 // Create проверяет владельца, имя, MIME-тип и размер файла до 25 МиБ, сохраняет
-// метаданные и выдаёт подписанную ссылку загрузки. Нормализует локальную копию in;
-// при ошибке создания ссылки уже сохранённые метаданные остаются в базе.
+// метаданные и выдаёт подписанную ссылку загрузки. Подписывает URL до записи в БД;
+// незавершённые загрузки затем удаляются фоновой очисткой.
 func (s *Service) Create(ctx context.Context, in models.CreateInput) (*models.PresignedFile, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx), zap.String("operation", "create_upload"))
 	in.Name = filepath.Base(strings.TrimSpace(in.Name))
@@ -60,6 +59,14 @@ func (s *Service) Create(ctx context.Context, in models.CreateInput) (*models.Pr
 
 	id := uuid.New()
 	key := fmt.Sprintf("%s/%s/%s", in.OwnerUserID, id, in.Name)
+	in.UploadExpiresAt = time.Now().Add(s.ttl)
+	u, err := s.store.UploadURL(ctx, key, in.ContentType, in.Checksum, in.Size, s.ttl)
+
+	if err != nil {
+		logger.Error("presign upload failed", zap.Error(err))
+		return nil, err
+	}
+
 	f, err := s.repo.Create(ctx, in, key)
 
 	if err != nil {
@@ -67,18 +74,11 @@ func (s *Service) Create(ctx context.Context, in models.CreateInput) (*models.Pr
 		return nil, err
 	}
 
-	u, err := s.store.UploadURL(ctx, key, in.ContentType, in.Checksum, in.Size, s.ttl)
-
-	if err != nil {
-		logger.Error("presign upload failed", zap.String("file_id", f.ID.String()), zap.Error(err))
-		return nil, err
-	}
-
 	logger.Info("upload prepared", zap.String("file_id", f.ID.String()), zap.String("content_type", f.ContentType), zap.Int64("size", f.Size))
 	return &models.PresignedFile{
 		File:      f,
 		URL:       u,
-		ExpiresAt: time.Now().Add(s.ttl),
+		ExpiresAt: in.UploadExpiresAt,
 	}, nil
 }
 
@@ -178,10 +178,10 @@ func downloadable(status models.Status) bool {
 	return status == models.StatusUploaded || status == models.StatusLinked
 }
 
-// Delete проверяет право владельца или привилегированного пользователя, удаляет
-// объект из S3 и затем помечает метаданные удалёнными. При ошибке базы объект уже может быть удалён.
+// Delete проверяет права, помечает метаданные удалёнными и ставит объект
+// в постоянную очередь очистки S3.
 func (s *Service) Delete(ctx context.Context, id, actor uuid.UUID, privileged bool) error {
-	f, err := s.repo.Get(ctx, id)
+	f, err := s.repo.GetForDeletion(ctx, id)
 
 	if err != nil {
 		return err
@@ -191,11 +191,10 @@ func (s *Service) Delete(ctx context.Context, id, actor uuid.UUID, privileged bo
 		return models.ErrPermissionDenied
 	}
 
-	if err = s.store.Delete(ctx, f.ObjectKey); err != nil {
+	if err = s.repo.QueueDeletion(ctx, id); err != nil {
 		return err
 	}
-
-	return s.repo.Delete(ctx, id)
+	return nil
 }
 
 // List возвращает связанные файлы ресурса, ограничивая обычного пользователя его файлами.

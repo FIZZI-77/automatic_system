@@ -312,8 +312,56 @@ jobs:
   # FRONTEND ANALYTICS QUALITY
   # ===========================================================================
 
+  workflow-recovery-integration:
+    name: Recovery / ${{ matrix.path }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        path: [Dispatch_Service, File_Service]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: recovery-ci-only
+          POSTGRES_DB: recovery_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d recovery_test"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    defaults:
+      run:
+        working-directory: ${{ matrix.path }}
+    env:
+      GOWORK: "off"
+      RECOVERY_TEST_DATABASE_URL: postgres://postgres:recovery-ci-only@127.0.0.1:5432/recovery_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: ${{ matrix.path }}/go.sum
+      - name: Test compensation and storage recovery against PostgreSQL
+        run: go test -race -count=1 -timeout=5m -v ./src/core/service
+
+  data-recovery-drill:
+    name: PostgreSQL / isolated backup and PITR drill
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Restore base backup and WAL to named recovery point
+        shell: pwsh
+        run: ./scripts/test-postgres-recovery.ps1
+      - name: Upload recovery measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: postgres-recovery-drill
+          path: output/recovery/*.json
+          retention-days: 7
+
   frontend-quality:
-    name: Frontend / analytics and E2E contracts
+    name: Frontend / lint, build and browser smoke
     runs-on: ubuntu-latest
 
     steps:
@@ -331,13 +379,39 @@ jobs:
         working-directory: Frontend
         run: npm ci
 
-      - name: Lint analytics and E2E contracts
+      - name: Lint entire frontend
         working-directory: Frontend
-        run: npx eslint app/analytics-page.tsx e2e/api-contracts.spec.ts e2e/global-teardown.ts
+        run: npm run lint -- --max-warnings=0
+
+      - name: Typecheck frontend
+        working-directory: Frontend
+        run: npx tsc --noEmit
 
       - name: Build frontend
         working-directory: Frontend
         run: npm run build
+
+      - name: Test rendered HTML
+        working-directory: Frontend
+        run: node --test tests/rendered-html.test.mjs
+
+      - name: Install Chromium
+        working-directory: Frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run browser smoke and tooltip security checks
+        working-directory: Frontend
+        run: npm run e2e:smoke
+
+      - name: Upload browser failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-smoke-failure
+          path: |
+            Frontend/playwright-report/smoke/
+            Frontend/test-results/smoke/
+          retention-days: 7
 
       - name: Compile Playwright test inventory
         working-directory: Frontend
@@ -559,6 +633,8 @@ jobs:
       - go-quality
       - analytics-integration
       - location-integration
+      - workflow-recovery-integration
+      - data-recovery-drill
       - frontend-quality
       - go-workspace-validation
       - compose-validation
@@ -627,6 +703,8 @@ jobs:
       - go-quality
       - analytics-integration
       - location-integration
+      - workflow-recovery-integration
+      - data-recovery-drill
       - frontend-quality
       - go-workspace-validation
       - compose-validation

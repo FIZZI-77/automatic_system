@@ -9,7 +9,7 @@
 | `build-images.ps1` | Сборка образов сервисов и миграторов. |
 | `deploy-applications-helm.ps1` | Установка или обновление единого Helm-выпуска. |
 | `delete-local.ps1` | Удаление локального развертывания; перед запуском нужно проверить выбранный контекст. |
-| `validate.ps1` | Клиентская проверка Kustomize и Helm. Содержит ссылку на удаленный чарт Dispatch, поэтому текущий запуск сценария завершится ошибкой. |
+| `validate.ps1` | Рендеринг Kustomize и lint единого Helm-чарта applications, включая Dispatch; `-ValidateAgainstCluster` дополнительно выполняет клиентский dry-run через выбранный кластер. |
 | `install-metrics-server.ps1` | Установка Metrics Server для метрик ресурсов и HPA. |
 | `install-mesh.ps1` | Установка Istio, Kiali, базовых политик и входного шлюза. |
 | `setup-ingress.ps1` | Создание локального сертификата и применение маршрутов Istio. |

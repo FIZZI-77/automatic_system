@@ -122,7 +122,8 @@ func (t *TicketRepoStruct) createTicket(ctx context.Context, q Querier, in *mode
 	return ticket, nil
 }
 
-// GetTicketByID читает неархивную заявку со связями по ID из пула чтения.
+// GetTicketByID читает актуальную неархивную заявку со связями из primary.
+// Точечное чтение используется для авторизации и подтверждения межсервисных переходов.
 // Если записи нет или она архивная, возвращает ошибку, оборачивающую ErrNotFound.
 func (t *TicketRepoStruct) GetTicketByID(ctx context.Context, ticketID uuid.UUID) (*models.Ticket, error) {
 	const query = `
@@ -131,7 +132,7 @@ func (t *TicketRepoStruct) GetTicketByID(ctx context.Context, ticketID uuid.UUID
 		WHERE id = $1 AND status <> 'ARCHIVED'
 	`
 
-	row := t.readPool.QueryRow(ctx, query, ticketID)
+	row := t.writePool.QueryRow(ctx, query, ticketID)
 
 	ticket, err := scanTicketWithRelation(row)
 

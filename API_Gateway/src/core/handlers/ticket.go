@@ -8,6 +8,7 @@ import (
 	"time"
 
 	brigadev1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/brigade/v1"
+	dispatchv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/dispatch/v1"
 	profilev1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/profile/v1"
 	ticketv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/ticket/v1"
 	"github.com/gin-gonic/gin"
@@ -16,14 +17,15 @@ import (
 )
 
 type TicketHandler struct {
-	ticketClient  ticketv1.TicketServiceClient
-	brigadeClient brigadev1.BrigadeServiceClient
-	profileClient profilev1.ProfileServiceClient
+	ticketClient   ticketv1.TicketServiceClient
+	brigadeClient  brigadev1.BrigadeServiceClient
+	profileClient  profilev1.ProfileServiceClient
+	dispatchClient dispatchv1.DispatchServiceClient
 }
 
 // NewTicketHandler создает обработчик операций с билетами и отчетами.
-func NewTicketHandler(ticketClient ticketv1.TicketServiceClient, brigadeClient brigadev1.BrigadeServiceClient, profileClient profilev1.ProfileServiceClient) *TicketHandler {
-	return &TicketHandler{ticketClient: ticketClient, brigadeClient: brigadeClient, profileClient: profileClient}
+func NewTicketHandler(ticketClient ticketv1.TicketServiceClient, brigadeClient brigadev1.BrigadeServiceClient, profileClient profilev1.ProfileServiceClient, dispatchClient dispatchv1.DispatchServiceClient) *TicketHandler {
+	return &TicketHandler{ticketClient: ticketClient, brigadeClient: brigadeClient, profileClient: profileClient, dispatchClient: dispatchClient}
 }
 
 // CreateWorkReport создает рабочий отчет по билету.
@@ -339,28 +341,57 @@ func (th *TicketHandler) ChangeTicketStatus(c *gin.Context) {
 	})
 }
 
-// AssignBrigade назначает бригаду на билет.
+// AssignBrigade выполняет ручное назначение через общий процесс Dispatch.
+// Сохраняет HTTP-форму ответа Ticket, проверки пригодности и восстановление резерва.
 func (th *TicketHandler) AssignBrigade(c *gin.Context) {
 	var req models.AssignBrigadeRequest
 
 	if !bindJSON(c, &req) {
 		return
 	}
+	if !actorHasRole(c, "admin") && !actorHasRole(c, "dispatcher") {
+		writeAPIError(c, http.StatusForbidden, "PERMISSION_DENIED", "Недостаточно прав для назначения бригады")
+		return
+	}
 
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 15*time.Second)
 	defer cancel()
 	ctx, ok := th.contextWithWorkerBrigade(ctx, c)
 	if !ok {
 		return
 	}
 
-	res, err := th.ticketClient.AssignBrigade(ctx, &ticketv1.AssignBrigadeRequest{
-		TicketId:   req.TicketID,
-		BrigadeId:  req.BrigadeID,
-		AssignedBy: c.GetString("user_id"),
-		Comment:    req.Comment,
-	})
+	current, err := th.ticketClient.GetTicket(ctx, &ticketv1.GetTicketRequest{TicketId: req.TicketID})
+	if err != nil {
+		handleGRPCError(c, err)
+		return
+	}
+	// Повтор после потерянного HTTP-ответа не создаёт второе назначение.
+	if current.GetTicket().GetBrigadeId() == req.BrigadeID &&
+		(current.GetTicket().GetStatus() == ticketv1.TicketStatus_TICKET_STATUS_ASSIGNED || current.GetTicket().GetStatus() == ticketv1.TicketStatus_TICKET_STATUS_IN_PROGRESS) {
+		c.JSON(http.StatusOK, &models.AssignBrigadeResponse{Ticket: FromProtoTicket(current.GetTicket())})
+		return
+	}
 
+	ctx = metadata.AppendToOutgoingContext(ctx, "x-assignment-comment-bin", req.Comment)
+	operation, err := th.reserveTicketAssignment(ctx, &dispatchv1.ReserveBrigadeRequest{
+		TicketId:    req.TicketID,
+		BrigadeId:   req.BrigadeID,
+		RequestedBy: c.GetString("user_id"),
+	})
+	if err != nil {
+		handleGRPCError(c, err)
+		return
+	}
+	if _, err = th.dispatchClient.ConfirmDispatch(ctx, &dispatchv1.ConfirmDispatchRequest{
+		Id:              operation.GetId(),
+		ExpectedVersion: operation.GetVersion(),
+		ConfirmedBy:     c.GetString("user_id"),
+	}); err != nil {
+		handleGRPCError(c, err)
+		return
+	}
+	res, err := th.ticketClient.GetTicket(ctx, &ticketv1.GetTicketRequest{TicketId: req.TicketID})
 	if err != nil {
 		handleGRPCError(c, err)
 		return

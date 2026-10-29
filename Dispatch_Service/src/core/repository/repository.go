@@ -42,16 +42,17 @@ func NewWithLockPool(writeDB, readDB, lockDB *pgxpool.Pool) *Repository {
 // операцию; прочее нарушение уникальности преобразуется в ErrConflict.
 func (r *Repository) Create(ctx context.Context, input models.CreateOperationInput) (*models.Operation, error) {
 	op := &models.Operation{
-		ID:           uuid.New(),
-		TicketID:     input.TicketID,
-		DepartmentID: &input.DepartmentID,
-		CategoryID:   &input.CategoryID,
-		Priority:     input.Priority,
-		Mode:         input.Mode,
-		Status:       models.StatusPending,
-		Version:      1,
-		RequestedBy:  input.RequestedBy,
-		ExpiresAt:    time.Now().UTC().Add(input.TTL),
+		ID:                uuid.New(),
+		TicketID:          input.TicketID,
+		DepartmentID:      &input.DepartmentID,
+		CategoryID:        &input.CategoryID,
+		Priority:          input.Priority,
+		Mode:              input.Mode,
+		Status:            models.StatusPending,
+		Version:           1,
+		RequestedBy:       input.RequestedBy,
+		ExpiresAt:         time.Now().UTC().Add(input.TTL),
+		AssignmentComment: input.AssignmentComment,
 	}
 	tx, err := r.writeDB.Begin(ctx)
 
@@ -60,7 +61,7 @@ func (r *Repository) Create(ctx context.Context, input models.CreateOperationInp
 	}
 
 	defer tx.Rollback(ctx)
-	err = tx.QueryRow(ctx, `INSERT INTO dispatch_operations(id,ticket_id,department_id,category_id,priority,mode,status,version,requested_by,expires_at,trigger_event_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING created_at,updated_at`, op.ID, op.TicketID, op.DepartmentID, op.CategoryID, op.Priority, op.Mode, op.Status, op.Version, op.RequestedBy, op.ExpiresAt, input.TriggerEventID).Scan(&op.CreatedAt, &op.UpdatedAt)
+	err = tx.QueryRow(ctx, `INSERT INTO dispatch_operations(id,ticket_id,department_id,category_id,priority,mode,status,version,requested_by,expires_at,trigger_event_id,assignment_comment) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING created_at,updated_at`, op.ID, op.TicketID, op.DepartmentID, op.CategoryID, op.Priority, op.Mode, op.Status, op.Version, op.RequestedBy, op.ExpiresAt, input.TriggerEventID, op.AssignmentComment).Scan(&op.CreatedAt, &op.UpdatedAt)
 
 	if err != nil {
 		var dbErr *pgconn.PgError
@@ -158,9 +159,10 @@ func (r *Repository) TryOperationLock(ctx context.Context, operationID uuid.UUID
 	return release, true, nil
 }
 
-// Get читает операцию по ID из пула чтения; отсутствие возвращает как ErrNotFound.
+// Get читает актуальную операцию из primary для принятия решений о переходах состояния.
+// Отсутствие возвращает как ErrNotFound.
 func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*models.Operation, error) {
-	op, err := scan(r.readDB.QueryRow(ctx, baseSelect+` WHERE id=$1`, id))
+	op, err := scan(r.writeDB.QueryRow(ctx, baseSelect+` WHERE id=$1`, id))
 
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, models.ErrNotFound
@@ -193,21 +195,10 @@ func (r *Repository) SetAssigned(ctx context.Context, id, routeID uuid.UUID, exp
 	return r.transition(ctx, id, expected, "status='RESERVED'", `route_id=$3,status='ASSIGNED',version=version+1,updated_at=now()`, "dispatch.assigned", nil, routeID)
 }
 
-// SetTerminal завершает PENDING или RESERVED с версией expected, сохраняя причину
-// и outbox. EXPIRED получает метаданные истечения, любой иной переданный статус —
-// метаданные отмены; вызывающий код должен выбирать терминальный статус.
-func (r *Repository) SetTerminal(ctx context.Context, id uuid.UUID, status models.Status, reason string, expected int32) (*models.Operation, error) {
-	eventType := "dispatch.canceled"
-	failureCode := "CANCELED_BY_USER"
-	failureStage := "USER_CANCELLATION"
-
-	if status == models.StatusExpired {
-		eventType = "dispatch.expired"
-		failureCode = "RESERVATION_EXPIRED"
-		failureStage = "RESERVATION"
-	}
-
-	return r.transition(ctx, id, expected, "status IN ('PENDING','RESERVED')", `status=$3,failure_code=$4,failure_stage=$5,failure_reason=$6,version=version+1,updated_at=now()`, eventType, nil, status, failureCode, failureStage, nullable(reason))
+// SetExpired завершает просроченную операцию после успешного освобождения резерва.
+// Отмена выполняется отдельным Cancel с постоянной записью компенсации.
+func (r *Repository) SetExpired(ctx context.Context, id uuid.UUID, reason string, expected int32) (*models.Operation, error) {
+	return r.transition(ctx, id, expected, "status IN ('PENDING','RESERVED')", `status='EXPIRED',failure_code='RESERVATION_EXPIRED',failure_stage='RESERVATION',failure_reason=$3,version=version+1,updated_at=now()`, "dispatch.expired", nil, nullable(reason))
 }
 
 // transition выполняет условное обновление операции и запись outbox в одной транзакции.
@@ -230,6 +221,10 @@ func (r *Repository) transition(ctx context.Context, id uuid.UUID, expected int3
 	}
 
 	if err != nil {
+		var dbErr *pgconn.PgError
+		if errors.As(err, &dbErr) && dbErr.Code == "23505" {
+			return nil, models.ErrConflict
+		}
 		return nil, fmt.Errorf("update dispatch transition: %w", err)
 	}
 
@@ -302,15 +297,15 @@ func (r *Repository) List(ctx context.Context, in *models.ListInput) ([]*models.
 	return result, total, nil
 }
 
-// Expire выбирает просроченные PENDING, RESERVED и CONFIRMING по сроку и ID,
-// не меняя их статусы. Неположительный limit заменяет на 100.
+// Expire выбирает незавершённые компенсации и просроченные открытые операции.
+// Не меняет их статусы; неположительный limit заменяет на 100.
 func (r *Repository) Expire(ctx context.Context, limit int) ([]*models.Operation, error) {
 
 	if limit <= 0 {
 		limit = 100
 	}
 
-	rows, err := r.writeDB.Query(ctx, baseSelect+` WHERE status IN ('PENDING','RESERVED','CONFIRMING') AND expires_at<=now() ORDER BY expires_at,id LIMIT $1`, limit)
+	rows, err := r.writeDB.Query(ctx, baseSelect+` WHERE release_pending OR (status IN ('PENDING','RESERVED','CONFIRMING') AND expires_at<=now()) ORDER BY updated_at,id LIMIT $1`, limit)
 
 	if err != nil {
 		return nil, err
@@ -338,7 +333,7 @@ func (r *Repository) Expire(ctx context.Context, limit int) ([]*models.Operation
 // scan читает операцию в порядке baseSelect; при ошибке возвращает nil и исходную ошибку.
 func scan(row scanner) (*models.Operation, error) {
 	op := new(models.Operation)
-	err := row.Scan(&op.ID, &op.TicketID, &op.DepartmentID, &op.CategoryID, &op.Priority, &op.BrigadeID, &op.RouteID, &op.Mode, &op.Status, &op.Version, &op.RequestedBy, &op.FailureCode, &op.FailureStage, &op.FailureReason, &op.ExpiresAt, &op.CreatedAt, &op.UpdatedAt)
+	err := row.Scan(&op.ID, &op.TicketID, &op.DepartmentID, &op.CategoryID, &op.Priority, &op.BrigadeID, &op.RouteID, &op.Mode, &op.Status, &op.Version, &op.RequestedBy, &op.FailureCode, &op.FailureStage, &op.FailureReason, &op.ExpiresAt, &op.CreatedAt, &op.UpdatedAt, &op.ReleasePending, &op.ReleaseActorID, &op.AssignmentComment)
 
 	if err != nil {
 		return nil, err
@@ -357,6 +352,6 @@ func nullable(value string) any {
 	return value
 }
 
-const baseSelect = `SELECT id,ticket_id,department_id,category_id,COALESCE(priority,''),brigade_id,route_id,mode,status,version,requested_by,failure_code,failure_stage,failure_reason,expires_at,created_at,updated_at FROM dispatch_operations`
+const baseSelect = `SELECT id,ticket_id,department_id,category_id,COALESCE(priority,''),brigade_id,route_id,mode,status,version,requested_by,failure_code,failure_stage,failure_reason,expires_at,created_at,updated_at,release_pending,release_actor_id,assignment_comment FROM dispatch_operations`
 const baseSelectUpdate = `UPDATE dispatch_operations SET `
-const returning = ` RETURNING id,ticket_id,department_id,category_id,priority,brigade_id,route_id,mode,status,version,requested_by,failure_code,failure_stage,failure_reason,expires_at,created_at,updated_at`
+const returning = ` RETURNING id,ticket_id,department_id,category_id,priority,brigade_id,route_id,mode,status,version,requested_by,failure_code,failure_stage,failure_reason,expires_at,created_at,updated_at,release_pending,release_actor_id,assignment_comment`

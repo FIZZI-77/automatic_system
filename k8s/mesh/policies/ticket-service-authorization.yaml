@@ -15,6 +15,7 @@ spec:
       to:
         - operation:
             ports: ["50052"]
+            notPaths: ["/ticket.v1.TicketService/AssignBrigade"]
     - from:
         - source:
             principals:

@@ -6669,6 +6669,7 @@
             "type": "string"
           },
           "comment": {
+            "maxLength": 1000,
             "type": "string"
           },
           "ticket_id": {
