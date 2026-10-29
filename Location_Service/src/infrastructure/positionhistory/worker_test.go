@@ -54,7 +54,10 @@ func TestWorkerFlushesWhenBatchSizeReached(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
-	go func() { defer close(done); _ = worker.Run(ctx) }()
+	go func() {
+		defer close(done)
+		_ = worker.Run(ctx)
+	}()
 
 	_ = worker.Add(&models.Position{Sequence: 1})
 	_ = worker.Add(&models.Position{Sequence: 2})

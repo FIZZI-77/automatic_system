@@ -19,10 +19,13 @@ type DispatchHandler struct {
 	profile profilev1.ProfileServiceClient
 }
 
+// NewDispatchHandler создаёт HTTP-обработчик назначения с клиентами Dispatch и Profile Service.
 func NewDispatchHandler(client dispatchv1.DispatchServiceClient, profile profilev1.ProfileServiceClient) *DispatchHandler {
 	return &DispatchHandler{client: client, profile: profile}
 }
 
+// Preview разбирает JSON, проверяет рабочий профиль через context и запрашивает
+// кандидатов у Dispatch Service. Возвращает HTTP 200; пустой список явно отдаёт как candidates=[].
 func (h *DispatchHandler) Preview(c *gin.Context) {
 	var in models.PreviewDispatchRequest
 
@@ -45,8 +48,7 @@ func (h *DispatchHandler) Preview(c *gin.Context) {
 		return
 	}
 
-	// Generated protobuf JSON tags omit an empty repeated field, producing `{}`.
-	// The HTTP contract should always expose the candidates collection.
+	// Теги protobuf скрывают пустой repeated; HTTP-ответ должен содержать candidates.
 	candidates := out.GetCandidates()
 
 	if candidates == nil {
@@ -58,6 +60,8 @@ func (h *DispatchHandler) Preview(c *gin.Context) {
 	}{Candidates: candidates})
 }
 
+// Reserve разбирает параметры резерва, проверяет рабочий профиль и вызывает
+// ReserveBrigade с навыками и необязательным TTL; при успехе возвращает HTTP 201.
 func (h *DispatchHandler) Reserve(c *gin.Context) {
 	var in models.ReserveBrigadeRequest
 
@@ -80,6 +84,8 @@ func (h *DispatchHandler) Reserve(c *gin.Context) {
 	dispatchResponse(c, http.StatusCreated, err, out)
 }
 
+// Confirm разбирает ID операции, автора и ожидаемую версию, проверяет рабочий
+// профиль и передаёт подтверждение сервису; при успехе возвращает HTTP 200.
 func (h *DispatchHandler) Confirm(c *gin.Context) {
 	var in models.ConfirmDispatchRequest
 
@@ -99,6 +105,8 @@ func (h *DispatchHandler) Confirm(c *gin.Context) {
 	dispatchResponse(c, http.StatusOK, err, out)
 }
 
+// Auto разбирает JSON автоматического назначения, проверяет рабочий профиль
+// и передаёт заявку, навыки, автора и лимит кандидатов сервису; успех даёт HTTP 201.
 func (h *DispatchHandler) Auto(c *gin.Context) {
 	var in models.AutoDispatchRequest
 
@@ -119,6 +127,8 @@ func (h *DispatchHandler) Auto(c *gin.Context) {
 	dispatchResponse(c, http.StatusCreated, err, out)
 }
 
+// Get разбирает ID операции из JSON, проверяет рабочий профиль и запрашивает
+// операцию у Dispatch Service; при успехе возвращает HTTP 200.
 func (h *DispatchHandler) Get(c *gin.Context) {
 	var in models.GetDispatchRequest
 
@@ -134,6 +144,8 @@ func (h *DispatchHandler) Get(c *gin.Context) {
 	dispatchResponse(c, http.StatusOK, err, out)
 }
 
+// List преобразует необязательные фильтры и пагинацию из JSON, проверяет рабочий
+// профиль и возвращает ответ ListDispatches с HTTP 200 через dispatchResponse.
 func (h *DispatchHandler) List(c *gin.Context) {
 	var in models.ListDispatchesRequest
 
@@ -161,6 +173,8 @@ func (h *DispatchHandler) List(c *gin.Context) {
 	dispatchResponse(c, http.StatusOK, err, out)
 }
 
+// Cancel разбирает параметры отмены с причиной и ожидаемой версией, проверяет
+// рабочий профиль и вызывает CancelDispatch; при успехе возвращает HTTP 200.
 func (h *DispatchHandler) Cancel(c *gin.Context) {
 	var in models.CancelDispatchRequest
 
@@ -181,6 +195,8 @@ func (h *DispatchHandler) Cancel(c *gin.Context) {
 	dispatchResponse(c, http.StatusOK, err, out)
 }
 
+// dispatchStatus преобразует статус назначения без учёта регистра;
+// неизвестное значение даёт UNSPECIFIED, пробелы не обрезаются.
 func dispatchStatus(value string) dispatchv1.DispatchStatus {
 	switch strings.ToUpper(value) {
 	case "PENDING":
@@ -201,12 +217,17 @@ func dispatchStatus(value string) dispatchv1.DispatchStatus {
 	return dispatchv1.DispatchStatus_DISPATCH_STATUS_UNSPECIFIED
 }
 
+// dispatchContext создаёт контекст RPC с таймаутом 20 секунд и метаданными
+// пользователя; cancel сохраняет в Gin-контексте для вызова dispatchResponse.
 func dispatchContext(c *gin.Context) context.Context {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 20*time.Second)
 	c.Set("dispatch_cancel", cancel)
 	return gatewayActorContext(ctx, c)
 }
 
+// context создаёт RPC-контекст с таймаутом 20 секунд, разрешает рабочее ведомство
+// через Profile Service и добавляет его в метаданные. При запрете пишет HTTP 403,
+// при ошибке профиля — преобразованную ошибку; false требует прекратить обработку.
 func (h *DispatchHandler) context(c *gin.Context) (context.Context, bool) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 20*time.Second)
 	c.Set("dispatch_cancel", cancel)
@@ -224,6 +245,8 @@ func (h *DispatchHandler) context(c *gin.Context) (context.Context, bool) {
 	return metadata.AppendToOutgoingContext(ctx, "x-actor-department-id", resolved.GetDepartmentId()), true
 }
 
+// dispatchResponse вызывает сохранённый dispatch_cancel, затем переводит gRPC-ошибку
+// в HTTP либо сериализует response обычным JSON с заданным статусом.
 func dispatchResponse(c *gin.Context, code int, err error, response any) {
 
 	if value, ok := c.Get("dispatch_cancel"); ok {

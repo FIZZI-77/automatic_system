@@ -42,7 +42,13 @@ func NewClient(rawURL string, timeout time.Duration) (*Client, error) {
 }
 
 func (c *Client) Snapshot(ctx context.Context, queries []Query, start, end time.Time, step time.Duration) (Snapshot, error) {
-	snapshot := Snapshot{Start: start, End: end, Step: step.String(), Results: make(map[string]json.RawMessage), Unavailable: make(map[string]string)}
+	snapshot := Snapshot{
+		Start:       start,
+		End:         end,
+		Step:        step.String(),
+		Results:     make(map[string]json.RawMessage),
+		Unavailable: make(map[string]string),
+	}
 	for _, query := range queries {
 
 		if query.ConfirmedBy == "" {

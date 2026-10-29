@@ -181,7 +181,13 @@ func dlqMessage(topic string, message kafka.Message, processErr error) kafka.Mes
 		kafka.Header{Key: "x-original-partition", Value: []byte(strconv.Itoa(message.Partition))},
 		kafka.Header{Key: "x-original-offset", Value: []byte(strconv.FormatInt(message.Offset, 10))},
 	)
-	return kafka.Message{Topic: topic + ".dlq", Key: message.Key, Value: message.Value, Headers: headers, Time: time.Now().UTC()}
+	return kafka.Message{
+		Topic:   topic + ".dlq",
+		Key:     message.Key,
+		Value:   message.Value,
+		Headers: headers,
+		Time:    time.Now().UTC(),
+	}
 }
 
 func retryCurrent(ctx context.Context, process func() error, onError func(int, error)) error {

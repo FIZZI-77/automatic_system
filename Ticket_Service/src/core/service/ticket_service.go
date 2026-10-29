@@ -18,18 +18,25 @@ type TicketServiceStruct struct {
 	logger *zap.Logger
 }
 
+// NewTicketServiceStruct создаёт службу заявок с переданными репозиторием и журналом.
 func NewTicketServiceStruct(repo *repository.Repository, logger *zap.Logger) *TicketServiceStruct {
 	return &TicketServiceStruct{repo: repo, logger: logger}
 }
 
+// SubmitTicketFeedback передаёт сохранение оценки заявки репозиторию.
+// Проверки автора, состояния заявки и допустимости оценки выполняются в хранилище.
 func (s *TicketServiceStruct) SubmitTicketFeedback(ctx context.Context, in *models.SubmitTicketFeedbackInput) (*models.TicketFeedback, error) {
 	return s.repo.SubmitTicketFeedback(ctx, in)
 }
 
+// GetTicketFeedback запрашивает оценку заявки у репозитория вместе с проверками доступа.
 func (s *TicketServiceStruct) GetTicketFeedback(ctx context.Context, in *models.GetTicketFeedbackInput) (*models.TicketFeedback, error) {
 	return s.repo.GetTicketFeedback(ctx, in)
 }
 
+// CreateTicket создаёт заявку после проверки данных и полномочий исполнителя.
+// Обычный пользователь может создавать заявку только от своего имени.
+// При ключе идемпотентности возвращает сохранённый результат повторного запроса.
 func (s *TicketServiceStruct) CreateTicket(ctx context.Context, in *models.CreateTicketInput) (*models.CreateTicketResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -95,6 +102,8 @@ func (s *TicketServiceStruct) CreateTicket(ctx context.Context, in *models.Creat
 	return createResult, nil
 }
 
+// GetTicket возвращает заявку по идентификатору после проверки права чтения.
+// При недопустимом входе возвращает ErrValidation, при отсутствии доступа — ErrPermissionDenied.
 func (s *TicketServiceStruct) GetTicket(ctx context.Context, in *models.GetTicketInput) (*models.GetTicketResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -138,6 +147,9 @@ func (s *TicketServiceStruct) GetTicket(ctx context.Context, in *models.GetTicke
 	}, nil
 }
 
+// ListTickets возвращает страницу заявок и общее количество с учётом роли исполнителя.
+// Изменяет фильтры in: диспетчеру оставляет его департамент, работнику — его бригаду,
+// обычному пользователю — собственные заявки. Администратор сохраняет переданные фильтры.
 func (s *TicketServiceStruct) ListTickets(ctx context.Context, in *models.ListTicketsInput) (*models.ListTicketsResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -220,6 +232,7 @@ func (s *TicketServiceStruct) ListTickets(ctx context.Context, in *models.ListTi
 	}, nil
 }
 
+// hasRole проверяет наличие точного имени expected в списке ролей; регистр не изменяет.
 func hasRole(roles []string, expected string) bool {
 	for _, role := range roles {
 
@@ -231,6 +244,8 @@ func hasRole(roles []string, expected string) bool {
 	return false
 }
 
+// UpdateTicket проверяет частичное изменение заявки и передаёт его репозиторию идемпотентно.
+// При ключе идемпотентности повторяет ранее сохранённый результат.
 func (s *TicketServiceStruct) UpdateTicket(ctx context.Context, in *models.UpdateTicketInput) (*models.UpdateTicketResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -300,6 +315,9 @@ func (s *TicketServiceStruct) UpdateTicket(ctx context.Context, in *models.Updat
 	return updateResult, nil
 }
 
+// ChangeTicketStatus идемпотентно меняет состояние заявки после проверки данных и доступа.
+// Работник своей назначенной бригады может выбрать только IN_PROGRESS; остальные
+// изменения требуют права управления заявкой. Допустимость перехода проверяет репозиторий.
 func (s *TicketServiceStruct) ChangeTicketStatus(ctx context.Context, in *models.ChangeTicketStatusInput) (*models.ChangeTicketStatusResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -373,6 +391,8 @@ func (s *TicketServiceStruct) ChangeTicketStatus(ctx context.Context, in *models
 	return statusResult, nil
 }
 
+// AssignBrigade проверяет назначение бригады и право управления заявкой.
+// Выполняет изменение через механизм идемпотентности, возвращая обновлённую заявку.
 func (s *TicketServiceStruct) AssignBrigade(ctx context.Context, in *models.AssignBrigadeInput) (*models.AssignBrigadeResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -438,6 +458,8 @@ func (s *TicketServiceStruct) AssignBrigade(ctx context.Context, in *models.Assi
 	return assignResult, nil
 }
 
+// CancelTicket отменяет заявку с проверкой входных данных и полномочий исполнителя.
+// Операция выполняется идемпотентно; допустимость отмены проверяет репозиторий.
 func (s *TicketServiceStruct) CancelTicket(ctx context.Context, in *models.CancelTicketInput) (*models.CancelTicketResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -502,6 +524,9 @@ func (s *TicketServiceStruct) CancelTicket(ctx context.Context, in *models.Cance
 	return cancelResult, nil
 }
 
+// CompleteTicket идемпотентно завершает заявку после проверки данных и полномочий.
+// Разрешает действие управляющему заявкой либо работнику назначенной бригады;
+// переход состояния и ограничения составного инцидента проверяет репозиторий.
 func (s *TicketServiceStruct) CompleteTicket(ctx context.Context, in *models.CompleteTicketInput) (*models.CompleteTicketResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -573,6 +598,8 @@ func (s *TicketServiceStruct) CompleteTicket(ctx context.Context, in *models.Com
 	return completeResult, nil
 }
 
+// GetTicketStatusHistory возвращает страницу истории и общее количество переходов заявки.
+// Проверяет входные данные и право чтения заявки перед запросом истории.
 func (s *TicketServiceStruct) GetTicketStatusHistory(ctx context.Context, in *models.GetTicketStatusHistoryInput) (*models.GetTicketStatusHistoryResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -626,6 +653,9 @@ func (s *TicketServiceStruct) GetTicketStatusHistory(ctx context.Context, in *mo
 	}, nil
 }
 
+// canReadTicket проверяет право чтения заявки по роли, автору, бригаде и департаменту.
+// Администратор видит все заявки, диспетчер — свой департамент; автор и работник
+// назначенной бригады получают доступ по принадлежности. Для nil возвращает false.
 func canReadTicket(ticket *models.Ticket, actorUserID, actorBrigadeID, actorDepartmentID *uuid.UUID, actorRoles []string) bool {
 
 	if ticket == nil {
@@ -647,6 +677,8 @@ func canReadTicket(ticket *models.Ticket, actorUserID, actorBrigadeID, actorDepa
 	return hasRole(actorRoles, "worker") && actorBrigadeID != nil && ticket.BrigadeID != nil && *ticket.BrigadeID == *actorBrigadeID
 }
 
+// canManageTicket разрешает управление администратору либо диспетчеру департамента заявки.
+// Для nil или неподходящих полномочий возвращает false.
 func canManageTicket(ticket *models.Ticket, actorDepartmentID *uuid.UUID, actorRoles []string) bool {
 	if ticket == nil {
 		return false
@@ -657,6 +689,8 @@ func canManageTicket(ticket *models.Ticket, actorDepartmentID *uuid.UUID, actorR
 	return hasRole(actorRoles, "dispatcher") && actorDepartmentID != nil && ticket.DepartmentID == *actorDepartmentID
 }
 
+// hasPrivilegedRole сообщает, есть ли среди ролей admin или dispatcher.
+// Принадлежность конкретному департаменту эта проверка не учитывает.
 func hasPrivilegedRole(roles []string) bool {
 	for _, role := range roles {
 		switch role {

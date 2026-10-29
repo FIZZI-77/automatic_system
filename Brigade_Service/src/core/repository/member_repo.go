@@ -19,10 +19,15 @@ type MemberRepoStruct struct {
 	readPool  *pgxpool.Pool
 }
 
+// NewMemberRepo создаёт хранилище состава с заданными пулами записи и чтения;
+// оба пула должны быть ненулевыми для соответствующих операций.
 func NewMemberRepo(writePool *pgxpool.Pool, readPool *pgxpool.Pool) *MemberRepoStruct {
 	return &MemberRepoStruct{writePool: writePool, readPool: readPool}
 }
 
+// AddBrigadeMember атомарно добавляет участника, начальные проекции навыков,
+// историю состава и событие outbox. Конфликт активного пользователя или профиля
+// преобразует в ErrAlreadyExists; проверку профиля выполняет сервисный слой.
 func (m *MemberRepoStruct) AddBrigadeMember(ctx context.Context, in *models.AddBrigadeMemberInput) (*models.AddBrigadeMemberResult, error) {
 	tx, err := m.writePool.Begin(ctx)
 
@@ -99,6 +104,8 @@ func (m *MemberRepoStruct) AddBrigadeMember(ctx context.Context, in *models.AddB
 	return &models.AddBrigadeMemberResult{Member: member}, nil
 }
 
+// insertBrigadeMember вставляет участника с ролью и необязательным профилем
+// в переданной транзакции и возвращает строку со значениями по умолчанию из БД.
 func (m *MemberRepoStruct) insertBrigadeMember(ctx context.Context, tx pgx.Tx, in *models.AddBrigadeMemberInput) (*models.BrigadeMember, error) {
 	const query = `
 		INSERT INTO brigade_members (
@@ -126,6 +133,9 @@ func (m *MemberRepoStruct) insertBrigadeMember(ctx context.Context, tx pgx.Tx, i
 	return scanBrigadeMember(tx.QueryRow(ctx, query, in.BrigadeID, in.UserID, in.ProfileID, string(in.Role)))
 }
 
+// RemoveBrigadeMember блокирует участника, ставит active=false и время выхода,
+// деактивирует его навыки и записывает историю и outbox одной транзакцией.
+// Повторное исключение также обновляет время и создаёт записи истории и события.
 func (m *MemberRepoStruct) RemoveBrigadeMember(ctx context.Context, in *models.RemoveBrigadeMemberInput) (*models.RemoveBrigadeMemberResult, error) {
 	tx, err := m.writePool.Begin(ctx)
 
@@ -205,6 +215,8 @@ func (m *MemberRepoStruct) RemoveBrigadeMember(ctx context.Context, in *models.R
 	return &models.RemoveBrigadeMemberResult{Member: removed}, nil
 }
 
+// ChangeBrigadeMemberRole блокирует участника и атомарно меняет роль с записью
+// прежней и новой роли в историю и outbox; активность участника не проверяет.
 func (m *MemberRepoStruct) ChangeBrigadeMemberRole(ctx context.Context, in *models.ChangeBrigadeMemberRoleInput) (*models.ChangeBrigadeMemberRoleResult, error) {
 	tx, err := m.writePool.Begin(ctx)
 
@@ -277,6 +289,8 @@ func (m *MemberRepoStruct) ChangeBrigadeMemberRole(ctx context.Context, in *mode
 	return &models.ChangeBrigadeMemberRoleResult{Member: updated}, nil
 }
 
+// SetBrigadeMemberAvailability блокирует участника и атомарно меняет доступность
+// и время её изменения с записью истории и outbox, включая повтор того же статуса.
 func (m *MemberRepoStruct) SetBrigadeMemberAvailability(ctx context.Context, in *models.SetBrigadeMemberAvailabilityInput) (*models.SetBrigadeMemberAvailabilityResult, error) {
 	tx, err := m.writePool.Begin(ctx)
 
@@ -353,6 +367,8 @@ func (m *MemberRepoStruct) SetBrigadeMemberAvailability(ctx context.Context, in 
 	return &models.SetBrigadeMemberAvailabilityResult{Member: updated}, nil
 }
 
+// ListBrigadeMembers возвращает страницу состава по времени вступления DESC
+// с фильтрами активности, роли и доступности и отдельным общим счётчиком.
 func (m *MemberRepoStruct) ListBrigadeMembers(ctx context.Context, in *models.ListBrigadeMembersInput) (*models.ListBrigadeMembersResult, error) {
 	whereParts := []string{"brigade_id = $1"}
 	args := []any{in.BrigadeID}
@@ -433,6 +449,9 @@ func (m *MemberRepoStruct) ListBrigadeMembers(ctx context.Context, in *models.Li
 	return &models.ListBrigadeMembersResult{Members: members, Total: total}, nil
 }
 
+// GetBrigadeByUserID возвращает последнее по joined_at членство и его бригаду.
+// OnlyActive фильтрует активность членства; статус бригады не ограничивается.
+// Отсутствие подходящей строки даёт ErrNotFound.
 func (m *MemberRepoStruct) GetBrigadeByUserID(ctx context.Context, in *models.GetBrigadeByUserIDInput) (*models.GetBrigadeByUserIDResult, error) {
 	whereActive := ""
 
@@ -482,6 +501,8 @@ func (m *MemberRepoStruct) GetBrigadeByUserID(ctx context.Context, in *models.Ge
 	return &models.GetBrigadeByUserIDResult{Brigade: brigade, Member: member}, nil
 }
 
+// GetBrigadeMemberHistory возвращает страницу истории состава бригады с общим
+// счётчиком; при MemberID ограничивает историю одним участником.
 func (m *MemberRepoStruct) GetBrigadeMemberHistory(ctx context.Context, in *models.GetBrigadeMemberHistoryInput) (*models.GetBrigadeMemberHistoryResult, error) {
 	whereParts := []string{"brigade_id = $1"}
 	args := []any{in.BrigadeID}
@@ -494,6 +515,8 @@ func (m *MemberRepoStruct) GetBrigadeMemberHistory(ctx context.Context, in *mode
 	return m.listBrigadeMemberHistory(ctx, whereParts, args, in.Limit, in.Offset)
 }
 
+// GetBrigadeMemberStatusHistory возвращает страницу истории доступности
+// участников бригады с общим счётчиком и необязательным фильтром MemberID.
 func (m *MemberRepoStruct) GetBrigadeMemberStatusHistory(ctx context.Context, in *models.GetBrigadeMemberStatusHistoryInput) (*models.GetBrigadeMemberStatusHistoryResult, error) {
 	whereParts := []string{"brigade_id = $1"}
 	args := []any{in.BrigadeID}
@@ -506,6 +529,8 @@ func (m *MemberRepoStruct) GetBrigadeMemberStatusHistory(ctx context.Context, in
 	return m.listBrigadeMemberStatusHistory(ctx, whereParts, args, in.Limit, in.Offset)
 }
 
+// getBrigadeMemberByIDForUpdate читает участника указанной бригады с FOR UPDATE,
+// включая неактивного; отсутствие строки преобразует в ErrNotFound.
 func (m *MemberRepoStruct) getBrigadeMemberByIDForUpdate(ctx context.Context, tx pgx.Tx, brigadeID uuid.UUID, memberID uuid.UUID) (*models.BrigadeMember, error) {
 	const query = `
 		SELECT
@@ -528,6 +553,8 @@ func (m *MemberRepoStruct) getBrigadeMemberByIDForUpdate(ctx context.Context, tx
 	return scanBrigadeMember(tx.QueryRow(ctx, query, memberID, brigadeID))
 }
 
+// insertBrigadeMemberHistory сохраняет действие над составом, данные участника,
+// прежнюю и новую роли и автора в переданной транзакции.
 func (m *MemberRepoStruct) insertBrigadeMemberHistory(ctx context.Context, tx pgx.Tx, member *models.BrigadeMember, action models.BrigadeMemberHistoryAction, oldRole *models.BrigadeMemberRole, newRole *models.BrigadeMemberRole, changedBy *uuid.UUID, requestID *string) error {
 	const query = `
 		INSERT INTO brigade_member_history (
@@ -547,6 +574,8 @@ func (m *MemberRepoStruct) insertBrigadeMemberHistory(ctx context.Context, tx pg
 	return execMemberHistoryRoleQuery(ctx, tx, query, member, action, oldRole, newRole, changedBy, requestID)
 }
 
+// execMemberHistoryRoleQuery выполняет параметризованную вставку истории состава,
+// переводя необязательные роли в строки или NULL; транзакцию не завершает.
 func execMemberHistoryRoleQuery(ctx context.Context, tx pgx.Tx, query string, member *models.BrigadeMember, action models.BrigadeMemberHistoryAction, oldRole *models.BrigadeMemberRole, newRole *models.BrigadeMemberRole, changedBy *uuid.UUID, requestID *string) error {
 	var oldRoleValue *string
 
@@ -566,6 +595,8 @@ func execMemberHistoryRoleQuery(ctx context.Context, tx pgx.Tx, query string, me
 	return err
 }
 
+// insertBrigadeMemberStatusHistory сохраняет переход доступности участника
+// с причиной, автором и request ID в переданной транзакции; nil fromStatus даёт NULL.
 func (m *MemberRepoStruct) insertBrigadeMemberStatusHistory(ctx context.Context, tx pgx.Tx, member *models.BrigadeMember, fromStatus *models.BrigadeMemberAvailabilityStatus, toStatus models.BrigadeMemberAvailabilityStatus, reason string, changedBy *uuid.UUID, requestID *string) error {
 	const query = `
 		INSERT INTO brigade_member_status_history (
@@ -592,6 +623,8 @@ func (m *MemberRepoStruct) insertBrigadeMemberStatusHistory(ctx context.Context,
 	return err
 }
 
+// scanBrigadeMember читает участника, разбирает UUID профиля и сохраняет NULL
+// как nil у необязательных полей; pgx.ErrNoRows преобразует в ErrNotFound.
 func scanBrigadeMember(row scanner) (*models.BrigadeMember, error) {
 	var member models.BrigadeMember
 	var profileID sql.NullString
@@ -638,6 +671,8 @@ func scanBrigadeMember(row scanner) (*models.BrigadeMember, error) {
 	return &member, nil
 }
 
+// scanBrigadeWithMember читает объединённую строку бригады и участника,
+// преобразуя pgx.ErrNoRows в ErrNotFound и сохраняя прочие ошибки.
 func scanBrigadeWithMember(row scanner) (*models.Brigade, *models.BrigadeMember, error) {
 	brigade, member, err := scanBrigadeWithMemberRaw(row)
 
@@ -653,6 +688,8 @@ func scanBrigadeWithMember(row scanner) (*models.Brigade, *models.BrigadeMember,
 	return brigade, member, nil
 }
 
+// scanBrigadeWithMemberRaw восстанавливает бригаду и участника из объединённой
+// строки с nullable-полями и UUID профиля; ошибку отсутствия строки не преобразует.
 func scanBrigadeWithMemberRaw(row scanner) (*models.Brigade, *models.BrigadeMember, error) {
 	var brigade models.Brigade
 	var member models.BrigadeMember
@@ -720,6 +757,8 @@ func scanBrigadeWithMemberRaw(row scanner) (*models.Brigade, *models.BrigadeMemb
 	return &brigade, &member, nil
 }
 
+// listBrigadeMemberHistory возвращает страницу истории состава по созданию DESC
+// и отдельный счётчик. whereParts содержит доверенные SQL-условия с параметрами args.
 func (m *MemberRepoStruct) listBrigadeMemberHistory(ctx context.Context, whereParts []string, args []any, limit int32, offset int32) (*models.GetBrigadeMemberHistoryResult, error) {
 	whereSQL := "WHERE " + strings.Join(whereParts, " AND ")
 	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM brigade_member_history %s", whereSQL)
@@ -764,6 +803,8 @@ func (m *MemberRepoStruct) listBrigadeMemberHistory(ctx context.Context, wherePa
 	return &models.GetBrigadeMemberHistoryResult{History: history, Total: total}, nil
 }
 
+// scanBrigadeMemberHistory читает действие над составом, восстанавливает
+// необязательные роли и UUID участника, профиля и автора; ошибки разбора возвращает.
 func scanBrigadeMemberHistory(row scanner) (*models.BrigadeMemberHistory, error) {
 	var item models.BrigadeMemberHistory
 	var memberID sql.NullString
@@ -826,6 +867,8 @@ func scanBrigadeMemberHistory(row scanner) (*models.BrigadeMemberHistory, error)
 	return &item, nil
 }
 
+// listBrigadeMemberStatusHistory возвращает страницу переходов доступности
+// по созданию DESC и отдельный счётчик; whereParts — доверенные условия с args.
 func (m *MemberRepoStruct) listBrigadeMemberStatusHistory(ctx context.Context, whereParts []string, args []any, limit int32, offset int32) (*models.GetBrigadeMemberStatusHistoryResult, error) {
 	whereSQL := "WHERE " + strings.Join(whereParts, " AND ")
 	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM brigade_member_status_history %s", whereSQL)
@@ -870,6 +913,8 @@ func (m *MemberRepoStruct) listBrigadeMemberStatusHistory(ctx context.Context, w
 	return &models.GetBrigadeMemberStatusHistoryResult{History: history, Total: total}, nil
 }
 
+// scanBrigadeMemberStatusHistory читает переход доступности, восстанавливает
+// необязательный исходный статус и UUID участника и автора; ошибки разбора возвращает.
 func scanBrigadeMemberStatusHistory(row scanner) (*models.BrigadeMemberStatusHistory, error) {
 	var item models.BrigadeMemberStatusHistory
 	var memberID sql.NullString
@@ -915,6 +960,8 @@ func scanBrigadeMemberStatusHistory(row scanner) (*models.BrigadeMemberStatusHis
 	return &item, nil
 }
 
+// isMemberUniqueViolation распознаёт PostgreSQL 23505 для активного членства
+// пользователя или профиля, а также нарушение без имени ограничения.
 func isMemberUniqueViolation(err error) bool {
 	var pgErr *pgconn.PgError
 

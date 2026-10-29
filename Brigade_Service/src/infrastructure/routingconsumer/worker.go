@@ -274,7 +274,13 @@ func (w *Worker) retryOrDLQ(ctx context.Context, message kafka.Message, processE
 		topic = w.topic + ".dlq"
 	}
 
-	return telemetry.WriteKafka(ctx, w.writer, kafka.Message{Topic: topic, Key: message.Key, Value: message.Value, Headers: withHeaders(message.Headers, attempt, processErr), Time: time.Now().UTC()})
+	return telemetry.WriteKafka(ctx, w.writer, kafka.Message{
+		Topic:   topic,
+		Key:     message.Key,
+		Value:   message.Value,
+		Headers: withHeaders(message.Headers, attempt, processErr),
+		Time:    time.Now().UTC(),
+	})
 }
 
 func header(headers []kafka.Header, key string) string {

@@ -20,10 +20,13 @@ type Handler struct {
 	s service.AssetService
 }
 
+// New создаёт gRPC-обработчик объектов инфраструктуры с переданным сервисом.
 func New(s service.AssetService) *Handler {
 	return &Handler{s: s}
 }
 
+// CreateAsset разбирает UUID ведомства и автора, преобразует свойства и гарантию
+// объекта и передаёт создание сервису с признаком допустимой роли.
 func (h *Handler) CreateAsset(c context.Context, q *assetv1.CreateAssetRequest) (*assetv1.AssetResponse, error) {
 	d, a, e := ids(q.DepartmentId, q.ActorUserId)
 
@@ -64,6 +67,9 @@ func (h *Handler) CreateAsset(c context.Context, q *assetv1.CreateAssetRequest) 
 	x, e := h.s.Create(c, v, priv(q.ActorRoles))
 	return &assetv1.AssetResponse{Asset: pa(x)}, mapErr(e)
 }
+
+// GetAsset разбирает UUID объекта и возвращает его в protobuf;
+// неверный UUID даёт InvalidArgument, отсутствие объекта — NotFound.
 func (h *Handler) GetAsset(c context.Context, q *assetv1.GetAssetRequest) (*assetv1.AssetResponse, error) {
 	id, e := uuid.Parse(q.AssetId)
 
@@ -74,6 +80,9 @@ func (h *Handler) GetAsset(c context.Context, q *assetv1.GetAssetRequest) (*asse
 	x, e := h.s.Get(c, id)
 	return &assetv1.AssetResponse{Asset: pa(x)}, mapErr(e)
 }
+
+// UpdateAsset разбирает UUID объекта и передаёт заданные поля и признак
+// допустимой роли сервису обновления; ошибки преобразует через mapErr.
 func (h *Handler) UpdateAsset(c context.Context, q *assetv1.UpdateAssetRequest) (*assetv1.AssetResponse, error) {
 	id, e := uuid.Parse(q.AssetId)
 
@@ -92,6 +101,9 @@ func (h *Handler) UpdateAsset(c context.Context, q *assetv1.UpdateAssetRequest) 
 	x, e := h.s.Update(c, input, priv(q.ActorRoles))
 	return &assetv1.AssetResponse{Asset: pa(x)}, mapErr(e)
 }
+
+// ListAssets преобразует фильтры ведомства, типа, района, статуса и риска
+// и возвращает страницу объектов с общим счётчиком; неверный UUID ведомства даёт InvalidArgument.
 func (h *Handler) ListAssets(c context.Context, q *assetv1.ListAssetsRequest) (*assetv1.ListAssetsResponse, error) {
 	f := models.Filter{Type: q.Type, District: q.District, Limit: q.Limit, Offset: q.Offset}
 
@@ -116,12 +128,15 @@ func (h *Handler) ListAssets(c context.Context, q *assetv1.ListAssetsRequest) (*
 	}
 
 	xs, n, e := h.s.List(c, f)
-	out := []*assetv1.Asset{}
+	var out []*assetv1.Asset
 	for _, x := range xs {
 		out = append(out, pa(x))
 	}
 	return &assetv1.ListAssetsResponse{Assets: out, Total: n}, mapErr(e)
 }
+
+// ChangeAssetStatus разбирает UUID объекта и автора, преобразует статус
+// и передаёт изменение с причиной и признаком допустимой роли сервису.
 func (h *Handler) ChangeAssetStatus(c context.Context, q *assetv1.ChangeAssetStatusRequest) (*assetv1.AssetResponse, error) {
 	id, a, e := ids(q.AssetId, q.ActorUserId)
 
@@ -132,14 +147,21 @@ func (h *Handler) ChangeAssetStatus(c context.Context, q *assetv1.ChangeAssetSta
 	x, e := h.s.ChangeStatus(c, id, statusModel(q.Status), a, q.Reason, priv(q.ActorRoles))
 	return &assetv1.AssetResponse{Asset: pa(x)}, mapErr(e)
 }
+
+// FindNearbyAssets передаёт координаты, радиус в метрах, тип и лимит сервису;
+// Total равен числу возвращённых объектов, а не отдельному счётчику всех совпадений.
 func (h *Handler) FindNearbyAssets(c context.Context, q *assetv1.FindNearbyAssetsRequest) (*assetv1.ListAssetsResponse, error) {
 	xs, e := h.s.Nearby(c, q.Latitude, q.Longitude, q.RadiusMeters, q.Type, q.Limit)
-	out := []*assetv1.Asset{}
+	var out []*assetv1.Asset
 	for _, x := range xs {
 		out = append(out, pa(x))
 	}
 	return &assetv1.ListAssetsResponse{Assets: out, Total: int64(len(out))}, mapErr(e)
 }
+
+// RecordIncident разбирает UUID объекта и передаёт инцидент сервису, возвращая
+// инцидент и прогноз риска. Неверный необязательный TicketId заменяет на nil,
+// отсутствующее время события — на текущее UTC.
 func (h *Handler) RecordIncident(c context.Context, q *assetv1.RecordIncidentRequest) (*assetv1.IncidentResponse, error) {
 	id, e := uuid.Parse(q.AssetId)
 
@@ -159,6 +181,10 @@ func (h *Handler) RecordIncident(c context.Context, q *assetv1.RecordIncidentReq
 	x, p, e := h.s.Incident(c, v, priv(q.ActorRoles))
 	return &assetv1.IncidentResponse{Incident: pi(x), Prediction: pp(p)}, mapErr(e)
 }
+
+// CompleteRepair разбирает UUID объекта и передаёт ремонт сервису с признаком роли.
+// Неверные необязательные UUID заменяет на nil, отсутствующее время — на текущее UTC;
+// возвращает ремонт и прогноз риска.
 func (h *Handler) CompleteRepair(c context.Context, q *assetv1.CompleteRepairRequest) (*assetv1.RepairResponse, error) {
 	id, e := uuid.Parse(q.AssetId)
 
@@ -179,6 +205,9 @@ func (h *Handler) CompleteRepair(c context.Context, q *assetv1.CompleteRepairReq
 	x, p, e := h.s.Repair(c, v, priv(q.ActorRoles))
 	return &assetv1.RepairResponse{Repair: pr(x), Prediction: pp(p)}, mapErr(e)
 }
+
+// RecordInspection разбирает UUID объекта и инспектора и передаёт результаты осмотра
+// сервису; без времени подставляет текущее UTC. Возвращает осмотр и прогноз риска.
 func (h *Handler) RecordInspection(c context.Context, q *assetv1.RecordInspectionRequest) (*assetv1.InspectionResponse, error) {
 	id, a, e := ids(q.AssetId, q.InspectorUserId)
 
@@ -199,6 +228,9 @@ func (h *Handler) RecordInspection(c context.Context, q *assetv1.RecordInspectio
 	x, p, e := h.s.Inspection(c, inspection, priv(q.ActorRoles))
 	return &assetv1.InspectionResponse{Inspection: pin(x), Prediction: pp(p)}, mapErr(e)
 }
+
+// CreateMaintenancePlan разбирает UUID объекта и передаёт вид, интервал и дату
+// обслуживания сервису; отсутствующую дату заменяет текущим временем UTC.
 func (h *Handler) CreateMaintenancePlan(c context.Context, q *assetv1.CreateMaintenancePlanRequest) (*assetv1.MaintenancePlanResponse, error) {
 	id, e := uuid.Parse(q.AssetId)
 
@@ -215,6 +247,9 @@ func (h *Handler) CreateMaintenancePlan(c context.Context, q *assetv1.CreateMain
 	x, e := h.s.CreatePlan(c, plan, priv(q.ActorRoles))
 	return &assetv1.MaintenancePlanResponse{Plan: pplan(x)}, mapErr(e)
 }
+
+// ListDueMaintenance разбирает необязательное ведомство и возвращает страницу
+// планов со счётчиком; отсутствующий DueBefore заменяет текущим временем UTC.
 func (h *Handler) ListDueMaintenance(c context.Context, q *assetv1.ListDueMaintenanceRequest) (*assetv1.ListMaintenancePlansResponse, error) {
 	var d *uuid.UUID
 
@@ -229,12 +264,15 @@ func (h *Handler) ListDueMaintenance(c context.Context, q *assetv1.ListDueMainte
 	}
 
 	xs, n, e := h.s.Due(c, d, pt(q.DueBefore), q.Limit, q.Offset)
-	out := []*assetv1.MaintenancePlan{}
+	var out []*assetv1.MaintenancePlan
 	for _, x := range xs {
 		out = append(out, pplan(x))
 	}
 	return &assetv1.ListMaintenancePlansResponse{Plans: out, Total: n}, mapErr(e)
 }
+
+// GetFailurePrediction разбирает UUID объекта и возвращает полученный от сервиса
+// прогноз отказа в protobuf; ошибки преобразует через mapErr.
 func (h *Handler) GetFailurePrediction(c context.Context, q *assetv1.GetFailurePredictionRequest) (*assetv1.FailurePredictionResponse, error) {
 	id, e := uuid.Parse(q.AssetId)
 
@@ -245,6 +283,9 @@ func (h *Handler) GetFailurePrediction(c context.Context, q *assetv1.GetFailureP
 	x, e := h.s.Prediction(c, id)
 	return &assetv1.FailurePredictionResponse{Prediction: pp(x)}, mapErr(e)
 }
+
+// RecalculateRisks разбирает необязательный UUID ведомства и запускает пересчёт
+// через сервис с признаком допустимой роли; возвращает число обновлённых объектов.
 func (h *Handler) RecalculateRisks(c context.Context, q *assetv1.RecalculateRisksRequest) (*assetv1.RecalculateRisksResponse, error) {
 	var d *uuid.UUID
 
@@ -261,6 +302,8 @@ func (h *Handler) RecalculateRisks(c context.Context, q *assetv1.RecalculateRisk
 	n, e := h.s.Recalculate(c, d, priv(q.ActorRoles))
 	return &assetv1.RecalculateRisksResponse{Updated: n}, mapErr(e)
 }
+
+// priv распознаёт точные роли admin, dispatcher и worker без нормализации.
 func priv(r []string) bool {
 	for _, x := range r {
 
@@ -271,6 +314,8 @@ func priv(r []string) bool {
 	}
 	return false
 }
+
+// ids последовательно разбирает два UUID; при ошибке второго сохраняет первый результат.
 func ids(a, b string) (uuid.UUID, uuid.UUID, error) {
 	x, e := uuid.Parse(a)
 
@@ -281,6 +326,8 @@ func ids(a, b string) (uuid.UUID, uuid.UUID, error) {
 	y, e := uuid.Parse(b)
 	return x, y, e
 }
+
+// optID разбирает необязательный UUID; nil и неверный формат возвращают nil без ошибки.
 func optID(v *string) *uuid.UUID {
 
 	if v == nil {
@@ -295,6 +342,8 @@ func optID(v *string) *uuid.UUID {
 
 	return &x
 }
+
+// pt преобразует protobuf-время; для nil возвращает текущее время UTC.
 func pt(v *timestamppb.Timestamp) time.Time {
 
 	if v == nil {
@@ -303,10 +352,14 @@ func pt(v *timestamppb.Timestamp) time.Time {
 
 	return v.AsTime()
 }
+
+// bad преобразует ненулевую ошибку в gRPC InvalidArgument с её исходным текстом.
 func bad(e error) error {
 	return status.Error(codes.InvalidArgument, e.Error())
 }
 
+// mapErr сохраняет nil, переводит отсутствие объекта в NotFound, ErrForbidden —
+// в PermissionDenied, остальные ошибки — в InvalidArgument.
 func mapErr(e error) error {
 
 	if e == nil {
@@ -323,12 +376,19 @@ func mapErr(e error) error {
 
 	return status.Error(codes.InvalidArgument, e.Error())
 }
+
+// statusModel получает доменный статус, удаляя префикс ASSET_STATUS_ из строки enum.
 func statusModel(v assetv1.AssetStatus) models.Status {
 	return models.Status(strings.TrimPrefix(v.String(), "ASSET_STATUS_"))
 }
+
+// riskModel получает доменный уровень риска, удаляя префикс RISK_LEVEL_ из строки enum.
 func riskModel(v assetv1.RiskLevel) models.RiskLevel {
 	return models.RiskLevel(strings.TrimPrefix(v.String(), "RISK_LEVEL_"))
 }
+
+// pa преобразует объект в protobuf с характеристиками, риском и необязательными
+// датами; nil сохраняет как nil, неизвестные enum дают нулевое значение.
 func pa(x *models.Asset) *assetv1.Asset {
 
 	if x == nil {
@@ -377,6 +437,9 @@ func pa(x *models.Asset) *assetv1.Asset {
 
 	return p
 }
+
+// pp преобразует прогноз риска, вероятность отказа, факторы и рекомендацию
+// в protobuf; для nil возвращает nil.
 func pp(x *models.Prediction) *assetv1.FailurePrediction {
 
 	if x == nil {
@@ -393,6 +456,8 @@ func pp(x *models.Prediction) *assetv1.FailurePrediction {
 		CalculatedAt:           timestamppb.New(x.CalculatedAt),
 	}
 }
+
+// pi преобразует инцидент и дату возникновения в protobuf; nil сохраняет как nil.
 func pi(x *models.Incident) *assetv1.Incident {
 
 	if x == nil {
@@ -410,6 +475,9 @@ func pi(x *models.Incident) *assetv1.Incident {
 		OccurredAt:  timestamppb.New(x.OccurredAt),
 	}
 }
+
+// pr преобразует описание ремонта, заменённые компоненты, длительность и дату
+// завершения в protobuf; для nil возвращает nil.
 func pr(x *models.Repair) *assetv1.Repair {
 
 	if x == nil {
@@ -425,6 +493,9 @@ func pr(x *models.Repair) *assetv1.Repair {
 		CompletedAt:        timestamppb.New(x.CompletedAt),
 	}
 }
+
+// pin преобразует результаты осмотра, инспектора и время в protobuf;
+// для nil возвращает nil.
 func pin(x *models.Inspection) *assetv1.Inspection {
 
 	if x == nil {
@@ -443,6 +514,9 @@ func pin(x *models.Inspection) *assetv1.Inspection {
 		InspectedAt:     timestamppb.New(x.InspectedAt),
 	}
 }
+
+// pplan преобразует план обслуживания с интервалом, сроком и активностью
+// в protobuf; для nil возвращает nil.
 func pplan(x *models.Plan) *assetv1.MaintenancePlan {
 
 	if x == nil {

@@ -12,6 +12,9 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// handleGRPCError переводит gRPC-коды в HTTP-статусы и локализованный JSON ошибки,
+// скрывая исходный текст. Конфликты состояния дают 409, таймаут сервиса — 504,
+// недоступность — 503; неизвестная ошибка даёт 500.
 func handleGRPCError(c *gin.Context, err error) {
 	st, ok := status.FromError(err)
 
@@ -23,6 +26,8 @@ func handleGRPCError(c *gin.Context, err error) {
 	switch st.Code() {
 	case codes.InvalidArgument:
 		writeAPIError(c, http.StatusBadRequest, "INVALID_ARGUMENT", "Проверьте введённые данные")
+	case codes.ResourceExhausted:
+		writeAPIError(c, http.StatusTooManyRequests, "RESOURCE_EXHAUSTED", "Запрос слишком большой. Уточните фильтры")
 	case codes.Unauthenticated:
 		writeAPIError(c, http.StatusUnauthorized, "UNAUTHENTICATED", "Необходимо войти в систему заново")
 	case codes.PermissionDenied:
@@ -44,6 +49,8 @@ func handleGRPCError(c *gin.Context, err error) {
 	}
 }
 
+// writeAPIError записывает JSON с полями code и error и заданным HTTP-статусом;
+// цепочку middleware самостоятельно не прерывает.
 func writeAPIError(c *gin.Context, statusCode int, code, message string) {
 	c.JSON(statusCode, gin.H{"code": code, "error": message})
 }
@@ -68,6 +75,8 @@ type Handler struct {
 	rateLimiter         *middleware.RedisRateLimiter
 }
 
+// NewHandler объединяет HTTP-обработчики сервисов, middleware авторизации
+// и ограничитель запросов для последующей регистрации маршрутов.
 func NewHandler(
 	authHandler *AuthHandler,
 	ticketHandler *TicketHandler,
@@ -108,6 +117,10 @@ func NewHandler(
 	}
 }
 
+// InitRouters создаёт Gin Engine с CORS, request ID, идемпотентностью, лимитами,
+// журналом и recovery и регистрирует HTTP- и WebSocket-маршруты платформы.
+// Закрытые группы подключает к авторизации; публичные auth и интеграционные
+// маршруты регистрирует отдельно. Настройки CORS и доверенных прокси читает из окружения.
 func (h *Handler) InitRouters() *gin.Engine {
 	router := gin.New()
 	configureTrustedProxies(router)
@@ -443,6 +456,15 @@ func (h *Handler) InitRouters() *gin.Engine {
 
 	privateRoutes := router.Group("/routing")
 	privateRoutes.Use(h.authMiddleware.Handle())
+	privateRoutes.Use(func(c *gin.Context) {
+		ctx, ok := h.ticketHandler.contextWithWorkerBrigade(c.Request.Context(), c)
+		if !ok {
+			c.Abort()
+			return
+		}
+		c.Request = c.Request.WithContext(ctx)
+		c.Next()
+	})
 	{
 		privateRoutes.POST("/build", h.routingHandler.BuildRoute)
 		privateRoutes.POST("/matrix", h.routingHandler.BuildMatrix)
@@ -538,6 +560,8 @@ func (h *Handler) InitRouters() *gin.Engine {
 	return router
 }
 
+// configureTrustedProxies задаёт доверенные прокси из TRUSTED_PROXIES,
+// по умолчанию 127.0.0.0/8; неверный адрес вызывает panic при настройке маршрутизатора.
 func configureTrustedProxies(router *gin.Engine) {
 	raw := envOrDefault("TRUSTED_PROXIES", "127.0.0.0/8")
 	proxies := make([]string, 0)
@@ -555,6 +579,8 @@ func configureTrustedProxies(router *gin.Engine) {
 
 }
 
+// envOrDefault возвращает непустое значение окружения с обрезкой крайних пробелов
+// либо fallback, если переменная пуста или отсутствует.
 func envOrDefault(key, fallback string) string {
 
 	if value := strings.TrimSpace(os.Getenv(key)); value != "" {

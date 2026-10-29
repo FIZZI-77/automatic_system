@@ -17,10 +17,13 @@ type ZoneRepoStruct struct {
 	readPool  *pgxpool.Pool
 }
 
+// NewZoneRepo создаёт хранилище зон бригад с заданными ненулевыми пулами записи и чтения.
 func NewZoneRepo(writePool *pgxpool.Pool, readPool *pgxpool.Pool) *ZoneRepoStruct {
 	return &ZoneRepoStruct{writePool: writePool, readPool: readPool}
 }
 
+// GetBrigadeZoneByID возвращает зону по ID, включая неактивную, с геометрией GeoJSON.
+// Отсутствие записи даёт ErrNotFound.
 func (z *ZoneRepoStruct) GetBrigadeZoneByID(ctx context.Context, zoneID uuid.UUID) (*models.BrigadeZone, error) {
 	const query = `
 		SELECT
@@ -40,6 +43,8 @@ func (z *ZoneRepoStruct) GetBrigadeZoneByID(ctx context.Context, zoneID uuid.UUI
 	return scanBrigadeZone(z.readPool.QueryRow(ctx, query, zoneID))
 }
 
+// CreateBrigadeZone транзакционно сохраняет зону из GeoJSON в PostGIS geography
+// и событие создания. Права и совпадение ведомств проверяет вызывающий код.
 func (z *ZoneRepoStruct) CreateBrigadeZone(ctx context.Context, in *models.CreateBrigadeZoneInput) (*models.CreateBrigadeZoneResult, error) {
 	tx, err := z.writePool.Begin(ctx)
 
@@ -98,6 +103,9 @@ func (z *ZoneRepoStruct) CreateBrigadeZone(ctx context.Context, in *models.Creat
 	return &models.CreateBrigadeZoneResult{Zone: zone}, nil
 }
 
+// UpdateBrigadeZone транзакционно заменяет заданные имя, геометрию, приоритет
+// и активность и записывает outbox. nil поля сохраняют прежние значения;
+// отсутствие зоны даёт ErrNotFound.
 func (z *ZoneRepoStruct) UpdateBrigadeZone(ctx context.Context, in *models.UpdateBrigadeZoneInput) (*models.UpdateBrigadeZoneResult, error) {
 	tx, err := z.writePool.Begin(ctx)
 
@@ -156,6 +164,8 @@ func (z *ZoneRepoStruct) UpdateBrigadeZone(ctx context.Context, in *models.Updat
 	return &models.UpdateBrigadeZoneResult{Zone: zone}, nil
 }
 
+// DeleteBrigadeZone транзакционно деактивирует зону и записывает событие, сохраняя строку.
+// Повторная деактивация допустима; отсутствие даёт ErrNotFound.
 func (z *ZoneRepoStruct) DeleteBrigadeZone(ctx context.Context, in *models.DeleteBrigadeZoneInput) (*models.DeleteBrigadeZoneResult, error) {
 	tx, err := z.writePool.Begin(ctx)
 
@@ -205,6 +215,8 @@ func (z *ZoneRepoStruct) DeleteBrigadeZone(ctx context.Context, in *models.Delet
 	return &models.DeleteBrigadeZoneResult{Zone: zone}, nil
 }
 
+// ListBrigadeZones возвращает зоны бригады с фильтром активности по приоритету DESC,
+// затем времени создания DESC. Наличие бригады отдельно не проверяет.
 func (z *ZoneRepoStruct) ListBrigadeZones(ctx context.Context, in *models.ListBrigadeZonesInput) (*models.ListBrigadeZonesResult, error) {
 	whereParts := []string{"brigade_id = $1"}
 	args := []any{in.BrigadeID}
@@ -258,6 +270,8 @@ func (z *ZoneRepoStruct) ListBrigadeZones(ctx context.Context, in *models.ListBr
 	return &models.ListBrigadeZonesResult{Zones: zones}, nil
 }
 
+// CheckBrigadeCoversPoint возвращает активные зоны бригады, покрывающие точку,
+// включая границу, по приоритету DESC. Covers равен true при наличии совпадений.
 func (z *ZoneRepoStruct) CheckBrigadeCoversPoint(ctx context.Context, in *models.CheckBrigadeCoversPointInput) (*models.CheckBrigadeCoversPointResult, error) {
 	const query = `
 		SELECT
@@ -303,6 +317,10 @@ func (z *ZoneRepoStruct) CheckBrigadeCoversPoint(ctx context.Context, in *models
 	return &models.CheckBrigadeCoversPointResult{Covers: len(zones) > 0, MatchedZones: zones}, nil
 }
 
+// FindBrigadesByPoint возвращает страницу бригад ведомства с активной зоной покрытия
+// и требуемыми навыками и ролями. При OnlyAvailable требует AVAILABLE, состав,
+// доступного участника и смену. Требования следует передавать без повторов;
+// возвращает отдельный общий счётчик, пагинацию не нормализует.
 func (z *ZoneRepoStruct) FindBrigadesByPoint(ctx context.Context, in *models.FindBrigadesByPointInput) (*models.FindBrigadesByPointResult, error) {
 	whereParts := []string{
 		"b.department_id = $1",
@@ -405,8 +423,17 @@ func (z *ZoneRepoStruct) FindBrigadesByPoint(ctx context.Context, in *models.Fin
 	return &models.FindBrigadesByPointResult{Brigades: brigades, Total: total}, nil
 }
 
+// listAvailableBrigades возвращает страницу AVAILABLE-бригад ведомства с активным
+// составом, доступным участником, текущей сменой и всеми требуемыми навыками и ролями.
+// Требования ожидаются без повторов; зоны покрытия не учитываются.
 func (z *ZoneRepoStruct) listAvailableBrigades(ctx context.Context, departmentID uuid.UUID, requiredSkillIDs []uuid.UUID, requiredRoles []models.BrigadeMemberRole, limit int32, offset int32) (*models.GetAvailableBrigadesResult, error) {
-	whereParts := []string{"department_id = $1", "status = $2", brigadeHasActiveMembersSQL("brigades.id"), brigadeHasAvailableActiveMembersSQL("brigades.id"), brigadeIsOnShiftSQL("brigades.id")}
+	whereParts := []string{
+		"department_id = $1",
+		"status = $2",
+		brigadeHasActiveMembersSQL("brigades.id"),
+		brigadeHasAvailableActiveMembersSQL("brigades.id"),
+		brigadeIsOnShiftSQL("brigades.id"),
+	}
 	args := []any{departmentID, string(models.BrigadeStatusAvailable)}
 
 	if len(requiredSkillIDs) > 0 {
@@ -479,6 +506,8 @@ func (z *ZoneRepoStruct) listAvailableBrigades(ctx context.Context, departmentID
 	return &models.GetAvailableBrigadesResult{Brigades: brigades, Total: total}, nil
 }
 
+// brigadeHasActiveMembersSQL строит EXISTS активного участника бригады.
+// brigadeIDExpr задаётся доверенным внутренним SQL-выражением.
 func brigadeHasActiveMembersSQL(brigadeIDExpr string) string {
 	return fmt.Sprintf(`EXISTS (
 		SELECT 1
@@ -488,6 +517,8 @@ func brigadeHasActiveMembersSQL(brigadeIDExpr string) string {
 	)`, brigadeIDExpr)
 }
 
+// brigadeHasAvailableActiveMembersSQL строит EXISTS активного участника AVAILABLE.
+// brigadeIDExpr задаётся доверенным внутренним SQL-выражением.
 func brigadeHasAvailableActiveMembersSQL(brigadeIDExpr string) string {
 	return fmt.Sprintf(`EXISTS (
 		SELECT 1
@@ -498,6 +529,9 @@ func brigadeHasAvailableActiveMembersSQL(brigadeIDExpr string) string {
 	)`, brigadeIDExpr)
 }
 
+// brigadeIsOnShiftSQL строит проверку текущего дня и времени по активному расписанию,
+// часовому поясу и включительным датам действия, поддерживая переход через полночь.
+// brigadeIDExpr задаётся доверенным внутренним SQL-выражением.
 func brigadeIsOnShiftSQL(brigadeIDExpr string) string {
 	return fmt.Sprintf(`EXISTS (
 		SELECT 1
@@ -515,6 +549,7 @@ func brigadeIsOnShiftSQL(brigadeIDExpr string) string {
 	)`, brigadeIDExpr)
 }
 
+// scanBrigadeZone читает зону и преобразует pgx.ErrNoRows в ErrNotFound.
 func scanBrigadeZone(row scanner) (*models.BrigadeZone, error) {
 	var zone models.BrigadeZone
 	err := row.Scan(&zone.ID, &zone.BrigadeID, &zone.DepartmentID, &zone.Name, &zone.GeoJSON, &zone.Priority, &zone.Active, &zone.CreatedAt, &zone.UpdatedAt)

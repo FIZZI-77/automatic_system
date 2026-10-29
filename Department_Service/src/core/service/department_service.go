@@ -18,10 +18,14 @@ type DepartmentServiceStruct struct {
 	logger *zap.Logger
 }
 
+// NewDepartmentServiceStruct создаёт сервис ведомств с repo и обязательным logger.
 func NewDepartmentServiceStruct(repo *repository.Repository, logger *zap.Logger) *DepartmentServiceStruct {
 	return &DepartmentServiceStruct{repo: repo, logger: logger}
 }
 
+// CreateDepartment проверяет параметры и роль admin или dispatcher, затем создаёт
+// активное ведомство с поддержкой идемпотентности. Требует ненулевой in;
+// ошибки проверки оборачивает в ErrValidation, отказ в доступе — в ErrPermissionDenied.
 func (s *DepartmentServiceStruct) CreateDepartment(ctx context.Context, in *models.CreateDepartmentInput) (*models.CreateDepartmentResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -83,6 +87,8 @@ func (s *DepartmentServiceStruct) CreateDepartment(ctx context.Context, in *mode
 	return createResult, nil
 }
 
+// GetDepartmentByID проверяет ID и возвращает ведомство, включая архивное.
+// Требует ненулевой in; ошибку проверки оборачивает в ErrValidation.
 func (s *DepartmentServiceStruct) GetDepartmentByID(ctx context.Context, in *models.GetDepartmentByIDInput) (*models.GetDepartmentByIDResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -120,6 +126,8 @@ func (s *DepartmentServiceStruct) GetDepartmentByID(ctx context.Context, in *mod
 	return &models.GetDepartmentByIDResult{Department: department}, nil
 }
 
+// ListDepartments проверяет фильтры, нормализует сортировку и пагинацию в in
+// и возвращает страницу ведомств с общим счётчиком. Требует ненулевой in.
 func (s *DepartmentServiceStruct) ListDepartments(ctx context.Context, in *models.ListDepartmentsInput) (*models.ListDepartmentsResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -156,6 +164,8 @@ func (s *DepartmentServiceStruct) ListDepartments(ctx context.Context, in *model
 	return &models.ListDepartmentsResult{Departments: departments, Total: total}, nil
 }
 
+// UpdateDepartment проверяет параметры и роль admin или dispatcher, затем меняет
+// переданные поля ведомства с поддержкой идемпотентности. Требует ненулевой in.
 func (s *DepartmentServiceStruct) UpdateDepartment(ctx context.Context, in *models.UpdateDepartmentInput) (*models.UpdateDepartmentResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -217,6 +227,8 @@ func (s *DepartmentServiceStruct) UpdateDepartment(ctx context.Context, in *mode
 	return updateResult, nil
 }
 
+// DeleteDepartment проверяет ID и роль admin или dispatcher, затем архивирует
+// ведомство с поддержкой идемпотентности. Требует ненулевой in; строку из базы не удаляет.
 func (s *DepartmentServiceStruct) DeleteDepartment(ctx context.Context, in *models.DeleteDepartmentInput) (*models.DeleteDepartmentResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -278,6 +290,7 @@ func (s *DepartmentServiceStruct) DeleteDepartment(ctx context.Context, in *mode
 	return deleteResult, nil
 }
 
+// hasPrivilegedRole сообщает, содержит ли roles точное значение admin или dispatcher.
 func hasPrivilegedRole(roles []string) bool {
 	for _, role := range roles {
 

@@ -8,6 +8,7 @@ import (
 	"time"
 )
 
+// ToProtoStatus преобразует статус заявки в protobuf; неизвестный даёт UNSPECIFIED.
 func ToProtoStatus(status models.TicketStatus) ticketv1.TicketStatus {
 	switch status {
 	case models.TicketStatusNew:
@@ -25,6 +26,8 @@ func ToProtoStatus(status models.TicketStatus) ticketv1.TicketStatus {
 	}
 }
 
+// FromProtoStatus преобразует protobuf-статус заявки в доменный;
+// неизвестное значение возвращает как пустую строку.
 func FromProtoStatus(status ticketv1.TicketStatus) models.TicketStatus {
 	switch status {
 	case ticketv1.TicketStatus_TICKET_STATUS_NEW:
@@ -42,6 +45,7 @@ func FromProtoStatus(status ticketv1.TicketStatus) models.TicketStatus {
 	}
 }
 
+// ToProtoPriority преобразует приоритет заявки в protobuf; неизвестный даёт UNSPECIFIED.
 func ToProtoPriority(priority models.TicketPriority) ticketv1.TicketPriority {
 	switch priority {
 	case models.TicketPriorityLow:
@@ -57,6 +61,8 @@ func ToProtoPriority(priority models.TicketPriority) ticketv1.TicketPriority {
 	}
 }
 
+// FromProtoPriority преобразует protobuf-приоритет в доменный;
+// неизвестное значение возвращает как пустую строку.
 func FromProtoPriority(priority ticketv1.TicketPriority) models.TicketPriority {
 	switch priority {
 	case ticketv1.TicketPriority_TICKET_PRIORITY_LOW:
@@ -72,6 +78,8 @@ func FromProtoPriority(priority ticketv1.TicketPriority) models.TicketPriority {
 	}
 }
 
+// ToProtoTicketType преобразует INCIDENT или REQUEST в protobuf;
+// неизвестный тип даёт UNSPECIFIED.
 func ToProtoTicketType(ticketType models.TicketType) ticketv1.TicketType {
 	switch ticketType {
 	case models.TicketTypeIncident:
@@ -83,6 +91,8 @@ func ToProtoTicketType(ticketType models.TicketType) ticketv1.TicketType {
 	}
 }
 
+// FromProtoSortBy преобразует поле сортировки заявок в доменное;
+// неизвестное значение возвращает как пустую строку.
 func FromProtoSortBy(sortBy ticketv1.TicketSortBy) models.TicketSortBy {
 	switch sortBy {
 	case ticketv1.TicketSortBy_TICKET_SORT_BY_CREATED_AT:
@@ -98,6 +108,8 @@ func FromProtoSortBy(sortBy ticketv1.TicketSortBy) models.TicketSortBy {
 	}
 }
 
+// FromProtoSortOrder преобразует ASC или DESC в доменный порядок;
+// неизвестное значение возвращает как пустую строку.
 func FromProtoSortOrder(order ticketv1.SortOrder) models.SortOrder {
 	switch order {
 	case ticketv1.SortOrder_SORT_ORDER_ASC:
@@ -109,6 +121,7 @@ func FromProtoSortOrder(order ticketv1.SortOrder) models.SortOrder {
 	}
 }
 
+// ToProtoTimestamp преобразует время в protobuf; нулевое время даёт nil.
 func ToProtoTimestamp(t time.Time) *timestamppb.Timestamp {
 
 	if t.IsZero() {
@@ -118,6 +131,8 @@ func ToProtoTimestamp(t time.Time) *timestamppb.Timestamp {
 	return timestamppb.New(t)
 }
 
+// ToProtoTimestampPtr преобразует необязательное время в protobuf;
+// nil и указатель на нулевое время дают nil.
 func ToProtoTimestampPtr(t *time.Time) *timestamppb.Timestamp {
 
 	if t == nil || t.IsZero() {
@@ -127,6 +142,8 @@ func ToProtoTimestampPtr(t *time.Time) *timestamppb.Timestamp {
 	return timestamppb.New(*t)
 }
 
+// FromProtoTimestamp преобразует timestamp в указатель time.Time;
+// nil сохраняет как nil без дополнительной проверки корректности timestamp.
 func FromProtoTimestamp(ts *timestamppb.Timestamp) *time.Time {
 
 	if ts == nil {
@@ -137,6 +154,8 @@ func FromProtoTimestamp(ts *timestamppb.Timestamp) *time.Time {
 	return &t
 }
 
+// ToProtoTicket преобразует заявку, координаты, даты и внешние связи в protobuf.
+// nil сохраняет как nil; отсутствие бригады даёт пустую строку, необязательных UUID — nil.
 func ToProtoTicket(ticket *models.Ticket) *ticketv1.Ticket {
 
 	if ticket == nil {
@@ -179,6 +198,8 @@ func ToProtoTicket(ticket *models.Ticket) *ticketv1.Ticket {
 		ExternalId:       ticket.ExternalID,
 	}
 }
+
+// uuidStringPtr возвращает строковый UUID по указателю; nil сохраняет как nil.
 func uuidStringPtr(v *uuid.UUID) *string {
 
 	if v == nil {

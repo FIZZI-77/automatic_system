@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+// ToProtoStatus преобразует статус без учёта регистра, поддерживая CANCELED и CANCELLED;
+// неизвестное значение даёт UNSPECIFIED, пробелы не обрезаются.
 func ToProtoStatus(status string) ticketv1.TicketStatus {
 	status = strings.ToUpper(status)
 
@@ -27,6 +29,7 @@ func ToProtoStatus(status string) ticketv1.TicketStatus {
 	}
 }
 
+// ToProtoPriority преобразует приоритет без учёта регистра; неизвестный даёт UNSPECIFIED.
 func ToProtoPriority(priority string) ticketv1.TicketPriority {
 	priorityModel := models.TicketPriority(strings.ToUpper(priority))
 
@@ -44,6 +47,7 @@ func ToProtoPriority(priority string) ticketv1.TicketPriority {
 	}
 }
 
+// ToProtoSortBy преобразует поле сортировки без учёта регистра; неизвестное даёт UNSPECIFIED.
 func ToProtoSortBy(sortBy string) ticketv1.TicketSortBy {
 	switch strings.ToLower(sortBy) {
 	case "created_at":
@@ -59,6 +63,7 @@ func ToProtoSortBy(sortBy string) ticketv1.TicketSortBy {
 	}
 }
 
+// ToProtoSortOrder преобразует asc или desc без учёта регистра; неизвестное даёт UNSPECIFIED.
 func ToProtoSortOrder(sortOrder string) ticketv1.SortOrder {
 	switch strings.ToLower(sortOrder) {
 	case "asc":
@@ -70,6 +75,8 @@ func ToProtoSortOrder(sortOrder string) ticketv1.SortOrder {
 	}
 }
 
+// ToProtoTimestamp разбирает RFC3339 в protobuf-время; пустая строка даёт nil,
+// неверный формат возвращает ошибку time.Parse.
 func ToProtoTimestamp(value string) (*timestamppb.Timestamp, error) {
 
 	if value == "" {
@@ -85,6 +92,8 @@ func ToProtoTimestamp(value string) (*timestamppb.Timestamp, error) {
 	return timestamppb.New(parsed), nil
 }
 
+// FromProtoTicket преобразует заявку и внешние связи в HTTP-модель с датами
+// в Unix-секундах; nil сохраняет как nil, отсутствующие даты даёт как 0.
 func FromProtoTicket(t *ticketv1.Ticket) *models.Ticket {
 
 	if t == nil {
@@ -116,6 +125,7 @@ func FromProtoTicket(t *ticketv1.Ticket) *models.Ticket {
 	}
 }
 
+// FromProtoTicketType возвращает INCIDENT или REQUEST; неизвестный тип даёт пустую строку.
 func FromProtoTicketType(ticketType ticketv1.TicketType) string {
 	switch ticketType {
 	case ticketv1.TicketType_TICKET_TYPE_INCIDENT:
@@ -127,6 +137,8 @@ func FromProtoTicketType(ticketType ticketv1.TicketType) string {
 	}
 }
 
+// FromProtoCategory преобразует категорию в HTTP-модель с датами в Unix-секундах;
+// nil сохраняет как nil.
 func FromProtoCategory(category *ticketv1.TicketCategory) *models.TicketCategory {
 
 	if category == nil {
@@ -144,6 +156,8 @@ func FromProtoCategory(category *ticketv1.TicketCategory) *models.TicketCategory
 	}
 }
 
+// FromProtoStatusHistory преобразует переход статуса в HTTP-модель;
+// неизвестные статусы даёт как пустые строки, nil запись — как nil.
 func FromProtoStatusHistory(history *ticketv1.TicketStatusHistory) *models.TicketStatusHistory {
 
 	if history == nil {
@@ -161,6 +175,7 @@ func FromProtoStatusHistory(history *ticketv1.TicketStatusHistory) *models.Ticke
 	}
 }
 
+// FromProtoStatus преобразует статус заявки в строку; неизвестный даёт пустую строку.
 func FromProtoStatus(status ticketv1.TicketStatus) string {
 	switch status {
 	case ticketv1.TicketStatus_TICKET_STATUS_NEW:
@@ -178,6 +193,7 @@ func FromProtoStatus(status ticketv1.TicketStatus) string {
 	}
 }
 
+// FromProtoPriority преобразует приоритет в строку; неизвестный даёт пустую строку.
 func FromProtoPriority(priority ticketv1.TicketPriority) string {
 	switch priority {
 	case ticketv1.TicketPriority_TICKET_PRIORITY_LOW:
@@ -193,6 +209,7 @@ func FromProtoPriority(priority ticketv1.TicketPriority) string {
 	}
 }
 
+// timestampUnix возвращает Unix-секунды protobuf-времени; nil даёт 0.
 func timestampUnix(ts *timestamppb.Timestamp) int64 {
 
 	if ts == nil {

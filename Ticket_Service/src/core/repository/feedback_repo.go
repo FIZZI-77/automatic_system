@@ -13,6 +13,9 @@ import (
 	"ticket/models"
 )
 
+// SubmitTicketFeedback сохраняет оценку от автора завершённой заявки и событие outbox
+// в одной транзакции. Допускает оценку 1–5 и комментарий до 1000 символов;
+// повторное обращение обновляет оценку, сохраняя время её первоначального создания.
 func (t *TicketRepoStruct) SubmitTicketFeedback(ctx context.Context, in *models.SubmitTicketFeedbackInput) (*models.TicketFeedback, error) {
 
 	if in.Rating < 1 || in.Rating > 5 || len([]rune(in.Comment)) > 1000 {
@@ -54,7 +57,13 @@ func (t *TicketRepoStruct) SubmitTicketFeedback(ctx context.Context, in *models.
 		return nil, fmt.Errorf("%w: ticket must be completed", models.ErrInvalidStatusTransition)
 	}
 
-	feedback := &models.TicketFeedback{TicketID: in.TicketID, UserID: in.UserID, Rating: in.Rating, ProblemResolved: in.ProblemResolved, Comment: comment}
+	feedback := &models.TicketFeedback{
+		TicketID:        in.TicketID,
+		UserID:          in.UserID,
+		Rating:          in.Rating,
+		ProblemResolved: in.ProblemResolved,
+		Comment:         comment,
+	}
 	now := time.Now().UTC()
 	err = tx.QueryRow(ctx, `UPDATE tickets SET feedback_rating=$3,feedback_resolved=$4,feedback_comment=$5,feedback_created_at=COALESCE(feedback_created_at,$6),feedback_updated_at=$6 WHERE department_id=$1 AND id=$2 RETURNING feedback_created_at,feedback_updated_at`, departmentID, in.TicketID, in.Rating, in.ProblemResolved, comment, now).Scan(&feedback.CreatedAt, &feedback.UpdatedAt)
 
@@ -82,6 +91,8 @@ func (t *TicketRepoStruct) SubmitTicketFeedback(ctx context.Context, in *models.
 	return feedback, tx.Commit(ctx)
 }
 
+// GetTicketFeedback возвращает оценку автору заявки либо привилегированному исполнителю.
+// При отсутствии заявки, оценки или подходящих прав возвращает ErrNotFound.
 func (t *TicketRepoStruct) GetTicketFeedback(ctx context.Context, in *models.GetTicketFeedbackInput) (*models.TicketFeedback, error) {
 	feedback := &models.TicketFeedback{TicketID: in.TicketID}
 	err := t.readPool.QueryRow(ctx, `SELECT user_id,feedback_rating,feedback_resolved,feedback_comment,feedback_created_at,feedback_updated_at FROM tickets WHERE id=$1 AND (user_id=$2 OR $3) AND feedback_rating IS NOT NULL`, in.TicketID, in.ActorID, in.Privileged).Scan(&feedback.UserID, &feedback.Rating, &feedback.ProblemResolved, &feedback.Comment, &feedback.CreatedAt, &feedback.UpdatedAt)

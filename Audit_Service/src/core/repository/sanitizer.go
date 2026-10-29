@@ -2,6 +2,9 @@ package repository
 
 import "strings"
 
+// sanitize создаёт копию карты, заменяя чувствительные поля на [REDACTED].
+// Обрабатывает вложенные map[string]any и такие карты внутри []any;
+// остальные значения переносит как есть, исходную карту не изменяет.
 func sanitize(values map[string]any) map[string]any {
 	result := make(map[string]any, len(values))
 	for key, value := range values {
@@ -32,6 +35,9 @@ func sanitize(values map[string]any) map[string]any {
 	}
 	return result
 }
+
+// sensitive сообщает, содержит ли имя поля признак пароля, токена, секрета,
+// авторизации или закрытого ключа; регистр не учитывается.
 func sensitive(key string) bool {
 	key = strings.ToLower(key)
 	for _, part := range []string{"password", "secret", "token", "authorization", "private_key", "api_key", "access_key"} {

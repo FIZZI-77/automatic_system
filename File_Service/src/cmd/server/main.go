@@ -89,7 +89,7 @@ func main() {
 			pkg.AccessLogUnaryServerInterceptor(logger),
 		),
 	)
-	filev1.RegisterFileServiceServer(grpcServer, handler.New(api, logger))
+	filev1.RegisterFileServiceServer(grpcServer, handler.New(api, logger, required("REPORT_INTERNAL_TOKEN")))
 	healthv1.RegisterHealthServer(grpcServer, health.NewServer())
 
 	listener, err := net.Listen("tcp", ":"+env("GRPC_PORT", "50059"))

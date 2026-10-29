@@ -67,12 +67,44 @@ func TestEvaluateCanJoinBrigade(t *testing.T) {
 		allowed    bool
 		reason     models.CanJoinBrigadeReason
 	}{
-		{name: "active", status: models.WorkProfileStatusActive, department: departmentID, allowed: true, reason: models.CanJoinBrigadeReasonAllowed},
-		{name: "on shift", status: models.WorkProfileStatusOnShift, department: departmentID, allowed: true, reason: models.CanJoinBrigadeReasonAllowed},
-		{name: "inactive", status: models.WorkProfileStatusInactive, department: departmentID, reason: models.CanJoinBrigadeReasonProfileInactive},
-		{name: "suspended", status: models.WorkProfileStatusSuspended, department: departmentID, reason: models.CanJoinBrigadeReasonProfileSuspended},
-		{name: "off shift", status: models.WorkProfileStatusOffShift, department: departmentID, reason: models.CanJoinBrigadeReasonProfileOffShift},
-		{name: "department mismatch", status: models.WorkProfileStatusActive, department: otherDepartmentID, reason: models.CanJoinBrigadeReasonDepartmentMismatch},
+		{
+			name:       "active",
+			status:     models.WorkProfileStatusActive,
+			department: departmentID,
+			allowed:    true,
+			reason:     models.CanJoinBrigadeReasonAllowed,
+		},
+		{
+			name:       "on shift",
+			status:     models.WorkProfileStatusOnShift,
+			department: departmentID,
+			allowed:    true,
+			reason:     models.CanJoinBrigadeReasonAllowed,
+		},
+		{
+			name:       "inactive",
+			status:     models.WorkProfileStatusInactive,
+			department: departmentID,
+			reason:     models.CanJoinBrigadeReasonProfileInactive,
+		},
+		{
+			name:       "suspended",
+			status:     models.WorkProfileStatusSuspended,
+			department: departmentID,
+			reason:     models.CanJoinBrigadeReasonProfileSuspended,
+		},
+		{
+			name:       "off shift",
+			status:     models.WorkProfileStatusOffShift,
+			department: departmentID,
+			reason:     models.CanJoinBrigadeReasonProfileOffShift,
+		},
+		{
+			name:       "department mismatch",
+			status:     models.WorkProfileStatusActive,
+			department: otherDepartmentID,
+			reason:     models.CanJoinBrigadeReasonDepartmentMismatch,
+		},
 	}
 
 	for _, tt := range tests {

@@ -19,10 +19,22 @@ import (
 const integrationSecretPrefix = "tki_"
 
 type IntegrationService interface {
+	// RegisterIntegration регистрирует внешний источник обращений; доступна только администратору.
+	// Возвращает полный случайный секрет один раз, сохраняя в БД его хеш и префикс.
+	// AllowedDepartmentID ограничивает источник одним департаментом.
 	RegisterIntegration(ctx context.Context, in *models.RegisterIntegrationInput) (*models.RegisterIntegrationResult, error)
+	// ListIntegrations возвращает страницу внешних источников и общее количество записей.
+	// Требует роль admin, Limit от 1 до 100 и неотрицательный Offset; полные секреты не возвращает.
 	ListIntegrations(ctx context.Context, in *models.ListIntegrationsInput) (*models.ListIntegrationsResult, error)
+	// SetIntegrationActive включает или отключает внешний источник по IntegrationID.
+	// Требует роль admin; отключённый источник не может создавать обращения.
 	SetIntegrationActive(ctx context.Context, in *models.SetIntegrationActiveInput) (*models.TicketIntegration, error)
+	// RotateIntegrationSecret заменяет секрет внешнего источника и один раз возвращает новый.
+	// Требует роль admin. Старый хеш заменяется, а состояние активности сохраняется.
 	RotateIntegrationSecret(ctx context.Context, in *models.RotateIntegrationSecretInput) (*models.RegisterIntegrationResult, error)
+	// CreateExternalRequest создаёт обращение внешнего источника после проверки client_id и секрета.
+	// Проверяет активность и разрешённый департамент; записывает идентификаторы источника
+	// и обращения в in.Request. Ошибка обновления last_used_at не отменяет результат.
 	CreateExternalRequest(ctx context.Context, in *models.CreateExternalRequestInput) (*models.CreateRequestResult, error)
 }
 
@@ -30,10 +42,14 @@ type IntegrationServiceStruct struct {
 	repo *repository.Repository
 }
 
+// NewIntegrationServiceStruct создаёт службу учётных данных внешних систем с общим репозиторием.
 func NewIntegrationServiceStruct(repo *repository.Repository) *IntegrationServiceStruct {
 	return &IntegrationServiceStruct{repo: repo}
 }
 
+// RegisterIntegration регистрирует внешний источник обращений; доступна только администратору.
+// Возвращает полный случайный секрет один раз, сохраняя в БД его хеш и префикс.
+// AllowedDepartmentID ограничивает источник одним департаментом.
 func (s *IntegrationServiceStruct) RegisterIntegration(
 	ctx context.Context,
 	in *models.RegisterIntegrationInput,
@@ -67,6 +83,8 @@ func (s *IntegrationServiceStruct) RegisterIntegration(
 	}, nil
 }
 
+// ListIntegrations возвращает страницу внешних источников и общее количество записей.
+// Требует роль admin, Limit от 1 до 100 и неотрицательный Offset; полные секреты не возвращает.
 func (s *IntegrationServiceStruct) ListIntegrations(
 	ctx context.Context,
 	in *models.ListIntegrationsInput,
@@ -87,6 +105,8 @@ func (s *IntegrationServiceStruct) ListIntegrations(
 	return &models.ListIntegrationsResult{Integrations: integrations, Total: total}, nil
 }
 
+// SetIntegrationActive включает или отключает внешний источник по IntegrationID.
+// Требует роль admin; отключённый источник не может создавать обращения.
 func (s *IntegrationServiceStruct) SetIntegrationActive(
 	ctx context.Context,
 	in *models.SetIntegrationActiveInput,
@@ -107,6 +127,8 @@ func (s *IntegrationServiceStruct) SetIntegrationActive(
 	return integration, nil
 }
 
+// RotateIntegrationSecret заменяет секрет внешнего источника и один раз возвращает новый.
+// Требует роль admin. Старый хеш заменяется, а состояние активности сохраняется.
 func (s *IntegrationServiceStruct) RotateIntegrationSecret(
 	ctx context.Context,
 	in *models.RotateIntegrationSecretInput,
@@ -137,6 +159,9 @@ func (s *IntegrationServiceStruct) RotateIntegrationSecret(
 	return &models.RegisterIntegrationResult{Integration: integration, Secret: secret}, nil
 }
 
+// CreateExternalRequest создаёт обращение внешнего источника после проверки client_id и секрета.
+// Проверяет активность и разрешённый департамент; записывает идентификаторы источника
+// и обращения в in.Request. Ошибка обновления last_used_at не отменяет результат.
 func (s *IntegrationServiceStruct) CreateExternalRequest(
 	ctx context.Context,
 	in *models.CreateExternalRequestInput,
@@ -198,6 +223,8 @@ func (s *IntegrationServiceStruct) CreateExternalRequest(
 	return result, nil
 }
 
+// newIntegrationSecret возвращает секрет tki_ из 32 криптографически случайных байтов.
+// Возвращает ошибку, если системный источник случайности недоступен.
 func newIntegrationSecret() (string, error) {
 	value := make([]byte, 32)
 
@@ -208,6 +235,7 @@ func newIntegrationSecret() (string, error) {
 	return integrationSecretPrefix + base64.RawURLEncoding.EncodeToString(value), nil
 }
 
+// hashIntegrationSecret возвращает SHA-256 секрета в шестнадцатеричном виде для хранения и сравнения.
 func hashIntegrationSecret(secret string) string {
 	sum := sha256.Sum256([]byte(secret))
 

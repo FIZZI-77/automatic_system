@@ -71,7 +71,7 @@ func testHappyPath(ctx context.Context, client filev1.FileServiceClient) {
 
 	linked, err := client.LinkFile(ctx, &filev1.LinkFileRequest{
 		FileId: fileID, ActorUserId: ownerID,
-		ResourceType: "ticket_report", ResourceId: resourceID,
+		ResourceType: "work_report", ResourceId: resourceID, ActorRoles: []string{"admin"},
 	})
 	check(err)
 
@@ -80,7 +80,7 @@ func testHappyPath(ctx context.Context, client filev1.FileServiceClient) {
 	}
 
 	listed, err := client.ListResourceFiles(ctx, &filev1.ListResourceFilesRequest{
-		ResourceType: "ticket_report", ResourceId: resourceID,
+		ResourceType: "work_report", ResourceId: resourceID,
 		ActorUserId: ownerID,
 	})
 	check(err)
@@ -89,12 +89,12 @@ func testHappyPath(ctx context.Context, client filev1.FileServiceClient) {
 		fail("linked file was not returned")
 	}
 
-	_, err = client.ListResourceFiles(ctx, &filev1.ListResourceFilesRequest{
-		ResourceType: "ticket_report", ResourceId: resourceID,
+	foreign, err := client.ListResourceFiles(ctx, &filev1.ListResourceFilesRequest{
+		ResourceType: "work_report", ResourceId: resourceID,
 		ActorUserId: uuid.New().String(),
 	})
 
-	if err == nil {
+	if err != nil || len(foreign.GetFiles()) != 0 {
 		fail("foreign user unexpectedly listed resource files")
 	}
 

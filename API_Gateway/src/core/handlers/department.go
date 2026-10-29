@@ -14,10 +14,13 @@ type DepartmentHandler struct {
 	departmentClient departmentv1.DepartmentServiceClient
 }
 
+// NewDepartmentHandler создаёт HTTP-обработчик ведомств с переданным gRPC-клиентом.
 func NewDepartmentHandler(departmentClient departmentv1.DepartmentServiceClient) *DepartmentHandler {
 	return &DepartmentHandler{departmentClient: departmentClient}
 }
 
+// CreateDepartment разбирает JSON имени и описания и вызывает Department Service
+// с метаданными пользователя и таймаутом 5 секунд; успех даёт HTTP 201 с ведомством.
 func (dh *DepartmentHandler) CreateDepartment(c *gin.Context) {
 	var req models.CreateDepartmentRequest
 
@@ -44,6 +47,8 @@ func (dh *DepartmentHandler) CreateDepartment(c *gin.Context) {
 	})
 }
 
+// GetDepartmentByID разбирает ID из JSON и запрашивает ведомство с метаданными
+// пользователя и таймаутом 5 секунд; при успехе возвращает HTTP 200 с HTTP-моделью.
 func (dh *DepartmentHandler) GetDepartmentByID(c *gin.Context) {
 	var req models.GetDepartmentByIDRequest
 
@@ -69,6 +74,9 @@ func (dh *DepartmentHandler) GetDepartmentByID(c *gin.Context) {
 	})
 }
 
+// ListDepartments проверяет JSON и даты фильтра, вызывает список ведомств
+// с метаданными пользователя и таймаутом 5 секунд и возвращает HTTP 200
+// со страницей HTTP-моделей и общим счётчиком.
 func (dh *DepartmentHandler) ListDepartments(c *gin.Context) {
 	var req models.ListDepartmentsRequest
 
@@ -104,6 +112,8 @@ func (dh *DepartmentHandler) ListDepartments(c *gin.Context) {
 	})
 }
 
+// UpdateDepartment преобразует заданные поля JSON в запрос обновления ведомства
+// с метаданными пользователя и таймаутом 5 секунд; успешный ответ даёт HTTP 200.
 func (dh *DepartmentHandler) UpdateDepartment(c *gin.Context) {
 	var req models.UpdateDepartmentRequest
 
@@ -127,6 +137,8 @@ func (dh *DepartmentHandler) UpdateDepartment(c *gin.Context) {
 	})
 }
 
+// DeleteDepartment разбирает ID из JSON и передаёт удаление сервису с метаданными
+// пользователя и таймаутом 5 секунд; возвращает ведомство из результата с HTTP 200.
 func (dh *DepartmentHandler) DeleteDepartment(c *gin.Context) {
 	var req models.DeleteDepartmentRequest
 
@@ -152,6 +164,9 @@ func (dh *DepartmentHandler) DeleteDepartment(c *gin.Context) {
 	})
 }
 
+// buildListDepartmentsRequest преобразует фильтры, сортировку и пагинацию,
+// разбирая даты RFC3339. Неверная дата записывает HTTP 400 и даёт nil, false;
+// вызывающий код при false прекращает обработку.
 func buildListDepartmentsRequest(c *gin.Context, req *models.ListDepartmentsRequest) (*departmentv1.ListDepartmentsRequest, bool) {
 	protoReq := &departmentv1.ListDepartmentsRequest{
 		Limit:  int32OrZero(req.Limit),
@@ -198,6 +213,8 @@ func buildListDepartmentsRequest(c *gin.Context, req *models.ListDepartmentsRequ
 	return protoReq, true
 }
 
+// buildUpdateDepartmentRequest сохраняет необязательность имени, описания
+// и статуса при преобразовании HTTP-запроса в protobuf.
 func buildUpdateDepartmentRequest(req *models.UpdateDepartmentRequest) *departmentv1.UpdateDepartmentRequest {
 	protoReq := &departmentv1.UpdateDepartmentRequest{
 		Id:          req.ID,

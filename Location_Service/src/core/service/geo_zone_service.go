@@ -17,10 +17,12 @@ type GeoZoneServiceStruct struct {
 	log  *zap.Logger
 }
 
+// NewGeoZoneServiceStruct создаёт сервис геозон без вывода журнала.
 func NewGeoZoneServiceStruct(repo *repository.Repository) *GeoZoneServiceStruct {
 	return NewGeoZoneServiceStructWithLogger(repo, zap.NewNop())
 }
 
+// NewGeoZoneServiceStructWithLogger создаёт сервис геозон; nil logger заменяет журналом без вывода.
 func NewGeoZoneServiceStructWithLogger(
 	repo *repository.Repository,
 	logger *zap.Logger,
@@ -33,6 +35,8 @@ func NewGeoZoneServiceStructWithLogger(
 	return &GeoZoneServiceStruct{repo: repo, log: logger}
 }
 
+// CreateGeoZone проверяет запрос и сохраняет зону для admin, system_admin
+// или dispatcher. Отказ в доступе даёт ErrPermissionDenied, ошибка входа — ErrValidation.
 func (s *GeoZoneServiceStruct) CreateGeoZone(
 	ctx context.Context,
 	in *models.CreateGeoZoneInput,
@@ -59,6 +63,8 @@ func (s *GeoZoneServiceStruct) CreateGeoZone(
 	return result, nil
 }
 
+// UpdateGeoZone проверяет ID и наличие изменений и обновляет зону для admin,
+// system_admin или dispatcher. Остальные роли дают ErrPermissionDenied.
 func (s *GeoZoneServiceStruct) UpdateGeoZone(
 	ctx context.Context,
 	in *models.UpdateGeoZoneInput,
@@ -81,6 +87,8 @@ func (s *GeoZoneServiceStruct) UpdateGeoZone(
 	return result, nil
 }
 
+// DeleteGeoZone проверяет ID и деактивирует зону для admin, system_admin или dispatcher.
+// Физически строка не удаляется; остальные роли дают ErrPermissionDenied.
 func (s *GeoZoneServiceStruct) DeleteGeoZone(
 	ctx context.Context,
 	in *models.DeleteGeoZoneInput,
@@ -103,6 +111,8 @@ func (s *GeoZoneServiceStruct) DeleteGeoZone(
 	return result, nil
 }
 
+// ListGeoZones проверяет пагинацию и возвращает страницу зон по фильтрам
+// ведомства и активности с общим счётчиком.
 func (s *GeoZoneServiceStruct) ListGeoZones(
 	ctx context.Context,
 	in *models.ListGeoZonesInput,
@@ -121,6 +131,8 @@ func (s *GeoZoneServiceStruct) ListGeoZones(
 	return result, nil
 }
 
+// CheckPointInZones проверяет координаты и возвращает активные зоны, покрывающие
+// точку, включая границу, с учётом фильтров ведомства и ID зон.
 func (s *GeoZoneServiceStruct) CheckPointInZones(
 	ctx context.Context,
 	in *models.CheckPointInZonesInput,
@@ -139,6 +151,8 @@ func (s *GeoZoneServiceStruct) CheckPointInZones(
 	return result, nil
 }
 
+// canManageZones разрешает управление зонами для admin, system_admin или dispatcher,
+// сравнивая роли без регистра и крайних пробелов.
 func canManageZones(roles []string) bool {
 	for _, role := range roles {
 		switch strings.ToLower(strings.TrimSpace(role)) {

@@ -98,6 +98,11 @@ spec:
             secretKeyRef:
               key: S3_SECRET_KEY
               name: runtime-secrets
+        - name: REPORT_INTERNAL_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: REPORT_INTERNAL_TOKEN
+              name: runtime-secrets
         envFrom:
         - configMapRef:
             name: telemetry-config

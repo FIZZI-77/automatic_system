@@ -30,7 +30,20 @@ func TestSmoke(t *testing.T) {
 	defer conn.Close()
 	c := assetv1.NewAssetServiceClient(conn)
 	actor, department := uuid.NewString(), uuid.NewString()
-	created, err := c.CreateAsset(ctx, &assetv1.CreateAssetRequest{ActorUserId: actor, ActorRoles: []string{"admin"}, DepartmentId: department, Type: "street_light", Name: "Smoke light", Address: "Moscow", District: "Yasenevo", GeometryGeoJson: `{"type":"Point","coordinates":[37.53,55.61]}`, InstallationYear: ptr(int32(2010)), ServiceLifeYears: ptr(int32(20)), InspectionIntervalDays: 180, Criticality: .9})
+	created, err := c.CreateAsset(ctx, &assetv1.CreateAssetRequest{
+		ActorUserId:            actor,
+		ActorRoles:             []string{"admin"},
+		DepartmentId:           department,
+		Type:                   "street_light",
+		Name:                   "Smoke light",
+		Address:                "Moscow",
+		District:               "Yasenevo",
+		GeometryGeoJson:        `{"type":"Point","coordinates":[37.53,55.61]}`,
+		InstallationYear:       ptr(int32(2010)),
+		ServiceLifeYears:       ptr(int32(20)),
+		InspectionIntervalDays: 180,
+		Criticality:            .9,
+	})
 
 	if err != nil {
 		t.Fatal(err)
@@ -50,7 +63,16 @@ func TestSmoke(t *testing.T) {
 	}
 
 	for i := 0; i < 2; i++ {
-		incident, e := c.RecordIncident(ctx, &assetv1.RecordIncidentRequest{AssetId: id, FailureType: "lamp_failure", Description: "off", Source: "smoke", Priority: "HIGH", OccurredAt: timestamppb.Now(), ActorUserId: actor, ActorRoles: []string{"worker"}})
+		incident, e := c.RecordIncident(ctx, &assetv1.RecordIncidentRequest{
+			AssetId:     id,
+			FailureType: "lamp_failure",
+			Description: "off",
+			Source:      "smoke",
+			Priority:    "HIGH",
+			OccurredAt:  timestamppb.Now(),
+			ActorUserId: actor,
+			ActorRoles:  []string{"worker"},
+		})
 
 		if e != nil {
 			t.Fatal(e)
@@ -67,15 +89,37 @@ func TestSmoke(t *testing.T) {
 		t.Fatalf("prediction: %v %#v", err, prediction.Prediction)
 	}
 
-	if _, err = c.CompleteRepair(ctx, &assetv1.CompleteRepairRequest{AssetId: id, Description: "lamp replaced", DurationMinutes: 30, CompletedAt: timestamppb.Now(), ActorUserId: actor, ActorRoles: []string{"worker"}}); err != nil {
+	if _, err = c.CompleteRepair(ctx, &assetv1.CompleteRepairRequest{
+		AssetId:         id,
+		Description:     "lamp replaced",
+		DurationMinutes: 30,
+		CompletedAt:     timestamppb.Now(),
+		ActorUserId:     actor,
+		ActorRoles:      []string{"worker"},
+	}); err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err = c.RecordInspection(ctx, &assetv1.RecordInspectionRequest{AssetId: id, InspectorUserId: actor, Kind: "scheduled", Result: "ok", ConditionScore: .8, InspectedAt: timestamppb.Now(), ActorRoles: []string{"worker"}}); err != nil {
+	if _, err = c.RecordInspection(ctx, &assetv1.RecordInspectionRequest{
+		AssetId:         id,
+		InspectorUserId: actor,
+		Kind:            "scheduled",
+		Result:          "ok",
+		ConditionScore:  .8,
+		InspectedAt:     timestamppb.Now(),
+		ActorRoles:      []string{"worker"},
+	}); err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err = c.CreateMaintenancePlan(ctx, &assetv1.CreateMaintenancePlanRequest{AssetId: id, Kind: "inspection", IntervalDays: 180, NextDueAt: timestamppb.New(time.Now().Add(time.Hour)), ActorUserId: actor, ActorRoles: []string{"admin"}}); err != nil {
+	if _, err = c.CreateMaintenancePlan(ctx, &assetv1.CreateMaintenancePlanRequest{
+		AssetId:      id,
+		Kind:         "inspection",
+		IntervalDays: 180,
+		NextDueAt:    timestamppb.New(time.Now().Add(time.Hour)),
+		ActorUserId:  actor,
+		ActorRoles:   []string{"admin"},
+	}); err != nil {
 		t.Fatal(err)
 	}
 

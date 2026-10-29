@@ -5,8 +5,9 @@ type NominatimResult = {
   lon: string;
 };
 
-const geocoderURL = (process.env.NOMINATIM_URL || "https://nominatim.openstreetmap.org")
-  .replace(/\/$/, "");
+const geocoderURL = (
+  process.env.NOMINATIM_URL || "https://nominatim.openstreetmap.org"
+).replace(/\/$/, "");
 
 export async function GET(request: Request) {
   const query = new URL(request.url).searchParams.get("q")?.trim();
@@ -23,7 +24,9 @@ export async function GET(request: Request) {
     "accept-language": "ru",
     q: query,
   };
-  Object.entries(parameters).forEach(([key, value]) => url.searchParams.set(key, value));
+  Object.entries(parameters).forEach(([key, value]) =>
+    url.searchParams.set(key, value),
+  );
 
   try {
     const response = await fetch(url, {
@@ -34,7 +37,7 @@ export async function GET(request: Request) {
       throw new Error(`geocoder returned ${response.status}`);
     }
 
-    const results = await response.json() as NominatimResult[];
+    const results = (await response.json()) as NominatimResult[];
     return Response.json({
       suggestions: results.map((result) => ({
         id: String(result.place_id),

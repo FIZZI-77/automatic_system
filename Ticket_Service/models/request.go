@@ -18,6 +18,7 @@ const (
 	TicketTypeRequest  TicketType = "REQUEST"
 )
 
+// IsValid сообщает, является ли тип записи обращением REQUEST или инцидентом INCIDENT.
 func (t TicketType) IsValid() bool {
 	switch t {
 	case TicketTypeIncident, TicketTypeRequest:

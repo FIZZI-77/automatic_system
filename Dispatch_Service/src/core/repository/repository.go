@@ -21,17 +21,25 @@ type Repository struct {
 	readDB  *pgxpool.Pool
 	lockDB  *pgxpool.Pool
 }
-type scanner interface{ Scan(...any) error }
+type scanner interface {
+	// Scan переносит значения строки в переданные указатели и возвращает ошибку чтения или преобразования.
+	Scan(...any) error
+}
 
+// New создаёт хранилище диспетчеризации; блокировки операций используют пул записи.
 func New(writeDB, readDB *pgxpool.Pool) *Repository {
 	return NewWithLockPool(writeDB, readDB, writeDB)
 }
 
-// NewWithLockPool creates a repository with a dedicated pool for session-level advisory locks.
+// NewWithLockPool создаёт хранилище с отдельным пулом для длительно удерживаемых
+// advisory-блокировок операций. Пулы чтения, записи и блокировок задаёт вызывающий код.
 func NewWithLockPool(writeDB, readDB, lockDB *pgxpool.Pool) *Repository {
 	return &Repository{writeDB: writeDB, readDB: readDB, lockDB: lockDB}
 }
 
+// Create транзакционно сохраняет операцию PENDING с версией 1, сроком действия TTL
+// и событием dispatch.requested. Повтор trigger_event_id возвращает существующую
+// операцию; прочее нарушение уникальности преобразуется в ErrConflict.
 func (r *Repository) Create(ctx context.Context, input models.CreateOperationInput) (*models.Operation, error) {
 	op := &models.Operation{
 		ID:           uuid.New(),
@@ -94,7 +102,9 @@ func (r *Repository) Create(ctx context.Context, input models.CreateOperationInp
 	return op, nil
 }
 
-// TryOperationLock acquires cross-replica ownership of an automatic dispatch workflow.
+// TryOperationLock пытается захватить транзакционную advisory-блокировку операции
+// между репликами, удерживая соединение lockDB. При успехе вызывающий код обязан
+// вызвать возвращённую идемпотентную функцию освобождения; занятая операция даёт acquired=false.
 func (r *Repository) TryOperationLock(ctx context.Context, operationID uuid.UUID) (func() error, bool, error) {
 	connection, err := r.lockDB.Acquire(ctx)
 
@@ -132,7 +142,7 @@ func (r *Repository) TryOperationLock(ctx context.Context, operationID uuid.UUID
 	var releaseErr error
 	release := func() error {
 		once.Do(func() {
-			// Rollback must run after request cancellation so PgBouncer releases the pinned backend.
+			// Откат выполняется даже после отмены запроса, чтобы PgBouncer освободил закреплённое соединение.
 			unlockCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			releaseErr = transaction.Rollback(unlockCtx)
@@ -147,6 +157,8 @@ func (r *Repository) TryOperationLock(ctx context.Context, operationID uuid.UUID
 	}
 	return release, true, nil
 }
+
+// Get читает операцию по ID из пула чтения; отсутствие возвращает как ErrNotFound.
 func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*models.Operation, error) {
 	op, err := scan(r.readDB.QueryRow(ctx, baseSelect+` WHERE id=$1`, id))
 
@@ -157,6 +169,8 @@ func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*models.Operation, 
 	return op, err
 }
 
+// GetByTriggerEvent читает операцию по ID запускающего события из пула записи,
+// чтобы повтор события видел актуальную запись. Отсутствие даёт ErrNotFound.
 func (r *Repository) GetByTriggerEvent(ctx context.Context, eventID uuid.UUID) (*models.Operation, error) {
 	op, err := scan(r.writeDB.QueryRow(ctx, baseSelect+` WHERE trigger_event_id=$1`, eventID))
 
@@ -166,12 +180,22 @@ func (r *Repository) GetByTriggerEvent(ctx context.Context, eventID uuid.UUID) (
 
 	return op, err
 }
+
+// SetReserved переводит PENDING в RESERVED с заданной бригадой и событием outbox.
+// Несовпадение версии expected, статуса или отсутствие записи даёт ErrConflict.
 func (r *Repository) SetReserved(ctx context.Context, id, brigadeID uuid.UUID, expected int32) (*models.Operation, error) {
 	return r.transition(ctx, id, expected, "status='PENDING'", `brigade_id=$3,status='RESERVED',version=version+1,updated_at=now()`, "dispatch.reserved", nil, brigadeID)
 }
+
+// SetAssigned переводит RESERVED в ASSIGNED, сохраняет маршрут и событие outbox.
+// Требует версию expected; нарушение условия перехода даёт ErrConflict.
 func (r *Repository) SetAssigned(ctx context.Context, id, routeID uuid.UUID, expected int32) (*models.Operation, error) {
 	return r.transition(ctx, id, expected, "status='RESERVED'", `route_id=$3,status='ASSIGNED',version=version+1,updated_at=now()`, "dispatch.assigned", nil, routeID)
 }
+
+// SetTerminal завершает PENDING или RESERVED с версией expected, сохраняя причину
+// и outbox. EXPIRED получает метаданные истечения, любой иной переданный статус —
+// метаданные отмены; вызывающий код должен выбирать терминальный статус.
 func (r *Repository) SetTerminal(ctx context.Context, id uuid.UUID, status models.Status, reason string, expected int32) (*models.Operation, error) {
 	eventType := "dispatch.canceled"
 	failureCode := "CANCELED_BY_USER"
@@ -185,6 +209,10 @@ func (r *Repository) SetTerminal(ctx context.Context, id uuid.UUID, status model
 
 	return r.transition(ctx, id, expected, "status IN ('PENDING','RESERVED')", `status=$3,failure_code=$4,failure_stage=$5,failure_reason=$6,version=version+1,updated_at=now()`, eventType, nil, status, failureCode, failureStage, nullable(reason))
 }
+
+// transition выполняет условное обновление операции и запись outbox в одной транзакции.
+// guard и set задаются внутренним кодом, args начинаются с SQL-параметра $3;
+// отсутствие строки с нужной версией и условием возвращает как ErrConflict.
 func (r *Repository) transition(ctx context.Context, id uuid.UUID, expected int32, guard, set, eventType string, extra map[string]any, args ...any) (*models.Operation, error) {
 	values := []any{id, expected}
 	values = append(values, args...)
@@ -215,6 +243,9 @@ func (r *Repository) transition(ctx context.Context, id uuid.UUID, expected int3
 
 	return op, nil
 }
+
+// List возвращает страницу операций по заявке, бригаде и статусу от новых к старым
+// с отдельным общим счётчиком. Требует ненулевой in с подготовленными Limit и Offset.
 func (r *Repository) List(ctx context.Context, in *models.ListInput) ([]*models.Operation, int64, error) {
 	where := []string{"TRUE"}
 	args := make([]any, 0, 5)
@@ -225,6 +256,9 @@ func (r *Repository) List(ctx context.Context, in *models.ListInput) ([]*models.
 
 	if in.TicketID != nil {
 		add("ticket_id=$%d", *in.TicketID)
+	}
+	if in.DepartmentID != nil {
+		add("department_id=$%d", *in.DepartmentID)
 	}
 
 	if in.BrigadeID != nil {
@@ -267,6 +301,9 @@ func (r *Repository) List(ctx context.Context, in *models.ListInput) ([]*models.
 
 	return result, total, nil
 }
+
+// Expire выбирает просроченные PENDING, RESERVED и CONFIRMING по сроку и ID,
+// не меняя их статусы. Неположительный limit заменяет на 100.
 func (r *Repository) Expire(ctx context.Context, limit int) ([]*models.Operation, error) {
 
 	if limit <= 0 {
@@ -297,6 +334,8 @@ func (r *Repository) Expire(ctx context.Context, limit int) ([]*models.Operation
 
 	return result, nil
 }
+
+// scan читает операцию в порядке baseSelect; при ошибке возвращает nil и исходную ошибку.
 func scan(row scanner) (*models.Operation, error) {
 	op := new(models.Operation)
 	err := row.Scan(&op.ID, &op.TicketID, &op.DepartmentID, &op.CategoryID, &op.Priority, &op.BrigadeID, &op.RouteID, &op.Mode, &op.Status, &op.Version, &op.RequestedBy, &op.FailureCode, &op.FailureStage, &op.FailureReason, &op.ExpiresAt, &op.CreatedAt, &op.UpdatedAt)
@@ -307,6 +346,8 @@ func scan(row scanner) (*models.Operation, error) {
 
 	return op, nil
 }
+
+// nullable возвращает nil для пустой строки, чтобы сохранить SQL NULL, иначе — саму строку.
 func nullable(value string) any {
 
 	if value == "" {

@@ -73,7 +73,7 @@ spec:
             matchExpressions:
               - key: app
                 operator: In
-                values: [api-gateway, dispatch-service, asset-service]
+                values: [api-gateway, dispatch-service, asset-service, routing-service]
       ports:
         - {protocol: TCP, port: 50052}
     - from:

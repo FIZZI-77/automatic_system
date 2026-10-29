@@ -15,6 +15,8 @@ import (
 
 const dispatchEventVersion = 1
 
+// appendOperationEvent сохраняет снимок операции в outbox через tx.
+// Поля extra дополняют или заменяют поля стандартной полезной нагрузки.
 func appendOperationEvent(
 	ctx context.Context,
 	tx pgx.Tx,
@@ -47,6 +49,8 @@ func appendOperationEvent(
 	return nil
 }
 
+// operationEventPayload собирает новую карту события со снимком операции,
+// версией схемы, trace ID и временной меткой соответствующего перехода.
 func operationEventPayload(ctx context.Context, eventID uuid.UUID, eventType string, operation *models.Operation) map[string]any {
 	payload := map[string]any{
 		"event_id":       eventID,
@@ -87,6 +91,8 @@ func operationEventPayload(ctx context.Context, eventID uuid.UUID, eventType str
 	return payload
 }
 
+// appendCandidateEvent записывает в outbox через tx событие ранжирования
+// с общим числом кандидатов, числом достижимых и текущим UTC-временем.
 func appendCandidateEvent(
 	ctx context.Context,
 	tx pgx.Tx,
@@ -117,6 +123,8 @@ func appendCandidateEvent(
 	return nil
 }
 
+// candidateEventPayload собирает новую карту события dispatch.candidates_ranked
+// со счётчиками кандидатов, атрибутами операции и trace ID.
 func candidateEventPayload(
 	ctx context.Context,
 	eventID uuid.UUID,
@@ -143,6 +151,8 @@ func candidateEventPayload(
 	}
 }
 
+// RecordCandidates сохраняет событие со счётчиками ранжирования в отдельной
+// транзакции, не изменяя операцию. Значения счётчиков не проверяет.
 func (r *Repository) RecordCandidates(
 	ctx context.Context,
 	operation *models.Operation,
@@ -168,6 +178,7 @@ func (r *Repository) RecordCandidates(
 	return nil
 }
 
+// traceID возвращает ID действующего span-контекста либо пустую строку, если его нет.
 func traceID(ctx context.Context) string {
 	spanContext := trace.SpanContextFromContext(ctx)
 

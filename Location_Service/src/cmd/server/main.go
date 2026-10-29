@@ -71,7 +71,10 @@ func main() {
 		fatalWithCleanup(log, dependencies, "connect postgres primary", err)
 	}
 
-	dependencies.Add("postgres primary", func() error { writeDB.Close(); return nil })
+	dependencies.Add("postgres primary", func() error {
+		writeDB.Close()
+		return nil
+	})
 
 	if err = writeDB.Ping(ctx); err != nil {
 		fatalWithCleanup(log, dependencies, "ping postgres primary", err)
@@ -89,7 +92,10 @@ func main() {
 		fatalWithCleanup(log, dependencies, "connect postgres replica", err)
 	}
 
-	dependencies.Add("postgres replica", func() error { readDB.Close(); return nil })
+	dependencies.Add("postgres replica", func() error {
+		readDB.Close()
+		return nil
+	})
 
 	if err = readDB.Ping(ctx); err != nil {
 		fatalWithCleanup(log, dependencies, "ping postgres replica", err)
@@ -282,7 +288,10 @@ func main() {
 			}
 
 		}()
-		go func() { defer serverWG.Done(); grpcServer.GracefulStop() }()
+		go func() {
+			defer serverWG.Done()
+			grpcServer.GracefulStop()
+		}()
 		serverWG.Wait()
 		close(serversDone)
 	}()
@@ -297,7 +306,10 @@ func main() {
 
 	cancelWorkers()
 	workersDone := make(chan struct{})
-	go func() { workerWG.Wait(); close(workersDone) }()
+	go func() {
+		workerWG.Wait()
+		close(workersDone)
+	}()
 	workerShutdownCtx, cancelWorkerShutdown := context.WithTimeout(
 		context.Background(),
 		10*time.Second,

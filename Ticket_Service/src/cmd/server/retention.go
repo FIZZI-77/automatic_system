@@ -34,7 +34,10 @@ func startTicketRetention(db *pgxpool.Pool, dependencies *closer.Closer, logger 
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	dependencies.Add("ticket retention workers", func() error { cancel(); return nil })
+	dependencies.Add("ticket retention workers", func() error {
+		cancel()
+		return nil
+	})
 	go func() {
 
 		if err := worker.Run(ctx); err != nil {

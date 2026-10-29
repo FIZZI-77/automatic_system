@@ -41,6 +41,7 @@ coverage.html
 *.dylib
 
 # Local generated/test artifacts
+/Frontend/artifacts/
 .codex-protoc/
 .codex-test-results/
 .contract-staging/
@@ -55,6 +56,28 @@ coverage.html
 
 # Generated output
 output/
+
+# Local reports and diagnostic output
+/reports/
+/.reports/
+/artifacts/
+**/playwright-report/
+**/test-results/
+**/coverage/
+**/.playwright-cli/
+/report.md
+/report_validation.md
+/findings.json
+/coverage.json
+/scan-manifest.json
+/threatmodel.md
+/docs/security-fixes-*.md
+/docs/*-report*.md
+/docs/*-review*.md
+/docs/*-audit*.md
+*.sarif
+junit*.xml
+test-results*.xml
 
 .frontend-dev.tar
 

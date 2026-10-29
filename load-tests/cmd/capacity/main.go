@@ -93,7 +93,17 @@ func analyze(args []string) error {
 }
 
 func buildSummary(input analysisInput) reportpkg.Summary {
-	summary := reportpkg.Summary{RunID: input.RunID, Scenario: input.Scenario, GitSHA: input.GitSHA, ResourceUsage: map[string]float64{}, Bottleneck: bottleneck.Detect(input.Evidence), Derived: reportpkg.Derived{Brigades: map[string]float64{}}, Measured: input.Stages, Extrapolated: []reportpkg.Extrapolated{}, Limitations: input.Limitations}
+	summary := reportpkg.Summary{
+		RunID:         input.RunID,
+		Scenario:      input.Scenario,
+		GitSHA:        input.GitSHA,
+		ResourceUsage: map[string]float64{},
+		Bottleneck:    bottleneck.Detect(input.Evidence),
+		Derived:       reportpkg.Derived{Brigades: map[string]float64{}},
+		Measured:      input.Stages,
+		Extrapolated:  []reportpkg.Extrapolated{},
+		Limitations:   input.Limitations,
+	}
 
 	if sustainable, ok := capacity.Sustainable(input.Stages, input.Thresholds); ok {
 		value := sustainable.Throughput
@@ -190,7 +200,12 @@ func compare(args []string) error {
 		return err
 	}
 
-	result := map[string]any{"scenario": current.Scenario, "throughput_delta_percent": delta(baseline.SustainableThroughput, current.SustainableThroughput), "p95_delta_percent": percentDelta(baseline.Latency.P95MS, current.Latency.P95MS), "p99_delta_percent": percentDelta(baseline.Latency.P99MS, current.Latency.P99MS)}
+	result := map[string]any{
+		"scenario":                 current.Scenario,
+		"throughput_delta_percent": delta(baseline.SustainableThroughput, current.SustainableThroughput),
+		"p95_delta_percent":        percentDelta(baseline.Latency.P95MS, current.Latency.P95MS),
+		"p99_delta_percent":        percentDelta(baseline.Latency.P99MS, current.Latency.P99MS),
+	}
 	return json.NewEncoder(os.Stdout).Encode(result)
 }
 
@@ -240,8 +255,19 @@ func estimate(args []string) error {
 		return capacity.ErrInvalidInput
 	}
 
-	confidence := capacity.ExtrapolationConfidence(capacity.ExtrapolationEvidence{MeasuredPoints: *points, MinEfficiency: *efficiency, SameBottleneck: true, DownstreamHeadroom: .2, TargetScale: ratio})
-	result := reportpkg.Extrapolated{Name: target.Server.Name, Value: *summary.SustainableThroughput * ratio * *efficiency, Confidence: confidence, Basis: fmt.Sprintf("CPU ratio %.3f x measured efficiency %.3f; stateful ceilings must be checked separately", ratio, *efficiency)}
+	confidence := capacity.ExtrapolationConfidence(capacity.ExtrapolationEvidence{
+		MeasuredPoints:     *points,
+		MinEfficiency:      *efficiency,
+		SameBottleneck:     true,
+		DownstreamHeadroom: .2,
+		TargetScale:        ratio,
+	})
+	result := reportpkg.Extrapolated{
+		Name:       target.Server.Name,
+		Value:      *summary.SustainableThroughput * ratio * *efficiency,
+		Confidence: confidence,
+		Basis:      fmt.Sprintf("CPU ratio %.3f x measured efficiency %.3f; stateful ceilings must be checked separately", ratio, *efficiency),
+	}
 	return json.NewEncoder(os.Stdout).Encode(result)
 }
 
@@ -293,7 +319,14 @@ func runScenario(ctx context.Context, args []string) error {
 		return fmt.Errorf("run k6 scenario %s: %w", scenario, err)
 	}
 
-	metadata := map[string]any{"run_id": runID, "scenario": scenario, "base_url": *baseURL, "rate": *rate, "git_sha": gitSHA(ctx), "ended_at": time.Now().UTC()}
+	metadata := map[string]any{
+		"run_id":   runID,
+		"scenario": scenario,
+		"base_url": *baseURL,
+		"rate":     *rate,
+		"git_sha":  gitSHA(ctx),
+		"ended_at": time.Now().UTC(),
+	}
 	file, err := os.Create(filepath.Join(rawDirectory, "config.json"))
 
 	if err != nil {
@@ -325,7 +358,17 @@ func gitSHA(ctx context.Context) string {
 }
 
 func scenarioScripts() map[string]string {
-	return map[string]string{"gateway": "load-tests/k6/gateway/baseline.js", "gateway-authenticated-read": "load-tests/k6/gateway/authenticated-read.js", "auth-login": "load-tests/k6/auth/login.js", "auth-refresh": "load-tests/k6/auth/refresh.js", "ticket-read": "load-tests/k6/ticket/read.js", "location": "load-tests/k6/location/steady.js", "dispatch-preview": "load-tests/k6/dispatch/preview.js", "analytics": "load-tests/k6/analytics/queries.js", "full": "load-tests/k6/full-system/mixed.js"}
+	return map[string]string{
+		"gateway":                    "load-tests/k6/gateway/baseline.js",
+		"gateway-authenticated-read": "load-tests/k6/gateway/authenticated-read.js",
+		"auth-login":                 "load-tests/k6/auth/login.js",
+		"auth-refresh":               "load-tests/k6/auth/refresh.js",
+		"ticket-read":                "load-tests/k6/ticket/read.js",
+		"location":                   "load-tests/k6/location/steady.js",
+		"dispatch-preview":           "load-tests/k6/dispatch/preview.js",
+		"analytics":                  "load-tests/k6/analytics/queries.js",
+		"full":                       "load-tests/k6/full-system/mixed.js",
+	}
 }
 
 func writeReports(directory string, summary reportpkg.Summary) error {
@@ -337,7 +380,11 @@ func writeReports(directory string, summary reportpkg.Summary) error {
 	writers := []struct {
 		name  string
 		write func(*os.File) error
-	}{{"summary.json", func(file *os.File) error { return reportpkg.WriteJSON(file, summary) }}, {"summary.csv", func(file *os.File) error { return reportpkg.WriteCSV(file, summary) }}, {"report.md", func(file *os.File) error { return reportpkg.WriteMarkdown(file, summary) }}}
+	}{
+		{"summary.json", func(file *os.File) error { return reportpkg.WriteJSON(file, summary) }},
+		{"summary.csv", func(file *os.File) error { return reportpkg.WriteCSV(file, summary) }},
+		{"report.md", func(file *os.File) error { return reportpkg.WriteMarkdown(file, summary) }},
+	}
 	for _, item := range writers {
 		file, err := os.Create(filepath.Join(directory, item.name))
 

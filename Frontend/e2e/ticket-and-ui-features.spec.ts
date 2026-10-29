@@ -3,17 +3,19 @@ import { apiLogin, bearer, loginThroughUi } from "./support/auth";
 import { gatewayUrl } from "./support/environment";
 
 async function selectTestAddress(page: import("@playwright/test").Page) {
-  await page.route("**/api/geocode**", async route => {
+  await page.route("**/api/geocode**", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        suggestions: [{
-          id: "e2e-address",
-          address: "Москва, Тверская улица, 1",
-          latitude: 55.757393,
-          longitude: 37.613218,
-        }],
+        suggestions: [
+          {
+            id: "e2e-address",
+            address: "Москва, Тверская улица, 1",
+            latitude: 55.757393,
+            longitude: 37.613218,
+          },
+        ],
       }),
     });
   });
@@ -23,87 +25,130 @@ async function selectTestAddress(page: import("@playwright/test").Page) {
 }
 
 test.describe("Заявки и пользовательские функции", () => {
-  test("диспетчер видит составной инцидент и управляет своей частью", async ({ page, request }) => {
+  test("диспетчер видит составной инцидент и управляет своей частью", async ({
+    page,
+    request,
+  }) => {
     const adminToken = await apiLogin(request, "admin");
     const dispatcherToken = await apiLogin(request, "dispatcher");
-    const dispatcherMe = await request.get(`${gatewayUrl}/auth/me`, { headers: bearer(dispatcherToken) });
-    const dispatcherUser = await dispatcherMe.json() as { user_id: string };
-    const workingDepartmentResponse = await request.post(`${gatewayUrl}/profile-checks/resolve-working-department`, {
+    const dispatcherMe = await request.get(`${gatewayUrl}/auth/me`, {
       headers: bearer(dispatcherToken),
-      data: { user_id: dispatcherUser.user_id },
     });
+    const dispatcherUser = (await dispatcherMe.json()) as { user_id: string };
+    const workingDepartmentResponse = await request.post(
+      `${gatewayUrl}/profile-checks/resolve-working-department`,
+      {
+        headers: bearer(dispatcherToken),
+        data: { user_id: dispatcherUser.user_id },
+      },
+    );
     await expect(workingDepartmentResponse).toBeOK();
-    const workingDepartment = await workingDepartmentResponse.json() as { department_id: string; can_operate: boolean };
+    const workingDepartment = (await workingDepartmentResponse.json()) as {
+      department_id: string;
+      can_operate: boolean;
+    };
     expect(workingDepartment.can_operate).toBeTruthy();
 
-    const departmentsResponse = await request.post(`${gatewayUrl}/departments/list`, {
-      headers: bearer(adminToken),
-      data: { limit: 100, offset: 0 },
-    });
+    const departmentsResponse = await request.post(
+      `${gatewayUrl}/departments/list`,
+      {
+        headers: bearer(adminToken),
+        data: { limit: 100, offset: 0 },
+      },
+    );
     await expect(departmentsResponse).toBeOK();
-    const departments = await departmentsResponse.json() as { departments: Array<{ id: string }> };
-    const foreignDepartment = departments.departments.find(item => item.id !== workingDepartment.department_id);
+    const departments = (await departmentsResponse.json()) as {
+      departments: Array<{ id: string }>;
+    };
+    const foreignDepartment = departments.departments.find(
+      (item) => item.id !== workingDepartment.department_id,
+    );
     expect(foreignDepartment).toBeTruthy();
 
-    const categoriesResponse = await request.post(`${gatewayUrl}/ticket-categories/list`, {
-      headers: bearer(adminToken),
-      data: { limit: 100, offset: 0 },
-    });
+    const categoriesResponse = await request.post(
+      `${gatewayUrl}/ticket-categories/list`,
+      {
+        headers: bearer(adminToken),
+        data: { limit: 100, offset: 0 },
+      },
+    );
     await expect(categoriesResponse).toBeOK();
-    const categories = await categoriesResponse.json() as { categories: Array<{ id: string; is_active: boolean }> };
-    const category = categories.categories.find(item => item.is_active);
+    const categories = (await categoriesResponse.json()) as {
+      categories: Array<{ id: string; is_active: boolean }>;
+    };
+    const category = categories.categories.find((item) => item.is_active);
     expect(category).toBeTruthy();
 
     const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    const foreignRequestResponse = await request.post(`${gatewayUrl}/tickets/requests/create`, {
-      headers: bearer(adminToken),
-      data: {
-        department_id: foreignDepartment!.id,
-        category_id: category!.id,
-        title: `UI составной инцидент A ${suffix}`,
-        description: "Часть другого департамента",
-        priority: "HIGH",
-        address: "Москва, Тверская улица, 10",
-        latitude: 55.757393,
-        longitude: 37.613218,
+    const foreignRequestResponse = await request.post(
+      `${gatewayUrl}/tickets/requests/create`,
+      {
+        headers: bearer(adminToken),
+        data: {
+          department_id: foreignDepartment!.id,
+          category_id: category!.id,
+          title: `UI составной инцидент A ${suffix}`,
+          description: "Часть другого департамента",
+          priority: "HIGH",
+          address: "Москва, Тверская улица, 10",
+          latitude: 55.757393,
+          longitude: 37.613218,
+        },
       },
-    });
+    );
     expect(foreignRequestResponse.status()).toBe(201);
-    const foreignRequest = await foreignRequestResponse.json() as { incident: { id: string } };
+    const foreignRequest = (await foreignRequestResponse.json()) as {
+      incident: { id: string };
+    };
 
     const ownTitle = `UI составной инцидент B ${suffix}`;
-    const ownRequestResponse = await request.post(`${gatewayUrl}/tickets/requests/create`, {
-      headers: bearer(dispatcherToken),
-      data: {
-        department_id: workingDepartment.department_id,
-        category_id: category!.id,
-        title: ownTitle,
-        description: "Часть департамента диспетчера",
-        priority: "HIGH",
-        address: "Москва, Петровка, 12",
-        latitude: 55.761393,
-        longitude: 37.617218,
+    const ownRequestResponse = await request.post(
+      `${gatewayUrl}/tickets/requests/create`,
+      {
+        headers: bearer(dispatcherToken),
+        data: {
+          department_id: workingDepartment.department_id,
+          category_id: category!.id,
+          title: ownTitle,
+          description: "Часть департамента диспетчера",
+          priority: "HIGH",
+          address: "Москва, Петровка, 12",
+          latitude: 55.761393,
+          longitude: 37.617218,
+        },
       },
-    });
+    );
     expect(ownRequestResponse.status()).toBe(201);
-    const ownRequest = await ownRequestResponse.json() as { request: { id: string } };
+    const ownRequest = (await ownRequestResponse.json()) as {
+      request: { id: string };
+    };
 
-    const attachResponse = await request.post(`${gatewayUrl}/tickets/requests/attach`, {
-      headers: bearer(dispatcherToken),
-      data: {
-        incident_id: foreignRequest.incident.id,
-        request_id: ownRequest.request.id,
-        reason: "UI E2E: общий городской инцидент",
+    const attachResponse = await request.post(
+      `${gatewayUrl}/tickets/requests/attach`,
+      {
+        headers: bearer(dispatcherToken),
+        data: {
+          incident_id: foreignRequest.incident.id,
+          request_id: ownRequest.request.id,
+          reason: "UI E2E: общий городской инцидент",
+        },
       },
-    });
+    );
     await expect(attachResponse).toBeOK();
 
-    const compositionResponse = await request.post(`${gatewayUrl}/tickets/requests/list`, {
-      headers: bearer(dispatcherToken),
-      data: { incident_id: foreignRequest.incident.id, limit: 100, offset: 0 },
-    });
+    const compositionResponse = await request.post(
+      `${gatewayUrl}/tickets/requests/list`,
+      {
+        headers: bearer(dispatcherToken),
+        data: {
+          incident_id: foreignRequest.incident.id,
+          limit: 100,
+          offset: 0,
+        },
+      },
+    );
     await expect(compositionResponse).toBeOK();
-    const composition = await compositionResponse.json() as {
+    const composition = (await compositionResponse.json()) as {
       total: number;
       completed: number;
       department_count: number;
@@ -114,61 +159,110 @@ test.describe("Заявки и пользовательские функции",
     expect(composition.is_composite).toBeTruthy();
 
     await loginThroughUi(page, "dispatcher");
-    await page.locator("aside nav").getByText("Инциденты", { exact: true }).click();
-    await page.getByRole("searchbox", { name: "Поиск", exact: true }).fill(ownTitle);
+    await page
+      .locator("aside nav")
+      .getByText("Инциденты", { exact: true })
+      .click();
+    await page
+      .getByRole("searchbox", { name: "Поиск", exact: true })
+      .fill(ownTitle);
     await page.getByText(ownTitle, { exact: true }).click();
 
     const dialog = page.getByRole("dialog");
-    await expect(dialog.getByText("Составной междепартаментный инцидент", { exact: true })).toBeVisible();
-    await expect(dialog.getByRole("heading", {
-      name: `Выполнено ${composition.completed} из ${composition.total}`,
-    })).toBeVisible();
-    await expect(dialog.getByText(`${composition.department_count} деп.`, { exact: true })).toBeVisible();
+    await expect(
+      dialog.getByText("Составной междепартаментный инцидент", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole("heading", {
+        name: `Выполнено ${composition.completed} из ${composition.total}`,
+      }),
+    ).toBeVisible();
+    await expect(
+      dialog.getByText(`${composition.department_count} деп.`, { exact: true }),
+    ).toBeVisible();
 
-    await dialog.getByLabel("Причина исключения").fill("UI E2E: проверяем исключение части");
-    const detachResponse = page.waitForResponse(response =>
-      response.url().endsWith("/tickets/requests/detach") && response.request().method() === "POST",
+    await dialog
+      .getByLabel("Причина исключения")
+      .fill("UI E2E: проверяем исключение части");
+    const detachResponse = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/tickets/requests/detach") &&
+        response.request().method() === "POST",
     );
-    await dialog.getByRole("button", { name: "Исключить из инцидента" }).click();
+    await dialog
+      .getByRole("button", { name: "Исключить из инцидента" })
+      .click();
     expect((await detachResponse).status()).toBe(200);
 
-    await dialog.getByLabel("ID целевого инцидента").fill(foreignRequest.incident.id);
-    await dialog.getByLabel("Причина изменения").fill("UI E2E: возвращаем часть в состав");
-    const reattachResponse = page.waitForResponse(response =>
-      response.url().endsWith("/tickets/requests/attach") && response.request().method() === "POST",
+    await dialog
+      .getByLabel("ID целевого инцидента")
+      .fill(foreignRequest.incident.id);
+    await dialog
+      .getByLabel("Причина изменения")
+      .fill("UI E2E: возвращаем часть в состав");
+    const reattachResponse = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/tickets/requests/attach") &&
+        response.request().method() === "POST",
     );
     await dialog.getByRole("button", { name: "Добавить в инцидент" }).click();
     expect((await reattachResponse).status()).toBe(200);
-    await expect(dialog.getByText("Составной междепартаментный инцидент", { exact: true })).toBeVisible();
-    await expect(dialog.getByRole("heading", {
-      name: `Выполнено ${composition.completed} из ${composition.total}`,
-    })).toBeVisible();
+    await expect(
+      dialog.getByText("Составной междепартаментный инцидент", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole("heading", {
+        name: `Выполнено ${composition.completed} из ${composition.total}`,
+      }),
+    ).toBeVisible();
   });
 
   test("житель создаёт заявку и находит её фильтром", async ({ page }) => {
     await loginThroughUi(page, "user");
-    await page.locator("aside nav").getByText("Сообщить", { exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Сообщить о проблеме" })).toBeVisible();
-    await expect(page.getByLabel("Департамент").locator("option")).not.toHaveCount(0);
-    await expect(page.getByLabel("Категория").locator("option")).not.toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Создать заявку" })).toBeEnabled();
+    await page
+      .locator("aside nav")
+      .getByText("Сообщить", { exact: true })
+      .click();
+    await expect(
+      page.getByRole("heading", { name: "Сообщить о проблеме" }),
+    ).toBeVisible();
+    await expect(
+      page.getByLabel("Департамент").locator("option"),
+    ).not.toHaveCount(0);
+    await expect(
+      page.getByLabel("Категория").locator("option"),
+    ).not.toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Создать заявку" }),
+    ).toBeEnabled();
     const title = `E2E: повреждение покрытия ${Date.now()}`;
     await page.getByLabel("Заголовок").fill(title);
-    await page.getByLabel("Описание").fill("Проверка полного сценария создания обращения через браузер.");
+    await page
+      .getByLabel("Описание")
+      .fill("Проверка полного сценария создания обращения через браузер.");
     await selectTestAddress(page);
     await page.getByLabel("Приоритет").selectOption("HIGH");
-    const createResponse = page.waitForResponse(response =>
-      response.url().endsWith("/tickets/create") && response.request().method() === "POST",
+    const createResponse = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/tickets/create") &&
+        response.request().method() === "POST",
     );
     await page.getByRole("button", { name: "Создать заявку" }).click();
     expect((await createResponse).status()).toBe(201);
-    await page.locator("aside nav").getByText("Мои заявки", { exact: true }).click();
-    await page.getByRole("searchbox", { name: "Поиск", exact: true }).fill(title);
+    await page
+      .locator("aside nav")
+      .getByText("Мои заявки", { exact: true })
+      .click();
+    await page
+      .getByRole("searchbox", { name: "Поиск", exact: true })
+      .fill(title);
     await expect(page.getByText(title, { exact: true })).toBeVisible();
   });
 
-  test("форма сохраняет данные и показывает понятную ошибку при недоступном Ticket Service", async ({ page }) => {
-    await page.route("**/tickets/create", async route => {
+  test("форма сохраняет данные и показывает понятную ошибку при недоступном Ticket Service", async ({
+    page,
+  }) => {
+    await page.route("**/tickets/create", async (route) => {
       await route.fulfill({
         status: 503,
         contentType: "application/json",
@@ -180,26 +274,44 @@ test.describe("Заявки и пользовательские функции",
       });
     });
     await loginThroughUi(page, "user");
-    await page.locator("aside nav").getByText("Сообщить", { exact: true }).click();
+    await page
+      .locator("aside nav")
+      .getByText("Сообщить", { exact: true })
+      .click();
 
     const title = `E2E: недоступный Ticket Service ${Date.now()}`;
     await page.getByLabel("Заголовок").fill(title);
-    await page.getByLabel("Описание").fill("Проверка отображения отказа без потери формы.");
+    await page
+      .getByLabel("Описание")
+      .fill("Проверка отображения отказа без потери формы.");
     await selectTestAddress(page);
     await page.getByRole("button", { name: "Создать заявку" }).click();
 
-    await expect(page.getByRole("status")).toContainText("Сервис временно недоступен");
+    await expect(page.getByRole("status")).toContainText(
+      "Сервис временно недоступен",
+    );
     await expect(page.getByLabel("Заголовок")).toHaveValue(title);
-    await expect(page.getByRole("button", { name: "Создать заявку" })).toBeEnabled();
+    await expect(
+      page.getByRole("button", { name: "Создать заявку" }),
+    ).toBeEnabled();
   });
 
   test("фильтры заявок и карточка работают в демо", async ({ page }) => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
     await page.getByRole("button", { name: "Открыть демо" }).click();
-    await page.locator("aside nav").getByText("Инциденты", { exact: true }).click();
-    await page.locator(".ticket-filters label").filter({ hasText: /^Статус/ }).locator("select").selectOption("NEW");
-    await expect(page.getByText("Повреждён дорожный знак", { exact: true })).toBeVisible();
+    await page
+      .locator("aside nav")
+      .getByText("Инциденты", { exact: true })
+      .click();
+    await page
+      .locator(".ticket-filters label")
+      .filter({ hasText: /^Статус/ })
+      .locator("select")
+      .selectOption("NEW");
+    await expect(
+      page.getByText("Повреждён дорожный знак", { exact: true }),
+    ).toBeVisible();
     await page.getByText("Повреждён дорожный знак", { exact: true }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog.getByText(/Заявка inc-1031/i)).toBeVisible();
@@ -207,31 +319,48 @@ test.describe("Заявки и пользовательские функции",
     await page.keyboard.press("Escape");
   });
 
-  test("выбор объекта бригадой находится внутри карточки заявки", async ({ page }) => {
+  test("выбор объекта бригадой находится внутри карточки заявки", async ({
+    page,
+  }) => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
     await page.getByRole("button", { name: "Открыть демо" }).click();
     await page.getByRole("button", { name: "Работник", exact: true }).click();
-    await page.locator("aside nav").getByText("Задания", { exact: true }).click();
+    await page
+      .locator("aside nav")
+      .getByText("Задания", { exact: true })
+      .click();
     await page.getByRole("button", { name: /Повреждение водопровода/ }).click();
 
     const dialog = page.getByRole("dialog", { name: /Заявка/ });
-    await expect(dialog.getByRole("heading", { name: "Объект работ" })).toBeVisible();
-    await expect(dialog.getByRole("group", { name: "Способ выбора объекта" })).toBeVisible();
-    await expect(page.locator(".ticket-workspace > .ticket-asset-linker")).toHaveCount(0);
+    await expect(
+      dialog.getByRole("heading", { name: "Объект работ" }),
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole("group", { name: "Способ выбора объекта" }),
+    ).toBeVisible();
+    await expect(
+      page.locator(".ticket-workspace > .ticket-asset-linker"),
+    ).toHaveCount(0);
   });
 
-  test("карта показывает назначенный маршрут без перекрывающей панели слоёв", async ({ page }) => {
+  test("карта показывает назначенный маршрут без перекрывающей панели слоёв", async ({
+    page,
+  }) => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
     await page.getByRole("button", { name: "Открыть демо" }).click();
 
     await expect(page.locator(".layers-window")).toHaveCount(0);
     await expect(page.locator(".assigned-route")).toBeVisible();
-    await expect(page.locator(".map-legend")).toContainText("Назначенный маршрут");
+    await expect(page.locator(".map-legend")).toContainText(
+      "Назначенный маршрут",
+    );
   });
 
-  test("карта сохраняет последнюю позицию машины после окончания онлайн-интервала", async ({ page }) => {
+  test("карта сохраняет последнюю позицию машины после окончания онлайн-интервала", async ({
+    page,
+  }) => {
     await page.clock.install({ time: new Date("2026-09-16T09:00:00Z") });
     await page.goto("/");
     await page.waitForLoadState("networkidle");
@@ -243,26 +372,36 @@ test.describe("Заявки и пользовательские функции",
     await page.getByRole("button", { name: "Диспетчер", exact: true }).click();
 
     await expect(page.locator(".leaflet-vehicle.stale")).not.toHaveCount(0);
-    await expect(page.getByText("Последняя позиция", { exact: true }).first()).toBeVisible();
-    const vehicleNames = await page.locator(".vehicle-feed-row small").allTextContents();
+    await expect(
+      page.getByText("Последняя позиция", { exact: true }).first(),
+    ).toBeVisible();
+    const vehicleNames = await page
+      .locator(".vehicle-feed-row small")
+      .allTextContents();
     expect(new Set(vehicleNames).size).toBe(vehicleNames.length);
   });
 
-  test("профиль открывает отдельное окно смены пароля с подтверждением", async ({ page }) => {
+  test("профиль открывает отдельное окно смены пароля с подтверждением", async ({
+    page,
+  }) => {
     await loginThroughUi(page, "worker");
     await page.getByRole("button", { name: "Открыть профиль" }).click();
     await page.getByRole("button", { name: "Изменить пароль" }).click();
     const dialog = page.getByRole("dialog", { name: "Изменить пароль" });
     await expect(dialog.getByLabel("Текущий пароль")).toBeVisible();
-    await expect(dialog.getByLabel("Новый пароль", { exact: true })).toBeVisible();
+    await expect(
+      dialog.getByLabel("Новый пароль", { exact: true }),
+    ).toBeVisible();
     await expect(dialog.getByLabel("Повторите новый пароль")).toBeVisible();
     await dialog.getByRole("button", { name: "Отмена" }).click();
     await expect(dialog).toBeHidden();
   });
 
-  test("профиль жителя не запрашивает отсутствующий рабочий профиль", async ({ page }) => {
+  test("профиль жителя не запрашивает отсутствующий рабочий профиль", async ({
+    page,
+  }) => {
     const workProfileRequests: string[] = [];
-    page.on("request", request => {
+    page.on("request", (request) => {
       if (request.url().includes("/work-profiles/get-by-user")) {
         workProfileRequests.push(request.url());
       }
@@ -270,29 +409,35 @@ test.describe("Заявки и пользовательские функции",
 
     await loginThroughUi(page, "user");
     await page.getByRole("button", { name: "Открыть профиль" }).click();
-    await expect(page.getByRole("heading", { name: "Профиль", exact: true, level: 2 })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Профиль", exact: true, level: 2 }),
+    ).toBeVisible();
     await expect(page.getByLabel("ФИО")).toBeVisible();
     expect(workProfileRequests).toEqual([]);
   });
 
-  test("карточка инфраструктуры закрывается по карте, а отсутствие паспорта не считается ошибкой", async ({ page }) => {
-    await page.route("**/api/moscow-infrastructure", async route => {
+  test("карточка инфраструктуры закрывается по карте, а отсутствие паспорта не считается ошибкой", async ({
+    page,
+  }) => {
+    await page.route("**/api/moscow-infrastructure", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
-          features: [{
-            id: "test-infrastructure-1",
-            latitude: 55.764833,
-            longitude: 37.609087,
-            category: "roads",
-            name: "Тестовый объект инфраструктуры",
-            kind: "station",
-          }],
+          features: [
+            {
+              id: "test-infrastructure-1",
+              latitude: 55.764833,
+              longitude: 37.609087,
+              category: "roads",
+              name: "Тестовый объект инфраструктуры",
+              kind: "station",
+            },
+          ],
         }),
       });
     });
-    await page.route("http://localhost:8081/**", async route => {
+    await page.route("http://localhost:8081/**", async (route) => {
       if (route.request().url().endsWith("/assets/nearby")) {
         await route.fulfill({
           status: 404,
@@ -320,8 +465,12 @@ test.describe("Заявки и пользовательские функции",
 
     const card = page.getByLabel("Карточка объекта инфраструктуры");
     await expect(card).toBeVisible();
-    await expect(card.getByText("Паспорт для этого объекта ещё не создан.")).toBeVisible();
-    await expect(card.getByText("Запрошенные данные не найдены")).toHaveCount(0);
+    await expect(
+      card.getByText("Паспорт для этого объекта ещё не создан."),
+    ).toBeVisible();
+    await expect(card.getByText("Запрошенные данные не найдены")).toHaveCount(
+      0,
+    );
 
     await page.locator(".map-root").click({ position: { x: 500, y: 350 } });
     await expect(card).toBeHidden();

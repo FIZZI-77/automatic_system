@@ -19,7 +19,15 @@ import (
 
 const MaxFileSize int64 = 25 << 20
 
-var allowedTypes = map[string]bool{"image/jpeg": true, "image/png": true, "image/gif": true, "image/webp": true, "application/pdf": true, "text/csv": true, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": true}
+var allowedTypes = map[string]bool{
+	"image/jpeg":      true,
+	"image/png":       true,
+	"image/gif":       true,
+	"image/webp":      true,
+	"application/pdf": true,
+	"text/csv":        true,
+	"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": true,
+}
 
 type Service struct {
 	repo   *repository.Repository
@@ -28,6 +36,7 @@ type Service struct {
 	logger *zap.Logger
 }
 
+// New создаёт сервис файлов с хранилищем метаданных, S3 и сроком действия подписанных ссылок ttl.
 func New(repo *repository.Repository, store *storage.S3, ttl time.Duration, logger *zap.Logger) *Service {
 	return &Service{
 		repo:   repo,
@@ -37,6 +46,9 @@ func New(repo *repository.Repository, store *storage.S3, ttl time.Duration, logg
 	}
 }
 
+// Create проверяет владельца, имя, MIME-тип и размер файла до 25 МиБ, сохраняет
+// метаданные и выдаёт подписанную ссылку загрузки. Нормализует локальную копию in;
+// при ошибке создания ссылки уже сохранённые метаданные остаются в базе.
 func (s *Service) Create(ctx context.Context, in models.CreateInput) (*models.PresignedFile, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx), zap.String("operation", "create_upload"))
 	in.Name = filepath.Base(strings.TrimSpace(in.Name))
@@ -55,7 +67,7 @@ func (s *Service) Create(ctx context.Context, in models.CreateInput) (*models.Pr
 		return nil, err
 	}
 
-	u, err := s.store.UploadURL(ctx, key, in.ContentType, in.Checksum, s.ttl)
+	u, err := s.store.UploadURL(ctx, key, in.ContentType, in.Checksum, in.Size, s.ttl)
 
 	if err != nil {
 		logger.Error("presign upload failed", zap.String("file_id", f.ID.String()), zap.Error(err))
@@ -70,6 +82,9 @@ func (s *Service) Create(ctx context.Context, in models.CreateInput) (*models.Pr
 	}, nil
 }
 
+// Confirm сверяет размер и MIME-тип объекта в S3 и подтверждает загрузку для
+// владельца или привилегированного пользователя. При несовпадении пытается поместить
+// ожидающий файл в карантин и возвращает ошибку; ошибки карантина записывает в журнал.
 func (s *Service) Confirm(ctx context.Context, id, actor uuid.UUID, privileged bool) (*models.File, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx), zap.String("operation", "confirm_upload"), zap.String("file_id", id.String()))
 	f, err := s.repo.Get(ctx, id)
@@ -106,6 +121,9 @@ func (s *Service) Confirm(ctx context.Context, id, actor uuid.UUID, privileged b
 
 	return confirmed, err
 }
+
+// Link связывает загруженный файл с ресурсом для владельца или привилегированного
+// пользователя. Требует непустой тип ресурса и ненулевой ID; ограничения статуса проверяет хранилище.
 func (s *Service) Link(ctx context.Context, id, actor uuid.UUID, privileged bool, in models.LinkInput) (*models.File, error) {
 
 	if in.ResourceID == uuid.Nil || strings.TrimSpace(in.ResourceType) == "" {
@@ -124,6 +142,9 @@ func (s *Service) Link(ctx context.Context, id, actor uuid.UUID, privileged bool
 
 	return s.repo.Link(ctx, id, in)
 }
+
+// Download выдаёт подписанную ссылку скачивания файла UPLOADED или LINKED
+// владельцу или привилегированному пользователю; иной статус даёт ErrValidation.
 func (s *Service) Download(ctx context.Context, id, actor uuid.UUID, privileged bool) (*models.PresignedFile, error) {
 	f, err := s.repo.Get(ctx, id)
 
@@ -152,9 +173,13 @@ func (s *Service) Download(ctx context.Context, id, actor uuid.UUID, privileged 
 	}, nil
 }
 
+// downloadable сообщает, разрешает ли статус скачивание: UPLOADED или LINKED.
 func downloadable(status models.Status) bool {
 	return status == models.StatusUploaded || status == models.StatusLinked
 }
+
+// Delete проверяет право владельца или привилегированного пользователя, удаляет
+// объект из S3 и затем помечает метаданные удалёнными. При ошибке базы объект уже может быть удалён.
 func (s *Service) Delete(ctx context.Context, id, actor uuid.UUID, privileged bool) error {
 	f, err := s.repo.Get(ctx, id)
 
@@ -172,6 +197,8 @@ func (s *Service) Delete(ctx context.Context, id, actor uuid.UUID, privileged bo
 
 	return s.repo.Delete(ctx, id)
 }
+
+// List возвращает связанные файлы ресурса, ограничивая обычного пользователя его файлами.
 func (s *Service) List(ctx context.Context, typ string, id, actor uuid.UUID, privileged bool) ([]*models.File, error) {
 	files, err := s.repo.List(ctx, typ, id)
 
@@ -183,16 +210,16 @@ func (s *Service) List(ctx context.Context, typ string, id, actor uuid.UUID, pri
 		return files, nil
 	}
 
+	visible := make([]*models.File, 0, len(files))
 	for _, file := range files {
-
-		if file.OwnerUserID != actor {
-			return nil, models.ErrPermissionDenied
+		if file.OwnerUserID == actor {
+			visible = append(visible, file)
 		}
-
 	}
-	return files, nil
+	return visible, nil
 }
 
+// IsNotFound проверяет наличие pgx.ErrNoRows в цепочке err.
 func IsNotFound(err error) bool {
 	return errors.Is(err, pgx.ErrNoRows)
 }

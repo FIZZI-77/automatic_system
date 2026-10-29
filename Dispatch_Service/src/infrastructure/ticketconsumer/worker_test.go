@@ -27,7 +27,12 @@ func TestApplyStartsEmergencyAutoDispatch(t *testing.T) {
 	eventID := uuid.New()
 	ticketID := uuid.New()
 	actorID := uuid.New()
-	payload, err := json.Marshal(ticketCreated{EventID: eventID.String(), EventType: "ticket.created", TicketID: ticketID.String(), Priority: "EMERGENCY"})
+	payload, err := json.Marshal(ticketCreated{
+		EventID:   eventID.String(),
+		EventType: "ticket.created",
+		TicketID:  ticketID.String(),
+		Priority:  "EMERGENCY",
+	})
 
 	if err != nil {
 		t.Fatalf("json.Marshal(ticketCreated) error = %v", err)

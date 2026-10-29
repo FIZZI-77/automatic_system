@@ -83,8 +83,14 @@ func (w *Worker) Run(ctx context.Context) error {
 	)
 	var group sync.WaitGroup
 	group.Add(2)
-	go func() { defer group.Done(); w.runArchiveLoop(ctx) }()
-	go func() { defer group.Done(); w.runPurgeLoop(ctx) }()
+	go func() {
+		defer group.Done()
+		w.runArchiveLoop(ctx)
+	}()
+	go func() {
+		defer group.Done()
+		w.runPurgeLoop(ctx)
+	}()
 	group.Wait()
 	return nil
 }
@@ -295,7 +301,12 @@ func lockTicket(ctx context.Context, tx pgx.Tx, ticketID uuid.UUID) error {
 }
 
 func insertRetentionEvent(ctx context.Context, tx pgx.Tx, ticketID uuid.UUID, eventType string, occurredAt time.Time) error {
-	payload, err := json.Marshal(map[string]any{"event_id": uuid.NewString(), "event_type": eventType, "ticket_id": ticketID.String(), "occurred_at": occurredAt})
+	payload, err := json.Marshal(map[string]any{
+		"event_id":    uuid.NewString(),
+		"event_type":  eventType,
+		"ticket_id":   ticketID.String(),
+		"occurred_at": occurredAt,
+	})
 
 	if err != nil {
 		return fmt.Errorf("marshal %s event: %w", eventType, err)

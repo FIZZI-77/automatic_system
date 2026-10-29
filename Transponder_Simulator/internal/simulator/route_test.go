@@ -13,7 +13,11 @@ func TestRouteValidate(t *testing.T) {
 		wantErr string
 	}{
 		{"empty", Route{}, "at least one point"},
-		{"valid boundaries", Route{Points: []Point{{Latitude: -90, Longitude: -180}, {Latitude: 90, Longitude: 180}}}, ""},
+		{
+			"valid boundaries",
+			Route{Points: []Point{{Latitude: -90, Longitude: -180}, {Latitude: 90, Longitude: 180}}},
+			"",
+		},
 		{"bad latitude", Route{Points: []Point{{Latitude: 90.01, Longitude: 0}}}, "latitude"},
 		{"bad longitude", Route{Points: []Point{{Latitude: 0, Longitude: -180.01}}}, "longitude"},
 		{"negative speed", Route{Points: []Point{{SpeedKMH: &negative}}}, "speed"},

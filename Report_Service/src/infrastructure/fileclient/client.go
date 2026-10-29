@@ -17,6 +17,7 @@ import (
 	filev1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/file/v1"
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -24,11 +25,17 @@ type Client struct {
 	api              filev1.FileServiceClient
 	http             *http.Client
 	internalEndpoint string
+	linkToken        string
 }
 
-func New(api filev1.FileServiceClient, internal string) *Client {
+func New(api filev1.FileServiceClient, internal string, linkToken ...string) *Client {
+	token := ""
+	if len(linkToken) > 0 {
+		token = strings.TrimSpace(linkToken[0])
+	}
 	return &Client{
-		api: api,
+		linkToken: token,
+		api:       api,
 		http: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -98,7 +105,7 @@ func (c *Client) UploadForResource(ctx context.Context, resourceType string, res
 		return uuid.Nil, e
 	}
 
-	_, e = c.api.LinkFile(ctx, &filev1.LinkFileRequest{
+	_, e = c.api.LinkFile(c.linkContext(ctx), &filev1.LinkFileRequest{
 		FileId:       id.String(),
 		ResourceType: resourceType,
 		ResourceId:   resourceID.String(),
@@ -109,7 +116,7 @@ func (c *Client) UploadForResource(ctx context.Context, resourceType string, res
 }
 
 func (c *Client) LinkExisting(ctx context.Context, fileID, resourceID, actor uuid.UUID, roles []string) error {
-	_, err := c.api.LinkFile(ctx, &filev1.LinkFileRequest{
+	_, err := c.api.LinkFile(c.linkContext(ctx), &filev1.LinkFileRequest{
 		FileId:       fileID.String(),
 		ResourceType: "work_report",
 		ResourceId:   resourceID.String(),
@@ -117,6 +124,13 @@ func (c *Client) LinkExisting(ctx context.Context, fileID, resourceID, actor uui
 		ActorRoles:   roles,
 	})
 	return err
+}
+
+func (c *Client) linkContext(ctx context.Context) context.Context {
+	md, _ := metadata.FromOutgoingContext(ctx)
+	md = md.Copy()
+	md.Set("x-report-link-token", c.linkToken)
+	return metadata.NewOutgoingContext(ctx, md)
 }
 
 func (c *Client) Delete(ctx context.Context, fileID, actor uuid.UUID, roles []string) error {

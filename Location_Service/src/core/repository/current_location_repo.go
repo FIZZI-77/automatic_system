@@ -130,10 +130,15 @@ type CurrentLocationRepoStruct struct {
 	now func() time.Time
 }
 
+// NewCurrentLocationRepo создаёт Redis-хранилище позиций с TTL 24 часа,
+// порогом устаревания 15 секунд и отключения 60 секунд.
 func NewCurrentLocationRepo(rdb redis.UniversalClient) *CurrentLocationRepoStruct {
 	return NewCurrentLocationRepoWithConfig(rdb, CurrentLocationRepoConfig{})
 }
 
+// NewCurrentLocationRepoWithConfig создаёт хранилище с настройками свежести.
+// Подставляет стандартные TTL и StaleAfter для неположительных значений,
+// обеспечивает OfflineAfter > StaleAfter и TTL > OfflineAfter.
 func NewCurrentLocationRepoWithConfig(
 	rdb redis.UniversalClient,
 	cfg CurrentLocationRepoConfig,
@@ -158,6 +163,10 @@ func NewCurrentLocationRepoWithConfig(
 	return &CurrentLocationRepoStruct{rdb: rdb, cfg: cfg, now: time.Now}
 }
 
+// SaveCurrentLocation проверяет точку и атомарно сохраняет позицию ONLINE, привязки
+// устройства и автомобиля, GEO-индекс и событие в Redis. Повтор последнего EventID
+// возвращает сохранённую позицию с Duplicate=true; меньший или равный Sequence
+// другого события даёт ErrOutOfOrderPosition. Принятая точка обновляет TTL и время получения.
 func (c *CurrentLocationRepoStruct) SaveCurrentLocation(
 	ctx context.Context,
 	in *models.RecordPositionInput,
@@ -249,6 +258,9 @@ func (c *CurrentLocationRepoStruct) SaveCurrentLocation(
 	}, nil
 }
 
+// GetCurrentLocation находит бригаду по субъекту и читает её последнюю позицию,
+// пересчитывая состояние сигнала на момент чтения. Отсутствие даёт ErrNotFound,
+// незаданный Redis-клиент — ErrDependencyUnavailable.
 func (c *CurrentLocationRepoStruct) GetCurrentLocation(
 	ctx context.Context,
 	in *models.GetCurrentLocationInput,
@@ -280,6 +292,9 @@ func (c *CurrentLocationRepoStruct) GetCurrentLocation(
 	return &models.GetCurrentLocationResult{Location: location}, nil
 }
 
+// GetCurrentLocations читает уникальные ID бригад одним Redis pipeline.
+// Возвращает карту позиций и Missing для отсутствующих либо, без AllowStale,
+// не имеющих статус ONLINE. Ошибка декодирования прерывает весь запрос.
 func (c *CurrentLocationRepoStruct) GetCurrentLocations(
 	ctx context.Context,
 	in *models.GetCurrentLocationsInput,
@@ -349,6 +364,9 @@ func (c *CurrentLocationRepoStruct) GetCurrentLocations(
 	return result, nil
 }
 
+// FindNearbyBrigades ищет позиции в Redis GEO в радиусе в метрах по расстоянию,
+// применяет фильтр ID и, при OnlyFresh, возраст ReceivedAt. Нулевой лимит заменяет
+// на DefaultLimit, неположительное окно свежести — на StaleAfter из настроек.
 func (c *CurrentLocationRepoStruct) FindNearbyBrigades(
 	ctx context.Context,
 	in *models.FindNearbyBrigadesInput,
@@ -469,6 +487,10 @@ func (c *CurrentLocationRepoStruct) FindNearbyBrigades(
 	return result, nil
 }
 
+// DetectLostSignals обрабатывает до Limit бригад с последним сигналом не позднее
+// StaleBefore, атомарно переводя их в STALE или OFFLINE. OFFLINE и истёкшие записи
+// удаляет из индексов; для нового OFFLINE пишет BrigadeSignalLost в Redis Stream.
+// Возвращает только фактические изменения, нулевой лимит заменяет на DefaultLimit.
 func (c *CurrentLocationRepoStruct) DetectLostSignals(
 	ctx context.Context,
 	in *models.DetectLostSignalsInput,
@@ -547,6 +569,8 @@ func (c *CurrentLocationRepoStruct) DetectLostSignals(
 	return result, nil
 }
 
+// resolveBrigadeID разбирает прямой ID бригады либо читает Redis-привязку автомобиля
+// или устройства. Неверный входной UUID даёт ErrValidation, отсутствующая привязка — ErrNotFound.
 func (c *CurrentLocationRepoStruct) resolveBrigadeID(
 	ctx context.Context,
 	in *models.GetCurrentLocationInput,
@@ -593,6 +617,8 @@ func (c *CurrentLocationRepoStruct) resolveBrigadeID(
 	return brigadeID, nil
 }
 
+// getByBrigadeID читает Redis-хеш позиции бригады и декодирует его.
+// Пустой или истёкший хеш возвращает как ErrNotFound.
 func (c *CurrentLocationRepoStruct) getByBrigadeID(
 	ctx context.Context,
 	brigadeID uuid.UUID,
@@ -610,6 +636,9 @@ func (c *CurrentLocationRepoStruct) getByBrigadeID(
 	return c.decodeCurrentLocation(values)
 }
 
+// decodeCurrentLocation восстанавливает позицию из Redis-полей и пересчитывает
+// STALE/OFFLINE по текущему времени, не меняя Redis. Некорректное поле даёт ошибку;
+// ID строки истории не восстанавливается и остаётся нулевым.
 func (c *CurrentLocationRepoStruct) decodeCurrentLocation(
 	values map[string]string,
 ) (*models.CurrentLocation, error) {
@@ -739,18 +768,24 @@ func (c *CurrentLocationRepoStruct) decodeCurrentLocation(
 	}, nil
 }
 
+// brigadeLocationKey формирует Redis-ключ хеша текущей позиции бригады.
 func brigadeLocationKey(
 	brigadeID uuid.UUID,
 ) string {
 	return "location:brigade:" + brigadeID.String()
 }
+
+// deviceBrigadeKey формирует Redis-ключ привязки устройства, удаляя крайние пробелы ID.
 func deviceBrigadeKey(deviceID string) string {
 	return "location:device:" + strings.TrimSpace(deviceID) + ":brigade"
 }
+
+// vehicleBrigadeKey формирует Redis-ключ привязки автомобиля к бригаде.
 func vehicleBrigadeKey(vehicleID uuid.UUID) string {
 	return "location:vehicle:" + vehicleID.String() + ":brigade"
 }
 
+// parseFloatField разбирает поле Redis-карты как float64, добавляя имя поля к ошибке.
 func parseFloatField(values map[string]string, field string) (float64, error) {
 	value, err := strconv.ParseFloat(values[field], 64)
 
@@ -761,6 +796,8 @@ func parseFloatField(values map[string]string, field string) (float64, error) {
 	return value, nil
 }
 
+// toInt64 принимает int64 или десятичную строку; для других типов возвращает ноль.
+// Ошибку разбора строки игнорирует, возвращая результат strconv.ParseInt.
 func toInt64(value interface{}) int64 {
 	switch typed := value.(type) {
 	case int64:
@@ -773,6 +810,8 @@ func toInt64(value interface{}) int64 {
 	}
 }
 
+// toString возвращает строку как есть, преобразует []byte в строку,
+// а остальные значения форматирует через fmt.Sprint.
 func toString(value interface{}) string {
 	switch typed := value.(type) {
 	case string:

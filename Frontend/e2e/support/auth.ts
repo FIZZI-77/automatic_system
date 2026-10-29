@@ -19,10 +19,20 @@ export async function apiLogin(request: APIRequestContext, role: AccountRole) {
   const demoPassword = getDemoPassword();
 
   const response = await request.post(`${gatewayUrl}/auth/login`, {
-    data: { email: accounts[role], password: demoPassword, client_id: "playwright-e2e" },
+    data: {
+      email: accounts[role],
+      password: demoPassword,
+      client_id: "playwright-e2e",
+    },
   });
-  const payload = await response.json() as { access_token?: string; error?: string };
-  expect(response.ok(), `login ${role}: ${response.status()} ${payload.error || ""}`).toBeTruthy();
+  const payload = (await response.json()) as {
+    access_token?: string;
+    error?: string;
+  };
+  expect(
+    response.ok(),
+    `login ${role}: ${response.status()} ${payload.error || ""}`,
+  ).toBeTruthy();
   expect(payload.access_token).toBeTruthy();
   return payload.access_token!;
 }

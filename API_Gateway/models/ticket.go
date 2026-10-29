@@ -13,6 +13,8 @@ const (
 	TicketStatusArchived   TicketStatus = "ARCHIVED"
 )
 
+// IsValid сообщает, является ли статус одним из NEW, ASSIGNED, IN_PROGRESS, DONE или CANCELED.
+// ARCHIVED и неизвестные значения недопустимы.
 func (s TicketStatus) IsValid() bool {
 	switch s {
 	case TicketStatusNew,
@@ -35,6 +37,7 @@ const (
 	TicketPriorityEmergency TicketPriority = "EMERGENCY"
 )
 
+// IsValid сообщает, является ли приоритет одним из LOW, MEDIUM, HIGH или EMERGENCY.
 func (p TicketPriority) IsValid() bool {
 	switch p {
 	case TicketPriorityLow,
@@ -56,6 +59,7 @@ const (
 	TicketSortByStatus    TicketSortBy = "status"
 )
 
+// IsValid проверяет поле сортировки: created_at, updated_at, priority или status.
 func (s TicketSortBy) IsValid() bool {
 	switch s {
 	case TicketSortByCreatedAt,
@@ -75,6 +79,7 @@ const (
 	SortOrderDesc SortOrder = "desc"
 )
 
+// IsValid проверяет направление сортировки: asc или desc с учётом регистра.
 func (s SortOrder) IsValid() bool {
 	switch s {
 	case SortOrderAsc, SortOrderDesc:

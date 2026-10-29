@@ -21,10 +21,12 @@ type TicketHandler struct {
 	profileClient profilev1.ProfileServiceClient
 }
 
+// NewTicketHandler создает обработчик операций с билетами и отчетами.
 func NewTicketHandler(ticketClient ticketv1.TicketServiceClient, brigadeClient brigadev1.BrigadeServiceClient, profileClient profilev1.ProfileServiceClient) *TicketHandler {
 	return &TicketHandler{ticketClient: ticketClient, brigadeClient: brigadeClient, profileClient: profileClient}
 }
 
+// CreateWorkReport создает рабочий отчет по билету.
 func (th *TicketHandler) CreateWorkReport(c *gin.Context) {
 	var req models.CreateWorkReportRequest
 
@@ -40,7 +42,12 @@ func (th *TicketHandler) CreateWorkReport(c *gin.Context) {
 		return
 	}
 
-	res, err := th.ticketClient.CreateWorkReport(ctx, &ticketv1.CreateWorkReportRequest{TicketId: req.TicketID, AuthorUserId: c.GetString("user_id"), Description: req.Description, FileIds: req.FileIDs})
+	res, err := th.ticketClient.CreateWorkReport(ctx, &ticketv1.CreateWorkReportRequest{
+		TicketId:     req.TicketID,
+		AuthorUserId: c.GetString("user_id"),
+		Description:  req.Description,
+		FileIds:      req.FileIDs,
+	})
 
 	if err != nil {
 		handleGRPCError(c, err)
@@ -50,6 +57,7 @@ func (th *TicketHandler) CreateWorkReport(c *gin.Context) {
 	c.JSON(http.StatusOK, fromProtoWorkReport(res.GetReport()))
 }
 
+// actorHasRole проверяет роль текущего пользователя.
 func actorHasRole(c *gin.Context, expected string) bool {
 	roles, _ := c.Get("roles")
 	values, _ := roles.([]string)
@@ -63,6 +71,7 @@ func actorHasRole(c *gin.Context, expected string) bool {
 	return false
 }
 
+// contextWithWorkerBrigade добавляет в контекст бригаду сотрудника, если она определена.
 func (th *TicketHandler) contextWithWorkerBrigade(ctx context.Context, c *gin.Context) (context.Context, bool) {
 	ctx = ticketActorContext(ctx, c)
 	if actorHasRole(c, "dispatcher") && !actorHasRole(c, "admin") {
@@ -93,6 +102,7 @@ func (th *TicketHandler) contextWithWorkerBrigade(ctx context.Context, c *gin.Co
 	return metadata.AppendToOutgoingContext(ctx, "x-actor-brigade-id", own.GetBrigade().GetId()), true
 }
 
+// ListWorkReports возвращает рабочие отчеты по билету.
 func (th *TicketHandler) ListWorkReports(c *gin.Context) {
 	var req models.ListWorkReportsRequest
 
@@ -121,15 +131,29 @@ func (th *TicketHandler) ListWorkReports(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"reports": reports})
 }
+
+// fromProtoWorkReport преобразует рабочий отчет protobuf в модель Gateway.
 func fromProtoWorkReport(r *ticketv1.WorkReport) *models.WorkReport {
 
 	if r == nil {
 		return nil
 	}
 
-	return &models.WorkReport{ID: r.GetId(), TicketID: r.GetTicketId(), AuthorUserID: r.GetAuthorUserId(), Description: r.GetDescription(), FileIDs: r.GetFileIds(), CreatedAt: r.GetCreatedAt().AsTime(), UpdatedAt: r.GetUpdatedAt().AsTime(), CompletionStatus: r.GetCompletionStatus(), CompletionFileID: r.GetCompletionFileId(), CompletionError: r.GetCompletionError()}
+	return &models.WorkReport{
+		ID:               r.GetId(),
+		TicketID:         r.GetTicketId(),
+		AuthorUserID:     r.GetAuthorUserId(),
+		Description:      r.GetDescription(),
+		FileIDs:          r.GetFileIds(),
+		CreatedAt:        r.GetCreatedAt().AsTime(),
+		UpdatedAt:        r.GetUpdatedAt().AsTime(),
+		CompletionStatus: r.GetCompletionStatus(),
+		CompletionFileID: r.GetCompletionFileId(),
+		CompletionError:  r.GetCompletionError(),
+	}
 }
 
+// CreateTicket создает новый билет.
 func (th *TicketHandler) CreateTicket(c *gin.Context) {
 	var req models.CreateTicketRequest
 
@@ -164,6 +188,7 @@ func (th *TicketHandler) CreateTicket(c *gin.Context) {
 	})
 }
 
+// GetTicket возвращает билет по идентификатору.
 func (th *TicketHandler) GetTicket(c *gin.Context) {
 	var req models.GetTicketRequest
 
@@ -193,6 +218,7 @@ func (th *TicketHandler) GetTicket(c *gin.Context) {
 	})
 }
 
+// ListTicket возвращает список билетов с фильтрами.
 func (th *TicketHandler) ListTicket(c *gin.Context) {
 	var req models.ListTicketRequest
 
@@ -231,6 +257,7 @@ func (th *TicketHandler) ListTicket(c *gin.Context) {
 	})
 }
 
+// UpdateTicket изменяет данные билета.
 func (th *TicketHandler) UpdateTicket(c *gin.Context) {
 	var req models.UpdateTicketRequest
 
@@ -261,6 +288,7 @@ func (th *TicketHandler) UpdateTicket(c *gin.Context) {
 	})
 }
 
+// hasTicketRole проверяет роль в значении произвольного типа.
 func hasTicketRole(value any, wanted string) bool {
 	roles, ok := value.([]string)
 
@@ -278,6 +306,7 @@ func hasTicketRole(value any, wanted string) bool {
 	return false
 }
 
+// ChangeTicketStatus изменяет статус билета.
 func (th *TicketHandler) ChangeTicketStatus(c *gin.Context) {
 	var req models.ChangeTicketStatusRequest
 
@@ -310,6 +339,7 @@ func (th *TicketHandler) ChangeTicketStatus(c *gin.Context) {
 	})
 }
 
+// AssignBrigade назначает бригаду на билет.
 func (th *TicketHandler) AssignBrigade(c *gin.Context) {
 	var req models.AssignBrigadeRequest
 
@@ -341,6 +371,7 @@ func (th *TicketHandler) AssignBrigade(c *gin.Context) {
 	})
 }
 
+// CancelTicket отменяет билет.
 func (th *TicketHandler) CancelTicket(c *gin.Context) {
 	var req models.CancelTicketRequest
 
@@ -371,6 +402,7 @@ func (th *TicketHandler) CancelTicket(c *gin.Context) {
 	})
 }
 
+// CompleteTicket завершает билет.
 func (th *TicketHandler) CompleteTicket(c *gin.Context) {
 	var req models.CompleteTicketRequest
 
@@ -402,6 +434,7 @@ func (th *TicketHandler) CompleteTicket(c *gin.Context) {
 	})
 }
 
+// GetTicketStatusHistory возвращает историю статусов билета.
 func (th *TicketHandler) GetTicketStatusHistory(c *gin.Context) {
 	var req models.GetTicketStatusHistoryRequest
 
@@ -439,6 +472,7 @@ func (th *TicketHandler) GetTicketStatusHistory(c *gin.Context) {
 	})
 }
 
+// CreateCategory создает категорию билетов.
 func (th *TicketHandler) CreateCategory(c *gin.Context) {
 	var req models.CreateCategoryRequest
 
@@ -466,6 +500,7 @@ func (th *TicketHandler) CreateCategory(c *gin.Context) {
 	})
 }
 
+// GetCategory возвращает категорию по идентификатору.
 func (th *TicketHandler) GetCategory(c *gin.Context) {
 	var req models.GetCategoryRequest
 
@@ -491,6 +526,7 @@ func (th *TicketHandler) GetCategory(c *gin.Context) {
 	})
 }
 
+// ListCategories возвращает список категорий.
 func (th *TicketHandler) ListCategories(c *gin.Context) {
 	var req models.ListCategoriesRequest
 
@@ -524,6 +560,7 @@ func (th *TicketHandler) ListCategories(c *gin.Context) {
 	})
 }
 
+// UpdateCategory изменяет категорию.
 func (th *TicketHandler) UpdateCategory(c *gin.Context) {
 	var req models.UpdateCategoryRequest
 
@@ -552,6 +589,7 @@ func (th *TicketHandler) UpdateCategory(c *gin.Context) {
 	})
 }
 
+// DeleteCategory удаляет категорию.
 func (th *TicketHandler) DeleteCategory(c *gin.Context) {
 	var req models.DeleteCategoryRequest
 
@@ -577,6 +615,7 @@ func (th *TicketHandler) DeleteCategory(c *gin.Context) {
 	})
 }
 
+// CreateRequest создает запрос, связанный с инцидентом.
 func (th *TicketHandler) CreateRequest(c *gin.Context) {
 	var req models.CreateRequestRequest
 
@@ -614,6 +653,7 @@ func (th *TicketHandler) CreateRequest(c *gin.Context) {
 	})
 }
 
+// AttachRequest прикрепляет запрос к инциденту.
 func (th *TicketHandler) AttachRequest(c *gin.Context) {
 	var req models.AttachRequestRequest
 
@@ -644,6 +684,7 @@ func (th *TicketHandler) AttachRequest(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"request": FromProtoTicket(response.GetRequest())})
 }
 
+// DetachRequest открепляет запрос от инцидента.
 func (th *TicketHandler) DetachRequest(c *gin.Context) {
 	var req models.DetachRequestRequest
 
@@ -673,6 +714,7 @@ func (th *TicketHandler) DetachRequest(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"request": FromProtoTicket(response.GetRequest())})
 }
 
+// ListIncidentRequests возвращает запросы инцидента.
 func (th *TicketHandler) ListIncidentRequests(c *gin.Context) {
 	var req models.ListIncidentRequestsRequest
 
@@ -752,6 +794,7 @@ func (th *TicketHandler) ListIncidentRequests(c *gin.Context) {
 	})
 }
 
+// RegisterIntegration регистрирует внешнюю интеграцию билетов.
 func (th *TicketHandler) RegisterIntegration(c *gin.Context) {
 	var req models.RegisterTicketIntegrationRequest
 
@@ -781,6 +824,7 @@ func (th *TicketHandler) RegisterIntegration(c *gin.Context) {
 	})
 }
 
+// ListIntegrations возвращает зарегистрированные интеграции.
 func (th *TicketHandler) ListIntegrations(c *gin.Context) {
 	var req models.ListTicketIntegrationsRequest
 	if !bindJSON(c, &req) {
@@ -819,6 +863,7 @@ func (th *TicketHandler) ListIntegrations(c *gin.Context) {
 	})
 }
 
+// SetIntegrationActive изменяет активность интеграции.
 func (th *TicketHandler) SetIntegrationActive(c *gin.Context) {
 	var req models.SetTicketIntegrationActiveRequest
 	if !bindJSON(c, &req) {
@@ -843,6 +888,7 @@ func (th *TicketHandler) SetIntegrationActive(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"integration": fromProtoTicketIntegration(response.GetIntegration())})
 }
 
+// RotateIntegrationSecret обновляет секрет интеграции.
 func (th *TicketHandler) RotateIntegrationSecret(c *gin.Context) {
 	var req models.RotateTicketIntegrationSecretRequest
 	if !bindJSON(c, &req) {
@@ -867,6 +913,7 @@ func (th *TicketHandler) RotateIntegrationSecret(c *gin.Context) {
 	})
 }
 
+// CreateExternalRequest создает запрос через внешнюю интеграцию.
 func (th *TicketHandler) CreateExternalRequest(c *gin.Context) {
 	var req models.CreateExternalTicketRequest
 
@@ -905,6 +952,7 @@ func (th *TicketHandler) CreateExternalRequest(c *gin.Context) {
 	})
 }
 
+// fromProtoTicketIntegration преобразует интеграцию protobuf в модель Gateway.
 func fromProtoTicketIntegration(value *ticketv1.TicketIntegration) *models.TicketIntegration {
 
 	if value == nil {
@@ -925,6 +973,7 @@ func fromProtoTicketIntegration(value *ticketv1.TicketIntegration) *models.Ticke
 	}
 }
 
+// timestampTime преобразует protobuf-время в time.Time, возвращая нулевое время для nil.
 func timestampTime(value *timestamppb.Timestamp) time.Time {
 
 	if value == nil {
@@ -934,6 +983,7 @@ func timestampTime(value *timestamppb.Timestamp) time.Time {
 	return value.AsTime()
 }
 
+// bindJSON разбирает JSON-тело и отправляет клиенту ошибку 400 при неверном формате.
 func bindJSON(c *gin.Context, req any) bool {
 
 	if err := c.ShouldBindJSON(req); err != nil {
@@ -944,6 +994,7 @@ func bindJSON(c *gin.Context, req any) bool {
 	return true
 }
 
+// buildListTicketsRequest преобразует параметры списка в запрос Ticket API.
 func buildListTicketsRequest(c *gin.Context, req *models.ListTicketRequest) (*ticketv1.ListTicketsRequest, bool) {
 	protoReq := &ticketv1.ListTicketsRequest{
 		DepartmentId: req.DepartmentID,
@@ -999,6 +1050,7 @@ func buildListTicketsRequest(c *gin.Context, req *models.ListTicketRequest) (*ti
 	return protoReq, true
 }
 
+// buildUpdateTicketRequest преобразует модель обновления в protobuf-запрос.
 func buildUpdateTicketRequest(req *models.UpdateTicketRequest, updatedBy string) *ticketv1.UpdateTicketRequest {
 	protoReq := &ticketv1.UpdateTicketRequest{
 		TicketId:    req.TicketID,
@@ -1020,6 +1072,7 @@ func buildUpdateTicketRequest(req *models.UpdateTicketRequest, updatedBy string)
 	return protoReq
 }
 
+// stringOrEmpty возвращает значение указателя или пустую строку для nil.
 func stringOrEmpty(value *string) string {
 
 	if value == nil {
@@ -1029,6 +1082,7 @@ func stringOrEmpty(value *string) string {
 	return *value
 }
 
+// int32OrZero возвращает значение указателя или ноль для nil.
 func int32OrZero(value *int32) int32 {
 
 	if value == nil {
@@ -1038,6 +1092,7 @@ func int32OrZero(value *int32) int32 {
 	return *value
 }
 
+// ticketActorContext добавляет в контекст исходящие метаданные текущего пользователя.
 func ticketActorContext(ctx context.Context, c *gin.Context) context.Context {
 	roles, _ := c.Get("roles")
 	roleValues, _ := roles.([]string)

@@ -632,7 +632,13 @@ func TestTicketService_WorkerCanStartOwnBrigadeTicket(t *testing.T) {
 		},
 	}
 	svc := newTestTicketService(&repository.Repository{TicketRepository: repo})
-	result, err := svc.ChangeTicketStatus(context.Background(), &models.ChangeTicketStatusInput{TicketID: ticketID, NewStatus: models.TicketStatusInProgress, ChangedBy: workerID, ActorBrigadeID: &brigadeID, ActorRoles: []string{"worker"}})
+	result, err := svc.ChangeTicketStatus(context.Background(), &models.ChangeTicketStatusInput{
+		TicketID:       ticketID,
+		NewStatus:      models.TicketStatusInProgress,
+		ChangedBy:      workerID,
+		ActorBrigadeID: &brigadeID,
+		ActorRoles:     []string{"worker"},
+	})
 
 	if err != nil || result.Ticket.Status != models.TicketStatusInProgress {
 		t.Fatalf("expected worker to start own brigade ticket, result=%v err=%v", result, err)
@@ -652,7 +658,13 @@ func TestTicketService_WorkerCannotStartAnotherBrigadeTicket(t *testing.T) {
 		},
 	}
 	svc := newTestTicketService(&repository.Repository{TicketRepository: repo})
-	result, err := svc.ChangeTicketStatus(context.Background(), &models.ChangeTicketStatusInput{TicketID: ticketID, NewStatus: models.TicketStatusInProgress, ChangedBy: uuid.New(), ActorBrigadeID: &actorBrigadeID, ActorRoles: []string{"worker"}})
+	result, err := svc.ChangeTicketStatus(context.Background(), &models.ChangeTicketStatusInput{
+		TicketID:       ticketID,
+		NewStatus:      models.TicketStatusInProgress,
+		ChangedBy:      uuid.New(),
+		ActorBrigadeID: &actorBrigadeID,
+		ActorRoles:     []string{"worker"},
+	})
 
 	if result != nil || !errors.Is(err, models.ErrPermissionDenied) {
 		t.Fatalf("expected permission denied for another brigade, result=%v err=%v", result, err)
@@ -671,7 +683,12 @@ func TestTicketService_WorkerCanCompleteOwnBrigadeTicket(t *testing.T) {
 		},
 	}
 	svc := newTestTicketService(&repository.Repository{TicketRepository: repo})
-	result, err := svc.CompleteTicket(context.Background(), &models.CompleteTicketInput{TicketID: ticketID, CompletedBy: workerID, ActorBrigadeID: &brigadeID, ActorRoles: []string{"worker"}})
+	result, err := svc.CompleteTicket(context.Background(), &models.CompleteTicketInput{
+		TicketID:       ticketID,
+		CompletedBy:    workerID,
+		ActorBrigadeID: &brigadeID,
+		ActorRoles:     []string{"worker"},
+	})
 
 	if err != nil || result.Ticket.Status != models.TicketStatusDone {
 		t.Fatalf("expected worker to complete own brigade ticket, result=%v err=%v", result, err)

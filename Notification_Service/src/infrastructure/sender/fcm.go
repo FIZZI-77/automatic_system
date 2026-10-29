@@ -42,7 +42,11 @@ func NewFCM(ctx context.Context, path string) (*FCM, error) {
 	return &FCM{project: meta.ProjectID, client: cfg.Client(ctx)}, nil
 }
 func (f *FCM) Send(ctx context.Context, d *models.Delivery, n *models.Notification) (string, error) {
-	payload := map[string]any{"message": map[string]any{"token": d.Recipient, "notification": map[string]string{"title": n.Title, "body": n.Body}, "data": n.Data}}
+	payload := map[string]any{"message": map[string]any{
+		"token":        d.Recipient,
+		"notification": map[string]string{"title": n.Title, "body": n.Body},
+		"data":         n.Data,
+	}}
 	raw, _ := json.Marshal(payload)
 	req, e := http.NewRequestWithContext(ctx, http.MethodPost, "https://fcm.googleapis.com/v1/projects/"+f.project+"/messages:send", bytes.NewReader(raw))
 

@@ -70,7 +70,14 @@ func New(dispatch AutoDispatcher, config Config, logger *zap.Logger) (*Worker, e
 	}
 
 	newReader := func(topic, group string) *kafka.Reader {
-		return kafka.NewReader(kafka.ReaderConfig{Brokers: config.Brokers, Topic: topic, GroupID: group, MinBytes: 1, MaxBytes: 10e6, CommitInterval: 0})
+		return kafka.NewReader(kafka.ReaderConfig{
+			Brokers:        config.Brokers,
+			Topic:          topic,
+			GroupID:        group,
+			MinBytes:       1,
+			MaxBytes:       10e6,
+			CommitInterval: 0,
+		})
 	}
 	return &Worker{
 		reader: newReader(config.Topic, config.GroupID), retry: newReader(config.Topic+".retry", config.GroupID+".retry"),

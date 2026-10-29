@@ -1,12 +1,18 @@
 type Point = { latitude: number; longitude: number };
 
-const valhallaUrl = (process.env.VALHALLA_URL || "http://host.docker.internal:8002").replace(/\/$/, "");
+const valhallaUrl = (
+  process.env.VALHALLA_URL || "http://host.docker.internal:8002"
+).replace(/\/$/, "");
 
 function validPoint(value: unknown): value is Point {
   if (!value || typeof value !== "object") return false;
   const point = value as Point;
-  return Number.isFinite(point.latitude) && Number.isFinite(point.longitude) &&
-    Math.abs(point.latitude) <= 90 && Math.abs(point.longitude) <= 180;
+  return (
+    Number.isFinite(point.latitude) &&
+    Number.isFinite(point.longitude) &&
+    Math.abs(point.latitude) <= 90 &&
+    Math.abs(point.longitude) <= 180
+  );
 }
 
 function encodePolyline6(points: Point[]): string {
@@ -36,14 +42,19 @@ function encodePolyline6(points: Point[]): string {
 }
 
 function distanceMeters(origin: Point, destination: Point): number {
-  const radians = (degrees: number) => degrees * Math.PI / 180;
+  const radians = (degrees: number) => (degrees * Math.PI) / 180;
   const latitudeDelta = radians(destination.latitude - origin.latitude);
   const longitudeDelta = radians(destination.longitude - origin.longitude);
   const originLatitude = radians(origin.latitude);
   const destinationLatitude = radians(destination.latitude);
-  const haversine = Math.sin(latitudeDelta / 2) ** 2 +
-    Math.cos(originLatitude) * Math.cos(destinationLatitude) * Math.sin(longitudeDelta / 2) ** 2;
-  return Math.round(6_371_000 * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine)));
+  const haversine =
+    Math.sin(latitudeDelta / 2) ** 2 +
+    Math.cos(originLatitude) *
+      Math.cos(destinationLatitude) *
+      Math.sin(longitudeDelta / 2) ** 2;
+  return Math.round(
+    6_371_000 * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine)),
+  );
 }
 
 function fallbackRoute(origin: Point, destination: Point) {
@@ -57,9 +68,15 @@ function fallbackRoute(origin: Point, destination: Point) {
 }
 
 export async function POST(request: Request) {
-  const input = await request.json().catch(() => null) as { origin?: Point; destination?: Point } | null;
+  const input = (await request.json().catch(() => null)) as {
+    origin?: Point;
+    destination?: Point;
+  } | null;
   if (!validPoint(input?.origin) || !validPoint(input?.destination)) {
-    return Response.json({ error: "Некорректные координаты маршрута" }, { status: 400 });
+    return Response.json(
+      { error: "Некорректные координаты маршрута" },
+      { status: 400 },
+    );
   }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15_000);
@@ -69,8 +86,16 @@ export async function POST(request: Request) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         locations: [
-          { lat: input.origin.latitude, lon: input.origin.longitude, type: "break" },
-          { lat: input.destination.latitude, lon: input.destination.longitude, type: "break" },
+          {
+            lat: input.origin.latitude,
+            lon: input.origin.longitude,
+            type: "break",
+          },
+          {
+            lat: input.destination.latitude,
+            lon: input.destination.longitude,
+            type: "break",
+          },
         ],
         costing: "auto",
         units: "kilometers",
@@ -78,14 +103,21 @@ export async function POST(request: Request) {
       }),
       signal: controller.signal,
     });
-    const payload = await response.json().catch(() => null) as {
+    const payload = (await response.json().catch(() => null)) as {
       error?: string;
-      trip?: { shape?: string; legs?: { shape?: string }[]; summary?: { length?: number; time?: number }; status_message?: string };
+      trip?: {
+        shape?: string;
+        legs?: { shape?: string }[];
+        summary?: { length?: number; time?: number };
+        status_message?: string;
+      };
     } | null;
-    const trip=payload?.trip;
+    const trip = payload?.trip;
     const shapes = trip?.shape
       ? [trip.shape]
-      : (trip?.legs || []).map(leg => leg.shape).filter((shape): shape is string => Boolean(shape));
+      : (trip?.legs || [])
+          .map((leg) => leg.shape)
+          .filter((shape): shape is string => Boolean(shape));
     if (!response.ok || !trip || !shapes.length) {
       return fallbackRoute(input.origin, input.destination);
     }

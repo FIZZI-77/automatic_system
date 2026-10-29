@@ -18,6 +18,7 @@ type CategoryServiceStruct struct {
 	logger *zap.Logger
 }
 
+// NewCategoryServiceStruct создаёт службу категорий с переданными репозиторием и журналом.
 func NewCategoryServiceStruct(repo *repository.Repository, logger *zap.Logger) *CategoryServiceStruct {
 	return &CategoryServiceStruct{
 		repo:   repo,
@@ -25,6 +26,8 @@ func NewCategoryServiceStruct(repo *repository.Repository, logger *zap.Logger) *
 	}
 }
 
+// CreateCategory проверяет данные и идемпотентно создаёт категорию.
+// Требует роль admin или dispatcher; иначе возвращает ErrPermissionDenied.
 func (s *CategoryServiceStruct) CreateCategory(ctx context.Context, in *models.CreateCategoryInput) (*models.CreateCategoryResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -83,6 +86,8 @@ func (s *CategoryServiceStruct) CreateCategory(ctx context.Context, in *models.C
 	return createResult, nil
 }
 
+// GetCategory возвращает категорию по идентификатору после проверки входных данных.
+// Отдельного ограничения по роли не вводит; ошибки хранилища возвращает с контекстом операции.
 func (s *CategoryServiceStruct) GetCategory(ctx context.Context, in *models.GetCategoryInput) (*models.GetCategoryResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -122,6 +127,8 @@ func (s *CategoryServiceStruct) GetCategory(ctx context.Context, in *models.GetC
 	}, nil
 }
 
+// ListCategories возвращает страницу категорий и общее количество записей.
+// Проверяет и нормализует входные параметры через Validate перед запросом к хранилищу.
 func (s *CategoryServiceStruct) ListCategories(ctx context.Context, in *models.ListCategoriesInput) (*models.ListCategoriesResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -162,6 +169,8 @@ func (s *CategoryServiceStruct) ListCategories(ctx context.Context, in *models.L
 	}, nil
 }
 
+// UpdateCategory проверяет частичные изменения и идемпотентно обновляет категорию.
+// Требует роль admin или dispatcher; возвращает изменённую запись либо ошибку.
 func (s *CategoryServiceStruct) UpdateCategory(ctx context.Context, in *models.UpdateCategoryInput) (*models.UpdateCategoryResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -227,6 +236,8 @@ func (s *CategoryServiceStruct) UpdateCategory(ctx context.Context, in *models.U
 	return updateResult, nil
 }
 
+// DeleteCategory идемпотентно удаляет категорию после проверки входа и привилегированной роли.
+// Возвращает удалённую запись; ограничения удаления проверяет репозиторий.
 func (s *CategoryServiceStruct) DeleteCategory(ctx context.Context, in *models.DeleteCategoryInput) (*models.DeleteCategoryResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 

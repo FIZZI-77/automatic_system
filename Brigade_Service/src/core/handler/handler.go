@@ -25,6 +25,7 @@ type BrigadeHandler struct {
 	logger  *zap.Logger
 }
 
+// NewBrigadeHandler создаёт gRPC-обработчик бригад с сервисом и журналом запросов.
 func NewBrigadeHandler(service *service.Service, logger *zap.Logger) *BrigadeHandler {
 	return &BrigadeHandler{
 		service: service,
@@ -38,6 +39,8 @@ type actorContext struct {
 	Roles        []string
 }
 
+// CreateBrigade разбирает UUID ведомства и передаёт создание с контекстом доступа,
+// request ID и trace ID сервису; пустую специализацию заменяет на nil.
 func (h *BrigadeHandler) CreateBrigade(ctx context.Context, req *brigadev1.CreateBrigadeRequest) (*brigadev1.CreateBrigadeResponse, error) {
 	logger := h.requestLogger(ctx, "CreateBrigade")
 
@@ -67,6 +70,8 @@ func (h *BrigadeHandler) CreateBrigade(ctx context.Context, req *brigadev1.Creat
 	return &brigadev1.CreateBrigadeResponse{Brigade: ToProtoBrigade(res.Brigade)}, nil
 }
 
+// GetBrigadeByID разбирает UUID бригады и передаёт пользователя, ведомство и роли
+// сервису для проверки доступа; возвращает бригаду в protobuf.
 func (h *BrigadeHandler) GetBrigadeByID(ctx context.Context, req *brigadev1.GetBrigadeByIDRequest) (*brigadev1.GetBrigadeByIDResponse, error) {
 	logger := h.requestLogger(ctx, "GetBrigadeByID")
 
@@ -91,6 +96,9 @@ func (h *BrigadeHandler) GetBrigadeByID(ctx context.Context, req *brigadev1.GetB
 	return &brigadev1.GetBrigadeByIDResponse{Brigade: ToProtoBrigade(res.Brigade)}, nil
 }
 
+// ListBrigades проверяет необязательный UUID ведомства и преобразует фильтры,
+// даты, сортировку и пагинацию; передаёт контекст доступа сервису и возвращает
+// страницу бригад со счётчиком. UNSPECIFIED-статус не добавляет в фильтр.
 func (h *BrigadeHandler) ListBrigades(ctx context.Context, req *brigadev1.ListBrigadesRequest) (*brigadev1.ListBrigadesResponse, error) {
 	logger := h.requestLogger(ctx, "ListBrigades")
 
@@ -145,6 +153,8 @@ func (h *BrigadeHandler) ListBrigades(ctx context.Context, req *brigadev1.ListBr
 	}, nil
 }
 
+// UpdateBrigade разбирает UUID и передаёт сервису заданные поля бригады,
+// контекст доступа и идентификаторы запроса и трассировки.
 func (h *BrigadeHandler) UpdateBrigade(ctx context.Context, req *brigadev1.UpdateBrigadeRequest) (*brigadev1.UpdateBrigadeResponse, error) {
 	logger := h.requestLogger(ctx, "UpdateBrigade")
 
@@ -174,6 +184,8 @@ func (h *BrigadeHandler) UpdateBrigade(ctx context.Context, req *brigadev1.Updat
 	return &brigadev1.UpdateBrigadeResponse{Brigade: ToProtoBrigade(res.Brigade)}, nil
 }
 
+// DeactivateBrigade проверяет UUID бригады и необязательного автора изменения
+// и передаёт деактивацию с причиной и контекстом доступа сервису.
 func (h *BrigadeHandler) DeactivateBrigade(ctx context.Context, req *brigadev1.DeactivateBrigadeRequest) (*brigadev1.DeactivateBrigadeResponse, error) {
 	logger := h.requestLogger(ctx, "DeactivateBrigade")
 
@@ -202,6 +214,8 @@ func (h *BrigadeHandler) DeactivateBrigade(ctx context.Context, req *brigadev1.D
 	return &brigadev1.DeactivateBrigadeResponse{Brigade: ToProtoBrigade(res.Brigade)}, nil
 }
 
+// ArchiveBrigade проверяет UUID бригады и необязательного автора и передаёт
+// архивацию с причиной, контекстом доступа и идентификаторами запроса сервису.
 func (h *BrigadeHandler) ArchiveBrigade(ctx context.Context, req *brigadev1.ArchiveBrigadeRequest) (*brigadev1.ArchiveBrigadeResponse, error) {
 	logger := h.requestLogger(ctx, "ArchiveBrigade")
 
@@ -230,6 +244,8 @@ func (h *BrigadeHandler) ArchiveBrigade(ctx context.Context, req *brigadev1.Arch
 	return &brigadev1.ArchiveBrigadeResponse{Brigade: ToProtoBrigade(res.Brigade)}, nil
 }
 
+// SetBrigadeStatus разбирает UUID бригады и автора, преобразует целевой статус
+// и передаёт проверку готовности и доступа сервису вместе с причиной изменения.
 func (h *BrigadeHandler) SetBrigadeStatus(ctx context.Context, req *brigadev1.SetBrigadeStatusRequest) (*brigadev1.SetBrigadeStatusResponse, error) {
 	logger := h.requestLogger(ctx, "SetBrigadeStatus")
 
@@ -265,6 +281,8 @@ func (h *BrigadeHandler) SetBrigadeStatus(ctx context.Context, req *brigadev1.Se
 	return &brigadev1.SetBrigadeStatusResponse{Brigade: ToProtoBrigade(res.Brigade)}, nil
 }
 
+// GetBrigadeStatusHistory разбирает UUID бригады и передаёт пагинацию и контекст
+// доступа сервису; возвращает историю статусов с общим счётчиком.
 func (h *BrigadeHandler) GetBrigadeStatusHistory(ctx context.Context, req *brigadev1.GetBrigadeStatusHistoryRequest) (*brigadev1.GetBrigadeStatusHistoryResponse, error) {
 	logger := h.requestLogger(ctx, "GetBrigadeStatusHistory")
 
@@ -296,6 +314,8 @@ func (h *BrigadeHandler) GetBrigadeStatusHistory(ctx context.Context, req *briga
 	return &brigadev1.GetBrigadeStatusHistoryResponse{History: history, Total: res.Total}, nil
 }
 
+// AddBrigadeMember проверяет UUID бригады, пользователя и необязательных профиля
+// и автора; преобразует роль и передаёт добавление с контекстом доступа сервису.
 func (h *BrigadeHandler) AddBrigadeMember(ctx context.Context, req *brigadev1.AddBrigadeMemberRequest) (*brigadev1.AddBrigadeMemberResponse, error) {
 	logger := h.requestLogger(ctx, "AddBrigadeMember")
 
@@ -344,6 +364,8 @@ func (h *BrigadeHandler) AddBrigadeMember(ctx context.Context, req *brigadev1.Ad
 	return &brigadev1.AddBrigadeMemberResponse{Member: ToProtoBrigadeMember(res.Member)}, nil
 }
 
+// RemoveBrigadeMember проверяет UUID бригады, участника и необязательного автора
+// и передаёт исключение с причиной и контекстом доступа сервису.
 func (h *BrigadeHandler) RemoveBrigadeMember(ctx context.Context, req *brigadev1.RemoveBrigadeMemberRequest) (*brigadev1.RemoveBrigadeMemberResponse, error) {
 	logger := h.requestLogger(ctx, "RemoveBrigadeMember")
 
@@ -373,6 +395,8 @@ func (h *BrigadeHandler) RemoveBrigadeMember(ctx context.Context, req *brigadev1
 	return &brigadev1.RemoveBrigadeMemberResponse{Member: ToProtoBrigadeMember(res.Member)}, nil
 }
 
+// ChangeBrigadeMemberRole проверяет UUID бригады, участника и автора и передаёт
+// новую доменную роль с контекстом доступа сервису.
 func (h *BrigadeHandler) ChangeBrigadeMemberRole(ctx context.Context, req *brigadev1.ChangeBrigadeMemberRoleRequest) (*brigadev1.ChangeBrigadeMemberRoleResponse, error) {
 	logger := h.requestLogger(ctx, "ChangeBrigadeMemberRole")
 
@@ -402,6 +426,8 @@ func (h *BrigadeHandler) ChangeBrigadeMemberRole(ctx context.Context, req *briga
 	return &brigadev1.ChangeBrigadeMemberRoleResponse{Member: ToProtoBrigadeMember(res.Member)}, nil
 }
 
+// SetBrigadeMemberAvailability проверяет UUID бригады, участника и автора,
+// преобразует доступность и передаёт изменение с причиной и контекстом доступа сервису.
 func (h *BrigadeHandler) SetBrigadeMemberAvailability(ctx context.Context, req *brigadev1.SetBrigadeMemberAvailabilityRequest) (*brigadev1.SetBrigadeMemberAvailabilityResponse, error) {
 	logger := h.requestLogger(ctx, "SetBrigadeMemberAvailability")
 
@@ -432,6 +458,9 @@ func (h *BrigadeHandler) SetBrigadeMemberAvailability(ctx context.Context, req *
 	return &brigadev1.SetBrigadeMemberAvailabilityResponse{Member: ToProtoBrigadeMember(res.Member)}, nil
 }
 
+// ListBrigadeMembers проверяет UUID бригады, преобразует заданные роль и доступность
+// и возвращает страницу состава со счётчиком; UNSPECIFIED-фильтры пропускает,
+// проверку доступа передаёт сервису.
 func (h *BrigadeHandler) ListBrigadeMembers(ctx context.Context, req *brigadev1.ListBrigadeMembersRequest) (*brigadev1.ListBrigadeMembersResponse, error) {
 	logger := h.requestLogger(ctx, "ListBrigadeMembers")
 
@@ -475,6 +504,9 @@ func (h *BrigadeHandler) ListBrigadeMembers(ctx context.Context, req *brigadev1.
 	return &brigadev1.ListBrigadeMembersResponse{Members: toProtoMembers(res.Members), Total: res.Total}, nil
 }
 
+// GetBrigadeMemberHistory проверяет UUID бригады и необязательного участника
+// и возвращает страницу истории состава со счётчиком после вызова сервиса
+// с контекстом доступа из метаданных.
 func (h *BrigadeHandler) GetBrigadeMemberHistory(ctx context.Context, req *brigadev1.GetBrigadeMemberHistoryRequest) (*brigadev1.GetBrigadeMemberHistoryResponse, error) {
 	logger := h.requestLogger(ctx, "GetBrigadeMemberHistory")
 
@@ -513,6 +545,8 @@ func (h *BrigadeHandler) GetBrigadeMemberHistory(ctx context.Context, req *briga
 	return &brigadev1.GetBrigadeMemberHistoryResponse{History: history, Total: res.Total}, nil
 }
 
+// GetBrigadeMemberStatusHistory проверяет UUID бригады и необязательного участника
+// и передаёт пагинацию и контекст доступа сервису; возвращает историю доступности со счётчиком.
 func (h *BrigadeHandler) GetBrigadeMemberStatusHistory(ctx context.Context, req *brigadev1.GetBrigadeMemberStatusHistoryRequest) (*brigadev1.GetBrigadeMemberStatusHistoryResponse, error) {
 	logger := h.requestLogger(ctx, "GetBrigadeMemberStatusHistory")
 
@@ -551,6 +585,8 @@ func (h *BrigadeHandler) GetBrigadeMemberStatusHistory(ctx context.Context, req 
 	return &brigadev1.GetBrigadeMemberStatusHistoryResponse{History: history, Total: res.Total}, nil
 }
 
+// GetBrigadeByUserID разбирает UUID пользователя и передаёт OnlyActive сервису;
+// возвращает бригаду и членство без самостоятельной проверки ролей.
 func (h *BrigadeHandler) GetBrigadeByUserID(ctx context.Context, req *brigadev1.GetBrigadeByUserIDRequest) (*brigadev1.GetBrigadeByUserIDResponse, error) {
 	logger := h.requestLogger(ctx, "GetBrigadeByUserID")
 
@@ -575,6 +611,8 @@ func (h *BrigadeHandler) GetBrigadeByUserID(ctx context.Context, req *brigadev1.
 	}, nil
 }
 
+// CreateSkill передаёт код, имя, описание и контекст пользователя сервису
+// создания навыка; проверку прав выполняет сервис, ошибки преобразуются в gRPC.
 func (h *BrigadeHandler) CreateSkill(ctx context.Context, req *brigadev1.CreateSkillRequest) (*brigadev1.CreateSkillResponse, error) {
 	logger := h.requestLogger(ctx, "CreateSkill")
 
@@ -596,6 +634,8 @@ func (h *BrigadeHandler) CreateSkill(ctx context.Context, req *brigadev1.CreateS
 	return &brigadev1.CreateSkillResponse{Skill: ToProtoSkill(res.Skill)}, nil
 }
 
+// UpdateSkill проверяет UUID и передаёт сервису заданные поля навыка,
+// контекст пользователя и идентификаторы запроса и трассировки.
 func (h *BrigadeHandler) UpdateSkill(ctx context.Context, req *brigadev1.UpdateSkillRequest) (*brigadev1.UpdateSkillResponse, error) {
 	logger := h.requestLogger(ctx, "UpdateSkill")
 
@@ -625,6 +665,8 @@ func (h *BrigadeHandler) UpdateSkill(ctx context.Context, req *brigadev1.UpdateS
 	return &brigadev1.UpdateSkillResponse{Skill: ToProtoSkill(res.Skill)}, nil
 }
 
+// DeactivateSkill разбирает UUID и передаёт деактивацию с контекстом пользователя
+// сервису; возвращает навык из результата в protobuf.
 func (h *BrigadeHandler) DeactivateSkill(ctx context.Context, req *brigadev1.DeactivateSkillRequest) (*brigadev1.DeactivateSkillResponse, error) {
 	logger := h.requestLogger(ctx, "DeactivateSkill")
 
@@ -650,6 +692,8 @@ func (h *BrigadeHandler) DeactivateSkill(ctx context.Context, req *brigadev1.Dea
 	return &brigadev1.DeactivateSkillResponse{Skill: ToProtoSkill(res.Skill)}, nil
 }
 
+// ListSkills передаёт поиск, фильтр активности, пагинацию и контекст пользователя
+// сервису и возвращает страницу каталога навыков с общим счётчиком.
 func (h *BrigadeHandler) ListSkills(ctx context.Context, req *brigadev1.ListSkillsRequest) (*brigadev1.ListSkillsResponse, error) {
 	logger := h.requestLogger(ctx, "ListSkills")
 
@@ -675,6 +719,8 @@ func (h *BrigadeHandler) ListSkills(ctx context.Context, req *brigadev1.ListSkil
 	return &brigadev1.ListSkillsResponse{Skills: skills, Total: res.Total}, nil
 }
 
+// AddBrigadeSkill разбирает UUID бригады и навыка и передаёт создание связи
+// с контекстом доступа и идентификаторами запроса сервису.
 func (h *BrigadeHandler) AddBrigadeSkill(ctx context.Context, req *brigadev1.AddBrigadeSkillRequest) (*brigadev1.AddBrigadeSkillResponse, error) {
 	logger := h.requestLogger(ctx, "AddBrigadeSkill")
 
@@ -702,6 +748,8 @@ func (h *BrigadeHandler) AddBrigadeSkill(ctx context.Context, req *brigadev1.Add
 	return &brigadev1.AddBrigadeSkillResponse{BrigadeSkill: ToProtoBrigadeSkill(res.BrigadeSkill)}, nil
 }
 
+// RemoveBrigadeSkill разбирает UUID бригады и навыка и передаёт удаление связи
+// с контекстом доступа сервису; возвращает связь из результата в protobuf.
 func (h *BrigadeHandler) RemoveBrigadeSkill(ctx context.Context, req *brigadev1.RemoveBrigadeSkillRequest) (*brigadev1.RemoveBrigadeSkillResponse, error) {
 	logger := h.requestLogger(ctx, "RemoveBrigadeSkill")
 
@@ -729,6 +777,8 @@ func (h *BrigadeHandler) RemoveBrigadeSkill(ctx context.Context, req *brigadev1.
 	return &brigadev1.RemoveBrigadeSkillResponse{BrigadeSkill: ToProtoBrigadeSkill(res.BrigadeSkill)}, nil
 }
 
+// ListBrigadeSkills проверяет UUID бригады и передаёт фильтр активности и контекст
+// доступа сервису; преобразует полученные связи с навыками в protobuf.
 func (h *BrigadeHandler) ListBrigadeSkills(ctx context.Context, req *brigadev1.ListBrigadeSkillsRequest) (*brigadev1.ListBrigadeSkillsResponse, error) {
 	logger := h.requestLogger(ctx, "ListBrigadeSkills")
 
@@ -759,6 +809,8 @@ func (h *BrigadeHandler) ListBrigadeSkills(ctx context.Context, req *brigadev1.L
 	return &brigadev1.ListBrigadeSkillsResponse{Skills: skills}, nil
 }
 
+// SetBrigadeSchedule проверяет UUID бригады и даты элементов расписания,
+// передаёт замену с контекстом доступа сервису и возвращает новое расписание.
 func (h *BrigadeHandler) SetBrigadeSchedule(ctx context.Context, req *brigadev1.SetBrigadeScheduleRequest) (*brigadev1.SetBrigadeScheduleResponse, error) {
 	logger := h.requestLogger(ctx, "SetBrigadeSchedule")
 
@@ -792,6 +844,8 @@ func (h *BrigadeHandler) SetBrigadeSchedule(ctx context.Context, req *brigadev1.
 	return &brigadev1.SetBrigadeScheduleResponse{Schedule: toProtoSchedule(res.Schedule)}, nil
 }
 
+// ListBrigadeSchedule разбирает UUID бригады и передаёт фильтр активности
+// и контекст доступа сервису; возвращает расписание в protobuf.
 func (h *BrigadeHandler) ListBrigadeSchedule(ctx context.Context, req *brigadev1.ListBrigadeScheduleRequest) (*brigadev1.ListBrigadeScheduleResponse, error) {
 	logger := h.requestLogger(ctx, "ListBrigadeSchedule")
 
@@ -817,6 +871,8 @@ func (h *BrigadeHandler) ListBrigadeSchedule(ctx context.Context, req *brigadev1
 	return &brigadev1.ListBrigadeScheduleResponse{Schedule: toProtoSchedule(res.Schedule)}, nil
 }
 
+// CreateBrigadeZone проверяет UUID бригады и ведомства и передаёт имя, GeoJSON,
+// приоритет и контекст доступа сервису; возвращает созданную зону в protobuf.
 func (h *BrigadeHandler) CreateBrigadeZone(ctx context.Context, req *brigadev1.CreateBrigadeZoneRequest) (*brigadev1.CreateBrigadeZoneResponse, error) {
 	logger := h.requestLogger(ctx, "CreateBrigadeZone")
 
@@ -853,6 +909,8 @@ func (h *BrigadeHandler) CreateBrigadeZone(ctx context.Context, req *brigadev1.C
 	return &brigadev1.CreateBrigadeZoneResponse{Zone: ToProtoBrigadeZone(res.Zone)}, nil
 }
 
+// UpdateBrigadeZone разбирает UUID и передаёт заданные поля зоны и контекст
+// доступа сервису, сохраняя необязательность имени, геометрии, приоритета и активности.
 func (h *BrigadeHandler) UpdateBrigadeZone(ctx context.Context, req *brigadev1.UpdateBrigadeZoneRequest) (*brigadev1.UpdateBrigadeZoneResponse, error) {
 	logger := h.requestLogger(ctx, "UpdateBrigadeZone")
 
@@ -883,6 +941,8 @@ func (h *BrigadeHandler) UpdateBrigadeZone(ctx context.Context, req *brigadev1.U
 	return &brigadev1.UpdateBrigadeZoneResponse{Zone: ToProtoBrigadeZone(res.Zone)}, nil
 }
 
+// DeleteBrigadeZone разбирает UUID и передаёт удаление зоны с контекстом доступа
+// и идентификаторами запроса сервису; возвращает зону из результата.
 func (h *BrigadeHandler) DeleteBrigadeZone(ctx context.Context, req *brigadev1.DeleteBrigadeZoneRequest) (*brigadev1.DeleteBrigadeZoneResponse, error) {
 	logger := h.requestLogger(ctx, "DeleteBrigadeZone")
 
@@ -909,6 +969,8 @@ func (h *BrigadeHandler) DeleteBrigadeZone(ctx context.Context, req *brigadev1.D
 	return &brigadev1.DeleteBrigadeZoneResponse{Zone: ToProtoBrigadeZone(res.Zone)}, nil
 }
 
+// ListBrigadeZones разбирает UUID бригады и передаёт активность и контекст доступа
+// сервису; возвращает зоны в protobuf.
 func (h *BrigadeHandler) ListBrigadeZones(ctx context.Context, req *brigadev1.ListBrigadeZonesRequest) (*brigadev1.ListBrigadeZonesResponse, error) {
 	logger := h.requestLogger(ctx, "ListBrigadeZones")
 
@@ -934,6 +996,8 @@ func (h *BrigadeHandler) ListBrigadeZones(ctx context.Context, req *brigadev1.Li
 	return &brigadev1.ListBrigadeZonesResponse{Zones: toProtoZones(res.Zones)}, nil
 }
 
+// CheckBrigadeCoversPoint разбирает UUID бригады и передаёт координаты сервису;
+// возвращает признак покрытия и совпавшие зоны без самостоятельной проверки ролей.
 func (h *BrigadeHandler) CheckBrigadeCoversPoint(ctx context.Context, req *brigadev1.CheckBrigadeCoversPointRequest) (*brigadev1.CheckBrigadeCoversPointResponse, error) {
 	logger := h.requestLogger(ctx, "CheckBrigadeCoversPoint")
 
@@ -959,6 +1023,9 @@ func (h *BrigadeHandler) CheckBrigadeCoversPoint(ctx context.Context, req *briga
 	}, nil
 }
 
+// FindBrigadesByPoint проверяет UUID ведомства и навыков, преобразует роли
+// и передаёт координаты, доступность и пагинацию сервису подбора;
+// возвращает страницу бригад с общим счётчиком.
 func (h *BrigadeHandler) FindBrigadesByPoint(ctx context.Context, req *brigadev1.FindBrigadesByPointRequest) (*brigadev1.FindBrigadesByPointResponse, error) {
 	logger := h.requestLogger(ctx, "FindBrigadesByPoint")
 
@@ -992,6 +1059,8 @@ func (h *BrigadeHandler) FindBrigadesByPoint(ctx context.Context, req *brigadev1
 	return &brigadev1.FindBrigadesByPointResponse{Brigades: toProtoBrigades(res.Brigades), Total: res.Total}, nil
 }
 
+// GetAvailableBrigades проверяет UUID ведомства и навыков и передаёт требования,
+// необязательные координаты и пагинацию сервису; возвращает бригады со счётчиком.
 func (h *BrigadeHandler) GetAvailableBrigades(ctx context.Context, req *brigadev1.GetAvailableBrigadesRequest) (*brigadev1.GetAvailableBrigadesResponse, error) {
 	logger := h.requestLogger(ctx, "GetAvailableBrigades")
 
@@ -1024,6 +1093,9 @@ func (h *BrigadeHandler) GetAvailableBrigades(ctx context.Context, req *brigadev
 	return &brigadev1.GetAvailableBrigadesResponse{Brigades: toProtoBrigades(res.Brigades), Total: res.Total}, nil
 }
 
+// CheckBrigadeCanHandleTicket проверяет UUID бригады, ведомства и навыков
+// и передаёт требования и координаты сервису; возвращает возможность назначения
+// и причины отказа без самостоятельной проверки ролей.
 func (h *BrigadeHandler) CheckBrigadeCanHandleTicket(ctx context.Context, req *brigadev1.CheckBrigadeCanHandleTicketRequest) (*brigadev1.CheckBrigadeCanHandleTicketResponse, error) {
 	logger := h.requestLogger(ctx, "CheckBrigadeCanHandleTicket")
 
@@ -1064,17 +1136,20 @@ func (h *BrigadeHandler) CheckBrigadeCanHandleTicket(ctx context.Context, req *b
 	}, nil
 }
 
+// requestLogger добавляет request ID и имя метода в журнал и записывает получение запроса.
 func (h *BrigadeHandler) requestLogger(ctx context.Context, method string) *zap.Logger {
 	logger := h.logger.With(pkg.RequestIDField(ctx), zap.String("method", method))
 	logger.Info("gRPC request received")
 	return logger
 }
 
+// logAndMapError пишет предупреждение и преобразует ошибку в gRPC с именем метода.
 func (h *BrigadeHandler) logAndMapError(logger *zap.Logger, method string, err error) error {
 	logger.Warn("gRPC request failed", zap.Error(err))
 	return brigadeStatusError(method, err)
 }
 
+// parseUUID разбирает UUID; неверный формат даёт uuid.Nil и ErrValidation с именем поля.
 func parseUUID(value string, field string) (uuid.UUID, error) {
 	parsed, err := uuid.Parse(value)
 
@@ -1085,6 +1160,8 @@ func parseUUID(value string, field string) (uuid.UUID, error) {
 	return parsed, nil
 }
 
+// parseOptionalUUID возвращает nil для пустой или пробельной строки;
+// непустое значение разбирает без обрезки пробелов, неверный формат даёт ErrValidation.
 func parseOptionalUUID(value string, field string) (*uuid.UUID, error) {
 
 	if strings.TrimSpace(value) == "" {
@@ -1100,6 +1177,7 @@ func parseOptionalUUID(value string, field string) (*uuid.UUID, error) {
 	return &parsed, nil
 }
 
+// parseOptionalUUIDPtr сохраняет nil, остальные значения передаёт parseOptionalUUID.
 func parseOptionalUUIDPtr(value *string, field string) (*uuid.UUID, error) {
 
 	if value == nil {
@@ -1109,6 +1187,8 @@ func parseOptionalUUIDPtr(value *string, field string) (*uuid.UUID, error) {
 	return parseOptionalUUID(*value, field)
 }
 
+// parseUUIDSlice разбирает UUID с сохранением порядка и повторов;
+// первая ошибка даёт nil и ErrValidation, пустой вход — пустой ненулевой срез.
 func parseUUIDSlice(values []string, field string) ([]uuid.UUID, error) {
 	result := make([]uuid.UUID, 0, len(values))
 	for _, value := range values {
@@ -1123,6 +1203,8 @@ func parseUUIDSlice(values []string, field string) ([]uuid.UUID, error) {
 	return result, nil
 }
 
+// fromProtoRequiredRoles преобразует роли с сохранением порядка и повторов;
+// неизвестные значения остаются пустыми доменными ролями для дальнейшей проверки.
 func fromProtoRequiredRoles(values []brigadev1.BrigadeMemberRole) []models.BrigadeMemberRole {
 	result := make([]models.BrigadeMemberRole, 0, len(values))
 	for _, value := range values {
@@ -1131,6 +1213,8 @@ func fromProtoRequiredRoles(values []brigadev1.BrigadeMemberRole) []models.Briga
 	return result
 }
 
+// parseIDAndChangedBy разбирает обязательный UUID сущности и необязательный UUID автора;
+// при любой ошибке не возвращает частичного результата.
 func parseIDAndChangedBy(idValue string, changedByValue string) (uuid.UUID, *uuid.UUID, error) {
 	id, err := parseUUID(idValue, "id")
 
@@ -1147,6 +1231,8 @@ func parseIDAndChangedBy(idValue string, changedByValue string) (uuid.UUID, *uui
 	return id, changedBy, nil
 }
 
+// parseBrigadeMemberChangedBy разбирает UUID бригады, участника и необязательного автора;
+// при любой ошибке возвращает нулевые результаты и ErrValidation.
 func parseBrigadeMemberChangedBy(brigadeIDValue string, memberIDValue string, changedByValue string) (uuid.UUID, uuid.UUID, *uuid.UUID, error) {
 	brigadeID, err := parseUUID(brigadeIDValue, "brigade_id")
 
@@ -1169,6 +1255,8 @@ func parseBrigadeMemberChangedBy(brigadeIDValue string, memberIDValue string, ch
 	return brigadeID, memberID, changedBy, nil
 }
 
+// parseBrigadeSkillIDs разбирает UUID бригады и навыка; ошибка любого поля
+// даёт два uuid.Nil и ErrValidation.
 func parseBrigadeSkillIDs(brigadeIDValue string, skillIDValue string) (uuid.UUID, uuid.UUID, error) {
 	brigadeID, err := parseUUID(brigadeIDValue, "brigade_id")
 
@@ -1185,6 +1273,8 @@ func parseBrigadeSkillIDs(brigadeIDValue string, skillIDValue string) (uuid.UUID
 	return brigadeID, skillID, nil
 }
 
+// optionalString возвращает nil для пустой или пробельной строки;
+// непустую строку сохраняет по указателю без изменения пробелов.
 func optionalString(value string) *string {
 
 	if strings.TrimSpace(value) == "" {
@@ -1194,6 +1284,7 @@ func optionalString(value string) *string {
 	return &value
 }
 
+// requestIDFromContext возвращает request ID из контекста через pkg либо nil при отсутствии.
 func requestIDFromContext(ctx context.Context) *string {
 	requestID, ok := pkg.RequestIDFromContext(ctx)
 
@@ -1204,6 +1295,8 @@ func requestIDFromContext(ctx context.Context) *string {
 	return &requestID
 }
 
+// traceIDFromContext выбирает первое непустое значение x-trace-id, trace-id
+// или trace_id в этом порядке, обрезая крайние пробелы; при отсутствии даёт nil.
 func traceIDFromContext(ctx context.Context) *string {
 	md, ok := metadata.FromIncomingContext(ctx)
 
@@ -1222,6 +1315,9 @@ func traceIDFromContext(ctx context.Context) *string {
 	return nil
 }
 
+// actorFromContext читает UUID пользователя и ведомства и роли из метаданных.
+// Неверные UUID пропускает; роли разделяет запятыми, обрезает пробелы и удаляет
+// пустые элементы, сохраняя регистр и повторы.
 func actorFromContext(ctx context.Context) actorContext {
 	md, ok := metadata.FromIncomingContext(ctx)
 
@@ -1263,6 +1359,8 @@ func actorFromContext(ctx context.Context) actorContext {
 	return actor
 }
 
+// fromProtoScheduleItems преобразует ненулевые элементы расписания и проверяет
+// даты действия, сохраняя порядок; первая ошибка даты даёт ErrValidation.
 func fromProtoScheduleItems(items []*brigadev1.BrigadeScheduleItem) ([]*models.BrigadeScheduleItem, error) {
 	result := make([]*models.BrigadeScheduleItem, 0, len(items))
 	for _, item := range items {
@@ -1290,6 +1388,8 @@ func fromProtoScheduleItems(items []*brigadev1.BrigadeScheduleItem) ([]*models.B
 	return result, nil
 }
 
+// parseDatePtr разбирает дату YYYY-MM-DD с обрезкой крайних пробелов;
+// nil и пустая строка дают nil, неверная дата — ErrValidation с именем поля.
 func parseDatePtr(value *string, field string) (*time.Time, error) {
 
 	if value == nil || strings.TrimSpace(*value) == "" {
@@ -1305,6 +1405,8 @@ func parseDatePtr(value *string, field string) (*time.Time, error) {
 	return &parsed, nil
 }
 
+// toProtoBrigades преобразует бригады с сохранением порядка и nil-элементов;
+// пустой вход даёт пустой ненулевой срез.
 func toProtoBrigades(items []*models.Brigade) []*brigadev1.Brigade {
 	result := make([]*brigadev1.Brigade, 0, len(items))
 	for _, item := range items {
@@ -1313,6 +1415,7 @@ func toProtoBrigades(items []*models.Brigade) []*brigadev1.Brigade {
 	return result
 }
 
+// toProtoMembers преобразует участников с сохранением порядка и nil-элементов.
 func toProtoMembers(items []*models.BrigadeMember) []*brigadev1.BrigadeMember {
 	result := make([]*brigadev1.BrigadeMember, 0, len(items))
 	for _, item := range items {
@@ -1321,6 +1424,7 @@ func toProtoMembers(items []*models.BrigadeMember) []*brigadev1.BrigadeMember {
 	return result
 }
 
+// toProtoSchedule преобразует расписание с сохранением порядка и nil-элементов.
 func toProtoSchedule(items []*models.BrigadeSchedule) []*brigadev1.BrigadeSchedule {
 	result := make([]*brigadev1.BrigadeSchedule, 0, len(items))
 	for _, item := range items {
@@ -1329,6 +1433,7 @@ func toProtoSchedule(items []*models.BrigadeSchedule) []*brigadev1.BrigadeSchedu
 	return result
 }
 
+// toProtoZones преобразует зоны с сохранением порядка и nil-элементов.
 func toProtoZones(items []*models.BrigadeZone) []*brigadev1.BrigadeZone {
 	result := make([]*brigadev1.BrigadeZone, 0, len(items))
 	for _, item := range items {
@@ -1337,10 +1442,15 @@ func toProtoZones(items []*models.BrigadeZone) []*brigadev1.BrigadeZone {
 	return result
 }
 
+// brigadeStatusError формирует gRPC-ошибку с доменным кодом, именем метода
+// и исходным текстом; предназначена для ненулевой ошибки.
 func brigadeStatusError(method string, err error) error {
 	return status.Errorf(brigadeErrorCode(err), "failed %s: %v", method, err)
 }
 
+// brigadeErrorCode сопоставляет ошибки ввода, отсутствия, дубликата, доступа
+// и зависимости кодам gRPC. Ограничения готовности дают FailedPrecondition,
+// незавершённая идемпотентная операция — Aborted, nil — OK, неизвестная ошибка — Internal.
 func brigadeErrorCode(err error) codes.Code {
 
 	if err == nil {

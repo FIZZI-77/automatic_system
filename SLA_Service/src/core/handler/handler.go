@@ -22,10 +22,13 @@ type Handler struct {
 	s *service.Service
 }
 
+// New создаёт gRPC-обработчик правил и состояния SLA с переданным сервисом.
 func New(s *service.Service) *Handler {
 	return &Handler{s: s}
 }
 
+// CreateRule требует admin, преобразует ограничения и сроки запроса в правило
+// и передаёт его сервису; неверные UUID и приоритет дают InvalidArgument.
 func (h *Handler) CreateRule(c context.Context, q *slav1.CreateRuleRequest) (*slav1.RuleResponse, error) {
 
 	if e := admin(c); e != nil {
@@ -44,6 +47,9 @@ func (h *Handler) CreateRule(c context.Context, q *slav1.CreateRuleRequest) (*sl
 	}, mapped(e)
 }
 
+// UpdateRule требует admin, разбирает UUID и загружает правило перед заменой
+// только заданных полей. Пустые ID ведомства и категории очищают ограничения;
+// сроки из секунд переводятся в Duration, результат сохраняется через сервис.
 func (h *Handler) UpdateRule(c context.Context, q *slav1.UpdateRuleRequest) (*slav1.RuleResponse, error) {
 
 	if e := admin(c); e != nil {
@@ -116,6 +122,8 @@ func (h *Handler) UpdateRule(c context.Context, q *slav1.UpdateRuleRequest) (*sl
 	}, mapped(e)
 }
 
+// DeleteRule требует admin, разбирает UUID и передаёт удаление сервису;
+// возвращает правило из результата в protobuf.
 func (h *Handler) DeleteRule(c context.Context, q *slav1.DeleteRuleRequest) (*slav1.RuleResponse, error) {
 
 	if e := admin(c); e != nil {
@@ -134,6 +142,8 @@ func (h *Handler) DeleteRule(c context.Context, q *slav1.DeleteRuleRequest) (*sl
 	}, mapped(e)
 }
 
+// GetRule разрешает admin, dispatcher или worker, разбирает UUID правила
+// и возвращает его в protobuf; ошибки сервиса преобразует через mapped.
 func (h *Handler) GetRule(c context.Context, q *slav1.GetRuleRequest) (*slav1.RuleResponse, error) {
 
 	if e := staff(c); e != nil {
@@ -152,6 +162,8 @@ func (h *Handler) GetRule(c context.Context, q *slav1.GetRuleRequest) (*slav1.Ru
 	}, mapped(e)
 }
 
+// ListRules требует служебную роль, преобразует фильтры ведомства, категории,
+// приоритета и активности и возвращает страницу правил с общим счётчиком.
 func (h *Handler) ListRules(c context.Context, q *slav1.ListRulesRequest) (*slav1.ListRulesResponse, error) {
 
 	if e := staff(c); e != nil {
@@ -200,6 +212,8 @@ func (h *Handler) ListRules(c context.Context, q *slav1.ListRulesRequest) (*slav
 	}, mapped(e)
 }
 
+// GetTicketSLA требует служебную роль, разбирает UUID заявки и возвращает
+// сроки, состояние и признаки нарушения SLA из сервисного результата.
 func (h *Handler) GetTicketSLA(c context.Context, q *slav1.GetTicketSLARequest) (*slav1.TicketSLAResponse, error) {
 
 	if e := staff(c); e != nil {
@@ -218,6 +232,8 @@ func (h *Handler) GetTicketSLA(c context.Context, q *slav1.GetTicketSLARequest) 
 	}, mapped(e)
 }
 
+// ListTicketSLAs требует служебную роль, проверяет фильтры ведомства и статуса
+// и возвращает страницу SLA со счётчиком, сохраняя необязательный фильтр нарушения.
 func (h *Handler) ListTicketSLAs(c context.Context, q *slav1.ListTicketSLAsRequest) (*slav1.ListTicketSLAsResponse, error) {
 
 	if e := staff(c); e != nil {
@@ -262,6 +278,8 @@ func (h *Handler) ListTicketSLAs(c context.Context, q *slav1.ListTicketSLAsReque
 	}, mapped(e)
 }
 
+// ListHistory требует служебную роль, разбирает UUID заявки и возвращает
+// страницу истории SLA с общим счётчиком.
 func (h *Handler) ListHistory(c context.Context, q *slav1.ListHistoryRequest) (*slav1.ListHistoryResponse, error) {
 
 	if e := staff(c); e != nil {
@@ -286,6 +304,8 @@ func (h *Handler) ListHistory(c context.Context, q *slav1.ListHistoryRequest) (*
 	}, mapped(e)
 }
 
+// ruleFromCreate преобразует запрос создания в правило, переводя секунды в Duration
+// и проверяя необязательные UUID и приоритет; пустые ID дают nil-ограничения.
 func ruleFromCreate(q *slav1.CreateRuleRequest) (*models.Rule, error) {
 	v := &models.Rule{
 		Name:           q.GetName(),
@@ -321,6 +341,8 @@ func ruleFromCreate(q *slav1.CreateRuleRequest) (*models.Rule, error) {
 	return v, nil
 }
 
+// rule преобразует правило в protobuf, переводя сроки в целые секунды
+// и сохраняя необязательные ограничения; nil сохраняет как nil.
 func rule(v *models.Rule) *slav1.SLARule {
 
 	if v == nil {
@@ -356,6 +378,8 @@ func rule(v *models.Rule) *slav1.SLARule {
 	return x
 }
 
+// ticketSLA преобразует состояние SLA, дедлайны, нарушения, предупреждения
+// и версию в protobuf, сохраняя необязательные даты ответа и завершения; nil даёт nil.
 func ticketSLA(v *models.TicketSLA) *slav1.TicketSLA {
 
 	if v == nil {
@@ -392,6 +416,8 @@ func ticketSLA(v *models.TicketSLA) *slav1.TicketSLA {
 	return x
 }
 
+// history преобразует ненулевую запись истории SLA в protobuf с типом события,
+// временем и деталями.
 func history(v *models.History) *slav1.SLAHistory {
 	return &slav1.SLAHistory{
 		Id:          v.ID.String(),
@@ -403,6 +429,7 @@ func history(v *models.History) *slav1.SLAHistory {
 	}
 }
 
+// parse разбирает UUID либо возвращает uuid.Nil и общий gRPC InvalidArgument.
 func parse(v string) (uuid.UUID, error) {
 	id, e := uuid.Parse(v)
 
@@ -413,6 +440,8 @@ func parse(v string) (uuid.UUID, error) {
 	return id, nil
 }
 
+// optionalID возвращает nil для пустой или пробельной строки, иначе разбирает UUID.
+// Непустую строку перед разбором не обрезает; ошибку возвращает вместе с указателем.
 func optionalID(v string) (*uuid.UUID, error) {
 
 	if strings.TrimSpace(v) == "" {
@@ -423,15 +452,20 @@ func optionalID(v string) (*uuid.UUID, error) {
 	return &id, e
 }
 
+// bad создаёт gRPC InvalidArgument с общим сообщением о неверном запросе.
 func bad() error {
 	return status.Error(codes.InvalidArgument, "invalid request")
 }
 
+// roles объединяет x-actor-roles из входящих метаданных и разделяет запятыми;
+// нормализацию оставляет проверяющим функциям.
 func roles(c context.Context) []string {
 	m, _ := metadata.FromIncomingContext(c)
 	return strings.Split(strings.Join(m.Get("x-actor-roles"), ","), ",")
 }
 
+// admin требует роль admin, игнорируя регистр и крайние пробелы;
+// отсутствие роли даёт PermissionDenied.
 func admin(c context.Context) error {
 	for _, r := range roles(c) {
 
@@ -443,6 +477,8 @@ func admin(c context.Context) error {
 	return status.Error(codes.PermissionDenied, "admin role required")
 }
 
+// staff разрешает admin, dispatcher или worker из метаданных без учёта регистра
+// и крайних пробелов; иначе возвращает PermissionDenied.
 func staff(c context.Context) error {
 	for _, r := range roles(c) {
 		r = strings.TrimSpace(strings.ToLower(r))
@@ -455,6 +491,8 @@ func staff(c context.Context) error {
 	return status.Error(codes.PermissionDenied, "staff role required")
 }
 
+// mapped сохраняет nil, переводит ошибки аргументов, отсутствия и конфликта
+// в InvalidArgument, NotFound и AlreadyExists; остальные — в Unavailable.
 func mapped(e error) error {
 
 	if e == nil {
@@ -473,6 +511,8 @@ func mapped(e error) error {
 	}
 }
 
+// priority преобразует LOW, MEDIUM, HIGH или EMERGENCY в доменный приоритет;
+// неизвестное значение даёт пустую строку и false.
 func priority(v slav1.TicketPriority) (models.Priority, bool) {
 	m := map[slav1.TicketPriority]models.Priority{
 		slav1.TicketPriority_TICKET_PRIORITY_LOW:       models.PriorityLow,
@@ -485,6 +525,7 @@ func priority(v slav1.TicketPriority) (models.Priority, bool) {
 	return x, ok
 }
 
+// priorityProto преобразует приоритет в protobuf; неизвестный даёт нулевой enum.
 func priorityProto(v models.Priority) slav1.TicketPriority {
 	m := map[models.Priority]slav1.TicketPriority{
 		models.PriorityLow:       slav1.TicketPriority_TICKET_PRIORITY_LOW,
@@ -496,6 +537,8 @@ func priorityProto(v models.Priority) slav1.TicketPriority {
 	return m[v]
 }
 
+// slaStatus преобразует ACTIVE, COMPLETED или CANCELLED в доменный статус;
+// неизвестное значение даёт пустую строку и false.
 func slaStatus(v slav1.SLAStatus) (models.Status, bool) {
 	m := map[slav1.SLAStatus]models.Status{
 		slav1.SLAStatus_SLA_STATUS_ACTIVE:    models.StatusActive,
@@ -507,6 +550,8 @@ func slaStatus(v slav1.SLAStatus) (models.Status, bool) {
 	return x, ok
 }
 
+// statusProto преобразует ACTIVE и COMPLETED в соответствующие enum;
+// остальные значения, включая неизвестные, дают CANCELLED.
 func statusProto(v models.Status) slav1.SLAStatus {
 
 	if v == models.StatusActive {
@@ -520,6 +565,8 @@ func statusProto(v models.Status) slav1.SLAStatus {
 	return slav1.SLAStatus_SLA_STATUS_CANCELLED
 }
 
+// eventProto преобразует тип события по имени с префиксом SLA_EVENT_TYPE_;
+// неизвестное имя даёт нулевое значение enum.
 func eventProto(v models.EventType) slav1.SLAEventType {
 	return slav1.SLAEventType(slav1.SLAEventType_value["SLA_EVENT_TYPE_"+string(v)])
 }

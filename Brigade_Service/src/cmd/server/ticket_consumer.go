@@ -32,7 +32,10 @@ func startTicketConsumer(db *pgxpool.Pool, dependencies *closer.Closer, logger *
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	dependencies.Add("ticket consumer", func() error { cancel(); return worker.Close() })
+	dependencies.Add("ticket consumer", func() error {
+		cancel()
+		return worker.Close()
+	})
 	go func() {
 
 		if err := worker.Run(ctx); err != nil {

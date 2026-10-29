@@ -39,6 +39,9 @@ const ticketWithRelationColumns = `
 	external_id
 `
 
+// CreateRequest сохраняет обращение и связывает его с подходящим активным инцидентом
+// либо создаёт новый инцидент. Записи, история и outbox сохраняются в одной транзакции;
+// повтор внешнего идентификатора возвращает существующую пару без новых записей.
 func (t *TicketRepoStruct) CreateRequest(
 	ctx context.Context,
 	in *models.CreateRequestInput,
@@ -157,14 +160,20 @@ func (t *TicketRepoStruct) CreateRequest(
 	return result, nil
 }
 
+// AttachRequest связывает обращение с инцидентом и записывает событие в outbox.
+// Смена связи также пересчитывает завершение прежнего и нового инцидентов.
 func (t *TicketRepoStruct) AttachRequest(ctx context.Context, in *models.AttachRequestInput) (*models.Ticket, error) {
 	return t.changeRequestIncident(ctx, in.RequestID, &in.IncidentID, in.ChangedBy, in.Reason, "ticket.request_attached")
 }
 
+// DetachRequest снимает связь обращения с инцидентом и записывает событие в outbox.
+// После отвязки пересчитывается возможность завершения прежнего инцидента.
 func (t *TicketRepoStruct) DetachRequest(ctx context.Context, in *models.DetachRequestInput) (*models.Ticket, error) {
 	return t.changeRequestIncident(ctx, in.RequestID, nil, in.ChangedBy, in.Reason, "ticket.request_detached")
 }
 
+// ListIncidentRequests возвращает страницу неархивных обращений инцидента от новых
+// к старым. Общее количество вычисляется оконной функцией и равно нулю на пустой странице.
 func (t *TicketRepoStruct) ListIncidentRequests(
 	ctx context.Context,
 	in *models.ListIncidentRequestsInput,
@@ -210,6 +219,8 @@ func (t *TicketRepoStruct) ListIncidentRequests(
 	return requests, total, nil
 }
 
+// IncidentHasDepartment сообщает, есть ли у инцидента неархивное обращение ведомства.
+// Для nil departmentID возвращает false без запроса к базе.
 func (t *TicketRepoStruct) IncidentHasDepartment(
 	ctx context.Context,
 	incidentID uuid.UUID,
@@ -239,6 +250,8 @@ func (t *TicketRepoStruct) IncidentHasDepartment(
 	return exists, nil
 }
 
+// lockDuplicateScope сериализует поиск дубликатов для пары ведомство–категория
+// с помощью advisory-блокировки, удерживаемой до конца транзакции exec.
 func (t *TicketRepoStruct) lockDuplicateScope(
 	ctx context.Context,
 	exec Querier,
@@ -251,6 +264,9 @@ func (t *TicketRepoStruct) lockDuplicateScope(
 	return err
 }
 
+// findDuplicateIncident ищет ближайший активный инцидент того же ведомства и категории
+// в пределах DuplicateWindow и DuplicateRadiusMeters и блокирует найденную строку.
+// При равном расстоянии выбирает более новый; отсутствие совпадения возвращает nil, nil.
 func (t *TicketRepoStruct) findDuplicateIncident(
 	ctx context.Context,
 	exec Querier,
@@ -305,6 +321,9 @@ func (t *TicketRepoStruct) findDuplicateIncident(
 	return incident, err
 }
 
+// findExternalRequest ищет и блокирует обращение по ведомству, внешней системе и ID.
+// Возвращает существующую пару с DuplicateMatched=true; отсутствие даёт found=false,
+// а обращение без связи с инцидентом — ErrInvalidTicketRelation.
 func (t *TicketRepoStruct) findExternalRequest(
 	ctx context.Context,
 	exec Querier,
@@ -370,6 +389,8 @@ type requestTicketInsert struct {
 	ExternalID       *string
 }
 
+// insertRequestTicket вставляет обращение или инцидент в статусе NEW через exec
+// и возвращает запись со связями. Историю и событие создания не записывает.
 func (t *TicketRepoStruct) insertRequestTicket(
 	ctx context.Context,
 	exec Querier,
@@ -417,6 +438,8 @@ func (t *TicketRepoStruct) insertRequestTicket(
 	return scanTicketWithRelation(row)
 }
 
+// recordCreatedTicket добавляет начальный статус NEW в историю от имени автора
+// и событие создания в outbox через тот же exec.
 func (t *TicketRepoStruct) recordCreatedTicket(
 	ctx context.Context,
 	exec Querier,
@@ -439,6 +462,9 @@ func (t *TicketRepoStruct) recordCreatedTicket(
 	return t.insertTicketCreatedOutboxEvent(ctx, exec, ticket)
 }
 
+// changeRequestIncident транзакционно меняет связь обращения, записывает событие
+// и пересчитывает завершение затронутых инцидентов. nil incidentID снимает связь;
+// неверный тип, терминальный целевой инцидент и повторная привязка возвращают ошибку.
 func (t *TicketRepoStruct) changeRequestIncident(
 	ctx context.Context,
 	requestID uuid.UUID,
@@ -579,6 +605,7 @@ func (t *TicketRepoStruct) changeRequestIncident(
 	return updated, nil
 }
 
+// lockRequestRelation блокирует изменение связи обращения до конца транзакции exec.
 func lockRequestRelation(ctx context.Context, exec Querier, requestID uuid.UUID) error {
 	key := "request-relation:" + requestID.String()
 	_, err := exec.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, key)
@@ -586,6 +613,8 @@ func lockRequestRelation(ctx context.Context, exec Querier, requestID uuid.UUID)
 	return err
 }
 
+// lockIncidentAggregations берёт транзакционные advisory-блокировки инцидентов
+// в порядке UUID для согласованного пересчёта; повторы и нулевые UUID пропускает.
 func lockIncidentAggregations(ctx context.Context, exec Querier, incidentIDs ...uuid.UUID) error {
 	uniqueIDs := make(map[string]struct{}, len(incidentIDs))
 	keys := make([]string, 0, len(incidentIDs))
@@ -623,6 +652,9 @@ func lockIncidentAggregations(ctx context.Context, exec Querier, incidentIDs ...
 	return nil
 }
 
+// reconcileIncidentCompletion переводит нетерминальный инцидент в DONE, если у него
+// есть неархивные обращения и все они DONE, добавляя историю и событие завершения.
+// Выполняется через exec; уже завершённые и отменённые инциденты не изменяет.
 func (t *TicketRepoStruct) reconcileIncidentCompletion(
 	ctx context.Context,
 	exec Querier,
@@ -707,6 +739,8 @@ func (t *TicketRepoStruct) reconcileIncidentCompletion(
 	return t.insertOutboxEvent(ctx, exec, "ticket", completed.ID, "ticket.completed", completed)
 }
 
+// incidentPartCounts возвращает число неархивных обращений инцидента и число
+// обращений со статусом, отличным от DONE; отменённые считаются незавершёнными.
 func (t *TicketRepoStruct) incidentPartCounts(
 	ctx context.Context,
 	exec Querier,
@@ -732,6 +766,8 @@ func (t *TicketRepoStruct) incidentPartCounts(
 	return total, incomplete, nil
 }
 
+// ensureIncidentPartsComplete возвращает ErrIncidentPartsIncomplete, если у инцидента
+// есть неархивные обращения не в статусе DONE. Отсутствие обращений допустимо.
 func (t *TicketRepoStruct) ensureIncidentPartsComplete(
 	ctx context.Context,
 	exec Querier,
@@ -750,6 +786,8 @@ func (t *TicketRepoStruct) ensureIncidentPartsComplete(
 	return nil
 }
 
+// getTicketWithRelation читает неархивную заявку со связями по ID через exec.
+// При forUpdate блокирует строку; отсутствие заявки возвращает ErrNotFound.
 func (t *TicketRepoStruct) getTicketWithRelation(
 	ctx context.Context,
 	exec Querier,
@@ -771,6 +809,8 @@ func (t *TicketRepoStruct) getTicketWithRelation(
 	return scanTicketWithRelation(exec.QueryRow(ctx, query, ticketID))
 }
 
+// getTicketWithRelationByDepartment читает неархивную заявку со связями по ведомству
+// и ID. При forUpdate блокирует строку; отсутствие возвращает ErrNotFound.
 func (t *TicketRepoStruct) getTicketWithRelationByDepartment(
 	ctx context.Context,
 	exec Querier,
@@ -794,16 +834,22 @@ func (t *TicketRepoStruct) getTicketWithRelationByDepartment(
 	return scanTicketWithRelation(exec.QueryRow(ctx, query, departmentID, ticketID))
 }
 
+// scanTicketWithRelation читает поля ticketWithRelationColumns и восстанавливает
+// необязательные значения заявки. pgx.ErrNoRows преобразуется в ErrNotFound.
 func scanTicketWithRelation(s scanner) (*models.Ticket, error) {
 	ticket, _, err := scanTicketWithRelationValues(s, false)
 
 	return ticket, err
 }
 
+// scanTicketWithRelationAndCount читает заявку со связями и следующий за ней счётчик
+// общего количества. pgx.ErrNoRows преобразуется в ErrNotFound.
 func scanTicketWithRelationAndCount(s scanner) (*models.Ticket, int64, error) {
 	return scanTicketWithRelationValues(s, true)
 }
 
+// scanTicketWithRelationValues читает заявку со связями и, при withCount, общий счётчик.
+// Преобразует pgx.ErrNoRows в ErrNotFound и возвращает ошибки разбора необязательных UUID.
 func scanTicketWithRelationValues(s scanner, withCount bool) (*models.Ticket, int64, error) {
 	var ticket models.Ticket
 
@@ -872,6 +918,9 @@ func scanTicketWithRelationValues(s scanner, withCount bool) (*models.Ticket, in
 	return &ticket, total, nil
 }
 
+// applyOptionalTicketValues заполняет ticket значениями ненулевых SQL-полей.
+// NULL оставляет текущее поле без изменений; некорректный UUID прерывает заполнение
+// с ошибкой, сохраняя уже внесённые изменения.
 func applyOptionalTicketValues(
 	ticket *models.Ticket,
 	brigadeID sql.NullString,

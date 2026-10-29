@@ -79,7 +79,7 @@ func main() {
 	fileConn := dial(must("FILE_SERVICE_ADDR"), logger)
 	defer fileConn.Close()
 	repo := repository.NewRepository(db)
-	files := fileclient.New(filev1.NewFileServiceClient(fileConn), env("FILE_UPLOAD_INTERNAL_ENDPOINT", "http://minio:9000"))
+	files := fileclient.New(filev1.NewFileServiceClient(fileConn), env("FILE_UPLOAD_INTERNAL_ENDPOINT", "http://minio:9000"), must("REPORT_INTERNAL_TOKEN"))
 	reportGenerator := generator.New()
 	svc := service.NewService(repo, analyticsclient.New(analyticsv1.NewAnalyticsServiceClient(analyticsConn)), files, reportGenerator, logger)
 	worker := reportworker.New(svc, logger, duration("WORKER_INTERVAL", time.Second))

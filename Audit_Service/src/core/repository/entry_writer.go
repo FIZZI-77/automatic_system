@@ -11,9 +11,14 @@ import (
 
 type EntryWriterRepoStruct struct{ db *pgxpool.Pool }
 
+// NewEntryWriterRepoStruct создаёт хранилище записи аудита с пулом db.
 func NewEntryWriterRepoStruct(db *pgxpool.Pool) *EntryWriterRepoStruct {
 	return &EntryWriterRepoStruct{db: db}
 }
+
+// Store маскирует чувствительные поля payload и сохраняет событие с метаданными.
+// Время берёт из payload, затем Timestamp, затем текущего UTC; повтор пары topic–event_id
+// пропускает без ошибки. Возвращает ошибки сериализации или базы.
 func (r *EntryWriterRepoStruct) Store(ctx context.Context, event models.Event) error {
 	data, err := json.Marshal(sanitize(event.Payload))
 

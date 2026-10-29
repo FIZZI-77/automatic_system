@@ -16,6 +16,9 @@ import (
 
 const idempotencyTTL = 24 * time.Hour
 
+// withIdempotency выполняет fn напрямую без ключа в ctx, иначе сохраняет команду
+// и JSON-ответ в общей транзакции с ключом на 24 часа. Повтор возвращает сохранённый T
+// либо ошибку несовпадения запроса, незавершённой или ранее неудачной операции.
 func withIdempotency[T any](
 	ctx context.Context,
 	repo *repository.Repository,
@@ -79,6 +82,8 @@ func withIdempotency[T any](
 	return result, nil
 }
 
+// hashRequest возвращает шестнадцатеричный SHA-256 от JSON запроса
+// либо ошибку сериализации с контекстом идемпотентности.
 func hashRequest(request any) (string, error) {
 	bytes, err := json.Marshal(request)
 

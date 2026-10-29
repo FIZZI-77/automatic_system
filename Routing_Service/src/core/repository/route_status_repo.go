@@ -10,6 +10,9 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// UpdateStatus транзакционно меняет статус маршрута при совпадении expectedStatus
+// и записывает событие outbox. Отсутствие строки или несовпадение статуса дают
+// ErrConflict; допустимость самого перехода проверяет вызывающий код.
 func (r *RouteRepo) UpdateStatus(
 	ctx context.Context,
 	id string,

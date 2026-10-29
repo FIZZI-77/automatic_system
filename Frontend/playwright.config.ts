@@ -7,7 +7,10 @@ export default defineConfig({
   timeout: 60_000,
   expect: { timeout: 12_000 },
   retries: process.env.CI ? 2 : 0,
-  reporter: [["list"], ["html", { outputFolder: "playwright-report", open: "never" }]],
+  reporter: [
+    ["list"],
+    ["html", { outputFolder: "playwright-report", open: "never" }],
+  ],
   outputDir: "test-results/e2e-artifacts",
   globalSetup: "./e2e/global-setup.ts",
   globalTeardown: "./e2e/global-teardown.ts",

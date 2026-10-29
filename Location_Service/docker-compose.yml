@@ -14,10 +14,10 @@ services:
       REDIS_EVENTS_STREAM: locations:events
       REDIS_EVENTS_GROUP: location-kafka-relay
       REDIS_EVENTS_CONSUMER: location-service
-      TRANSPONDER_API_KEY: ${TRANSPONDER_API_KEY:-}
+      TRANSPONDER_API_KEY: ${TRANSPONDER_API_KEY:?set TRANSPONDER_API_KEY}
       SHUTDOWN_TIMEOUT: ${SHUTDOWN_TIMEOUT:-20s}
     ports:
-      - "50056:50056"
+      - "127.0.0.1:50056:50056"
       - "8080:8080"
     depends_on:
       migrator:

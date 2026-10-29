@@ -7,6 +7,8 @@ import (
 	departmentv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/department/v1"
 )
 
+// ToProtoDepartmentStatus преобразует статус без учёта регистра;
+// неизвестное значение даёт UNSPECIFIED, крайние пробелы не обрезаются.
 func ToProtoDepartmentStatus(status string) departmentv1.DepartmentStatus {
 	switch strings.ToUpper(status) {
 	case string(models.DepartmentStatusActive):
@@ -20,6 +22,8 @@ func ToProtoDepartmentStatus(status string) departmentv1.DepartmentStatus {
 	}
 }
 
+// FromProtoDepartmentStatus преобразует статус ведомства в строку HTTP-модели;
+// неизвестное значение даёт пустую строку.
 func FromProtoDepartmentStatus(status departmentv1.DepartmentStatus) string {
 	switch status {
 	case departmentv1.DepartmentStatus_DEPARTMENT_STATUS_ACTIVE:
@@ -33,6 +37,8 @@ func FromProtoDepartmentStatus(status departmentv1.DepartmentStatus) string {
 	}
 }
 
+// ToProtoDepartmentSortBy преобразует поле сортировки без учёта регистра;
+// неизвестное значение даёт UNSPECIFIED.
 func ToProtoDepartmentSortBy(sortBy string) departmentv1.DepartmentSortBy {
 	switch strings.ToLower(sortBy) {
 	case string(models.DepartmentSortByCreatedAt):
@@ -48,6 +54,8 @@ func ToProtoDepartmentSortBy(sortBy string) departmentv1.DepartmentSortBy {
 	}
 }
 
+// ToProtoDepartmentSortOrder преобразует asc или desc без учёта регистра;
+// неизвестное значение даёт UNSPECIFIED.
 func ToProtoDepartmentSortOrder(sortOrder string) departmentv1.SortOrder {
 	switch strings.ToLower(sortOrder) {
 	case string(models.SortOrderAsc):
@@ -59,6 +67,8 @@ func ToProtoDepartmentSortOrder(sortOrder string) departmentv1.SortOrder {
 	}
 }
 
+// FromProtoDepartment преобразует ведомство в HTTP-модель с датами в Unix-секундах;
+// nil сохраняет как nil.
 func FromProtoDepartment(department *departmentv1.Department) *models.Department {
 
 	if department == nil {

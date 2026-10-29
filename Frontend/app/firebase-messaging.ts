@@ -1,4 +1,9 @@
-import { getApp, getApps, initializeApp, type FirebaseOptions } from "firebase/app";
+import {
+  getApp,
+  getApps,
+  initializeApp,
+  type FirebaseOptions,
+} from "firebase/app";
 import {
   deleteToken,
   getMessaging,
@@ -53,9 +58,12 @@ function serviceWorkerURL(): string {
 }
 
 async function messagingRegistration(): Promise<ServiceWorkerRegistration> {
-  const registration = await navigator.serviceWorker.register(serviceWorkerURL(), {
-    scope: "/",
-  });
+  const registration = await navigator.serviceWorker.register(
+    serviceWorkerURL(),
+    {
+      scope: "/",
+    },
+  );
 
   await navigator.serviceWorker.ready;
   return registration;
@@ -87,7 +95,9 @@ export function pushPermission(): NotificationPermission | "unsupported" {
   return Notification.permission;
 }
 
-export async function obtainPushToken(requestPermission: boolean): Promise<string> {
+export async function obtainPushToken(
+  requestPermission: boolean,
+): Promise<string> {
   const messaging = await configuredMessaging();
   let permission = Notification.permission;
 
@@ -135,7 +145,10 @@ function toPushMessage(payload: MessagePayload): PushMessage {
   return {
     id: data.notification_id || payload.messageId || crypto.randomUUID(),
     title: payload.notification?.title || data.title || "Новое уведомление",
-    body: payload.notification?.body || data.body || "В системе появилось обновление.",
+    body:
+      payload.notification?.body ||
+      data.body ||
+      "В системе появилось обновление.",
     eventType: data.event_type,
     createdAt: new Date().toISOString(),
   };

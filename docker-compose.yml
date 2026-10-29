@@ -32,8 +32,7 @@ services:
       S3_BUCKET: city-files
       S3_PATH_STYLE: "true"
       PRESIGN_TTL: 15m
-    ports:
-      - "${FILE_GRPC_PORT:-50059}:50059"
+      REPORT_INTERNAL_TOKEN: ${REPORT_INTERNAL_TOKEN:?set REPORT_INTERNAL_TOKEN}
     depends_on:
       migrator-file:
         condition: service_completed_successfully
@@ -106,7 +105,7 @@ services:
       ANALYTICS_SERVICE_ADDR: analytics-service:50063
       REPORT_SERVICE_ADDR: report-service:50064
       REPORT_INTERNAL_URL: http://report-service:8084
-      REPORT_INTERNAL_TOKEN: ${REPORT_INTERNAL_TOKEN:-local-report-internal-token}
+      REPORT_INTERNAL_TOKEN: ${REPORT_INTERNAL_TOKEN:?set REPORT_INTERNAL_TOKEN}
       ASSET_SERVICE_ADDR: asset-service:50065
       NOTIFICATION_LIVE_PREFIX: "notifications:user:"
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
@@ -154,8 +153,6 @@ services:
       - path: ./Auth_Service/.env.example
       - path: ./Auth_Service/.env
         required: false
-    ports:
-      - "${AUTH_GRPC_PORT:-50051}:50051"
     volumes:
       - jwt_keys:/app/keys:ro
     depends_on:
@@ -186,8 +183,6 @@ services:
       COMPLETION_SAGA_POLL_INTERVAL: 30s
       COMPLETION_SAGA_MAX_ATTEMPTS: "3"
       COMPLETION_SAGA_BATCH_SIZE: "50"
-    ports:
-      - "${TICKET_GRPC_PORT:-50052}:50052"
     depends_on:
       migrator-ticket:
         condition: service_completed_successfully
@@ -204,8 +199,6 @@ services:
       - path: ./Department_Service/.env.example
       - path: ./Department_Service/.env
         required: false
-    ports:
-      - "${DEPARTMENT_GRPC_PORT:-50053}:50053"
     depends_on:
       migrator-department:
         condition: service_completed_successfully
@@ -222,8 +215,6 @@ services:
       - path: ./Profile_Service/.env.example
       - path: ./Profile_Service/.env
         required: false
-    ports:
-      - "${PROFILE_GRPC_PORT:-50055}:50055"
     depends_on:
       migrator-profile:
         condition: service_completed_successfully
@@ -247,8 +238,6 @@ services:
     environment:
       KAFKA_ROUTING_TOPIC: routing.events.v1
       KAFKA_TICKET_TOPIC: tickets.events.v1
-    ports:
-      - "${BRIGADE_GRPC_PORT:-50054}:50054"
     depends_on:
       migrator-brigade:
         condition: service_completed_successfully
@@ -277,7 +266,7 @@ services:
       GRPC_PORT: "50056"
       HTTP_PORT: "8080"
       LOG_LEVEL: info
-      TRANSPONDER_API_KEY: ${TRANSPONDER_API_KEY:-}
+      TRANSPONDER_API_KEY: ${TRANSPONDER_API_KEY:?set TRANSPONDER_API_KEY}
       HISTORY_BUFFER_CAPACITY: "10000"
       HISTORY_BATCH_SIZE: "500"
       HISTORY_FLUSH_INTERVAL: 5s
@@ -292,7 +281,6 @@ services:
       REDIS_EVENTS_GROUP: location-kafka-relay
       REDIS_EVENTS_CONSUMER: location-service
     ports:
-      - "${LOCATION_GRPC_PORT:-50056}:50056"
       - "${LOCATION_HTTP_PORT:-8082}:8080"
     depends_on:
       migrator-location:
@@ -319,7 +307,7 @@ services:
       BRIGADE_ID: ${TRANSPONDER_BRIGADE_ID:-30000000-0000-4000-8000-000000000001}
       DEVICE_ID: ${TRANSPONDER_DEVICE_ID:-simulator-car-001}
       TARGET_URL: http://location-service:8080/v1/positions
-      TRANSPONDER_API_KEY: ${TRANSPONDER_API_KEY:-}
+      TRANSPONDER_API_KEY: ${TRANSPONDER_API_KEY:?set TRANSPONDER_API_KEY}
       ROUTE_FILE: routes/moscow-center.json
       SEND_INTERVAL: ${TRANSPONDER_SEND_INTERVAL:-2s}
       REQUEST_TIMEOUT: 5s
@@ -371,7 +359,7 @@ services:
       BRIGADE_ID: ${TRANSPONDER_AUTO_BRIGADE_ID:-30000000-0000-4000-8000-000000000002}
       DEVICE_ID: ${TRANSPONDER_AUTO_DEVICE_ID:-simulator-car-002}
       TARGET_URL: http://location-service:8080/v1/positions
-      TRANSPONDER_API_KEY: ${TRANSPONDER_API_KEY:-}
+      TRANSPONDER_API_KEY: ${TRANSPONDER_API_KEY:?set TRANSPONDER_API_KEY}
       ROUTE_FILE: routes/moscow-center.json
       SEND_INTERVAL: ${TRANSPONDER_SEND_INTERVAL:-2s}
       REQUEST_TIMEOUT: 5s
@@ -396,7 +384,7 @@ services:
       BRIGADE_ID: ${TRANSPONDER_CANCEL_BRIGADE_ID:-bf9221f9-dbca-4981-abd6-81a977a44054}
       DEVICE_ID: ${TRANSPONDER_CANCEL_DEVICE_ID:-simulator-car-003}
       TARGET_URL: http://location-service:8080/v1/positions
-      TRANSPONDER_API_KEY: ${TRANSPONDER_API_KEY:-}
+      TRANSPONDER_API_KEY: ${TRANSPONDER_API_KEY:?set TRANSPONDER_API_KEY}
       ROUTE_FILE: routes/moscow-center.json
       SEND_INTERVAL: ${TRANSPONDER_SEND_INTERVAL:-2s}
       REQUEST_TIMEOUT: 5s
@@ -417,6 +405,8 @@ services:
     environment:
       DATABASE_URL: postgres://routing:routing@postgres-routing:5432/routing?sslmode=disable
       GRPC_PORT: "50057"
+      TICKET_SERVICE_ADDR: ticket-service:50052
+      BRIGADE_SERVICE_ADDR: brigade-service:50054
       VALHALLA_URL: http://valhalla:8002
       VALHALLA_TIMEOUT: 15s
       KAFKA_BROKERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
@@ -425,8 +415,6 @@ services:
       OUTBOX_WORKER_COUNT: "4"
       SHUTDOWN_TIMEOUT: 20s
       LOG_LEVEL: info
-    ports:
-      - "${ROUTING_GRPC_PORT:-50057}:50057"
     depends_on:
       migrator-routing:
         condition: service_completed_successfully
@@ -452,8 +440,6 @@ services:
       SMTP_FROM: no-reply@automatic-system.local
       LIVE_CHANNEL_PREFIX: "notifications:user:"
       FCM_SERVICE_ACCOUNT_FILE: ${FCM_SERVICE_ACCOUNT_FILE:-}
-    ports:
-      - "${NOTIFICATION_GRPC_PORT:-50061}:50061"
     depends_on:
       migrator-notification:
         condition: service_completed_successfully
@@ -472,8 +458,6 @@ services:
     container_name: audit-service
     environment:
       DATABASE_URL: postgres://audit:audit@postgres-audit:5432/audit?sslmode=disable
-    ports:
-      - "${AUDIT_GRPC_PORT:-50062}:50062"
     depends_on:
       migrator-audit:
         condition: service_completed_successfully
@@ -488,8 +472,6 @@ services:
     container_name: analytics-service
     environment:
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-analytics}
-    ports:
-      - "${ANALYTICS_GRPC_PORT:-50063}:50063"
     depends_on:
       clickhouse-init:
         condition: service_completed_successfully
@@ -504,7 +486,7 @@ services:
     container_name: report-service
     environment:
       DATABASE_URL: postgres://report:report@postgres-report:5432/report?sslmode=disable
-      REPORT_INTERNAL_TOKEN: ${REPORT_INTERNAL_TOKEN:-local-report-internal-token}
+      REPORT_INTERNAL_TOKEN: ${REPORT_INTERNAL_TOKEN:?set REPORT_INTERNAL_TOKEN}
       INTERNAL_HTTP_PORT: "8084"
       ANALYTICS_SERVICE_ADDR: analytics-service:50063
       FILE_SERVICE_ADDR: file-service:50059
@@ -514,8 +496,6 @@ services:
       COMPLETION_CONSUMER_GROUP_ID: report-completion-v1
     expose:
       - "8084"
-    ports:
-      - "${REPORT_GRPC_PORT:-50064}:50064"
     depends_on:
       migrator-report:
         condition: service_completed_successfully
@@ -534,7 +514,6 @@ services:
     container_name: asset-service
     environment:
       DATABASE_URL: postgres://asset:asset@postgres-asset:5432/asset?sslmode=disable
-    ports: ["${ASSET_GRPC_PORT:-50065}:50065"]
     depends_on:
       migrator-asset: {condition: service_completed_successfully}
       kafka-init: {condition: service_completed_successfully}
@@ -635,8 +614,6 @@ services:
       KAFKA_CONSUMER_GROUP: sla-service
       DEADLINE_SCAN_INTERVAL: 1s
       LOG_LEVEL: info
-    ports:
-      - "${SLA_GRPC_PORT:-50060}:50060"
     depends_on:
       migrator-sla:
         condition: service_completed_successfully
@@ -663,8 +640,6 @@ services:
       AUTO_DISPATCH_ACTOR_ID: 00000000-0000-4000-8000-000000000058
       AUTO_DISPATCH_CANDIDATE_LIMIT: "10"
       KAFKA_TICKET_MAX_ATTEMPTS: "5"
-    ports:
-      - "${DISPATCH_GRPC_PORT:-50058}:50058"
     depends_on:
       migrator-dispatch:
         condition: service_completed_successfully

@@ -39,6 +39,8 @@ type AuthServiceStruct struct {
 	logger      *zap.Logger
 }
 
+// NewAuthServiceStruct создаёт службу аутентификации с репозиторием, RSA-ключом,
+// почтовым отправителем и средством создания профилей. Зависимости не проверяет.
 func NewAuthServiceStruct(
 	repo *repository.Repo,
 	privateKey *rsa.PrivateKey,
@@ -57,6 +59,9 @@ func NewAuthServiceStruct(
 	}
 }
 
+// Register проверяет данные, сохраняет пользователя с bcrypt-хешем пароля и создаёт профиль.
+// При определённом окончательном отказе создания профиля компенсирует новую регистрацию;
+// повтор с ключом идемпотентности использует сохранённый результат. Отправляет подтверждение почты.
 func (a *AuthServiceStruct) Register(ctx context.Context, in models.RegisterInput) (*models.RegisterResult, error) {
 	logger := a.logger.With(pkg.RequestIDField(ctx))
 
@@ -100,7 +105,13 @@ func (a *AuthServiceStruct) Register(ctx context.Context, in models.RegisterInpu
 				return nil, uuid.Nil, fmt.Errorf("jwt: Register(): cant hash password: %w", hashErr)
 			}
 
-			user = &models.User{Username: in.Username, Email: in.Email, PasswordHash: string(passwordHash), IsActive: true, EmailVerified: false}
+			user = &models.User{
+				Username:      in.Username,
+				Email:         in.Email,
+				PasswordHash:  string(passwordHash),
+				IsActive:      true,
+				EmailVerified: false,
+			}
 			id, createErr := a.repo.CreateUser(ctx, user)
 
 			if createErr != nil {
@@ -183,6 +194,8 @@ func (a *AuthServiceStruct) Register(ctx context.Context, in models.RegisterInpu
 	return cachedResult[models.RegisterResult](idempotentResult)
 }
 
+// definitiveProfileFailure выделяет окончательные gRPC-ошибки создания профиля,
+// при которых допустима компенсация регистрации учётной записи.
 func definitiveProfileFailure(err error) bool {
 	switch status.Code(err) {
 	case codes.InvalidArgument, codes.PermissionDenied, codes.Unauthenticated, codes.FailedPrecondition:
@@ -192,6 +205,8 @@ func definitiveProfileFailure(err error) bool {
 	}
 }
 
+// Login проверяет активность пользователя и пароль, создаёт сессию и выдаёт access/refresh-токены.
+// При сбое после создания сессии пытается отозвать её. Подтверждения почты при входе не требует.
 func (a *AuthServiceStruct) Login(ctx context.Context, in models.LoginInput) (*models.LoginResult, error) {
 	logger := a.logger.With(pkg.RequestIDField(ctx))
 
@@ -329,6 +344,9 @@ func (a *AuthServiceStruct) Login(ctx context.Context, in models.LoginInput) (*m
 	return result, nil
 }
 
+// Refresh проверяет хеш refresh-токена, срок, факт замены и соответствие сессии клиенту.
+// Атомарно заменяет токен, выдаёт новый access-токен и ограничивает срок нового refresh-токена
+// временем окончания сессии. Ошибки проверки возвращает без выдачи новой пары.
 func (a *AuthServiceStruct) Refresh(ctx context.Context, in models.RefreshInput) (*models.RefreshResult, error) {
 	logger := a.logger.With(pkg.RequestIDField(ctx))
 
@@ -487,6 +505,8 @@ func (a *AuthServiceStruct) Refresh(ctx context.Context, in models.RefreshInput)
 	return result, nil
 }
 
+// Logout проверяет принадлежность сессии пользователю и отзывает её вместе с refresh-токенами.
+// При отсутствующей или чужой сессии возвращает ErrInvalidSession.
 func (a *AuthServiceStruct) Logout(ctx context.Context, in models.LogoutInput) error {
 	logger := a.logger.With(pkg.RequestIDField(ctx))
 
@@ -547,6 +567,8 @@ func (a *AuthServiceStruct) Logout(ctx context.Context, in models.LogoutInput) e
 	return nil
 }
 
+// cleanupFailedLogin пытается закрыть сессию после сбоя входа с независимым таймаутом две секунды.
+// Ошибку очистки записывает в журнал, сохраняя исходную ошибку операции входа.
 func (a *AuthServiceStruct) cleanupFailedLogin(ctx context.Context, sessionID uuid.UUID, logger *zap.Logger) {
 	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
 	defer cancel()
@@ -560,6 +582,8 @@ func (a *AuthServiceStruct) cleanupFailedLogin(ctx context.Context, sessionID uu
 
 }
 
+// LogoutAll проверяет запрос и отзывает сессии и refresh-токены пользователя.
+// Возвращает количество отозванных сессий либо ошибку хранилища.
 func (a *AuthServiceStruct) LogoutAll(ctx context.Context, in models.LogoutAllInput) (uint32, error) {
 	logger := a.logger.With(pkg.RequestIDField(ctx))
 
@@ -611,6 +635,8 @@ func (a *AuthServiceStruct) LogoutAll(ctx context.Context, in models.LogoutAllIn
 
 }
 
+// GetUserAuthInfo загружает пользователя и его роли для ответа об учётной записи.
+// Возвращает ошибку при невозможности прочитать пользователя или роли.
 func (a *AuthServiceStruct) GetUserAuthInfo(ctx context.Context, userID uuid.UUID) (*models.UserAuthInfo, error) {
 	logger := a.logger.With(pkg.RequestIDField(ctx))
 
@@ -661,6 +687,8 @@ func (a *AuthServiceStruct) GetUserAuthInfo(ctx context.Context, userID uuid.UUI
 	return result, nil
 }
 
+// GetJWKS формирует JSON-набор JWKS из открытой части RSA-ключа службы.
+// Приватный ключ в результат не включает; ключ предназначен для проверки JWT.
 func (a *AuthServiceStruct) GetJWKS(ctx context.Context) (string, error) {
 	logger := a.logger.With(pkg.RequestIDField(ctx))
 
@@ -728,6 +756,9 @@ func (a *AuthServiceStruct) GetJWKS(ctx context.Context) (string, error) {
 	return string(jwkBytes), nil
 }
 
+// ChangePassword проверяет старый пароль и сохраняет bcrypt-хеш нового.
+// Отзыв сессий выполняет репозиторий: текущая сессия либо все сессии пользователя.
+// Использует транзакционную идемпотентность.
 func (a *AuthServiceStruct) ChangePassword(ctx context.Context, in models.ChangePasswordInput) (*models.ChangePasswordResult, error) {
 	logger := a.logger.With(pkg.RequestIDField(ctx))
 
@@ -813,6 +844,9 @@ func (a *AuthServiceStruct) ChangePassword(ctx context.Context, in models.Change
 	return cachedResult[models.ChangePasswordResult](idempotentResult)
 }
 
+// SendVerification отзывает прежние неиспользованные токены подтверждения почты,
+// сохраняет хеш нового токена со сроком 24 часа и отправляет письмо пользователю.
+// Для уже подтверждённой почты возвращает ErrEmailAlreadyVerified.
 func (a *AuthServiceStruct) SendVerification(ctx context.Context, in models.SendVerificationEmailInput) (*models.SendVerificationEmailResult, error) {
 	logger := a.logger.With(pkg.RequestIDField(ctx))
 
@@ -921,6 +955,8 @@ func (a *AuthServiceStruct) SendVerification(ctx context.Context, in models.Send
 	return cachedResult[models.SendVerificationEmailResult](idempotentResult)
 }
 
+// VerifyEmail проверяет одноразовый токен подтверждения и его срок действия.
+// В транзакции подтверждает почту и помечает токен использованным.
 func (a *AuthServiceStruct) VerifyEmail(ctx context.Context, in models.VerifyEmailInput) (*models.VerifyEmailResult, error) {
 	logger := a.logger.With(pkg.RequestIDField(ctx))
 
@@ -996,6 +1032,9 @@ func (a *AuthServiceStruct) VerifyEmail(ctx context.Context, in models.VerifyEma
 	}, nil
 }
 
+// RequestPasswordReset сохраняет токен сброса на 30 минут и отправляет письмо пользователю.
+// Для неизвестного адреса возвращает Success=true и нулевой срок, скрывая наличие учётной записи.
+// Отправку письма выполняет вне транзакции идемпотентности.
 func (a *AuthServiceStruct) RequestPasswordReset(ctx context.Context, in models.RequestPasswordResetInput) (*models.RequestPasswordResetResult, error) {
 	logger := a.logger.With(pkg.RequestIDField(ctx))
 
@@ -1089,6 +1128,8 @@ func (a *AuthServiceStruct) RequestPasswordReset(ctx context.Context, in models.
 	return cachedResult[models.RequestPasswordResetResult](idempotentResult)
 }
 
+// ResetPassword проверяет одноразовый токен и устанавливает bcrypt-хеш нового пароля.
+// Использование токена, смена пароля и отзыв сессий выполняются хранилищем транзакционно.
 func (a *AuthServiceStruct) ResetPassword(ctx context.Context, in models.ResetPasswordInput) (*models.ResetPasswordResult, error) {
 	logger := a.logger.With(pkg.RequestIDField(ctx))
 
@@ -1176,6 +1217,8 @@ func (a *AuthServiceStruct) ResetPassword(ctx context.Context, in models.ResetPa
 	return cachedResult[models.ResetPasswordResult](idempotentResult)
 }
 
+// generateAccessToken подписывает RS256 JWT на 15 минут с пользователем, сессией и ролями.
+// Возвращает строку токена и Unix-время истечения; задаёт issuer auth-jwt и audience api-gateway.
 func (a *AuthServiceStruct) generateAccessToken(ctx context.Context, userID uuid.UUID, sessionID uuid.UUID, roles []string) (string, int64, error) {
 	logger := a.logger.With(pkg.RequestIDField(ctx))
 
@@ -1208,6 +1251,8 @@ func (a *AuthServiceStruct) generateAccessToken(ctx context.Context, userID uuid
 	return tokenString, now.Add(ttl).Unix(), nil
 }
 
+// generateRefreshToken создаёт случайный 32-байтовый токен в Base64URL и SHA-256 его строки.
+// Возвращает исходный токен, хеш в Base64URL и Unix-время истечения через 30 дней.
 func (a *AuthServiceStruct) generateRefreshToken(ctx context.Context) (raw string, hash string, exp int64, err error) {
 	logger := a.logger.With(pkg.RequestIDField(ctx))
 
@@ -1233,6 +1278,8 @@ func (a *AuthServiceStruct) generateRefreshToken(ctx context.Context) (raw strin
 	return raw, hash, time.Now().Add(refreshTTL).Unix(), nil
 }
 
+// generateOpaqueToken создаёт случайный токен из 32 байтов и SHA-256 его строки в Base64URL.
+// Срок действия не задаёт; его выбирает операция подтверждения почты или сброса пароля.
 func (a *AuthServiceStruct) generateOpaqueToken(ctx context.Context) (raw string, hash string, err error) {
 	logger := a.logger.With(pkg.RequestIDField(ctx))
 

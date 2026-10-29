@@ -17,6 +17,7 @@ type PositionHistoryRepoStruct struct {
 	readPool  *pgxpool.Pool
 }
 
+// NewPositionHistoryRepo создаёт хранилище истории; при nil readPool читает через writePool.
 func NewPositionHistoryRepo(writePool, readPool *pgxpool.Pool) *PositionHistoryRepoStruct {
 
 	if readPool == nil {
@@ -26,6 +27,9 @@ func NewPositionHistoryRepo(writePool, readPool *pgxpool.Pool) *PositionHistoryR
 	return &PositionHistoryRepoStruct{writePool: writePool, readPool: readPool}
 }
 
+// AppendPositionsBatch записывает пакет истории через PostgreSQL COPY и возвращает
+// число записанных строк. Заполняет отсутствующие ID непосредственно в positions;
+// nil элемент даёт ErrValidation, уже присвоенные ID при ошибке сохраняются.
 func (r *PositionHistoryRepoStruct) AppendPositionsBatch(
 	ctx context.Context,
 	positions []*models.Position,
@@ -84,6 +88,9 @@ func (r *PositionHistoryRepoStruct) AppendPositionsBatch(
 	return count, nil
 }
 
+// ListPositionHistory возвращает страницу истории бригады за [From, To) и отдельный
+// общий счётчик. Сортирует по времени записи и Sequence, ASC только при SortOrderAsc;
+// неположительный лимит заменяет на DefaultLimit, in не изменяет.
 func (r *PositionHistoryRepoStruct) ListPositionHistory(
 	ctx context.Context,
 	in *models.ListPositionHistoryInput,

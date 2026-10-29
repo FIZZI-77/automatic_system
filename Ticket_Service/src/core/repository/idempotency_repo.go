@@ -18,6 +18,8 @@ type IdempotencyRecord struct {
 	Error       sql.NullString
 }
 
+// beginIdempotency вставляет ключ операции со сроком ttl либо читает существующий с FOR UPDATE.
+// Возвращает запись и признак новой вставки; соответствие хеша и статуса проверяет вызывающий.
 func beginIdempotency(ctx context.Context, q Querier, actorKey, operation, key, requestHash string, ttl time.Duration) (*IdempotencyRecord, bool, error) {
 	record := &IdempotencyRecord{}
 	err := q.QueryRow(ctx, `
@@ -49,6 +51,8 @@ func beginIdempotency(ctx context.Context, q Querier, actorKey, operation, key, 
 	return record, false, nil
 }
 
+// completeIdempotency помечает ключ COMPLETED, сохраняет ответ и ресурс и очищает ошибку.
+// Требует изменения ровно одной записи; использует текущий исполнитель транзакции q.
 func completeIdempotency(ctx context.Context, q Querier, actorKey, operation, key string, response []byte, resourceID any) error {
 	result, err := q.Exec(ctx, `
 		UPDATE idempotency_keys SET status = 'COMPLETED', response = $4, error = NULL,
@@ -67,6 +71,9 @@ func completeIdempotency(ctx context.Context, q Querier, actorKey, operation, ke
 	return nil
 }
 
+// RunIdempotentTx выполняет захват ключа, fn и сохранение JSON-ответа в одной транзакции.
+// Передаёт fn контекст общей транзакции. Для существующего ключа возвращает его запись
+// и acquired=false без вызова fn; ошибочное новое выполнение откатывает.
 func (r *Repository) RunIdempotentTx(ctx context.Context, actorKey, operation, key, requestHash string, ttl time.Duration, fn func(context.Context) (any, any, error)) (any, *IdempotencyRecord, bool, error) {
 	tx, err := r.writePool.Begin(ctx)
 
@@ -104,6 +111,8 @@ func (r *Repository) RunIdempotentTx(ctx context.Context, actorKey, operation, k
 	return result, record, true, nil
 }
 
+// BeginIdempotency отдельно занимает ключ либо возвращает существующую запись без блокировки.
+// Булев результат показывает новую вставку; для работы требуется корневой пул записи.
 func (r *Repository) BeginIdempotency(ctx context.Context, actorKey, operation, key, requestHash string, ttl time.Duration) (*IdempotencyRecord, bool, error) {
 
 	if r.writePool == nil {
@@ -153,6 +162,8 @@ func (r *Repository) BeginIdempotency(ctx context.Context, actorKey, operation, 
 	return record, false, nil
 }
 
+// CompleteIdempotency устанавливает COMPLETED и сохраняет готовый ответ и ссылку на ресурс.
+// Использует корневой пул; отсутствие записи по ключу отдельно не проверяет.
 func (r *Repository) CompleteIdempotency(ctx context.Context, actorKey, operation, key string, response []byte, resourceType string, resourceID any) error {
 
 	if r.writePool == nil {
@@ -180,6 +191,8 @@ func (r *Repository) CompleteIdempotency(ctx context.Context, actorKey, operatio
 	return nil
 }
 
+// FailIdempotency устанавливает FAILED и сохраняет текст ошибки либо пустую строку при nil.
+// Отсутствие записи по ключу отдельно не проверяет.
 func (r *Repository) FailIdempotency(ctx context.Context, actorKey, operation, key string, operationErr error) error {
 
 	if r.writePool == nil {

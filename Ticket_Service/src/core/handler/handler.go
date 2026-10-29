@@ -28,6 +28,7 @@ type TicketHandler struct {
 	logger  *zap.Logger
 }
 
+// NewTicketHandler создаёт gRPC-обработчик заявок с сервисом и журналом запросов.
 func NewTicketHandler(service *service.Service, logger *zap.Logger) *TicketHandler {
 	return &TicketHandler{service: service, logger: logger}
 }
@@ -39,6 +40,9 @@ type actorContext struct {
 	Roles        []string
 }
 
+// SubmitTicketFeedback разбирает UUID заявки и требует UUID пользователя из метаданных,
+// затем передаёт оценку, решение проблемы и комментарий сервису. Отсутствие пользователя
+// даёт PermissionDenied; остальные проверки доступа выполняются в сервисе.
 func (t *TicketHandler) SubmitTicketFeedback(ctx context.Context, req *ticketv1.SubmitTicketFeedbackRequest) (*ticketv1.SubmitTicketFeedbackResponse, error) {
 	ticketID, err := uuid.Parse(req.GetTicketId())
 
@@ -64,6 +68,8 @@ func (t *TicketHandler) SubmitTicketFeedback(ctx context.Context, req *ticketv1.
 	return &ticketv1.SubmitTicketFeedbackResponse{Feedback: toProtoFeedback(feedback)}, nil
 }
 
+// GetTicketFeedback разбирает UUID заявки и требует пользователя из метаданных;
+// передаёт сервису его ID и признак роли admin или dispatcher для проверки доступа.
 func (t *TicketHandler) GetTicketFeedback(ctx context.Context, req *ticketv1.GetTicketFeedbackRequest) (*ticketv1.GetTicketFeedbackResponse, error) {
 	ticketID, err := uuid.Parse(req.GetTicketId())
 
@@ -89,6 +95,8 @@ func (t *TicketHandler) GetTicketFeedback(ctx context.Context, req *ticketv1.Get
 	return &ticketv1.GetTicketFeedbackResponse{Feedback: toProtoFeedback(feedback)}, nil
 }
 
+// toProtoFeedback преобразует ненулевой отзыв с оценкой, комментарием,
+// признаком решения проблемы и датами в protobuf.
 func toProtoFeedback(value *models.TicketFeedback) *ticketv1.TicketFeedback {
 	return &ticketv1.TicketFeedback{
 		TicketId: value.TicketID.String(), UserId: value.UserID.String(), Rating: value.Rating,
@@ -97,6 +105,9 @@ func toProtoFeedback(value *models.TicketFeedback) *ticketv1.TicketFeedback {
 	}
 }
 
+// CreateWorkReport проверяет UUID заявки, автора и файлов и разрешает запрос
+// самому автору либо admin или dispatcher при наличии пользователя в метаданных.
+// Передаёт сервису отчёт, контекст доступа, ключ идемпотентности и данные завершения.
 func (t *TicketHandler) CreateWorkReport(ctx context.Context, req *ticketv1.CreateWorkReportRequest) (*ticketv1.CreateWorkReportResponse, error) {
 	ticketID, err := uuid.Parse(req.GetTicketId())
 
@@ -143,7 +154,17 @@ func (t *TicketHandler) CreateWorkReport(ctx context.Context, req *ticketv1.Crea
 		}
 	}
 
-	report, err := t.service.CreateWorkReport(ctx, &models.CreateWorkReportInput{TicketID: ticketID, AuthorUserID: authorID, Description: req.GetDescription(), FileIDs: fileIDs, ActorBrigadeID: actor.BrigadeID, ActorDepartmentID: actor.DepartmentID, ActorRoles: actor.Roles, IdempotencyKey: req.GetIdempotencyKey(), Completion: completion})
+	report, err := t.service.CreateWorkReport(ctx, &models.CreateWorkReportInput{
+		TicketID:          ticketID,
+		AuthorUserID:      authorID,
+		Description:       req.GetDescription(),
+		FileIDs:           fileIDs,
+		ActorBrigadeID:    actor.BrigadeID,
+		ActorDepartmentID: actor.DepartmentID,
+		ActorRoles:        actor.Roles,
+		IdempotencyKey:    req.GetIdempotencyKey(),
+		Completion:        completion,
+	})
 
 	if err != nil {
 		return nil, ticketStatusError("CreateWorkReport", err)
@@ -152,6 +173,8 @@ func (t *TicketHandler) CreateWorkReport(ctx context.Context, req *ticketv1.Crea
 	return &ticketv1.CreateWorkReportResponse{Report: toProtoWorkReport(report)}, nil
 }
 
+// ListWorkReports разбирает UUID заявки, требует пользователя из метаданных
+// и передаёт проверку доступа по бригаде, ведомству и ролям сервису.
 func (t *TicketHandler) ListWorkReports(ctx context.Context, req *ticketv1.ListWorkReportsRequest) (*ticketv1.ListWorkReportsResponse, error) {
 	ticketID, err := uuid.Parse(req.GetTicketId())
 
@@ -178,6 +201,7 @@ func (t *TicketHandler) ListWorkReports(ctx context.Context, req *ticketv1.ListW
 	return &ticketv1.ListWorkReportsResponse{Reports: result}, nil
 }
 
+// containsRole проверяет точное наличие wanted без нормализации регистра и пробелов.
 func containsRole(roles []string, wanted string) bool {
 	for _, role := range roles {
 
@@ -189,6 +213,8 @@ func containsRole(roles []string, wanted string) bool {
 	return false
 }
 
+// toProtoWorkReport преобразует отчёт и UUID файлов в protobuf; nil сохраняет
+// как nil, отсутствующий файл завершения даёт пустую строку.
 func toProtoWorkReport(report *models.WorkReport) *ticketv1.WorkReport {
 
 	if report == nil {
@@ -205,9 +231,23 @@ func toProtoWorkReport(report *models.WorkReport) *ticketv1.WorkReport {
 		fileID = report.CompletionFileID.String()
 	}
 
-	return &ticketv1.WorkReport{Id: report.ID.String(), TicketId: report.TicketID.String(), AuthorUserId: report.AuthorUserID.String(), Description: report.Description, FileIds: files, CreatedAt: ToProtoTimestamp(report.CreatedAt), UpdatedAt: ToProtoTimestamp(report.UpdatedAt), CompletionStatus: report.CompletionStatus, CompletionFileId: fileID, CompletionError: report.CompletionError}
+	return &ticketv1.WorkReport{
+		Id:               report.ID.String(),
+		TicketId:         report.TicketID.String(),
+		AuthorUserId:     report.AuthorUserID.String(),
+		Description:      report.Description,
+		FileIds:          files,
+		CreatedAt:        ToProtoTimestamp(report.CreatedAt),
+		UpdatedAt:        ToProtoTimestamp(report.UpdatedAt),
+		CompletionStatus: report.CompletionStatus,
+		CompletionFileId: fileID,
+		CompletionError:  report.CompletionError,
+	}
 }
 
+// CreateTicket проверяет UUID ведомства, категории и пользователя и наличие обеих
+// координат, затем передаёт создание с контекстом пользователя сервису.
+// Неверный необязательный AssetId пропускает; ошибки формата дают InvalidArgument.
 func (t *TicketHandler) CreateTicket(ctx context.Context, req *ticketv1.CreateTicketRequest) (*ticketv1.CreateTicketResponse, error) {
 	start := time.Now()
 	logger := t.logger.With(pkg.RequestIDField(ctx))
@@ -314,6 +354,8 @@ func (t *TicketHandler) CreateTicket(ctx context.Context, req *ticketv1.CreateTi
 	}, nil
 }
 
+// GetTicket разбирает UUID заявки и передаёт пользователя, бригаду, ведомство
+// и роли из метаданных сервису для проверки доступа; возвращает заявку в protobuf.
 func (t *TicketHandler) GetTicket(ctx context.Context, req *ticketv1.GetTicketRequest) (*ticketv1.GetTicketResponse, error) {
 	start := time.Now()
 	logger := t.logger.With(pkg.RequestIDField(ctx))
@@ -368,6 +410,9 @@ func (t *TicketHandler) GetTicket(ctx context.Context, req *ticketv1.GetTicketRe
 	}, nil
 }
 
+// ListTickets проверяет необязательные UUID фильтров, преобразует даты, сортировку
+// и пагинацию и передаёт контекст доступа сервису. UNSPECIFIED-статус и приоритет
+// пропускает; возвращает страницу заявок с общим счётчиком.
 func (t *TicketHandler) ListTickets(ctx context.Context, req *ticketv1.ListTicketsRequest) (*ticketv1.ListTicketsResponse, error) {
 	start := time.Now()
 	logger := t.logger.With(pkg.RequestIDField(ctx))
@@ -491,6 +536,9 @@ func (t *TicketHandler) ListTickets(ctx context.Context, req *ticketv1.ListTicke
 	}, nil
 }
 
+// UpdateTicket проверяет UUID заявки и заданных категории, автора и объекта,
+// сохраняет необязательность полей и координат и передаёт обновление сервису
+// с бригадой, ведомством и ролями из метаданных.
 func (t *TicketHandler) UpdateTicket(ctx context.Context, req *ticketv1.UpdateTicketRequest) (*ticketv1.UpdateTicketResponse, error) {
 	start := time.Now()
 	logger := t.logger.With(pkg.RequestIDField(ctx))
@@ -599,6 +647,9 @@ func (t *TicketHandler) UpdateTicket(ctx context.Context, req *ticketv1.UpdateTi
 	}, nil
 }
 
+// ChangeTicketStatus разбирает UUID заявки и автора и преобразует целевой статус;
+// передаёт проверку перехода и доступа сервису с контекстом метаданных.
+// Пустой комментарий заменяет на nil.
 func (t *TicketHandler) ChangeTicketStatus(ctx context.Context, req *ticketv1.ChangeTicketStatusRequest) (*ticketv1.ChangeTicketStatusResponse, error) {
 	start := time.Now()
 	logger := t.logger.With(pkg.RequestIDField(ctx))
@@ -670,6 +721,9 @@ func (t *TicketHandler) ChangeTicketStatus(ctx context.Context, req *ticketv1.Ch
 	}, nil
 }
 
+// AssignBrigade проверяет UUID заявки, бригады и назначающего пользователя
+// и передаёт назначение с комментарием, ведомством и ролями сервису.
+// Ошибки UUID даёт как InvalidArgument; ограничения назначения проверяет сервис.
 func (t *TicketHandler) AssignBrigade(ctx context.Context, req *ticketv1.AssignBrigadeRequest) (*ticketv1.AssignBrigadeResponse, error) {
 	start := time.Now()
 	logger := t.logger.With(pkg.RequestIDField(ctx))
@@ -752,6 +806,8 @@ func (t *TicketHandler) AssignBrigade(ctx context.Context, req *ticketv1.AssignB
 	}, nil
 }
 
+// CancelTicket разбирает UUID заявки и автора отмены и передаёт причину,
+// ведомство и роли сервису; возвращает обновлённую заявку в protobuf.
 func (t *TicketHandler) CancelTicket(ctx context.Context, req *ticketv1.CancelTicketRequest) (*ticketv1.CancelTicketResponse, error) {
 	start := time.Now()
 	logger := t.logger.With(pkg.RequestIDField(ctx))
@@ -818,6 +874,8 @@ func (t *TicketHandler) CancelTicket(ctx context.Context, req *ticketv1.CancelTi
 	}, nil
 }
 
+// CompleteTicket разбирает UUID заявки и автора завершения и передаёт завершение
+// с комментарием и контекстом бригады, ведомства и ролей сервису.
 func (t *TicketHandler) CompleteTicket(ctx context.Context, req *ticketv1.CompleteTicketRequest) (*ticketv1.CompleteTicketResponse, error) {
 	start := time.Now()
 	logger := t.logger.With(pkg.RequestIDField(ctx))
@@ -885,6 +943,8 @@ func (t *TicketHandler) CompleteTicket(ctx context.Context, req *ticketv1.Comple
 	}, nil
 }
 
+// GetTicketStatusHistory проверяет UUID заявки и передаёт пагинацию и контекст
+// доступа сервису; возвращает страницу переходов статуса с общим счётчиком.
 func (t *TicketHandler) GetTicketStatusHistory(ctx context.Context, req *ticketv1.GetTicketStatusHistoryRequest) (*ticketv1.GetTicketStatusHistoryResponse, error) {
 	start := time.Now()
 	logger := t.logger.With(pkg.RequestIDField(ctx))
@@ -948,6 +1008,8 @@ func (t *TicketHandler) GetTicketStatusHistory(ctx context.Context, req *ticketv
 	}, nil
 }
 
+// CreateCategory передаёт код, имя, необязательное описание и роли из метаданных
+// сервису создания категории; пустое описание заменяет на nil.
 func (t *TicketHandler) CreateCategory(ctx context.Context, req *ticketv1.CreateCategoryRequest) (*ticketv1.CreateCategoryResponse, error) {
 	start := time.Now()
 	logger := t.logger.With(pkg.RequestIDField(ctx))
@@ -989,6 +1051,8 @@ func (t *TicketHandler) CreateCategory(ctx context.Context, req *ticketv1.Create
 	}, nil
 }
 
+// GetCategory разбирает UUID категории и возвращает результат сервиса в protobuf;
+// неверный UUID даёт InvalidArgument, отсутствие категории — NotFound.
 func (t *TicketHandler) GetCategory(ctx context.Context, req *ticketv1.GetCategoryRequest) (*ticketv1.GetCategoryResponse, error) {
 	start := time.Now()
 	logger := t.logger.With(pkg.RequestIDField(ctx))
@@ -1038,6 +1102,8 @@ func (t *TicketHandler) GetCategory(ctx context.Context, req *ticketv1.GetCatego
 	}, nil
 }
 
+// ListCategories передаёт фильтр активности и пагинацию сервису и возвращает
+// страницу категорий с общим счётчиком без самостоятельной проверки ролей.
 func (t *TicketHandler) ListCategories(ctx context.Context, req *ticketv1.ListCategoriesRequest) (*ticketv1.ListCategoriesResponse, error) {
 	start := time.Now()
 	logger := t.logger.With(pkg.RequestIDField(ctx))
@@ -1082,6 +1148,9 @@ func (t *TicketHandler) ListCategories(ctx context.Context, req *ticketv1.ListCa
 	}, nil
 }
 
+// UpdateCategory разбирает UUID, сохраняет необязательность имени и описания
+// и передаёт роли сервису. Активность включает в изменение только при наличии
+// поля is_active по protobuf reflection.
 func (t *TicketHandler) UpdateCategory(ctx context.Context, req *ticketv1.UpdateCategoryRequest) (*ticketv1.UpdateCategoryResponse, error) {
 	start := time.Now()
 	logger := t.logger.With(pkg.RequestIDField(ctx))
@@ -1140,6 +1209,8 @@ func (t *TicketHandler) UpdateCategory(ctx context.Context, req *ticketv1.Update
 	}, nil
 }
 
+// DeleteCategory разбирает UUID и передаёт удаление с ролями из метаданных сервису;
+// возвращает категорию из результата, ошибки преобразует через ticketStatusError.
 func (t *TicketHandler) DeleteCategory(ctx context.Context, req *ticketv1.DeleteCategoryRequest) (*ticketv1.DeleteCategoryResponse, error) {
 	start := time.Now()
 	logger := t.logger.With(pkg.RequestIDField(ctx))
@@ -1190,6 +1261,9 @@ func (t *TicketHandler) DeleteCategory(ctx context.Context, req *ticketv1.Delete
 	}, nil
 }
 
+// CreateRequest требует пользователя из метаданных и проверяет UUID ведомства,
+// категории, автора и необязательного объекта. Создание от чужого имени разрешает
+// только admin или dispatcher; возвращает обращение, инцидент и признак совпадения.
 func (t *TicketHandler) CreateRequest(
 	ctx context.Context,
 	req *ticketv1.CreateRequestRequest,
@@ -1252,6 +1326,8 @@ func (t *TicketHandler) CreateRequest(
 	}, nil
 }
 
+// AttachRequest требует пользователя из метаданных и проверяет UUID инцидента
+// и обращения; передаёт привязку с автором, причиной, ведомством и ролями сервису.
 func (t *TicketHandler) AttachRequest(
 	ctx context.Context,
 	req *ticketv1.AttachRequestRequest,
@@ -1290,6 +1366,8 @@ func (t *TicketHandler) AttachRequest(
 	return &ticketv1.AttachRequestResponse{Request: ToProtoTicket(request)}, nil
 }
 
+// DetachRequest требует пользователя из метаданных, разбирает UUID обращения
+// и передаёт отвязку с причиной и контекстом доступа сервису.
 func (t *TicketHandler) DetachRequest(
 	ctx context.Context,
 	req *ticketv1.DetachRequestRequest,
@@ -1321,6 +1399,9 @@ func (t *TicketHandler) DetachRequest(
 	return &ticketv1.DetachRequestResponse{Request: ToProtoTicket(request)}, nil
 }
 
+// ListIncidentRequests требует пользователя из метаданных и UUID инцидента;
+// передаёт проверку доступа по ведомству и ролям сервису и возвращает страницу
+// связанных обращений с общим счётчиком.
 func (t *TicketHandler) ListIncidentRequests(
 	ctx context.Context,
 	req *ticketv1.ListIncidentRequestsRequest,
@@ -1361,6 +1442,9 @@ func (t *TicketHandler) ListIncidentRequests(
 	}, nil
 }
 
+// RegisterIntegration требует пользователя из метаданных и проверяет необязательный
+// UUID разрешённого ведомства; передаёт создание с ролями сервису и возвращает
+// данные интеграции вместе с выданным секретом.
 func (t *TicketHandler) RegisterIntegration(
 	ctx context.Context,
 	req *ticketv1.RegisterIntegrationRequest,
@@ -1395,6 +1479,8 @@ func (t *TicketHandler) RegisterIntegration(
 	}, nil
 }
 
+// ListIntegrations передаёт пагинацию и роли из метаданных сервису для проверки
+// доступа и возвращает страницу интеграций с общим счётчиком без самих секретов.
 func (t *TicketHandler) ListIntegrations(
 	ctx context.Context,
 	req *ticketv1.ListIntegrationsRequest,
@@ -1420,6 +1506,8 @@ func (t *TicketHandler) ListIntegrations(
 	}, nil
 }
 
+// SetIntegrationActive разбирает UUID интеграции и передаёт флаг активности
+// с ролями из метаданных сервису; возвращает обновлённые данные в protobuf.
 func (t *TicketHandler) SetIntegrationActive(
 	ctx context.Context,
 	req *ticketv1.SetIntegrationActiveRequest,
@@ -1443,6 +1531,8 @@ func (t *TicketHandler) SetIntegrationActive(
 	}, nil
 }
 
+// RotateIntegrationSecret разбирает UUID интеграции и передаёт смену секрета
+// с ролями из метаданных сервису; возвращает интеграцию и новый секрет.
 func (t *TicketHandler) RotateIntegrationSecret(
 	ctx context.Context,
 	req *ticketv1.RotateIntegrationSecretRequest,
@@ -1466,6 +1556,9 @@ func (t *TicketHandler) RotateIntegrationSecret(
 	}, nil
 }
 
+// CreateExternalRequest проверяет UUID входных связей и передаёт обращение,
+// client ID, секрет и внешний ID сервису проверки интеграции. Возвращает обращение,
+// инцидент и признак совпадения; неверные учётные данные дают Unauthenticated.
 func (t *TicketHandler) CreateExternalRequest(
 	ctx context.Context,
 	req *ticketv1.CreateExternalRequestRequest,
@@ -1523,6 +1616,8 @@ func (t *TicketHandler) CreateExternalRequest(
 	}, nil
 }
 
+// parseRequestUUID разбирает UUID либо возвращает uuid.Nil и ErrValidation
+// с именем поля, сохраняя возможность проверки через errors.Is.
 func parseRequestUUID(value string, field string) (uuid.UUID, error) {
 	parsed, err := uuid.Parse(value)
 
@@ -1533,6 +1628,8 @@ func parseRequestUUID(value string, field string) (uuid.UUID, error) {
 	return parsed, nil
 }
 
+// parseOptionalRequestUUID возвращает nil для nil или пустой строки;
+// иначе разбирает UUID, возвращая ErrValidation при неверном формате.
 func parseOptionalRequestUUID(value *string, field string) (*uuid.UUID, error) {
 
 	if value == nil || *value == "" {
@@ -1548,6 +1645,8 @@ func parseOptionalRequestUUID(value *string, field string) (*uuid.UUID, error) {
 	return &parsed, nil
 }
 
+// toProtoTicketIntegration преобразует интеграцию в protobuf с префиксом секрета,
+// ограничением ведомства и датами, не включая сам секрет; nil сохраняет как nil.
 func toProtoTicketIntegration(integration *models.TicketIntegration) *ticketv1.TicketIntegration {
 
 	if integration == nil {
@@ -1568,6 +1667,8 @@ func toProtoTicketIntegration(integration *models.TicketIntegration) *ticketv1.T
 	}
 }
 
+// parseOptionalUUID возвращает nil для пустой строки; иначе разбирает UUID
+// и добавляет имя поля к ошибке формата без обёртки ErrValidation.
 func parseOptionalUUID(value string, field string) (*uuid.UUID, error) {
 
 	if value == "" {
@@ -1583,6 +1684,8 @@ func parseOptionalUUID(value string, field string) (*uuid.UUID, error) {
 	return &parsed, nil
 }
 
+// parseOptionalUUIDPtr сохраняет nil и передаёт непустой указатель parseOptionalUUID;
+// пустая строка также даёт nil без ошибки.
 func parseOptionalUUIDPtr(value *string, field string) (*uuid.UUID, error) {
 
 	if value == nil {
@@ -1592,6 +1695,7 @@ func parseOptionalUUIDPtr(value *string, field string) (*uuid.UUID, error) {
 	return parseOptionalUUID(*value, field)
 }
 
+// optionalString возвращает указатель на непустую строку; пустую заменяет на nil.
 func optionalString(value string) *string {
 
 	if value == "" {
@@ -1600,6 +1704,9 @@ func optionalString(value string) *string {
 
 	return &value
 }
+
+// optionalParsedUUID разбирает необязательный UUID; nil и неверный формат
+// возвращают nil без сообщения об ошибке.
 func optionalParsedUUID(value *string) *uuid.UUID {
 
 	if value == nil {
@@ -1615,6 +1722,9 @@ func optionalParsedUUID(value *string) *uuid.UUID {
 	return &v
 }
 
+// actorFromContext читает пользователя, бригаду, ведомство и роли из метаданных.
+// Неверные UUID пропускает; роли разделяет запятыми, обрезает пробелы и удаляет
+// пустые элементы, сохраняя регистр и повторы.
 func actorFromContext(ctx context.Context) actorContext {
 	md, ok := metadata.FromIncomingContext(ctx)
 
@@ -1662,7 +1772,12 @@ func actorFromContext(ctx context.Context) actorContext {
 	return actor
 }
 
-func protoHasField(message interface{ ProtoReflect() protoreflect.Message }, fieldName protoreflect.Name) bool {
+// protoHasField проверяет наличие поля в protobuf-сообщении через дескриптор;
+// неизвестное имя поля даёт false.
+func protoHasField(message interface {
+	// ProtoReflect возвращает отражённое protobuf-сообщение для проверки наличия полей.
+	ProtoReflect() protoreflect.Message
+}, fieldName protoreflect.Name) bool {
 	field := message.ProtoReflect().Descriptor().Fields().ByName(fieldName)
 
 	if field == nil {
@@ -1672,10 +1787,16 @@ func protoHasField(message interface{ ProtoReflect() protoreflect.Message }, fie
 	return message.ProtoReflect().Has(field)
 }
 
+// ticketStatusError формирует gRPC-ошибку с доменным кодом, именем метода
+// и исходным текстом; предназначена для ненулевой ошибки.
 func ticketStatusError(method string, err error) error {
 	return status.Errorf(ticketErrorCode(err), "failed %s: %v", method, err)
 }
 
+// ticketErrorCode сопоставляет отмену, таймаут и доменные ошибки кодам gRPC.
+// Валидация даёт InvalidArgument, конфликт идемпотентности — AlreadyExists,
+// незавершённая операция — Aborted, ограничения состояния — FailedPrecondition;
+// неверные учётные данные интеграции — Unauthenticated, неизвестная ошибка — Internal.
 func ticketErrorCode(err error) codes.Code {
 
 	if err == nil {
@@ -1719,6 +1840,8 @@ func ticketErrorCode(err error) codes.Code {
 	}
 }
 
+// toProtoCategory преобразует категорию с кодом, активностью и датами в protobuf;
+// для nil возвращает nil.
 func toProtoCategory(category *models.TicketCategory) *ticketv1.TicketCategory {
 
 	if category == nil {
@@ -1736,6 +1859,8 @@ func toProtoCategory(category *models.TicketCategory) *ticketv1.TicketCategory {
 	}
 }
 
+// toProtoStatusHistory преобразует переход статуса в protobuf; отсутствующий
+// прежний статус даёт UNSPECIFIED, автор и комментарий — пустые строки, nil запись — nil.
 func toProtoStatusHistory(item *models.TicketStatusHistory) *ticketv1.TicketStatusHistory {
 
 	if item == nil {

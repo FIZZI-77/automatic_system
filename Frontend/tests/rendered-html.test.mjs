@@ -30,12 +30,18 @@ test("server-renders the city services landing page", async () => {
 
   const html = await response.text();
   assert.match(html, /<html lang="ru">/i);
-  assert.match(html, /<title>Город рядом — городские службы в одном окне<\/title>/i);
+  assert.match(
+    html,
+    /<title>Город рядом — городские службы в одном окне<\/title>/i,
+  );
   assert.match(html, /Город слышит\./);
   assert.match(html, /Службы действуют\./);
   assert.match(html, /Сообщить о проблеме/);
   assert.match(html, /Посмотреть живую карту/);
-  assert.doesNotMatch(html, /codex-preview|Your site is taking shape|Building your site/i);
+  assert.doesNotMatch(
+    html,
+    /codex-preview|Your site is taking shape|Building your site/i,
+  );
 });
 
 test("page and layout use the production application shell", async () => {
@@ -49,7 +55,7 @@ test("page and layout use the production application shell", async () => {
   assert.match(page, /<CityApp \/>/);
   assert.match(layout, /<html lang="ru">/);
   assert.match(layout, /title: "Город рядом — городские службы в одном окне"/);
-  assert.match(layout, /description: "Заявки жителей/);
+  assert.match(layout, /description:\s*"Заявки жителей/);
   assert.doesNotMatch(layout, /codex-preview|_sites-preview/i);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
 });

@@ -10,6 +10,9 @@ import (
 	"github.com/google/uuid"
 )
 
+// SetRouteStatus проверяет UUID и допустимость перехода из текущего статуса,
+// затем условно обновляет маршрут. Неверный переход или конкурентная смена статуса
+// возвращают ErrConflict.
 func (s *Service) SetRouteStatus(
 	ctx context.Context,
 	id string,
@@ -38,6 +41,8 @@ func (s *Service) SetRouteStatus(
 	return s.repo.UpdateStatus(ctx, id, route.Status, target)
 }
 
+// canTransition разрешает PLANNED → ACTIVE → COMPLETED и отмену из PLANNED или ACTIVE.
+// Повторы, выход из терминального статуса и неизвестные статусы отклоняет.
 func canTransition(
 	current models.RouteStatus,
 	target models.RouteStatus,

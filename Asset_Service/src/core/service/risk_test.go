@@ -26,7 +26,15 @@ func TestRiskRepeatedFailures(t *testing.T) {
 	year, life := 2010, 20
 	y, l := int32(year), int32(life)
 	condition := .3
-	r := &riskRepo{facts: repository.RiskFacts{InstallationYear: &y, ServiceLifeYears: &l, Criticality: .9, Incidents90: 4, Repeat90: 2, DaysInspectionOverdue: 60, LastCondition: &condition}}
+	r := &riskRepo{facts: repository.RiskFacts{
+		InstallationYear:      &y,
+		ServiceLifeYears:      &l,
+		Criticality:           .9,
+		Incidents90:           4,
+		Repeat90:              2,
+		DaysInspectionOverdue: 60,
+		LastCondition:         &condition,
+	}}
 	s := &AssetServiceStruct{repo: r}
 	p, e := s.calculate(context.Background(), uuid.New(), time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
 

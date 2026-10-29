@@ -21,9 +21,12 @@ import (
 	"routing/src/core/service"
 	"routing/src/infrastructure/valhalla"
 
+	brigadev1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/brigade/v1"
 	routingv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/routing/v1"
+	ticketv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/ticket/v1"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health"
 	healthv1 "google.golang.org/grpc/health/grpc_health_v1"
 )
@@ -110,7 +113,17 @@ func main() {
 
 	routeRepo := repository.NewRouteRepo(writeDB, readDB)
 	routingService := service.New(routeRepo, engine, logger)
-	routingHandler := handler.New(routingService)
+	ticketConn, err := grpc.NewClient("passthrough:///"+env("TICKET_SERVICE_ADDR", "ticket-service:50052"), grpc.WithTransportCredentials(insecure.NewCredentials()), telemetry.GRPCClientOption())
+	if err != nil {
+		fatalWithCleanup(logger, dependencies, "connect ticket authorization", err)
+	}
+	dependencies.Add("ticket authorization", ticketConn.Close)
+	brigadeConn, err := grpc.NewClient("passthrough:///"+env("BRIGADE_SERVICE_ADDR", "brigade-service:50054"), grpc.WithTransportCredentials(insecure.NewCredentials()), telemetry.GRPCClientOption())
+	if err != nil {
+		fatalWithCleanup(logger, dependencies, "connect brigade authorization", err)
+	}
+	dependencies.Add("brigade authorization", brigadeConn.Close)
+	routingHandler := handler.New(routingService, ticketv1.NewTicketServiceClient(ticketConn), brigadev1.NewBrigadeServiceClient(brigadeConn))
 
 	workerCtx, cancelWorkers := context.WithCancel(context.Background())
 	var workerWG sync.WaitGroup

@@ -19,22 +19,29 @@ type authTx struct {
 	ctx context.Context
 }
 
+// Commit фиксирует обёрнутую транзакцию с сохранённым в authTx контекстом.
 func (t authTx) Commit() error {
 	return t.Tx.Commit(t.ctx)
 }
 
+// Rollback откатывает обёрнутую транзакцию с сохранённым в authTx контекстом.
 func (t authTx) Rollback() error {
 	return t.Tx.Rollback(t.ctx)
 }
 
+// NewTXRepoStruct создаёт репозиторий составных изменений пользователя, сессий и токенов.
 func NewTXRepoStruct(writeDB DBTX) *TXRepoStruct {
 	return &TXRepoStruct{writeDB: writeDB}
 }
 
+// insertAuthOutboxEvent записывает доменное событие через общий outbox в переданной транзакции.
 func insertAuthOutboxEvent(ctx context.Context, tx DBTX, aggregateType string, aggregateID uuid.UUID, eventType string, payload any) error {
 	return insertOutboxEvent(ctx, tx, aggregateType, aggregateID, eventType, payload)
 }
 
+// ChangePassword сохраняет переданный хеш password и событие смены пароля в транзакции.
+// При revokeOtherSessions=false отзывает текущую сессию и её токены, при true — все сессии
+// и токены пользователя. Возвращает количество отозванных сессий.
 func (t *TXRepoStruct) ChangePassword(ctx context.Context, userID uuid.UUID, password string, sessionID uuid.UUID, revokeOtherSessions bool) (int32, error) {
 	pgxTx, err := beginNestedAware(ctx, t.writeDB)
 
@@ -164,6 +171,7 @@ func (t *TXRepoStruct) ChangePassword(ctx context.Context, userID uuid.UUID, pas
 	return int32(rowAffected), nil
 }
 
+// Logout транзакционно отзывает сессию, её refresh-токены и сохраняет событие выхода в outbox.
 func (t *TXRepoStruct) Logout(ctx context.Context, sessionID uuid.UUID) error {
 	pgxTx, err := beginNestedAware(ctx, t.writeDB)
 
@@ -223,6 +231,8 @@ func (t *TXRepoStruct) Logout(ctx context.Context, sessionID uuid.UUID) error {
 	return nil
 }
 
+// LogoutAll отзывает все сессии и refresh-токены пользователя и сохраняет событие outbox.
+// Возвращает число сессий, изменённых в транзакции.
 func (t *TXRepoStruct) LogoutAll(ctx context.Context, userID uuid.UUID) (int64, error) {
 	pgxTx, err := beginNestedAware(ctx, t.writeDB)
 
@@ -285,6 +295,8 @@ func (t *TXRepoStruct) LogoutAll(ctx context.Context, userID uuid.UUID) (int64, 
 
 }
 
+// ResetPassword транзакционно меняет хеш пароля, отзывает сессии и токены и сохраняет событие.
+// Одноразовый токен не проверяет; возвращает число отозванных сессий.
 func (t *TXRepoStruct) ResetPassword(ctx context.Context, userID uuid.UUID, passwordHash string) (int32, error) {
 	pgxTx, err := beginNestedAware(ctx, t.writeDB)
 
@@ -380,6 +392,9 @@ func (t *TXRepoStruct) ResetPassword(ctx context.Context, userID uuid.UUID, pass
 	return int32(sessionRowsAffected), nil
 }
 
+// ResetPasswordWithToken атомарно использует действующий токен сброса, меняет хеш пароля,
+// отзывает сессии и токены и сохраняет событие. Возвращает число отозванных сессий;
+// использованный, истёкший или отсутствующий токен вызывает ошибку без смены пароля.
 func (t *TXRepoStruct) ResetPasswordWithToken(ctx context.Context, userID uuid.UUID, passwordHash string, tokenID uuid.UUID) (int32, error) {
 	pgxTx, err := beginNestedAware(ctx, t.writeDB)
 
@@ -474,6 +489,8 @@ func (t *TXRepoStruct) ResetPasswordWithToken(ctx context.Context, userID uuid.U
 	return int32(sessionRowsAffected), nil
 }
 
+// VerifyEmail атомарно помечает действующий токен использованным, подтверждает почту
+// пользователя и записывает событие outbox. При неподходящем токене или пользователе откатывается.
 func (t *TXRepoStruct) VerifyEmail(ctx context.Context, userID uuid.UUID, tokenID uuid.UUID) error {
 	pgxTx, err := beginNestedAware(ctx, t.writeDB)
 

@@ -49,7 +49,13 @@ func TestOutboxLeaseFencesPreviousReplica(t *testing.T) {
 		t.Fatalf("claim outbox lease fixture error = %v", err)
 	}
 
-	claimed := event{ID: eventID, AggregateID: aggregateID, EventType: "dispatch.requested", Payload: payload, LockOwner: firstOwner}
+	claimed := event{
+		ID:          eventID,
+		AggregateID: aggregateID,
+		EventType:   "dispatch.requested",
+		Payload:     payload,
+		LockOwner:   firstOwner,
+	}
 	secondOwner := uuid.New()
 
 	if _, err = pool.Exec(t.Context(), `UPDATE dispatch_outbox_events SET locked_by=$2 WHERE id=$1`, eventID, secondOwner); err != nil {

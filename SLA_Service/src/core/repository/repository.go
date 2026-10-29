@@ -19,24 +19,33 @@ type Repository struct {
 	db *pgxpool.Pool
 }
 
+// New создаёт хранилище правил, состояний и истории SLA с пулом db.
 func New(db *pgxpool.Pool) *Repository {
 	return &Repository{db: db}
 }
 
+// CreateRule сохраняет правило, усекая длительности до целых секунд.
+// Заполняет ID, активность и временные метки в v из базы и возвращает тот же указатель.
 func (r *Repository) CreateRule(ctx context.Context, v *models.Rule) (*models.Rule, error) {
 	err := r.db.QueryRow(ctx, `INSERT INTO sla_rules(name,department_id,category_id,priority,response_seconds,resolution_seconds,warning_percent) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id,active,created_at,updated_at`, v.Name, v.DepartmentID, v.CategoryID, v.Priority, int64(v.ResponseTime/time.Second), int64(v.ResolutionTime/time.Second), v.WarningPercent).Scan(&v.ID, &v.Active, &v.CreatedAt, &v.UpdatedAt)
 	return v, mapErr(err)
 }
+
+// GetRule возвращает правило по ID, включая неактивное; отсутствие даёт ErrNotFound.
 func (r *Repository) GetRule(ctx context.Context, id uuid.UUID) (*models.Rule, error) {
 	row := r.db.QueryRow(ctx, `SELECT id,name,department_id,category_id,priority,response_seconds,resolution_seconds,warning_percent,active,created_at,updated_at FROM sla_rules WHERE id=$1`, id)
 	return scanRule(row)
 }
 
+// UpdateRule заменяет поля правила по v.ID, усекая длительности до целых секунд.
+// Обновляет временные метки в v; отсутствие правила возвращает как ErrNotFound.
 func (r *Repository) UpdateRule(ctx context.Context, v *models.Rule) (*models.Rule, error) {
 	err := r.db.QueryRow(ctx, `UPDATE sla_rules SET name=$2,department_id=$3,category_id=$4,priority=$5,response_seconds=$6,resolution_seconds=$7,warning_percent=$8,active=$9,updated_at=now() WHERE id=$1 RETURNING created_at,updated_at`, v.ID, v.Name, v.DepartmentID, v.CategoryID, v.Priority, int64(v.ResponseTime/time.Second), int64(v.ResolutionTime/time.Second), v.WarningPercent, v.Active).Scan(&v.CreatedAt, &v.UpdatedAt)
 	return v, mapErr(err)
 }
 
+// DeleteRule читает правило и сохраняет его с Active=false, возвращая результат.
+// Физически строку не удаляет; отсутствие правила даёт ErrNotFound.
 func (r *Repository) DeleteRule(ctx context.Context, id uuid.UUID) (*models.Rule, error) {
 	v, e := r.GetRule(ctx, id)
 
@@ -48,6 +57,8 @@ func (r *Repository) DeleteRule(ctx context.Context, id uuid.UUID) (*models.Rule
 	return r.UpdateRule(ctx, v)
 }
 
+// ListRules возвращает страницу правил по фильтрам от новых к старым и оконный
+// общий счётчик. Нормализует лимит в копии f; пустая страница даёт nil и нулевой счётчик.
 func (r *Repository) ListRules(ctx context.Context, f models.RuleFilter) ([]*models.Rule, int64, error) {
 	f.Limit = limit(f.Limit)
 	rows, e := r.db.Query(ctx, `SELECT id,name,department_id,category_id,priority,response_seconds,resolution_seconds,warning_percent,active,created_at,updated_at,count(*) OVER() FROM sla_rules WHERE ($1::uuid IS NULL OR department_id=$1) AND ($2::uuid IS NULL OR category_id=$2) AND ($3::text IS NULL OR priority=$3) AND ($4::bool IS NULL OR active=$4) ORDER BY created_at DESC LIMIT $5 OFFSET $6`, f.DepartmentID, f.CategoryID, f.Priority, f.Active, f.Limit, f.Offset)
@@ -76,10 +87,15 @@ func (r *Repository) ListRules(ctx context.Context, f models.RuleFilter) ([]*mod
 	return out, total, rows.Err()
 }
 
+// MatchRule выбирает активное правило по ведомству, категории и приоритету,
+// считая NULL универсальным условием. Предпочитает больше заданных условий,
+// затем более позднее обновление; отсутствие совпадения даёт ErrNotFound.
 func (r *Repository) MatchRule(ctx context.Context, d, c uuid.UUID, p models.Priority) (*models.Rule, error) {
 	return scanRule(r.db.QueryRow(ctx, `SELECT id,name,department_id,category_id,priority,response_seconds,resolution_seconds,warning_percent,active,created_at,updated_at FROM sla_rules WHERE active AND (department_id IS NULL OR department_id=$1) AND (category_id IS NULL OR category_id=$2) AND (priority IS NULL OR priority=$3) ORDER BY (department_id IS NOT NULL)::int+(category_id IS NOT NULL)::int+(priority IS NOT NULL)::int DESC,updated_at DESC LIMIT 1`, d, c, p))
 }
 
+// scanRule читает правило и переводит секундные сроки в time.Duration.
+// Возвращает выделенную модель вместе с преобразованной через mapErr ошибкой чтения.
 func scanRule(row pgx.Row) (*models.Rule, error) {
 	v := new(models.Rule)
 	var a, b int64
@@ -89,18 +105,24 @@ func scanRule(row pgx.Row) (*models.Rule, error) {
 	return v, mapErr(e)
 }
 
+// GetTicketSLA читает состояние SLA по ID заявки; отсутствие возвращает как ErrNotFound.
 func (r *Repository) GetTicketSLA(ctx context.Context, id uuid.UUID) (*models.TicketSLA, error) {
 	return scanSLA(r.db.QueryRow(ctx, slaSelect+` WHERE ticket_id=$1`, id))
 }
 
 const slaSelect = `SELECT id,ticket_id,rule_id,department_id,category_id,priority,status,ticket_created_at,response_deadline,resolution_deadline,responded_at,completed_at,response_breached,resolution_breached,response_warning_sent,resolution_warning_sent,version,created_at,updated_at FROM ticket_slas`
 
+// scanSLA читает состояние SLA в порядке slaSelect и возвращает модель
+// вместе с преобразованной через mapErr ошибкой чтения.
 func scanSLA(row pgx.Row) (*models.TicketSLA, error) {
 	v := new(models.TicketSLA)
 	e := row.Scan(&v.ID, &v.TicketID, &v.RuleID, &v.DepartmentID, &v.CategoryID, &v.Priority, &v.Status, &v.TicketCreatedAt, &v.ResponseDeadline, &v.ResolutionDeadline, &v.RespondedAt, &v.CompletedAt, &v.ResponseBreached, &v.ResolutionBreached, &v.ResponseWarningSent, &v.ResolutionWarningSent, &v.Version, &v.CreatedAt, &v.UpdatedAt)
 	return v, mapErr(e)
 }
 
+// ListSLAs возвращает страницу состояний SLA от новых к старым с фильтром ведомства,
+// статуса и наличия любого нарушения. Нормализует лимит в копии f;
+// на пустой странице возвращает nil и нулевой общий счётчик.
 func (r *Repository) ListSLAs(ctx context.Context, f models.SLAFilter) ([]*models.TicketSLA, int64, error) {
 	f.Limit = limit(f.Limit)
 	query := strings.Replace(slaSelect, " FROM ticket_slas", ",count(*) OVER() FROM ticket_slas", 1)
@@ -128,6 +150,9 @@ func (r *Repository) ListSLAs(ctx context.Context, f models.SLAFilter) ([]*model
 	return out, total, rows.Err()
 }
 
+// ApplyEvent транзакционно записывает событие в inbox и создаёт либо меняет SLA
+// вместе с историей и outbox. Повтор события пропускает; если SLA ещё нет и rule=nil,
+// сохраняет только inbox. Для нового SLA отсчитывает сроки от времени создания заявки.
 func (r *Repository) ApplyEvent(ctx context.Context, ev models.TicketEvent, rule *models.Rule) error {
 	tx, e := r.db.Begin(ctx)
 
@@ -199,6 +224,9 @@ func (r *Repository) ApplyEvent(ctx context.Context, ev models.TicketEvent, rule
 	return tx.Commit(ctx)
 }
 
+// transition изменяет v по событию заявки: отмечает реакцию, завершение, отмену
+// либо пересчитывает сроки при смене правила. Сохраняет v с увеличением версии в tx
+// и добавляет историю и outbox для распознанного изменения.
 func transition(ctx context.Context, tx pgx.Tx, v *models.TicketSLA, ev models.TicketEvent, rule *models.Rule) error {
 	now := ev.UpdatedAt
 
@@ -255,6 +283,9 @@ func transition(ctx context.Context, tx pgx.Tx, v *models.TicketSLA, ev models.T
 	return e
 }
 
+// CheckDeadlines транзакционно проверяет активные SLA на момент now, пропуская
+// заблокированные строки. Сохраняет новые признаки предупреждений и нарушений,
+// увеличивает версию изменённых записей и добавляет историю с outbox.
 func (r *Repository) CheckDeadlines(ctx context.Context, now time.Time) error {
 	tx, e := r.db.Begin(ctx)
 
@@ -333,10 +364,14 @@ func (r *Repository) CheckDeadlines(ctx context.Context, now time.Time) error {
 	return tx.Commit(ctx)
 }
 
+// warningReached сообщает, наступил ли момент start + p процентов интервала до deadline.
+// Равенство порогу считается достижением; входные значения не проверяет.
 func warningReached(start, deadline time.Time, p int32, now time.Time) bool {
 	return !now.Before(start.Add(time.Duration(float64(deadline.Sub(start)) * float64(p) / 100)))
 }
 
+// history записывает изменение SLA и одноимённое событие sla.<тип> в outbox через tx.
+// Обе записи используют один UUID и текущее UTC-время; v не изменяется.
 func history(ctx context.Context, tx pgx.Tx, v *models.TicketSLA, k models.EventType, d string) error {
 	id := uuid.New()
 	at := time.Now().UTC()
@@ -365,6 +400,8 @@ func history(ctx context.Context, tx pgx.Tx, v *models.TicketSLA, k models.Event
 	return e
 }
 
+// ListHistory возвращает страницу истории SLA по ID заявки от новых событий к старым.
+// Нормализует lim; на пустой странице возвращает nil и нулевой общий счётчик.
 func (r *Repository) ListHistory(ctx context.Context, id uuid.UUID, lim, off int32) ([]*models.History, int64, error) {
 	rows, e := r.db.Query(ctx, `SELECT id,ticket_sla_id,ticket_id,event_type,occurred_at,details,count(*) OVER() FROM sla_history WHERE ticket_id=$1 ORDER BY occurred_at DESC LIMIT $2 OFFSET $3`, id, limit(lim), off)
 
@@ -389,11 +426,13 @@ func (r *Repository) ListHistory(ctx context.Context, id uuid.UUID, lim, off int
 	return out, total, rows.Err()
 }
 
+// mustJSON сериализует v в JSON, игнорируя ошибку; при невозможности сериализации возвращает nil.
 func mustJSON(v any) []byte {
 	b, _ := json.Marshal(v)
 	return b
 }
 
+// limit возвращает лимит страницы: 50 для неположительного v и не больше 200.
 func limit(v int32) int32 {
 
 	if v <= 0 {
@@ -406,6 +445,9 @@ func limit(v int32) int32 {
 
 	return v
 }
+
+// mapErr заменяет pgx.ErrNoRows на ErrNotFound, прочие ошибки оборачивает
+// префиксом repository, а nil возвращает без изменений.
 func mapErr(e error) error {
 
 	if errors.Is(e, pgx.ErrNoRows) {

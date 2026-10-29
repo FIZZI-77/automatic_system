@@ -13,6 +13,7 @@ const (
 	MaxLimit     = int32(1000)
 )
 
+// validatePoint проверяет диапазоны широты [-90, 90] и долготы [-180, 180].
 func validatePoint(latitude, longitude float64) error {
 
 	if latitude < -90 || latitude > 90 {
@@ -26,6 +27,8 @@ func validatePoint(latitude, longitude float64) error {
 	return nil
 }
 
+// validatePage требует лимит от 0 до MaxLimit и неотрицательное смещение,
+// не подставляя значения по умолчанию.
 func validatePage(limit, offset int32) error {
 
 	if limit < 0 || limit > MaxLimit {
@@ -39,6 +42,9 @@ func validatePage(limit, offset int32) error {
 	return nil
 }
 
+// Validate проверяет идентификаторы и время точки, версию события 1, положительный
+// Sequence в диапазоне BIGINT, координаты и измерения движения.
+// Скорость и точность должны быть неотрицательными, курс — в [0, 360); in не изменяет.
 func (in *RecordPositionInput) Validate() error {
 
 	if in == nil {
@@ -84,6 +90,8 @@ func (in *RecordPositionInput) Validate() error {
 	return nil
 }
 
+// Validate требует непустой SubjectID и тип BRIGADE, VEHICLE или DEVICE.
+// Формат UUID для соответствующих типов проверяет репозиторий.
 func (in *GetCurrentLocationInput) Validate() error {
 
 	if in == nil || strings.TrimSpace(in.SubjectID) == "" {
@@ -97,6 +105,7 @@ func (in *GetCurrentLocationInput) Validate() error {
 	return fmt.Errorf("invalid subject_type")
 }
 
+// Validate требует непустой список бригад без нулевых UUID; повторы допускаются.
 func (in *GetCurrentLocationsInput) Validate() error {
 
 	if in == nil || len(in.BrigadeIDs) == 0 {
@@ -113,6 +122,8 @@ func (in *GetCurrentLocationsInput) Validate() error {
 	return nil
 }
 
+// Validate проверяет ID бригады, ненулевые даты с From < To, направление
+// сортировки и пагинацию. Пустое направление и нулевой лимит допустимы.
 func (in *ListPositionHistoryInput) Validate() error {
 
 	if in == nil || in.BrigadeID == uuid.Nil {
@@ -130,6 +141,8 @@ func (in *ListPositionHistoryInput) Validate() error {
 	return validatePage(in.Limit, in.Offset)
 }
 
+// Validate проверяет координаты, положительный радиус и лимит от 0 до MaxLimit.
+// nil запрос отклоняет; входные значения не изменяет.
 func (in *FindNearbyBrigadesInput) Validate() error {
 
 	if in == nil {
@@ -151,6 +164,8 @@ func (in *FindNearbyBrigadesInput) Validate() error {
 	return nil
 }
 
+// Validate требует ID ведомства, непустые имя и GeoJSON после удаления крайних
+// пробелов. Содержимое геометрии проверяет база; исходные строки не изменяются.
 func (in *CreateGeoZoneInput) Validate() error {
 
 	if in == nil || in.DepartmentID == uuid.Nil || strings.TrimSpace(in.Name) == "" ||
@@ -161,6 +176,8 @@ func (in *CreateGeoZoneInput) Validate() error {
 	return nil
 }
 
+// Validate требует ID зоны и хотя бы одно поле изменения: Name, GeoJSON или Active.
+// Содержимое заданных строк не проверяет и не нормализует.
 func (in *UpdateGeoZoneInput) Validate() error {
 
 	if in == nil || in.ID == uuid.Nil {
@@ -174,6 +191,7 @@ func (in *UpdateGeoZoneInput) Validate() error {
 	return nil
 }
 
+// Validate требует ненулевой запрос и ID деактивируемой зоны.
 func (in *DeleteGeoZoneInput) Validate() error {
 
 	if in == nil || in.ID == uuid.Nil {
@@ -182,6 +200,8 @@ func (in *DeleteGeoZoneInput) Validate() error {
 
 	return nil
 }
+
+// Validate требует ненулевой запрос и проверяет диапазоны лимита и смещения.
 func (in *ListGeoZonesInput) Validate() error {
 
 	if in == nil {
@@ -190,6 +210,8 @@ func (in *ListGeoZonesInput) Validate() error {
 
 	return validatePage(in.Limit, in.Offset)
 }
+
+// Validate требует ненулевой запрос и проверяет диапазоны координат точки.
 func (in *CheckPointInZonesInput) Validate() error {
 
 	if in == nil {
@@ -198,6 +220,9 @@ func (in *CheckPointInZonesInput) Validate() error {
 
 	return validatePoint(in.Latitude, in.Longitude)
 }
+
+// Validate требует ненулевые пороги с OfflineBefore < StaleBefore и допустимый лимит.
+// StaleBefore не должен опережать текущее время больше чем на минуту.
 func (in *DetectLostSignalsInput) Validate() error {
 
 	if in == nil || in.StaleBefore.IsZero() || in.OfflineBefore.IsZero() {

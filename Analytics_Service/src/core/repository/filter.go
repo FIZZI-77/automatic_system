@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+// buildFilter строит SQL-условия периода и всех заданных измерений с параметрами ?.
+// column задаётся внутренним кодом; приоритет, режим назначения и код сбоя приводит к верхнему регистру.
 func buildFilter(f models.Filter, column string) (string, []any) {
 	parts := []string{"1=1"}
 	args := []any{}
@@ -59,6 +61,8 @@ func buildFilter(f models.Filter, column string) (string, []any) {
 	return strings.Join(parts, " AND "), args
 }
 
+// buildTimeFilter строит включительные ограничения From и To для внутреннего SQL-столбца column.
+// Возвращает условие без WHERE и параметры в порядке подстановки.
 func buildTimeFilter(filter models.Filter, column string) (string, []any) {
 	parts := []string{"1=1"}
 	args := make([]any, 0, 2)
@@ -76,6 +80,8 @@ func buildTimeFilter(filter models.Filter, column string) (string, []any) {
 	return strings.Join(parts, " AND "), args
 }
 
+// buildAssignmentDimensions строит условия ведомства, категории, приоритета,
+// бригады и режима назначения без периода. Приоритет и режим приводит к верхнему регистру.
 func buildAssignmentDimensions(filter models.Filter) (string, []any) {
 	parts := []string{"1=1"}
 	args := make([]any, 0, 5)
@@ -102,6 +108,8 @@ func buildAssignmentDimensions(filter models.Filter) (string, []any) {
 	return strings.Join(parts, " AND "), args
 }
 
+// buildRoutingDimensions строит условия измерений маршрутизации, включая код сбоя
+// и успешность, без временного интервала. Возвращает SQL и параметры ?.
 func buildRoutingDimensions(filter models.Filter) (string, []any) {
 	parts := []string{"1=1"}
 	args := make([]any, 0, 7)
@@ -135,6 +143,8 @@ func buildRoutingDimensions(filter models.Filter) (string, []any) {
 	return strings.Join(parts, " AND "), args
 }
 
+// buildDispatchFailureDimensions дополняет измерения назначения фильтром кода сбоя
+// в верхнем регистре; временной интервал не добавляет.
 func buildDispatchFailureDimensions(filter models.Filter) (string, []any) {
 	where, args := buildAssignmentDimensions(filter)
 
@@ -145,6 +155,9 @@ func buildDispatchFailureDimensions(filter models.Filter) (string, []any) {
 
 	return where, args
 }
+
+// stringValue возвращает первое непустое строковое значение по keys, рекурсивно
+// ища нормализованные имена в картах. Пробелы в найденном значении сохраняет.
 func stringValue(data map[string]any, keys ...string) string {
 	for _, key := range keys {
 
@@ -161,6 +174,9 @@ func stringValue(data map[string]any, keys ...string) string {
 	}
 	return ""
 }
+
+// numberValue рекурсивно ищет поле и преобразует поддерживаемое число,
+// json.Number или числовую строку в float64. Отсутствие или ошибка разбора даёт nil.
 func numberValue(data map[string]any, key string) *float64 {
 	value, ok := findValue(data, key)
 
@@ -198,6 +214,8 @@ func numberValue(data map[string]any, key string) *float64 {
 	return nil
 }
 
+// numberPathValue извлекает число по точному пути вложенных map[string]any,
+// нормализуя имена ключей. Пустой путь, отсутствие или неподходящее значение дают nil.
 func numberPathValue(data map[string]any, path ...string) *float64 {
 
 	if len(path) == 0 {
@@ -229,6 +247,8 @@ func numberPathValue(data map[string]any, path ...string) *float64 {
 	return numericValue(value)
 }
 
+// directValue ищет нормализованное имя только на текущем уровне карты.
+// При нескольких совпадениях выбор зависит от порядка обхода map.
 func directValue(data map[string]any, key string) (any, bool) {
 	wanted := normalizeKey(key)
 	for candidate, value := range data {
@@ -241,10 +261,13 @@ func directValue(data map[string]any, key string) (any, bool) {
 	return nil, false
 }
 
+// numericValue преобразует значение в float64 по правилам numberValue либо возвращает nil.
 func numericValue(value any) *float64 {
 	return numberValue(map[string]any{"value": value}, "value")
 }
 
+// uint64Value извлекает число через float64 и преобразует в uint64 с усечением дроби.
+// Отсутствующее или отрицательное значение даёт nil; верхнюю границу не проверяет.
 func uint64Value(data map[string]any, key string) *uint64 {
 	value := numberValue(data, key)
 
@@ -256,6 +279,8 @@ func uint64Value(data map[string]any, key string) *uint64 {
 	return &converted
 }
 
+// boolValue возвращает первое найденное логическое значение по keys с рекурсивным
+// поиском в картах. Строки и числа в bool не преобразует; отсутствие даёт nil.
 func boolValue(data map[string]any, keys ...string) *bool {
 	for _, key := range keys {
 		value, ok := findValue(data, key)
@@ -274,6 +299,8 @@ func boolValue(data map[string]any, keys ...string) *bool {
 	return nil
 }
 
+// findValue ищет нормализованное имя сначала в текущей карте, затем рекурсивно
+// во вложенных map[string]any. Массивы не обходит; порядок выбора между вложенными картами не задан.
 func findValue(data map[string]any, key string) (any, bool) {
 	wanted := normalizeKey(key)
 	for candidate, value := range data {
@@ -298,6 +325,7 @@ func findValue(data map[string]any, key string) (any, bool) {
 	return nil, false
 }
 
+// normalizeKey приводит имя к нижнему регистру и удаляет подчёркивания, дефисы и пробелы.
 func normalizeKey(value string) string {
 	var builder strings.Builder
 	for _, character := range strings.ToLower(value) {

@@ -164,7 +164,11 @@ func KneePoint(stages []Stage, multiplier float64) (Knee, bool) {
 			ratio := slope / previousSlope
 
 			if ratio >= multiplier {
-				return Knee{Stage: sorted[i], SlopeRatio: ratio, Explanation: fmt.Sprintf("knee at %.2f op/s because p95 slope increased %.2fx", sorted[i].Throughput, ratio)}, true
+				return Knee{
+					Stage:       sorted[i],
+					SlopeRatio:  ratio,
+					Explanation: fmt.Sprintf("knee at %.2f op/s because p95 slope increased %.2fx", sorted[i].Throughput, ratio),
+				}, true
 			}
 
 		}

@@ -7,6 +7,8 @@ import (
 	"ticket/models"
 )
 
+// CreateRequest проверяет обращение и передаёт его транзакционное создание репозиторию.
+// Результат содержит обращение, связанный инцидент и признак найденного совпадения.
 func (s *TicketServiceStruct) CreateRequest(
 	ctx context.Context,
 	in *models.CreateRequestInput,
@@ -24,6 +26,9 @@ func (s *TicketServiceStruct) CreateRequest(
 	return result, nil
 }
 
+// AttachRequest присоединяет обращение к инциденту, в том числе другого департамента.
+// Требует право управления обращением; для одного департамента также проверяет
+// право управления инцидентом. Ошибки проверки данных и доступа возвращает вызывающему.
 func (s *TicketServiceStruct) AttachRequest(
 	ctx context.Context,
 	in *models.AttachRequestInput,
@@ -61,6 +66,8 @@ func (s *TicketServiceStruct) AttachRequest(
 	return request, nil
 }
 
+// DetachRequest отсоединяет обращение от инцидента после проверки входа и права управления.
+// Изменение связи и обязательную причину передаёт репозиторию.
 func (s *TicketServiceStruct) DetachRequest(
 	ctx context.Context,
 	in *models.DetachRequestInput,
@@ -88,6 +95,9 @@ func (s *TicketServiceStruct) DetachRequest(
 	return request, nil
 }
 
+// ListIncidentRequests возвращает страницу частей инцидента и их общее количество.
+// Разрешает доступ при праве управления инцидентом, роли admin или наличии части
+// департамента исполнителя; иначе возвращает ErrPermissionDenied.
 func (s *TicketServiceStruct) ListIncidentRequests(
 	ctx context.Context,
 	in *models.ListIncidentRequestsInput,

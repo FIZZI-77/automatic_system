@@ -14,7 +14,10 @@ func TestNewValidatesConfiguration(t *testing.T) {
 		cfg  Config
 	}{
 		{"no brokers", Config{Topic: "profiles.events.v1", GroupID: "group"}},
-		{"blank brokers", Config{Brokers: []string{" ", "\t"}, Topic: "profiles.events.v1", GroupID: "group"}},
+		{
+			"blank brokers",
+			Config{Brokers: []string{" ", "\t"}, Topic: "profiles.events.v1", GroupID: "group"},
+		},
 		{"blank topic", Config{Brokers: []string{"kafka:9092"}, Topic: " ", GroupID: "group"}},
 		{"blank group", Config{Brokers: []string{"kafka:9092"}, Topic: "profiles.events.v1", GroupID: " "}},
 	}

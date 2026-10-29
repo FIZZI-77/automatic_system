@@ -21,11 +21,14 @@ type BrigadeRepoStruct struct {
 	readPool  *pgxpool.Pool
 }
 
+// NewBrigadeRepo создаёт хранилище бригад с отдельными пулами записи и чтения.
+// Оба пула должны быть заданы; автоматической подстановки здесь нет.
 func NewBrigadeRepo(writePool *pgxpool.Pool, readPool *pgxpool.Pool) *BrigadeRepoStruct {
 	return &BrigadeRepoStruct{writePool: writePool, readPool: readPool}
 }
 
 type scanner interface {
+	// Scan считывает текущую строку в переданные указатели и возвращает ошибку чтения.
 	Scan(dest ...any) error
 }
 
@@ -41,6 +44,8 @@ type brigadeCreatedEventPayload struct {
 	CreatedAt      time.Time `json:"created_at"`
 }
 
+// CreateBrigade сохраняет бригаду и BrigadeCreated в outbox одной транзакцией.
+// Нарушение уникальности имени в ведомстве преобразует в ErrAlreadyExists.
 func (b *BrigadeRepoStruct) CreateBrigade(ctx context.Context, in *models.CreateBrigadeInput) (*models.CreateBrigadeResult, error) {
 	tx, err := b.writePool.Begin(ctx)
 
@@ -84,6 +89,8 @@ func (b *BrigadeRepoStruct) CreateBrigade(ctx context.Context, in *models.Create
 	return &models.CreateBrigadeResult{Brigade: brigade}, nil
 }
 
+// insertBrigade вставляет бригаду в переданной транзакции и возвращает строку
+// с полями и значениями по умолчанию из БД; транзакцией управляет вызывающий код.
 func (b *BrigadeRepoStruct) insertBrigade(ctx context.Context, tx pgx.Tx, in *models.CreateBrigadeInput) (*models.Brigade, error) {
 	const query = `
 		INSERT INTO brigades (
@@ -110,6 +117,8 @@ func (b *BrigadeRepoStruct) insertBrigade(ctx context.Context, tx pgx.Tx, in *mo
 	return scanBrigade(row)
 }
 
+// GetBrigadeByID читает бригаду по ID, включая неактивную или архивную.
+// Отсутствие строки возвращает как ErrNotFound; права здесь не проверяются.
 func (b *BrigadeRepoStruct) GetBrigadeByID(ctx context.Context, in *models.GetBrigadeByIDInput) (*models.GetBrigadeByIDResult, error) {
 	const query = `
 		SELECT
@@ -138,6 +147,8 @@ func (b *BrigadeRepoStruct) GetBrigadeByID(ctx context.Context, in *models.GetBr
 	return &models.GetBrigadeByIDResult{Brigade: brigade}, nil
 }
 
+// ListBrigades возвращает страницу бригад и отдельный общий счётчик по фильтрам
+// ведомства, статуса, специализации и даты создания; сортировку берёт из допустимых полей.
 func (b *BrigadeRepoStruct) ListBrigades(ctx context.Context, in *models.ListBrigadesInput) (*models.ListBrigadesResult, error) {
 	whereParts := make([]string, 0)
 	args := make([]any, 0)
@@ -240,6 +251,8 @@ func (b *BrigadeRepoStruct) ListBrigades(ctx context.Context, in *models.ListBri
 	}, nil
 }
 
+// UpdateBrigade меняет имя, описание и специализацию, сохраняя поля с nil,
+// и записывает BrigadeUpdated в той же транзакции. Нет строки — ErrNotFound.
 func (b *BrigadeRepoStruct) UpdateBrigade(ctx context.Context, in *models.UpdateBrigadeInput) (*models.UpdateBrigadeResult, error) {
 	tx, err := b.writePool.Begin(ctx)
 
@@ -302,6 +315,8 @@ func (b *BrigadeRepoStruct) UpdateBrigade(ctx context.Context, in *models.Update
 	return &models.UpdateBrigadeResult{Brigade: brigade}, nil
 }
 
+// DeactivateBrigade транзакционно ставит INACTIVE и время деактивации,
+// записывает историю и outbox и завершает открытую смену, если она есть.
 func (b *BrigadeRepoStruct) DeactivateBrigade(ctx context.Context, in *models.DeactivateBrigadeInput) (*models.DeactivateBrigadeResult, error) {
 	brigade, err := b.setBrigadeStatusWithTx(ctx, in.ID, models.BrigadeStatusInactive, in.Reason, in.ChangedByUserID, in.RequestID, in.TraceID, true, false)
 
@@ -312,6 +327,8 @@ func (b *BrigadeRepoStruct) DeactivateBrigade(ctx context.Context, in *models.De
 	return &models.DeactivateBrigadeResult{Brigade: brigade}, nil
 }
 
+// ArchiveBrigade транзакционно ставит ARCHIVED и время архивации,
+// записывает историю и outbox и завершает открытую смену, если она есть.
 func (b *BrigadeRepoStruct) ArchiveBrigade(ctx context.Context, in *models.ArchiveBrigadeInput) (*models.ArchiveBrigadeResult, error) {
 	brigade, err := b.setBrigadeStatusWithTx(ctx, in.ID, models.BrigadeStatusArchived, in.Reason, in.ChangedByUserID, in.RequestID, in.TraceID, false, true)
 
@@ -322,6 +339,8 @@ func (b *BrigadeRepoStruct) ArchiveBrigade(ctx context.Context, in *models.Archi
 	return &models.ArchiveBrigadeResult{Brigade: brigade}, nil
 }
 
+// SetBrigadeStatus транзакционно меняет статус, записывает историю и outbox
+// и синхронизирует смену. Готовность к статусу проверяется сервисным слоем.
 func (b *BrigadeRepoStruct) SetBrigadeStatus(ctx context.Context, in *models.SetBrigadeStatusInput) (*models.SetBrigadeStatusResult, error) {
 	brigade, err := b.setBrigadeStatusWithTx(ctx, in.BrigadeID, in.Status, in.Reason, in.ChangedByUserID, in.RequestID, in.TraceID, false, false)
 
@@ -332,6 +351,8 @@ func (b *BrigadeRepoStruct) SetBrigadeStatus(ctx context.Context, in *models.Set
 	return &models.SetBrigadeStatusResult{Brigade: brigade}, nil
 }
 
+// GetBrigadeStatusHistory возвращает страницу истории статусов бригады
+// от новых записей к старым и общий счётчик отдельным запросом.
 func (b *BrigadeRepoStruct) GetBrigadeStatusHistory(ctx context.Context, in *models.GetBrigadeStatusHistoryInput) (*models.GetBrigadeStatusHistoryResult, error) {
 	const countQuery = `
 		SELECT COUNT(*)
@@ -387,6 +408,9 @@ func (b *BrigadeRepoStruct) GetBrigadeStatusHistory(ctx context.Context, in *mod
 	return &models.GetBrigadeStatusHistoryResult{History: history, Total: total}, nil
 }
 
+// GetAvailableBrigades подбирает AVAILABLE-бригады ведомства с действующей сменой,
+// доступным активным составом, требуемыми ролями и навыками. При заданной паре
+// координат дополнительно требует покрытие точки активной зоной.
 func (b *BrigadeRepoStruct) GetAvailableBrigades(ctx context.Context, in *models.GetAvailableBrigadesInput) (*models.GetAvailableBrigadesResult, error) {
 	findInput := &models.FindBrigadesByPointInput{
 		DepartmentID:     in.DepartmentID,
@@ -421,6 +445,9 @@ func (b *BrigadeRepoStruct) GetAvailableBrigades(ctx context.Context, in *models
 	return result, nil
 }
 
+// CheckBrigadeCanHandleTicket проверяет ведомство, AVAILABLE, состав, смену, роли,
+// зону и навыки бригады и доступных участников. Возвращает все причины отказа;
+// CanHandle равен true только при их отсутствии. Требования задаются без повторов.
 func (b *BrigadeRepoStruct) CheckBrigadeCanHandleTicket(ctx context.Context, in *models.CheckBrigadeCanHandleTicketInput) (*models.CheckBrigadeCanHandleTicketResult, error) {
 	reasons := make([]string, 0)
 
@@ -486,6 +513,9 @@ func (b *BrigadeRepoStruct) CheckBrigadeCanHandleTicket(ctx context.Context, in 
 	}, nil
 }
 
+// brigadeHasAvailableMemberSkills проверяет покрытие навыков действующими
+// непросроченными проекциями активных профилей у активных AVAILABLE-участников.
+// Пустое требование выполнено; повторяющиеся ID нарушают сравнение числа навыков.
 func (b *BrigadeRepoStruct) brigadeHasAvailableMemberSkills(ctx context.Context, brigadeID uuid.UUID, requiredSkillIDs []uuid.UUID) (bool, error) {
 
 	if len(requiredSkillIDs) == 0 {
@@ -513,6 +543,9 @@ func (b *BrigadeRepoStruct) brigadeHasAvailableMemberSkills(ctx context.Context,
 	return count == len(requiredSkillIDs), nil
 }
 
+// CheckBrigadeReadiness возвращает причины отсутствия активного состава и ролей.
+// При requireOnShift также проверяет наличие AVAILABLE-участника и текущей смены
+// по расписанию. Пустой список причин означает готовность; роли задаются без повторов.
 func (b *BrigadeRepoStruct) CheckBrigadeReadiness(ctx context.Context, brigadeID uuid.UUID, requireOnShift bool, requiredRoles []models.BrigadeMemberRole) ([]string, error) {
 	reasons := make([]string, 0)
 
@@ -562,6 +595,7 @@ func (b *BrigadeRepoStruct) CheckBrigadeReadiness(ctx context.Context, brigadeID
 	return reasons, nil
 }
 
+// brigadeHasActiveMembers сообщает, есть ли у бригады хотя бы один активный участник.
 func (b *BrigadeRepoStruct) brigadeHasActiveMembers(ctx context.Context, brigadeID uuid.UUID) (bool, error) {
 	const query = `
 		SELECT EXISTS (
@@ -581,6 +615,7 @@ func (b *BrigadeRepoStruct) brigadeHasActiveMembers(ctx context.Context, brigade
 	return exists, nil
 }
 
+// brigadeHasAvailableActiveMembers сообщает, есть ли активный участник со статусом AVAILABLE.
 func (b *BrigadeRepoStruct) brigadeHasAvailableActiveMembers(ctx context.Context, brigadeID uuid.UUID) (bool, error) {
 	const query = `
 		SELECT EXISTS (
@@ -601,6 +636,9 @@ func (b *BrigadeRepoStruct) brigadeHasAvailableActiveMembers(ctx context.Context
 	return exists, nil
 }
 
+// brigadeIsOnShift проверяет активное расписание на текущую дату, день недели
+// и местное время его часового пояса. Учитывает сроки действия и интервалы
+// через полночь в рамках выбранного дня; конец интервала не включается.
 func (b *BrigadeRepoStruct) brigadeIsOnShift(ctx context.Context, brigadeID uuid.UUID) (bool, error) {
 	const query = `
 		SELECT EXISTS (
@@ -628,6 +666,8 @@ func (b *BrigadeRepoStruct) brigadeIsOnShift(ctx context.Context, brigadeID uuid
 	return exists, nil
 }
 
+// brigadeHasRoles проверяет наличие всех ролей у активных участников независимо
+// от их доступности. Пустое требование выполнено; роли должны быть без повторов.
 func (b *BrigadeRepoStruct) brigadeHasRoles(ctx context.Context, brigadeID uuid.UUID, requiredRoles []models.BrigadeMemberRole) (bool, error) {
 
 	if len(requiredRoles) == 0 {
@@ -651,6 +691,8 @@ func (b *BrigadeRepoStruct) brigadeHasRoles(ctx context.Context, brigadeID uuid.
 	return count == len(requiredRoles), nil
 }
 
+// scanBrigade читает поля бригады, сохраняя NULL как nil у необязательных полей.
+// pgx.ErrNoRows преобразует в ErrNotFound, прочие ошибки возвращает без изменения.
 func scanBrigade(row scanner) (*models.Brigade, error) {
 	var brigade models.Brigade
 	var specialization sql.NullString
@@ -694,6 +736,9 @@ func scanBrigade(row scanner) (*models.Brigade, error) {
 	return &brigade, nil
 }
 
+// setBrigadeStatusWithTx блокирует строку бригады и атомарно обновляет статус,
+// выбранные временные метки, историю, смену и outbox. Проверку допустимости перехода
+// не выполняет; повторный статус также записывается в историю.
 func (b *BrigadeRepoStruct) setBrigadeStatusWithTx(
 	ctx context.Context,
 	brigadeID uuid.UUID,
@@ -792,6 +837,9 @@ func (b *BrigadeRepoStruct) setBrigadeStatusWithTx(
 	return brigade, nil
 }
 
+// syncBrigadeShift в переданной транзакции открывает смену для AVAILABLE,
+// завершает её для OFFLINE, INACTIVE или ARCHIVED и пишет соответствующее событие.
+// Уже открытая смена и отсутствие смены при закрытии не создают повторного события.
 func syncBrigadeShift(
 	ctx context.Context,
 	tx pgx.Tx,
@@ -850,6 +898,8 @@ func syncBrigadeShift(
 	}
 }
 
+// getBrigadeByIDForUpdate читает бригаду с FOR UPDATE до завершения переданной
+// транзакции; отсутствие строки возвращает как ErrNotFound.
 func (b *BrigadeRepoStruct) getBrigadeByIDForUpdate(ctx context.Context, tx pgx.Tx, brigadeID uuid.UUID) (*models.Brigade, error) {
 	const query = `
 		SELECT
@@ -871,6 +921,8 @@ func (b *BrigadeRepoStruct) getBrigadeByIDForUpdate(ctx context.Context, tx pgx.
 	return scanBrigade(tx.QueryRow(ctx, query, brigadeID))
 }
 
+// insertBrigadeStatusHistory сохраняет переход статуса с причиной, автором
+// и request ID в переданной транзакции; nil fromStatus сохраняется как NULL.
 func (b *BrigadeRepoStruct) insertBrigadeStatusHistory(
 	ctx context.Context,
 	tx pgx.Tx,
@@ -904,6 +956,8 @@ func (b *BrigadeRepoStruct) insertBrigadeStatusHistory(
 	return err
 }
 
+// scanBrigadeStatusHistory читает запись истории, восстанавливает необязательные
+// поля и разбирает UUID автора; ошибки чтения и неверный UUID возвращаются вызывающему.
 func scanBrigadeStatusHistory(row scanner) (*models.BrigadeStatusHistory, error) {
 	var item models.BrigadeStatusHistory
 	var fromStatus sql.NullString
@@ -947,6 +1001,9 @@ func scanBrigadeStatusHistory(row scanner) (*models.BrigadeStatusHistory, error)
 	return &item, nil
 }
 
+// insertOutboxEvent нормализует объект payload в JSON-конверт с новым event ID,
+// типом, версией, источником и временем UTC и сохраняет его в переданной транзакции.
+// Для aggregateType brigade загружает ведомство из БД; исходный payload не меняет.
 func insertOutboxEvent(
 	ctx context.Context,
 	tx pgx.Tx,
@@ -1034,6 +1091,7 @@ func insertOutboxEvent(
 	return nil
 }
 
+// brigadeSortBy выбирает допустимое SQL-поле сортировки; неизвестное значение даёт created_at.
 func brigadeSortBy(srtBy models.BrigadeSortBy) string {
 	switch srtBy {
 	case models.BrigadeSortByCreatedAt:
@@ -1049,6 +1107,7 @@ func brigadeSortBy(srtBy models.BrigadeSortBy) string {
 	}
 }
 
+// brigadeSortOrder преобразует порядок в ASC или DESC; неизвестное значение даёт DESC.
 func brigadeSortOrder(order models.SortOrder) string {
 	switch order {
 	case models.SortOrderDesc:
@@ -1060,6 +1119,7 @@ func brigadeSortOrder(order models.SortOrder) string {
 	}
 }
 
+// uuidStrings возвращает UUID в строковом виде, сохраняя порядок и повторы.
 func uuidStrings(ids []uuid.UUID) []string {
 	values := make([]string, 0, len(ids))
 	for _, id := range ids {
@@ -1068,6 +1128,7 @@ func uuidStrings(ids []uuid.UUID) []string {
 	return values
 }
 
+// roleStrings преобразует роли в строки без нормализации, сохраняя порядок и повторы.
 func roleStrings(roles []models.BrigadeMemberRole) []string {
 	values := make([]string, 0, len(roles))
 	for _, role := range roles {
@@ -1076,6 +1137,8 @@ func roleStrings(roles []models.BrigadeMemberRole) []string {
 	return values
 }
 
+// isBrigadeNameUniqueViolation распознаёт PostgreSQL 23505 для индекса уникальности
+// имени активной бригады в ведомстве либо без указанного имени ограничения.
 func isBrigadeNameUniqueViolation(err error) bool {
 	var pgErr *pgconn.PgError
 

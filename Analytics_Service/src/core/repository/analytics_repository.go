@@ -15,9 +15,14 @@ import (
 
 type AnalyticsRepoStruct struct{ db driver.Conn }
 
+// NewAnalyticsRepoStruct создаёт хранилище событий и аналитических запросов с соединением ClickHouse.
 func NewAnalyticsRepoStruct(db driver.Conn) *AnalyticsRepoStruct {
 	return &AnalyticsRepoStruct{db: db}
 }
+
+// Store сериализует payload и записывает событие в domain_events с извлечёнными
+// измерениями, версией и признаком допуска к проекции. Версию строки вычисляет
+// из времени события в наносекундах; проверку версии схемы выполняет вызывающий код.
 func (r *AnalyticsRepoStruct) Store(ctx context.Context, event models.Event) error {
 	payload, err := json.Marshal(event.Payload)
 
@@ -77,6 +82,7 @@ func (r *AnalyticsRepoStruct) Store(ctx context.Context, event models.Event) err
 	)
 }
 
+// eventRouteID извлекает route_id, а для routing.events.v1 при его отсутствии — id.
 func eventRouteID(event models.Event) string {
 	routeID := stringValue(event.Payload, "route_id")
 
@@ -87,6 +93,8 @@ func eventRouteID(event models.Event) string {
 	return routeID
 }
 
+// eventEntityID предпочитает entity_id или aggregate_id, затем выбирает
+// идентификатор сущности по топику события. Отсутствие подходящего поля даёт пустую строку.
 func eventEntityID(event models.Event) string {
 
 	if value := stringValue(event.Payload, "entity_id", "aggregate_id"); value != "" {
@@ -107,6 +115,9 @@ func eventEntityID(event models.Event) string {
 	}
 }
 
+// DispatchFailures восстанавливает операции по событиям периода и считает FAILED,
+// EXPIRED и отмены, их долю от requested и разрезы причин, этапов, ведомств и категорий.
+// При нулевом requested доля равна нулю.
 func (r *AnalyticsRepoStruct) DispatchFailures(ctx context.Context, filter models.Filter) (models.DispatchFailureSummary, error) {
 	cte, args := dispatchFailureLifecycle(filter)
 	query := cte + ` SELECT
@@ -161,6 +172,8 @@ func (r *AnalyticsRepoStruct) DispatchFailures(ctx context.Context, filter model
 	return result, nil
 }
 
+// DispatchEffectiveness считает requested, ASSIGNED и процент успеха отдельно
+// для AUTOMATIC и MANUAL, дополняя их распределениями времени назначения в секундах.
 func (r *AnalyticsRepoStruct) DispatchEffectiveness(ctx context.Context, filter models.Filter) (models.DispatchEffectiveness, error) {
 	cte, args := dispatchFailureLifecycle(filter)
 	query := cte + ` SELECT
@@ -214,6 +227,9 @@ func (r *AnalyticsRepoStruct) DispatchEffectiveness(ctx context.Context, filter 
 	return result, nil
 }
 
+// BrigadeWorkload считает события поступления, назначения и завершения за период,
+// активную нагрузку и неназначенную очередь по снимку до To. Добавляет подходящие
+// бригады без задач и рассчитывает показатели неравномерности нагрузки.
 func (r *AnalyticsRepoStruct) BrigadeWorkload(ctx context.Context, filter models.Filter) (models.BrigadeWorkload, error) {
 	periodWhere, args := buildTimeFilter(filter, "occurred_at")
 	snapshotWhere := "1=1"
@@ -290,6 +306,8 @@ func (r *AnalyticsRepoStruct) BrigadeWorkload(ctx context.Context, filter models
 	return result, nil
 }
 
+// OperationalInsights объединяет время выезда, возраст очереди, эффективность
+// маршрутов и оценку потребности в бригадах. При любой ошибке возвращает пустой результат.
 func (r *AnalyticsRepoStruct) OperationalInsights(ctx context.Context, filter models.Filter) (models.OperationalInsights, error) {
 	departure, err := r.departureTime(ctx, filter)
 
@@ -320,6 +338,9 @@ func (r *AnalyticsRepoStruct) OperationalInsights(ctx context.Context, filter mo
 	}, nil
 }
 
+// ProjectionHealth сравнивает domain_events и проекцию, возвращает количество
+// событий, долю допуска, свежесть и P95 задержки поступления в секундах, включая топики.
+// Недостающие события оценивает разницей размеров, а не сверкой отдельных идентификаторов.
 func (r *AnalyticsRepoStruct) ProjectionHealth(ctx context.Context) (models.ProjectionHealth, error) {
 	const summaryQuery = `SELECT count(),countIf(NOT projection_eligible),
 		if(count()=0,0,countIf(projection_eligible)/count()*100),max(occurred_at),max(ingested_at),
@@ -383,6 +404,8 @@ func (r *AnalyticsRepoStruct) ProjectionHealth(ctx context.Context) (models.Proj
 	return result, nil
 }
 
+// DispatchOperations возвращает восстановленные операции по событиям периода,
+// от последних обновлений к старым. Лимит вне 1–100 заменяет на 25.
 func (r *AnalyticsRepoStruct) DispatchOperations(ctx context.Context, filter models.Filter, limit uint32) ([]models.DispatchOperationItem, error) {
 
 	if limit == 0 || limit > 100 {
@@ -418,6 +441,9 @@ func (r *AnalyticsRepoStruct) DispatchOperations(ctx context.Context, filter mod
 	return result, rows.Err()
 }
 
+// BrigadePerformance объединяет общие и побригадные показатели выполненных задач,
+// SLA и повторов объектов со статистикой смен. Производительность и загрузку
+// рассчитывает только при наличии соответствующих числа и длительности смен.
 func (r *AnalyticsRepoStruct) BrigadePerformance(ctx context.Context, filter models.Filter) (models.BrigadePerformance, error) {
 	total, err := r.brigadePerformanceGroups(ctx, filter, "'TOTAL'")
 
@@ -460,6 +486,9 @@ type brigadeShiftMetric struct {
 	ShiftHours float64
 }
 
+// applyShiftMetrics заполняет result числом и часами смен, выполнением на смену
+// и загрузкой по суммарному времени задач. Загрузку ограничивает 100 процентами;
+// производные поля при нулевых знаменателях оставляет прежними.
 func applyShiftMetrics(result *models.BrigadePerformance, shift brigadeShiftMetric) {
 	result.ShiftCount = shift.ShiftCount
 	result.ShiftHours = shift.ShiftHours
@@ -476,6 +505,9 @@ func applyShiftMetrics(result *models.BrigadePerformance, shift brigadeShiftMetr
 
 }
 
+// applyBrigadeShiftMetrics заполняет сменные показатели бригады в result,
+// вычисляя выполнение на смену, часы задач и загрузку не выше 100 процентов.
+// Производные поля при нулевых знаменателях оставляет прежними.
 func applyBrigadeShiftMetrics(result *models.BrigadePerformanceItem, shift brigadeShiftMetric) {
 	result.ShiftCount = shift.ShiftCount
 	result.ShiftHours = shift.ShiftHours
@@ -492,6 +524,9 @@ func applyBrigadeShiftMetrics(result *models.BrigadePerformanceItem, shift briga
 
 }
 
+// brigadeShiftMetrics восстанавливает смены по событиям начала и конца и суммирует
+// число и часы по бригадам. Фильтрует по времени начала, ведомству и бригаде;
+// незавершённую смену ограничивает текущим временем или более ранним To.
 func (r *AnalyticsRepoStruct) brigadeShiftMetrics(ctx context.Context, filter models.Filter) (brigadeShiftMetric, map[string]brigadeShiftMetric, error) {
 	parts := []string{"started_at>toDateTime64(0,3)"}
 	args := make([]any, 0, 4)
@@ -562,6 +597,9 @@ func (r *AnalyticsRepoStruct) brigadeShiftMetrics(ctx context.Context, filter mo
 	return total, byBrigade, rows.Err()
 }
 
+// brigadePerformanceGroups агрегирует завершённые заявки по brigade_id или общему TOTAL.
+// Выполнение отсчитывает от IN_PROGRESS, иначе от назначения; повтор объекта
+// определяется порядком заявок внутри выборки. Иное expression отклоняет.
 func (r *AnalyticsRepoStruct) brigadePerformanceGroups(ctx context.Context, filter models.Filter, expression string) ([]models.BrigadePerformanceItem, error) {
 
 	if expression != "'TOTAL'" && expression != "brigade_id" {
@@ -634,6 +672,9 @@ func (r *AnalyticsRepoStruct) brigadePerformanceGroups(ctx context.Context, filt
 	return result, rows.Err()
 }
 
+// departureTime считает время от назначения до первого IN_PROGRESS или движения
+// со скоростью от 5 км/ч и точностью до 50 м, выбирая более ранний признак выезда.
+// Возвращает распределение длительностей в секундах по событиям выбранного периода.
 func (r *AnalyticsRepoStruct) departureTime(ctx context.Context, filter models.Filter) (models.LatencyDistribution, error) {
 	timeWhere, args := buildTimeFilter(filter, "occurred_at")
 	dimensionWhere, dimensionArgs := buildAssignmentDimensions(filter)
@@ -671,6 +712,9 @@ func (r *AnalyticsRepoStruct) departureTime(ctx context.Context, filter models.F
 	return scanLatency(r.db.QueryRow(ctx, query, args...))
 }
 
+// queueAge рассчитывает возраст неназначенных NEW-заявок на To либо текущее UTC-время,
+// включая распределение в секундах и пять минутных диапазонов. From не применяет,
+// поскольку очередь восстанавливается по полному снимку до To.
 func (r *AnalyticsRepoStruct) queueAge(ctx context.Context, filter models.Filter) (models.QueueAgeSummary, error) {
 	asOf := time.Now().UTC()
 	snapshotWhere := "1=1"
@@ -725,6 +769,9 @@ func (r *AnalyticsRepoStruct) queueAge(ctx context.Context, filter models.Filter
 	return result, nil
 }
 
+// routingEfficiency считает маршруты, сумму максимальных ревизий, отмены и километраж,
+// дополняя результат долей недостижимых кандидатов и ошибками ETA. Период применяет
+// к событиям маршрутов; атрибуты и статус заявки берёт из её полного жизненного цикла.
 func (r *AnalyticsRepoStruct) routingEfficiency(ctx context.Context, filter models.Filter) (models.RoutingEfficiency, error) {
 	timeWhere, args := buildTimeFilter(filter, "route.occurred_at")
 	dimensionWhere, dimensionArgs := buildAssignmentDimensions(filter)
@@ -754,7 +801,15 @@ func (r *AnalyticsRepoStruct) routingEfficiency(ctx context.Context, filter mode
 		return models.RoutingEfficiency{}, err
 	}
 
-	funnel := models.Filter{From: filter.From, To: filter.To, DepartmentID: filter.DepartmentID, CategoryID: filter.CategoryID, Priority: filter.Priority, BrigadeID: filter.BrigadeID, AssignmentMode: filter.AssignmentMode}
+	funnel := models.Filter{
+		From:           filter.From,
+		To:             filter.To,
+		DepartmentID:   filter.DepartmentID,
+		CategoryID:     filter.CategoryID,
+		Priority:       filter.Priority,
+		BrigadeID:      filter.BrigadeID,
+		AssignmentMode: filter.AssignmentMode,
+	}
 	where, candidateArgs := buildFilter(funnel, "occurred_at")
 	var candidates, reachable uint64
 
@@ -780,6 +835,9 @@ func (r *AnalyticsRepoStruct) routingEfficiency(ctx context.Context, filter mode
 	return result, nil
 }
 
+// etaAccuracy сравнивает ETA последней ревизии маршрута с первой последующей позицией
+// бригады в пределах max(100 м, точность GPS) от цели. Возвращает MAE, смещение,
+// P95 абсолютной ошибки в секундах и долю ошибок не больше пяти минут.
 func (r *AnalyticsRepoStruct) etaAccuracy(ctx context.Context, filter models.Filter) (models.RoutingEfficiency, error) {
 	timeWhere, args := buildTimeFilter(filter, "route.occurred_at")
 	dimensionWhere, dimensionArgs := buildAssignmentDimensions(filter)
@@ -830,6 +888,9 @@ func (r *AnalyticsRepoStruct) etaAccuracy(ctx context.Context, filter models.Fil
 	return result, err
 }
 
+// capacityForecast принимает среднее поступление по дням с событиями за прогноз
+// следующего дня. Потребность в бригадах оценивает как ceil(пиковый часовой поток ×
+// среднее время решения в секундах / 3600); дни без событий в среднее не входят.
 func (r *AnalyticsRepoStruct) capacityForecast(ctx context.Context, filter models.Filter) (models.CapacityForecast, error) {
 	where, args := buildFilter(filter, "occurred_at")
 	query := `WITH source AS (
@@ -860,6 +921,9 @@ func (r *AnalyticsRepoStruct) capacityForecast(ctx context.Context, filter model
 	return result, nil
 }
 
+// eligibleBrigadeIDs возвращает ID бригад со статусом ACTIVE, AVAILABLE, BUSY,
+// ON_ROUTE или ON_SITE по снимку до To. Учитывает ведомство и BrigadeID,
+// требует непустое ведомство; From и остальные фильтры не применяет.
 func (r *AnalyticsRepoStruct) eligibleBrigadeIDs(ctx context.Context, filter models.Filter) ([]string, error) {
 	snapshotWhere := "1=1"
 	args := make([]any, 0, 3)
@@ -912,6 +976,8 @@ func (r *AnalyticsRepoStruct) eligibleBrigadeIDs(ctx context.Context, filter mod
 	return ids, rows.Err()
 }
 
+// mergeEligibleBrigades создаёт срез нагрузки с нулевыми строками для недостающих
+// eligible-бригад и сортирует по ID. Для повторного ID в items берёт последнюю строку.
 func mergeEligibleBrigades(items []models.BrigadeWorkloadItem, eligible []string) []models.BrigadeWorkloadItem {
 	byID := make(map[string]models.BrigadeWorkloadItem, len(items)+len(eligible))
 	for _, item := range items {
@@ -932,6 +998,9 @@ func mergeEligibleBrigades(items []models.BrigadeWorkloadItem, eligible []string
 	return result
 }
 
+// applyWorkloadBalance заполняет result числом бригад, средним, максимумом,
+// стандартным отклонением, коэффициентом вариации и Джини активной нагрузки.
+// Требует исходно нулевые производные поля, поскольку часть значений накапливает.
 func applyWorkloadBalance(result *models.BrigadeWorkload) {
 	result.BrigadeCount = uint64(len(result.Brigades))
 
@@ -974,6 +1043,8 @@ func applyWorkloadBalance(result *models.BrigadeWorkload) {
 	result.Gini = 2*weightedSum/(n*float64(sum)) - (n+1)/n
 }
 
+// ActiveWorkers считает активных, доступных и находящихся на смене сотрудников
+// по снимку, возвращая общие значения и разрезы ведомств и бригад.
 func (r *AnalyticsRepoStruct) ActiveWorkers(ctx context.Context, filter models.Filter) (models.ActiveWorkers, error) {
 	total, err := r.activeWorkerGroups(ctx, filter, "TOTAL", "'TOTAL'")
 
@@ -1004,6 +1075,9 @@ func (r *AnalyticsRepoStruct) ActiveWorkers(ctx context.Context, filter models.F
 	return result, nil
 }
 
+// AssignmentFunnel возвращает пять этапов от REQUESTED до ASSIGNED со счётчиками,
+// процентом от предыдущего этапа и распределениями времени перехода в секундах.
+// Строится по операциям с событием запроса в выбранном периоде.
 func (r *AnalyticsRepoStruct) AssignmentFunnel(ctx context.Context, filter models.Filter) (models.AssignmentFunnel, error) {
 	cte, args := assignmentFunnelLifecycle(filter)
 	query := cte + ` SELECT
@@ -1020,7 +1094,13 @@ func (r *AnalyticsRepoStruct) AssignmentFunnel(ctx context.Context, filter model
 	}
 
 	names := []string{"REQUESTED", "CANDIDATES_FOUND", "RESERVED", "ROUTE_BUILT", "ASSIGNED"}
-	columns := [][2]string{{"", "requested_at"}, {"requested_at", "candidates_at"}, {"candidates_at", "reserved_at"}, {"reserved_at", "route_built_at"}, {"route_built_at", "assigned_at"}}
+	columns := [][2]string{
+		{"", "requested_at"},
+		{"requested_at", "candidates_at"},
+		{"candidates_at", "reserved_at"},
+		{"reserved_at", "route_built_at"},
+		{"route_built_at", "assigned_at"},
+	}
 	stages := make([]models.AssignmentFunnelStage, 0, len(names))
 	for index, name := range names {
 		stage := models.AssignmentFunnelStage{Stage: name, Count: counts[index]}
@@ -1046,8 +1126,16 @@ func (r *AnalyticsRepoStruct) AssignmentFunnel(ctx context.Context, filter model
 	return models.AssignmentFunnel{Stages: stages}, nil
 }
 
+// assignmentFunnelTransition считает распределение положительного времени между
+// двумя разрешёнными этапами воронки в секундах. Неизвестное имя столбца отклоняет.
 func (r *AnalyticsRepoStruct) assignmentFunnelTransition(ctx context.Context, filter models.Filter, fromColumn, toColumn string) (models.LatencyDistribution, error) {
-	allowed := map[string]bool{"requested_at": true, "candidates_at": true, "reserved_at": true, "route_built_at": true, "assigned_at": true}
+	allowed := map[string]bool{
+		"requested_at":   true,
+		"candidates_at":  true,
+		"reserved_at":    true,
+		"route_built_at": true,
+		"assigned_at":    true,
+	}
 
 	if !allowed[fromColumn] || !allowed[toColumn] {
 		return models.LatencyDistribution{}, fmt.Errorf("invalid funnel transition %s -> %s", fromColumn, toColumn)
@@ -1061,6 +1149,9 @@ func (r *AnalyticsRepoStruct) assignmentFunnelTransition(ctx context.Context, fi
 	return scanLatency(r.db.QueryRow(ctx, query, args...))
 }
 
+// assignmentFunnelLifecycle строит SQL CTE времён этапов операций по событиям периода
+// с фильтрами измерений. В filtered оставляет операции с REQUESTED;
+// этап кандидатов учитывает только при положительном candidate_count.
 func assignmentFunnelLifecycle(filter models.Filter) (string, []any) {
 	timeWhere, args := buildTimeFilter(filter, "occurred_at")
 	dimensionWhere, dimensionArgs := buildAssignmentDimensions(filter)
@@ -1086,6 +1177,9 @@ func assignmentFunnelLifecycle(filter models.Filter) (string, []any) {
 	)`, args
 }
 
+// activeWorkerGroups группирует снимок сотрудников по TOTAL, ведомству или бригаде,
+// учитывая активность, доступность и незавершённые смены. Применяет To, ведомство
+// и BrigadeID; остальные фильтры не использует, недопустимое expression отклоняет.
 func (r *AnalyticsRepoStruct) activeWorkerGroups(ctx context.Context, filter models.Filter, dimension, expression string) ([]models.ActiveWorkerGroup, error) {
 
 	if expression != "'TOTAL'" && expression != "department_id" && expression != "brigade_id" {
@@ -1167,6 +1261,9 @@ func (r *AnalyticsRepoStruct) activeWorkerGroups(ctx context.Context, filter mod
 	return result, rows.Err()
 }
 
+// dispatchFailureBreakdown группирует неуспешные операции по failure_stage
+// или failure_code и считает проценты от total. Пустые ключи исключает,
+// результат сортирует по убыванию числа операций; иной column отклоняет.
 func (r *AnalyticsRepoStruct) dispatchFailureBreakdown(ctx context.Context, filter models.Filter, column string, total uint64) ([]models.DispatchFailureBreakdown, error) {
 
 	if column != "failure_stage" && column != "failure_code" {
@@ -1201,6 +1298,9 @@ func (r *AnalyticsRepoStruct) dispatchFailureBreakdown(ctx context.Context, filt
 	return result, rows.Err()
 }
 
+// dispatchBusinessReasons группирует операции по бизнес-причинам отсутствия бригады,
+// маршрута и истечения резерва и считает процент от requested. Неклассифицированные
+// операции исключает; при нулевом requested процент равен нулю.
 func (r *AnalyticsRepoStruct) dispatchBusinessReasons(ctx context.Context, filter models.Filter, requested uint64) ([]models.DispatchFailureReasonSummary, error) {
 	cte, args := dispatchFailureLifecycle(filter)
 	rows, err := r.db.Query(ctx, cte+dispatchFailureClassification+` SELECT business_reason,count() AS count
@@ -1229,6 +1329,9 @@ func (r *AnalyticsRepoStruct) dispatchBusinessReasons(ctx context.Context, filte
 	return result, rows.Err()
 }
 
+// dispatchReasonDimensions возвращает до десяти ведущих ведомств или категорий
+// для каждой бизнес-причины сбоя с долей внутри причины. Пустые ключи исключает;
+// column должен быть department_id или category_id.
 func (r *AnalyticsRepoStruct) dispatchReasonDimensions(ctx context.Context, filter models.Filter, column string) ([]models.DispatchFailureReasonDimension, error) {
 
 	if column != "department_id" && column != "category_id" {
@@ -1280,6 +1383,9 @@ const dispatchFailureClassification = `, classified AS (
 	) AS business_reason FROM filtered
 )`
 
+// dispatchFailureLifecycle строит SQL CTE операций по dispatch-событиям периода,
+// восстанавливая последние статус и непустые измерения, причины и trace ID.
+// Возвращает SQL и параметры; наличие REQUESTED для попадания в filtered не требует.
 func dispatchFailureLifecycle(filter models.Filter) (string, []any) {
 	timeWhere, args := buildTimeFilter(filter, "occurred_at")
 	dimensionWhere, dimensionArgs := buildDispatchFailureDimensions(filter)
@@ -1308,6 +1414,9 @@ func dispatchFailureLifecycle(filter models.Filter) (string, []any) {
 	)`, args
 }
 
+// OperationalLatency возвращает распределения времени назначения и расчёта маршрута
+// в секундах. Пустой groupBy или UNSPECIFIED отключает группы; иначе добавляет
+// группировки и возвращает ошибку при неподдерживаемом измерении или отсутствии групп.
 func (r *AnalyticsRepoStruct) OperationalLatency(ctx context.Context, filter models.Filter, groupBy string) (models.OperationalLatency, error) {
 	assignment, err := r.assignmentLatency(ctx, filter)
 
@@ -1340,6 +1449,9 @@ func (r *AnalyticsRepoStruct) OperationalLatency(ctx context.Context, filter mod
 	return result, nil
 }
 
+// assignmentLatency считает положительное время до первого назначения от
+// dispatch.requested, а при его отсутствии — ticket.created, в секундах.
+// Жизненный цикл восстанавливает только по событиям выбранного периода.
 func (r *AnalyticsRepoStruct) assignmentLatency(ctx context.Context, filter models.Filter) (models.LatencyDistribution, error) {
 	timeWhere, args := buildTimeFilter(filter, "occurred_at")
 	dimensionWhere, dimensionArgs := buildAssignmentDimensions(filter)
@@ -1367,6 +1479,9 @@ func (r *AnalyticsRepoStruct) assignmentLatency(ctx context.Context, filter mode
 	return scanLatency(r.db.QueryRow(ctx, query, args...))
 }
 
+// routingLatency считает распределение неотрицательных calculation_duration_ms
+// событий маршрутизации, переводя в секунды. Недостающие измерения дополняет
+// из событий заявки и диспетчеризации, учитывает фильтры успешности и кода сбоя.
 func (r *AnalyticsRepoStruct) routingLatency(ctx context.Context, filter models.Filter) (models.LatencyDistribution, error) {
 	timeWhere, args := buildTimeFilter(filter, "route.occurred_at")
 	dimensionWhere, dimensionArgs := buildRoutingDimensions(filter)
@@ -1400,6 +1515,9 @@ func (r *AnalyticsRepoStruct) routingLatency(ctx context.Context, filter models.
 	return scanLatency(r.db.QueryRow(ctx, query, args...))
 }
 
+// groupedLatency объединяет распределения назначения и расчёта маршрута по ключам
+// измерения, нормализуя его регистр и пробелы. Сортирует по ключу;
+// неподдерживаемое измерение или пустой результат возвращает как ошибку.
 func (r *AnalyticsRepoStruct) groupedLatency(ctx context.Context, filter models.Filter, dimension string) ([]models.OperationalLatencyGroup, error) {
 	dimension = strings.ToUpper(strings.TrimSpace(dimension))
 	groups := make(map[string]*models.OperationalLatencyGroup)
@@ -1451,6 +1569,8 @@ func (r *AnalyticsRepoStruct) groupedLatency(ctx context.Context, filter models.
 	return result, nil
 }
 
+// assignmentGroupColumn сопоставляет разрешённое измерение SQL-столбцу назначения.
+// Ожидает имя в верхнем регистре; неизвестное значение даёт false.
 func assignmentGroupColumn(dimension string) (string, bool) {
 	column, ok := map[string]string{
 		"DEPARTMENT":      "department_id",
@@ -1462,6 +1582,8 @@ func assignmentGroupColumn(dimension string) (string, bool) {
 	return column, ok
 }
 
+// routingGroupExpression возвращает разрешённое SQL-выражение измерения маршрутизации.
+// Ожидает имя в верхнем регистре; неизвестное значение даёт false.
 func routingGroupExpression(dimension string) (string, bool) {
 	expression, ok := map[string]string{
 		"DEPARTMENT":      "department_id",
@@ -1477,6 +1599,8 @@ func routingGroupExpression(dimension string) (string, bool) {
 	return expression, ok
 }
 
+// groupedAssignmentLatency группирует время назначения в секундах по внутреннему
+// SQL-столбцу column, исключая пустые ключи. column должен быть получен из разрешённого набора.
 func (r *AnalyticsRepoStruct) groupedAssignmentLatency(ctx context.Context, filter models.Filter, column string) (map[string]models.LatencyDistribution, error) {
 	timeWhere, args := buildTimeFilter(filter, "occurred_at")
 	dimensionWhere, dimensionArgs := buildAssignmentDimensions(filter)
@@ -1499,6 +1623,8 @@ func (r *AnalyticsRepoStruct) groupedAssignmentLatency(ctx context.Context, filt
 	return scanLatencyGroups(r.db.Query(ctx, query, args...))
 }
 
+// groupedRoutingLatency группирует длительности расчёта маршрута в секундах
+// по разрешённому внутреннему expression, исключая пустые ключи.
 func (r *AnalyticsRepoStruct) groupedRoutingLatency(ctx context.Context, filter models.Filter, expression string) (map[string]models.LatencyDistribution, error) {
 	timeWhere, args := buildTimeFilter(filter, "route.occurred_at")
 	dimensionWhere, dimensionArgs := buildRoutingDimensions(filter)
@@ -1520,6 +1646,8 @@ func (r *AnalyticsRepoStruct) groupedRoutingLatency(ctx context.Context, filter 
 	return scanLatencyGroups(r.db.Query(ctx, query, args...))
 }
 
+// scanLatencyGroups при успешном запросе читает группы распределений в карту и закрывает rows.
+// Входную ошибку запроса, ошибки Scan и обхода возвращает без замены.
 func scanLatencyGroups(rows driver.Rows, err error) (map[string]models.LatencyDistribution, error) {
 
 	if err != nil {
@@ -1542,9 +1670,12 @@ func scanLatencyGroups(rows driver.Rows, err error) (map[string]models.LatencyDi
 }
 
 type rowScanner interface {
+	// Scan переносит поля строки в dest и возвращает ошибку чтения или преобразования.
 	Scan(dest ...any) error
 }
 
+// scanLatency читает число наблюдений, среднее, медиану и P90/P95/P99 длительности
+// в секундах, возвращая заполненные поля вместе с ошибкой Scan.
 func scanLatency(row rowScanner) (models.LatencyDistribution, error) {
 	var latency models.LatencyDistribution
 	err := row.Scan(
@@ -1558,6 +1689,9 @@ func scanLatency(row rowScanner) (models.LatencyDistribution, error) {
 	return latency, err
 }
 
+// Overview восстанавливает заявки по событиям периода и возвращает счётчики,
+// процент завершений от числа заявок выборки и средние положительные времена
+// реакции и решения в секундах от создания.
 func (r *AnalyticsRepoStruct) Overview(ctx context.Context, f models.Filter) (models.Overview, error) {
 	where, args := buildFilter(f, "occurred_at")
 	query := `WITH events AS (SELECT * FROM domain_events_projection_v1 FINAL WHERE projection_eligible AND topic='tickets.events.v1' AND ` + where + `), tickets AS (SELECT ticket_id,minIf(occurred_at,event_type='ticket.created') created_at,minIf(occurred_at,event_type IN ('ticket.assigned','ticket.status_changed') AND status IN ('ASSIGNED','IN_PROGRESS')) response_at,minIf(occurred_at,event_type='ticket.completed') completed_at,argMax(status,occurred_at) current_status FROM events WHERE ticket_id!='' GROUP BY ticket_id) SELECT countIf(created_at>toDateTime64(0,3)),countIf(completed_at>toDateTime64(0,3)),countIf(current_status='CANCELED'),countIf(current_status NOT IN ('DONE','CANCELED')),if(count()=0,0,countIf(completed_at>toDateTime64(0,3))/count()*100),ifNotFinite(avgIf(dateDiff('second',created_at,response_at),created_at>toDateTime64(0,3) AND response_at>created_at),0),ifNotFinite(avgIf(dateDiff('second',created_at,completed_at),created_at>toDateTime64(0,3) AND completed_at>created_at),0) FROM tickets`
@@ -1566,6 +1700,9 @@ func (r *AnalyticsRepoStruct) Overview(ctx context.Context, f models.Filter) (mo
 	return v, err
 }
 
+// SLA считает предупреждения, нарушения реакции и решения и завершения по событиям.
+// BreachRate — сумма двух видов нарушений относительно всех SLA-событий выборки,
+// а не число нарушенных заявок; при пустой выборке равен нулю.
 func (r *AnalyticsRepoStruct) SLA(ctx context.Context, f models.Filter) (models.SLA, error) {
 	where, args := buildFilter(f, "occurred_at")
 	query := `SELECT countIf(event_type LIKE '%RESPONSE_WARNING%'),countIf(event_type LIKE '%RESPONSE_BREACHED%'),countIf(event_type LIKE '%RESOLUTION_WARNING%'),countIf(event_type LIKE '%RESOLUTION_BREACHED%'),countIf(event_type LIKE '%COMPLETED%'),if(count()=0,0,(countIf(event_type LIKE '%RESPONSE_BREACHED%')+countIf(event_type LIKE '%RESOLUTION_BREACHED%'))/count()*100) FROM domain_events_projection_v1 FINAL WHERE projection_eligible AND topic='sla.events.v1' AND ` + where
@@ -1574,8 +1711,16 @@ func (r *AnalyticsRepoStruct) SLA(ctx context.Context, f models.Filter) (models.
 	return v, err
 }
 
+// Breakdown группирует события ticket.created по DEPARTMENT, CATEGORY, PRIORITY
+// или STATUS с процентами и общим счётчиком. Лимит вне 1–100 заменяет на 20;
+// пустые ключи исключает, на пустом результате общий счётчик равен нулю.
 func (r *AnalyticsRepoStruct) Breakdown(ctx context.Context, f models.Filter, dimension string, limit int32) ([]models.Breakdown, uint64, error) {
-	column, ok := map[string]string{"DEPARTMENT": "department_id", "CATEGORY": "category_id", "PRIORITY": "priority", "STATUS": "status"}[dimension]
+	column, ok := map[string]string{
+		"DEPARTMENT": "department_id",
+		"CATEGORY":   "category_id",
+		"PRIORITY":   "priority",
+		"STATUS":     "status",
+	}[dimension]
 
 	if !ok {
 		return nil, 0, fmt.Errorf("invalid dimension")
@@ -1608,6 +1753,8 @@ func (r *AnalyticsRepoStruct) Breakdown(ctx context.Context, f models.Filter, di
 	return items, total, rows.Err()
 }
 
+// Daily считает по дням события создания, завершения, отмены заявок и нарушения SLA.
+// Сортирует по дню; дни без событий в результат не добавляет.
 func (r *AnalyticsRepoStruct) Daily(ctx context.Context, f models.Filter) ([]models.Daily, error) {
 	where, args := buildFilter(f, "occurred_at")
 	query := `SELECT toStartOfDay(occurred_at) day,countIf(topic='tickets.events.v1' AND event_type='ticket.created'),countIf(topic='tickets.events.v1' AND event_type='ticket.completed'),countIf(topic='tickets.events.v1' AND event_type='ticket.canceled'),countIf(topic='sla.events.v1' AND event_type LIKE '%BREACHED%') FROM domain_events_projection_v1 FINAL WHERE projection_eligible AND ` + where + ` GROUP BY day ORDER BY day`
@@ -1631,11 +1778,12 @@ func (r *AnalyticsRepoStruct) Daily(ctx context.Context, f models.Filter) ([]mod
 	return items, rows.Err()
 }
 
+// eventTime предпочитает корректное occurred_at из payload, затем Timestamp,
+// затем текущее UTC-время. Временные метки самой сущности не использует.
 func eventTime(event models.Event) time.Time {
 	occurred := event.Timestamp
-	// Entity timestamps such as created_at and updated_at describe the ticket,
-	// not the domain event. Using them made assignment and completion appear at
-	// the ticket creation time and forced response metrics to zero.
+	// created_at и updated_at описывают сущность. Их подстановка вместо времени
+	// события совмещает назначение и завершение с созданием заявки и обнуляет метрики реакции.
 	if raw := stringValue(event.Payload, "occurred_at"); raw != "" {
 
 		if parsed, err := time.Parse(time.RFC3339Nano, raw); err == nil {
@@ -1650,6 +1798,10 @@ func eventTime(event models.Event) time.Time {
 
 	return occurred
 }
+
+// AssetSummary считает события создания, отказов, ремонтов, осмотров и критических
+// пересчётов риска объектов. assetType и district ограничивают только соответствующие
+// разрезы, общие счётчики остаются по f.
 func (r *AnalyticsRepoStruct) AssetSummary(ctx context.Context, f models.Filter, assetType, district *string) (models.AssetSummary, error) {
 	where, args := buildFilter(f, "occurred_at")
 	where += " AND projection_eligible AND topic='assets.events.v1'"
@@ -1668,6 +1820,9 @@ func (r *AnalyticsRepoStruct) AssetSummary(ctx context.Context, f models.Filter,
 
 	return v, e
 }
+
+// assetGroups возвращает до 50 групп событий объектов по внутреннему SQL-выражению,
+// с необязательным фильтром его значения. Исключает пустые ключи и сортирует по числу инцидентов.
 func (r *AnalyticsRepoStruct) assetGroups(ctx context.Context, where string, args []any, column string, filter *string) ([]models.AssetBreakdown, error) {
 
 	if filter != nil {

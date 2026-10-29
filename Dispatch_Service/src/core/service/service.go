@@ -29,6 +29,8 @@ type Service struct {
 	log  *zap.Logger
 }
 
+// New создаёт сервис диспетчеризации, требуя хранилище и всех клиентов deps.
+// Неположительный ttl заменяет на две минуты, nil logger — на журнал без вывода.
 func New(repo *repository.Repository, deps Dependencies, ttl time.Duration, logger *zap.Logger) (*Service, error) {
 
 	if repo == nil || deps.Tickets == nil || deps.Brigades == nil || deps.Location == nil || deps.Routing == nil {
@@ -46,6 +48,8 @@ func New(repo *repository.Repository, deps Dependencies, ttl time.Duration, logg
 	return &Service{repo: repo, deps: deps, ttl: ttl, log: logger}, nil
 }
 
+// Cleanup обрабатывает до 100 просроченных операций: восстанавливает подтверждение
+// либо освобождает резерв и фиксирует EXPIRED. Останавливается на первой возвращённой ошибке.
 func (s *Service) Cleanup(ctx context.Context) error {
 	const batchSize = 100
 	items, err := s.repo.Expire(ctx, batchSize)
@@ -64,6 +68,10 @@ func (s *Service) Cleanup(ctx context.Context) error {
 	return nil
 }
 
+// cleanupExpired захватывает блокировку и повторно читает просроченную операцию,
+// затем восстанавливает CONFIRMING либо завершает PENDING и RESERVED как EXPIRED.
+// Занятые операции и конфликты пропускает; сбои восстановления или освобождения
+// оставляет для следующей попытки. Ошибку снятия блокировки присоединяет к результату.
 func (s *Service) cleanupExpired(ctx context.Context, item *models.Operation) (err error) {
 	releaseLock, acquired, err := s.repo.TryOperationLock(ctx, item.ID)
 

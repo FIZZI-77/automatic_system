@@ -1,9 +1,11 @@
 package httptransport
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"location/models"
@@ -18,7 +20,7 @@ type Handler struct {
 }
 
 func New(service *service.Service, apiKey string) *Handler {
-	return &Handler{service: service, apiKey: apiKey}
+	return &Handler{service: service, apiKey: strings.TrimSpace(apiKey)}
 }
 func (h *Handler) Routes() *http.ServeMux {
 	mux := http.NewServeMux()
@@ -51,7 +53,7 @@ type envelope struct {
 
 func (h *Handler) recordPosition(w http.ResponseWriter, r *http.Request) {
 
-	if h.apiKey != "" && r.Header.Get("X-Transponder-Key") != h.apiKey {
+	if h.apiKey == "" || subtle.ConstantTimeCompare([]byte(r.Header.Get("X-Transponder-Key")), []byte(h.apiKey)) != 1 {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}

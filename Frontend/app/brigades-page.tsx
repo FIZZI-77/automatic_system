@@ -3,25 +3,45 @@
 import { useEffect, useState } from "react";
 import type { Position, Ticket } from "./api";
 import type { BrigadeZoneRecord } from "./brigade-zones";
-import { loadBrigades, vehicleDisplayName, type BrigadeRecord } from "./brigade-store";
+import {
+  loadBrigades,
+  vehicleDisplayName,
+  type BrigadeRecord,
+} from "./brigade-store";
 
 const statusNames: Record<string, string> = {
-  ACTIVE: "Активна", AVAILABLE: "Свободна", BUSY: "Занята", ON_ROUTE: "В пути",
-  ON_SITE: "На месте", OFFLINE: "Не на линии", INACTIVE: "Неактивна", ARCHIVED: "В архиве",
+  ACTIVE: "Активна",
+  AVAILABLE: "Свободна",
+  BUSY: "Занята",
+  ON_ROUTE: "В пути",
+  ON_SITE: "На месте",
+  OFFLINE: "Не на линии",
+  INACTIVE: "Неактивна",
+  ARCHIVED: "В архиве",
 };
 
 function positionTime(value: number) {
   if (!value) return "Время не указано";
   const date = new Date(value > 1e12 ? value : value * 1000);
-  return Number.isNaN(date.getTime()) ? "Время не указано" : `Позиция: ${date.toLocaleString("ru-RU")}`;
+  return Number.isNaN(date.getTime())
+    ? "Время не указано"
+    : `Позиция: ${date.toLocaleString("ru-RU")}`;
 }
 
 function positionStatus(value: number) {
   const recordedAt = value > 1e12 ? value : value * 1000;
-  return recordedAt >= Date.now() - 120_000 ? "Координаты актуальны" : "Последняя известная позиция";
+  return recordedAt >= Date.now() - 120_000
+    ? "Координаты актуальны"
+    : "Последняя известная позиция";
 }
 
-export function BrigadesPage({ tickets, vehicles, zones, onOpenMap, onOpenZones }: {
+export function BrigadesPage({
+  tickets,
+  vehicles,
+  zones,
+  onOpenMap,
+  onOpenZones,
+}: {
   tickets: Ticket[];
   vehicles: Position[];
   zones: BrigadeZoneRecord[];
@@ -35,81 +55,270 @@ export function BrigadesPage({ tickets, vehicles, zones, onOpenMap, onOpenZones 
   const [visibleCount, setVisibleCount] = useState(12);
 
   useEffect(() => {
-    const sync = (event: Event) => setBrigades((event as CustomEvent<BrigadeRecord[]>).detail || loadBrigades());
+    const sync = (event: Event) =>
+      setBrigades(
+        (event as CustomEvent<BrigadeRecord[]>).detail || loadBrigades(),
+      );
     window.addEventListener("city-brigades-changed", sync);
     return () => window.removeEventListener("city-brigades-changed", sync);
   }, []);
 
   const current = brigades.find((brigade) => brigade.id === selected);
-  const currentVehicles = vehicles.filter((vehicle) => vehicle.brigade_id === selected);
-  const jobs = tickets.filter((ticket) => ticket.brigade_id === selected && ["ASSIGNED", "IN_PROGRESS"].includes(ticket.status));
+  const currentVehicles = vehicles.filter(
+    (vehicle) => vehicle.brigade_id === selected,
+  );
+  const jobs = tickets.filter(
+    (ticket) =>
+      ticket.brigade_id === selected &&
+      ["ASSIGNED", "IN_PROGRESS"].includes(ticket.status),
+  );
   const brigadeZones = zones.filter((zone) => zone.brigade_id === selected);
   const normalizedQuery = query.trim().toLocaleLowerCase("ru-RU");
-  const visibleBrigades = brigades.filter((brigade) =>
-    (!status || brigade.status === status) &&
-    (!normalizedQuery || [brigade.id, brigade.name, brigade.specialization, brigade.description].some((value) => value.toLocaleLowerCase("ru-RU").includes(normalizedQuery)))
+  const visibleBrigades = brigades.filter(
+    (brigade) =>
+      (!status || brigade.status === status) &&
+      (!normalizedQuery ||
+        [
+          brigade.id,
+          brigade.name,
+          brigade.specialization,
+          brigade.description,
+        ].some((value) =>
+          value.toLocaleLowerCase("ru-RU").includes(normalizedQuery),
+        )),
   );
-  useEffect(()=>setVisibleCount(12),[query,status]);
+  useEffect(() => setVisibleCount(12), [query, status]);
 
-  return <section className="content-page">
-    <div className="page-toolbar">
-      <div><h2>Городские бригады</h2><p>Состав бригад, все закреплённые машины и их последние координаты</p></div>
-      <button className="primary" onClick={onOpenZones}>Настроить зоны</button>
-    </div>
-    <div className="service-filters"><label className="filter-search">Поиск<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Название, специализация или ID"/></label><label>Статус<select value={status} onChange={(event) => setStatus(event.target.value)}><option value="">Все</option>{Object.entries(statusNames).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label><button onClick={()=>{setQuery("");setStatus("")}}>Сбросить</button></div>
-    <div className={`brigades-layout ${current ? "has-detail" : ""}`}>
-      <div className="brigade-grid">{visibleBrigades.slice(0,visibleCount).map((brigade) => {
-        const brigadeVehicles = vehicles.filter((vehicle) => vehicle.brigade_id === brigade.id);
-        const job = tickets.find((ticket) => ticket.brigade_id === brigade.id && ["ASSIGNED", "IN_PROGRESS"].includes(ticket.status));
-        return <article className={selected === brigade.id ? "selected" : ""} key={brigade.id} onClick={() => setSelected(brigade.id)}>
-          <i>{brigadeVehicles.length ? "▲" : "—"}</i>
-          <div>
-            <span>{statusNames[brigade.status] || brigade.status}</span>
-            <h3>{brigade.name}</h3>
-            <small>ID бригады: {brigade.id}</small>
-            <p>{job ? job.title : brigade.specialization}</p>
-            <small className="brigade-vehicle-count">Машин с координатами: {brigadeVehicles.length}</small>
+  return (
+    <section className="content-page">
+      <div className="page-toolbar">
+        <div>
+          <h2>Городские бригады</h2>
+          <p>
+            Состав бригад, все закреплённые машины и их последние координаты
+          </p>
+        </div>
+        <button className="primary" onClick={onOpenZones}>
+          Настроить зоны
+        </button>
+      </div>
+      <div className="service-filters">
+        <label className="filter-search">
+          Поиск
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Название, специализация или ID"
+          />
+        </label>
+        <label>
+          Статус
+          <select
+            value={status}
+            onChange={(event) => setStatus(event.target.value)}
+          >
+            <option value="">Все</option>
+            {Object.entries(statusNames).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          onClick={() => {
+            setQuery("");
+            setStatus("");
+          }}
+        >
+          Сбросить
+        </button>
+      </div>
+      <div className={`brigades-layout ${current ? "has-detail" : ""}`}>
+        <div className="brigade-grid">
+          {visibleBrigades.slice(0, visibleCount).map((brigade) => {
+            const brigadeVehicles = vehicles.filter(
+              (vehicle) => vehicle.brigade_id === brigade.id,
+            );
+            const job = tickets.find(
+              (ticket) =>
+                ticket.brigade_id === brigade.id &&
+                ["ASSIGNED", "IN_PROGRESS"].includes(ticket.status),
+            );
+            return (
+              <article
+                className={selected === brigade.id ? "selected" : ""}
+                key={brigade.id}
+                onClick={() => setSelected(brigade.id)}
+              >
+                <i>{brigadeVehicles.length ? "▲" : "—"}</i>
+                <div>
+                  <span>{statusNames[brigade.status] || brigade.status}</span>
+                  <h3>{brigade.name}</h3>
+                  <small>ID бригады: {brigade.id}</small>
+                  <p>{job ? job.title : brigade.specialization}</p>
+                  <small className="brigade-vehicle-count">
+                    Машин с координатами: {brigadeVehicles.length}
+                  </small>
+                </div>
+                {brigadeVehicles.length ? (
+                  <button
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onOpenMap(brigadeVehicles[0].vehicle_id);
+                    }}
+                  >
+                    Все на карте
+                  </button>
+                ) : (
+                  <button disabled>Нет координат</button>
+                )}
+              </article>
+            );
+          })}
+          {!visibleBrigades.length && (
+            <p className="list-empty">
+              Бригады по заданным условиям не найдены.
+            </p>
+          )}
+        </div>
+        {visibleBrigades.length > 12 && (
+          <div className="list-pagination">
+            <span>
+              Показано {Math.min(visibleCount, visibleBrigades.length)} из{" "}
+              {visibleBrigades.length}
+            </span>
+            <button
+              onClick={() =>
+                setVisibleCount((current) =>
+                  current >= visibleBrigades.length
+                    ? 12
+                    : Math.min(current + 12, visibleBrigades.length),
+                )
+              }
+            >
+              {visibleCount >= visibleBrigades.length
+                ? "Свернуть"
+                : "Показать ещё"}
+            </button>
           </div>
-          {brigadeVehicles.length
-            ? <button onClick={(event) => { event.stopPropagation(); onOpenMap(brigadeVehicles[0].vehicle_id); }}>Все на карте</button>
-            : <button disabled>Нет координат</button>}
-        </article>;
-      })}{!visibleBrigades.length&&<p className="list-empty">Бригады по заданным условиям не найдены.</p>}</div>
-      {visibleBrigades.length>12&&<div className="list-pagination"><span>Показано {Math.min(visibleCount,visibleBrigades.length)} из {visibleBrigades.length}</span><button onClick={()=>setVisibleCount(current=>current>=visibleBrigades.length?12:Math.min(current+12,visibleBrigades.length))}>{visibleCount>=visibleBrigades.length?"Свернуть":"Показать ещё"}</button></div>}
-      {current && <aside className="brigade-detail">
-        <button className="detail-close" onClick={() => setSelected(undefined)}>×</button>
-        <header className="brigade-detail-head">
-          <span className="eyebrow">Карточка бригады</span>
-          <h2>{current.name}</h2>
-          <div className="brigade-detail-meta">
-            <p className="entity-id">ID: {current.id}</p>
-            <div className="brigade-status">● {statusNames[current.status] || current.status}</div>
-          </div>
-          <p className="brigade-detail-description">{current.description}</p>
-        </header>
-        <dl className="brigade-detail-stats">
-          <div><dt>Специализация</dt><dd>{current.specialization}</dd></div>
-          <div><dt>Машин с координатами</dt><dd>{currentVehicles.length}</dd></div>
-          <div><dt>Активных заявок</dt><dd>{jobs.length}</dd></div>
-          <div><dt>Зон обслуживания</dt><dd>{brigadeZones.length}</dd></div>
-        </dl>
-        <section className="brigade-detail-section">
-          <div className="brigade-detail-section-head"><h3>Машины</h3><span>{currentVehicles.length}</span></div>
-          {currentVehicles.length ? <div className="brigade-vehicles">{currentVehicles.map((vehicle) => <button key={vehicle.vehicle_id} onClick={() => onOpenMap(vehicle.vehicle_id)}>
-            <i>▲</i>
-            <span><b>{vehicleDisplayName(vehicle.vehicle_id)}</b><small>ID машины: {vehicle.vehicle_id}</small><small>{Math.round(vehicle.speed_kmh)} км/ч · курс {Math.round(vehicle.heading)}°</small><small>{positionStatus(Number(vehicle.recorded_at))}</small><small>{positionTime(Number(vehicle.recorded_at))}</small></span>
-            <em>На карте →</em>
-          </button>)}</div> : <p className="no-jobs">От машин бригады ещё не поступали координаты.</p>}
-        </section>
-        <section className="brigade-detail-section">
-          <div className="brigade-detail-section-head"><h3>Текущие задания</h3><span>{jobs.length}</span></div>
-          {jobs.length ? jobs.map((job) => <button className="brigade-job" key={job.id} onClick={() => onOpenMap(job.id)}><b>{job.title}</b><small>{job.address}</small><em>{job.status}</em></button>) : <p className="no-jobs">Активных заданий нет.</p>}
-        </section>
-        <section className="brigade-detail-section">
-          <div className="brigade-detail-section-head"><h3>Закреплённые зоны</h3><span>{brigadeZones.length}</span></div>
-          {brigadeZones.length ? brigadeZones.map((zone) => <div className="brigade-zone" key={zone.id}><b>{zone.name}</b><small>Приоритет {zone.priority}</small></div>) : <p className="no-jobs">Зоны не назначены.</p>}
-        </section>
-      </aside>}
-    </div>
-  </section>;
+        )}
+        {current && (
+          <aside className="brigade-detail">
+            <button
+              className="detail-close"
+              onClick={() => setSelected(undefined)}
+            >
+              ×
+            </button>
+            <header className="brigade-detail-head">
+              <span className="eyebrow">Карточка бригады</span>
+              <h2>{current.name}</h2>
+              <div className="brigade-detail-meta">
+                <p className="entity-id">ID: {current.id}</p>
+                <div className="brigade-status">
+                  ● {statusNames[current.status] || current.status}
+                </div>
+              </div>
+              <p className="brigade-detail-description">
+                {current.description}
+              </p>
+            </header>
+            <dl className="brigade-detail-stats">
+              <div>
+                <dt>Специализация</dt>
+                <dd>{current.specialization}</dd>
+              </div>
+              <div>
+                <dt>Машин с координатами</dt>
+                <dd>{currentVehicles.length}</dd>
+              </div>
+              <div>
+                <dt>Активных заявок</dt>
+                <dd>{jobs.length}</dd>
+              </div>
+              <div>
+                <dt>Зон обслуживания</dt>
+                <dd>{brigadeZones.length}</dd>
+              </div>
+            </dl>
+            <section className="brigade-detail-section">
+              <div className="brigade-detail-section-head">
+                <h3>Машины</h3>
+                <span>{currentVehicles.length}</span>
+              </div>
+              {currentVehicles.length ? (
+                <div className="brigade-vehicles">
+                  {currentVehicles.map((vehicle) => (
+                    <button
+                      key={vehicle.vehicle_id}
+                      onClick={() => onOpenMap(vehicle.vehicle_id)}
+                    >
+                      <i>▲</i>
+                      <span>
+                        <b>{vehicleDisplayName(vehicle.vehicle_id)}</b>
+                        <small>ID машины: {vehicle.vehicle_id}</small>
+                        <small>
+                          {Math.round(vehicle.speed_kmh)} км/ч · курс{" "}
+                          {Math.round(vehicle.heading)}°
+                        </small>
+                        <small>
+                          {positionStatus(Number(vehicle.recorded_at))}
+                        </small>
+                        <small>
+                          {positionTime(Number(vehicle.recorded_at))}
+                        </small>
+                      </span>
+                      <em>На карте →</em>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="no-jobs">
+                  От машин бригады ещё не поступали координаты.
+                </p>
+              )}
+            </section>
+            <section className="brigade-detail-section">
+              <div className="brigade-detail-section-head">
+                <h3>Текущие задания</h3>
+                <span>{jobs.length}</span>
+              </div>
+              {jobs.length ? (
+                jobs.map((job) => (
+                  <button
+                    className="brigade-job"
+                    key={job.id}
+                    onClick={() => onOpenMap(job.id)}
+                  >
+                    <b>{job.title}</b>
+                    <small>{job.address}</small>
+                    <em>{job.status}</em>
+                  </button>
+                ))
+              ) : (
+                <p className="no-jobs">Активных заданий нет.</p>
+              )}
+            </section>
+            <section className="brigade-detail-section">
+              <div className="brigade-detail-section-head">
+                <h3>Закреплённые зоны</h3>
+                <span>{brigadeZones.length}</span>
+              </div>
+              {brigadeZones.length ? (
+                brigadeZones.map((zone) => (
+                  <div className="brigade-zone" key={zone.id}>
+                    <b>{zone.name}</b>
+                    <small>Приоритет {zone.priority}</small>
+                  </div>
+                ))
+              ) : (
+                <p className="no-jobs">Зоны не назначены.</p>
+              )}
+            </section>
+          </aside>
+        )}
+      </div>
+    </section>
+  );
 }

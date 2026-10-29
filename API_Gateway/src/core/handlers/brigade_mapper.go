@@ -8,6 +8,7 @@ import (
 	brigadev1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/brigade/v1"
 )
 
+// ToProtoBrigadeStatus нормализует регистр и пробелы статуса; неизвестный даёт UNSPECIFIED.
 func ToProtoBrigadeStatus(status string) brigadev1.BrigadeStatus {
 	switch normalizeEnum(status) {
 	case "ACTIVE":
@@ -31,6 +32,7 @@ func ToProtoBrigadeStatus(status string) brigadev1.BrigadeStatus {
 	}
 }
 
+// FromProtoBrigadeStatus преобразует статус бригады в строку; неизвестный даёт пустую строку.
 func FromProtoBrigadeStatus(status brigadev1.BrigadeStatus) string {
 	switch status {
 	case brigadev1.BrigadeStatus_BRIGADE_STATUS_ACTIVE:
@@ -54,6 +56,7 @@ func FromProtoBrigadeStatus(status brigadev1.BrigadeStatus) string {
 	}
 }
 
+// ToProtoBrigadeMemberRole нормализует регистр и пробелы роли; неизвестная даёт UNSPECIFIED.
 func ToProtoBrigadeMemberRole(role string) brigadev1.BrigadeMemberRole {
 	switch normalizeEnum(role) {
 	case "LEAD":
@@ -69,6 +72,7 @@ func ToProtoBrigadeMemberRole(role string) brigadev1.BrigadeMemberRole {
 	}
 }
 
+// FromProtoBrigadeMemberRole преобразует роль в строку; неизвестная даёт пустую строку.
 func FromProtoBrigadeMemberRole(role brigadev1.BrigadeMemberRole) string {
 	switch role {
 	case brigadev1.BrigadeMemberRole_BRIGADE_MEMBER_ROLE_LEAD:
@@ -84,6 +88,8 @@ func FromProtoBrigadeMemberRole(role brigadev1.BrigadeMemberRole) string {
 	}
 }
 
+// ToProtoBrigadeMemberRoles преобразует роли с сохранением порядка и повторов;
+// неизвестные значения остаются UNSPECIFIED для дальнейшей проверки.
 func ToProtoBrigadeMemberRoles(roles []string) []brigadev1.BrigadeMemberRole {
 	result := make([]brigadev1.BrigadeMemberRole, 0, len(roles))
 	for _, role := range roles {
@@ -92,6 +98,8 @@ func ToProtoBrigadeMemberRoles(roles []string) []brigadev1.BrigadeMemberRole {
 	return result
 }
 
+// ToProtoBrigadeMemberAvailability нормализует регистр и пробелы доступности;
+// неизвестное значение даёт UNSPECIFIED.
 func ToProtoBrigadeMemberAvailability(status string) brigadev1.BrigadeMemberAvailabilityStatus {
 	switch normalizeEnum(status) {
 	case "AVAILABLE":
@@ -103,6 +111,8 @@ func ToProtoBrigadeMemberAvailability(status string) brigadev1.BrigadeMemberAvai
 	}
 }
 
+// FromProtoBrigadeMemberAvailability преобразует доступность в строку;
+// неизвестное значение даёт пустую строку.
 func FromProtoBrigadeMemberAvailability(status brigadev1.BrigadeMemberAvailabilityStatus) string {
 	switch status {
 	case brigadev1.BrigadeMemberAvailabilityStatus_BRIGADE_MEMBER_AVAILABILITY_STATUS_AVAILABLE:
@@ -114,6 +124,8 @@ func FromProtoBrigadeMemberAvailability(status brigadev1.BrigadeMemberAvailabili
 	}
 }
 
+// FromProtoBrigadeMemberHistoryAction преобразует действие над составом в строку;
+// неизвестное действие даёт пустую строку.
 func FromProtoBrigadeMemberHistoryAction(action brigadev1.BrigadeMemberHistoryAction) string {
 	switch action {
 	case brigadev1.BrigadeMemberHistoryAction_BRIGADE_MEMBER_HISTORY_ACTION_ADDED:
@@ -127,6 +139,7 @@ func FromProtoBrigadeMemberHistoryAction(action brigadev1.BrigadeMemberHistoryAc
 	}
 }
 
+// ToProtoBrigadeSortBy преобразует поле сортировки без учёта регистра; неизвестное даёт UNSPECIFIED.
 func ToProtoBrigadeSortBy(sortBy string) brigadev1.BrigadeSortBy {
 	switch strings.ToLower(sortBy) {
 	case string(models.BrigadeSortByCreatedAt):
@@ -142,6 +155,7 @@ func ToProtoBrigadeSortBy(sortBy string) brigadev1.BrigadeSortBy {
 	}
 }
 
+// ToProtoBrigadeSortOrder преобразует asc или desc без учёта регистра; неизвестное даёт UNSPECIFIED.
 func ToProtoBrigadeSortOrder(sortOrder string) brigadev1.SortOrder {
 	switch strings.ToLower(sortOrder) {
 	case string(models.SortOrderAsc):
@@ -153,6 +167,8 @@ func ToProtoBrigadeSortOrder(sortOrder string) brigadev1.SortOrder {
 	}
 }
 
+// FromProtoBrigade преобразует бригаду в HTTP-модель с датами в Unix-секундах;
+// nil сохраняет как nil, отсутствующие даты даёт как 0.
 func FromProtoBrigade(item *brigadev1.Brigade) *models.Brigade {
 
 	if item == nil {
@@ -173,6 +189,7 @@ func FromProtoBrigade(item *brigadev1.Brigade) *models.Brigade {
 	}
 }
 
+// FromProtoBrigades преобразует бригады с сохранением порядка и nil-элементов.
 func FromProtoBrigades(items []*brigadev1.Brigade) []*models.Brigade {
 	result := make([]*models.Brigade, 0, len(items))
 	for _, item := range items {
@@ -181,6 +198,8 @@ func FromProtoBrigades(items []*brigadev1.Brigade) []*models.Brigade {
 	return result
 }
 
+// FromProtoBrigadeMember преобразует участника, роль, доступность и даты
+// в HTTP-модель; nil сохраняет как nil.
 func FromProtoBrigadeMember(item *brigadev1.BrigadeMember) *models.BrigadeMember {
 
 	if item == nil {
@@ -203,6 +222,7 @@ func FromProtoBrigadeMember(item *brigadev1.BrigadeMember) *models.BrigadeMember
 	}
 }
 
+// FromProtoBrigadeMembers преобразует участников с сохранением порядка и nil-элементов.
 func FromProtoBrigadeMembers(items []*brigadev1.BrigadeMember) []*models.BrigadeMember {
 	result := make([]*models.BrigadeMember, 0, len(items))
 	for _, item := range items {
@@ -211,6 +231,8 @@ func FromProtoBrigadeMembers(items []*brigadev1.BrigadeMember) []*models.Brigade
 	return result
 }
 
+// FromProtoSkill преобразует навык каталога с активностью и датами в HTTP-модель;
+// nil сохраняет как nil.
 func FromProtoSkill(item *brigadev1.Skill) *models.Skill {
 
 	if item == nil {
@@ -228,6 +250,7 @@ func FromProtoSkill(item *brigadev1.Skill) *models.Skill {
 	}
 }
 
+// FromProtoSkills преобразует навыки с сохранением порядка и nil-элементов.
 func FromProtoSkills(items []*brigadev1.Skill) []*models.Skill {
 	result := make([]*models.Skill, 0, len(items))
 	for _, item := range items {
@@ -236,6 +259,8 @@ func FromProtoSkills(items []*brigadev1.Skill) []*models.Skill {
 	return result
 }
 
+// FromProtoBrigadeSkill преобразует связь бригады с вложенным навыком в HTTP-модель;
+// nil сохраняет как nil.
 func FromProtoBrigadeSkill(item *brigadev1.BrigadeSkill) *models.BrigadeSkill {
 
 	if item == nil {
@@ -252,6 +277,7 @@ func FromProtoBrigadeSkill(item *brigadev1.BrigadeSkill) *models.BrigadeSkill {
 	}
 }
 
+// FromProtoBrigadeSkills преобразует связи навыков с сохранением порядка и nil-элементов.
 func FromProtoBrigadeSkills(items []*brigadev1.BrigadeSkill) []*models.BrigadeSkill {
 	result := make([]*models.BrigadeSkill, 0, len(items))
 	for _, item := range items {
@@ -260,6 +286,8 @@ func FromProtoBrigadeSkills(items []*brigadev1.BrigadeSkill) []*models.BrigadeSk
 	return result
 }
 
+// FromProtoBrigadeSchedule преобразует расписание в HTTP-модель с часовым поясом
+// и строковыми датами действия; nil сохраняет как nil.
 func FromProtoBrigadeSchedule(item *brigadev1.BrigadeSchedule) *models.BrigadeSchedule {
 
 	if item == nil {
@@ -281,6 +309,7 @@ func FromProtoBrigadeSchedule(item *brigadev1.BrigadeSchedule) *models.BrigadeSc
 	}
 }
 
+// FromProtoBrigadeSchedules преобразует расписание с сохранением порядка и nil-элементов.
 func FromProtoBrigadeSchedules(items []*brigadev1.BrigadeSchedule) []*models.BrigadeSchedule {
 	result := make([]*models.BrigadeSchedule, 0, len(items))
 	for _, item := range items {
@@ -289,6 +318,8 @@ func FromProtoBrigadeSchedules(items []*brigadev1.BrigadeSchedule) []*models.Bri
 	return result
 }
 
+// FromProtoBrigadeZone преобразует зону с GeoJSON, приоритетом и датами в HTTP-модель;
+// nil сохраняет как nil.
 func FromProtoBrigadeZone(item *brigadev1.BrigadeZone) *models.BrigadeZone {
 
 	if item == nil {
@@ -308,6 +339,7 @@ func FromProtoBrigadeZone(item *brigadev1.BrigadeZone) *models.BrigadeZone {
 	}
 }
 
+// FromProtoBrigadeZones преобразует зоны с сохранением порядка и nil-элементов.
 func FromProtoBrigadeZones(items []*brigadev1.BrigadeZone) []*models.BrigadeZone {
 	result := make([]*models.BrigadeZone, 0, len(items))
 	for _, item := range items {
@@ -316,6 +348,8 @@ func FromProtoBrigadeZones(items []*brigadev1.BrigadeZone) []*models.BrigadeZone
 	return result
 }
 
+// FromProtoBrigadeStatusHistory преобразует переход статуса в HTTP-модель;
+// неизвестные статусы даёт как пустые строки, nil запись — как nil.
 func FromProtoBrigadeStatusHistory(item *brigadev1.BrigadeStatusHistory) *models.BrigadeStatusHistory {
 
 	if item == nil {
@@ -334,6 +368,7 @@ func FromProtoBrigadeStatusHistory(item *brigadev1.BrigadeStatusHistory) *models
 	}
 }
 
+// FromProtoBrigadeStatusHistoryItems преобразует историю статусов с сохранением порядка и nil-элементов.
 func FromProtoBrigadeStatusHistoryItems(items []*brigadev1.BrigadeStatusHistory) []*models.BrigadeStatusHistory {
 	result := make([]*models.BrigadeStatusHistory, 0, len(items))
 	for _, item := range items {
@@ -342,6 +377,8 @@ func FromProtoBrigadeStatusHistoryItems(items []*brigadev1.BrigadeStatusHistory)
 	return result
 }
 
+// FromProtoBrigadeMemberHistory преобразует действие над составом и смену роли
+// в HTTP-модель; nil сохраняет как nil, неизвестные enum даёт как пустые строки.
 func FromProtoBrigadeMemberHistory(item *brigadev1.BrigadeMemberHistory) *models.BrigadeMemberHistory {
 
 	if item == nil {
@@ -363,6 +400,7 @@ func FromProtoBrigadeMemberHistory(item *brigadev1.BrigadeMemberHistory) *models
 	}
 }
 
+// FromProtoBrigadeMemberHistoryItems преобразует историю состава с сохранением порядка и nil-элементов.
 func FromProtoBrigadeMemberHistoryItems(items []*brigadev1.BrigadeMemberHistory) []*models.BrigadeMemberHistory {
 	result := make([]*models.BrigadeMemberHistory, 0, len(items))
 	for _, item := range items {
@@ -371,6 +409,8 @@ func FromProtoBrigadeMemberHistoryItems(items []*brigadev1.BrigadeMemberHistory)
 	return result
 }
 
+// FromProtoBrigadeMemberStatusHistory преобразует историю доступности в HTTP-модель;
+// nil сохраняет как nil, неизвестные статусы даёт как пустые строки.
 func FromProtoBrigadeMemberStatusHistory(item *brigadev1.BrigadeMemberStatusHistory) *models.BrigadeMemberStatusHistory {
 
 	if item == nil {
@@ -391,6 +431,7 @@ func FromProtoBrigadeMemberStatusHistory(item *brigadev1.BrigadeMemberStatusHist
 	}
 }
 
+// FromProtoBrigadeMemberStatusHistoryItems преобразует историю доступности с сохранением порядка и nil-элементов.
 func FromProtoBrigadeMemberStatusHistoryItems(items []*brigadev1.BrigadeMemberStatusHistory) []*models.BrigadeMemberStatusHistory {
 	result := make([]*models.BrigadeMemberStatusHistory, 0, len(items))
 	for _, item := range items {
@@ -399,6 +440,8 @@ func FromProtoBrigadeMemberStatusHistoryItems(items []*brigadev1.BrigadeMemberSt
 	return result
 }
 
+// ToProtoScheduleItems преобразует элементы расписания в protobuf в исходном
+// порядке, пропуская nil; даты и время оставляет строками без проверки формата.
 func ToProtoScheduleItems(items []*models.BrigadeScheduleItem) []*brigadev1.BrigadeScheduleItem {
 	result := make([]*brigadev1.BrigadeScheduleItem, 0, len(items))
 	for _, item := range items {
@@ -419,6 +462,7 @@ func ToProtoScheduleItems(items []*models.BrigadeScheduleItem) []*brigadev1.Brig
 	return result
 }
 
+// normalizeEnum обрезает крайние пробелы и переводит строку в верхний регистр.
 func normalizeEnum(value string) string {
 	return strings.ToUpper(strings.TrimSpace(value))
 }

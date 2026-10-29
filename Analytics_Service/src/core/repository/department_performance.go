@@ -69,6 +69,9 @@ FROM tickets LEFT JOIN sla USING(ticket_id)
 WHERE created_at>toDateTime64(0,3) AND department_id!='' AND %s
 GROUP BY department_id ORDER BY department_id`
 
+// DepartmentPerformance рассчитывает показатели ведомств и организации по заявкам,
+// SLA и отзывам. Период применяется к созданию заявки, дополнительно учитывается
+// только DepartmentID; общие средние вычисляются из сумм и числа наблюдений.
 func (r *AnalyticsRepoStruct) DepartmentPerformance(ctx context.Context, filter models.Filter) (models.DepartmentPerformanceReport, error) {
 	where, args := buildTimeFilter(filter, "created_at")
 
@@ -108,10 +111,13 @@ func (r *AnalyticsRepoStruct) DepartmentPerformance(ctx context.Context, filter 
 	return report, nil
 }
 
+// formatDepartmentQuery подставляет внутреннее SQL-условие where в шаблон отчёта ведомств.
 func formatDepartmentQuery(where string) string {
 	return strings.Replace(departmentPerformanceQuery, "%s", where, 1)
 }
 
+// scanDepartmentStats заполняет value счётчиками и суммами текущей строки отчёта.
+// Производные показатели не вычисляет.
 func scanDepartmentStats(row driver.Rows, value *departmentStats) error {
 	return row.Scan(
 		&value.DepartmentID, &value.Created, &value.Completed, &value.Canceled, &value.Active,
@@ -122,6 +128,8 @@ func scanDepartmentStats(row driver.Rows, value *departmentStats) error {
 	)
 }
 
+// calculate заполняет средние длительности, отклонения SLA, рейтинг и процентные
+// показатели из накопленных сумм и счётчиков. При нулевом знаменателе задаёт ноль.
 func (value *departmentStats) calculate() {
 	value.ResponseSampleCount = value.responseCount
 	value.ResolutionSampleCount = value.resolutionCount
@@ -136,6 +144,8 @@ func (value *departmentStats) calculate() {
 	value.FeedbackResponseRate = percent(value.FeedbackCount, value.Completed)
 }
 
+// add прибавляет исходные счётчики и суммы item к value для общего отчёта.
+// Производные показатели и ID ведомства не изменяет.
 func (value *departmentStats) add(item departmentStats) {
 	value.Created += item.Created
 	value.Completed += item.Completed
@@ -157,6 +167,7 @@ func (value *departmentStats) add(item departmentStats) {
 	value.resolvedRatings += item.resolvedRatings
 }
 
+// percent возвращает долю part от total в процентах либо ноль при total=0.
 func percent(part, total uint64) float64 {
 
 	if total == 0 {
@@ -166,6 +177,7 @@ func percent(part, total uint64) float64 {
 	return float64(part) / float64(total) * 100
 }
 
+// average делит сумму total на число наблюдений count; при count=0 возвращает ноль.
 func average(total float64, count uint64) float64 {
 
 	if count == 0 {
