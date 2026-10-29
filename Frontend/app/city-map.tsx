@@ -1,7 +1,7 @@
 "use client";
 import { mapTooltip } from "./map-tooltip";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "leaflet/dist/leaflet.css";
 import {
   ApiError,
@@ -59,6 +59,12 @@ type AssetPassport = {
   next_inspection_at?: string | number;
 };
 type Department = { id: string; name: string };
+type MapFilters = {
+  selected: string;
+  department: string;
+  ticket: string;
+  brigade: string;
+};
 type Props = {
   tickets: Ticket[];
   vehicles: Position[];
@@ -193,10 +199,20 @@ export function CityMap({
 }: Props) {
   const root = useRef<HTMLDivElement>(null);
   const [route, setRoute] = useState<RoutePoint[]>([]);
-  const [departments, setDepartments] = useState<Department[]>(demoDepartments);
-  const [departmentFilter, setDepartmentFilter] = useState("");
-  const [ticketFilter, setTicketFilter] = useState("");
-  const [brigadeFilter, setBrigadeFilter] = useState("");
+  const [loadedDepartments, setLoadedDepartments] = useState<{
+    token: string;
+    items: Department[];
+  }>();
+  const [manualFilters, setManualFilters] = useState<MapFilters>();
+  const departments = useMemo(
+    () =>
+      !session || session.accessToken === "demo"
+        ? demoDepartments
+        : loadedDepartments?.token === session.accessToken
+          ? loadedDepartments.items
+          : [],
+    [loadedDepartments, session],
+  );
   const [infrastructure, setInfrastructure] = useState<InfraFeature[]>([]);
   const [base, setBase] = useState<BaseId>("standard");
   const [layers, setLayers] = useState<LayerId[]>(["districts", "roads"]);
@@ -238,6 +254,35 @@ export function CityMap({
     });
     return Array.from(byId.values());
   }, [brigades, tickets, vehicles]);
+  const filters = useMemo<MapFilters>(() => {
+    if (manualFilters?.selected === (selected || "")) return manualFilters;
+    const ticket = tickets.find((item) => item.id === selected);
+    if (ticket)
+      return {
+        selected: ticket.id,
+        department: ticket.department_id,
+        ticket: ticket.id,
+        brigade: "",
+      };
+    const vehicle = vehicles.find(
+      (item) => item.vehicle_id === selected || item.brigade_id === selected,
+    );
+    const brigade = knownBrigades.find(
+      (item) => item.id === (vehicle?.brigade_id || selected),
+    );
+    return {
+      selected: selected || "",
+      department: brigade?.department_id || "",
+      ticket: "",
+      brigade: brigade?.id || "",
+    };
+  }, [knownBrigades, manualFilters, selected, tickets, vehicles]);
+  const {
+    department: departmentFilter,
+    ticket: ticketFilter,
+    brigade: brigadeFilter,
+  } = filters;
+
   const departmentOptions = useMemo(() => {
     const byId = new Map(
       departments.map((department) => [department.id, department]),
@@ -359,7 +404,6 @@ export function CityMap({
 
   useEffect(() => {
     if (!session || session.accessToken === "demo") {
-      setDepartments(demoDepartments);
       return;
     }
     let active = true;
@@ -370,7 +414,11 @@ export function CityMap({
       session.accessToken,
     )
       .then((payload) => {
-        if (active) setDepartments(payload.departments || []);
+        if (active)
+          setLoadedDepartments({
+            token: session.accessToken,
+            items: payload.departments || [],
+          });
       })
       .catch(() => undefined);
     return () => {
@@ -378,48 +426,46 @@ export function CityMap({
     };
   }, [session]);
 
-  useEffect(() => {
-    if (!selected) return;
-    const ticket = tickets.find((item) => item.id === selected);
-    if (ticket) {
-      setDepartmentFilter(ticket.department_id);
-      setTicketFilter(ticket.id);
-      setBrigadeFilter("");
-      return;
-    }
-    const vehicle = vehicles.find(
-      (item) => item.vehicle_id === selected || item.brigade_id === selected,
-    );
-    const brigadeId =
-      vehicle?.brigade_id ||
-      knownBrigades.find((item) => item.id === selected)?.id;
-    if (!brigadeId) return;
-    const brigade = knownBrigades.find((item) => item.id === brigadeId);
-    if (brigade?.department_id) setDepartmentFilter(brigade.department_id);
-    setBrigadeFilter(brigadeId);
-    setTicketFilter("");
-  }, [knownBrigades, selected, tickets, vehicles]);
+  const selectTicket = useCallback(
+    (ticketId: string) => {
+      const ticket = tickets.find((item) => item.id === ticketId);
+      setManualFilters({
+        selected: ticketId,
+        department: ticket?.department_id || departmentFilter,
+        ticket: ticketId,
+        brigade: "",
+      });
+      onSelect(ticketId);
+    },
+    [departmentFilter, onSelect, tickets],
+  );
 
-  function selectTicket(ticketId: string) {
-    setTicketFilter(ticketId);
-    setBrigadeFilter("");
-    const ticket = tickets.find((item) => item.id === ticketId);
-    if (ticket) setDepartmentFilter(ticket.department_id);
-    onSelect(ticketId);
-  }
-
-  function selectBrigade(brigadeId: string) {
-    setBrigadeFilter(brigadeId);
-    setTicketFilter("");
-    const brigade = knownBrigades.find((item) => item.id === brigadeId);
-    if (brigade?.department_id) setDepartmentFilter(brigade.department_id);
-    onSelect(brigadeId);
-  }
+  const selectBrigade = useCallback(
+    (brigadeId: string) => {
+      const brigade = knownBrigades.find((item) => item.id === brigadeId);
+      setManualFilters({
+        selected: brigadeId,
+        department: brigade?.department_id || departmentFilter,
+        ticket: "",
+        brigade: brigadeId,
+      });
+      onSelect(brigadeId);
+    },
+    [departmentFilter, knownBrigades, onSelect],
+  );
 
   function resetFilters() {
-    setDepartmentFilter("");
-    setTicketFilter("");
-    setBrigadeFilter("");
+    setManualFilters({ selected: "", department: "", ticket: "", brigade: "" });
+    onSelect("");
+  }
+
+  function clearSelection() {
+    setManualFilters({
+      selected: "",
+      department: departmentFilter,
+      ticket: "",
+      brigade: "",
+    });
     onSelect("");
   }
 
@@ -560,11 +606,17 @@ export function CityMap({
   }
 
   useEffect(() => {
-    if (!routePair.origin || !routePair.destination) {
-      queueMicrotask(() => setRoute([]));
-      return;
-    }
+    let active = true;
     const controller = new AbortController();
+    if (!routePair.origin || !routePair.destination) {
+      queueMicrotask(() => {
+        if (active) setRoute([]);
+      });
+      return () => {
+        active = false;
+        controller.abort();
+      };
+    }
     const request =
       session && session.accessToken !== "demo"
         ? api<{ routes: Array<{ encoded_polyline: string }> }>(
@@ -620,15 +672,20 @@ export function CityMap({
         }),
       )
       .then((points) => {
+        if (!active) return;
         setRoute(points);
         setError("");
       })
       .catch((reason) => {
+        if (!active) return;
         if (reason instanceof Error && reason.name === "AbortError") return;
         setRoute([]);
         setError(reason instanceof Error ? reason.message : "Ошибка маршрута");
       });
-    return () => controller.abort();
+    return () => {
+      active = false;
+      controller.abort();
+    };
   }, [routePair, session]);
 
   useEffect(() => {
@@ -769,6 +826,8 @@ export function CityMap({
     infrastructure,
     layers,
     base,
+    selectTicket,
+    selectBrigade,
   ]);
 
   const toggleLayer = (layer: LayerId) =>
@@ -793,9 +852,12 @@ export function CityMap({
             aria-label="Фильтр по департаменту"
             value={departmentFilter}
             onChange={(event) => {
-              setDepartmentFilter(event.target.value);
-              setTicketFilter("");
-              setBrigadeFilter("");
+              setManualFilters({
+                selected: "",
+                department: event.target.value,
+                ticket: "",
+                brigade: "",
+              });
               onSelect("");
             }}
           >
@@ -815,7 +877,7 @@ export function CityMap({
             onChange={(event) =>
               event.target.value
                 ? selectTicket(event.target.value)
-                : (setTicketFilter(""), onSelect(""))
+                : clearSelection()
             }
           >
             <option value="">Все заявки</option>
@@ -834,7 +896,7 @@ export function CityMap({
             onChange={(event) =>
               event.target.value
                 ? selectBrigade(event.target.value)
-                : (setBrigadeFilter(""), onSelect(""))
+                : clearSelection()
             }
           >
             <option value="">Все бригады</option>

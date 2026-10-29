@@ -58,7 +58,7 @@ func TestTicketHandlerListIntegrations(t *testing.T) {
 			}, nil
 		},
 	}
-	handler := NewTicketHandler(client, nil, nil)
+	handler := NewTicketHandler(client, nil, nil, nil)
 	recorder, ctx := ticketRequestContext(t, "user-id", []string{"admin"}, `{"limit":25,"offset":5}`)
 
 	handler.ListIntegrations(ctx)
@@ -87,7 +87,7 @@ func TestTicketHandlerSetIntegrationActiveAcceptsFalse(t *testing.T) {
 			return &ticketv1.SetIntegrationActiveResponse{Integration: &ticketv1.TicketIntegration{Id: integrationID}}, nil
 		},
 	}
-	handler := NewTicketHandler(client, nil, nil)
+	handler := NewTicketHandler(client, nil, nil, nil)
 	recorder, ctx := ticketRequestContext(t, "user-id", []string{"admin"}, `{"integration_id":"`+integrationID+`","is_active":false}`)
 
 	handler.SetIntegrationActive(ctx)
@@ -112,7 +112,7 @@ func TestTicketHandlerRotateIntegrationSecret(t *testing.T) {
 			}, nil
 		},
 	}
-	handler := NewTicketHandler(client, nil, nil)
+	handler := NewTicketHandler(client, nil, nil, nil)
 	recorder, ctx := ticketRequestContext(t, "user-id", []string{"admin"}, `{"integration_id":"`+integrationID+`"}`)
 
 	handler.RotateIntegrationSecret(ctx)

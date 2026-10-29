@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"file/models"
 	"github.com/google/uuid"
@@ -26,9 +27,13 @@ func New(writeDB, readDB *pgxpool.Pool) *Repository {
 // Возвращает запись с установленными базой статусом и временными метками.
 func (r *Repository) Create(ctx context.Context, in models.CreateInput, key string) (*models.File, error) {
 	id := uuid.New()
-	row := r.writeDB.QueryRow(ctx, `INSERT INTO files(id,owner_user_id,name,content_type,size,checksum,object_key)
-		VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id,owner_user_id,resource_type,resource_id,name,content_type,size,checksum,object_key,status,created_at,updated_at`,
-		id, in.OwnerUserID, in.Name, in.ContentType, in.Size, in.Checksum, key)
+	expiresAt := in.UploadExpiresAt
+	if expiresAt.IsZero() {
+		expiresAt = time.Now().Add(15 * time.Minute)
+	}
+	row := r.writeDB.QueryRow(ctx, `INSERT INTO files(id,owner_user_id,name,content_type,size,checksum,object_key,upload_expires_at)
+		VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id,owner_user_id,resource_type,resource_id,name,content_type,size,checksum,object_key,status,created_at,updated_at`,
+		id, in.OwnerUserID, in.Name, in.ContentType, in.Size, in.Checksum, key, expiresAt)
 	f, err := scan(row)
 
 	if err != nil {
@@ -41,7 +46,7 @@ func (r *Repository) Create(ctx context.Context, in models.CreateInput, key stri
 // Get возвращает метаданные неудалённого файла по ID, включая карантинные записи.
 // Отсутствие или статус DELETED возвращает как pgx.ErrNoRows.
 func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*models.File, error) {
-	return scan(r.readDB.QueryRow(ctx, `SELECT id,owner_user_id,resource_type,resource_id,name,content_type,size,checksum,object_key,status,created_at,updated_at FROM files WHERE id=$1 AND status<>'DELETED'`, id))
+	return scan(r.writeDB.QueryRow(ctx, `SELECT id,owner_user_id,resource_type,resource_id,name,content_type,size,checksum,object_key,status,created_at,updated_at FROM files WHERE id=$1 AND status<>'DELETED'`, id))
 }
 
 // Confirm переводит PENDING_UPLOAD в UPLOADED и возвращает обновлённые метаданные.
@@ -89,22 +94,6 @@ func (r *Repository) List(ctx context.Context, typ string, id uuid.UUID) ([]*mod
 		result = append(result, f)
 	}
 	return result, rows.Err()
-}
-
-// Delete помечает файл DELETED и устанавливает время удаления, сохраняя строку.
-// Для отсутствующего или уже удалённого файла возвращает pgx.ErrNoRows.
-func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
-	tag, err := r.writeDB.Exec(ctx, `UPDATE files SET status='DELETED',deleted_at=now(),updated_at=now() WHERE id=$1 AND status<>'DELETED'`, id)
-
-	if err != nil {
-		return err
-	}
-
-	if tag.RowsAffected() == 0 {
-		return pgx.ErrNoRows
-	}
-
-	return nil
 }
 
 type scanner interface {

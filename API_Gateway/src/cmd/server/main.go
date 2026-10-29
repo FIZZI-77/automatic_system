@@ -352,7 +352,7 @@ func main() {
 	}
 
 	authHandler := handlers.NewAuthHandler(authClient)
-	ticketHandler := handlers.NewTicketHandler(ticketClient, brigadeClient, profileClient)
+	ticketHandler := handlers.NewTicketHandler(ticketClient, brigadeClient, profileClient, dispatchClient)
 	departmentHandler := handlers.NewDepartmentHandler(departmentClient)
 	brigadeHandler := handlers.NewBrigadeHandler(brigadeClient)
 	profileHandler := handlers.NewProfileHandler(profileClient)

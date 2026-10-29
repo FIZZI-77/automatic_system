@@ -165,12 +165,29 @@ func (s *Service) Reserve(ctx context.Context, in *models.ReserveInput) (*models
 	if err != nil {
 		return nil, err
 	}
+	md, _ := metadata.FromOutgoingContext(ctx)
+	comments := md.Get("x-assignment-comment-bin")
+	if len(comments) > 0 {
+		if len([]rune(comments[0])) > 1000 {
+			return nil, fmt.Errorf("%w: assignment comment too long", models.ErrInvalidArgument)
+		}
+		createInput.AssignmentComment = comments[0]
+	}
 
 	op, err := s.repo.Create(ctx, createInput)
 
 	if err != nil {
 		return nil, err
 	}
+
+	releaseLock, acquired, err := s.repo.TryOperationLock(ctx, op.ID)
+	if err != nil {
+		return nil, err
+	}
+	if !acquired {
+		return nil, models.ErrConflict
+	}
+	defer s.unlockOperation(op.ID, releaseLock)
 
 	return s.reserveExisting(ctx, op, in.BrigadeID, in.RequiredSkillIDs, in.RequestedBy)
 }
@@ -371,7 +388,7 @@ func (s *Service) confirm(ctx context.Context, in *models.ConfirmInput) (*models
 	ticket, err := s.getNewTicket(ctx, op.TicketID)
 
 	if err != nil {
-		return s.failAndRelease(ctx, op, in.ConfirmedBy, err)
+		return s.failAndRelease(ctx, op, err)
 	}
 
 	location, err := s.deps.Location.GetCurrentLocation(ctx, &locationv1.GetCurrentLocationRequest{
@@ -385,7 +402,7 @@ func (s *Service) confirm(ctx context.Context, in *models.ConfirmInput) (*models
 			err = errors.New("brigade location unavailable")
 		}
 
-		return s.failAndRelease(ctx, op, in.ConfirmedBy, err)
+		return s.failAndRelease(ctx, op, err)
 	}
 
 	position := location.GetLocation().GetPosition()
@@ -411,14 +428,14 @@ func (s *Service) confirm(ctx context.Context, in *models.ConfirmInput) (*models
 			err = errors.New("routing returned an empty route")
 		}
 
-		return s.failAndRelease(ctx, op, in.ConfirmedBy, err)
+		return s.failAndRelease(ctx, op, err)
 	}
 
 	routeID, err := uuid.Parse(route.GetRoute().GetId())
 
 	if err != nil {
 		s.cancelRoute(ctx, route.GetRoute().GetId())
-		return s.failAndRelease(ctx, op, in.ConfirmedBy, err)
+		return s.failAndRelease(ctx, op, err)
 	}
 
 	op, err = s.repo.BeginConfirm(ctx, op.ID, routeID, op.Version)
@@ -444,7 +461,7 @@ func (s *Service) finishConfirm(ctx context.Context, op *models.Operation, actor
 		TicketId:   op.TicketID.String(),
 		BrigadeId:  op.BrigadeID.String(),
 		AssignedBy: actor.String(),
-		Comment:    "assigned by dispatch",
+		Comment:    assignmentComment(op),
 	})
 
 	if err != nil {
@@ -453,7 +470,7 @@ func (s *Service) finishConfirm(ctx context.Context, op *models.Operation, actor
 
 		if !alreadyAssigned {
 			s.cancelRoute(ctx, op.RouteID.String())
-			return s.failAndRelease(ctx, op, actor, fmt.Errorf("assign ticket: %w", err))
+			return s.failAndRelease(ctx, op, fmt.Errorf("assign ticket: %w", err))
 		}
 
 	}
@@ -508,6 +525,15 @@ func (s *Service) Cancel(ctx context.Context, in *models.CancelInput) (*models.O
 		return nil, fmt.Errorf("%w: cancel input", models.ErrInvalidArgument)
 	}
 
+	releaseLock, acquired, err := s.repo.TryOperationLock(ctx, in.ID)
+	if err != nil {
+		return nil, err
+	}
+	if !acquired {
+		return nil, models.ErrConflict
+	}
+	defer s.unlockOperation(in.ID, releaseLock)
+
 	op, err := s.repo.Get(ctx, in.ID)
 
 	if err != nil {
@@ -527,14 +553,17 @@ func (s *Service) Cancel(ctx context.Context, in *models.CancelInput) (*models.O
 		reason = "cancelled by dispatcher"
 	}
 
-	cancelled, err := s.repo.SetTerminal(ctx, op.ID, models.StatusCancelled, reason, op.Version)
+	cancelled, err := s.repo.Cancel(ctx, op.ID, in.CancelledBy, reason, op.Version)
 
 	if err != nil {
 		return nil, err
 	}
 
-	if op.BrigadeID != nil {
-		_ = s.release(forwardMetadata(ctx), *op.BrigadeID, in.CancelledBy)
+	if cancelled.ReleasePending {
+		if err := s.releaseOperation(compensationContext(ctx, cancelled), cancelled); err != nil {
+			// Отмена уже сохранена. Фоновая очистка повторит освобождение после перезапуска.
+			s.log.Warn("dispatch cancelled; brigade release queued", zap.Error(err), zap.String("operation_id", op.ID.String()))
+		}
 	}
 
 	return cancelled, nil
@@ -580,9 +609,12 @@ func (s *Service) reserveExisting(ctx context.Context, op *models.Operation, bri
 	})
 
 	if err != nil {
-		_, transitionErr := s.repo.SetFailed(ctx, reserved.ID, "RESERVATION", "BRIGADE_RESERVATION_FAILED", err.Error(), reserved.Version)
-		releaseErr := s.release(ctx, brigadeID, actor)
-		return nil, errors.Join(fmt.Errorf("reserve brigade: %w", err), transitionErr, releaseErr)
+		failed, transitionErr := s.repo.SetFailed(ctx, reserved.ID, "RESERVATION", "BRIGADE_RESERVATION_FAILED", err.Error(), reserved.Version)
+		if transitionErr != nil {
+			return nil, errors.Join(fmt.Errorf("reserve brigade: %w", err), transitionErr)
+		}
+		releaseErr := s.releaseOperation(compensationContext(ctx, failed), failed)
+		return nil, errors.Join(fmt.Errorf("reserve brigade: %w", err), releaseErr)
 	}
 
 	return reserved, nil
@@ -616,7 +648,7 @@ func (s *Service) getNewTicket(ctx context.Context, id uuid.UUID) (*ticketv1.Tic
 // failAndRelease фиксирует FAILED с причиной cause и освобождает бригаду после
 // успешной смены статуса. Возвращает nil и исходную причину, присоединяя ошибки
 // перехода или освобождения; cause должен быть ненулевым.
-func (s *Service) failAndRelease(ctx context.Context, op *models.Operation, actor uuid.UUID, cause error) (*models.Operation, error) {
+func (s *Service) failAndRelease(ctx context.Context, op *models.Operation, cause error) (*models.Operation, error) {
 	failed, transitionErr := s.repo.SetFailed(ctx, op.ID, dispatchFailureStage(op), dispatchFailureCode(cause), cause.Error(), op.Version)
 
 	if transitionErr != nil {
@@ -625,7 +657,7 @@ func (s *Service) failAndRelease(ctx context.Context, op *models.Operation, acto
 
 	if failed.BrigadeID != nil {
 
-		if releaseErr := s.release(ctx, *failed.BrigadeID, actor); releaseErr != nil {
+		if releaseErr := s.releaseOperation(compensationContext(ctx, failed), failed); releaseErr != nil {
 			return nil, errors.Join(cause, releaseErr)
 		}
 
@@ -712,11 +744,47 @@ func (s *Service) release(ctx context.Context, id, actor uuid.UUID) error {
 	return err
 }
 
+// releaseOperation освобождает бригаду и только затем подтверждает компенсацию в БД.
+// Пока подтверждение не записано, уникальные индексы не допускают новый резерв.
+func (s *Service) releaseOperation(ctx context.Context, operation *models.Operation) error {
+	actor := operation.RequestedBy
+	if operation.ReleaseActorID != nil {
+		actor = *operation.ReleaseActorID
+	}
+	if operation.BrigadeID != nil {
+		if err := s.release(ctx, *operation.BrigadeID, actor); err != nil {
+			return errors.Join(err, s.repo.DeferRelease(ctx, operation.ID))
+		}
+	}
+	if err := s.repo.CompleteRelease(ctx, operation.ID); err != nil {
+		return errors.Join(err, s.repo.DeferRelease(ctx, operation.ID))
+	}
+	operation.ReleasePending = false
+	return nil
+}
+
+func (s *Service) unlockOperation(id uuid.UUID, release func() error) {
+	if err := release(); err != nil {
+		s.log.Error("release dispatch operation lock", zap.Error(err), zap.String("operation_id", id.String()))
+	}
+}
+
+func assignmentComment(operation *models.Operation) string {
+	if operation.AssignmentComment != "" {
+		return operation.AssignmentComment
+	}
+	return "assigned by dispatch"
+}
+
 // compensationContext заменяет исходящие метаданные данными инициатора операции,
 // ролью dispatcher и, при наличии, ведомством для восстановления фоновых операций.
 func compensationContext(ctx context.Context, operation *models.Operation) context.Context {
+	actor := operation.RequestedBy
+	if operation.ReleaseActorID != nil {
+		actor = *operation.ReleaseActorID
+	}
 	values := []string{
-		"x-actor-user-id", operation.RequestedBy.String(),
+		"x-actor-user-id", actor.String(),
 		"x-actor-roles", "dispatcher",
 	}
 

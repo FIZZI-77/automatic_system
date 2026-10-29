@@ -33,34 +33,38 @@ const (
 )
 
 type Operation struct {
-	ID            uuid.UUID
-	TicketID      uuid.UUID
-	DepartmentID  *uuid.UUID
-	CategoryID    *uuid.UUID
-	Priority      string
-	BrigadeID     *uuid.UUID
-	RouteID       *uuid.UUID
-	Mode          Mode
-	Status        Status
-	Version       int32
-	RequestedBy   uuid.UUID
-	FailureReason *string
-	FailureCode   *string
-	FailureStage  *string
-	ExpiresAt     time.Time
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	ID                uuid.UUID
+	TicketID          uuid.UUID
+	DepartmentID      *uuid.UUID
+	CategoryID        *uuid.UUID
+	Priority          string
+	BrigadeID         *uuid.UUID
+	RouteID           *uuid.UUID
+	Mode              Mode
+	Status            Status
+	Version           int32
+	RequestedBy       uuid.UUID
+	FailureReason     *string
+	FailureCode       *string
+	FailureStage      *string
+	ExpiresAt         time.Time
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+	ReleasePending    bool
+	ReleaseActorID    *uuid.UUID
+	AssignmentComment string
 }
 
 type CreateOperationInput struct {
-	TicketID       uuid.UUID
-	DepartmentID   uuid.UUID
-	CategoryID     uuid.UUID
-	Priority       string
-	RequestedBy    uuid.UUID
-	Mode           Mode
-	TTL            time.Duration
-	TriggerEventID *uuid.UUID
+	TicketID          uuid.UUID
+	DepartmentID      uuid.UUID
+	CategoryID        uuid.UUID
+	Priority          string
+	RequestedBy       uuid.UUID
+	Mode              Mode
+	TTL               time.Duration
+	TriggerEventID    *uuid.UUID
+	AssignmentComment string
 }
 
 type Candidate struct {

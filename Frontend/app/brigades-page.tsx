@@ -87,7 +87,6 @@ export function BrigadesPage({
           value.toLocaleLowerCase("ru-RU").includes(normalizedQuery),
         )),
   );
-  useEffect(() => setVisibleCount(12), [query, status]);
 
   return (
     <section className="content-page">
@@ -107,7 +106,10 @@ export function BrigadesPage({
           Поиск
           <input
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setVisibleCount(12);
+            }}
             placeholder="Название, специализация или ID"
           />
         </label>
@@ -115,7 +117,10 @@ export function BrigadesPage({
           Статус
           <select
             value={status}
-            onChange={(event) => setStatus(event.target.value)}
+            onChange={(event) => {
+              setStatus(event.target.value);
+              setVisibleCount(12);
+            }}
           >
             <option value="">Все</option>
             {Object.entries(statusNames).map(([value, label]) => (
@@ -129,6 +134,7 @@ export function BrigadesPage({
           onClick={() => {
             setQuery("");
             setStatus("");
+            setVisibleCount(12);
           }}
         >
           Сбросить
