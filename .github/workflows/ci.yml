@@ -15,7 +15,7 @@ on:
 
 concurrency:
   group: automatic-system-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && (github.ref == 'refs/heads/test' || github.ref == 'refs/heads/feature' || startsWith(github.ref, 'refs/heads/feature/'))) }}
 
 permissions:
   actions: read
@@ -922,7 +922,7 @@ jobs:
 
     concurrency:
       group: automatic-system-local-cluster-deploy
-      cancel-in-progress: false
+      cancel-in-progress: true
 
     env:
       GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
