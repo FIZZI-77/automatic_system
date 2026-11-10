@@ -2,43 +2,43 @@ globalImage:
   registry: ghcr.io/fizzi-77
   tag: sha-7e50eb65738b
   tags:
-    analytics: sha-d81d9554989d
-    api-gateway: sha-d81d9554989d
-    asset: sha-d81d9554989d
-    audit: sha-d81d9554989d
-    auth: sha-d81d9554989d
-    brigade: sha-d81d9554989d
-    department: sha-d81d9554989d
-    dispatch: sha-d81d9554989d
-    file: sha-d81d9554989d
+    analytics: sha-237919231a44
+    api-gateway: sha-237919231a44
+    asset: sha-237919231a44
+    audit: sha-237919231a44
+    auth: sha-237919231a44
+    brigade: sha-237919231a44
+    department: sha-237919231a44
+    dispatch: sha-237919231a44
+    file: sha-237919231a44
     frontend: sha-d81d9554989d
-    location: sha-d81d9554989d
-    notification: sha-d81d9554989d
-    profile: sha-d81d9554989d
-    report: sha-d81d9554989d
-    routing: sha-d81d9554989d
-    sla: sha-d81d9554989d
-    ticket: sha-d81d9554989d
+    location: sha-237919231a44
+    notification: sha-237919231a44
+    profile: sha-237919231a44
+    report: sha-237919231a44
+    routing: sha-237919231a44
+    sla: sha-237919231a44
+    ticket: sha-237919231a44
   pullPolicy: Always
 
 migrations:
   registry: ghcr.io/fizzi-77
   tag: sha-7e50eb65738b
   tags:
-    asset: sha-d81d9554989d
-    audit: sha-d81d9554989d
+    asset: sha-237919231a44
+    audit: sha-237919231a44
     auth: sha-d81d9554989d
-    brigade: sha-d81d9554989d
+    brigade: sha-237919231a44
     department: sha-d81d9554989d
-    dispatch: sha-d81d9554989d
-    file: sha-d81d9554989d
-    location: sha-d81d9554989d
-    notification: sha-d81d9554989d
+    dispatch: sha-237919231a44
+    file: sha-237919231a44
+    location: sha-237919231a44
+    notification: sha-237919231a44
     profile: sha-d81d9554989d
-    report: sha-d81d9554989d
+    report: sha-237919231a44
     routing: sha-d81d9554989d
-    sla: sha-d81d9554989d
-    ticket: sha-d81d9554989d
+    sla: sha-237919231a44
+    ticket: sha-237919231a44
   pullPolicy: Always
 
 analyticsInit:
