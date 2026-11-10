@@ -159,6 +159,7 @@ type CreateGeoZoneInput struct {
 	GeoJSON      string
 	ActorRoles   []string
 }
+
 // CreateGeoZoneResult содержит результат операции.
 type CreateGeoZoneResult struct{ Zone *GeoZone }
 
@@ -170,6 +171,7 @@ type UpdateGeoZoneInput struct {
 	Active     *bool
 	ActorRoles []string
 }
+
 // UpdateGeoZoneResult содержит результат операции.
 type UpdateGeoZoneResult struct{ Zone *GeoZone }
 
@@ -178,6 +180,7 @@ type DeleteGeoZoneInput struct {
 	ID         uuid.UUID
 	ActorRoles []string
 }
+
 // DeleteGeoZoneResult содержит результат операции.
 type DeleteGeoZoneResult struct{ Zone *GeoZone }
 
@@ -188,6 +191,7 @@ type ListGeoZonesInput struct {
 	Limit        int32
 	Offset       int32
 }
+
 // ListGeoZonesResult содержит результат операции.
 type ListGeoZonesResult struct {
 	Zones []*GeoZone
@@ -201,6 +205,7 @@ type CheckPointInZonesInput struct {
 	DepartmentID *uuid.UUID
 	ZoneIDs      []uuid.UUID
 }
+
 // CheckPointInZonesResult содержит результат операции.
 type CheckPointInZonesResult struct{ Zones []*GeoZone }
 
@@ -210,6 +215,7 @@ type DetectLostSignalsInput struct {
 	OfflineBefore time.Time
 	Limit         int32
 }
+
 // SignalChange описывает доменную модель.
 type SignalChange struct {
 	BrigadeID uuid.UUID
@@ -217,5 +223,6 @@ type SignalChange struct {
 	To        SignalStatus
 	ChangedAt time.Time
 }
+
 // DetectLostSignalsResult содержит результат операции.
 type DetectLostSignalsResult struct{ Changes []*SignalChange }

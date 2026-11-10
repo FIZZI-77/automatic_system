@@ -9,6 +9,7 @@ import (
 
 // Status задаёт допустимое состояние модели.
 type Status string
+
 // RiskLevel описывает доменную модель.
 type RiskLevel string
 
@@ -58,11 +59,13 @@ type Asset struct {
 	CreatedAt              time.Time
 	UpdatedAt              time.Time
 }
+
 // CreateInput задаёт входные данные операции.
 type CreateInput struct {
 	Asset
 	ActorID uuid.UUID
 }
+
 // UpdateInput задаёт входные данные операции.
 type UpdateInput struct {
 	ID          uuid.UUID
@@ -72,6 +75,7 @@ type UpdateInput struct {
 	Contractor  *string
 	Criticality *float64
 }
+
 // Filter задаёт условия фильтрации.
 type Filter struct {
 	DepartmentID *uuid.UUID
@@ -82,6 +86,7 @@ type Filter struct {
 	Limit        int32
 	Offset       int32
 }
+
 // Prediction описывает доменную модель.
 type Prediction struct {
 	AssetID      uuid.UUID
@@ -92,6 +97,7 @@ type Prediction struct {
 	Action       string
 	CalculatedAt time.Time
 }
+
 // Incident описывает доменную модель.
 type Incident struct {
 	ID          uuid.UUID
@@ -104,6 +110,7 @@ type Incident struct {
 	Repeated    bool
 	OccurredAt  time.Time
 }
+
 // Repair описывает доменную модель.
 type Repair struct {
 	ID                 uuid.UUID
@@ -116,6 +123,7 @@ type Repair struct {
 	DurationMinutes    int32
 	CompletedAt        time.Time
 }
+
 // Inspection описывает доменную модель.
 type Inspection struct {
 	ID             uuid.UUID
@@ -128,6 +136,7 @@ type Inspection struct {
 	ConditionScore float64
 	InspectedAt    time.Time
 }
+
 // Plan описывает доменную модель.
 type Plan struct {
 	ID              uuid.UUID

@@ -16,6 +16,7 @@ var (
 
 // Status задаёт допустимое состояние модели.
 type Status string
+
 // Mode задаёт режим выполнения операции.
 type Mode string
 
@@ -121,6 +122,7 @@ type CancelInput struct {
 	ExpectedVersion int32
 	Reason          string
 }
+
 // ListInput задаёт входные данные операции.
 type ListInput struct {
 	DepartmentID *uuid.UUID

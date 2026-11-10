@@ -12,6 +12,7 @@ type Event struct {
 	Version            uint32
 	ProjectionEligible bool
 }
+
 // Filter задаёт условия фильтрации.
 type Filter struct {
 	From           *time.Time
@@ -24,6 +25,7 @@ type Filter struct {
 	FailureCode    *string
 	Success        *bool
 }
+
 // Overview описывает доменную модель.
 type Overview struct {
 	Created              uint64
@@ -34,6 +36,7 @@ type Overview struct {
 	AvgResponseSeconds   float64
 	AvgResolutionSeconds float64
 }
+
 // SLA описывает доменную модель.
 type SLA struct {
 	ResponseWarnings   uint64
@@ -43,12 +46,14 @@ type SLA struct {
 	Completed          uint64
 	BreachRate         float64
 }
+
 // Breakdown описывает доменную модель.
 type Breakdown struct {
 	Key     string
 	Count   uint64
 	Percent float64
 }
+
 // Daily описывает доменную модель.
 type Daily struct {
 	Day         time.Time
@@ -57,6 +62,7 @@ type Daily struct {
 	Canceled    uint64
 	SLABreaches uint64
 }
+
 // AssetBreakdown описывает доменную модель.
 type AssetBreakdown struct {
 	Key       string
@@ -65,6 +71,7 @@ type AssetBreakdown struct {
 	Repairs   uint64
 	Critical  uint64
 }
+
 // AssetSummary описывает доменную модель.
 type AssetSummary struct {
 	Created     uint64

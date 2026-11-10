@@ -106,6 +106,7 @@ type TicketSLA struct {
 	CreatedAt             time.Time
 	UpdatedAt             time.Time
 }
+
 // History описывает доменную модель.
 type History struct {
 	ID          uuid.UUID
@@ -115,6 +116,7 @@ type History struct {
 	OccurredAt  time.Time
 	Details     string
 }
+
 // TicketEvent описывает событие ticket.
 type TicketEvent struct {
 	EventID      string
@@ -127,6 +129,7 @@ type TicketEvent struct {
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }
+
 // RuleFilter задаёт условия фильтрации.
 type RuleFilter struct {
 	DepartmentID *uuid.UUID
@@ -136,6 +139,7 @@ type RuleFilter struct {
 	Limit        int32
 	Offset       int32
 }
+
 // SLAFilter задаёт условия фильтрации.
 type SLAFilter struct {
 	DepartmentID *uuid.UUID

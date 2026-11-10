@@ -9,8 +9,10 @@ import (
 
 // Type задаёт тип доменной модели.
 type Type string
+
 // Format описывает доменную модель.
 type Format string
+
 // Status задаёт допустимое состояние модели.
 type Status string
 
@@ -40,6 +42,7 @@ type Filter struct {
 	CategoryID   *string
 	Priority     *string
 }
+
 // Report описывает задание на формирование отчёта.
 type Report struct {
 	ID          uuid.UUID
@@ -57,6 +60,7 @@ type Report struct {
 	UpdatedAt   time.Time
 	CompletedAt *time.Time
 }
+
 // CreateInput задаёт входные данные операции.
 type CreateInput struct {
 	RequestedBy uuid.UUID
@@ -66,6 +70,7 @@ type CreateInput struct {
 	Filter      Filter
 	ActorRoles  []string
 }
+
 // ListFilter задаёт условия фильтрации.
 type ListFilter struct {
 	RequestedBy *uuid.UUID
@@ -73,6 +78,7 @@ type ListFilter struct {
 	Limit       int32
 	Offset      int32
 }
+
 // Artifact описывает доменную модель.
 type Artifact struct {
 	Name        string
@@ -135,6 +141,7 @@ type CompletionCompensation struct {
 	RequestedBy  string   `json:"requested_by"`
 	ActorRoles   []string `json:"actor_roles"`
 }
+
 // Download описывает доменную модель.
 type Download struct {
 	Report    *Report
