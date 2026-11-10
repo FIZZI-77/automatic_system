@@ -38,3 +38,5 @@ haDatabase:
   enabled: true
 applicationAutoscaling:
   enabled: false
+migrations:
+  allowMissing: true
