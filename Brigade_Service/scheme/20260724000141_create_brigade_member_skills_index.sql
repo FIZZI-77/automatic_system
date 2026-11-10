@@ -1,9 +1,9 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE INDEX brigade_member_skills_brigade_idx
+CREATE INDEX IF NOT EXISTS brigade_member_skills_brigade_idx
     ON brigade_member_skills(brigade_id, skill_id)
     WHERE active = true;
-CREATE INDEX brigade_member_skills_profile_idx
+CREATE INDEX IF NOT EXISTS brigade_member_skills_profile_idx
     ON brigade_member_skills(work_profile_id);
 -- +goose StatementEnd
 

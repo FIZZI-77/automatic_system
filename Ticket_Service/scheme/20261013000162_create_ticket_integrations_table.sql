@@ -1,6 +1,6 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE TABLE ticket_integrations (
+CREATE TABLE IF NOT EXISTS ticket_integrations (
     id UUID PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     client_id VARCHAR(100) NOT NULL UNIQUE,
@@ -19,5 +19,5 @@ CREATE TABLE ticket_integrations (
 
 -- +goose Down
 -- +goose StatementBegin
-DROP TABLE ticket_integrations CASCADE;
+DROP TABLE IF EXISTS ticket_integrations CASCADE;
 -- +goose StatementEnd

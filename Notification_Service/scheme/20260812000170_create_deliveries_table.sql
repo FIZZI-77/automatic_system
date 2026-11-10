@@ -1,6 +1,6 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE TABLE deliveries (
+CREATE TABLE IF NOT EXISTS deliveries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     notification_id UUID NOT NULL REFERENCES notifications(id),
     channel TEXT NOT NULL,
@@ -19,5 +19,5 @@ CREATE TABLE deliveries (
 
 -- +goose Down
 -- +goose StatementBegin
-DROP TABLE deliveries CASCADE;
+DROP TABLE IF EXISTS deliveries CASCADE;
 -- +goose StatementEnd

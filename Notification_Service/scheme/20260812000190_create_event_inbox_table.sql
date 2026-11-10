@@ -1,6 +1,6 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE TABLE event_inbox (
+CREATE TABLE IF NOT EXISTS event_inbox (
     event_id TEXT PRIMARY KEY,
     event_type TEXT NOT NULL,
     topic TEXT NOT NULL,
@@ -11,5 +11,5 @@ CREATE TABLE event_inbox (
 
 -- +goose Down
 -- +goose StatementBegin
-DROP TABLE event_inbox CASCADE;
+DROP TABLE IF EXISTS event_inbox CASCADE;
 -- +goose StatementEnd

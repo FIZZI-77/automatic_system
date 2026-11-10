@@ -1,6 +1,6 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE TABLE file_deletion_jobs (
+CREATE TABLE IF NOT EXISTS file_deletion_jobs (
     file_id UUID PRIMARY KEY REFERENCES files(id) ON DELETE CASCADE,
     object_key TEXT NOT NULL,
     not_before TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -20,5 +20,5 @@ BEGIN
 END;
 $$;
 
-DROP TABLE file_deletion_jobs;
+DROP TABLE IF EXISTS file_deletion_jobs;
 -- +goose StatementEnd

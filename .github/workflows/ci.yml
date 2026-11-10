@@ -956,8 +956,6 @@ jobs:
           kubectl auth can-i patch deployments -n automatic-system
           kubectl auth can-i patch kustomizations.kustomize.toolkit.fluxcd.io \
             -n flux-system
-          kubectl auth can-i patch helmreleases.helm.toolkit.fluxcd.io \
-            -n flux-system
           kubectl auth can-i patch gitrepositories.source.toolkit.fluxcd.io \
             -n flux-system
           kubectl auth can-i get canaries.flagger.app \
@@ -1122,16 +1120,9 @@ jobs:
             -o jsonpath='{.status.artifact.revision}')"
           test "$SOURCE_REVISION" = "${DEPLOY_BRANCH}@sha1:${DEPLOY_REVISION}"
 
-          RECONCILE_TOKEN="$(date +%s)"
-          kubectl annotate helmrelease applications \
-            -n flux-system \
-            "reconcile.fluxcd.io/resetAt=${RECONCILE_TOKEN}" \
-            "reconcile.fluxcd.io/requestedAt=${RECONCILE_TOKEN}" \
-            --overwrite
-
           kubectl annotate kustomization automatic-system-local-ha \
             -n flux-system \
-            "reconcile.fluxcd.io/requestedAt=${RECONCILE_TOKEN}" \
+            reconcile.fluxcd.io/requestedAt="$(date +%s)" \
             --overwrite
 
           echo "Waiting for Flux reconciliation of ${DEPLOY_REVISION}"

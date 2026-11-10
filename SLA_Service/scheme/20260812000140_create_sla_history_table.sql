@@ -1,6 +1,6 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE TABLE sla_history (
+CREATE TABLE IF NOT EXISTS sla_history (
     id UUID PRIMARY KEY,
     ticket_sla_id UUID NOT NULL REFERENCES ticket_slas(id),
     ticket_id UUID NOT NULL,
@@ -12,5 +12,5 @@ CREATE TABLE sla_history (
 
 -- +goose Down
 -- +goose StatementBegin
-DROP TABLE sla_history CASCADE;
+DROP TABLE IF EXISTS sla_history CASCADE;
 -- +goose StatementEnd

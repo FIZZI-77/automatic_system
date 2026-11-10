@@ -1,6 +1,6 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE TABLE brigade_member_status_history (
+CREATE TABLE IF NOT EXISTS brigade_member_status_history (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     brigade_id UUID NOT NULL REFERENCES brigades(id) ON DELETE CASCADE,
     member_id UUID NULL REFERENCES brigade_members(id) ON DELETE SET NULL,
@@ -22,5 +22,5 @@ CREATE TABLE brigade_member_status_history (
 
 -- +goose Down
 -- +goose StatementBegin
-DROP TABLE brigade_member_status_history CASCADE;
+DROP TABLE IF EXISTS brigade_member_status_history CASCADE;
 -- +goose StatementEnd

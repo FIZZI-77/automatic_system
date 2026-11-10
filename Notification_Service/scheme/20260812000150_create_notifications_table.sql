@@ -1,6 +1,6 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE TABLE notifications (
+CREATE TABLE IF NOT EXISTS notifications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     event_id TEXT NOT NULL,
     user_id UUID NOT NULL,
@@ -17,5 +17,5 @@ CREATE TABLE notifications (
 
 -- +goose Down
 -- +goose StatementBegin
-DROP TABLE notifications CASCADE;
+DROP TABLE IF EXISTS notifications CASCADE;
 -- +goose StatementEnd

@@ -1,6 +1,6 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE UNIQUE INDEX brigade_route_projection_route_id_idx
+CREATE UNIQUE INDEX IF NOT EXISTS brigade_route_projection_route_id_idx
     ON brigade_route_projection(route_id);
 -- +goose StatementEnd
 

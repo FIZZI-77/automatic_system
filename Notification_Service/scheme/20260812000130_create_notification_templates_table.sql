@@ -1,6 +1,6 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE TABLE notification_templates (
+CREATE TABLE IF NOT EXISTS notification_templates (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     event_type TEXT NOT NULL,
     channel TEXT NOT NULL CHECK (channel IN ('IN_APP', 'PUSH', 'EMAIL', 'SMS')),
@@ -15,5 +15,5 @@ CREATE TABLE notification_templates (
 
 -- +goose Down
 -- +goose StatementBegin
-DROP TABLE notification_templates CASCADE;
+DROP TABLE IF EXISTS notification_templates CASCADE;
 -- +goose StatementEnd

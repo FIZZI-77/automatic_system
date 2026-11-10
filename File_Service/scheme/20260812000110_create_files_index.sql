@@ -1,9 +1,9 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE INDEX files_owner_idx
+CREATE INDEX IF NOT EXISTS files_owner_idx
     ON files(owner_user_id, created_at DESC)
     WHERE status <> 'DELETED';
-CREATE INDEX files_resource_idx
+CREATE INDEX IF NOT EXISTS files_resource_idx
     ON files(resource_type, resource_id, created_at)
     WHERE status = 'LINKED';
 -- +goose StatementEnd

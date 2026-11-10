@@ -11,7 +11,8 @@ VALUES
     ('Default emergency', 'EMERGENCY', 300, 3600, 80),
     ('Default high', 'HIGH', 1800, 14400, 80),
     ('Default medium', 'MEDIUM', 7200, 86400, 80),
-    ('Default low', 'LOW', 14400, 259200, 80);
+    ('Default low', 'LOW', 14400, 259200, 80)
+ON CONFLICT DO NOTHING;
 -- +goose StatementEnd
 
 -- +goose Down
