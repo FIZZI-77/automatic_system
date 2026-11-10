@@ -73,6 +73,7 @@ globalImage:
   pullPolicy: ""
 migrations:
   enabled: true
+  allowMissing: false
   registry: automatic-system
   tag: dev
   tags: {}
