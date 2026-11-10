@@ -1,5 +1,5 @@
 -- +goose Up
-CREATE TABLE maintenance_plans (
+CREATE TABLE IF NOT EXISTS maintenance_plans (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     asset_id uuid NOT NULL REFERENCES assets,
     kind text NOT NULL,
@@ -11,4 +11,4 @@ CREATE TABLE maintenance_plans (
 );
 
 -- +goose Down
-DROP TABLE maintenance_plans;
+DROP TABLE IF EXISTS maintenance_plans;
