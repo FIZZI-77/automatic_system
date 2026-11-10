@@ -9,45 +9,62 @@ import (
 	"gateway/models"
 
 	dispatchv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/dispatch/v1"
+	profilev1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/profile/v1"
 	"github.com/gin-gonic/gin"
+	"google.golang.org/grpc/metadata"
 )
 
 type DispatchHandler struct {
-	client dispatchv1.DispatchServiceClient
+	client  dispatchv1.DispatchServiceClient
+	profile profilev1.ProfileServiceClient
 }
 
-func NewDispatchHandler(client dispatchv1.DispatchServiceClient) *DispatchHandler {
-	return &DispatchHandler{client: client}
+// NewDispatchHandler создаёт HTTP-обработчик назначения с клиентами Dispatch и Profile Service.
+func NewDispatchHandler(client dispatchv1.DispatchServiceClient, profile profilev1.ProfileServiceClient) *DispatchHandler {
+	return &DispatchHandler{client: client, profile: profile}
 }
 
+// Preview разбирает JSON, проверяет рабочий профиль через context и запрашивает
+// кандидатов у Dispatch Service. Возвращает HTTP 200; пустой список явно отдаёт как candidates=[].
 func (h *DispatchHandler) Preview(c *gin.Context) {
 	var in models.PreviewDispatchRequest
+
 	if !bindJSON(c, &in) {
 		return
 	}
 
-	out, err := h.client.PreviewDispatch(dispatchContext(c), &dispatchv1.PreviewDispatchRequest{
+	ctx, ok := h.context(c)
+	if !ok {
+		return
+	}
+	out, err := h.client.PreviewDispatch(ctx, &dispatchv1.PreviewDispatchRequest{
 		TicketId:         in.TicketID,
 		RequiredSkillIds: in.RequiredSkillIDs,
 		Limit:            in.Limit,
 	})
+
 	if err != nil {
 		dispatchResponse(c, http.StatusOK, err, nil)
 		return
 	}
-	// Generated protobuf JSON tags omit an empty repeated field, producing `{}`.
-	// The HTTP contract should always expose the candidates collection.
+
+	// Теги protobuf скрывают пустой repeated; HTTP-ответ должен содержать candidates.
 	candidates := out.GetCandidates()
+
 	if candidates == nil {
 		candidates = make([]*dispatchv1.DispatchCandidate, 0)
 	}
+
 	dispatchResponse(c, http.StatusOK, nil, struct {
 		Candidates []*dispatchv1.DispatchCandidate `json:"candidates"`
 	}{Candidates: candidates})
 }
 
+// Reserve разбирает параметры резерва, проверяет рабочий профиль и вызывает
+// ReserveBrigade с навыками и необязательным TTL; при успехе возвращает HTTP 201.
 func (h *DispatchHandler) Reserve(c *gin.Context) {
 	var in models.ReserveBrigadeRequest
+
 	if !bindJSON(c, &in) {
 		return
 	}
@@ -59,17 +76,28 @@ func (h *DispatchHandler) Reserve(c *gin.Context) {
 		RequestedBy:           in.RequestedBy,
 		ReservationTtlSeconds: in.ReservationTTLSeconds,
 	}
-	out, err := h.client.ReserveBrigade(dispatchContext(c), req)
+	ctx, ok := h.context(c)
+	if !ok {
+		return
+	}
+	out, err := h.client.ReserveBrigade(ctx, req)
 	dispatchResponse(c, http.StatusCreated, err, out)
 }
 
+// Confirm разбирает ID операции, автора и ожидаемую версию, проверяет рабочий
+// профиль и передаёт подтверждение сервису; при успехе возвращает HTTP 200.
 func (h *DispatchHandler) Confirm(c *gin.Context) {
 	var in models.ConfirmDispatchRequest
+
 	if !bindJSON(c, &in) {
 		return
 	}
 
-	out, err := h.client.ConfirmDispatch(dispatchContext(c), &dispatchv1.ConfirmDispatchRequest{
+	ctx, ok := h.context(c)
+	if !ok {
+		return
+	}
+	out, err := h.client.ConfirmDispatch(ctx, &dispatchv1.ConfirmDispatchRequest{
 		Id:              in.ID,
 		ConfirmedBy:     in.ConfirmedBy,
 		ExpectedVersion: in.ExpectedVersion,
@@ -77,13 +105,20 @@ func (h *DispatchHandler) Confirm(c *gin.Context) {
 	dispatchResponse(c, http.StatusOK, err, out)
 }
 
+// Auto разбирает JSON автоматического назначения, проверяет рабочий профиль
+// и передаёт заявку, навыки, автора и лимит кандидатов сервису; успех даёт HTTP 201.
 func (h *DispatchHandler) Auto(c *gin.Context) {
 	var in models.AutoDispatchRequest
+
 	if !bindJSON(c, &in) {
 		return
 	}
 
-	out, err := h.client.AutoDispatch(dispatchContext(c), &dispatchv1.AutoDispatchRequest{
+	ctx, ok := h.context(c)
+	if !ok {
+		return
+	}
+	out, err := h.client.AutoDispatch(ctx, &dispatchv1.AutoDispatchRequest{
 		TicketId:         in.TicketID,
 		RequiredSkillIds: in.RequiredSkillIDs,
 		RequestedBy:      in.RequestedBy,
@@ -92,17 +127,28 @@ func (h *DispatchHandler) Auto(c *gin.Context) {
 	dispatchResponse(c, http.StatusCreated, err, out)
 }
 
+// Get разбирает ID операции из JSON, проверяет рабочий профиль и запрашивает
+// операцию у Dispatch Service; при успехе возвращает HTTP 200.
 func (h *DispatchHandler) Get(c *gin.Context) {
 	var in models.GetDispatchRequest
+
 	if !bindJSON(c, &in) {
 		return
 	}
-	out, err := h.client.GetDispatch(dispatchContext(c), &dispatchv1.GetDispatchRequest{Id: in.ID})
+
+	ctx, ok := h.context(c)
+	if !ok {
+		return
+	}
+	out, err := h.client.GetDispatch(ctx, &dispatchv1.GetDispatchRequest{Id: in.ID})
 	dispatchResponse(c, http.StatusOK, err, out)
 }
 
+// List преобразует необязательные фильтры и пагинацию из JSON, проверяет рабочий
+// профиль и возвращает ответ ListDispatches с HTTP 200 через dispatchResponse.
 func (h *DispatchHandler) List(c *gin.Context) {
 	var in models.ListDispatchesRequest
+
 	if !bindJSON(c, &in) {
 		return
 	}
@@ -119,17 +165,28 @@ func (h *DispatchHandler) List(c *gin.Context) {
 		req.Status = &value
 	}
 
-	out, err := h.client.ListDispatches(dispatchContext(c), req)
+	ctx, ok := h.context(c)
+	if !ok {
+		return
+	}
+	out, err := h.client.ListDispatches(ctx, req)
 	dispatchResponse(c, http.StatusOK, err, out)
 }
 
+// Cancel разбирает параметры отмены с причиной и ожидаемой версией, проверяет
+// рабочий профиль и вызывает CancelDispatch; при успехе возвращает HTTP 200.
 func (h *DispatchHandler) Cancel(c *gin.Context) {
 	var in models.CancelDispatchRequest
+
 	if !bindJSON(c, &in) {
 		return
 	}
 
-	out, err := h.client.CancelDispatch(dispatchContext(c), &dispatchv1.CancelDispatchRequest{
+	ctx, ok := h.context(c)
+	if !ok {
+		return
+	}
+	out, err := h.client.CancelDispatch(ctx, &dispatchv1.CancelDispatchRequest{
 		Id:              in.ID,
 		CancelledBy:     in.CancelledBy,
 		ExpectedVersion: in.ExpectedVersion,
@@ -138,6 +195,8 @@ func (h *DispatchHandler) Cancel(c *gin.Context) {
 	dispatchResponse(c, http.StatusOK, err, out)
 }
 
+// dispatchStatus преобразует статус назначения без учёта регистра;
+// неизвестное значение даёт UNSPECIFIED, пробелы не обрезаются.
 func dispatchStatus(value string) dispatchv1.DispatchStatus {
 	switch strings.ToUpper(value) {
 	case "PENDING":
@@ -158,21 +217,50 @@ func dispatchStatus(value string) dispatchv1.DispatchStatus {
 	return dispatchv1.DispatchStatus_DISPATCH_STATUS_UNSPECIFIED
 }
 
+// dispatchContext создаёт контекст RPC с таймаутом 20 секунд и метаданными
+// пользователя; cancel сохраняет в Gin-контексте для вызова dispatchResponse.
 func dispatchContext(c *gin.Context) context.Context {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 20*time.Second)
 	c.Set("dispatch_cancel", cancel)
 	return gatewayActorContext(ctx, c)
 }
 
+// context создаёт RPC-контекст с таймаутом 20 секунд, разрешает рабочее ведомство
+// через Profile Service и добавляет его в метаданные. При запрете пишет HTTP 403,
+// при ошибке профиля — преобразованную ошибку; false требует прекратить обработку.
+func (h *DispatchHandler) context(c *gin.Context) (context.Context, bool) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 20*time.Second)
+	c.Set("dispatch_cancel", cancel)
+	ctx = gatewayActorContext(ctx, c)
+	resolved, err := h.profile.ResolveWorkingDepartment(ctx, &profilev1.ResolveWorkingDepartmentRequest{UserId: c.GetString("user_id")})
+	if err != nil {
+		dispatchResponse(c, http.StatusOK, err, nil)
+		return ctx, false
+	}
+	if !resolved.GetCanOperate() || resolved.GetDepartmentId() == "" {
+		cancel()
+		writeAPIError(c, http.StatusForbidden, "PERMISSION_DENIED", "Рабочий профиль не разрешает операции")
+		return ctx, false
+	}
+	return metadata.AppendToOutgoingContext(ctx, "x-actor-department-id", resolved.GetDepartmentId()), true
+}
+
+// dispatchResponse вызывает сохранённый dispatch_cancel, затем переводит gRPC-ошибку
+// в HTTP либо сериализует response обычным JSON с заданным статусом.
 func dispatchResponse(c *gin.Context, code int, err error, response any) {
+
 	if value, ok := c.Get("dispatch_cancel"); ok {
+
 		if cancel, valid := value.(context.CancelFunc); valid {
 			cancel()
 		}
+
 	}
+
 	if err != nil {
 		handleGRPCError(c, err)
 		return
 	}
+
 	c.JSON(code, response)
 }

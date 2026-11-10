@@ -166,8 +166,9 @@
   runbook.
 - Unit tests формул, ClickHouse integration fixtures и Gateway/frontend API
   contract E2E добавлены. CI job поднимает ClickHouse 25.8, применяет схему и
-  запускает integration suite; отдельный frontend job проверяет lint, build и
-  компиляцию Playwright inventory. Browser E2E проверен на локальном
+  запускает integration suite; frontend job проверяет полный lint без предупреждений,
+  TypeScript, build, rendered HTML и выполняет Chromium smoke. Компиляция полного
+  Playwright inventory сохранена отдельно. Browser E2E ранее проверен на локальном
   Kubernetes-стенде с Gateway/Kafka/ClickHouse: 31 сценарий прошёл, три
   временно rate-limited сценария подтверждены отдельным повтором.
 
@@ -232,6 +233,9 @@
   Elasticsearch, Jaeger, Prometheus и ClickHouse.
 - Регулярно выполнять restore drills PostgreSQL/PITR, Redis, ClickHouse, MinIO
   и проверять RPO/RTO, а не только успешность backup jobs.
+  Изолированный PostgreSQL 16 base backup/WAL/PITR drill добавлен в
+  `scripts/test-postgres-recovery.ps1` и CI. Производственные pgBackRest/MinIO,
+  Patroni и согласованное восстановление Citus этим тестом не подтверждаются.
 - Добавить alerts на Patroni failover, replication lag, Citus shard imbalance,
   PgBouncer saturation, Kafka under-replicated partitions/consumer lag,
   Redis failover и заполнение PVC.

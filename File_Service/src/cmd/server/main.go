@@ -7,7 +7,9 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"file/pkg"
@@ -25,35 +27,47 @@ import (
 
 func main() {
 	telemetryProviders, err := telemetry.Init(context.Background(), "file-service")
+
 	if err != nil {
 		log.Fatalf("initialize OpenTelemetry: %v", err)
 	}
+
 	defer func() {
+
 		if shutdownErr := telemetryProviders.Close(); shutdownErr != nil {
 			log.Printf("shutdown OpenTelemetry: %v", shutdownErr)
 		}
+
 	}()
 
 	if err := appconfig.Load(); err != nil {
 		log.Fatalf("configuration error: %v", err)
 	}
+
 	logger, err := pkg.NewLogger()
+
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	defer logger.Sync()
 
-	ctx := context.Background()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 	writeDB, err := telemetry.NewPostgresPool(ctx, required("DATABASE_URL"))
+
 	if err != nil {
 		logger.Fatal("failed to connect to postgres", zap.Error(err))
 	}
+
 	defer writeDB.Close()
 
 	readDB, err := telemetry.NewPostgresPool(ctx, env("READ_DATABASE_URL", required("DATABASE_URL")))
+
 	if err != nil {
 		logger.Fatal("failed to connect to postgres replica", zap.Error(err))
 	}
+
 	defer readDB.Close()
 	store := storage.New(storage.Config{
 		Endpoint:       required("S3_ENDPOINT"),
@@ -64,10 +78,15 @@ func main() {
 		Bucket:         env("S3_BUCKET", "city-files"),
 		UsePathStyle:   env("S3_PATH_STYLE", "true") == "true",
 	})
+
 	if err = store.EnsureBucket(ctx); err != nil {
 		logger.Fatal("failed to ensure S3 bucket", zap.Error(err))
 	}
-	ttl, _ := time.ParseDuration(env("PRESIGN_TTL", "15m"))
+
+	ttl, err := time.ParseDuration(env("PRESIGN_TTL", "15m"))
+	if err != nil || ttl <= 0 || ttl > 7*24*time.Hour {
+		logger.Fatal("PRESIGN_TTL must be positive and no greater than 7 days", zap.Error(err))
+	}
 	api := service.New(repository.New(writeDB, readDB), store, ttl, logger)
 	grpcServer := grpc.NewServer(
 		telemetry.GRPCServerOption(),
@@ -76,32 +95,51 @@ func main() {
 			pkg.AccessLogUnaryServerInterceptor(logger),
 		),
 	)
-	filev1.RegisterFileServiceServer(grpcServer, handler.New(api, logger))
+	filev1.RegisterFileServiceServer(grpcServer, handler.New(api, logger, required("REPORT_INTERNAL_TOKEN")))
 	healthv1.RegisterHealthServer(grpcServer, health.NewServer())
 
 	listener, err := net.Listen("tcp", ":"+env("GRPC_PORT", "50059"))
+
 	if err != nil {
 		logger.Fatal("failed to listen gRPC", zap.Error(err))
 	}
+
+	cleanupDone := make(chan struct{})
 	go func() {
+		defer close(cleanupDone)
+		api.RunCleanup(ctx, time.Minute)
+	}()
+	serverDone := make(chan struct{})
+	go func() {
+		defer close(serverDone)
 		logger.Info("file gRPC server started", zap.String("address", listener.Addr().String()))
+
 		if serveErr := grpcServer.Serve(listener); serveErr != nil {
-			logger.Fatal("gRPC server stopped", zap.Error(serveErr))
+			logger.Error("gRPC server stopped", zap.Error(serveErr))
+			stop()
 		}
+
 	}()
 
-	select {}
+	<-ctx.Done()
+	grpcServer.Stop()
+	<-serverDone
+	<-cleanupDone
 }
 func env(k, d string) string {
+
 	if v := strings.TrimSpace(os.Getenv(k)); v != "" {
 		return v
 	}
+
 	return d
 }
 func required(k string) string {
 	v := strings.TrimSpace(os.Getenv(k))
+
 	if v == "" {
 		log.Fatal(errors.New(k + " is required"))
 	}
+
 	return v
 }

@@ -36,11 +36,13 @@ func TestRefreshTokenRepo_CreateToken_And_GetByTokenHash(t *testing.T) {
 		UsedAt:            nil,
 		ReplacedByTokenID: nil,
 	})
+
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
 
 	token, err := refreshRepo.GetByTokenHash(ctx, tokenHash)
+
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -80,6 +82,7 @@ func TestRefreshTokenRepo_CreateToken_And_GetByTokenHash(t *testing.T) {
 	if token.CreatedAt.IsZero() {
 		t.Fatal("expected created_at not zero")
 	}
+
 }
 
 func TestRefreshTokenRepo_GetByTokenHash_NotFound(t *testing.T) {
@@ -102,6 +105,7 @@ func TestRefreshTokenRepo_GetByTokenHash_NotFound(t *testing.T) {
 	if !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("expected sql.ErrNoRows inside error, got %v", err)
 	}
+
 }
 
 func TestRefreshTokenRepo_GetByTokenHash_DoesNotReturnRevokedToken(t *testing.T) {
@@ -124,6 +128,7 @@ func TestRefreshTokenRepo_GetByTokenHash_DoesNotReturnRevokedToken(t *testing.T)
 		IsRevoked: true,
 		ExpiresAt: time.Now().Add(time.Hour),
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create revoked token: %v", err)
 	}
@@ -141,6 +146,7 @@ func TestRefreshTokenRepo_GetByTokenHash_DoesNotReturnRevokedToken(t *testing.T)
 	if !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("expected sql.ErrNoRows inside error, got %v", err)
 	}
+
 }
 
 func TestRefreshTokenRepo_RevokeTokenByID(t *testing.T) {
@@ -163,21 +169,25 @@ func TestRefreshTokenRepo_RevokeTokenByID(t *testing.T) {
 		IsRevoked: false,
 		ExpiresAt: time.Now().Add(time.Hour),
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create token: %v", err)
 	}
 
 	token, err := refreshRepo.GetByTokenHash(ctx, tokenHash)
+
 	if err != nil {
 		t.Fatalf("failed to get token: %v", err)
 	}
 
 	err = refreshRepo.RevokeTokenByID(ctx, token.ID)
+
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
 
 	revokedToken, err := getRefreshTokenByIDForTest(ctx, db, token.ID)
+
 	if err != nil {
 		t.Fatalf("failed to get revoked token by id: %v", err)
 	}
@@ -189,6 +199,7 @@ func TestRefreshTokenRepo_RevokeTokenByID(t *testing.T) {
 	if revokedToken.RevokedAt == nil {
 		t.Fatal("expected revoked_at not nil")
 	}
+
 }
 
 func TestRefreshTokenRepo_RevokeTokenBySessionID(t *testing.T) {
@@ -212,6 +223,7 @@ func TestRefreshTokenRepo_RevokeTokenBySessionID(t *testing.T) {
 		IsRevoked: false,
 		ExpiresAt: time.Now().Add(time.Hour),
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create first token: %v", err)
 	}
@@ -223,21 +235,25 @@ func TestRefreshTokenRepo_RevokeTokenBySessionID(t *testing.T) {
 		IsRevoked: false,
 		ExpiresAt: time.Now().Add(time.Hour),
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create second token: %v", err)
 	}
 
 	err = refreshRepo.RevokeTokenBySessionID(ctx, sessionID)
+
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
 
 	firstToken, err := getRefreshTokenByHashForTest(ctx, db, firstHash)
+
 	if err != nil {
 		t.Fatalf("failed to get first token: %v", err)
 	}
 
 	secondToken, err := getRefreshTokenByHashForTest(ctx, db, secondHash)
+
 	if err != nil {
 		t.Fatalf("failed to get second token: %v", err)
 	}
@@ -257,6 +273,7 @@ func TestRefreshTokenRepo_RevokeTokenBySessionID(t *testing.T) {
 	if secondToken.RevokedAt == nil {
 		t.Fatal("expected second token revoked_at not nil")
 	}
+
 }
 
 func TestRefreshTokenRepo_RevokeAllTokenByUserID(t *testing.T) {
@@ -284,6 +301,7 @@ func TestRefreshTokenRepo_RevokeAllTokenByUserID(t *testing.T) {
 		IsRevoked: false,
 		ExpiresAt: time.Now().Add(time.Hour),
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create first token: %v", err)
 	}
@@ -295,6 +313,7 @@ func TestRefreshTokenRepo_RevokeAllTokenByUserID(t *testing.T) {
 		IsRevoked: false,
 		ExpiresAt: time.Now().Add(time.Hour),
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create second token: %v", err)
 	}
@@ -306,26 +325,31 @@ func TestRefreshTokenRepo_RevokeAllTokenByUserID(t *testing.T) {
 		IsRevoked: false,
 		ExpiresAt: time.Now().Add(time.Hour),
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create other token: %v", err)
 	}
 
 	err = refreshRepo.RevokeAllTokenByUserID(ctx, userID)
+
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
 
 	firstToken, err := getRefreshTokenByHashForTest(ctx, db, firstHash)
+
 	if err != nil {
 		t.Fatalf("failed to get first token: %v", err)
 	}
 
 	secondToken, err := getRefreshTokenByHashForTest(ctx, db, secondHash)
+
 	if err != nil {
 		t.Fatalf("failed to get second token: %v", err)
 	}
 
 	otherToken, err := getRefreshTokenByHashForTest(ctx, db, otherHash)
+
 	if err != nil {
 		t.Fatalf("failed to get other token: %v", err)
 	}
@@ -353,6 +377,7 @@ func TestRefreshTokenRepo_RevokeAllTokenByUserID(t *testing.T) {
 	if otherToken.RevokedAt != nil {
 		t.Fatal("expected other user token revoked_at nil")
 	}
+
 }
 
 func TestRefreshTokenRepo_MarkUsedAndReplaceToken_Success(t *testing.T) {
@@ -376,11 +401,13 @@ func TestRefreshTokenRepo_MarkUsedAndReplaceToken_Success(t *testing.T) {
 		IsRevoked: false,
 		ExpiresAt: time.Now().Add(time.Hour),
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create old token: %v", err)
 	}
 
 	oldToken, err := refreshRepo.GetByTokenHash(ctx, oldHash)
+
 	if err != nil {
 		t.Fatalf("failed to get old token: %v", err)
 	}
@@ -394,11 +421,13 @@ func TestRefreshTokenRepo_MarkUsedAndReplaceToken_Success(t *testing.T) {
 		UsedAt:            nil,
 		ReplacedByTokenID: nil,
 	})
+
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
 
 	updatedOldToken, err := getRefreshTokenByIDForTest(ctx, db, oldToken.ID)
+
 	if err != nil {
 		t.Fatalf("failed to get old token by id: %v", err)
 	}
@@ -420,6 +449,7 @@ func TestRefreshTokenRepo_MarkUsedAndReplaceToken_Success(t *testing.T) {
 	}
 
 	newToken, err := refreshRepo.GetByTokenHash(ctx, newHash)
+
 	if err != nil {
 		t.Fatalf("failed to get new token: %v", err)
 	}
@@ -439,6 +469,7 @@ func TestRefreshTokenRepo_MarkUsedAndReplaceToken_Success(t *testing.T) {
 	if updatedOldToken.ReplacedByTokenID == nil || *updatedOldToken.ReplacedByTokenID != newToken.ID.String() {
 		t.Fatalf("expected replaced_by_token_id %s, got %v", newToken.ID.String(), updatedOldToken.ReplacedByTokenID)
 	}
+
 }
 
 func TestRefreshTokenRepo_MarkUsedAndReplaceToken_OldTokenNotFound(t *testing.T) {
@@ -463,6 +494,7 @@ func TestRefreshTokenRepo_MarkUsedAndReplaceToken_OldTokenNotFound(t *testing.T)
 	if err == nil {
 		t.Fatal("expected error")
 	}
+
 }
 
 func TestRefreshTokenRepo_MarkUsedAndReplaceToken_OldTokenAlreadyRevoked(t *testing.T) {
@@ -485,16 +517,19 @@ func TestRefreshTokenRepo_MarkUsedAndReplaceToken_OldTokenAlreadyRevoked(t *test
 		IsRevoked: false,
 		ExpiresAt: time.Now().Add(time.Hour),
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create old token: %v", err)
 	}
 
 	oldToken, err := refreshRepo.GetByTokenHash(ctx, oldHash)
+
 	if err != nil {
 		t.Fatalf("failed to get old token: %v", err)
 	}
 
 	err = refreshRepo.RevokeTokenByID(ctx, oldToken.ID)
+
 	if err != nil {
 		t.Fatalf("failed to revoke old token: %v", err)
 	}
@@ -510,6 +545,7 @@ func TestRefreshTokenRepo_MarkUsedAndReplaceToken_OldTokenAlreadyRevoked(t *test
 	if err == nil {
 		t.Fatal("expected error")
 	}
+
 }
 
 func getRefreshTokenByIDForTest(ctx context.Context, db *pgxpool.Pool, tokenID uuid.UUID) (*models.RefreshToken, error) {
@@ -533,6 +569,7 @@ func getRefreshTokenByIDForTest(ctx context.Context, db *pgxpool.Pool, tokenID u
 		&token.ReplacedByTokenID,
 		&token.CreatedAt,
 	)
+
 	if err != nil {
 		return nil, err
 	}
@@ -561,6 +598,7 @@ func getRefreshTokenByHashForTest(ctx context.Context, db *pgxpool.Pool, tokenHa
 		&token.ReplacedByTokenID,
 		&token.CreatedAt,
 	)
+
 	if err != nil {
 		return nil, err
 	}

@@ -4,6 +4,8 @@ metadata:
   name: automatic-system-mesh-ingress
   namespace: flux-system
 spec:
+  dependsOn:
+    - name: automatic-system-observability-auth
   interval: 10m
   path: ./k8s/mesh/ingress
   prune: true

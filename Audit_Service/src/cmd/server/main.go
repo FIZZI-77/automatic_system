@@ -25,33 +25,44 @@ import (
 
 func main() {
 	telemetryProviders, err := telemetry.Init(context.Background(), "audit-service")
+
 	if err != nil {
 		log.Fatalf("initialize OpenTelemetry: %v", err)
 	}
+
 	defer func() {
+
 		if shutdownErr := telemetryProviders.Close(); shutdownErr != nil {
 			log.Printf("shutdown OpenTelemetry: %v", shutdownErr)
 		}
+
 	}()
 
 	if err := appconfig.Load(); err != nil {
 		log.Fatalf("configuration error: %v", err)
 	}
+
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	logger, err := pkg.NewLogger()
+
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	defer logger.Sync()
 	db, err := telemetry.NewPostgresPool(ctx, required("DATABASE_URL"))
+
 	if err != nil {
 		logger.Fatal("database failed", zap.Error(err))
 	}
+
 	defer db.Close()
+
 	if err = db.Ping(ctx); err != nil {
 		logger.Fatal("database unavailable", zap.Error(err))
 	}
+
 	repo := repository.NewRepository(db)
 	svc := service.NewService(repo)
 	brokers := split(required("KAFKA_BROKERS"))
@@ -67,9 +78,11 @@ func main() {
 		}
 	}()
 	listener, err := net.Listen("tcp", ":"+env("GRPC_PORT", "50062"))
+
 	if err != nil {
 		logger.Fatal("listen failed", zap.Error(err))
 	}
+
 	server := grpc.NewServer(telemetry.GRPCServerOption())
 	auditv1.RegisterAuditServiceServer(server, handler.New(svc))
 	healthServer := health.NewServer()
@@ -77,10 +90,12 @@ func main() {
 	healthServer.SetServingStatus("", healthv1.HealthCheckResponse_SERVING)
 	go func() {
 		logger.Info("audit gRPC started", zap.String("address", listener.Addr().String()))
+
 		if err := server.Serve(listener); err != nil && ctx.Err() == nil {
 			logger.Error("gRPC stopped", zap.Error(err))
 			stop()
 		}
+
 	}()
 	<-ctx.Done()
 	healthServer.Shutdown()
@@ -88,30 +103,38 @@ func main() {
 }
 
 func run(ctx context.Context, name string, fn func(context.Context) error, logger *zap.Logger) {
+
 	if err := fn(ctx); err != nil && ctx.Err() == nil {
 		logger.Error(name+" stopped", zap.Error(err))
 	}
+
 }
 func env(key, fallback string) string {
+
 	if value := strings.TrimSpace(os.Getenv(key)); value != "" {
 		return value
 	}
+
 	return fallback
 }
 func required(key string) string {
 	value := strings.TrimSpace(os.Getenv(key))
+
 	if value == "" {
 		log.Fatalf("%s is required", key)
 	}
+
 	return value
 }
 func split(raw string) []string {
 	parts := strings.Split(raw, ",")
 	result := make([]string, 0, len(parts))
 	for _, part := range parts {
+
 		if value := strings.TrimSpace(part); value != "" {
 			result = append(result, value)
 		}
+
 	}
 	return result
 }

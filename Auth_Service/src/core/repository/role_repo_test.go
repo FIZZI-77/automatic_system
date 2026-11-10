@@ -21,11 +21,13 @@ func TestRoleRepo_AssignRoleToUser_And_GetRolesByUserID(t *testing.T) {
 	roleID := createTestRole(t, db, "admin")
 
 	err := roleRepo.AssignRoleToUser(ctx, userID, roleID)
+
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
 
 	roles, err := roleRepo.GetRolesByUserID(ctx, userID)
+
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -37,6 +39,7 @@ func TestRoleRepo_AssignRoleToUser_And_GetRolesByUserID(t *testing.T) {
 	if !containsRole(roles, "admin") || !containsRole(roles, "user") {
 		t.Fatalf("expected roles admin and user, got %v", roles)
 	}
+
 }
 
 func TestRoleRepo_GetRolesByUserID_MultipleRoles(t *testing.T) {
@@ -53,16 +56,19 @@ func TestRoleRepo_GetRolesByUserID_MultipleRoles(t *testing.T) {
 	userRoleID := createTestRole(t, db, "user")
 
 	err := roleRepo.AssignRoleToUser(ctx, userID, adminRoleID)
+
 	if err != nil {
 		t.Fatalf("failed to assign admin role: %v", err)
 	}
 
 	err = roleRepo.AssignRoleToUser(ctx, userID, userRoleID)
+
 	if err != nil {
 		t.Fatalf("failed to assign user role: %v", err)
 	}
 
 	roles, err := roleRepo.GetRolesByUserID(ctx, userID)
+
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -83,6 +89,7 @@ func TestRoleRepo_GetRolesByUserID_MultipleRoles(t *testing.T) {
 	if !roleMap["user"] {
 		t.Fatal("expected role user")
 	}
+
 }
 
 func TestRoleRepo_GetRolesByUserID_DefaultUserRole(t *testing.T) {
@@ -96,6 +103,7 @@ func TestRoleRepo_GetRolesByUserID_DefaultUserRole(t *testing.T) {
 	userID := createTestUser(t, repo)
 
 	roles, err := roleRepo.GetRolesByUserID(ctx, userID)
+
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -103,6 +111,7 @@ func TestRoleRepo_GetRolesByUserID_DefaultUserRole(t *testing.T) {
 	if len(roles) != 1 || roles[0] != "user" {
 		t.Fatalf("expected default user role, got %v", roles)
 	}
+
 }
 
 func TestRoleRepo_GetRolesByUserID_UnknownUser(t *testing.T) {
@@ -113,6 +122,7 @@ func TestRoleRepo_GetRolesByUserID_UnknownUser(t *testing.T) {
 	roleRepo := NewRoleRepoStruct(db)
 
 	roles, err := roleRepo.GetRolesByUserID(ctx, uuid.New())
+
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -120,6 +130,7 @@ func TestRoleRepo_GetRolesByUserID_UnknownUser(t *testing.T) {
 	if len(roles) != 0 {
 		t.Fatalf("expected 0 roles, got %d", len(roles))
 	}
+
 }
 
 func TestRoleRepo_AssignRoleToUser_DuplicateDoesNothing(t *testing.T) {
@@ -134,16 +145,19 @@ func TestRoleRepo_AssignRoleToUser_DuplicateDoesNothing(t *testing.T) {
 	roleID := createTestRole(t, db, "admin")
 
 	err := roleRepo.AssignRoleToUser(ctx, userID, roleID)
+
 	if err != nil {
 		t.Fatalf("first assign should be successful, got %v", err)
 	}
 
 	err = roleRepo.AssignRoleToUser(ctx, userID, roleID)
+
 	if err != nil {
 		t.Fatalf("second assign should not fail because of ON CONFLICT DO NOTHING, got %v", err)
 	}
 
 	roles, err := roleRepo.GetRolesByUserID(ctx, userID)
+
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -155,6 +169,7 @@ func TestRoleRepo_AssignRoleToUser_DuplicateDoesNothing(t *testing.T) {
 	if !containsRole(roles, "admin") || !containsRole(roles, "user") {
 		t.Fatalf("expected roles admin and user, got %v", roles)
 	}
+
 }
 
 func TestRoleRepo_AssignRoleToUser_UnknownUser(t *testing.T) {
@@ -167,9 +182,11 @@ func TestRoleRepo_AssignRoleToUser_UnknownUser(t *testing.T) {
 	roleID := createTestRole(t, db, "admin")
 
 	err := roleRepo.AssignRoleToUser(ctx, uuid.New(), roleID)
+
 	if err == nil {
 		t.Fatal("expected error because user does not exist")
 	}
+
 }
 
 func TestRoleRepo_AssignRoleToUser_UnknownRole(t *testing.T) {
@@ -183,9 +200,11 @@ func TestRoleRepo_AssignRoleToUser_UnknownRole(t *testing.T) {
 	userID := createTestUser(t, repo)
 
 	err := roleRepo.AssignRoleToUser(ctx, userID, uuid.New())
+
 	if err == nil {
 		t.Fatal("expected error because role does not exist")
 	}
+
 }
 
 func createTestRole(t *testing.T, db *pgxpool.Pool, name string) uuid.UUID {
@@ -201,6 +220,7 @@ func createTestRole(t *testing.T, db *pgxpool.Pool, name string) uuid.UUID {
 	`
 
 	err := db.QueryRow(context.Background(), query, name).Scan(&roleID)
+
 	if err != nil {
 		t.Fatalf("failed to create test role %s: %v", name, err)
 	}
@@ -214,9 +234,11 @@ func createTestRole(t *testing.T, db *pgxpool.Pool, name string) uuid.UUID {
 
 func containsRole(roles []string, expected string) bool {
 	for _, role := range roles {
+
 		if role == expected {
 			return true
 		}
+
 	}
 	return false
 }

@@ -11,6 +11,7 @@
     "start": "vinext start",
     "test": "npm run build && node --test tests/rendered-html.test.mjs",
     "e2e": "playwright test",
+    "e2e:smoke": "playwright test --config playwright.smoke.config.ts",
     "e2e:headed": "playwright test --headed",
     "e2e:ui": "playwright test --ui",
     "e2e:report": "playwright show-report",
@@ -49,6 +50,10 @@
     "vinext": "1.0.0-beta.2",
     "vite": "8.0.13",
     "wrangler": "4.92.0"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "1.13.6",
+    "re2js": "2.8.7"
   },
   "type": "module"
 }

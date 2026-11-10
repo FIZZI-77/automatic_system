@@ -13,13 +13,19 @@ type ProfileInternalServiceStruct struct {
 	logger *zap.Logger
 }
 
+// NewProfileInternalServiceStruct создаёт сервис внутренних проверок профиля.
+// nil logger заменяет журналом без вывода.
 func NewProfileInternalServiceStruct(repo *repository.Repository, logger *zap.Logger) *ProfileInternalServiceStruct {
+
 	if logger == nil {
 		logger = zap.NewNop()
 	}
+
 	return &ProfileInternalServiceStruct{repo: repo, logger: logger}
 }
 
+// ResolveWorkingDepartment проверяет ID пользователя и запрашивает рабочее ведомство
+// и признак допуска к работе. Требует ненулевой in; отдельную проверку прав не выполняет.
 func (s *ProfileInternalServiceStruct) ResolveWorkingDepartment(ctx context.Context, in *models.ResolveWorkingDepartmentInput) (*models.ResolveWorkingDepartmentResult, error) {
 	const method = "ResolveWorkingDepartment"
 	fields := []zap.Field{zap.String("user_id", in.UserID.String())}
@@ -29,11 +35,14 @@ func (s *ProfileInternalServiceStruct) ResolveWorkingDepartment(ctx context.Cont
 		logValidationFailed(logger, method, start, err, fields...)
 		return nil, validationError(method, err)
 	}
+
 	result, err := s.repo.ResolveWorkingDepartment(ctx, in)
+
 	if err != nil {
 		logOperationFailed(logger, method, start, err, fields...)
 		return nil, wrapServiceError(method, err)
 	}
+
 	logOperationSuccess(logger, method, start,
 		zap.String("work_profile_id", result.WorkProfileID.String()),
 		zap.String("department_id", result.DepartmentID.String()),
@@ -42,26 +51,35 @@ func (s *ProfileInternalServiceStruct) ResolveWorkingDepartment(ctx context.Cont
 	return result, nil
 }
 
+// CheckProfileCanJoinBrigade проверяет идентификаторы и запрашивает решение
+// о включении профиля в бригаду с причиной отказа. Требует ненулевой in;
+// отдельную проверку прав вызывающего пользователя не выполняет.
 func (s *ProfileInternalServiceStruct) CheckProfileCanJoinBrigade(ctx context.Context, in *models.CheckProfileCanJoinBrigadeInput) (*models.CheckProfileCanJoinBrigadeResult, error) {
 	const method = "CheckProfileCanJoinBrigade"
 	fields := []zap.Field{zap.String("brigade_department_id", in.BrigadeDepartmentID.String())}
+
 	if in.UserID != nil {
 		fields = append(fields, zap.String("user_id", in.UserID.String()))
 	}
+
 	if in.WorkProfileID != nil {
 		fields = append(fields, zap.String("work_profile_id", in.WorkProfileID.String()))
 	}
+
 	logger, start := startOperation(ctx, s.logger, method, fields...)
 
 	if err := in.Validate(); err != nil {
 		logValidationFailed(logger, method, start, err, fields...)
 		return nil, validationError(method, err)
 	}
+
 	result, err := s.repo.CheckProfileCanJoinBrigade(ctx, in)
+
 	if err != nil {
 		logOperationFailed(logger, method, start, err, fields...)
 		return nil, wrapServiceError(method, err)
 	}
+
 	logOperationSuccess(logger, method, start,
 		zap.String("work_profile_id", result.WorkProfileID.String()),
 		zap.Bool("allowed", result.Allowed),

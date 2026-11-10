@@ -18,13 +18,13 @@ external_services:
     url: http://prometheus.automatic-system.svc.cluster.local:9090
   grafana:
     enabled: true
-    internal_url: http://grafana.automatic-system.svc.cluster.local:3000
-    external_url: http://localhost:3001
+    internal_url: http://grafana.automatic-system.svc.cluster.local:3000/observe/grafana
+    external_url: https://fizzi.tail2c9430.ts.net/observe/grafana/
   tracing:
     enabled: true
-    internal_url: http://jaeger.automatic-system.svc.cluster.local:16686
-    external_url: http://localhost:16686
+    internal_url: http://jaeger.automatic-system.svc.cluster.local:16686/observe/jaeger
+    external_url: https://fizzi.tail2c9430.ts.net/observe/jaeger/
     use_grpc: false
 
 server:
-  web_root: /
+  web_root: /observe/kiali

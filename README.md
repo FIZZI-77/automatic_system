@@ -27,6 +27,7 @@ Kafka. Данные разделены по предметным областя�
 - [Путь заявки](#путь-заявки)
 - [Документация сервисов](#документация-сервисов)
 - [Инфраструктура и разработка](#инфраструктура-и-разработка)
+- [Наблюдаемость и Swagger](#наблюдаемость-и-swagger)
 - [Стек проекта](#стек-проекта)
 
 ## Как устроена система
@@ -90,9 +91,24 @@ Kafka. Данные разделены по предметным областя�
 Он не означает, что любой внешний источник данных, канал доставки или контур
 развертывания доступен без отдельной настройки и проверки. Подробное
 сопоставление экранов и серверных операций находится в
-[карте возможностей](docs/frontend-backend-coverage.md).
+[документации Frontend](Frontend/README.md) и
+[API Gateway](API_Gateway/README.md).
 
 ## Путь заявки
+
+Обращение жителя хранится как `REQUEST` и связывается с городским инцидентом
+`INCIDENT`. При создании сервис ищет активный инцидент той же категории и
+департамента за последние 24 часа в радиусе 100 метров. Диспетчер может
+присоединить обращение своего департамента к инциденту другого департамента.
+Части выполняются независимо; инцидент автоматически завершается после
+выполнения всех частей. Подробнее — в [Ticket Service](Ticket_Service/README.md).
+
+В разделе управления администратор регистрирует внешние системы, включает и
+отключает их, обновляет секреты. Внешние обращения принимаются через
+`POST /integrations/tickets/requests` с `client_id`, `secret` и `external_id`.
+Повтор одного внешнего идентификатора в пределах интеграции и департамента
+возвращает существующее обращение. Секрет показывается только при регистрации
+или ротации; в БД сохраняется его SHA-256.
 
 1. Пользователь входит через [Auth Service](Auth_Service/README.md), затем
    создает заявку через шлюз. [Ticket Service](Ticket_Service/README.md) хранит
@@ -115,8 +131,9 @@ Kafka. Данные разделены по предметным областя�
    они не подменяют источник истины о состоянии заявки.
 
 Конкретные переходы состояний, проверки прав и обработка ошибок описаны в
-README соответствующих сервисов. Сопоставление экранов и операций шлюза есть в
-[карте веб-интерфейса и серверных возможностей](docs/frontend-backend-coverage.md).
+README соответствующих сервисов. Маршруты шлюза описаны в
+[API Gateway](API_Gateway/README.md), а пользовательские сценарии — в
+[документации Frontend](Frontend/README.md).
 
 ## Документация сервисов
 
@@ -146,6 +163,14 @@ README сервисов построены вокруг общего принц�
 
 ## Инфраструктура и разработка
 
+Общие команды разработки, проверок и развёртывания собраны в корневом
+[Makefile](Makefile): начните с `make help` и `make doctor`.
+Например, `make test-inventory` проверяет контракт без кластера,
+`make deploy ENV=local-ha` развёртывает систему в существующем Kubernetes,
+а `make deploy ENV=local-ha DRY_RUN=1` показывает команды без их выполнения.
+Параметры и полный порядок работы описаны в
+[руководстве по командам проекта](docs/development-commands.md).
+
 | Документ или файл | С чего начать |
 |---|---|
 | [Архитектурные схемы](docs/architecture/README.md) | Участники системы, связи и топология Kubernetes. |
@@ -163,6 +188,104 @@ README сервисов построены вокруг общего принц�
 проверки отказоустойчивой топологии обратитесь к
 [инструкции для `local-ha`](k8s/docs/deployment.md#контур-local-ha).
 Запуск веб-интерфейса описан отдельно в [Frontend README](Frontend/README.md).
+
+### Запуск через Docker Compose
+
+Корневой [docker-compose.yml](docker-compose.yml) поднимает локальный контур
+приложения: frontend, API Gateway, все предметные сервисы, миграции,
+PostgreSQL/PostGIS, Kafka в режиме KRaft, Redis/Sentinel, ClickHouse, MinIO,
+Valhalla и MailHog. JWT-ключи создаются автоматически в именованном Docker
+volume. Отслеживаемые `.env.example` сервисов загружаются как базовая
+конфигурация; локальные `*/.env`, если они есть, переопределяют её.
+
+```powershell
+docker compose config --quiet
+docker compose up --build -d
+docker compose ps
+```
+
+После готовности контейнеров доступны:
+
+| Интерфейс | Адрес |
+|---|---|
+| Веб-приложение | [http://localhost:3000/](http://localhost:3000/) |
+| API Gateway | [http://localhost:8081/health](http://localhost:8081/health) |
+| Swagger UI | [http://localhost:8081/swagger/](http://localhost:8081/swagger/) |
+| MinIO Console | [http://localhost:9001/](http://localhost:9001/) |
+| MailHog | [http://localhost:8025/](http://localhost:8025/) |
+
+Значения портов и интеграций можно переопределить, скопировав
+`.env.example` в `.env`. Имитаторы транспондеров не создают фоновый шум при
+обычном запуске и включаются отдельным профилем:
+
+```powershell
+docker compose --profile simulation up --build -d
+```
+
+Первый запуск Valhalla загружает и строит дорожный граф, поэтому готовность
+Routing Service может занять больше времени. Остановка локального контура без
+удаления данных выполняется командой `docker compose down`; для удаления
+именованных volumes используется `docker compose down -v`.
+
+Compose предназначен для функциональной разработки на одной машине.
+Patroni/Citus/PgBouncer, Istio, Flux/Flagger и полный observability-контур
+проверяются в Kubernetes `local-ha`.
+
+### Проверки кластера
+
+Проверки запущенного кластера можно выполнить из корня репозитория командой
+`& .\scripts\run-api-gateway-e2e.ps1 -SkipSeed`. Runner использует временные
+учетные записи и проверяет ответы вместе с состоянием хранилищ. Нужны доступ к
+кластеру через `kubectl`, установленные зависимости Frontend и доступный Gateway.
+Текущий OpenAPI и E2E inventory содержат 202 операции. Для управления интеграциями
+добавлен сценарий с проверками БД, прав, активности и ротации секрета.
+Статический inventory проверен; новый сценарий требует запуска в доступном кластере. Условия запуска и
+границы покрытия описаны в [E2E coverage](API_Gateway/e2e/COVERAGE.md).
+
+## Наблюдаемость и Swagger
+
+После запуска локального Kubernetes и публикации входного Istio Gateway через
+Tailscale Funnel интерфейсы наблюдаемости доступны по одному адресу без
+`kubectl port-forward`:
+
+| Интерфейс | Адрес |
+|---|---|
+| Grafana | [Панели и метрики](https://fizzi.tail2c9430.ts.net/observe/grafana/) |
+| Prometheus | [Запросы и цели сбора](https://fizzi.tail2c9430.ts.net/observe/prometheus/) |
+| Jaeger | [Трассировки](https://fizzi.tail2c9430.ts.net/observe/jaeger/) |
+| Kibana | [Поиск логов и панели](https://fizzi.tail2c9430.ts.net/observe/kibana/) |
+| Kiali | [Состояние Istio](https://fizzi.tail2c9430.ts.net/observe/kiali/) |
+
+Пути `/observe/*` защищены общей учетной записью HTTP Basic Auth в фильтре
+Envoy на отдельном listener Istio. Это не самостоятельная регистрация:
+владелец кластера задает логин и пароль через
+`.\k8s\scripts\set-observability-password.ps1 -Username admin`; пароль
+вводится скрыто. Кластер, Istio ingress и Tailscale Funnel должны работать.
+Порядок настройки и проверки описан в
+[документации безопасности](k8s/docs/security-observability.md#постоянный-вход-в-observability).
+
+Grafana содержит проектные панели и Community PostgreSQL Patroni Dashboard.
+Kibana использует индекс `logs-automatic-system-*`; управляемые панели
+восстанавливает CronJob `kibana-dashboards`. Filebeat собирает журналы
+контейнеров, включая короткие файлы MinIO: в Kibana их можно найти по
+`service.name: minio`, выбрав интервал с событиями (например, последние
+24 часа). При текущей конфигурации MinIO не пишет постоянный поток штатных
+запросов. Успешные пробы HTTP и gRPC Health и штатные TCP-соединения Brigade
+с Kafka отфильтровываются при сборе; ошибочные проверки и соединения
+сохраняются. Фильтр не удаляет уже
+проиндексированные записи. Подробности и диагностика находятся в
+[инструкции по эксплуатации](k8s/docs/operations.md#наблюдаемость).
+
+API Gateway открывает Swagger UI на
+[https://api.city.localhost/swagger/](https://api.city.localhost/swagger/), а
+OpenAPI-спецификацию на
+[https://api.city.localhost/swagger/openapi.json](https://api.city.localhost/swagger/openapi.json).
+Для локального адреса нужен запущенный Kubernetes с Istio ingress и настройка
+`k8s/scripts/setup-ingress.ps1`; отдельный `port-forward` не требуется.
+Маршрут `api.city.localhost` определён в `VirtualService/api-gateway-local`,
+а Swagger включается настройкой `SWAGGER_ENABLED=true` в API Gateway.
+Публичный Funnel не направляет `/swagger/` в Gateway. Генерация спецификации
+описана в [документации API Gateway](API_Gateway/DEVELOPER.md#openapi-и-swagger-ui).
 
 ## Стек проекта
 

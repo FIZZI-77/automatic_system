@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
     container_name: profile
     ports:
-      - "50055:50055"
+      - "127.0.0.1:50055:50055"
     env_file:
       - .env
     environment:

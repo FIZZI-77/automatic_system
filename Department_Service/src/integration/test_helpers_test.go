@@ -43,17 +43,20 @@ func newTestApp(t *testing.T) *testApp {
 				WithStartupTimeout(30*time.Second),
 		),
 	)
+
 	if err != nil {
 		t.Fatalf("failed to start postgres container: %v", err)
 	}
 
 	connStr, err := container.ConnectionString(ctx, "sslmode=disable")
+
 	if err != nil {
 		_ = container.Terminate(ctx)
 		t.Fatalf("failed to get connection string: %v", err)
 	}
 
 	db, err := sql.Open("pgx", connStr)
+
 	if err != nil {
 		_ = container.Terminate(ctx)
 		t.Fatalf("failed to open db: %v", err)
@@ -63,11 +66,13 @@ func newTestApp(t *testing.T) *testApp {
 	runGooseMigrations(t, db)
 
 	pool, err := pgxpool.New(ctx, connStr)
+
 	if err != nil {
 		_ = db.Close()
 		_ = container.Terminate(ctx)
 		t.Fatalf("failed to create pgx pool: %v", err)
 	}
+
 	if err = pool.Ping(ctx); err != nil {
 		pool.Close()
 		_ = db.Close()
@@ -96,12 +101,15 @@ func runGooseMigrations(t *testing.T, db *sql.DB) {
 	t.Helper()
 
 	migrationsDir := filepath.Clean("../../scheme")
+
 	if err := goose.SetDialect("postgres"); err != nil {
 		t.Fatalf("failed to set goose dialect: %v", err)
 	}
+
 	if err := goose.Up(db, migrationsDir); err != nil {
 		t.Fatalf("failed to apply goose migrations from %s: %v", migrationsDir, err)
 	}
+
 }
 
 func uniqueDepartmentName() string {
@@ -114,9 +122,11 @@ func waitForDB(t *testing.T, ctx context.Context, db *sql.DB) {
 	var err error
 	for i := 0; i < 10; i++ {
 		err = db.PingContext(ctx)
+
 		if err == nil {
 			return
 		}
+
 		time.Sleep(time.Second)
 	}
 	t.Fatalf("failed to ping db: %v", err)

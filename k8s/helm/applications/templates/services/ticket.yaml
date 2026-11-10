@@ -86,6 +86,7 @@ spec:
         app.kubernetes.io/name: ticket-service
         app.kubernetes.io/part-of: automatic-system
     spec:
+      serviceAccountName: ticket-service
       automountServiceAccountToken: false
       containers:
       - env:

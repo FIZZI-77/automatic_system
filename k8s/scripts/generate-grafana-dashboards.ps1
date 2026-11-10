@@ -62,7 +62,11 @@ function New-Panel {
 }
 
 function New-LogsPanel {
-    param([int]$ID, [int]$Y, [string]$Query)
+    param([int]$ID, [int]$Y, [string]$Query, [bool]$IncludeSidecar = $false)
+
+    if (-not $IncludeSidecar) {
+        $Query = "($Query) AND NOT log.file.path:*istio-proxy*"
+    }
 
     return @{
         id         = $ID
@@ -406,7 +410,7 @@ function New-InfrastructureDashboard {
         }
         $y += 8
     }
-    $panels += New-LogsPanel $id $y $LogQuery
+    $panels += New-LogsPanel $id $y $LogQuery ($UID -eq "istio")
 
     return New-Dashboard "automatic-system-infra-$UID" "Infrastructure / $Title" @("automatic-system", "infrastructure", $UID) $panels
 }
@@ -595,7 +599,7 @@ $etcdMetrics = @(
     @{ Title = "Database allocated size"; Expression = 'etcd_mvcc_db_total_size_in_bytes{__FILTER__}'; Legend = '{{instance}}'; Unit = "bytes" },
     @{ Title = "Database in-use size"; Expression = 'etcd_mvcc_db_total_size_in_use_in_bytes{__FILTER__}'; Legend = '{{instance}}'; Unit = "bytes" },
     @{ Title = "gRPC requests"; Expression = 'sum by (grpc_method, grpc_code, instance) (rate(grpc_server_handled_total{__FILTER__}[5m]))'; Legend = '{{instance}} / {{grpc_method}} / {{grpc_code}}'; Unit = "reqps" },
-    @{ Title = "Process memory"; Expression = 'process_resident_memory_bytes{__FILTER__}'; Legend = '{{instance}}'; Unit = "bytes" }
+    @{ Title = "Process memory"; Expression = 'etcd_process_resident_memory_bytes{__FILTER__}'; Legend = '{{instance}}'; Unit = "bytes" }
 )
 
 Write-Dashboard (New-InfrastructureDashboard "postgres-platform" "PostgreSQL Platform Cluster" 'db_cluster="postgres-platform"' 'kubernetes.pod.name: postgres-platform-*' $postgresMetrics)
@@ -650,7 +654,7 @@ foreach ($broker in @("kafka-1", "kafka-2", "kafka-3")) {
     Write-Dashboard (New-InfrastructureDashboard $broker "Kafka / $broker" "namespace=`"automatic-system`",pod=`"$broker-0`"" "kubernetes.pod.name: $broker-0" $kafkaBrokerMetrics)
 }
 
-Write-Dashboard (New-InfrastructureDashboard "etcd" "etcd Cluster" 'job="etcd"' 'kubernetes.pod.name: etcd-*' $etcdMetrics $false)
+Write-Dashboard (New-InfrastructureDashboard "etcd" "etcd Cluster" 'job="etcd"' 'log.file.path:*kube-system_etcd-*' $etcdMetrics $false)
 
 $genericComponents = @(
     @{ ID = "frontend"; Title = "Frontend"; Pod = "frontend-*"; Filter = 'namespace="automatic-system",pod=~"frontend-.+"' },

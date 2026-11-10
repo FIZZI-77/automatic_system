@@ -10,6 +10,9 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// UpdateStatus транзакционно меняет статус маршрута при совпадении expectedStatus
+// и записывает событие outbox. Отсутствие строки или несовпадение статуса дают
+// ErrConflict; допустимость самого перехода проверяет вызывающий код.
 func (r *RouteRepo) UpdateStatus(
 	ctx context.Context,
 	id string,
@@ -17,9 +20,11 @@ func (r *RouteRepo) UpdateStatus(
 	status models.RouteStatus,
 ) (*models.Route, error) {
 	tx, err := r.writePool.Begin(ctx)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: begin route status: %w", err)
 	}
+
 	defer tx.Rollback(ctx)
 
 	const query = `UPDATE routes
@@ -40,12 +45,15 @@ func (r *RouteRepo) UpdateStatus(
   updated_at`
 
 	route, err := scanRoute(tx.QueryRow(ctx, query, id, status, expectedStatus))
+
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, fmt.Errorf("%w: route status changed concurrently", models.ErrConflict)
 	}
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: update route status: %w", err)
 	}
+
 	if err = appendEvent(
 		ctx,
 		tx,
@@ -54,8 +62,10 @@ func (r *RouteRepo) UpdateStatus(
 	); err != nil {
 		return nil, err
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repository: commit route status: %w", err)
 	}
+
 	return route, nil
 }

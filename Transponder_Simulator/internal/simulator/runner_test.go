@@ -30,19 +30,25 @@ func TestRunnerSendsRouteOnceInOrder(t *testing.T) {
 		Route{Points: []Point{{Latitude: 1}, {Latitude: 2}, {Latitude: 3}}},
 		sender, log.New(io.Discard, "", 0),
 	)
+
 	if err := runner.Run(context.Background()); err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
+
 	if len(sender.events) != 3 {
 		t.Fatalf("events = %d, want 3", len(sender.events))
 	}
+
 	for index, event := range sender.events {
+
 		if event.Payload.Sequence == 0 || event.Payload.Latitude != float64(index+1) {
 			t.Fatalf("event %d = %+v", index, event.Payload)
 		}
+
 		if index > 0 && event.Payload.Sequence <= sender.events[index-1].Payload.Sequence {
 			t.Fatalf("event %d sequence = %d, previous = %d", index, event.Payload.Sequence, sender.events[index-1].Payload.Sequence)
 		}
+
 	}
 }
 
@@ -54,9 +60,11 @@ func TestRunnerStopsOnSenderError(t *testing.T) {
 		&recordingSender{err: senderErr}, log.New(io.Discard, "", 0),
 	)
 	err := runner.Run(context.Background())
+
 	if err == nil || !errors.Is(err, senderErr) {
 		t.Fatalf("Run() error = %v", err)
 	}
+
 }
 
 func TestRunnerStopsCleanlyOnCancellation(t *testing.T) {
@@ -67,7 +75,9 @@ func TestRunnerStopsCleanlyOnCancellation(t *testing.T) {
 		Route{Points: []Point{{}}},
 		&recordingSender{}, log.New(io.Discard, "", 0),
 	)
+
 	if err := runner.Run(ctx); err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
+
 }

@@ -78,81 +78,201 @@ Ticket Service с `asset_id`. Worker включается только при з
 
 ## Функции
 
-### `NewService`
+Имя функции открывает её реализацию в ветке `test`; структуры параметров и результатов описаны в конце README.
+
+### func [NewService](https://github.com/FIZZI-77/automatic_system/blob/test/Asset_Service/src/core/service/service.go#L29)
+
+```go
+func NewService(r repository.AssetRepository, l *zap.Logger) *Service
+```
+
+Типы: [AssetRepository](#type-assetrepository), [Service](#type-service).
+
+Структуры: [AssetRepository](#type-assetrepository).
 
 Создает оболочку `Service` и реализацию с репозиторием и журналом.
 
-### `Create`
+### func (*AssetServiceStruct) [Create](https://github.com/FIZZI-77/automatic_system/blob/test/Asset_Service/src/core/service/asset_service.go#L19)
+
+```go
+func (s *AssetServiceStruct) Create(c context.Context, v models.CreateInput, p bool) (*models.Asset, error)
+```
+
+Типы: [Asset](#type-asset), [AssetServiceStruct](#type-assetservicestruct), [CreateInput](#type-createinput).
+
+Структуры: [CreateInput](#type-createinput), [Asset](#type-asset).
 
 Требует право изменения, ненулевое подразделение, название, тип и геометрию.
 Критичность должна быть от 0 до 1. После проверки вызывает репозиторий и
 записывает созданный идентификатор и тип в журнал.
 
-### `Get`
+### func (*AssetServiceStruct) [Get](https://github.com/FIZZI-77/automatic_system/blob/test/Asset_Service/src/core/service/asset_service.go#L38)
+
+```go
+func (s *AssetServiceStruct) Get(c context.Context, id uuid.UUID) (*models.Asset, error)
+```
+
+Типы: [Asset](#type-asset), [AssetServiceStruct](#type-assetservicestruct).
+
+Структуры: [Asset](#type-asset).
 
 Возвращает объект по UUID напрямую из репозитория.
 
-### `Update`
+### func (*AssetServiceStruct) [Update](https://github.com/FIZZI-77/automatic_system/blob/test/Asset_Service/src/core/service/asset_service.go#L41)
+
+```go
+func (s *AssetServiceStruct) Update(c context.Context, v models.UpdateInput, p bool) (*models.Asset, error)
+```
+
+Типы: [Asset](#type-asset), [AssetServiceStruct](#type-assetservicestruct), [UpdateInput](#type-updateinput).
+
+Структуры: [UpdateInput](#type-updateinput), [Asset](#type-asset).
 
 Требует право изменения. Если критичность передана, проверяет диапазон 0–1,
 после чего выполняет частичное обновление и журналирует успех.
 
-### `List`
+### func (*AssetServiceStruct) [List](https://github.com/FIZZI-77/automatic_system/blob/test/Asset_Service/src/core/service/asset_service.go#L54)
+
+```go
+func (s *AssetServiceStruct) List(c context.Context, f models.Filter) ([]*models.Asset, int64, error)
+```
+
+Типы: [Asset](#type-asset), [AssetServiceStruct](#type-assetservicestruct), [Filter](#type-filter).
+
+Структуры: [Filter](#type-filter), [Asset](#type-asset).
 
 Нормализует `Limit`: неположительное значение заменяет на 20, значение больше
 100 — на 100. Передает фильтр и смещение репозиторию.
 
-### `ChangeStatus`
+### func (*AssetServiceStruct) [ChangeStatus](https://github.com/FIZZI-77/automatic_system/blob/test/Asset_Service/src/core/service/asset_service.go#L63)
+
+```go
+func (s *AssetServiceStruct) ChangeStatus(c context.Context, id uuid.UUID, st models.Status, a uuid.UUID, reason string, p bool) (*models.Asset, error)
+```
+
+Типы: [Asset](#type-asset), [AssetServiceStruct](#type-assetservicestruct).
+
+Структуры: [Asset](#type-asset).
 
 Требует право изменения и передает объект, новое состояние, автора и причину
 репозиторию. Репозиторий изменяет карточку и пишет историю состояния.
 
-### `Nearby`
+### func (*AssetServiceStruct) [Nearby](https://github.com/FIZZI-77/automatic_system/blob/test/Asset_Service/src/core/service/asset_service.go#L69)
+
+```go
+func (s *AssetServiceStruct) Nearby(c context.Context, lat, lon, r float64, t *string, l int32) ([]*models.Asset, error)
+```
+
+Типы: [Asset](#type-asset), [AssetServiceStruct](#type-assetservicestruct).
+
+Структуры: [Asset](#type-asset).
 
 Проверяет широту от -90 до 90, долготу от -180 до 180 и положительный радиус.
 Предел вне диапазона 1–100 заменяет на 20. Передает координаты, радиус,
 необязательный тип и предел пространственному запросу репозитория.
 
-### `Incident`
+### func (*AssetServiceStruct) [Incident](https://github.com/FIZZI-77/automatic_system/blob/test/Asset_Service/src/core/service/asset_service.go#L78)
+
+```go
+func (s *AssetServiceStruct) Incident(c context.Context, v models.Incident, p bool) (*models.Incident, *models.Prediction, error)
+```
+
+Типы: [AssetServiceStruct](#type-assetservicestruct), [Incident](#type-incident), [Prediction](#type-prediction).
+
+Структуры: [Incident](#type-incident), [Prediction](#type-prediction).
 
 Требует право изменения, записывает аварию через `RecordIncident`, затем
 немедленно вызывает `calculate` для объекта. Возвращает и аварию, и новый
 прогноз; ошибка расчета возникает уже после успешной записи аварии.
 
-### `Repair`
+### func (*AssetServiceStruct) [Repair](https://github.com/FIZZI-77/automatic_system/blob/test/Asset_Service/src/core/service/asset_service.go#L89)
+
+```go
+func (s *AssetServiceStruct) Repair(c context.Context, v models.Repair, p bool) (*models.Repair, *models.Prediction, error)
+```
+
+Типы: [AssetServiceStruct](#type-assetservicestruct), [Prediction](#type-prediction), [Repair](#type-repair).
+
+Структуры: [Repair](#type-repair), [Prediction](#type-prediction).
 
 Требует право, завершает ремонт и затем пересчитывает риск. Как и для аварии,
 ошибка расчета не отменяет уже сохраненный ремонт.
 
-### `Inspection`
+### func (*AssetServiceStruct) [Inspection](https://github.com/FIZZI-77/automatic_system/blob/test/Asset_Service/src/core/service/asset_service.go#L100)
+
+```go
+func (s *AssetServiceStruct) Inspection(c context.Context, v models.Inspection, p bool) (*models.Inspection, *models.Prediction, error)
+```
+
+Типы: [AssetServiceStruct](#type-assetservicestruct), [Inspection](#type-inspection), [Prediction](#type-prediction).
+
+Структуры: [Inspection](#type-inspection), [Prediction](#type-prediction).
 
 Требует право и оценку состояния от 0 до 1. Записывает осмотр и пересчитывает
 риск объекта.
 
-### `CreatePlan`
+### func (*AssetServiceStruct) [CreatePlan](https://github.com/FIZZI-77/automatic_system/blob/test/Asset_Service/src/core/service/asset_service.go#L114)
+
+```go
+func (s *AssetServiceStruct) CreatePlan(c context.Context, v models.Plan, p bool) (*models.Plan, error)
+```
+
+Типы: [AssetServiceStruct](#type-assetservicestruct), [Plan](#type-plan).
+
+Структуры: [Plan](#type-plan).
 
 Требует право и положительный `IntervalDays`, затем создает план через
 репозиторий.
 
-### `Due`
+### func (*AssetServiceStruct) [Due](https://github.com/FIZZI-77/automatic_system/blob/test/Asset_Service/src/core/service/asset_service.go#L123)
+
+```go
+func (s *AssetServiceStruct) Due(c context.Context, d *uuid.UUID, t time.Time, l, o int32) ([]*models.Plan, int64, error)
+```
+
+Типы: [AssetServiceStruct](#type-assetservicestruct), [Plan](#type-plan).
+
+Структуры: [Plan](#type-plan).
 
 Заменяет неположительный предел на 20. Возвращает планы, срок которых наступил
 к моменту `t`, с необязательным ограничением по подразделению и смещением.
 Верхняя граница предела в прикладном слое не задается.
 
-### `Prediction`
+### func (*AssetServiceStruct) [Prediction](https://github.com/FIZZI-77/automatic_system/blob/test/Asset_Service/src/core/service/asset_service.go#L129)
+
+```go
+func (s *AssetServiceStruct) Prediction(c context.Context, id uuid.UUID) (*models.Prediction, error)
+```
+
+Типы: [AssetServiceStruct](#type-assetservicestruct), [Prediction](#type-prediction).
+
+Структуры: [Prediction](#type-prediction).
 
 Пытается прочитать последний прогноз. Только если репозиторий сообщает «не
 найдено», рассчитывает и сохраняет новый прогноз на текущее время UTC.
 Остальные ошибки возвращает без пересчета.
 
-### `Recalculate`
+### func (*AssetServiceStruct) [Recalculate](https://github.com/FIZZI-77/automatic_system/blob/test/Asset_Service/src/core/service/asset_service.go#L136)
+
+```go
+func (s *AssetServiceStruct) Recalculate(c context.Context, d *uuid.UUID, p bool) (int64, error)
+```
+
+Типы: [AssetServiceStruct](#type-assetservicestruct).
 
 Требует право, получает идентификаторы объектов выбранного подразделения или
 всех объектов и последовательно вызывает `calculate`. При первой ошибке
 останавливается и возвращает число уже пересчитанных объектов.
 
-### `calculate`
+### func (*AssetServiceStruct) [calculate](https://github.com/FIZZI-77/automatic_system/blob/test/Asset_Service/src/core/service/asset_service.go#L153)
+
+```go
+func (s *AssetServiceStruct) calculate(c context.Context, id uuid.UUID, now time.Time) (*models.Prediction, error)
+```
+
+Типы: [AssetServiceStruct](#type-assetservicestruct), [Prediction](#type-prediction).
+
+Структуры: [Prediction](#type-prediction).
 
 1. Загружает факты риска на момент `now`.
 2. Начинает с `Criticality * 20`.
@@ -178,7 +298,17 @@ Ticket Service с `asset_id`. Worker включается только при з
 выполняется под `FOR UPDATE`, поэтому повторный пересчет уже критичного объекта
 не публикует новое событие для создания заявки.
 
-### `criticalticket.Worker`
+### func (*AssetServiceStruct) [logger](https://github.com/FIZZI-77/automatic_system/blob/test/Asset_Service/src/core/service/asset_service.go#L211)
+
+```go
+func (s *AssetServiceStruct) logger() *zap.Logger
+```
+
+Типы: [AssetServiceStruct](#type-assetservicestruct).
+
+Возвращает настроенный `zap.Logger`, а при его отсутствии — `zap.NewNop()`.
+
+### type `criticalticket.Worker`
 
 Читает `assets.events.v1` в группе `asset-critical-ticket-v1` и обрабатывает
 только `asset.RISK_BECAME_CRITICAL`. Для события вызывает
@@ -190,9 +320,6 @@ Ticket Service с `asset_id`. Worker включается только при з
 после успешного ответа Ticket Service. Если обязательные настройки категории или
 requester не заданы, worker не запускается.
 
-### `logger`
-
-Возвращает настроенный `zap.Logger`, а при его отсутствии — `zap.NewNop()`.
 
 ## Структура БД
 
@@ -300,3 +427,201 @@ requester не заданы, worker не запускается.
 | `attempts` | `int` | Число попыток. |
 | `next_attempt_at`, `locked_at`, `sent_at`, `created_at` | `timestamptz` | Планирование, захват, отправка и создание. |
 | `last_error` | `text` | Последняя ошибка. |
+
+## Структуры параметров и результатов
+
+### type Asset
+
+```go
+type Asset struct {
+	ID                     uuid.UUID
+	ExternalID             *string
+	DepartmentID           uuid.UUID
+	Type                   string
+	Name                   string
+	Address                string
+	District               string
+	Municipality           string
+	Geometry               string
+	Model                  string
+	SerialNumber           string
+	Owner                  string
+	ServiceOrganization    string
+	Contractor             string
+	Status                 Status
+	InstallationYear       *int32
+	ServiceLifeYears       *int32
+	WarrantyUntil          *time.Time
+	InspectionIntervalDays int32
+	ResponseNormMinutes    int32
+	RepairNormMinutes      int32
+	Criticality            float64
+	RiskScore              float64
+	RiskLevel              RiskLevel
+	LastRepairAt           *time.Time
+	NextInspectionAt       *time.Time
+	CreatedAt              time.Time
+	UpdatedAt              time.Time
+}
+```
+
+### type AssetRepository
+
+```go
+type AssetRepository interface {
+	Create(context.Context, models.CreateInput) (*models.Asset, error)
+	Update(context.Context, models.UpdateInput) (*models.Asset, error)
+	Get(context.Context, uuid.UUID) (*models.Asset, error)
+	List(context.Context, models.Filter) ([]*models.Asset, int64, error)
+	ChangeStatus(context.Context, uuid.UUID, models.Status, uuid.UUID, string) (*models.Asset, error)
+	Nearby(context.Context, float64, float64, float64, *string, int32) ([]*models.Asset, error)
+	RecordIncident(context.Context, models.Incident) (*models.Incident, error)
+	CompleteRepair(context.Context, models.Repair) (*models.Repair, error)
+	RecordInspection(context.Context, models.Inspection) (*models.Inspection, error)
+	CreatePlan(context.Context, models.Plan) (*models.Plan, error)
+	DuePlans(context.Context, *uuid.UUID, time.Time, int32, int32) ([]*models.Plan, int64, error)
+	RiskFacts(context.Context, uuid.UUID, time.Time) (RiskFacts, error)
+	SavePrediction(context.Context, models.Prediction) error
+	GetPrediction(context.Context, uuid.UUID) (*models.Prediction, error)
+	ListIDs(context.Context, *uuid.UUID) ([]uuid.UUID, error)
+}
+```
+
+### type AssetServiceStruct
+
+```go
+type AssetServiceStruct struct {
+	repo repository.AssetRepository
+	log  *zap.Logger
+}
+```
+
+### type CreateInput
+
+```go
+type CreateInput struct {
+	Asset
+	ActorID uuid.UUID
+}
+```
+
+### type Filter
+
+```go
+type Filter struct {
+	DepartmentID *uuid.UUID
+	Type         *string
+	District     *string
+	Status       *Status
+	RiskLevel    *RiskLevel
+	Limit        int32
+	Offset       int32
+}
+```
+
+### type Incident
+
+```go
+type Incident struct {
+	ID          uuid.UUID
+	AssetID     uuid.UUID
+	TicketID    *uuid.UUID
+	FailureType string
+	Description string
+	Source      string
+	Priority    string
+	Repeated    bool
+	OccurredAt  time.Time
+}
+```
+
+### type Inspection
+
+```go
+type Inspection struct {
+	ID             uuid.UUID
+	AssetID        uuid.UUID
+	InspectorID    uuid.UUID
+	Kind           string
+	Result         string
+	Recommendation string
+	DefectFound    bool
+	ConditionScore float64
+	InspectedAt    time.Time
+}
+```
+
+### type Plan
+
+```go
+type Plan struct {
+	ID              uuid.UUID
+	AssetID         uuid.UUID
+	Kind            string
+	IntervalDays    int32
+	NextDueAt       time.Time
+	Active          bool
+	LastCompletedAt *time.Time
+}
+```
+
+### type Prediction
+
+```go
+type Prediction struct {
+	AssetID      uuid.UUID
+	Score        float64
+	Probability  float64
+	Level        RiskLevel
+	Factors      []string
+	Action       string
+	CalculatedAt time.Time
+}
+```
+
+### type Repair
+
+```go
+type Repair struct {
+	ID                 uuid.UUID
+	AssetID            uuid.UUID
+	IncidentID         *uuid.UUID
+	TicketID           *uuid.UUID
+	BrigadeID          *uuid.UUID
+	Description        string
+	ReplacedComponents string
+	DurationMinutes    int32
+	CompletedAt        time.Time
+}
+```
+
+### type Service
+
+```go
+type Service struct{ AssetService }
+```
+
+### type UpdateInput
+
+```go
+type UpdateInput struct {
+	ID          uuid.UUID
+	Name        *string
+	Address     *string
+	Geometry    *string
+	Contractor  *string
+	Criticality *float64
+}
+```
+
+### type prediction
+
+```go
+type prediction struct {
+	Score       float64  `json:"Score"`
+	Probability float64  `json:"Probability"`
+	Level       string   `json:"Level"`
+	Factors     []string `json:"Factors"`
+	Action      string   `json:"Action"`
+}
+```

@@ -38,6 +38,7 @@ func TestCategoryRepo_CreateCategory_DuplicateCodeReturnsAlreadyExists(t *testin
 	if !errors.Is(err, models.ErrAlreadyExists) {
 		t.Fatalf("expected already exists error, got %v", err)
 	}
+
 }
 
 func TestCategoryRepo_UpdateCategory_NilIsActivePreservesValue(t *testing.T) {
@@ -53,6 +54,7 @@ func TestCategoryRepo_UpdateCategory_NilIsActivePreservesValue(t *testing.T) {
 		CategoryID: category.ID,
 		Name:       stringPtr("Updated Category"),
 	})
+
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -64,6 +66,7 @@ func TestCategoryRepo_UpdateCategory_NilIsActivePreservesValue(t *testing.T) {
 	if updated.Name != "Updated Category" {
 		t.Fatalf("expected updated name, got %s", updated.Name)
 	}
+
 }
 
 func TestCategoryRepo_ListCategories_FiltersOnlyActive(t *testing.T) {
@@ -81,6 +84,7 @@ func TestCategoryRepo_ListCategories_FiltersOnlyActive(t *testing.T) {
 		CategoryID: inactive.ID,
 		IsActive:   &isActive,
 	})
+
 	if err != nil {
 		t.Fatalf("failed to deactivate category: %v", err)
 	}
@@ -90,6 +94,7 @@ func TestCategoryRepo_ListCategories_FiltersOnlyActive(t *testing.T) {
 		Limit:      10,
 		Offset:     0,
 	})
+
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -105,6 +110,7 @@ func TestCategoryRepo_ListCategories_FiltersOnlyActive(t *testing.T) {
 	if categories[0].ID != active.ID {
 		t.Fatalf("expected active category %s, got %s", active.ID, categories[0].ID)
 	}
+
 }
 
 func TestCategoryRepo_UpdateCategory_ExplicitFalseDeactivatesCategory(t *testing.T) {
@@ -121,6 +127,7 @@ func TestCategoryRepo_UpdateCategory_ExplicitFalseDeactivatesCategory(t *testing
 		CategoryID: category.ID,
 		IsActive:   &isActive,
 	})
+
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -128,6 +135,7 @@ func TestCategoryRepo_UpdateCategory_ExplicitFalseDeactivatesCategory(t *testing
 	if updated.IsActive {
 		t.Fatal("expected category inactive")
 	}
+
 }
 
 func TestCategoryRepo_DeleteCategory_DeactivatesCategory(t *testing.T) {
@@ -142,6 +150,7 @@ func TestCategoryRepo_DeleteCategory_DeactivatesCategory(t *testing.T) {
 	deleted, err := repo.DeleteCategory(ctx, &models.DeleteCategoryInput{
 		CategoryID: category.ID,
 	})
+
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -151,6 +160,7 @@ func TestCategoryRepo_DeleteCategory_DeactivatesCategory(t *testing.T) {
 	}
 
 	stored, err := repo.GetCategoryByID(ctx, category.ID)
+
 	if err != nil {
 		t.Fatalf("failed to get category: %v", err)
 	}
@@ -158,4 +168,5 @@ func TestCategoryRepo_DeleteCategory_DeactivatesCategory(t *testing.T) {
 	if stored.IsActive {
 		t.Fatal("expected stored category inactive")
 	}
+
 }

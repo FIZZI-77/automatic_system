@@ -7,22 +7,30 @@ self.addEventListener("notificationclick", (event) => {
   ).href;
 
   event.waitUntil(
-    clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
-      const existingWindow = windows.find((windowClient) =>
-        windowClient.url.startsWith(self.location.origin),
-      );
+    clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((windows) => {
+        const existingWindow = windows.find((windowClient) =>
+          windowClient.url.startsWith(self.location.origin),
+        );
 
-      if (existingWindow) {
-        return existingWindow.navigate(targetURL).then(() => existingWindow.focus());
-      }
+        if (existingWindow) {
+          return existingWindow
+            .navigate(targetURL)
+            .then(() => existingWindow.focus());
+        }
 
-      return clients.openWindow(targetURL);
-    }),
+        return clients.openWindow(targetURL);
+      }),
   );
 });
 
-importScripts("https://www.gstatic.com/firebasejs/12.18.0/firebase-app-compat.js");
-importScripts("https://www.gstatic.com/firebasejs/12.18.0/firebase-messaging-compat.js");
+importScripts(
+  "https://www.gstatic.com/firebasejs/12.18.0/firebase-app-compat.js",
+);
+importScripts(
+  "https://www.gstatic.com/firebasejs/12.18.0/firebase-messaging-compat.js",
+);
 
 const parameters = new URL(self.location.href).searchParams;
 const firebaseConfig = {
@@ -43,7 +51,10 @@ if (Object.values(firebaseConfig).every(Boolean)) {
     const title = payload.notification?.title || data.title || "Город рядом";
 
     self.registration.showNotification(title, {
-      body: payload.notification?.body || data.body || "В системе появилось обновление.",
+      body:
+        payload.notification?.body ||
+        data.body ||
+        "В системе появилось обновление.",
       icon: "/favicon.ico",
       badge: "/favicon.ico",
       data: {

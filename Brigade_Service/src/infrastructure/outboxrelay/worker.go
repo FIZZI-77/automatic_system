@@ -55,24 +55,31 @@ type event struct {
 
 func New(db *pgxpool.Pool, cfg Config, logger *zap.Logger) (*Worker, error) {
 	cfg.Brokers = cleanBrokers(cfg.Brokers)
+
 	if len(cfg.Brokers) == 0 {
 		return nil, errors.New("outbox relay: at least one Kafka broker is required")
 	}
+
 	if strings.TrimSpace(cfg.Topic) == "" {
 		return nil, errors.New("outbox relay: topic is required")
 	}
+
 	if cfg.BatchSize <= 0 {
 		cfg.BatchSize = defaultBatchSize
 	}
+
 	if cfg.PollInterval <= 0 {
 		cfg.PollInterval = defaultPollInterval
 	}
+
 	if cfg.MaxAttempts <= 0 {
 		cfg.MaxAttempts = defaultMaxAttempts
 	}
+
 	if cfg.LockTimeout <= 0 {
 		cfg.LockTimeout = defaultLockTimeout
 	}
+
 	if cfg.WorkerCount <= 0 {
 		cfg.WorkerCount = defaultWorkerCount
 	}
@@ -108,9 +115,11 @@ func (w *Worker) runWorker(ctx context.Context, workerID int) {
 	defer ticker.Stop()
 
 	for {
+
 		if err := w.processBatch(ctx); err != nil && !errors.Is(err, context.Canceled) {
 			w.logger.Error("outbox relay batch failed", zap.Int("worker_id", workerID), zap.Error(err))
 		}
+
 		select {
 		case <-ctx.Done():
 			return
@@ -122,21 +131,27 @@ func (w *Worker) runWorker(ctx context.Context, workerID int) {
 func (w *Worker) processBatch(ctx context.Context) (err error) {
 	var span trace.Span
 	defer func() {
+
 		if span != nil {
 			telemetry.End(span, err)
 		}
+
 	}()
 	for range w.cfg.BatchSize {
 		item, err := w.claim(ctx)
+
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
+
 		if err != nil {
 			return err
 		}
+
 		if span == nil {
 			ctx, span = telemetry.Tracer("brigade/outbox").Start(ctx, "Outbox.PublishBatch")
 		}
+
 		err = telemetry.WriteKafka(ctx, w.writer, kafka.Message{
 			Key:   []byte(item.AggregateID.String()),
 			Value: item.Payload,
@@ -147,24 +162,31 @@ func (w *Worker) processBatch(ctx context.Context) (err error) {
 			},
 			Time: time.Now().UTC(),
 		})
+
 		if err != nil {
+
 			if markErr := w.markFailed(ctx, item, err); markErr != nil {
 				return errors.Join(err, markErr)
 			}
+
 			continue
 		}
+
 		if err = w.markSent(ctx, item.ID); err != nil {
 			return err
 		}
+
 	}
 	return nil
 }
 
 func (w *Worker) claim(ctx context.Context) (event, error) {
 	tx, err := w.db.BeginTx(ctx, pgx.TxOptions{})
+
 	if err != nil {
 		return event{}, fmt.Errorf("begin claim: %w", err)
 	}
+
 	defer tx.Rollback(ctx)
 
 	var item event
@@ -181,19 +203,24 @@ func (w *Worker) claim(ctx context.Context) (event, error) {
 		LIMIT 1`,
 		w.cfg.LockTimeout.Seconds(), w.cfg.MaxAttempts,
 	).Scan(&item.ID, &item.AggregateType, &item.AggregateID, &item.EventType, &item.Payload, &item.Attempts)
+
 	if err != nil {
 		return event{}, err
 	}
+
 	_, err = tx.Exec(ctx, `
 		UPDATE outbox_events
 		SET status = 'PROCESSING', locked_at = now(), attempts = attempts + 1, last_error = NULL
 		WHERE id = $1`, item.ID)
+
 	if err != nil {
 		return event{}, fmt.Errorf("mark processing: %w", err)
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return event{}, fmt.Errorf("commit claim: %w", err)
 	}
+
 	item.Attempts++
 	return item, nil
 }
@@ -208,9 +235,11 @@ func (w *Worker) markSent(ctx context.Context, id uuid.UUID) error {
 
 func (w *Worker) markFailed(ctx context.Context, item event, publishErr error) error {
 	status := "FAILED"
+
 	if item.Attempts >= w.cfg.MaxAttempts {
 		status = "FAILED"
 	}
+
 	delay := time.Duration(math.Pow(2, float64(min(item.Attempts-1, 8)))) * time.Second
 	_, err := w.db.Exec(ctx, `
 		UPDATE outbox_events
@@ -222,16 +251,20 @@ func (w *Worker) markFailed(ctx context.Context, item event, publishErr error) e
 func cleanBrokers(values []string) []string {
 	result := make([]string, 0, len(values))
 	for _, value := range values {
+
 		if value = strings.TrimSpace(value); value != "" {
 			result = append(result, value)
 		}
+
 	}
 	return result
 }
 
 func truncate(value string, maxLen int) string {
+
 	if len(value) <= maxLen {
 		return value
 	}
+
 	return value[:maxLen]
 }

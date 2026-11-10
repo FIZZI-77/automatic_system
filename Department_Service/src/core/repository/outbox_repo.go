@@ -8,6 +8,8 @@ import (
 	"github.com/google/uuid"
 )
 
+// insertOutboxEvent сериализует payload в JSON и сохраняет через exec событие
+// с новым UUID, статусом PENDING и нулём попыток. Транзакцией управляет вызывающий код.
 func insertOutboxEvent(
 	ctx context.Context,
 	exec Querier,
@@ -17,6 +19,7 @@ func insertOutboxEvent(
 	payload any,
 ) error {
 	payloadBytes, err := json.Marshal(payload)
+
 	if err != nil {
 		return fmt.Errorf("outbox: marshal payload: %w", err)
 	}
@@ -44,6 +47,7 @@ func insertOutboxEvent(
 		eventType,
 		string(payloadBytes),
 	)
+
 	if err != nil {
 		return fmt.Errorf("outbox: insert event: %w", err)
 	}

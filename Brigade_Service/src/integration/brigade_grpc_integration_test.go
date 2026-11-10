@@ -43,6 +43,7 @@ func newGRPCTestApp(t *testing.T) *grpcTestApp {
 		grpc.WithContextDialer(grpcDialer(listener)),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
+
 	if err != nil {
 		grpcServer.Stop()
 		app.cleanup()
@@ -79,9 +80,11 @@ func TestBrigadeGRPCIntegration_CreateListAndMember(t *testing.T) {
 		DepartmentId: departmentID.String(),
 		Name:         uniqueName("grpc-brigade"),
 	})
+
 	if err != nil {
 		t.Fatalf("grpc create brigade failed: %v", err)
 	}
+
 	if createResp.GetBrigade().GetId() == "" {
 		t.Fatal("expected brigade id")
 	}
@@ -90,9 +93,11 @@ func TestBrigadeGRPCIntegration_CreateListAndMember(t *testing.T) {
 	listResp, err := grpcApp.client.ListBrigades(ctx, &brigadev1.ListBrigadesRequest{
 		DepartmentId: &departmentRaw,
 	})
+
 	if err != nil {
 		t.Fatalf("grpc list brigades failed: %v", err)
 	}
+
 	if listResp.GetTotal() != 1 {
 		t.Fatalf("expected total 1, got %d", listResp.GetTotal())
 	}
@@ -102,12 +107,15 @@ func TestBrigadeGRPCIntegration_CreateListAndMember(t *testing.T) {
 		UserId:    uuid.NewString(),
 		Role:      brigadev1.BrigadeMemberRole_BRIGADE_MEMBER_ROLE_LEAD,
 	})
+
 	if err != nil {
 		t.Fatalf("grpc add member failed: %v", err)
 	}
+
 	if memberResp.GetMember().GetId() == "" {
 		t.Fatal("expected member id")
 	}
+
 }
 
 func TestBrigadeGRPCIntegration_InvalidIDFails(t *testing.T) {
@@ -115,7 +123,9 @@ func TestBrigadeGRPCIntegration_InvalidIDFails(t *testing.T) {
 	defer grpcApp.cleanup()
 
 	_, err := grpcApp.client.GetBrigadeByID(context.Background(), &brigadev1.GetBrigadeByIDRequest{Id: "bad-id"})
+
 	if err == nil {
 		t.Fatal("expected grpc get to fail")
 	}
+
 }

@@ -1,0 +1,90 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: kibana-dashboards
+  namespace: automatic-system
+spec:
+  schedule: "*/15 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: kibana-dashboards
+            sidecar.istio.io/inject: "false"
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: reconcile
+              image: busybox:1.37.0
+              command: [sh, -ec]
+              args:
+                - |
+                  base=http://kibana:5601/observe/kibana
+                  if ! wget -q -O /dev/null "$base/api/data_views/data_view/automatic-system-logs"; then
+                    wget -q -T 30 -O /tmp/data-view-response.json \
+                      --header='kbn-xsrf: automatic-system-dashboard-setup' \
+                      --header='Content-Type: application/json' \
+                      --post-file=/objects/data-view.json \
+                      "$base/api/data_views/data_view"
+                  fi
+                  for objects in /objects/objects-*.json; do
+                    wget -q -T 60 -O /tmp/import-response.json \
+                      --header='kbn-xsrf: automatic-system-dashboard-setup' \
+                      --header='Content-Type: application/json' \
+                      --post-file="$objects" \
+                      "$base/api/saved_objects/_bulk_create?overwrite=true"
+                    if grep -q '"error":' /tmp/import-response.json; then
+                      cat /tmp/import-response.json
+                      exit 1
+                    fi
+                  done
+                  echo 'Kibana dashboards reconciled'
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 16Mi
+                limits:
+                  cpu: 100m
+                  memory: 64Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: [ALL]
+                readOnlyRootFilesystem: true
+              volumeMounts:
+                - name: objects
+                  mountPath: /objects
+                  readOnly: true
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: objects
+              projected:
+                sources:
+                  - configMap:
+                      name: kibana-data-view
+                  - configMap:
+                      name: kibana-dashboards-0
+                  - configMap:
+                      name: kibana-dashboards-1
+                  - configMap:
+                      name: kibana-dashboards-2
+                  - configMap:
+                      name: kibana-dashboards-3
+                  - configMap:
+                      name: kibana-dashboards-4
+            - name: tmp
+              emptyDir: {}

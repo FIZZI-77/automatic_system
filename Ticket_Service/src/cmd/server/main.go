@@ -27,27 +27,35 @@ import (
 
 func main() {
 	telemetryProviders, err := telemetry.Init(context.Background(), "ticket-service")
+
 	if err != nil {
 		log.Fatalf("initialize OpenTelemetry: %v", err)
 	}
+
 	defer func() {
+
 		if shutdownErr := telemetryProviders.Close(); shutdownErr != nil {
 			log.Printf("shutdown OpenTelemetry: %v", shutdownErr)
 		}
+
 	}()
 
 	if err := appconfig.Load(); err != nil {
 		log.Fatalf("configuration error: %v", err)
 	}
+
 	dependencies := closer.New()
 
 	logger, err := pkg.NewLogger()
+
 	if err != nil {
 		panic(err)
 	}
+
 	defer logger.Sync()
 
 	err = godotenv.Load(".env")
+
 	if err != nil && !os.IsNotExist(err) {
 		log.Fatal("error loading .env file")
 	}
@@ -62,13 +70,17 @@ func main() {
 		MaxConns: poolSize("DB_WRITE_MAX_CONNS", 16),
 		MinConns: poolSize("DB_WRITE_MIN_CONNS", 2),
 	})
+
 	if err != nil {
 		log.Fatalf("failed to connect primary db: %v", err)
 	}
+
 	readHost := strings.TrimSpace(os.Getenv("DB_READ_HOST"))
+
 	if readHost == "" {
 		readHost = os.Getenv("DB_HOST")
 	}
+
 	readDB, err := pkg.NewPostgresDB(pkg.Config{
 		Host:     readHost,
 		Port:     os.Getenv("DB_PORT"),
@@ -79,10 +91,12 @@ func main() {
 		MaxConns: poolSize("DB_READ_MAX_CONNS", 16),
 		MinConns: poolSize("DB_READ_MIN_CONNS", 2),
 	})
+
 	if err != nil {
 		writeDB.Close()
 		log.Fatalf("failed to connect read replica: %v", err)
 	}
+
 	dependencies.Add("postgres primary", func() error {
 		writeDB.Close()
 		return nil
@@ -99,11 +113,13 @@ func main() {
 	startTicketRetention(writeDB, dependencies, logger)
 
 	grpcPort := os.Getenv("GRPC_PORT")
+
 	if strings.TrimSpace(grpcPort) == "" {
 		grpcPort = "50052"
 	}
 
 	lis, err := net.Listen("tcp", ":"+grpcPort)
+
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
@@ -132,6 +148,7 @@ func main() {
 		if err := grpcServer.Serve(lis); err != nil {
 			serverErrCh <- err
 		}
+
 	}()
 
 	sigCh := make(chan os.Signal, 1)
@@ -170,11 +187,13 @@ func main() {
 
 func poolSize(name string, fallback int32) int32 {
 	raw := strings.TrimSpace(os.Getenv(name))
+
 	if raw == "" {
 		return fallback
 	}
 
 	value, err := strconv.ParseInt(raw, 10, 32)
+
 	if err != nil || value < 0 {
 		log.Printf("invalid %s=%q; using %d", name, raw, fallback)
 		return fallback
@@ -190,4 +209,5 @@ func closeDependencies(dependencies *closer.Closer) {
 	if err := dependencies.Close(ctx); err != nil {
 		log.Printf("failed to close dependencies: %v", err)
 	}
+
 }

@@ -49,6 +49,7 @@ func newGRPCTestApp(t *testing.T) *grpcTestApp {
 		}),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
+
 	if err != nil {
 		grpcServer.Stop()
 		app.cleanup()
@@ -85,6 +86,7 @@ func TestAuthGRPCIntegration_RegisterLoginRefreshLogout(t *testing.T) {
 		Username: "grpc_user",
 		Password: password,
 	})
+
 	if err != nil {
 		t.Fatalf("grpc register failed: %v", err)
 	}
@@ -100,6 +102,7 @@ func TestAuthGRPCIntegration_RegisterLoginRefreshLogout(t *testing.T) {
 		Ip:        "127.0.0.1",
 		UserAgent: "grpc-integration-test",
 	})
+
 	if err != nil {
 		t.Fatalf("grpc login failed: %v", err)
 	}
@@ -122,6 +125,7 @@ func TestAuthGRPCIntegration_RegisterLoginRefreshLogout(t *testing.T) {
 		Ip:           "127.0.0.1",
 		UserAgent:    "grpc-integration-test",
 	})
+
 	if err != nil {
 		t.Fatalf("grpc refresh failed: %v", err)
 	}
@@ -137,6 +141,7 @@ func TestAuthGRPCIntegration_RegisterLoginRefreshLogout(t *testing.T) {
 	authInfoResp, err := grpcApp.client.GetUserAuthInfo(ctx, &v1.GetUserAuthInfoRequest{
 		UserId: registerResp.UserId,
 	})
+
 	if err != nil {
 		t.Fatalf("grpc get user auth info failed: %v", err)
 	}
@@ -153,6 +158,7 @@ func TestAuthGRPCIntegration_RegisterLoginRefreshLogout(t *testing.T) {
 		UserId:    registerResp.UserId,
 		SessionId: loginResp.SessionId,
 	})
+
 	if err != nil {
 		t.Fatalf("grpc logout failed: %v", err)
 	}
@@ -163,9 +169,11 @@ func TestAuthGRPCIntegration_RegisterLoginRefreshLogout(t *testing.T) {
 		Ip:           "127.0.0.1",
 		UserAgent:    "grpc-integration-test",
 	})
+
 	if err == nil {
 		t.Fatal("expected grpc refresh to fail after logout")
 	}
+
 }
 
 func TestAuthGRPCIntegration_DuplicateRegisterFails(t *testing.T) {
@@ -181,6 +189,7 @@ func TestAuthGRPCIntegration_DuplicateRegisterFails(t *testing.T) {
 		Username: "first_grpc_user",
 		Password: "Password123!",
 	})
+
 	if err != nil {
 		t.Fatalf("first grpc register failed: %v", err)
 	}
@@ -190,9 +199,11 @@ func TestAuthGRPCIntegration_DuplicateRegisterFails(t *testing.T) {
 		Username: "second_grpc_user",
 		Password: "Password123!",
 	})
+
 	if err == nil {
 		t.Fatal("expected duplicate grpc register to fail")
 	}
+
 }
 
 func TestAuthGRPCIntegration_GetJWKS(t *testing.T) {
@@ -202,6 +213,7 @@ func TestAuthGRPCIntegration_GetJWKS(t *testing.T) {
 	ctx := context.Background()
 
 	resp, err := grpcApp.client.GetJWKS(ctx, &v1.GetJWKSRequest{})
+
 	if err != nil {
 		t.Fatalf("grpc get jwks failed: %v", err)
 	}
@@ -209,4 +221,5 @@ func TestAuthGRPCIntegration_GetJWKS(t *testing.T) {
 	if resp.JwksJson == "" {
 		t.Fatal("expected jwks_json not empty")
 	}
+
 }

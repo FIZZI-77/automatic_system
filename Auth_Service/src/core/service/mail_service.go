@@ -36,19 +36,26 @@ type SMTPMailService struct {
 	logger *zap.Logger
 }
 
+// NewSMTPMailService создаёт SMTP-отправитель после проверки адреса сервера, порта,
+// отправителя и базового URL интерфейса. При неположительном Timeout использует десять секунд.
 func NewSMTPMailService(cfg SMTPMailConfig, logger *zap.Logger) (*SMTPMailService, error) {
+
 	if cfg.Host == "" {
 		return nil, fmt.Errorf("mail_service: host is empty")
 	}
+
 	if cfg.Port <= 0 {
 		return nil, fmt.Errorf("mail_service: invalid port")
 	}
+
 	if cfg.FromEmail == "" {
 		return nil, fmt.Errorf("mail_service: from email is empty")
 	}
+
 	if cfg.FrontendBaseURL == "" {
 		return nil, fmt.Errorf("mail_service: frontend base url is empty")
 	}
+
 	if cfg.Timeout <= 0 {
 		cfg.Timeout = 10 * time.Second
 	}
@@ -59,6 +66,8 @@ func NewSMTPMailService(cfg SMTPMailConfig, logger *zap.Logger) (*SMTPMailServic
 	}, nil
 }
 
+// SendVerificationEmail формирует текстовое и HTML-письмо со ссылкой /verify-email
+// и переданным токеном, затем отправляет его через SMTP.
 func (s *SMTPMailService) SendVerificationEmail(ctx context.Context, toEmail string, token string) error {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 
@@ -67,6 +76,7 @@ func (s *SMTPMailService) SendVerificationEmail(ctx context.Context, toEmail str
 	verifyURL, err := s.buildURL(ctx, "/verify-email", map[string]string{
 		"token": token,
 	})
+
 	if err != nil {
 		logger.Error("build verification email url", zap.Error(err))
 		return fmt.Errorf("mail_service: SendVerificationEmail(): build url: %w", err)
@@ -100,6 +110,8 @@ func (s *SMTPMailService) SendVerificationEmail(ctx context.Context, toEmail str
 	return s.send(ctx, []string{toEmail}, subject, textBody, htmlBody)
 }
 
+// SendPasswordResetEmail отправляет текстовую и HTML-версии письма со ссылкой
+// /reset-password и токеном сброса. Ошибки построения ссылки и SMTP возвращает вызывающему.
 func (s *SMTPMailService) SendPasswordResetEmail(ctx context.Context, toEmail string, token string) error {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 
@@ -108,6 +120,7 @@ func (s *SMTPMailService) SendPasswordResetEmail(ctx context.Context, toEmail st
 	resetURL, err := s.buildURL(ctx, "/reset-password", map[string]string{
 		"token": token,
 	})
+
 	if err != nil {
 		logger.Error("build reset password email url", zap.Error(err))
 		return fmt.Errorf("mail_service: SendPasswordResetEmail(): build url: %w", err)
@@ -141,12 +154,15 @@ func (s *SMTPMailService) SendPasswordResetEmail(ctx context.Context, toEmail st
 	return s.send(ctx, []string{toEmail}, subject, textBody, htmlBody)
 }
 
+// buildURL дополняет FrontendBaseURL путём и URL-кодированными параметрами.
+// Существующие параметры сохраняет; одноимённые значения заменяет переданными.
 func (s *SMTPMailService) buildURL(ctx context.Context, path string, params map[string]string) (string, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 
 	logger.Info("build url", zap.String("path", path))
 
 	base, err := url.Parse(strings.TrimRight(s.cfg.FrontendBaseURL, "/"))
+
 	if err != nil {
 		logger.Error("build url", zap.Error(err))
 		return "", fmt.Errorf("invalid frontend base url: %w", err)
@@ -165,12 +181,15 @@ func (s *SMTPMailService) buildURL(ctx context.Context, path string, params map[
 	return base.String(), nil
 }
 
+// send собирает MIME-сообщение и передаёт его SMTP-серверу.
+// Возвращает ошибку с указанием этапа сборки или отправки.
 func (s *SMTPMailService) send(ctx context.Context, to []string, subject string, textBody string, htmlBody string) error {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 
 	logger.Info("send email")
 
 	msg, err := s.buildMessage(to, subject, textBody, htmlBody)
+
 	if err != nil {
 		return fmt.Errorf("mail_service: send(): build message: %w", err)
 	}
@@ -184,11 +203,14 @@ func (s *SMTPMailService) send(ctx context.Context, to []string, subject string,
 	return nil
 }
 
+// buildMessage собирает multipart/alternative с текстом и HTML в UTF-8.
+// Кодирует тему и отображаемое имя отправителя MIME Q-кодированием; сеть не использует.
 func (s *SMTPMailService) buildMessage(to []string, subject string, textBody string, htmlBody string) ([]byte, error) {
 
 	boundary := fmt.Sprintf("mixed_%d", time.Now().UnixNano())
 
 	fromHeader := s.cfg.FromEmail
+
 	if s.cfg.FromName != "" {
 		fromHeader = fmt.Sprintf("%s <%s>", mime.QEncoding.Encode("UTF-8", s.cfg.FromName), s.cfg.FromEmail)
 	}
@@ -197,32 +219,35 @@ func (s *SMTPMailService) buildMessage(to []string, subject string, textBody str
 
 	var sb strings.Builder
 
-	sb.WriteString(fmt.Sprintf("From: %s\r\n", fromHeader))
-	sb.WriteString(fmt.Sprintf("To: %s\r\n", strings.Join(to, ", ")))
-	sb.WriteString(fmt.Sprintf("Subject: %s\r\n", subjectHeader))
+	fmt.Fprintf(&sb, "From: %s\r\n", fromHeader)
+	fmt.Fprintf(&sb, "To: %s\r\n", strings.Join(to, ", "))
+	fmt.Fprintf(&sb, "Subject: %s\r\n", subjectHeader)
 	sb.WriteString("MIME-Version: 1.0\r\n")
-	sb.WriteString(fmt.Sprintf("Content-Type: multipart/alternative; boundary=%q\r\n", boundary))
+	fmt.Fprintf(&sb, "Content-Type: multipart/alternative; boundary=%q\r\n", boundary)
 	sb.WriteString("\r\n")
 
-	sb.WriteString(fmt.Sprintf("--%s\r\n", boundary))
+	fmt.Fprintf(&sb, "--%s\r\n", boundary)
 	sb.WriteString("Content-Type: text/plain; charset=UTF-8\r\n")
 	sb.WriteString("Content-Transfer-Encoding: 8bit\r\n")
 	sb.WriteString("\r\n")
 	sb.WriteString(textBody)
 	sb.WriteString("\r\n")
 
-	sb.WriteString(fmt.Sprintf("--%s\r\n", boundary))
+	fmt.Fprintf(&sb, "--%s\r\n", boundary)
 	sb.WriteString("Content-Type: text/html; charset=UTF-8\r\n")
 	sb.WriteString("Content-Transfer-Encoding: 8bit\r\n")
 	sb.WriteString("\r\n")
 	sb.WriteString(htmlBody)
 	sb.WriteString("\r\n")
 
-	sb.WriteString(fmt.Sprintf("--%s--\r\n", boundary))
+	fmt.Fprintf(&sb, "--%s--\r\n", boundary)
 
 	return []byte(sb.String()), nil
 }
 
+// sendSMTP устанавливает SMTP-соединение, при настройке включает TLS или STARTTLS,
+// выполняет аутентификацию и отправляет сообщение каждому адресату. Закрывает соединение;
+// при требуемом, но недоступном STARTTLS возвращает ошибку.
 func (s *SMTPMailService) sendSMTP(ctx context.Context, to []string, msg []byte) error {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 
@@ -244,30 +269,37 @@ func (s *SMTPMailService) sendSMTP(ctx context.Context, to []string, msg []byte)
 		}
 
 		conn, err = tls.DialWithDialer(dialer, "tcp", addr, tlsConfig)
+
 		if err != nil {
 			logger.Warn("smtp send failed", zap.Error(err))
 			return fmt.Errorf("tls dial: %w", err)
 		}
+
 	} else {
 		conn, err = dialer.DialContext(ctx, "tcp", addr)
+
 		if err != nil {
 			logger.Warn("smtp send failed", zap.Error(err))
 			return fmt.Errorf("dial: %w", err)
 		}
+
 	}
 
 	client, err := smtp.NewClient(conn, s.cfg.Host)
+
 	if err != nil {
 		_ = conn.Close()
 		logger.Warn("smtp send failed", zap.Error(err))
 		return fmt.Errorf("new smtp client: %w", err)
 	}
+
 	defer func() {
 		_ = client.Close()
 	}()
 
 	if !s.cfg.UseTLS && s.cfg.UseStartTLS {
 		ok, _ := client.Extension("STARTTLS")
+
 		if !ok {
 			logger.Warn("smtp send failed: no STARTTLS")
 			return errors.New("smtp server does not support STARTTLS")
@@ -282,14 +314,17 @@ func (s *SMTPMailService) sendSMTP(ctx context.Context, to []string, msg []byte)
 			logger.Warn("smtp send failed", zap.Error(err))
 			return fmt.Errorf("starttls: %w", err)
 		}
+
 	}
 
 	if s.cfg.Username != "" {
 		auth := smtp.PlainAuth("", s.cfg.Username, s.cfg.Password, s.cfg.Host)
+
 		if err = client.Auth(auth); err != nil {
 			logger.Warn("smtp send failed", zap.Error(err))
 			return fmt.Errorf("smtp auth: %w", err)
 		}
+
 	}
 
 	if err = client.Mail(s.cfg.FromEmail); err != nil {
@@ -298,13 +333,16 @@ func (s *SMTPMailService) sendSMTP(ctx context.Context, to []string, msg []byte)
 	}
 
 	for _, recipient := range to {
+
 		if err = client.Rcpt(recipient); err != nil {
 			logger.Warn("smtp send failed", zap.Error(err))
 			return fmt.Errorf("smtp rcpt to %s: %w", recipient, err)
 		}
+
 	}
 
 	w, err := client.Data()
+
 	if err != nil {
 		logger.Warn("smtp send failed", zap.Error(err))
 		return fmt.Errorf("smtp data: %w", err)

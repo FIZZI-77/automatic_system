@@ -78,6 +78,8 @@ SQL-миграции приложений создаются актуальны�
 | `prometheus-plaintext.yaml` | PeerAuthentication | Исключение mTLS для входа на порт 9090. |
 | `application-metrics-peerauth.yaml` | PeerAuthentication | Сбор `/metrics` приложений при включенном Istio. |
 | `grafana.yaml` | PVC, Deployment, Service | Хранение и показ панелей. |
+| `pgadmin-values.yaml` | Helm values | pgAdmin, два управляемых подключения PostgreSQL/Citus и постоянный PVC. |
+| `pgadmin-network-policy.yaml` | NetworkPolicy | Разрешает вход в pgAdmin только из Istio ingressgateway. |
 | `grafana-datasources.yaml` | данные ConfigMap | Источники данных Grafana. |
 | `grafana-dashboard-provider.yaml` | данные ConfigMap | Автоматическая загрузка панелей. |
 | `dashboards/*.json` | панели | Сервисы, БД, инфраструктура и канареечные выпуски. |

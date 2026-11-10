@@ -1,0 +1,165 @@
+- generic [ref=f6e90]:
+  - complementary [ref=f6e91]:
+    - link "Г 〽" [ref=f6e92] [cursor=pointer]:
+      - /url: "#"
+    - navigation [ref=f6e94]:
+      - button "⌂ Ситуационный центр" [ref=f6e95] [cursor=pointer]:
+        - generic [ref=f6e96]: ⌂
+        - generic [ref=f6e97]: Ситуационный центр
+      - button "⌖ Живая карта" [ref=f6e98] [cursor=pointer]:
+        - generic [ref=f6e99]: ⌖
+        - generic [ref=f6e100]: Живая карта
+      - button "◎ Инциденты" [ref=f6e101] [cursor=pointer]:
+        - generic [ref=f6e102]: ◎
+        - generic [ref=f6e103]: Инциденты
+      - button "♜ Бригады" [ref=f6e104] [cursor=pointer]:
+        - generic [ref=f6e105]: ♜
+        - generic [ref=f6e106]: Бригады
+      - button "▥ SLA" [ref=f6e107] [cursor=pointer]:
+        - generic [ref=f6e108]: ▥
+        - generic [ref=f6e109]: SLA
+      - button "⇄ Операции" [ref=f6e110] [cursor=pointer]:
+        - generic [ref=f6e111]: ⇄
+        - generic [ref=f6e112]: Операции
+      - button "▤ Отчёты" [ref=f6e113] [cursor=pointer]:
+        - generic [ref=f6e114]: ▤
+        - generic [ref=f6e115]: Отчёты
+      - button "◊ Уведомления" [ref=f6e116] [cursor=pointer]:
+        - generic [ref=f6e117]: ◊
+        - generic [ref=f6e118]: Уведомления
+      - button "⚙ Управление" [ref=f6e119] [cursor=pointer]:
+        - generic [ref=f6e120]: ⚙
+        - generic [ref=f6e121]: Управление
+      - button "⌁ Зоны бригад" [ref=f6e122] [cursor=pointer]:
+        - generic [ref=f6e123]: ⌁
+        - generic [ref=f6e124]: Зоны бригад
+    - button "↗ Выйти" [ref=f6e126] [cursor=pointer]:
+      - generic [ref=f6e127]: ↗
+      - generic [ref=f6e128]: Выйти
+  - main [ref=f6e129]:
+    - generic [ref=f6e130]:
+      - generic [ref=f6e131]:
+        - generic [ref=f6e132]: Диспетчер · Москва
+        - heading "Ситуационный центр" [level=1] [ref=f6e133]
+      - generic [ref=f6e134]:
+        - button "Включить тёмную тему" [ref=f6e135] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f6e136]: ◐
+        - button "Открыть поиск" [ref=f6e137] [cursor=pointer]:
+          - generic [ref=f6e141]: Поиск
+        - button "Открыть уведомления" [ref=f6e142] [cursor=pointer]:
+          - generic [ref=f6e145]: Уведомления
+        - button "Открыть профиль" [ref=f6e146] [cursor=pointer]:
+          - generic [ref=f6e147]: ДД
+          - generic [ref=f6e148]:
+            - generic [ref=f6e149]: "Демо: Диспетчер"
+            - generic [ref=f6e150]: Диспетчер
+    - generic [ref=f6e151]:
+      - generic [ref=f6e152]: Демонстрационный режим
+      - generic [ref=f6e153]:
+        - button "Житель" [ref=f6e154] [cursor=pointer]
+        - button "Работник" [ref=f6e155] [cursor=pointer]
+        - button "Диспетчер" [ref=f6e156] [cursor=pointer]
+        - button "Администратор" [ref=f6e157] [cursor=pointer]
+    - generic [ref=f6e158]:
+      - article [ref=f6e159]:
+        - generic [ref=f6e160]: Активные заявки
+        - generic [ref=f6e161]: "4"
+        - generic [ref=f6e162]: По данным Ticket Service
+      - article [ref=f6e163]:
+        - generic [ref=f6e164]: Бригады на линии
+        - generic [ref=f6e165]: "1"
+        - generic [ref=f6e166]: 2 машины передают координаты
+      - article [ref=f6e167]:
+        - generic [ref=f6e168]: Среднее время реакции
+        - generic [ref=f6e169]:
+          - text: "18"
+          - emphasis [ref=f6e170]: мин
+        - generic [ref=f6e171]: По событиям Analytics Service
+      - article [ref=f6e172]:
+        - generic [ref=f6e173]: В рамках SLA
+        - generic [ref=f6e174]:
+          - text: "94"
+          - emphasis [ref=f6e175]: "%"
+        - generic [ref=f6e176]: 2 требуют внимания
+    - generic [ref=f6e177]:
+      - generic [ref=f6e178]:
+        - generic [ref=f6e180]:
+          - heading "Инфраструктурная карта Москвы" [level=2] [ref=f6e181]
+          - paragraph [ref=f6e182]: Открытые городские данные, заявки, маршруты и машины
+        - generic [ref=f6e183]:
+          - generic [ref=f6e184]:
+            - generic:
+              - generic:
+                - button "!" [ref=f6e185] [cursor=pointer]
+                - button "!" [ref=f6e187] [cursor=pointer]
+                - button "!" [ref=f6e189] [cursor=pointer]
+                - button "!" [ref=f6e191] [cursor=pointer]
+                - button "▲" [ref=f6e193] [cursor=pointer]
+                - button "▲" [ref=f6e195] [cursor=pointer]
+            - generic:
+              - generic [ref=f6e197]:
+                - button "Zoom in" [ref=f6e198] [cursor=pointer]: +
+                - button "Zoom out" [ref=f6e199] [cursor=pointer]: −
+              - generic [ref=f6e200]:
+                - link "Leaflet" [ref=f6e201] [cursor=pointer]:
+                  - /url: https://leafletjs.com
+                - text: "| © OpenStreetMap contributors"
+          - generic "Фильтры карты" [ref=f6e206]:
+            - generic [ref=f6e207]:
+              - generic [ref=f6e208]: Департамент
+              - combobox "Фильтр по департаменту" [ref=f6e209]:
+                - option "Все департаменты" [selected]
+                - option "Городские коммуникации"
+                - option "Дорожное хозяйство"
+            - generic [ref=f6e210]:
+              - generic [ref=f6e211]: Заявка
+              - combobox "Фильтр по заявке" [ref=f6e212]:
+                - option "Все заявки" [selected]
+                - option "inc-1038 · Не работает освещение"
+                - option "inc-1031 · Повреждён дорожный знак"
+                - option "inc-1026 · Яма на дороге"
+                - option "inc-1017 · Повреждён люк"
+            - generic [ref=f6e213]:
+              - generic [ref=f6e214]: Бригада
+              - combobox "Фильтр по бригаде" [ref=f6e215]:
+                - option "Все бригады" [selected]
+                - option "Бригада №7"
+          - generic [ref=f6e216]: Выберите заявку или бригаду, чтобы показать маршрут
+          - button "▦ Слои" [ref=f6e217] [cursor=pointer]
+          - generic [ref=f6e218]:
+            - generic [ref=f6e219]: Инцидент
+            - generic [ref=f6e221]: Машина
+      - generic [ref=f6e223]:
+        - generic [ref=f6e225]:
+          - heading "Оперативная лента" [level=2] [ref=f6e226]
+          - paragraph [ref=f6e227]: 4 инцидента · 2 машины на карте
+        - generic [ref=f6e228]:
+          - button "Не работает освещение Назначена" [ref=f6e229] [cursor=pointer]:
+            - generic [ref=f6e231]:
+              - generic [ref=f6e232]: Не работает освещение
+              - emphasis [ref=f6e233]: Назначена
+          - button "Повреждён дорожный знак Новая" [ref=f6e234] [cursor=pointer]:
+            - generic [ref=f6e236]:
+              - generic [ref=f6e237]: Повреждён дорожный знак
+              - emphasis [ref=f6e238]: Новая
+          - button "Яма на дороге Новая" [ref=f6e239] [cursor=pointer]:
+            - generic [ref=f6e241]:
+              - generic [ref=f6e242]: Яма на дороге
+              - emphasis [ref=f6e243]: Новая
+          - button "Повреждён люк Новая" [ref=f6e244] [cursor=pointer]:
+            - generic [ref=f6e246]:
+              - generic [ref=f6e247]: Повреждён люк
+              - emphasis [ref=f6e248]: Новая
+        - generic [ref=f6e249]:
+          - generic [ref=f6e250]: Машины по бригадам
+          - button "▲ Бригада №7 Дорожная машина №7-1 В пути Дорожная машина №7-2 В пути ⌖" [ref=f6e251] [cursor=pointer]:
+            - generic [ref=f6e252]: ▲
+            - generic [ref=f6e253]:
+              - generic [ref=f6e254]: Бригада №7
+              - generic [ref=f6e255]:
+                - generic [ref=f6e256]: Дорожная машина №7-1
+                - emphasis [ref=f6e257]: В пути
+              - generic [ref=f6e258]:
+                - generic [ref=f6e259]: Дорожная машина №7-2
+                - emphasis [ref=f6e260]: В пути
+            - generic [ref=f6e261]: ⌖

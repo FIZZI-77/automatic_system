@@ -20,7 +20,10 @@ type TicketRepoStruct struct {
 	readPool  *pgxpool.Pool
 }
 
+// NewTicketRepository создаёт хранилище заявок с раздельными пулами чтения и записи.
+// При nil readPool использует writePool для обоих видов запросов.
 func NewTicketRepository(writePool *pgxpool.Pool, readPool *pgxpool.Pool) *TicketRepoStruct {
+
 	if readPool == nil {
 		readPool = writePool
 	}
@@ -47,19 +50,27 @@ type ticketCreatedEventPayload struct {
 	Longitude    float64   `json:"longitude"`
 	AssetID      *string   `json:"asset_id,omitempty"`
 	CreatedAt    time.Time `json:"created_at"`
+	TicketType   string    `json:"ticket_type"`
+	IncidentID   *string   `json:"incident_id,omitempty"`
 }
 
+// CreateTicket создаёт заявку NEW в активной категории вместе с историей и outbox
+// в одной транзакции. Отсутствующая категория даёт ErrNotFound, неактивная — ErrCategoryInactive.
 func (t *TicketRepoStruct) CreateTicket(ctx context.Context, in *models.CreateTicketInput) (*models.Ticket, error) {
 	tx, err := beginCommandTx(ctx, t.writePool)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: CreateTicket(): begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	ticket, err := t.createTicket(ctx, tx, in)
+
 	if err != nil {
 		return nil, err
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repository: CreateTicket(): commit: %w", err)
 	}
@@ -67,8 +78,11 @@ func (t *TicketRepoStruct) CreateTicket(ctx context.Context, in *models.CreateTi
 	return ticket, nil
 }
 
+// createTicket проверяет активность категории и сохраняет заявку NEW, начальную
+// историю и событие создания через q. Управление транзакцией остаётся у вызывающего кода.
 func (t *TicketRepoStruct) createTicket(ctx context.Context, q Querier, in *models.CreateTicketInput) (*models.Ticket, error) {
 	categoryActive, err := t.isCategoryActive(ctx, q, in.CategoryID)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: CreateTicket(): check category: %w", err)
 	}
@@ -81,6 +95,7 @@ func (t *TicketRepoStruct) createTicket(ctx context.Context, q Querier, in *mode
 	now := time.Now().UTC()
 
 	ticket, err := t.insertTicket(ctx, q, ticketID, now, in)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: CreateTicket(): insert ticket: %w", err)
 	}
@@ -107,34 +122,20 @@ func (t *TicketRepoStruct) createTicket(ctx context.Context, q Querier, in *mode
 	return ticket, nil
 }
 
+// GetTicketByID читает актуальную неархивную заявку со связями из primary.
+// Точечное чтение используется для авторизации и подтверждения межсервисных переходов.
+// Если записи нет или она архивная, возвращает ошибку, оборачивающую ErrNotFound.
 func (t *TicketRepoStruct) GetTicketByID(ctx context.Context, ticketID uuid.UUID) (*models.Ticket, error) {
 	const query = `
-		SELECT
-			id,
-			department_id,
-			category_id,
-			user_id,
-			brigade_id,
-			title,
-			description,
-			status,
-			priority,
-			address,
-			latitude,
-			longitude,
-			created_at,
-			updated_at,
-			assigned_at,
-			completed_at,
-			canceled_at,
-			asset_id
+		SELECT ` + ticketWithRelationColumns + `
 		FROM tickets
 		WHERE id = $1 AND status <> 'ARCHIVED'
 	`
 
-	row := t.readPool.QueryRow(ctx, query, ticketID)
+	row := t.writePool.QueryRow(ctx, query, ticketID)
 
-	ticket, err := scanTicket(row)
+	ticket, err := scanTicketWithRelation(row)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: GetTicketByID(): %w", err)
 	}
@@ -142,11 +143,16 @@ func (t *TicketRepoStruct) GetTicketByID(ctx context.Context, ticketID uuid.UUID
 	return ticket, nil
 }
 
+// ListTickets возвращает страницу неархивных заявок по фильтрам и отдельный общий
+// счётчик. Неизвестные поле и направление заменяются на created_at и DESC соответственно;
+// Limit и Offset не нормализуются.
 func (t *TicketRepoStruct) ListTickets(ctx context.Context, in *models.ListTicketsInput) ([]*models.Ticket, int64, error) {
 	conn, err := t.readPool.Acquire(ctx)
+
 	if err != nil {
 		return nil, 0, fmt.Errorf("repository: ListTickets(): acquire connection: %w", err)
 	}
+
 	defer conn.Release()
 
 	whereParts := []string{"status <> 'ARCHIVED'"}
@@ -190,6 +196,7 @@ func (t *TicketRepoStruct) ListTickets(ctx context.Context, in *models.ListTicke
 	}
 
 	whereSQL := ""
+
 	if len(whereParts) > 0 {
 		whereSQL = "WHERE " + strings.Join(whereParts, " AND ")
 	}
@@ -201,6 +208,7 @@ func (t *TicketRepoStruct) ListTickets(ctx context.Context, in *models.ListTicke
 	`, whereSQL)
 
 	var total int64
+
 	if err := conn.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("repository: ListTickets(): count: %w", err)
 	}
@@ -213,25 +221,7 @@ func (t *TicketRepoStruct) ListTickets(ctx context.Context, in *models.ListTicke
 	offsetArg := len(args)
 
 	listQuery := fmt.Sprintf(`
-		SELECT
-			id,
-			department_id,
-			category_id,
-			user_id,
-			brigade_id,
-			title,
-			description,
-			status,
-			priority,
-			address,
-			latitude,
-			longitude,
-			created_at,
-			updated_at,
-			assigned_at,
-			completed_at,
-			canceled_at,
-			asset_id
+		SELECT `+ticketWithRelationColumns+`
 		FROM tickets
 		%s
 		ORDER BY %s %s
@@ -239,15 +229,18 @@ func (t *TicketRepoStruct) ListTickets(ctx context.Context, in *models.ListTicke
 	`, whereSQL, sortBy, sortOrder, limitArg, offsetArg)
 
 	rows, err := conn.Query(ctx, listQuery, args...)
+
 	if err != nil {
 		return nil, 0, fmt.Errorf("repository: ListTickets(): query: %w", err)
 	}
+
 	defer rows.Close()
 
 	tickets := make([]*models.Ticket, 0)
 
 	for rows.Next() {
-		ticket, err := scanTicket(rows)
+		ticket, err := scanTicketWithRelation(rows)
+
 		if err != nil {
 			return nil, 0, fmt.Errorf("repository: ListTickets(): scan: %w", err)
 		}
@@ -262,17 +255,23 @@ func (t *TicketRepoStruct) ListTickets(ctx context.Context, in *models.ListTicke
 	return tickets, total, nil
 }
 
+// UpdateTicket транзакционно обновляет переданные поля нетерминальной заявки
+// с проверкой прав автора и записывает снимок результата в outbox.
 func (t *TicketRepoStruct) UpdateTicket(ctx context.Context, in *models.UpdateTicketInput) (*models.Ticket, error) {
 	tx, err := beginCommandTx(ctx, t.writePool)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: UpdateTicket(): begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	ticket, err := t.updateTicket(ctx, tx, in)
+
 	if err != nil {
 		return nil, err
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repository: UpdateTicket(): commit: %w", err)
 	}
@@ -280,6 +279,9 @@ func (t *TicketRepoStruct) UpdateTicket(ctx context.Context, in *models.UpdateTi
 	return ticket, nil
 }
 
+// updateTicket блокирует заявку и обновляет ненулевые поля через q вместе с outbox.
+// Допускает автора, привилегированную роль или работника назначенной бригады в IN_PROGRESS;
+// требует ненулевой UpdatedBy, отклоняет DONE и CANCELED, меняет координаты только парой.
 func (t *TicketRepoStruct) updateTicket(ctx context.Context, q Querier, in *models.UpdateTicketInput) (*models.Ticket, error) {
 	setParts := make([]string, 0)
 	args := make([]any, 0)
@@ -299,6 +301,7 @@ func (t *TicketRepoStruct) updateTicket(ctx context.Context, q Querier, in *mode
 
 	if in.CategoryID != nil {
 		categoryActive, err := t.isCategoryActive(ctx, q, *in.CategoryID)
+
 		if err != nil {
 			return nil, fmt.Errorf("repository: UpdateTicket(): check category: %w", err)
 		}
@@ -328,18 +331,22 @@ func (t *TicketRepoStruct) updateTicket(ctx context.Context, q Querier, in *mode
 	}
 
 	currentTicket, err := t.getTicketByIDForUpdate(ctx, q, in.TicketID)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: UpdateTicket(): get ticket: %w", err)
 	}
 
 	workerRole := false
 	for _, role := range in.ActorRoles {
+
 		if role == "worker" {
 			workerRole = true
 			break
 		}
+
 	}
 	workerOwnsTicket := workerRole && in.ActorBrigadeID != nil && currentTicket.BrigadeID != nil && *currentTicket.BrigadeID == *in.ActorBrigadeID && currentTicket.Status == models.TicketStatusInProgress
+
 	if !hasPrivilegedRole(in.ActorRoles) && !workerOwnsTicket && currentTicket.UserID != *in.UpdatedBy {
 		return nil, fmt.Errorf("repository: UpdateTicket(): %w", models.ErrPermissionDenied)
 	}
@@ -350,38 +357,26 @@ func (t *TicketRepoStruct) updateTicket(ctx context.Context, q Querier, in *mode
 
 	addSet("updated_at", time.Now().UTC())
 
+	args = append(args, currentTicket.DepartmentID)
+	departmentIDArg := len(args)
+
 	args = append(args, in.TicketID)
 	ticketIDArg := len(args)
 
 	query := fmt.Sprintf(`
 		UPDATE tickets
 		SET %s
-		WHERE id = $%d
+		WHERE department_id = $%d
+		  AND id = $%d
 		  AND status NOT IN ('DONE', 'CANCELED')
 		RETURNING
-			id,
-			department_id,
-			category_id,
-			user_id,
-			brigade_id,
-			title,
-			description,
-			status,
-			priority,
-			address,
-			latitude,
-			longitude,
-			created_at,
-			updated_at,
-			assigned_at,
-			completed_at,
-			canceled_at,
-			asset_id
-	`, strings.Join(setParts, ", "), ticketIDArg)
+			`+ticketWithRelationColumns+`
+	`, strings.Join(setParts, ", "), departmentIDArg, ticketIDArg)
 
 	row := q.QueryRow(ctx, query, args...)
 
-	ticket, err := scanTicket(row)
+	ticket, err := scanTicketWithRelation(row)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: UpdateTicket(): update ticket: %w", err)
 	}
@@ -393,17 +388,27 @@ func (t *TicketRepoStruct) updateTicket(ctx context.Context, q Querier, in *mode
 	return ticket, nil
 }
 
+// ChangeTicketStatus транзакционно применяет разрешённый переход статуса,
+// сохраняет историю и outbox, согласуя завершение заявки с её инцидентом.
 func (t *TicketRepoStruct) ChangeTicketStatus(ctx context.Context, in *models.ChangeTicketStatusInput) (*models.Ticket, error) {
 	tx, err := beginCommandTx(ctx, t.writePool)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: ChangeTicketStatus(): begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
+	if err = lockRequestRelation(ctx, tx, in.TicketID); err != nil {
+		return nil, fmt.Errorf("repository: ChangeTicketStatus(): lock ticket: %w", err)
+	}
+
 	ticket, err := t.changeTicketStatus(ctx, tx, in)
+
 	if err != nil {
 		return nil, err
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repository: ChangeTicketStatus(): commit: %w", err)
 	}
@@ -411,8 +416,12 @@ func (t *TicketRepoStruct) ChangeTicketStatus(ctx context.Context, in *models.Ch
 	return ticket, nil
 }
 
+// changeTicketStatus меняет статус заблокированной заявки через q, добавляя историю
+// и событие. Терминальный переход инцидента требует выполнения его обращений;
+// DONE у обращения запускает пересчёт инцидента. Для DONE устанавливает completed_at.
 func (t *TicketRepoStruct) changeTicketStatus(ctx context.Context, q Querier, in *models.ChangeTicketStatusInput) (*models.Ticket, error) {
 	oldTicket, err := t.getTicketByIDForUpdate(ctx, q, in.TicketID)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: ChangeTicketStatus(): get ticket: %w", err)
 	}
@@ -421,36 +430,48 @@ func (t *TicketRepoStruct) changeTicketStatus(ctx context.Context, q Querier, in
 		return nil, fmt.Errorf("repository: ChangeTicketStatus(): %w", err)
 	}
 
+	if in.NewStatus == models.TicketStatusDone || in.NewStatus == models.TicketStatusCanceled {
+
+		if oldTicket.Type == models.TicketTypeIncident {
+
+			if err = lockIncidentAggregations(ctx, q, oldTicket.ID); err != nil {
+				return nil, fmt.Errorf("repository: ChangeTicketStatus(): lock incident: %w", err)
+			}
+
+			if err = t.ensureIncidentPartsComplete(ctx, q, oldTicket.ID); err != nil {
+				return nil, fmt.Errorf("repository: ChangeTicketStatus(): %w", err)
+			}
+
+		}
+
+		if in.NewStatus == models.TicketStatusDone && oldTicket.Type == models.TicketTypeRequest && oldTicket.IncidentID != nil {
+
+			if err = lockIncidentAggregations(ctx, q, *oldTicket.IncidentID); err != nil {
+				return nil, fmt.Errorf("repository: ChangeTicketStatus(): lock incident: %w", err)
+			}
+
+		}
+
+	}
+
 	const query = `
 		UPDATE tickets
-		SET status = $1,
-		    updated_at = now()
-		WHERE id = $2
+		SET status = $1::varchar,
+		    completed_at = CASE WHEN $1::varchar = 'DONE' THEN $4 ELSE completed_at END,
+		    updated_at = $4
+		WHERE department_id = $2
+		  AND id = $3
 		  AND status NOT IN ('DONE', 'CANCELED')
 		RETURNING
-			id,
-			department_id,
-			category_id,
-			user_id,
-			brigade_id,
-			title,
-			description,
-			status,
-			priority,
-			address,
-			latitude,
-			longitude,
-			created_at,
-			updated_at,
-			assigned_at,
-			completed_at,
-			canceled_at,
-			asset_id
+			` + ticketWithRelationColumns + `
 	`
 
-	row := q.QueryRow(ctx, query, string(in.NewStatus), in.TicketID)
+	changedAt := time.Now().UTC()
 
-	ticket, err := scanTicket(row)
+	row := q.QueryRow(ctx, query, string(in.NewStatus), oldTicket.DepartmentID, in.TicketID, changedAt)
+
+	ticket, err := scanTicketWithRelation(row)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: ChangeTicketStatus(): update ticket: %w", err)
 	}
@@ -463,20 +484,34 @@ func (t *TicketRepoStruct) changeTicketStatus(ctx context.Context, q Querier, in
 		return nil, fmt.Errorf("repository: ChangeTicketStatus(): insert outbox event: %w", err)
 	}
 
+	if in.NewStatus == models.TicketStatusDone && ticket.Type == models.TicketTypeRequest && ticket.IncidentID != nil {
+
+		if err = t.reconcileIncidentCompletion(ctx, q, *ticket.IncidentID, in.ChangedBy); err != nil {
+			return nil, fmt.Errorf("repository: ChangeTicketStatus(): reconcile incident: %w", err)
+		}
+
+	}
+
 	return ticket, nil
 }
 
+// AssignBrigade транзакционно назначает свободную бригаду, переводит заявку
+// в ASSIGNED и записывает историю и событие назначения.
 func (t *TicketRepoStruct) AssignBrigade(ctx context.Context, in *models.AssignBrigadeInput) (*models.Ticket, error) {
 	tx, err := beginCommandTx(ctx, t.writePool)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: AssignBrigade(): begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	ticket, err := t.assignBrigade(ctx, tx, in)
+
 	if err != nil {
 		return nil, err
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repository: AssignBrigade(): commit: %w", err)
 	}
@@ -484,8 +519,12 @@ func (t *TicketRepoStruct) AssignBrigade(ctx context.Context, in *models.AssignB
 	return ticket, nil
 }
 
+// assignBrigade блокирует заявку и назначения бригады через q, проверяет переход
+// в ASSIGNED и отсутствие у бригады другой заявки ASSIGNED или IN_PROGRESS.
+// Сохраняет назначение, историю и outbox; занятая бригада даёт ErrBrigadeBusy.
 func (t *TicketRepoStruct) assignBrigade(ctx context.Context, q Querier, in *models.AssignBrigadeInput) (*models.Ticket, error) {
 	oldTicket, err := t.getTicketByIDForUpdate(ctx, q, in.TicketID)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: AssignBrigade(): get ticket: %w", err)
 	}
@@ -494,8 +533,8 @@ func (t *TicketRepoStruct) assignBrigade(ctx context.Context, q Querier, in *mod
 		return nil, fmt.Errorf("repository: AssignBrigade(): %w", err)
 	}
 
-	// Serialise assignments for the same brigade. Locking only the ticket row is
-	// insufficient because concurrent requests can assign two different tickets.
+	// Блокировка бригады сериализует назначения разных заявок одной бригаде;
+	// одной блокировки строки заявки для этого недостаточно.
 	if _, err = q.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1::text))`, in.BrigadeID); err != nil {
 		return nil, fmt.Errorf("repository: AssignBrigade(): lock brigade: %w", err)
 	}
@@ -510,9 +549,11 @@ func (t *TicketRepoStruct) assignBrigade(ctx context.Context, q Querier, in *mod
 			  AND status IN ('ASSIGNED', 'IN_PROGRESS')
 		)
 	`
+
 	if err = q.QueryRow(ctx, brigadeBusyQuery, in.BrigadeID, in.TicketID).Scan(&brigadeBusy); err != nil {
 		return nil, fmt.Errorf("repository: AssignBrigade(): check active ticket: %w", err)
 	}
+
 	if brigadeBusy {
 		return nil, fmt.Errorf("repository: AssignBrigade(): %w", models.ErrBrigadeBusy)
 	}
@@ -523,32 +564,24 @@ func (t *TicketRepoStruct) assignBrigade(ctx context.Context, q Querier, in *mod
 		    status = $2,
 		    assigned_at = now(),
 		    updated_at = now()
-		WHERE id = $3
+		WHERE department_id = $3
+		  AND id = $4
 		  AND status NOT IN ('DONE', 'CANCELED')
 		RETURNING
-			id,
-			department_id,
-			category_id,
-			user_id,
-			brigade_id,
-			title,
-			description,
-			status,
-			priority,
-			address,
-			latitude,
-			longitude,
-			created_at,
-			updated_at,
-			assigned_at,
-			completed_at,
-			canceled_at,
-			asset_id
+			` + ticketWithRelationColumns + `
 	`
 
-	row := q.QueryRow(ctx, query, in.BrigadeID, string(models.TicketStatusAssigned), in.TicketID)
+	row := q.QueryRow(
+		ctx,
+		query,
+		in.BrigadeID,
+		string(models.TicketStatusAssigned),
+		oldTicket.DepartmentID,
+		in.TicketID,
+	)
 
-	ticket, err := scanTicket(row)
+	ticket, err := scanTicketWithRelation(row)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: AssignBrigade(): update ticket: %w", err)
 	}
@@ -564,17 +597,27 @@ func (t *TicketRepoStruct) assignBrigade(ctx context.Context, q Querier, in *mod
 	return ticket, nil
 }
 
+// CancelTicket транзакционно отменяет заявку с фиксацией времени, причины,
+// истории и outbox. Отмена инцидента требует завершения всех его неархивных обращений.
 func (t *TicketRepoStruct) CancelTicket(ctx context.Context, in *models.CancelTicketInput) (*models.Ticket, error) {
 	tx, err := beginCommandTx(ctx, t.writePool)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: CancelTicket(): begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
+	if err = lockRequestRelation(ctx, tx, in.TicketID); err != nil {
+		return nil, fmt.Errorf("repository: CancelTicket(): lock ticket: %w", err)
+	}
+
 	ticket, err := t.cancelTicket(ctx, tx, in)
+
 	if err != nil {
 		return nil, err
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repository: CancelTicket(): commit: %w", err)
 	}
@@ -582,8 +625,11 @@ func (t *TicketRepoStruct) CancelTicket(ctx context.Context, in *models.CancelTi
 	return ticket, nil
 }
 
+// cancelTicket блокирует заявку, проверяет переход в CANCELED и завершённость частей
+// инцидента, затем сохраняет отмену с историей и событием через q.
 func (t *TicketRepoStruct) cancelTicket(ctx context.Context, q Querier, in *models.CancelTicketInput) (*models.Ticket, error) {
 	oldTicket, err := t.getTicketByIDForUpdate(ctx, q, in.TicketID)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: CancelTicket(): get ticket: %w", err)
 	}
@@ -592,37 +638,34 @@ func (t *TicketRepoStruct) cancelTicket(ctx context.Context, q Querier, in *mode
 		return nil, fmt.Errorf("repository: CancelTicket(): %w", err)
 	}
 
+	if oldTicket.Type == models.TicketTypeIncident {
+
+		if err = lockIncidentAggregations(ctx, q, oldTicket.ID); err != nil {
+			return nil, fmt.Errorf("repository: CancelTicket(): lock incident: %w", err)
+		}
+
+		if err = t.ensureIncidentPartsComplete(ctx, q, oldTicket.ID); err != nil {
+			return nil, fmt.Errorf("repository: CancelTicket(): %w", err)
+		}
+
+	}
+
 	const query = `
 		UPDATE tickets
 		SET status = $1,
 		    canceled_at = now(),
 		    updated_at = now()
-		WHERE id = $2
+		WHERE department_id = $2
+		  AND id = $3
 		  AND status NOT IN ('DONE', 'CANCELED')
 		RETURNING
-			id,
-			department_id,
-			category_id,
-			user_id,
-			brigade_id,
-			title,
-			description,
-			status,
-			priority,
-			address,
-			latitude,
-			longitude,
-			created_at,
-			updated_at,
-			assigned_at,
-			completed_at,
-			canceled_at
-			,asset_id
+			` + ticketWithRelationColumns + `
 	`
 
-	row := q.QueryRow(ctx, query, string(models.TicketStatusCanceled), in.TicketID)
+	row := q.QueryRow(ctx, query, string(models.TicketStatusCanceled), oldTicket.DepartmentID, in.TicketID)
 
-	ticket, err := scanTicket(row)
+	ticket, err := scanTicketWithRelation(row)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: CancelTicket(): update ticket: %w", err)
 	}
@@ -638,17 +681,27 @@ func (t *TicketRepoStruct) cancelTicket(ctx context.Context, q Querier, in *mode
 	return ticket, nil
 }
 
+// CompleteTicket транзакционно переводит заявку в DONE, сохраняя историю и outbox.
+// Проверяет завершённость частей инцидента и пересчитывает его при завершении обращения.
 func (t *TicketRepoStruct) CompleteTicket(ctx context.Context, in *models.CompleteTicketInput) (*models.Ticket, error) {
 	tx, err := beginCommandTx(ctx, t.writePool)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: CompleteTicket(): begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
+	if err = lockRequestRelation(ctx, tx, in.TicketID); err != nil {
+		return nil, fmt.Errorf("repository: CompleteTicket(): lock ticket: %w", err)
+	}
+
 	ticket, err := t.completeTicket(ctx, tx, in)
+
 	if err != nil {
 		return nil, err
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repository: CompleteTicket(): commit: %w", err)
 	}
@@ -656,8 +709,12 @@ func (t *TicketRepoStruct) CompleteTicket(ctx context.Context, in *models.Comple
 	return ticket, nil
 }
 
+// completeTicket блокирует заявку, проверяет допустимость DONE и завершённость
+// частей инцидента, сохраняет время завершения, историю и outbox через q.
+// Завершение связанного обращения также может завершить его инцидент.
 func (t *TicketRepoStruct) completeTicket(ctx context.Context, q Querier, in *models.CompleteTicketInput) (*models.Ticket, error) {
 	oldTicket, err := t.getTicketByIDForUpdate(ctx, q, in.TicketID)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: CompleteTicket(): get ticket: %w", err)
 	}
@@ -666,37 +723,42 @@ func (t *TicketRepoStruct) completeTicket(ctx context.Context, q Querier, in *mo
 		return nil, fmt.Errorf("repository: CompleteTicket(): %w", err)
 	}
 
+	if oldTicket.Type == models.TicketTypeIncident {
+
+		if err = lockIncidentAggregations(ctx, q, oldTicket.ID); err != nil {
+			return nil, fmt.Errorf("repository: CompleteTicket(): lock incident: %w", err)
+		}
+
+		if err = t.ensureIncidentPartsComplete(ctx, q, oldTicket.ID); err != nil {
+			return nil, fmt.Errorf("repository: CompleteTicket(): %w", err)
+		}
+
+	}
+
+	if oldTicket.Type == models.TicketTypeRequest && oldTicket.IncidentID != nil {
+
+		if err = lockIncidentAggregations(ctx, q, *oldTicket.IncidentID); err != nil {
+			return nil, fmt.Errorf("repository: CompleteTicket(): lock incident: %w", err)
+		}
+
+	}
+
 	const query = `
 		UPDATE tickets
 		SET status = $1,
 		    completed_at = now(),
 		    updated_at = now()
-		WHERE id = $2
+		WHERE department_id = $2
+		  AND id = $3
 		  AND status NOT IN ('DONE', 'CANCELED')
 		RETURNING
-			id,
-			department_id,
-			category_id,
-			user_id,
-			brigade_id,
-			title,
-			description,
-			status,
-			priority,
-			address,
-			latitude,
-			longitude,
-			created_at,
-			updated_at,
-			assigned_at,
-			completed_at,
-			canceled_at
-			,asset_id
+			` + ticketWithRelationColumns + `
 	`
 
-	row := q.QueryRow(ctx, query, string(models.TicketStatusDone), in.TicketID)
+	row := q.QueryRow(ctx, query, string(models.TicketStatusDone), oldTicket.DepartmentID, in.TicketID)
 
-	ticket, err := scanTicket(row)
+	ticket, err := scanTicketWithRelation(row)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: CompleteTicket(): update ticket: %w", err)
 	}
@@ -709,9 +771,19 @@ func (t *TicketRepoStruct) completeTicket(ctx context.Context, q Querier, in *mo
 		return nil, fmt.Errorf("repository: CompleteTicket(): insert outbox event: %w", err)
 	}
 
+	if ticket.Type == models.TicketTypeRequest && ticket.IncidentID != nil {
+
+		if err = t.reconcileIncidentCompletion(ctx, q, *ticket.IncidentID, in.CompletedBy); err != nil {
+			return nil, fmt.Errorf("repository: CompleteTicket(): reconcile incident: %w", err)
+		}
+
+	}
+
 	return ticket, nil
 }
 
+// GetTicketStatusHistory возвращает страницу истории заявки от старых изменений
+// к новым и отдельный общий счётчик. Существование заявки не проверяет.
 func (t *TicketRepoStruct) GetTicketStatusHistory(ctx context.Context, in *models.GetTicketStatusHistoryInput) ([]*models.TicketStatusHistory, int64, error) {
 	const countQuery = `
 		SELECT COUNT(*)
@@ -720,6 +792,7 @@ func (t *TicketRepoStruct) GetTicketStatusHistory(ctx context.Context, in *model
 	`
 
 	var total int64
+
 	if err := t.readPool.QueryRow(ctx, countQuery, in.TicketID).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("repository: GetTicketStatusHistory(): count: %w", err)
 	}
@@ -740,15 +813,18 @@ func (t *TicketRepoStruct) GetTicketStatusHistory(ctx context.Context, in *model
 	`
 
 	rows, err := t.readPool.Query(ctx, listQuery, in.TicketID, in.Limit, in.Offset)
+
 	if err != nil {
 		return nil, 0, fmt.Errorf("repository: GetTicketStatusHistory(): query: %w", err)
 	}
+
 	defer rows.Close()
 
 	history := make([]*models.TicketStatusHistory, 0)
 
 	for rows.Next() {
 		item, err := scanTicketStatusHistory(rows)
+
 		if err != nil {
 			return nil, 0, fmt.Errorf("repository: GetTicketStatusHistory(): scan: %w", err)
 		}
@@ -763,6 +839,8 @@ func (t *TicketRepoStruct) GetTicketStatusHistory(ctx context.Context, in *model
 	return history, total, nil
 }
 
+// isCategoryActive читает признак активности категории через exec.
+// Отсутствующая категория возвращает ErrNotFound, существующая неактивная — false, nil.
 func (t *TicketRepoStruct) isCategoryActive(ctx context.Context, exec Querier, categoryID uuid.UUID) (bool, error) {
 	const query = `
 		SELECT is_active
@@ -773,6 +851,7 @@ func (t *TicketRepoStruct) isCategoryActive(ctx context.Context, exec Querier, c
 	var isActive bool
 
 	err := exec.QueryRow(ctx, query, categoryID).Scan(&isActive)
+
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, ErrNotFound
 	}
@@ -784,6 +863,8 @@ func (t *TicketRepoStruct) isCategoryActive(ctx context.Context, exec Querier, c
 	return isActive, nil
 }
 
+// insertTicket вставляет заявку NEW без бригады с заданными ID и временем через exec.
+// Возвращаемая модель имеет тип INCIDENT; историю и outbox функция не записывает.
 func (t *TicketRepoStruct) insertTicket(
 	ctx context.Context,
 	exec Querier,
@@ -862,6 +943,8 @@ func (t *TicketRepoStruct) insertTicket(
 	return scanTicket(row)
 }
 
+// insertTicketStatusHistory добавляет переход статуса с новым UUID через exec.
+// nil oldStatus, changedBy и comment сохраняются как SQL NULL.
 func (t *TicketRepoStruct) insertTicketStatusHistory(
 	ctx context.Context,
 	exec Querier,
@@ -887,16 +970,19 @@ func (t *TicketRepoStruct) insertTicketStatusHistory(
 	`
 
 	var oldStatusValue any
+
 	if oldStatus != nil {
 		oldStatusValue = string(*oldStatus)
 	}
 
 	var changedByValue any
+
 	if changedBy != nil {
 		changedByValue = *changedBy
 	}
 
 	var commentValue any
+
 	if comment != nil {
 		commentValue = *comment
 	}
@@ -916,6 +1002,8 @@ func (t *TicketRepoStruct) insertTicketStatusHistory(
 	return err
 }
 
+// insertTicketCreatedOutboxEvent сохраняет событие ticket.created в статусе PENDING
+// через exec; UUID события совпадает в строке outbox и её JSON-полезной нагрузке.
 func (t *TicketRepoStruct) insertTicketCreatedOutboxEvent(ctx context.Context, exec Querier, ticket *models.Ticket) error {
 	eventID := uuid.New()
 
@@ -933,9 +1021,12 @@ func (t *TicketRepoStruct) insertTicketCreatedOutboxEvent(ctx context.Context, e
 		Longitude:    ticket.Longitude,
 		AssetID:      optionalUUIDString(ticket.AssetID),
 		CreatedAt:    ticket.CreatedAt,
+		TicketType:   string(ticket.Type),
+		IncidentID:   optionalUUIDString(ticket.IncidentID),
 	}
 
 	payloadBytes, err := json.Marshal(payload)
+
 	if err != nil {
 		return err
 	}
@@ -968,6 +1059,9 @@ func (t *TicketRepoStruct) insertTicketCreatedOutboxEvent(ctx context.Context, e
 	return err
 }
 
+// getTicketByIDForUpdate определяет ведомство заявки и блокирует её строку через exec,
+// включая архивные записи. Ошибка первого поиска сохраняет pgx.ErrNoRows;
+// отсутствие на втором чтении преобразуется в ErrNotFound.
 func (t *TicketRepoStruct) getTicketByIDForUpdate(ctx context.Context, exec Querier, ticketID uuid.UUID) (*models.Ticket, error) {
 	const departmentQuery = `
 		SELECT department_id
@@ -976,30 +1070,14 @@ func (t *TicketRepoStruct) getTicketByIDForUpdate(ctx context.Context, exec Quer
 	`
 
 	var departmentID uuid.UUID
+
 	if err := exec.QueryRow(ctx, departmentQuery, ticketID).Scan(&departmentID); err != nil {
 		return nil, err
 	}
 
 	const query = `
 		SELECT
-			id,
-			department_id,
-			category_id,
-			user_id,
-			brigade_id,
-			title,
-			description,
-			status,
-			priority,
-			address,
-			latitude,
-			longitude,
-			created_at,
-			updated_at,
-			assigned_at,
-			completed_at,
-			canceled_at
-			,asset_id
+			` + ticketWithRelationColumns + `
 		FROM tickets
 		WHERE department_id = $1 AND id = $2
 		FOR UPDATE
@@ -1007,7 +1085,8 @@ func (t *TicketRepoStruct) getTicketByIDForUpdate(ctx context.Context, exec Quer
 
 	row := exec.QueryRow(ctx, query, departmentID, ticketID)
 
-	ticket, err := scanTicket(row)
+	ticket, err := scanTicketWithRelation(row)
+
 	if err != nil {
 		return nil, err
 	}
@@ -1015,6 +1094,8 @@ func (t *TicketRepoStruct) getTicketByIDForUpdate(ctx context.Context, exec Quer
 	return ticket, nil
 }
 
+// insertOutboxEvent сериализует payload в JSON и сохраняет событие с новым UUID,
+// статусом PENDING и нулём попыток через exec. Возвращает ошибку JSON или базы.
 func (t *TicketRepoStruct) insertOutboxEvent(
 	ctx context.Context,
 	exec Querier,
@@ -1026,6 +1107,7 @@ func (t *TicketRepoStruct) insertOutboxEvent(
 	eventID := uuid.New()
 
 	payloadBytes, err := json.Marshal(payload)
+
 	if err != nil {
 		return err
 	}
@@ -1058,19 +1140,27 @@ func (t *TicketRepoStruct) insertOutboxEvent(
 }
 
 type scanner interface {
+	// Scan переносит значения текущей строки в dest и возвращает ошибку чтения или преобразования.
 	Scan(dest ...any) error
 }
 
+// optionalUUIDString возвращает строковое представление UUID либо nil для nil v.
 func optionalUUIDString(v *uuid.UUID) *string {
+
 	if v == nil {
 		return nil
 	}
+
 	s := v.String()
 	return &s
 }
 
+// scanTicket читает основные поля заявки, восстанавливает необязательные значения
+// и задаёт тип INCIDENT. pgx.ErrNoRows преобразует в ErrNotFound.
 func scanTicket(s scanner) (*models.Ticket, error) {
-	var ticket models.Ticket
+	ticket := models.Ticket{
+		Type: models.TicketTypeIncident,
+	}
 
 	var brigadeID sql.NullString
 	var assignedAt sql.NullTime
@@ -1098,7 +1188,9 @@ func scanTicket(s scanner) (*models.Ticket, error) {
 		&canceledAt,
 		&assetID,
 	)
+
 	if err != nil {
+
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
 		}
@@ -1108,17 +1200,21 @@ func scanTicket(s scanner) (*models.Ticket, error) {
 
 	if brigadeID.Valid {
 		parsedBrigadeID, err := uuid.Parse(brigadeID.String)
+
 		if err != nil {
 			return nil, fmt.Errorf("invalid brigade_id uuid: %w", err)
 		}
 
 		ticket.BrigadeID = &parsedBrigadeID
 	}
+
 	if assetID.Valid {
 		parsed, e := uuid.Parse(assetID.String)
+
 		if e != nil {
 			return nil, e
 		}
+
 		ticket.AssetID = &parsed
 	}
 
@@ -1137,6 +1233,8 @@ func scanTicket(s scanner) (*models.Ticket, error) {
 	return &ticket, nil
 }
 
+// scanTicketStatusHistory читает запись истории с необязательными прежним статусом,
+// автором и комментарием. Возвращает ErrNotFound при pgx.ErrNoRows и ошибку неверного UUID автора.
 func scanTicketStatusHistory(s scanner) (*models.TicketStatusHistory, error) {
 	var item models.TicketStatusHistory
 
@@ -1153,7 +1251,9 @@ func scanTicketStatusHistory(s scanner) (*models.TicketStatusHistory, error) {
 		&comment,
 		&item.CreatedAt,
 	)
+
 	if err != nil {
+
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
 		}
@@ -1168,6 +1268,7 @@ func scanTicketStatusHistory(s scanner) (*models.TicketStatusHistory, error) {
 
 	if changedBy.Valid {
 		parsedChangedBy, err := uuid.Parse(changedBy.String)
+
 		if err != nil {
 			return nil, fmt.Errorf("invalid changed_by uuid: %w", err)
 		}
@@ -1182,7 +1283,11 @@ func scanTicketStatusHistory(s scanner) (*models.TicketStatusHistory, error) {
 	return &item, nil
 }
 
+// validateStatusTransition разрешает NEW → ASSIGNED → IN_PROGRESS → DONE и отмену
+// из любого из этих нетерминальных статусов. Повтор статуса и прочие переходы дают
+// ErrInvalidStatusTransition; выход из DONE или CANCELED — ErrTicketTerminalState.
 func validateStatusTransition(from models.TicketStatus, to models.TicketStatus) error {
+
 	if from == to {
 		return fmt.Errorf("%w: new status must be different from current status", models.ErrInvalidStatusTransition)
 	}
@@ -1211,19 +1316,23 @@ func validateStatusTransition(from models.TicketStatus, to models.TicketStatus) 
 	}
 
 	nextStatuses, ok := allowedTransitions[from]
+
 	if !ok {
 		return fmt.Errorf("%w: invalid current status", models.ErrInvalidStatusTransition)
 	}
 
 	for _, allowedStatus := range nextStatuses {
+
 		if allowedStatus == to {
 			return nil
 		}
+
 	}
 
 	return fmt.Errorf("%w: %s -> %s", models.ErrInvalidStatusTransition, from, to)
 }
 
+// hasPrivilegedRole сообщает, содержит ли roles точное значение admin или dispatcher.
 func hasPrivilegedRole(roles []string) bool {
 	for _, role := range roles {
 		switch role {
@@ -1235,6 +1344,8 @@ func hasPrivilegedRole(roles []string) bool {
 	return false
 }
 
+// ticketSortColumn возвращает SQL-столбец из разрешённого набора сортировок.
+// Для неизвестного значения выбирает created_at.
 func ticketSortColumn(sortBy models.TicketSortBy) string {
 	switch sortBy {
 	case models.TicketSortByUpdatedAt:
@@ -1250,6 +1361,7 @@ func ticketSortColumn(sortBy models.TicketSortBy) string {
 	}
 }
 
+// ticketSortOrder возвращает ASC или DESC; неизвестное направление заменяет на DESC.
 func ticketSortOrder(order models.SortOrder) string {
 	switch order {
 	case models.SortOrderAsc:

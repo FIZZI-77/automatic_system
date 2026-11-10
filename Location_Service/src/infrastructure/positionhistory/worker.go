@@ -42,24 +42,31 @@ func New(
 	cfg Config,
 	logger *zap.Logger,
 ) (*Worker, error) {
+
 	if buffer == nil {
 		return nil, errors.New("position history worker: buffer is required")
 	}
+
 	if repo == nil {
 		return nil, errors.New("position history worker: repository is required")
 	}
+
 	if cfg.BatchSize <= 0 {
 		cfg.BatchSize = defaultBatchSize
 	}
+
 	if cfg.FlushInterval <= 0 {
 		cfg.FlushInterval = defaultFlushInterval
 	}
+
 	if cfg.ShutdownTimeout <= 0 {
 		cfg.ShutdownTimeout = defaultShutdownTimeout
 	}
+
 	if logger == nil {
 		logger = zap.NewNop()
 	}
+
 	return &Worker{
 		buffer: buffer,
 		repo:   repo,
@@ -70,15 +77,18 @@ func New(
 }
 
 func (w *Worker) Add(position *models.Position) error {
+
 	if err := w.buffer.Add(position); err != nil {
 		return err
 	}
+
 	if w.buffer.Len() >= w.cfg.BatchSize {
 		select {
 		case w.wake <- struct{}{}:
 		default:
 		}
 	}
+
 	return nil
 }
 
@@ -106,26 +116,33 @@ func (w *Worker) Run(ctx context.Context) error {
 
 func (w *Worker) flushFullBatches(ctx context.Context) {
 	for w.buffer.Len() >= w.cfg.BatchSize && ctx.Err() == nil {
+
 		if !w.flush(ctx, w.cfg.BatchSize) {
 			return
 		}
+
 	}
 }
 
 func (w *Worker) flushAll(ctx context.Context) {
 	for w.buffer.Len() > 0 && ctx.Err() == nil {
+
 		if !w.flush(ctx, w.cfg.BatchSize) {
 			return
 		}
+
 	}
 }
 
 func (w *Worker) flush(ctx context.Context, maxSize int) bool {
 	batch := w.buffer.TakeBatch(maxSize)
+
 	if len(batch) == 0 {
 		return true
 	}
+
 	written, err := w.repo.AppendPositionsBatch(ctx, batch)
+
 	if err != nil {
 		w.buffer.Prepend(batch)
 		w.log.Error(
@@ -135,14 +152,18 @@ func (w *Worker) flush(ctx context.Context, maxSize int) bool {
 		)
 		return false
 	}
+
 	if written != int64(len(batch)) {
 		remaining := int(written)
+
 		if remaining < 0 {
 			remaining = 0
 		}
+
 		if remaining > len(batch) {
 			remaining = len(batch)
 		}
+
 		w.buffer.Prepend(batch[remaining:])
 		w.log.Warn(
 			"position history batch partially written",
@@ -151,6 +172,7 @@ func (w *Worker) flush(ctx context.Context, maxSize int) bool {
 		)
 		return false
 	}
+
 	return true
 }
 

@@ -33,10 +33,11 @@ Service Worker приложение должно быть открыто чер�
 После запуска основного `docker-compose.yml` связанный набор данных для всех экранов можно безопасно загрузить повторно:
 
 ```powershell
+$env:DEMO_PASSWORD = Read-Host "Demo password"
 powershell -ExecutionPolicy Bypass -File scripts/seed-demo-data.ps1
 ```
 
-Тестовые учётные записи используют пароль `CityDemo123!`:
+Тестовые учётные записи используют пароль из `DEMO_PASSWORD`:
 
 - `demo.admin@city.local`
 - `demo.dispatcher@city.local`
@@ -47,6 +48,25 @@ powershell -ExecutionPolicy Bypass -File scripts/seed-demo-data.ps1
 Скрипт идемпотентен: фиксированные демонстрационные записи обновляются, а не размножаются при повторном запуске.
 
 ## Сквозные E2E-тесты
+
+Небольшой обязательный браузерный набор можно выполнить без Gateway и seed:
+
+```powershell
+npm run build
+npm run e2e:smoke
+```
+
+Playwright сам запускает production-сборку на `127.0.0.1:3107`. Набор проверяет
+гидратацию, сохранение темы, проверку паролей, навигацию демо-ролей, ссылку сброса
+пароля и безопасный текст tooltip. Внешние картографические API в smoke подменены;
+эти проверки не подтверждают работу реальных межсервисных операций.
+CI выполняет весь lint с нулевым допуском предупреждений, TypeScript, сборку,
+HTML-тесты и smoke; артефакты падений сохраняются отдельно.
+
+Экраны вынесены из `admin-modules.tsx`, `service-pages.tsx` и `city-app.tsx` в
+отдельные модули: assets, catalog, qualifications, operations, notifications,
+profile, reports, SLA, audit, auth, landing и dashboard. Первые два файла сохраняют
+совместимые реэкспорты. Общие типы и небольшие UI-элементы отделены от экранов.
 
 Playwright проверяет лендинг, регистрацию, вход всех ролей, ролевые меню, заявки, профиль, управление, SLA, аудит, аналитику, отчёты, адаптивность и контракты read-ручек API Gateway. Перед прогоном seed обновляется автоматически, после прогона изменённые тестами данные восстанавливаются.
 
@@ -65,6 +85,58 @@ npm run e2e:report
 
 Переменные окружения: `E2E_BASE_URL`, `E2E_API_URL`, `E2E_DEMO_PASSWORD`, `E2E_SKIP_SEED=1`, `E2E_RESTORE_SEED=0`. Артефакты падений (trace, screenshot, video) сохраняются в `Frontend/test-results`, HTML-отчёт — в `Frontend/playwright-report`.
 
+Для проверки запущенного Kubernetes-кластера используется отдельный API-only runner. Если `GatewayUrl` не указан, он сам поднимает временный `kubectl port-forward`. Без demo-пароля выполняется self-contained набор API-сценариев: позитивные сценарии, негативные проверки, JWT-sweep и сверка фактического состояния PostgreSQL/Citus, ClickHouse, Redis и MinIO. При передаче пароля дополнительно запускаются старые сценарии на постоянных demo-аккаунтах и seed тестовых данных.
+
+```powershell
+# Базовый прогон без demo-пароля (создает и удаляет тестовые данные)
+powershell -ExecutionPolicy Bypass -File scripts/run-api-gateway-e2e.ps1 -SecuritySweepOnly -SkipSeed
+
+# Авторизованные сценарии против кластера
+$password = Read-Host "Demo password"
+powershell -ExecutionPolicy Bypass -File scripts/run-api-gateway-e2e.ps1 -Password $password
+```
+
+Тесты `gateway-route-sweep.spec.ts` и `gateway-coverage.spec.ts` читают сгенерированный `API_Gateway/src/core/handlers/openapi.json`: новая операция требует позитивный сценарий с storage evidence (текущий inventory проверяет 202 операции), а защищённая операция попадает в проверки отсутствующего и повреждённого JWT. Storage-проверки выполняются через `kubectl exec`, сверяют фактическое состояние БД и удаляют созданные ими записи.
+
 ## Карта
 
 Карта отображает координаты заявок, машин и активный маршрут без жёсткой привязки к поставщику. URL тайлов и WebSocket вынесены в окружение. В текущем интерфейсе фон отрисовывается локально, поэтому диспетчерский экран остаётся работоспособным даже без доступа к внешнему tile-серверу.
+
+## Полный кластерный E2E API Gateway
+
+Из `API_Gateway` набор можно запускать как обычный Go-тест. Он сам поднимает
+временный `kubectl port-forward`, запускает Playwright API-сценарии и завершает
+port-forward после проверки:
+
+```powershell
+$env:API_GATEWAY_E2E = '1'
+$env:GOCACHE = 'C:\AuthomaticCityServices\.gocache'
+go test -v ./e2e -run TestAPICluster -count=1
+```
+
+SMTP-конфигурация тестом не меняется. Позитивные сценарии отправки писем требуют
+доступности настроенного SMTP-провайдера (в частности, отключённого мешающего VPN).
+Они включаются параметром `-IncludeSMTP` у `scripts/run-api-gateway-e2e.ps1`.
+
+## Управление интеграциями
+
+Администратору в разделе «Управление» доступна вкладка «Интеграции» с карточками
+предприятий и порталов. Можно зарегистрировать источник, ограничить его одним
+департаментом, отключить/включить и обновить секрет. Карточка показывает
+`client_id`, префикс секрета, департамент и время последнего использования.
+Полный секрет после регистрации или ротации показывается один раз; интерфейс
+позволяет скопировать и скрыть его. Список загружает первые 100 записей,
+переключение страниц пока не реализовано.
+
+Компонент: `Frontend/app/integration-management.tsx`; подключение:
+`Frontend/app/management-page.tsx`. Четыре адреса API настраиваются через
+`NEXT_PUBLIC_API_TICKET_INTEGRATIONS_REGISTER`,
+`NEXT_PUBLIC_API_TICKET_INTEGRATIONS_LIST`,
+`NEXT_PUBLIC_API_TICKET_INTEGRATIONS_SET_ACTIVE`,
+`NEXT_PUBLIC_API_TICKET_INTEGRATIONS_ROTATE_SECRET`.
+Сервер проверяет права независимо от видимости вкладки.
+
+Для управления интеграциями добавлен кластерный сценарий с проверкой БД, прав,
+активности, ротации секрета и идемпотентного повтора. Статические проверки
+inventory, ESLint и TypeScript прошли 27 октября 2026; новый сценарий пока
+не запускался в кластере из-за недоступного Kubernetes API текущего контекста.

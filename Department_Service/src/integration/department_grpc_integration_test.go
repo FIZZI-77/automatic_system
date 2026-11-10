@@ -48,6 +48,7 @@ func newGRPCTestApp(t *testing.T) *grpcTestApp {
 		}),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
+
 	if err != nil {
 		grpcServer.Stop()
 		app.cleanup()
@@ -79,9 +80,11 @@ func TestDepartmentGRPCIntegration_CreateListUpdateDelete(t *testing.T) {
 		Name:        name,
 		Description: "grpc department",
 	})
+
 	if err != nil {
 		t.Fatalf("grpc create failed: %v", err)
 	}
+
 	if createResp.GetDepartment().GetId() == "" {
 		t.Fatal("expected department id")
 	}
@@ -89,17 +92,21 @@ func TestDepartmentGRPCIntegration_CreateListUpdateDelete(t *testing.T) {
 	getResp, err := grpcApp.client.GetDepartmentByID(context.Background(), &departmentv1.GetDepartmentByIDRequest{
 		Id: createResp.GetDepartment().GetId(),
 	})
+
 	if err != nil {
 		t.Fatalf("grpc get failed: %v", err)
 	}
+
 	if getResp.GetDepartment().GetName() != name {
 		t.Fatalf("expected name %s, got %s", name, getResp.GetDepartment().GetName())
 	}
 
 	listResp, err := grpcApp.client.ListDepartments(context.Background(), &departmentv1.ListDepartmentsRequest{})
+
 	if err != nil {
 		t.Fatalf("grpc list failed: %v", err)
 	}
+
 	if listResp.GetTotal() != 1 {
 		t.Fatalf("expected total 1, got %d", listResp.GetTotal())
 	}
@@ -109,9 +116,11 @@ func TestDepartmentGRPCIntegration_CreateListUpdateDelete(t *testing.T) {
 		Id:   createResp.GetDepartment().GetId(),
 		Name: &newName,
 	})
+
 	if err != nil {
 		t.Fatalf("grpc update failed: %v", err)
 	}
+
 	if updateResp.GetDepartment().GetName() != newName {
 		t.Fatalf("expected updated name %s, got %s", newName, updateResp.GetDepartment().GetName())
 	}
@@ -119,12 +128,15 @@ func TestDepartmentGRPCIntegration_CreateListUpdateDelete(t *testing.T) {
 	deleteResp, err := grpcApp.client.DeleteDepartment(ctx, &departmentv1.DeleteDepartmentRequest{
 		Id: createResp.GetDepartment().GetId(),
 	})
+
 	if err != nil {
 		t.Fatalf("grpc delete failed: %v", err)
 	}
+
 	if deleteResp.GetDepartment().GetStatus() != departmentv1.DepartmentStatus_DEPARTMENT_STATUS_ARCHIVED {
 		t.Fatalf("expected archived status, got %s", deleteResp.GetDepartment().GetStatus())
 	}
+
 }
 
 func TestDepartmentGRPCIntegration_InvalidIDFails(t *testing.T) {
@@ -132,7 +144,9 @@ func TestDepartmentGRPCIntegration_InvalidIDFails(t *testing.T) {
 	defer grpcApp.cleanup()
 
 	_, err := grpcApp.client.GetDepartmentByID(context.Background(), &departmentv1.GetDepartmentByIDRequest{Id: "bad-id"})
+
 	if err == nil {
 		t.Fatal("expected grpc get to fail")
 	}
+
 }

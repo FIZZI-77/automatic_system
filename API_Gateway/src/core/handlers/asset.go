@@ -16,12 +16,16 @@ type AssetHandler struct {
 	c assetv1.AssetServiceClient
 }
 
+// NewAssetHandler создаёт HTTP-обработчик объектов с переданным gRPC-клиентом.
 func NewAssetHandler(c assetv1.AssetServiceClient) *AssetHandler {
 	return &AssetHandler{c: c}
 }
 
+// Create преобразует JSON характеристик объекта и добавляет пользователя и роли
+// из контекста; вызывает Asset Service и возвращает HTTP 201 при успехе.
 func (h *AssetHandler) Create(c *gin.Context) {
 	var v models.CreateAssetRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
@@ -54,19 +58,27 @@ func (h *AssetHandler) Create(c *gin.Context) {
 	dispatchResponse(c, http.StatusCreated, e, x)
 }
 
+// Get разбирает ID объекта из JSON и запрашивает объект у Asset Service;
+// успешный ответ возвращает с HTTP 200 через dispatchResponse.
 func (h *AssetHandler) Get(c *gin.Context) {
 	var v models.AssetIDRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
+
 	x, e := h.c.GetAsset(dispatchContext(c), &assetv1.GetAssetRequest{
 		AssetId: v.AssetID,
 	})
 	dispatchResponse(c, http.StatusOK, e, x)
 }
 
+// Resolve ищет идентификатор из JSON по ID, внешнему ID или серийному номеру
+// без учёта регистра, перебирая страницы Asset Service по 500 записей.
+// Первое совпадение возвращает с HTTP 200, отсутствие — с HTTP 404.
 func (h *AssetHandler) Resolve(c *gin.Context) {
 	var v models.ResolveAssetRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
@@ -79,6 +91,7 @@ func (h *AssetHandler) Resolve(c *gin.Context) {
 			Limit:  pageSize,
 			Offset: offset,
 		})
+
 		if err != nil {
 			dispatchResponse(c, http.StatusOK, err, nil)
 			return
@@ -95,18 +108,23 @@ func (h *AssetHandler) Resolve(c *gin.Context) {
 				})
 				return
 			}
+
 		}
 
 		if len(result.GetAssets()) < int(pageSize) {
 			break
 		}
+
 	}
 
 	c.JSON(http.StatusNotFound, gin.H{"error": "asset not found"})
 }
 
+// Update передаёт заданные поля объекта из JSON и пользователя с ролями
+// Asset Service; при успехе возвращает HTTP 200 с ответом сервиса.
 func (h *AssetHandler) Update(c *gin.Context) {
 	var v models.UpdateAssetRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
@@ -125,8 +143,11 @@ func (h *AssetHandler) Update(c *gin.Context) {
 	dispatchResponse(c, http.StatusOK, e, x)
 }
 
+// ChangeStatus преобразует статус без учёта регистра и передаёт изменение
+// с причиной, пользователем и ролями сервису; неизвестный статус даёт нулевой enum.
 func (h *AssetHandler) ChangeStatus(c *gin.Context) {
 	var v models.ChangeAssetStatusRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
@@ -143,8 +164,11 @@ func (h *AssetHandler) ChangeStatus(c *gin.Context) {
 	dispatchResponse(c, http.StatusOK, e, x)
 }
 
+// List преобразует необязательные статус и риск, сохраняет фильтры ведомства,
+// типа и района и передаёт пагинацию Asset Service; успех даёт HTTP 200.
 func (h *AssetHandler) List(c *gin.Context) {
 	var v models.ListAssetsRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
@@ -171,8 +195,11 @@ func (h *AssetHandler) List(c *gin.Context) {
 	dispatchResponse(c, http.StatusOK, e, x)
 }
 
+// Nearby передаёт координаты, радиус в метрах, тип и лимит из JSON сервису
+// поиска ближайших объектов; успешный ответ возвращает с HTTP 200.
 func (h *AssetHandler) Nearby(c *gin.Context) {
 	var v models.NearbyAssetsRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
@@ -187,8 +214,11 @@ func (h *AssetHandler) Nearby(c *gin.Context) {
 	dispatchResponse(c, http.StatusOK, e, x)
 }
 
+// Incident преобразует инцидент из JSON и добавляет пользователя и роли;
+// отсутствующее время заменяет текущим. Успешный ответ сервиса получает HTTP 201.
 func (h *AssetHandler) Incident(c *gin.Context) {
 	var v models.AssetIncidentRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
@@ -208,8 +238,11 @@ func (h *AssetHandler) Incident(c *gin.Context) {
 	dispatchResponse(c, http.StatusCreated, e, x)
 }
 
+// Repair преобразует ремонт и связи из JSON, подставляет текущее время при его
+// отсутствии и передаёт пользователя и роли сервису; успех даёт HTTP 201.
 func (h *AssetHandler) Repair(c *gin.Context) {
 	var v models.AssetRepairRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
@@ -230,8 +263,11 @@ func (h *AssetHandler) Repair(c *gin.Context) {
 	dispatchResponse(c, http.StatusCreated, e, x)
 }
 
+// Inspection преобразует осмотр из JSON, подставляет инспектора из контекста
+// и текущее время при отсутствии даты; передаёт роли сервису, успех даёт HTTP 201.
 func (h *AssetHandler) Inspection(c *gin.Context) {
 	var v models.AssetInspectionRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
@@ -251,19 +287,26 @@ func (h *AssetHandler) Inspection(c *gin.Context) {
 	dispatchResponse(c, http.StatusCreated, e, x)
 }
 
+// Prediction разбирает ID объекта из JSON и возвращает прогноз отказа
+// Asset Service с HTTP 200 при успехе.
 func (h *AssetHandler) Prediction(c *gin.Context) {
 	var v models.AssetIDRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
+
 	x, e := h.c.GetFailurePrediction(dispatchContext(c), &assetv1.GetFailurePredictionRequest{
 		AssetId: v.AssetID,
 	})
 	dispatchResponse(c, http.StatusOK, e, x)
 }
 
+// CreatePlan преобразует JSON плана с интервалом в днях и датой следующего
+// обслуживания и передаёт пользователя и роли сервису; успех даёт HTTP 201.
 func (h *AssetHandler) CreatePlan(c *gin.Context) {
 	var v models.MaintenancePlanRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
@@ -280,8 +323,11 @@ func (h *AssetHandler) CreatePlan(c *gin.Context) {
 	dispatchResponse(c, http.StatusCreated, e, x)
 }
 
+// DuePlans передаёт необязательное ведомство, предельную дату и пагинацию
+// сервису чтения планов обслуживания; успех даёт HTTP 200.
 func (h *AssetHandler) DuePlans(c *gin.Context) {
 	var v models.DueMaintenanceRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
@@ -295,8 +341,11 @@ func (h *AssetHandler) DuePlans(c *gin.Context) {
 	dispatchResponse(c, http.StatusOK, e, x)
 }
 
+// Recalculate передаёт необязательное ведомство из JSON и роли пользователя
+// сервису пересчёта риска; проверку прав выполняет сервис, успех даёт HTTP 200.
 func (h *AssetHandler) Recalculate(c *gin.Context) {
 	var v models.RecalculateAssetRisksRequest
+
 	if !bindJSON(c, &v) {
 		return
 	}
@@ -309,9 +358,12 @@ func (h *AssetHandler) Recalculate(c *gin.Context) {
 	dispatchResponse(c, http.StatusOK, e, x)
 }
 
+// ts преобразует время в protobuf; для nil возвращает текущий timestamp.
 func ts(v *time.Time) *timestamppb.Timestamp {
+
 	if v == nil {
 		return timestamppb.Now()
 	}
+
 	return timestamppb.New(*v)
 }

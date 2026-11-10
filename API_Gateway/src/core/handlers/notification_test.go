@@ -32,9 +32,11 @@ func TestNotificationWebSocketReturnsWhenClientDisconnects(t *testing.T) {
 
 	webSocketURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/notifications/ws"
 	conn, response, err := websocket.DefaultDialer.Dial(webSocketURL, http.Header{})
+
 	if err != nil {
 		t.Fatalf("dial websocket: %v (response: %v)", err, response)
 	}
+
 	if err = conn.Close(); err != nil {
 		t.Fatalf("close websocket: %v", err)
 	}

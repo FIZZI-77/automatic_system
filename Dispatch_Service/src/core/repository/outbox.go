@@ -15,6 +15,8 @@ import (
 
 const dispatchEventVersion = 1
 
+// appendOperationEvent сохраняет снимок операции в outbox через tx.
+// Поля extra дополняют или заменяют поля стандартной полезной нагрузки.
 func appendOperationEvent(
 	ctx context.Context,
 	tx pgx.Tx,
@@ -28,9 +30,11 @@ func appendOperationEvent(
 		payload[key] = value
 	}
 	encoded, err := json.Marshal(payload)
+
 	if err != nil {
 		return fmt.Errorf("encode dispatch event: %w", err)
 	}
+
 	if _, err = tx.Exec(
 		ctx,
 		`INSERT INTO dispatch_outbox_events(id,aggregate_id,event_type,payload) VALUES($1,$2,$3,$4)`,
@@ -41,9 +45,12 @@ func appendOperationEvent(
 	); err != nil {
 		return fmt.Errorf("append dispatch event: %w", err)
 	}
+
 	return nil
 }
 
+// operationEventPayload собирает новую карту события со снимком операции,
+// версией схемы, trace ID и временной меткой соответствующего перехода.
 func operationEventPayload(ctx context.Context, eventID uuid.UUID, eventType string, operation *models.Operation) map[string]any {
 	payload := map[string]any{
 		"event_id":       eventID,
@@ -84,6 +91,8 @@ func operationEventPayload(ctx context.Context, eventID uuid.UUID, eventType str
 	return payload
 }
 
+// appendCandidateEvent записывает в outbox через tx событие ранжирования
+// с общим числом кандидатов, числом достижимых и текущим UTC-временем.
 func appendCandidateEvent(
 	ctx context.Context,
 	tx pgx.Tx,
@@ -95,9 +104,11 @@ func appendCandidateEvent(
 	eventID := uuid.New()
 	payload := candidateEventPayload(ctx, eventID, operation, candidateCount, reachableCount, now)
 	encoded, err := json.Marshal(payload)
+
 	if err != nil {
 		return fmt.Errorf("encode candidate event: %w", err)
 	}
+
 	if _, err = tx.Exec(
 		ctx,
 		`INSERT INTO dispatch_outbox_events(id,aggregate_id,event_type,payload) VALUES($1,$2,$3,$4)`,
@@ -108,9 +119,12 @@ func appendCandidateEvent(
 	); err != nil {
 		return fmt.Errorf("append candidate event: %w", err)
 	}
+
 	return nil
 }
 
+// candidateEventPayload собирает новую карту события dispatch.candidates_ranked
+// со счётчиками кандидатов, атрибутами операции и trace ID.
 func candidateEventPayload(
 	ctx context.Context,
 	eventID uuid.UUID,
@@ -137,6 +151,8 @@ func candidateEventPayload(
 	}
 }
 
+// RecordCandidates сохраняет событие со счётчиками ранжирования в отдельной
+// транзакции, не изменяя операцию. Значения счётчиков не проверяет.
 func (r *Repository) RecordCandidates(
 	ctx context.Context,
 	operation *models.Operation,
@@ -144,23 +160,31 @@ func (r *Repository) RecordCandidates(
 	reachableCount int,
 ) error {
 	tx, err := r.writeDB.Begin(ctx)
+
 	if err != nil {
 		return fmt.Errorf("begin candidate event: %w", err)
 	}
+
 	defer tx.Rollback(ctx)
+
 	if err = appendCandidateEvent(ctx, tx, operation, candidateCount, reachableCount); err != nil {
 		return err
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit candidate event: %w", err)
 	}
+
 	return nil
 }
 
+// traceID возвращает ID действующего span-контекста либо пустую строку, если его нет.
 func traceID(ctx context.Context) string {
 	spanContext := trace.SpanContextFromContext(ctx)
+
 	if !spanContext.IsValid() {
 		return ""
 	}
+
 	return spanContext.TraceID().String()
 }

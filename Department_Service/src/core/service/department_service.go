@@ -18,10 +18,14 @@ type DepartmentServiceStruct struct {
 	logger *zap.Logger
 }
 
+// NewDepartmentServiceStruct создаёт сервис ведомств с repo и обязательным logger.
 func NewDepartmentServiceStruct(repo *repository.Repository, logger *zap.Logger) *DepartmentServiceStruct {
 	return &DepartmentServiceStruct{repo: repo, logger: logger}
 }
 
+// CreateDepartment проверяет параметры и роль admin или dispatcher, затем создаёт
+// активное ведомство с поддержкой идемпотентности. Требует ненулевой in;
+// ошибки проверки оборачивает в ErrValidation, отказ в доступе — в ErrPermissionDenied.
 func (s *DepartmentServiceStruct) CreateDepartment(ctx context.Context, in *models.CreateDepartmentInput) (*models.CreateDepartmentResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -38,6 +42,7 @@ func (s *DepartmentServiceStruct) CreateDepartment(ctx context.Context, in *mode
 		)
 		return nil, fmt.Errorf("service: CreateDepartment(): %w: %v", models.ErrValidation, err)
 	}
+
 	if !hasPrivilegedRole(in.ActorRoles) {
 		logger.Warn("CreateDepartment permission denied",
 			zap.String("name", in.Name),
@@ -48,11 +53,14 @@ func (s *DepartmentServiceStruct) CreateDepartment(ctx context.Context, in *mode
 
 	result, err := s.withIdempotency(ctx, "CreateDepartment", "", in, func(ctx context.Context) (any, uuid.UUID, error) {
 		department, err := s.repo.CreateDepartment(ctx, in)
+
 		if err != nil {
 			return nil, uuid.Nil, err
 		}
+
 		return &models.CreateDepartmentResult{Department: department}, department.ID, nil
 	})
+
 	if err != nil {
 		logger.Error("CreateDepartment failed",
 			zap.String("name", in.Name),
@@ -61,10 +69,13 @@ func (s *DepartmentServiceStruct) CreateDepartment(ctx context.Context, in *mode
 		)
 		return nil, fmt.Errorf("service: CreateDepartment(): %w", err)
 	}
+
 	createResult, err := cachedResult[models.CreateDepartmentResult](result)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: CreateDepartment(): idempotency result: %w", err)
 	}
+
 	department := createResult.Department
 
 	logger.Info("CreateDepartment success",
@@ -76,6 +87,8 @@ func (s *DepartmentServiceStruct) CreateDepartment(ctx context.Context, in *mode
 	return createResult, nil
 }
 
+// GetDepartmentByID проверяет ID и возвращает ведомство, включая архивное.
+// Требует ненулевой in; ошибку проверки оборачивает в ErrValidation.
 func (s *DepartmentServiceStruct) GetDepartmentByID(ctx context.Context, in *models.GetDepartmentByIDInput) (*models.GetDepartmentByIDResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -94,6 +107,7 @@ func (s *DepartmentServiceStruct) GetDepartmentByID(ctx context.Context, in *mod
 	}
 
 	department, err := s.repo.GetDepartmentByID(ctx, in.ID)
+
 	if err != nil {
 		logger.Error("GetDepartmentByID failed",
 			zap.String("department_id", in.ID.String()),
@@ -112,6 +126,8 @@ func (s *DepartmentServiceStruct) GetDepartmentByID(ctx context.Context, in *mod
 	return &models.GetDepartmentByIDResult{Department: department}, nil
 }
 
+// ListDepartments проверяет фильтры, нормализует сортировку и пагинацию в in
+// и возвращает страницу ведомств с общим счётчиком. Требует ненулевой in.
 func (s *DepartmentServiceStruct) ListDepartments(ctx context.Context, in *models.ListDepartmentsInput) (*models.ListDepartmentsResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -130,6 +146,7 @@ func (s *DepartmentServiceStruct) ListDepartments(ctx context.Context, in *model
 	}
 
 	departments, total, err := s.repo.ListDepartments(ctx, in)
+
 	if err != nil {
 		logger.Error("ListDepartments failed",
 			zap.Int64("duration", time.Since(start).Milliseconds()),
@@ -147,6 +164,8 @@ func (s *DepartmentServiceStruct) ListDepartments(ctx context.Context, in *model
 	return &models.ListDepartmentsResult{Departments: departments, Total: total}, nil
 }
 
+// UpdateDepartment проверяет параметры и роль admin или dispatcher, затем меняет
+// переданные поля ведомства с поддержкой идемпотентности. Требует ненулевой in.
 func (s *DepartmentServiceStruct) UpdateDepartment(ctx context.Context, in *models.UpdateDepartmentInput) (*models.UpdateDepartmentResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -163,6 +182,7 @@ func (s *DepartmentServiceStruct) UpdateDepartment(ctx context.Context, in *mode
 		)
 		return nil, fmt.Errorf("service: UpdateDepartment(): %w: %v", models.ErrValidation, err)
 	}
+
 	if !hasPrivilegedRole(in.ActorRoles) {
 		logger.Warn("UpdateDepartment permission denied",
 			zap.String("department_id", in.ID.String()),
@@ -173,11 +193,14 @@ func (s *DepartmentServiceStruct) UpdateDepartment(ctx context.Context, in *mode
 
 	result, err := s.withIdempotency(ctx, "UpdateDepartment", "", in, func(ctx context.Context) (any, uuid.UUID, error) {
 		department, err := s.repo.UpdateDepartment(ctx, in)
+
 		if err != nil {
 			return nil, uuid.Nil, err
 		}
+
 		return &models.UpdateDepartmentResult{Department: department}, department.ID, nil
 	})
+
 	if err != nil {
 		logger.Error("UpdateDepartment failed",
 			zap.String("department_id", in.ID.String()),
@@ -186,10 +209,13 @@ func (s *DepartmentServiceStruct) UpdateDepartment(ctx context.Context, in *mode
 		)
 		return nil, fmt.Errorf("service: UpdateDepartment(): %w", err)
 	}
+
 	updateResult, err := cachedResult[models.UpdateDepartmentResult](result)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: UpdateDepartment(): idempotency result: %w", err)
 	}
+
 	department := updateResult.Department
 
 	logger.Info("UpdateDepartment success",
@@ -201,6 +227,8 @@ func (s *DepartmentServiceStruct) UpdateDepartment(ctx context.Context, in *mode
 	return updateResult, nil
 }
 
+// DeleteDepartment проверяет ID и роль admin или dispatcher, затем архивирует
+// ведомство с поддержкой идемпотентности. Требует ненулевой in; строку из базы не удаляет.
 func (s *DepartmentServiceStruct) DeleteDepartment(ctx context.Context, in *models.DeleteDepartmentInput) (*models.DeleteDepartmentResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -217,6 +245,7 @@ func (s *DepartmentServiceStruct) DeleteDepartment(ctx context.Context, in *mode
 		)
 		return nil, fmt.Errorf("service: DeleteDepartment(): %w: %v", models.ErrValidation, err)
 	}
+
 	if !hasPrivilegedRole(in.ActorRoles) {
 		logger.Warn("DeleteDepartment permission denied",
 			zap.String("department_id", in.ID.String()),
@@ -227,11 +256,14 @@ func (s *DepartmentServiceStruct) DeleteDepartment(ctx context.Context, in *mode
 
 	result, err := s.withIdempotency(ctx, "DeleteDepartment", "", in, func(ctx context.Context) (any, uuid.UUID, error) {
 		department, err := s.repo.DeleteDepartment(ctx, in)
+
 		if err != nil {
 			return nil, uuid.Nil, err
 		}
+
 		return &models.DeleteDepartmentResult{Department: department}, department.ID, nil
 	})
+
 	if err != nil {
 		logger.Error("DeleteDepartment failed",
 			zap.String("department_id", in.ID.String()),
@@ -240,10 +272,13 @@ func (s *DepartmentServiceStruct) DeleteDepartment(ctx context.Context, in *mode
 		)
 		return nil, fmt.Errorf("service: DeleteDepartment(): %w", err)
 	}
+
 	deleteResult, err := cachedResult[models.DeleteDepartmentResult](result)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: DeleteDepartment(): idempotency result: %w", err)
 	}
+
 	department := deleteResult.Department
 
 	logger.Info("DeleteDepartment success",
@@ -255,11 +290,14 @@ func (s *DepartmentServiceStruct) DeleteDepartment(ctx context.Context, in *mode
 	return deleteResult, nil
 }
 
+// hasPrivilegedRole сообщает, содержит ли roles точное значение admin или dispatcher.
 func hasPrivilegedRole(roles []string) bool {
 	for _, role := range roles {
+
 		if role == "admin" || role == "dispatcher" {
 			return true
 		}
+
 	}
 	return false
 }

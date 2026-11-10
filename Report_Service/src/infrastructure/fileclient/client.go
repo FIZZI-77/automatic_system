@@ -17,6 +17,7 @@ import (
 	filev1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/file/v1"
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -24,11 +25,17 @@ type Client struct {
 	api              filev1.FileServiceClient
 	http             *http.Client
 	internalEndpoint string
+	linkToken        string
 }
 
-func New(api filev1.FileServiceClient, internal string) *Client {
+func New(api filev1.FileServiceClient, internal string, linkToken ...string) *Client {
+	token := ""
+	if len(linkToken) > 0 {
+		token = strings.TrimSpace(linkToken[0])
+	}
 	return &Client{
-		api: api,
+		linkToken: token,
+		api:       api,
 		http: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -50,17 +57,20 @@ func (c *Client) UploadForResource(ctx context.Context, resourceType string, res
 		Size:        int64(len(a.Data)),
 		Checksum:    checksum,
 	})
+
 	if e != nil {
 		return uuid.Nil, e
 	}
 
 	original, e := url.Parse(created.UploadUrl)
+
 	if e != nil {
 		return uuid.Nil, e
 	}
 
 	target := c.internalURL(created.UploadUrl)
 	req, e := http.NewRequestWithContext(ctx, http.MethodPut, target, bytes.NewReader(a.Data))
+
 	if e != nil {
 		return uuid.Nil, e
 	}
@@ -70,9 +80,11 @@ func (c *Client) UploadForResource(ctx context.Context, resourceType string, res
 	req.Host = original.Host
 
 	resp, e := c.http.Do(req)
+
 	if e != nil {
 		return uuid.Nil, e
 	}
+
 	defer resp.Body.Close()
 
 	if resp.StatusCode/100 != 2 {
@@ -80,6 +92,7 @@ func (c *Client) UploadForResource(ctx context.Context, resourceType string, res
 	}
 
 	id, e := uuid.Parse(created.File.Id)
+
 	if e != nil {
 		return uuid.Nil, e
 	}
@@ -92,7 +105,7 @@ func (c *Client) UploadForResource(ctx context.Context, resourceType string, res
 		return uuid.Nil, e
 	}
 
-	_, e = c.api.LinkFile(ctx, &filev1.LinkFileRequest{
+	_, e = c.api.LinkFile(c.linkContext(ctx), &filev1.LinkFileRequest{
 		FileId:       id.String(),
 		ResourceType: resourceType,
 		ResourceId:   resourceID.String(),
@@ -103,7 +116,7 @@ func (c *Client) UploadForResource(ctx context.Context, resourceType string, res
 }
 
 func (c *Client) LinkExisting(ctx context.Context, fileID, resourceID, actor uuid.UUID, roles []string) error {
-	_, err := c.api.LinkFile(ctx, &filev1.LinkFileRequest{
+	_, err := c.api.LinkFile(c.linkContext(ctx), &filev1.LinkFileRequest{
 		FileId:       fileID.String(),
 		ResourceType: "work_report",
 		ResourceId:   resourceID.String(),
@@ -113,15 +126,24 @@ func (c *Client) LinkExisting(ctx context.Context, fileID, resourceID, actor uui
 	return err
 }
 
+func (c *Client) linkContext(ctx context.Context) context.Context {
+	md, _ := metadata.FromOutgoingContext(ctx)
+	md = md.Copy()
+	md.Set("x-report-link-token", c.linkToken)
+	return metadata.NewOutgoingContext(ctx, md)
+}
+
 func (c *Client) Delete(ctx context.Context, fileID, actor uuid.UUID, roles []string) error {
 	_, err := c.api.DeleteFile(ctx, &filev1.DeleteFileRequest{
 		FileId:      fileID.String(),
 		ActorUserId: actor.String(),
 		ActorRoles:  roles,
 	})
+
 	if status.Code(err) == codes.NotFound {
 		return nil
 	}
+
 	return err
 }
 
@@ -133,17 +155,20 @@ func (c *Client) DownloadImages(ctx context.Context, ids []uuid.UUID, actor uuid
 			ActorUserId: actor.String(),
 			ActorRoles:  roles,
 		})
+
 		if err != nil {
 			return nil, err
 		}
 
 		file := item.GetFile()
+
 		if file == nil || !strings.HasPrefix(strings.ToLower(file.GetContentType()), "image/") {
 			continue
 		}
 
 		target := c.internalURL(item.GetDownloadUrl())
 		request, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
+
 		if err != nil {
 			return nil, err
 		}
@@ -153,12 +178,14 @@ func (c *Client) DownloadImages(ctx context.Context, ids []uuid.UUID, actor uuid
 		}
 
 		response, err := c.http.Do(request)
+
 		if err != nil {
 			return nil, err
 		}
 
 		data, readErr := io.ReadAll(io.LimitReader(response.Body, 20<<20))
 		response.Body.Close()
+
 		if readErr != nil {
 			return nil, readErr
 		}
@@ -183,6 +210,7 @@ func (c *Client) Download(ctx context.Context, id, actor uuid.UUID, roles []stri
 		ActorUserId: actor.String(),
 		ActorRoles:  roles,
 	})
+
 	if e != nil {
 		return "", time.Time{}, e
 	}
@@ -191,12 +219,14 @@ func (c *Client) Download(ctx context.Context, id, actor uuid.UUID, roles []stri
 }
 
 func (c *Client) internalURL(raw string) string {
+
 	if c.internalEndpoint == "" {
 		return raw
 	}
 
 	u, e := url.Parse(raw)
 	base, e2 := url.Parse(c.internalEndpoint)
+
 	if e == nil && e2 == nil {
 		u.Scheme = base.Scheme
 		u.Host = base.Host

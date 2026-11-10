@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
     container_name: brigade
     ports:
-      - "50054:50054"
+      - "127.0.0.1:50054:50054"
     env_file:
       - .env
     environment:

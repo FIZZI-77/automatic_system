@@ -18,16 +18,22 @@ type Repository struct {
 	db *pgxpool.Pool
 }
 
+// New создаёт хранилище уведомлений, настроек, устройств и доставок с пулом db.
 func New(db *pgxpool.Pool) *Repository {
 	return &Repository{db: db}
 }
 
+// List читает уведомления пользователя от новых к старым; unread=true оставляет
+// только непрочитанные. Возвращает общий и непрочитанный счётчики отфильтрованного
+// набора, равные нулю на пустой странице. Лимит нормализует, ошибки JSON игнорирует.
 func (r *Repository) List(ctx context.Context, user uuid.UUID, unread *bool, limit, offset int32) ([]*models.Notification, int64, int64, error) {
 	limit = bounded(limit)
 	rows, e := r.db.Query(ctx, `SELECT id,event_id,user_id,event_type,title,body,data,read,read_at,created_at,count(*) OVER(),count(*) FILTER(WHERE NOT read) OVER() FROM notifications WHERE user_id=$1 AND (COALESCE($2::bool,FALSE)=FALSE OR NOT read) ORDER BY created_at DESC LIMIT $3 OFFSET $4`, user, unread, limit, offset)
+
 	if e != nil {
 		return nil, 0, 0, e
 	}
+
 	defer rows.Close()
 
 	var out []*models.Notification
@@ -35,9 +41,11 @@ func (r *Repository) List(ctx context.Context, user uuid.UUID, unread *bool, lim
 	for rows.Next() {
 		v := new(models.Notification)
 		var data []byte
+
 		if e = rows.Scan(&v.ID, &v.EventID, &v.UserID, &v.EventType, &v.Title, &v.Body, &data, &v.Read, &v.ReadAt, &v.CreatedAt, &total, &unreadCount); e != nil {
 			return nil, 0, 0, e
 		}
+
 		_ = json.Unmarshal(data, &v.Data)
 		out = append(out, v)
 	}
@@ -45,16 +53,22 @@ func (r *Repository) List(ctx context.Context, user uuid.UUID, unread *bool, lim
 	return out, total, unreadCount, rows.Err()
 }
 
+// MarkRead отмечает уведомление указанного пользователя прочитанным, не меняя
+// ранее установленное read_at. Отсутствие строки возвращает как pgx.ErrNoRows.
 func (r *Repository) MarkRead(ctx context.Context, user, id uuid.UUID) (*models.Notification, error) {
 	row := r.db.QueryRow(ctx, `UPDATE notifications SET read=true,read_at=COALESCE(read_at,now()) WHERE id=$1 AND user_id=$2 RETURNING id,event_id,user_id,event_type,title,body,data,read,read_at,created_at`, id, user)
 	return scanNotification(row)
 }
 
+// MarkAllRead отмечает непрочитанные уведомления пользователя текущим временем
+// прочтения и возвращает число обновлённых строк.
 func (r *Repository) MarkAllRead(ctx context.Context, user uuid.UUID) (int64, error) {
 	tag, e := r.db.Exec(ctx, `UPDATE notifications SET read=true,read_at=now() WHERE user_id=$1 AND NOT read`, user)
 	return tag.RowsAffected(), e
 }
 
+// scanNotification читает уведомление и декодирует Data, игнорируя ошибку JSON.
+// Возвращает выделенную модель вместе с исходной ошибкой Scan.
 func scanNotification(row pgx.Row) (*models.Notification, error) {
 	v := new(models.Notification)
 	var data []byte
@@ -63,84 +77,113 @@ func scanNotification(row pgx.Row) (*models.Notification, error) {
 	return v, e
 }
 
+// GetPreferences возвращает настройки пользователя, создавая строку со значениями
+// базы по умолчанию при отсутствии. Даже чтение выполняется через INSERT ON CONFLICT.
 func (r *Repository) GetPreferences(ctx context.Context, user uuid.UUID) (*models.Preferences, error) {
 	v := new(models.Preferences)
 	e := r.db.QueryRow(ctx, `INSERT INTO notification_preferences(user_id) VALUES($1) ON CONFLICT(user_id) DO UPDATE SET user_id=EXCLUDED.user_id RETURNING user_id,in_app_enabled,push_enabled,email_enabled,sms_enabled,email,phone,updated_at`, user).Scan(&v.UserID, &v.InApp, &v.Push, &v.Email, &v.SMS, &v.EmailAddress, &v.Phone, &v.UpdatedAt)
 	return v, e
 }
 
+// SavePreferences создаёт или заменяет настройки каналов и контактов по v.UserID.
+// Заполняет v.UpdatedAt и возвращает тот же указатель вместе с ошибкой записи.
 func (r *Repository) SavePreferences(ctx context.Context, v *models.Preferences) (*models.Preferences, error) {
 	e := r.db.QueryRow(ctx, `INSERT INTO notification_preferences(user_id,in_app_enabled,push_enabled,email_enabled,sms_enabled,email,phone) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(user_id) DO UPDATE SET in_app_enabled=$2,push_enabled=$3,email_enabled=$4,sms_enabled=$5,email=$6,phone=$7,updated_at=now() RETURNING updated_at`, v.UserID, v.InApp, v.Push, v.Email, v.SMS, v.EmailAddress, v.Phone).Scan(&v.UpdatedAt)
 	return v, e
 }
 
+// RegisterDevice создаёт устройство либо перепривязывает существующий токен
+// к v.UserID с активацией и обновлением платформы. Заполняет ID, Active и временные метки в v.
 func (r *Repository) RegisterDevice(ctx context.Context, v *models.Device) (*models.Device, error) {
 	e := r.db.QueryRow(ctx, `INSERT INTO devices(user_id,token,platform) VALUES($1,$2,$3) ON CONFLICT(token) DO UPDATE SET user_id=$1,platform=$3,active=true,updated_at=now() RETURNING id,active,created_at,updated_at`, v.UserID, v.Token, v.Platform).Scan(&v.ID, &v.Active, &v.CreatedAt, &v.UpdatedAt)
 	return v, e
 }
 
+// DeleteDevice деактивирует устройство указанного пользователя и возвращает запись.
+// Отсутствующее или чужое устройство возвращает как pgx.ErrNoRows.
 func (r *Repository) DeleteDevice(ctx context.Context, user, id uuid.UUID) (*models.Device, error) {
 	v := new(models.Device)
 	e := r.db.QueryRow(ctx, `UPDATE devices SET active=false,updated_at=now() WHERE id=$1 AND user_id=$2 RETURNING id,user_id,token,platform,active,created_at,updated_at`, id, user).Scan(&v.ID, &v.UserID, &v.Token, &v.Platform, &v.Active, &v.CreatedAt, &v.UpdatedAt)
 	return v, e
 }
 
+// UpsertTemplate создаёт или заменяет шаблон для пары тип события–канал,
+// записывая ID и временные метки в v. Возвращает тот же указатель и ошибку базы.
 func (r *Repository) UpsertTemplate(ctx context.Context, v *models.Template) (*models.Template, error) {
 	e := r.db.QueryRow(ctx, `INSERT INTO notification_templates(event_type,channel,subject,body,active) VALUES($1,$2,$3,$4,$5) ON CONFLICT(event_type,channel) DO UPDATE SET subject=$3,body=$4,active=$5,updated_at=now() RETURNING id,created_at,updated_at`, v.EventType, v.Channel, v.Subject, v.Body, v.Active).Scan(&v.ID, &v.CreatedAt, &v.UpdatedAt)
 	return v, e
 }
 
+// ListTemplates возвращает страницу шаблонов по событию и каналу в порядке этих полей.
+// Нормализует лимит; на пустой странице возвращает nil и нулевой общий счётчик.
 func (r *Repository) ListTemplates(ctx context.Context, event, channel *string, limit, offset int32) ([]*models.Template, int64, error) {
 	rows, e := r.db.Query(ctx, `SELECT id,event_type,channel,subject,body,active,created_at,updated_at,count(*) OVER() FROM notification_templates WHERE ($1::text IS NULL OR event_type=$1) AND ($2::text IS NULL OR channel=$2) ORDER BY event_type,channel LIMIT $3 OFFSET $4`, event, channel, bounded(limit), offset)
+
 	if e != nil {
 		return nil, 0, e
 	}
+
 	defer rows.Close()
 
 	var out []*models.Template
 	var total int64
 	for rows.Next() {
 		v := new(models.Template)
+
 		if e = rows.Scan(&v.ID, &v.EventType, &v.Channel, &v.Subject, &v.Body, &v.Active, &v.CreatedAt, &v.UpdatedAt, &total); e != nil {
 			return nil, 0, e
 		}
+
 		out = append(out, v)
 	}
 
 	return out, total, rows.Err()
 }
 
+// ListDeliveries возвращает страницу доставок по статусу и каналу от новых к старым.
+// Нормализует лимит; на пустой странице возвращает nil и нулевой общий счётчик.
 func (r *Repository) ListDeliveries(ctx context.Context, status, channel *string, limit, offset int32) ([]*models.Delivery, int64, error) {
 	rows, e := r.db.Query(ctx, `SELECT id,notification_id,channel,recipient,status,provider_id,attempts,next_attempt_at,last_error,created_at,updated_at,count(*) OVER() FROM deliveries WHERE ($1::text IS NULL OR status=$1) AND ($2::text IS NULL OR channel=$2) ORDER BY created_at DESC LIMIT $3 OFFSET $4`, status, channel, bounded(limit), offset)
+
 	if e != nil {
 		return nil, 0, e
 	}
+
 	defer rows.Close()
 
 	var out []*models.Delivery
 	var total int64
 	for rows.Next() {
 		v := new(models.Delivery)
+
 		if e = rows.Scan(&v.ID, &v.NotificationID, &v.Channel, &v.Recipient, &v.Status, &v.ProviderID, &v.Attempts, &v.NextAttemptAt, &v.LastError, &v.CreatedAt, &v.UpdatedAt, &total); e != nil {
 			return nil, 0, e
 		}
+
 		out = append(out, v)
 	}
 
 	return out, total, rows.Err()
 }
 
+// Dispatch транзакционно записывает событие в inbox, создаёт уведомления и задания
+// доставки по настройкам получателей. Повтор события пропускает; возвращает только
+// новые уведомления с включённым IN_APP. Отправку внешним провайдерам не выполняет.
 func (r *Repository) Dispatch(ctx context.Context, e models.Event, recipients []uuid.UUID) ([]*models.Notification, error) {
 	tx, err := r.db.Begin(ctx)
+
 	if err != nil {
 		return nil, err
 	}
+
 	defer tx.Rollback(ctx)
 	payload, _ := json.Marshal(e.Payload)
 	tag, err := tx.Exec(ctx, `INSERT INTO event_inbox(event_id,event_type,topic,payload) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING`, e.ID, e.Type, e.Topic, payload)
+
 	if err != nil {
 		return nil, err
 	}
+
 	if tag.RowsAffected() == 0 {
 		return nil, tx.Commit(ctx)
 	}
@@ -167,9 +210,11 @@ func (r *Repository) Dispatch(ctx context.Context, e models.Event, recipients []
 
 		data, _ := json.Marshal(v.Data)
 		err = tx.QueryRow(ctx, `INSERT INTO notifications(event_id,user_id,event_type,title,body,data) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(event_id,user_id) DO NOTHING RETURNING id,created_at`, v.EventID, v.UserID, v.EventType, v.Title, v.Body, data).Scan(&v.ID, &v.CreatedAt)
+
 		if errors.Is(err, pgx.ErrNoRows) {
 			continue
 		}
+
 		if err != nil {
 			return nil, err
 		}
@@ -197,14 +242,18 @@ func (r *Repository) Dispatch(ctx context.Context, e models.Event, recipients []
 		if err != nil {
 			return nil, err
 		}
+
 	}
 
 	return created, tx.Commit(ctx)
 }
 
+// renderTemplate читает активный шаблон и подставляет строковые поля data в {{ключ}}.
+// При любой ошибке чтения использует event как заголовок и «Событие <event>» как тело.
 func renderTemplate(ctx context.Context, tx pgx.Tx, event, channel string, data map[string]any) (string, string) {
 	var subject, body string
 	err := tx.QueryRow(ctx, `SELECT subject,body FROM notification_templates WHERE event_type=$1 AND channel=$2 AND active`, event, channel).Scan(&subject, &body)
+
 	if err != nil {
 		subject = event
 		body = "Событие " + event
@@ -212,40 +261,55 @@ func renderTemplate(ctx context.Context, tx pgx.Tx, event, channel string, data 
 
 	for k, v := range data {
 		value, ok := v.(string)
+
 		if ok {
 			subject = strings.ReplaceAll(subject, "{{"+k+"}}", value)
 			body = strings.ReplaceAll(body, "{{"+k+"}}", value)
 		}
+
 	}
 	return subject, body
 }
 
+// ResolveRecipients собирает уникальные UUID из user_id, owner_user_id,
+// assigned_user_id и сохранённого автора заявки. Для tickets.events.v1 обновляет
+// снимок получателей заявки; ошибки чтения снимка игнорирует, порядок результата не задан.
 func (r *Repository) ResolveRecipients(ctx context.Context, e models.Event) ([]uuid.UUID, error) {
 	unique := map[uuid.UUID]struct{}{}
 	for _, key := range []string{"user_id", "owner_user_id", "assigned_user_id"} {
+
 		if raw, ok := e.Payload[key].(string); ok {
+
 			if id, err := uuid.Parse(raw); err == nil {
 				unique[id] = struct{}{}
 			}
+
 		}
+
 	}
 
 	ticketID, _ := uuid.Parse(stringValue(e.Payload, "ticket_id", "id"))
+
 	if ticketID != uuid.Nil {
+
 		if e.Topic == "tickets.events.v1" {
 			userID, _ := uuid.Parse(stringValue(e.Payload, "user_id"))
 			departmentID, _ := uuid.Parse(stringValue(e.Payload, "department_id"))
 			brigadeID, _ := uuid.Parse(stringValue(e.Payload, "brigade_id"))
 			_, err := r.db.Exec(ctx, `INSERT INTO ticket_recipients(ticket_id,user_id,department_id,brigade_id) VALUES($1,NULLIF($2::uuid,$5::uuid),NULLIF($3::uuid,$5::uuid),NULLIF($4::uuid,$5::uuid)) ON CONFLICT(ticket_id) DO UPDATE SET user_id=COALESCE(EXCLUDED.user_id,ticket_recipients.user_id),department_id=COALESCE(EXCLUDED.department_id,ticket_recipients.department_id),brigade_id=COALESCE(EXCLUDED.brigade_id,ticket_recipients.brigade_id),updated_at=now()`, ticketID, userID, departmentID, brigadeID, uuid.Nil)
+
 			if err != nil {
 				return nil, err
 			}
+
 		}
 
 		var userID *uuid.UUID
+
 		if err := r.db.QueryRow(ctx, `SELECT user_id FROM ticket_recipients WHERE ticket_id=$1`, ticketID).Scan(&userID); err == nil && userID != nil {
 			unique[*userID] = struct{}{}
 		}
+
 	}
 
 	out := make([]uuid.UUID, 0, len(unique))
@@ -256,37 +320,53 @@ func (r *Repository) ResolveRecipients(ctx context.Context, e models.Event) ([]u
 	return out, nil
 }
 
+// stringValue возвращает первое непустое строковое поле в порядке keys либо пустую строку.
 func stringValue(data map[string]any, keys ...string) string {
 	for _, key := range keys {
+
 		if value, ok := data[key].(string); ok && value != "" {
 			return value
 		}
+
 	}
 	return ""
 }
 
+// ClaimDelivery транзакционно захватывает готовую PENDING/FAILED либо зависшую
+// PROCESSING дольше пяти минут доставку с числом попыток меньше восьми, пропуская блокировки.
+// В базе ставит PROCESSING, возвращает снимок доставки с увеличенным Attempts
+// и уведомление с текстом канала; отсутствие работы даёт pgx.ErrNoRows.
 func (r *Repository) ClaimDelivery(ctx context.Context) (*models.Delivery, *models.Notification, error) {
 	tx, e := r.db.Begin(ctx)
+
 	if e != nil {
 		return nil, nil, e
 	}
+
 	defer tx.Rollback(ctx)
 	d := new(models.Delivery)
 	e = tx.QueryRow(ctx, `SELECT id,notification_id,channel,recipient,title,body,status,provider_id,attempts,next_attempt_at,last_error,created_at,updated_at FROM deliveries WHERE (status IN('PENDING','FAILED') AND next_attempt_at<=now() OR status='PROCESSING' AND locked_at < now()-interval '5 minutes') AND attempts<8 ORDER BY next_attempt_at FOR UPDATE SKIP LOCKED LIMIT 1`).Scan(&d.ID, &d.NotificationID, &d.Channel, &d.Recipient, &d.Title, &d.Body, &d.Status, &d.ProviderID, &d.Attempts, &d.NextAttemptAt, &d.LastError, &d.CreatedAt, &d.UpdatedAt)
+
 	if e != nil {
 		return nil, nil, e
 	}
+
 	_, e = tx.Exec(ctx, `UPDATE deliveries SET status='PROCESSING',attempts=attempts+1,locked_at=now(),updated_at=now() WHERE id=$1`, d.ID)
+
 	if e != nil {
 		return nil, nil, e
 	}
+
 	n, e := scanNotification(tx.QueryRow(ctx, `SELECT id,event_id,user_id,event_type,title,body,data,read,read_at,created_at FROM notifications WHERE id=$1`, d.NotificationID))
+
 	if e != nil {
 		return nil, nil, e
 	}
+
 	if d.Title != "" {
 		n.Title = d.Title
 	}
+
 	if d.Body != "" {
 		n.Body = d.Body
 	}
@@ -295,56 +375,79 @@ func (r *Repository) ClaimDelivery(ctx context.Context) (*models.Delivery, *mode
 	return d, n, tx.Commit(ctx)
 }
 
+// DeliverySent отмечает PROCESSING-доставку SENT только для актуальной попытки attempt,
+// сохраняя ID провайдера и снимая блокировку. Потеря владения возвращает pgx.ErrNoRows.
 func (r *Repository) DeliverySent(ctx context.Context, id uuid.UUID, attempt int32, provider string) error {
 	tag, e := r.db.Exec(ctx, `UPDATE deliveries SET status='SENT',provider_id=NULLIF($3,''),last_error=NULL,locked_at=NULL,updated_at=now() WHERE id=$1 AND status='PROCESSING' AND attempts=$2`, id, attempt, provider)
+
 	if e == nil && tag.RowsAffected() == 0 {
 		return pgx.ErrNoRows
 	}
+
 	return e
 }
 
+// DeliveryFailed отмечает текущую PROCESSING-попытку FAILED с задержкой
+// 2^min(Attempts, 8) секунд, а начиная с восьмой — DEAD. Причину ограничивает 2000 байтами;
+// несовпадение попытки или статуса возвращает pgx.ErrNoRows, d не изменяет.
 func (r *Repository) DeliveryFailed(ctx context.Context, d *models.Delivery, reason string) error {
 	status := "FAILED"
+
 	if d.Attempts >= 8 {
 		status = "DEAD"
 	}
 
 	delay := time.Duration(1<<min(d.Attempts, 8)) * time.Second
 	tag, e := r.db.Exec(ctx, `UPDATE deliveries SET status=$3,last_error=$4,next_attempt_at=now()+make_interval(secs=>$5),locked_at=NULL,updated_at=now() WHERE id=$1 AND status='PROCESSING' AND attempts=$2`, d.ID, d.Attempts, status, truncate(reason, 2000), delay.Seconds())
+
 	if e == nil && tag.RowsAffected() == 0 {
 		return pgx.ErrNoRows
 	}
+
 	return e
 }
 
+// DeactivateToken выключает устройство по токену; отсутствие токена не считается ошибкой.
 func (r *Repository) DeactivateToken(ctx context.Context, token string) error {
 	_, e := r.db.Exec(ctx, `UPDATE devices SET active=false,updated_at=now() WHERE token=$1`, token)
 	return e
 }
 
+// truncate ограничивает строку первыми n байтами, не проверяя границы UTF-8.
+// n должен быть неотрицательным.
 func truncate(v string, n int) string {
+
 	if len(v) > n {
 		return v[:n]
 	}
+
 	return v
 }
 
+// safeData создаёт карту только строковых полей ticket_id, ticket_sla_id,
+// department_id, status и event_type из v, исключая остальные данные события.
 func safeData(v map[string]any) map[string]string {
 	out := map[string]string{}
 	for _, k := range []string{"ticket_id", "ticket_sla_id", "department_id", "status", "event_type"} {
+
 		if s, ok := v[k].(string); ok {
 			out[k] = s
 		}
+
 	}
 	return out
 }
 
+// bounded возвращает лимит страницы: 50 для неположительного v и не больше 200.
 func bounded(v int32) int32 {
+
 	if v <= 0 {
 		return 50
 	}
+
 	if v > 200 {
 		return 200
 	}
+
 	return v
 }

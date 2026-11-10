@@ -102,17 +102,20 @@ func newTestApp(t *testing.T) *testApp {
 				WithStartupTimeout(30*time.Second),
 		),
 	)
+
 	if err != nil {
 		t.Fatalf("failed to start postgres container: %v", err)
 	}
 
 	connStr, err := container.ConnectionString(ctx, "sslmode=disable")
+
 	if err != nil {
 		_ = container.Terminate(ctx)
 		t.Fatalf("failed to get connection string: %v", err)
 	}
 
 	migrationDB, err := sql.Open("pgx", connStr)
+
 	if err != nil {
 		_ = container.Terminate(ctx)
 		t.Fatalf("failed to open db: %v", err)
@@ -122,6 +125,7 @@ func newTestApp(t *testing.T) *testApp {
 
 	runGooseMigrations(t, migrationDB)
 	db, err := pgxpool.New(ctx, connStr)
+
 	if err != nil {
 		_ = migrationDB.Close()
 		_ = container.Terminate(ctx)
@@ -132,6 +136,7 @@ func newTestApp(t *testing.T) *testApp {
 	mail := &fakeMailService{}
 
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+
 	if err != nil {
 		db.Close()
 		_ = migrationDB.Close()
@@ -175,6 +180,7 @@ func runGooseMigrations(t *testing.T, db *sql.DB) {
 	if err := goose.Up(db, migrationsDir); err != nil {
 		t.Fatalf("failed to apply goose migrations from %s: %v", migrationsDir, err)
 	}
+
 }
 
 func uniqueEmail() string {
@@ -188,6 +194,7 @@ func waitForDB(t *testing.T, ctx context.Context, db *sql.DB) {
 
 	for i := 0; i < 10; i++ {
 		err = db.PingContext(ctx)
+
 		if err == nil {
 			return
 		}

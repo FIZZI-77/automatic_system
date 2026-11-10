@@ -26,7 +26,11 @@ spec:
             - name: ELASTICSEARCH_HOSTS
               value: http://elasticsearch:9200
             - name: SERVER_PUBLICBASEURL
-              value: http://localhost:5601
+              value: https://fizzi.tail2c9430.ts.net/observe/kibana
+            - name: SERVER_BASEPATH
+              value: /observe/kibana
+            - name: SERVER_REWRITEBASEPATH
+              value: "true"
             - name: SERVER_DEFAULTROUTE
               value: /app/dashboards
             - name: TELEMETRY_ENABLED
@@ -36,7 +40,7 @@ spec:
               containerPort: 5601
           readinessProbe:
             httpGet:
-              path: /api/status
+              path: /observe/kibana/api/status
               port: http
             initialDelaySeconds: 30
             periodSeconds: 10

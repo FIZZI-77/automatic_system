@@ -28,38 +28,117 @@ type TicketHandler struct {
 	logger  *zap.Logger
 }
 
+// NewTicketHandler создаёт gRPC-обработчик заявок с сервисом и журналом запросов.
 func NewTicketHandler(service *service.Service, logger *zap.Logger) *TicketHandler {
 	return &TicketHandler{service: service, logger: logger}
 }
 
 type actorContext struct {
-	UserID    *uuid.UUID
-	BrigadeID *uuid.UUID
-	Roles     []string
+	UserID       *uuid.UUID
+	BrigadeID    *uuid.UUID
+	DepartmentID *uuid.UUID
+	Roles        []string
 }
 
+// SubmitTicketFeedback разбирает UUID заявки и требует UUID пользователя из метаданных,
+// затем передаёт оценку, решение проблемы и комментарий сервису. Отсутствие пользователя
+// даёт PermissionDenied; остальные проверки доступа выполняются в сервисе.
+func (t *TicketHandler) SubmitTicketFeedback(ctx context.Context, req *ticketv1.SubmitTicketFeedbackRequest) (*ticketv1.SubmitTicketFeedbackResponse, error) {
+	ticketID, err := uuid.Parse(req.GetTicketId())
+
+	if err != nil {
+		return nil, ticketStatusError("SubmitTicketFeedback", fmt.Errorf("%w: invalid ticket_id", models.ErrValidation))
+	}
+
+	actor := actorFromContext(ctx)
+
+	if actor.UserID == nil {
+		return nil, ticketStatusError("SubmitTicketFeedback", models.ErrPermissionDenied)
+	}
+
+	feedback, err := t.service.SubmitTicketFeedback(ctx, &models.SubmitTicketFeedbackInput{
+		TicketID: ticketID, UserID: *actor.UserID, Rating: req.GetRating(),
+		ProblemResolved: req.GetProblemResolved(), Comment: req.GetComment(),
+	})
+
+	if err != nil {
+		return nil, ticketStatusError("SubmitTicketFeedback", err)
+	}
+
+	return &ticketv1.SubmitTicketFeedbackResponse{Feedback: toProtoFeedback(feedback)}, nil
+}
+
+// GetTicketFeedback разбирает UUID заявки и требует пользователя из метаданных;
+// передаёт сервису его ID и признак роли admin или dispatcher для проверки доступа.
+func (t *TicketHandler) GetTicketFeedback(ctx context.Context, req *ticketv1.GetTicketFeedbackRequest) (*ticketv1.GetTicketFeedbackResponse, error) {
+	ticketID, err := uuid.Parse(req.GetTicketId())
+
+	if err != nil {
+		return nil, ticketStatusError("GetTicketFeedback", fmt.Errorf("%w: invalid ticket_id", models.ErrValidation))
+	}
+
+	actor := actorFromContext(ctx)
+
+	if actor.UserID == nil {
+		return nil, ticketStatusError("GetTicketFeedback", models.ErrPermissionDenied)
+	}
+
+	privileged := containsRole(actor.Roles, "admin") || containsRole(actor.Roles, "dispatcher")
+	feedback, err := t.service.GetTicketFeedback(ctx, &models.GetTicketFeedbackInput{
+		TicketID: ticketID, ActorID: *actor.UserID, Privileged: privileged,
+	})
+
+	if err != nil {
+		return nil, ticketStatusError("GetTicketFeedback", err)
+	}
+
+	return &ticketv1.GetTicketFeedbackResponse{Feedback: toProtoFeedback(feedback)}, nil
+}
+
+// toProtoFeedback преобразует ненулевой отзыв с оценкой, комментарием,
+// признаком решения проблемы и датами в protobuf.
+func toProtoFeedback(value *models.TicketFeedback) *ticketv1.TicketFeedback {
+	return &ticketv1.TicketFeedback{
+		TicketId: value.TicketID.String(), UserId: value.UserID.String(), Rating: value.Rating,
+		ProblemResolved: value.ProblemResolved, Comment: value.Comment,
+		CreatedAt: ToProtoTimestamp(value.CreatedAt), UpdatedAt: ToProtoTimestamp(value.UpdatedAt),
+	}
+}
+
+// CreateWorkReport проверяет UUID заявки, автора и файлов и разрешает запрос
+// самому автору либо admin или dispatcher при наличии пользователя в метаданных.
+// Передаёт сервису отчёт, контекст доступа, ключ идемпотентности и данные завершения.
 func (t *TicketHandler) CreateWorkReport(ctx context.Context, req *ticketv1.CreateWorkReportRequest) (*ticketv1.CreateWorkReportResponse, error) {
 	ticketID, err := uuid.Parse(req.GetTicketId())
+
 	if err != nil {
 		return nil, ticketStatusError("CreateWorkReport", fmt.Errorf("%w: invalid ticket_id", models.ErrValidation))
 	}
+
 	authorID, err := uuid.Parse(req.GetAuthorUserId())
+
 	if err != nil {
 		return nil, ticketStatusError("CreateWorkReport", fmt.Errorf("%w: invalid author_user_id", models.ErrValidation))
 	}
+
 	fileIDs := make([]uuid.UUID, 0, len(req.GetFileIds()))
 	for _, raw := range req.GetFileIds() {
 		id, parseErr := uuid.Parse(raw)
+
 		if parseErr != nil {
 			return nil, ticketStatusError("CreateWorkReport", fmt.Errorf("%w: invalid file_id", models.ErrValidation))
 		}
+
 		fileIDs = append(fileIDs, id)
 	}
 	actor := actorFromContext(ctx)
+
 	if actor.UserID == nil || (*actor.UserID != authorID && !containsRole(actor.Roles, "admin") && !containsRole(actor.Roles, "dispatcher")) {
 		return nil, ticketStatusError("CreateWorkReport", models.ErrPermissionDenied)
 	}
+
 	var completion *models.CompletionReportInput
+
 	if req.GetCompletion() != nil {
 		completion = &models.CompletionReportInput{
 			RequestedBy: req.GetCompletion().GetRequestedBy(),
@@ -74,26 +153,47 @@ func (t *TicketHandler) CreateWorkReport(ctx context.Context, req *ticketv1.Crea
 			completion.Brigade.Members = append(completion.Brigade.Members, models.CompletionBrigadeMemberInput{UserID: member.GetUserId(), FullName: member.GetFullName(), Role: member.GetRole()})
 		}
 	}
-	report, err := t.service.Reports.Create(ctx, &models.CreateWorkReportInput{TicketID: ticketID, AuthorUserID: authorID, Description: req.GetDescription(), FileIDs: fileIDs, ActorBrigadeID: actor.BrigadeID, ActorRoles: actor.Roles, IdempotencyKey: req.GetIdempotencyKey(), Completion: completion})
+
+	report, err := t.service.CreateWorkReport(ctx, &models.CreateWorkReportInput{
+		TicketID:          ticketID,
+		AuthorUserID:      authorID,
+		Description:       req.GetDescription(),
+		FileIDs:           fileIDs,
+		ActorBrigadeID:    actor.BrigadeID,
+		ActorDepartmentID: actor.DepartmentID,
+		ActorRoles:        actor.Roles,
+		IdempotencyKey:    req.GetIdempotencyKey(),
+		Completion:        completion,
+	})
+
 	if err != nil {
 		return nil, ticketStatusError("CreateWorkReport", err)
 	}
+
 	return &ticketv1.CreateWorkReportResponse{Report: toProtoWorkReport(report)}, nil
 }
 
+// ListWorkReports разбирает UUID заявки, требует пользователя из метаданных
+// и передаёт проверку доступа по бригаде, ведомству и ролям сервису.
 func (t *TicketHandler) ListWorkReports(ctx context.Context, req *ticketv1.ListWorkReportsRequest) (*ticketv1.ListWorkReportsResponse, error) {
 	ticketID, err := uuid.Parse(req.GetTicketId())
+
 	if err != nil {
 		return nil, ticketStatusError("ListWorkReports", fmt.Errorf("%w: invalid ticket_id", models.ErrValidation))
 	}
+
 	actor := actorFromContext(ctx)
+
 	if actor.UserID == nil {
 		return nil, ticketStatusError("ListWorkReports", models.ErrPermissionDenied)
 	}
-	reports, err := t.service.Reports.List(ctx, ticketID, *actor.UserID, actor.BrigadeID, actor.Roles)
+
+	reports, err := t.service.ListWorkReports(ctx, ticketID, *actor.UserID, actor.BrigadeID, actor.DepartmentID, actor.Roles)
+
 	if err != nil {
 		return nil, ticketStatusError("ListWorkReports", err)
 	}
+
 	result := make([]*ticketv1.WorkReport, 0, len(reports))
 	for _, report := range reports {
 		result = append(result, toProtoWorkReport(report))
@@ -101,30 +201,53 @@ func (t *TicketHandler) ListWorkReports(ctx context.Context, req *ticketv1.ListW
 	return &ticketv1.ListWorkReportsResponse{Reports: result}, nil
 }
 
+// containsRole проверяет точное наличие wanted без нормализации регистра и пробелов.
 func containsRole(roles []string, wanted string) bool {
 	for _, role := range roles {
+
 		if role == wanted {
 			return true
 		}
+
 	}
 	return false
 }
 
+// toProtoWorkReport преобразует отчёт и UUID файлов в protobuf; nil сохраняет
+// как nil, отсутствующий файл завершения даёт пустую строку.
 func toProtoWorkReport(report *models.WorkReport) *ticketv1.WorkReport {
+
 	if report == nil {
 		return nil
 	}
+
 	files := make([]string, 0, len(report.FileIDs))
 	for _, id := range report.FileIDs {
 		files = append(files, id.String())
 	}
 	fileID := ""
+
 	if report.CompletionFileID != nil {
 		fileID = report.CompletionFileID.String()
 	}
-	return &ticketv1.WorkReport{Id: report.ID.String(), TicketId: report.TicketID.String(), AuthorUserId: report.AuthorUserID.String(), Description: report.Description, FileIds: files, CreatedAt: ToProtoTimestamp(report.CreatedAt), UpdatedAt: ToProtoTimestamp(report.UpdatedAt), CompletionStatus: report.CompletionStatus, CompletionFileId: fileID, CompletionError: report.CompletionError}
+
+	return &ticketv1.WorkReport{
+		Id:               report.ID.String(),
+		TicketId:         report.TicketID.String(),
+		AuthorUserId:     report.AuthorUserID.String(),
+		Description:      report.Description,
+		FileIds:          files,
+		CreatedAt:        ToProtoTimestamp(report.CreatedAt),
+		UpdatedAt:        ToProtoTimestamp(report.UpdatedAt),
+		CompletionStatus: report.CompletionStatus,
+		CompletionFileId: fileID,
+		CompletionError:  report.CompletionError,
+	}
 }
 
+// CreateTicket проверяет UUID ведомства, категории и пользователя и наличие обеих
+// координат, затем передаёт создание с контекстом пользователя сервису.
+// Неверный необязательный AssetId пропускает; ошибки формата дают InvalidArgument.
 func (t *TicketHandler) CreateTicket(ctx context.Context, req *ticketv1.CreateTicketRequest) (*ticketv1.CreateTicketResponse, error) {
 	start := time.Now()
 	logger := t.logger.With(pkg.RequestIDField(ctx))
@@ -137,6 +260,7 @@ func (t *TicketHandler) CreateTicket(ctx context.Context, req *ticketv1.CreateTi
 	)
 
 	departmentID, err := uuid.Parse(req.GetDepartmentId())
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "CreateTicket"),
@@ -148,6 +272,7 @@ func (t *TicketHandler) CreateTicket(ctx context.Context, req *ticketv1.CreateTi
 	}
 
 	categoryID, err := uuid.Parse(req.GetCategoryId())
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "CreateTicket"),
@@ -159,6 +284,7 @@ func (t *TicketHandler) CreateTicket(ctx context.Context, req *ticketv1.CreateTi
 	}
 
 	userID, err := uuid.Parse(req.GetUserId())
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "CreateTicket"),
@@ -205,6 +331,7 @@ func (t *TicketHandler) CreateTicket(ctx context.Context, req *ticketv1.CreateTi
 	}
 
 	res, err := t.service.CreateTicket(ctx, in)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "CreateTicket"),
@@ -227,6 +354,8 @@ func (t *TicketHandler) CreateTicket(ctx context.Context, req *ticketv1.CreateTi
 	}, nil
 }
 
+// GetTicket разбирает UUID заявки и передаёт пользователя, бригаду, ведомство
+// и роли из метаданных сервису для проверки доступа; возвращает заявку в protobuf.
 func (t *TicketHandler) GetTicket(ctx context.Context, req *ticketv1.GetTicketRequest) (*ticketv1.GetTicketResponse, error) {
 	start := time.Now()
 	logger := t.logger.With(pkg.RequestIDField(ctx))
@@ -237,6 +366,7 @@ func (t *TicketHandler) GetTicket(ctx context.Context, req *ticketv1.GetTicketRe
 	)
 
 	ticketID, err := uuid.Parse(req.GetTicketId())
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "GetTicket"),
@@ -249,13 +379,15 @@ func (t *TicketHandler) GetTicket(ctx context.Context, req *ticketv1.GetTicketRe
 
 	actor := actorFromContext(ctx)
 	in := &models.GetTicketInput{
-		TicketID:       ticketID,
-		ActorUserID:    actor.UserID,
-		ActorBrigadeID: actor.BrigadeID,
-		ActorRoles:     actor.Roles,
+		TicketID:          ticketID,
+		ActorUserID:       actor.UserID,
+		ActorBrigadeID:    actor.BrigadeID,
+		ActorDepartmentID: actor.DepartmentID,
+		ActorRoles:        actor.Roles,
 	}
 
 	res, err := t.service.GetTicket(ctx, in)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "GetTicket"),
@@ -278,6 +410,9 @@ func (t *TicketHandler) GetTicket(ctx context.Context, req *ticketv1.GetTicketRe
 	}, nil
 }
 
+// ListTickets проверяет необязательные UUID фильтров, преобразует даты, сортировку
+// и пагинацию и передаёт контекст доступа сервису. UNSPECIFIED-статус и приоритет
+// пропускает; возвращает страницу заявок с общим счётчиком.
 func (t *TicketHandler) ListTickets(ctx context.Context, req *ticketv1.ListTicketsRequest) (*ticketv1.ListTicketsResponse, error) {
 	start := time.Now()
 	logger := t.logger.With(pkg.RequestIDField(ctx))
@@ -291,6 +426,7 @@ func (t *TicketHandler) ListTickets(ctx context.Context, req *ticketv1.ListTicke
 	)
 
 	departmentID, err := parseOptionalUUIDPtr(req.DepartmentId, "department_id")
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "ListTickets"),
@@ -302,6 +438,7 @@ func (t *TicketHandler) ListTickets(ctx context.Context, req *ticketv1.ListTicke
 	}
 
 	userID, err := parseOptionalUUIDPtr(req.UserId, "user_id")
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "ListTickets"),
@@ -313,6 +450,7 @@ func (t *TicketHandler) ListTickets(ctx context.Context, req *ticketv1.ListTicke
 	}
 
 	brigadeID, err := parseOptionalUUIDPtr(req.BrigadeId, "brigade_id")
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "ListTickets"),
@@ -324,6 +462,7 @@ func (t *TicketHandler) ListTickets(ctx context.Context, req *ticketv1.ListTicke
 	}
 
 	categoryID, err := parseOptionalUUIDPtr(req.CategoryId, "category_id")
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "ListTickets"),
@@ -335,12 +474,14 @@ func (t *TicketHandler) ListTickets(ctx context.Context, req *ticketv1.ListTicke
 	}
 
 	var ticketStatus *models.TicketStatus
+
 	if req.Status != nil && req.GetStatus() != ticketv1.TicketStatus_TICKET_STATUS_UNSPECIFIED {
 		v := FromProtoStatus(req.GetStatus())
 		ticketStatus = &v
 	}
 
 	var priority *models.TicketPriority
+
 	if req.Priority != nil && req.GetPriority() != ticketv1.TicketPriority_TICKET_PRIORITY_UNSPECIFIED {
 		v := FromProtoPriority(req.GetPriority())
 		priority = &v
@@ -348,24 +489,26 @@ func (t *TicketHandler) ListTickets(ctx context.Context, req *ticketv1.ListTicke
 
 	actor := actorFromContext(ctx)
 	in := &models.ListTicketsInput{
-		DepartmentID:   departmentID,
-		UserID:         userID,
-		BrigadeID:      brigadeID,
-		CategoryID:     categoryID,
-		Status:         ticketStatus,
-		Priority:       priority,
-		CreatedFrom:    FromProtoTimestamp(req.GetCreatedFrom()),
-		CreatedTo:      FromProtoTimestamp(req.GetCreatedTo()),
-		Limit:          req.GetLimit(),
-		Offset:         req.GetOffset(),
-		SortBy:         FromProtoSortBy(req.GetSortBy()),
-		SortOrder:      FromProtoSortOrder(req.GetSortOrder()),
-		ActorUserID:    actor.UserID,
-		ActorBrigadeID: actor.BrigadeID,
-		ActorRoles:     actor.Roles,
+		DepartmentID:      departmentID,
+		UserID:            userID,
+		BrigadeID:         brigadeID,
+		CategoryID:        categoryID,
+		Status:            ticketStatus,
+		Priority:          priority,
+		CreatedFrom:       FromProtoTimestamp(req.GetCreatedFrom()),
+		CreatedTo:         FromProtoTimestamp(req.GetCreatedTo()),
+		Limit:             req.GetLimit(),
+		Offset:            req.GetOffset(),
+		SortBy:            FromProtoSortBy(req.GetSortBy()),
+		SortOrder:         FromProtoSortOrder(req.GetSortOrder()),
+		ActorUserID:       actor.UserID,
+		ActorBrigadeID:    actor.BrigadeID,
+		ActorDepartmentID: actor.DepartmentID,
+		ActorRoles:        actor.Roles,
 	}
 
 	res, err := t.service.ListTickets(ctx, in)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "ListTickets"),
@@ -393,6 +536,9 @@ func (t *TicketHandler) ListTickets(ctx context.Context, req *ticketv1.ListTicke
 	}, nil
 }
 
+// UpdateTicket проверяет UUID заявки и заданных категории, автора и объекта,
+// сохраняет необязательность полей и координат и передаёт обновление сервису
+// с бригадой, ведомством и ролями из метаданных.
 func (t *TicketHandler) UpdateTicket(ctx context.Context, req *ticketv1.UpdateTicketRequest) (*ticketv1.UpdateTicketResponse, error) {
 	start := time.Now()
 	logger := t.logger.With(pkg.RequestIDField(ctx))
@@ -404,6 +550,7 @@ func (t *TicketHandler) UpdateTicket(ctx context.Context, req *ticketv1.UpdateTi
 	)
 
 	ticketID, err := uuid.Parse(req.GetTicketId())
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "UpdateTicket"),
@@ -415,6 +562,7 @@ func (t *TicketHandler) UpdateTicket(ctx context.Context, req *ticketv1.UpdateTi
 	}
 
 	categoryID, err := parseOptionalUUIDPtr(req.CategoryId, "category_id")
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "UpdateTicket"),
@@ -426,6 +574,7 @@ func (t *TicketHandler) UpdateTicket(ctx context.Context, req *ticketv1.UpdateTi
 	}
 
 	updatedBy, err := parseOptionalUUID(req.GetUpdatedBy(), "updated_by")
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "UpdateTicket"),
@@ -437,12 +586,14 @@ func (t *TicketHandler) UpdateTicket(ctx context.Context, req *ticketv1.UpdateTi
 	}
 
 	assetID, err := parseOptionalUUID(req.GetAssetId(), "asset_id")
+
 	if err != nil {
 		logger.Warn("gRPC request failed", zap.String("method", "UpdateTicket"), zap.Error(err))
 		return nil, ticketStatusError("UpdateTicket", fmt.Errorf("%w: %v", models.ErrValidation, err))
 	}
 
 	var priority *models.TicketPriority
+
 	if req.Priority != nil && req.GetPriority() != ticketv1.TicketPriority_TICKET_PRIORITY_UNSPECIFIED {
 		v := FromProtoPriority(req.GetPriority())
 		priority = &v
@@ -450,16 +601,17 @@ func (t *TicketHandler) UpdateTicket(ctx context.Context, req *ticketv1.UpdateTi
 
 	actor := actorFromContext(ctx)
 	in := &models.UpdateTicketInput{
-		TicketID:       ticketID,
-		Title:          req.Title,
-		Description:    req.Description,
-		CategoryID:     categoryID,
-		Priority:       priority,
-		Address:        req.Address,
-		UpdatedBy:      updatedBy,
-		AssetID:        assetID,
-		ActorBrigadeID: actor.BrigadeID,
-		ActorRoles:     actor.Roles,
+		TicketID:          ticketID,
+		Title:             req.Title,
+		Description:       req.Description,
+		CategoryID:        categoryID,
+		Priority:          priority,
+		Address:           req.Address,
+		UpdatedBy:         updatedBy,
+		AssetID:           assetID,
+		ActorBrigadeID:    actor.BrigadeID,
+		ActorDepartmentID: actor.DepartmentID,
+		ActorRoles:        actor.Roles,
 	}
 
 	if req.Latitude != nil {
@@ -473,6 +625,7 @@ func (t *TicketHandler) UpdateTicket(ctx context.Context, req *ticketv1.UpdateTi
 	}
 
 	res, err := t.service.UpdateTicket(ctx, in)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "UpdateTicket"),
@@ -494,6 +647,9 @@ func (t *TicketHandler) UpdateTicket(ctx context.Context, req *ticketv1.UpdateTi
 	}, nil
 }
 
+// ChangeTicketStatus разбирает UUID заявки и автора и преобразует целевой статус;
+// передаёт проверку перехода и доступа сервису с контекстом метаданных.
+// Пустой комментарий заменяет на nil.
 func (t *TicketHandler) ChangeTicketStatus(ctx context.Context, req *ticketv1.ChangeTicketStatusRequest) (*ticketv1.ChangeTicketStatusResponse, error) {
 	start := time.Now()
 	logger := t.logger.With(pkg.RequestIDField(ctx))
@@ -506,6 +662,7 @@ func (t *TicketHandler) ChangeTicketStatus(ctx context.Context, req *ticketv1.Ch
 	)
 
 	ticketID, err := uuid.Parse(req.GetTicketId())
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "ChangeTicketStatus"),
@@ -517,6 +674,7 @@ func (t *TicketHandler) ChangeTicketStatus(ctx context.Context, req *ticketv1.Ch
 	}
 
 	changedBy, err := uuid.Parse(req.GetChangedBy())
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "ChangeTicketStatus"),
@@ -529,15 +687,17 @@ func (t *TicketHandler) ChangeTicketStatus(ctx context.Context, req *ticketv1.Ch
 
 	actor := actorFromContext(ctx)
 	in := &models.ChangeTicketStatusInput{
-		TicketID:       ticketID,
-		NewStatus:      FromProtoStatus(req.GetNewStatus()),
-		ChangedBy:      changedBy,
-		Comment:        optionalString(req.GetComment()),
-		ActorBrigadeID: actor.BrigadeID,
-		ActorRoles:     actor.Roles,
+		TicketID:          ticketID,
+		NewStatus:         FromProtoStatus(req.GetNewStatus()),
+		ChangedBy:         changedBy,
+		Comment:           optionalString(req.GetComment()),
+		ActorBrigadeID:    actor.BrigadeID,
+		ActorDepartmentID: actor.DepartmentID,
+		ActorRoles:        actor.Roles,
 	}
 
 	res, err := t.service.ChangeTicketStatus(ctx, in)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "ChangeTicketStatus"),
@@ -561,6 +721,9 @@ func (t *TicketHandler) ChangeTicketStatus(ctx context.Context, req *ticketv1.Ch
 	}, nil
 }
 
+// AssignBrigade проверяет UUID заявки, бригады и назначающего пользователя
+// и передаёт назначение с комментарием, ведомством и ролями сервису.
+// Ошибки UUID даёт как InvalidArgument; ограничения назначения проверяет сервис.
 func (t *TicketHandler) AssignBrigade(ctx context.Context, req *ticketv1.AssignBrigadeRequest) (*ticketv1.AssignBrigadeResponse, error) {
 	start := time.Now()
 	logger := t.logger.With(pkg.RequestIDField(ctx))
@@ -573,6 +736,7 @@ func (t *TicketHandler) AssignBrigade(ctx context.Context, req *ticketv1.AssignB
 	)
 
 	ticketID, err := uuid.Parse(req.GetTicketId())
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "AssignBrigade"),
@@ -584,6 +748,7 @@ func (t *TicketHandler) AssignBrigade(ctx context.Context, req *ticketv1.AssignB
 	}
 
 	brigadeID, err := uuid.Parse(req.GetBrigadeId())
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "AssignBrigade"),
@@ -595,6 +760,7 @@ func (t *TicketHandler) AssignBrigade(ctx context.Context, req *ticketv1.AssignB
 	}
 
 	assignedBy, err := uuid.Parse(req.GetAssignedBy())
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "AssignBrigade"),
@@ -605,15 +771,18 @@ func (t *TicketHandler) AssignBrigade(ctx context.Context, req *ticketv1.AssignB
 		return nil, ticketStatusError("AssignBrigade", fmt.Errorf("%w: invalid assigned_by: %v", models.ErrValidation, err))
 	}
 
+	actor := actorFromContext(ctx)
 	in := &models.AssignBrigadeInput{
-		TicketID:   ticketID,
-		BrigadeID:  brigadeID,
-		AssignedBy: assignedBy,
-		Comment:    optionalString(req.GetComment()),
-		ActorRoles: actorFromContext(ctx).Roles,
+		TicketID:          ticketID,
+		BrigadeID:         brigadeID,
+		AssignedBy:        assignedBy,
+		Comment:           optionalString(req.GetComment()),
+		ActorDepartmentID: actor.DepartmentID,
+		ActorRoles:        actor.Roles,
 	}
 
 	res, err := t.service.AssignBrigade(ctx, in)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "AssignBrigade"),
@@ -637,6 +806,8 @@ func (t *TicketHandler) AssignBrigade(ctx context.Context, req *ticketv1.AssignB
 	}, nil
 }
 
+// CancelTicket разбирает UUID заявки и автора отмены и передаёт причину,
+// ведомство и роли сервису; возвращает обновлённую заявку в protobuf.
 func (t *TicketHandler) CancelTicket(ctx context.Context, req *ticketv1.CancelTicketRequest) (*ticketv1.CancelTicketResponse, error) {
 	start := time.Now()
 	logger := t.logger.With(pkg.RequestIDField(ctx))
@@ -648,6 +819,7 @@ func (t *TicketHandler) CancelTicket(ctx context.Context, req *ticketv1.CancelTi
 	)
 
 	ticketID, err := uuid.Parse(req.GetTicketId())
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "CancelTicket"),
@@ -659,6 +831,7 @@ func (t *TicketHandler) CancelTicket(ctx context.Context, req *ticketv1.CancelTi
 	}
 
 	canceledBy, err := uuid.Parse(req.GetCanceledBy())
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "CancelTicket"),
@@ -669,14 +842,17 @@ func (t *TicketHandler) CancelTicket(ctx context.Context, req *ticketv1.CancelTi
 		return nil, ticketStatusError("CancelTicket", fmt.Errorf("%w: invalid canceled_by: %v", models.ErrValidation, err))
 	}
 
+	actor := actorFromContext(ctx)
 	in := &models.CancelTicketInput{
-		TicketID:   ticketID,
-		CanceledBy: canceledBy,
-		Reason:     req.GetReason(),
-		ActorRoles: actorFromContext(ctx).Roles,
+		TicketID:          ticketID,
+		CanceledBy:        canceledBy,
+		Reason:            req.GetReason(),
+		ActorDepartmentID: actor.DepartmentID,
+		ActorRoles:        actor.Roles,
 	}
 
 	res, err := t.service.CancelTicket(ctx, in)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "CancelTicket"),
@@ -698,6 +874,8 @@ func (t *TicketHandler) CancelTicket(ctx context.Context, req *ticketv1.CancelTi
 	}, nil
 }
 
+// CompleteTicket разбирает UUID заявки и автора завершения и передаёт завершение
+// с комментарием и контекстом бригады, ведомства и ролей сервису.
 func (t *TicketHandler) CompleteTicket(ctx context.Context, req *ticketv1.CompleteTicketRequest) (*ticketv1.CompleteTicketResponse, error) {
 	start := time.Now()
 	logger := t.logger.With(pkg.RequestIDField(ctx))
@@ -709,6 +887,7 @@ func (t *TicketHandler) CompleteTicket(ctx context.Context, req *ticketv1.Comple
 	)
 
 	ticketID, err := uuid.Parse(req.GetTicketId())
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "CompleteTicket"),
@@ -720,6 +899,7 @@ func (t *TicketHandler) CompleteTicket(ctx context.Context, req *ticketv1.Comple
 	}
 
 	completedBy, err := uuid.Parse(req.GetCompletedBy())
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "CompleteTicket"),
@@ -732,14 +912,16 @@ func (t *TicketHandler) CompleteTicket(ctx context.Context, req *ticketv1.Comple
 
 	actor := actorFromContext(ctx)
 	in := &models.CompleteTicketInput{
-		TicketID:       ticketID,
-		CompletedBy:    completedBy,
-		Comment:        optionalString(req.GetComment()),
-		ActorBrigadeID: actor.BrigadeID,
-		ActorRoles:     actor.Roles,
+		TicketID:          ticketID,
+		CompletedBy:       completedBy,
+		Comment:           optionalString(req.GetComment()),
+		ActorBrigadeID:    actor.BrigadeID,
+		ActorDepartmentID: actor.DepartmentID,
+		ActorRoles:        actor.Roles,
 	}
 
 	res, err := t.service.CompleteTicket(ctx, in)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "CompleteTicket"),
@@ -761,6 +943,8 @@ func (t *TicketHandler) CompleteTicket(ctx context.Context, req *ticketv1.Comple
 	}, nil
 }
 
+// GetTicketStatusHistory проверяет UUID заявки и передаёт пагинацию и контекст
+// доступа сервису; возвращает страницу переходов статуса с общим счётчиком.
 func (t *TicketHandler) GetTicketStatusHistory(ctx context.Context, req *ticketv1.GetTicketStatusHistoryRequest) (*ticketv1.GetTicketStatusHistoryResponse, error) {
 	start := time.Now()
 	logger := t.logger.With(pkg.RequestIDField(ctx))
@@ -771,6 +955,7 @@ func (t *TicketHandler) GetTicketStatusHistory(ctx context.Context, req *ticketv
 	)
 
 	ticketID, err := uuid.Parse(req.GetTicketId())
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "GetTicketStatusHistory"),
@@ -783,15 +968,17 @@ func (t *TicketHandler) GetTicketStatusHistory(ctx context.Context, req *ticketv
 
 	actor := actorFromContext(ctx)
 	in := &models.GetTicketStatusHistoryInput{
-		TicketID:       ticketID,
-		Limit:          req.GetLimit(),
-		Offset:         req.GetOffset(),
-		ActorUserID:    actor.UserID,
-		ActorBrigadeID: actor.BrigadeID,
-		ActorRoles:     actor.Roles,
+		TicketID:          ticketID,
+		Limit:             req.GetLimit(),
+		Offset:            req.GetOffset(),
+		ActorUserID:       actor.UserID,
+		ActorBrigadeID:    actor.BrigadeID,
+		ActorDepartmentID: actor.DepartmentID,
+		ActorRoles:        actor.Roles,
 	}
 
 	res, err := t.service.GetTicketStatusHistory(ctx, in)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "GetTicketStatusHistory"),
@@ -821,6 +1008,8 @@ func (t *TicketHandler) GetTicketStatusHistory(ctx context.Context, req *ticketv
 	}, nil
 }
 
+// CreateCategory передаёт код, имя, необязательное описание и роли из метаданных
+// сервису создания категории; пустое описание заменяет на nil.
 func (t *TicketHandler) CreateCategory(ctx context.Context, req *ticketv1.CreateCategoryRequest) (*ticketv1.CreateCategoryResponse, error) {
 	start := time.Now()
 	logger := t.logger.With(pkg.RequestIDField(ctx))
@@ -839,6 +1028,7 @@ func (t *TicketHandler) CreateCategory(ctx context.Context, req *ticketv1.Create
 	}
 
 	res, err := t.service.CreateCategory(ctx, in)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "CreateCategory"),
@@ -861,6 +1051,8 @@ func (t *TicketHandler) CreateCategory(ctx context.Context, req *ticketv1.Create
 	}, nil
 }
 
+// GetCategory разбирает UUID категории и возвращает результат сервиса в protobuf;
+// неверный UUID даёт InvalidArgument, отсутствие категории — NotFound.
 func (t *TicketHandler) GetCategory(ctx context.Context, req *ticketv1.GetCategoryRequest) (*ticketv1.GetCategoryResponse, error) {
 	start := time.Now()
 	logger := t.logger.With(pkg.RequestIDField(ctx))
@@ -871,6 +1063,7 @@ func (t *TicketHandler) GetCategory(ctx context.Context, req *ticketv1.GetCatego
 	)
 
 	categoryID, err := uuid.Parse(req.GetCategoryId())
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "GetCategory"),
@@ -886,6 +1079,7 @@ func (t *TicketHandler) GetCategory(ctx context.Context, req *ticketv1.GetCatego
 	}
 
 	res, err := t.service.GetCategory(ctx, in)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "GetCategory"),
@@ -908,6 +1102,8 @@ func (t *TicketHandler) GetCategory(ctx context.Context, req *ticketv1.GetCatego
 	}, nil
 }
 
+// ListCategories передаёт фильтр активности и пагинацию сервису и возвращает
+// страницу категорий с общим счётчиком без самостоятельной проверки ролей.
 func (t *TicketHandler) ListCategories(ctx context.Context, req *ticketv1.ListCategoriesRequest) (*ticketv1.ListCategoriesResponse, error) {
 	start := time.Now()
 	logger := t.logger.With(pkg.RequestIDField(ctx))
@@ -924,6 +1120,7 @@ func (t *TicketHandler) ListCategories(ctx context.Context, req *ticketv1.ListCa
 	}
 
 	res, err := t.service.ListCategories(ctx, in)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "ListCategories"),
@@ -951,6 +1148,9 @@ func (t *TicketHandler) ListCategories(ctx context.Context, req *ticketv1.ListCa
 	}, nil
 }
 
+// UpdateCategory разбирает UUID, сохраняет необязательность имени и описания
+// и передаёт роли сервису. Активность включает в изменение только при наличии
+// поля is_active по protobuf reflection.
 func (t *TicketHandler) UpdateCategory(ctx context.Context, req *ticketv1.UpdateCategoryRequest) (*ticketv1.UpdateCategoryResponse, error) {
 	start := time.Now()
 	logger := t.logger.With(pkg.RequestIDField(ctx))
@@ -962,6 +1162,7 @@ func (t *TicketHandler) UpdateCategory(ctx context.Context, req *ticketv1.Update
 	)
 
 	categoryID, err := uuid.Parse(req.GetCategoryId())
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "UpdateCategory"),
@@ -985,6 +1186,7 @@ func (t *TicketHandler) UpdateCategory(ctx context.Context, req *ticketv1.Update
 	}
 
 	res, err := t.service.UpdateCategory(ctx, in)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "UpdateCategory"),
@@ -1007,6 +1209,8 @@ func (t *TicketHandler) UpdateCategory(ctx context.Context, req *ticketv1.Update
 	}, nil
 }
 
+// DeleteCategory разбирает UUID и передаёт удаление с ролями из метаданных сервису;
+// возвращает категорию из результата, ошибки преобразует через ticketStatusError.
 func (t *TicketHandler) DeleteCategory(ctx context.Context, req *ticketv1.DeleteCategoryRequest) (*ticketv1.DeleteCategoryResponse, error) {
 	start := time.Now()
 	logger := t.logger.With(pkg.RequestIDField(ctx))
@@ -1017,6 +1221,7 @@ func (t *TicketHandler) DeleteCategory(ctx context.Context, req *ticketv1.Delete
 	)
 
 	categoryID, err := uuid.Parse(req.GetCategoryId())
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "DeleteCategory"),
@@ -1033,6 +1238,7 @@ func (t *TicketHandler) DeleteCategory(ctx context.Context, req *ticketv1.Delete
 	}
 
 	res, err := t.service.DeleteCategory(ctx, in)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "DeleteCategory"),
@@ -1055,12 +1261,422 @@ func (t *TicketHandler) DeleteCategory(ctx context.Context, req *ticketv1.Delete
 	}, nil
 }
 
+// CreateRequest требует пользователя из метаданных и проверяет UUID ведомства,
+// категории, автора и необязательного объекта. Создание от чужого имени разрешает
+// только admin или dispatcher; возвращает обращение, инцидент и признак совпадения.
+func (t *TicketHandler) CreateRequest(
+	ctx context.Context,
+	req *ticketv1.CreateRequestRequest,
+) (*ticketv1.CreateRequestResponse, error) {
+	actor := actorFromContext(ctx)
+
+	if actor.UserID == nil {
+		return nil, ticketStatusError("CreateRequest", models.ErrPermissionDenied)
+	}
+
+	departmentID, err := parseRequestUUID(req.GetDepartmentId(), "department_id")
+
+	if err != nil {
+		return nil, ticketStatusError("CreateRequest", err)
+	}
+
+	categoryID, err := parseRequestUUID(req.GetCategoryId(), "category_id")
+
+	if err != nil {
+		return nil, ticketStatusError("CreateRequest", err)
+	}
+
+	userID, err := parseRequestUUID(req.GetUserId(), "user_id")
+
+	if err != nil {
+		return nil, ticketStatusError("CreateRequest", err)
+	}
+
+	if userID != *actor.UserID && !containsRole(actor.Roles, "admin") && !containsRole(actor.Roles, "dispatcher") {
+		return nil, ticketStatusError("CreateRequest", models.ErrPermissionDenied)
+	}
+
+	assetID, err := parseOptionalRequestUUID(req.AssetId, "asset_id")
+
+	if err != nil {
+		return nil, ticketStatusError("CreateRequest", err)
+	}
+
+	result, err := t.service.CreateRequest(ctx, &models.CreateRequestInput{
+		DepartmentID: departmentID,
+		CategoryID:   categoryID,
+		UserID:       userID,
+		Title:        req.GetTitle(),
+		Description:  req.GetDescription(),
+		Priority:     FromProtoPriority(req.GetPriority()),
+		Address:      req.GetAddress(),
+		Latitude:     req.GetLatitude(),
+		Longitude:    req.GetLongitude(),
+		AssetID:      assetID,
+	})
+
+	if err != nil {
+		return nil, ticketStatusError("CreateRequest", err)
+	}
+
+	return &ticketv1.CreateRequestResponse{
+		Request:          ToProtoTicket(result.Request),
+		Incident:         ToProtoTicket(result.Incident),
+		DuplicateMatched: result.DuplicateMatched,
+	}, nil
+}
+
+// AttachRequest требует пользователя из метаданных и проверяет UUID инцидента
+// и обращения; передаёт привязку с автором, причиной, ведомством и ролями сервису.
+func (t *TicketHandler) AttachRequest(
+	ctx context.Context,
+	req *ticketv1.AttachRequestRequest,
+) (*ticketv1.AttachRequestResponse, error) {
+	actor := actorFromContext(ctx)
+
+	if actor.UserID == nil {
+		return nil, ticketStatusError("AttachRequest", models.ErrPermissionDenied)
+	}
+
+	incidentID, err := parseRequestUUID(req.GetIncidentId(), "incident_id")
+
+	if err != nil {
+		return nil, ticketStatusError("AttachRequest", err)
+	}
+
+	requestID, err := parseRequestUUID(req.GetRequestId(), "request_id")
+
+	if err != nil {
+		return nil, ticketStatusError("AttachRequest", err)
+	}
+
+	request, err := t.service.AttachRequest(ctx, &models.AttachRequestInput{
+		IncidentID:        incidentID,
+		RequestID:         requestID,
+		ChangedBy:         *actor.UserID,
+		Reason:            req.GetReason(),
+		ActorDepartmentID: actor.DepartmentID,
+		ActorRoles:        actor.Roles,
+	})
+
+	if err != nil {
+		return nil, ticketStatusError("AttachRequest", err)
+	}
+
+	return &ticketv1.AttachRequestResponse{Request: ToProtoTicket(request)}, nil
+}
+
+// DetachRequest требует пользователя из метаданных, разбирает UUID обращения
+// и передаёт отвязку с причиной и контекстом доступа сервису.
+func (t *TicketHandler) DetachRequest(
+	ctx context.Context,
+	req *ticketv1.DetachRequestRequest,
+) (*ticketv1.DetachRequestResponse, error) {
+	actor := actorFromContext(ctx)
+
+	if actor.UserID == nil {
+		return nil, ticketStatusError("DetachRequest", models.ErrPermissionDenied)
+	}
+
+	requestID, err := parseRequestUUID(req.GetRequestId(), "request_id")
+
+	if err != nil {
+		return nil, ticketStatusError("DetachRequest", err)
+	}
+
+	request, err := t.service.DetachRequest(ctx, &models.DetachRequestInput{
+		RequestID:         requestID,
+		ChangedBy:         *actor.UserID,
+		Reason:            req.GetReason(),
+		ActorDepartmentID: actor.DepartmentID,
+		ActorRoles:        actor.Roles,
+	})
+
+	if err != nil {
+		return nil, ticketStatusError("DetachRequest", err)
+	}
+
+	return &ticketv1.DetachRequestResponse{Request: ToProtoTicket(request)}, nil
+}
+
+// ListIncidentRequests требует пользователя из метаданных и UUID инцидента;
+// передаёт проверку доступа по ведомству и ролям сервису и возвращает страницу
+// связанных обращений с общим счётчиком.
+func (t *TicketHandler) ListIncidentRequests(
+	ctx context.Context,
+	req *ticketv1.ListIncidentRequestsRequest,
+) (*ticketv1.ListIncidentRequestsResponse, error) {
+	actor := actorFromContext(ctx)
+
+	if actor.UserID == nil {
+		return nil, ticketStatusError("ListIncidentRequests", models.ErrPermissionDenied)
+	}
+
+	incidentID, err := parseRequestUUID(req.GetIncidentId(), "incident_id")
+
+	if err != nil {
+		return nil, ticketStatusError("ListIncidentRequests", err)
+	}
+
+	requests, total, err := t.service.ListIncidentRequests(ctx, &models.ListIncidentRequestsInput{
+		IncidentID:        incidentID,
+		Limit:             req.GetLimit(),
+		Offset:            req.GetOffset(),
+		ActorDepartmentID: actor.DepartmentID,
+		ActorRoles:        actor.Roles,
+	})
+
+	if err != nil {
+		return nil, ticketStatusError("ListIncidentRequests", err)
+	}
+
+	response := make([]*ticketv1.Ticket, 0, len(requests))
+
+	for _, request := range requests {
+		response = append(response, ToProtoTicket(request))
+	}
+
+	return &ticketv1.ListIncidentRequestsResponse{
+		Requests: response,
+		Total:    total,
+	}, nil
+}
+
+// RegisterIntegration требует пользователя из метаданных и проверяет необязательный
+// UUID разрешённого ведомства; передаёт создание с ролями сервису и возвращает
+// данные интеграции вместе с выданным секретом.
+func (t *TicketHandler) RegisterIntegration(
+	ctx context.Context,
+	req *ticketv1.RegisterIntegrationRequest,
+) (*ticketv1.RegisterIntegrationResponse, error) {
+	actor := actorFromContext(ctx)
+
+	if actor.UserID == nil {
+		return nil, ticketStatusError("RegisterIntegration", models.ErrPermissionDenied)
+	}
+
+	allowedDepartmentID, err := parseOptionalRequestUUID(req.AllowedDepartmentId, "allowed_department_id")
+
+	if err != nil {
+		return nil, ticketStatusError("RegisterIntegration", err)
+	}
+
+	result, err := t.service.RegisterIntegration(ctx, &models.RegisterIntegrationInput{
+		Name:                req.GetName(),
+		ClientID:            req.GetClientId(),
+		AllowedDepartmentID: allowedDepartmentID,
+		CreatedBy:           *actor.UserID,
+		ActorRoles:          actor.Roles,
+	})
+
+	if err != nil {
+		return nil, ticketStatusError("RegisterIntegration", err)
+	}
+
+	return &ticketv1.RegisterIntegrationResponse{
+		Integration: toProtoTicketIntegration(result.Integration),
+		Secret:      result.Secret,
+	}, nil
+}
+
+// ListIntegrations передаёт пагинацию и роли из метаданных сервису для проверки
+// доступа и возвращает страницу интеграций с общим счётчиком без самих секретов.
+func (t *TicketHandler) ListIntegrations(
+	ctx context.Context,
+	req *ticketv1.ListIntegrationsRequest,
+) (*ticketv1.ListIntegrationsResponse, error) {
+	actor := actorFromContext(ctx)
+	result, err := t.service.ListIntegrations(ctx, &models.ListIntegrationsInput{
+		Limit:      req.GetLimit(),
+		Offset:     req.GetOffset(),
+		ActorRoles: actor.Roles,
+	})
+	if err != nil {
+		return nil, ticketStatusError("ListIntegrations", err)
+	}
+
+	integrations := make([]*ticketv1.TicketIntegration, 0, len(result.Integrations))
+	for _, integration := range result.Integrations {
+		integrations = append(integrations, toProtoTicketIntegration(integration))
+	}
+
+	return &ticketv1.ListIntegrationsResponse{
+		Integrations: integrations,
+		Total:        result.Total,
+	}, nil
+}
+
+// SetIntegrationActive разбирает UUID интеграции и передаёт флаг активности
+// с ролями из метаданных сервису; возвращает обновлённые данные в protobuf.
+func (t *TicketHandler) SetIntegrationActive(
+	ctx context.Context,
+	req *ticketv1.SetIntegrationActiveRequest,
+) (*ticketv1.SetIntegrationActiveResponse, error) {
+	integrationID, err := parseRequestUUID(req.GetIntegrationId(), "integration_id")
+	if err != nil {
+		return nil, ticketStatusError("SetIntegrationActive", err)
+	}
+
+	integration, err := t.service.SetIntegrationActive(ctx, &models.SetIntegrationActiveInput{
+		IntegrationID: integrationID,
+		IsActive:      req.GetIsActive(),
+		ActorRoles:    actorFromContext(ctx).Roles,
+	})
+	if err != nil {
+		return nil, ticketStatusError("SetIntegrationActive", err)
+	}
+
+	return &ticketv1.SetIntegrationActiveResponse{
+		Integration: toProtoTicketIntegration(integration),
+	}, nil
+}
+
+// RotateIntegrationSecret разбирает UUID интеграции и передаёт смену секрета
+// с ролями из метаданных сервису; возвращает интеграцию и новый секрет.
+func (t *TicketHandler) RotateIntegrationSecret(
+	ctx context.Context,
+	req *ticketv1.RotateIntegrationSecretRequest,
+) (*ticketv1.RotateIntegrationSecretResponse, error) {
+	integrationID, err := parseRequestUUID(req.GetIntegrationId(), "integration_id")
+	if err != nil {
+		return nil, ticketStatusError("RotateIntegrationSecret", err)
+	}
+
+	result, err := t.service.RotateIntegrationSecret(ctx, &models.RotateIntegrationSecretInput{
+		IntegrationID: integrationID,
+		ActorRoles:    actorFromContext(ctx).Roles,
+	})
+	if err != nil {
+		return nil, ticketStatusError("RotateIntegrationSecret", err)
+	}
+
+	return &ticketv1.RotateIntegrationSecretResponse{
+		Integration: toProtoTicketIntegration(result.Integration),
+		Secret:      result.Secret,
+	}, nil
+}
+
+// CreateExternalRequest проверяет UUID входных связей и передаёт обращение,
+// client ID, секрет и внешний ID сервису проверки интеграции. Возвращает обращение,
+// инцидент и признак совпадения; неверные учётные данные дают Unauthenticated.
+func (t *TicketHandler) CreateExternalRequest(
+	ctx context.Context,
+	req *ticketv1.CreateExternalRequestRequest,
+) (*ticketv1.CreateExternalRequestResponse, error) {
+	departmentID, err := parseRequestUUID(req.GetDepartmentId(), "department_id")
+
+	if err != nil {
+		return nil, ticketStatusError("CreateExternalRequest", err)
+	}
+
+	categoryID, err := parseRequestUUID(req.GetCategoryId(), "category_id")
+
+	if err != nil {
+		return nil, ticketStatusError("CreateExternalRequest", err)
+	}
+
+	userID, err := parseRequestUUID(req.GetUserId(), "user_id")
+
+	if err != nil {
+		return nil, ticketStatusError("CreateExternalRequest", err)
+	}
+
+	assetID, err := parseOptionalRequestUUID(req.AssetId, "asset_id")
+
+	if err != nil {
+		return nil, ticketStatusError("CreateExternalRequest", err)
+	}
+
+	result, err := t.service.CreateExternalRequest(ctx, &models.CreateExternalRequestInput{
+		ClientID:   req.GetClientId(),
+		Secret:     req.GetSecret(),
+		ExternalID: req.GetExternalId(),
+		Request: models.CreateRequestInput{
+			DepartmentID: departmentID,
+			CategoryID:   categoryID,
+			UserID:       userID,
+			Title:        req.GetTitle(),
+			Description:  req.GetDescription(),
+			Priority:     FromProtoPriority(req.GetPriority()),
+			Address:      req.GetAddress(),
+			Latitude:     req.GetLatitude(),
+			Longitude:    req.GetLongitude(),
+			AssetID:      assetID,
+		},
+	})
+
+	if err != nil {
+		return nil, ticketStatusError("CreateExternalRequest", err)
+	}
+
+	return &ticketv1.CreateExternalRequestResponse{
+		Request:          ToProtoTicket(result.Request),
+		Incident:         ToProtoTicket(result.Incident),
+		DuplicateMatched: result.DuplicateMatched,
+	}, nil
+}
+
+// parseRequestUUID разбирает UUID либо возвращает uuid.Nil и ErrValidation
+// с именем поля, сохраняя возможность проверки через errors.Is.
+func parseRequestUUID(value string, field string) (uuid.UUID, error) {
+	parsed, err := uuid.Parse(value)
+
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("%w: invalid %s", models.ErrValidation, field)
+	}
+
+	return parsed, nil
+}
+
+// parseOptionalRequestUUID возвращает nil для nil или пустой строки;
+// иначе разбирает UUID, возвращая ErrValidation при неверном формате.
+func parseOptionalRequestUUID(value *string, field string) (*uuid.UUID, error) {
+
+	if value == nil || *value == "" {
+		return nil, nil
+	}
+
+	parsed, err := parseRequestUUID(*value, field)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &parsed, nil
+}
+
+// toProtoTicketIntegration преобразует интеграцию в protobuf с префиксом секрета,
+// ограничением ведомства и датами, не включая сам секрет; nil сохраняет как nil.
+func toProtoTicketIntegration(integration *models.TicketIntegration) *ticketv1.TicketIntegration {
+
+	if integration == nil {
+		return nil
+	}
+
+	return &ticketv1.TicketIntegration{
+		Id:                  integration.ID.String(),
+		Name:                integration.Name,
+		ClientId:            integration.ClientID,
+		SecretPrefix:        integration.SecretPrefix,
+		AllowedDepartmentId: uuidStringPtr(integration.AllowedDepartmentID),
+		IsActive:            integration.IsActive,
+		CreatedBy:           integration.CreatedBy.String(),
+		CreatedAt:           ToProtoTimestamp(integration.CreatedAt),
+		UpdatedAt:           ToProtoTimestamp(integration.UpdatedAt),
+		LastUsedAt:          ToProtoTimestampPtr(integration.LastUsedAt),
+	}
+}
+
+// parseOptionalUUID возвращает nil для пустой строки; иначе разбирает UUID
+// и добавляет имя поля к ошибке формата без обёртки ErrValidation.
 func parseOptionalUUID(value string, field string) (*uuid.UUID, error) {
+
 	if value == "" {
 		return nil, nil
 	}
 
 	parsed, err := uuid.Parse(value)
+
 	if err != nil {
 		return nil, fmt.Errorf("invalid %s: %w", field, err)
 	}
@@ -1068,7 +1684,10 @@ func parseOptionalUUID(value string, field string) (*uuid.UUID, error) {
 	return &parsed, nil
 }
 
+// parseOptionalUUIDPtr сохраняет nil и передаёт непустой указатель parseOptionalUUID;
+// пустая строка также даёт nil без ошибки.
 func parseOptionalUUIDPtr(value *string, field string) (*uuid.UUID, error) {
+
 	if value == nil {
 		return nil, nil
 	}
@@ -1076,39 +1695,64 @@ func parseOptionalUUIDPtr(value *string, field string) (*uuid.UUID, error) {
 	return parseOptionalUUID(*value, field)
 }
 
+// optionalString возвращает указатель на непустую строку; пустую заменяет на nil.
 func optionalString(value string) *string {
+
 	if value == "" {
 		return nil
 	}
 
 	return &value
 }
+
+// optionalParsedUUID разбирает необязательный UUID; nil и неверный формат
+// возвращают nil без сообщения об ошибке.
 func optionalParsedUUID(value *string) *uuid.UUID {
+
 	if value == nil {
 		return nil
 	}
+
 	v, e := uuid.Parse(*value)
+
 	if e != nil {
 		return nil
 	}
+
 	return &v
 }
 
+// actorFromContext читает пользователя, бригаду, ведомство и роли из метаданных.
+// Неверные UUID пропускает; роли разделяет запятыми, обрезает пробелы и удаляет
+// пустые элементы, сохраняя регистр и повторы.
 func actorFromContext(ctx context.Context) actorContext {
 	md, ok := metadata.FromIncomingContext(ctx)
+
 	if !ok {
 		return actorContext{}
 	}
 
 	var actor actorContext
+
 	if values := md.Get("x-actor-user-id"); len(values) > 0 && values[0] != "" {
+
 		if parsed, err := uuid.Parse(values[0]); err == nil {
 			actor.UserID = &parsed
 		}
+
 	}
+
 	if values := md.Get("x-actor-brigade-id"); len(values) > 0 && values[0] != "" {
+
 		if parsed, err := uuid.Parse(values[0]); err == nil {
 			actor.BrigadeID = &parsed
+		}
+
+	}
+
+	if values := md.Get("x-actor-department-id"); len(values) > 0 && values[0] != "" {
+		if parsed, err := uuid.Parse(values[0]); err == nil {
+			actor.DepartmentID = &parsed
 		}
 	}
 
@@ -1116,9 +1760,11 @@ func actorFromContext(ctx context.Context) actorContext {
 		for _, value := range values {
 			for _, role := range strings.Split(value, ",") {
 				role = strings.TrimSpace(role)
+
 				if role != "" {
 					actor.Roles = append(actor.Roles, role)
 				}
+
 			}
 		}
 	}
@@ -1126,8 +1772,14 @@ func actorFromContext(ctx context.Context) actorContext {
 	return actor
 }
 
-func protoHasField(message interface{ ProtoReflect() protoreflect.Message }, fieldName protoreflect.Name) bool {
+// protoHasField проверяет наличие поля в protobuf-сообщении через дескриптор;
+// неизвестное имя поля даёт false.
+func protoHasField(message interface {
+	// ProtoReflect возвращает отражённое protobuf-сообщение для проверки наличия полей.
+	ProtoReflect() protoreflect.Message
+}, fieldName protoreflect.Name) bool {
 	field := message.ProtoReflect().Descriptor().Fields().ByName(fieldName)
+
 	if field == nil {
 		return false
 	}
@@ -1135,11 +1787,18 @@ func protoHasField(message interface{ ProtoReflect() protoreflect.Message }, fie
 	return message.ProtoReflect().Has(field)
 }
 
+// ticketStatusError формирует gRPC-ошибку с доменным кодом, именем метода
+// и исходным текстом; предназначена для ненулевой ошибки.
 func ticketStatusError(method string, err error) error {
 	return status.Errorf(ticketErrorCode(err), "failed %s: %v", method, err)
 }
 
+// ticketErrorCode сопоставляет отмену, таймаут и доменные ошибки кодам gRPC.
+// Валидация даёт InvalidArgument, конфликт идемпотентности — AlreadyExists,
+// незавершённая операция — Aborted, ограничения состояния — FailedPrecondition;
+// неверные учётные данные интеграции — Unauthenticated, неизвестная ошибка — Internal.
 func ticketErrorCode(err error) codes.Code {
+
 	if err == nil {
 		return codes.OK
 	}
@@ -1163,6 +1822,14 @@ func ticketErrorCode(err error) codes.Code {
 		return codes.FailedPrecondition
 	case errors.Is(err, models.ErrPermissionDenied):
 		return codes.PermissionDenied
+	case errors.Is(err, models.ErrIntegrationCredentials):
+		return codes.Unauthenticated
+	case errors.Is(err, models.ErrIntegrationInactive),
+		errors.Is(err, models.ErrInvalidTicketType),
+		errors.Is(err, models.ErrInvalidTicketRelation),
+		errors.Is(err, models.ErrRequestAlreadyAttached),
+		errors.Is(err, models.ErrIncidentPartsIncomplete):
+		return codes.FailedPrecondition
 	case errors.Is(err, models.ErrCategoryInactive),
 		errors.Is(err, models.ErrInvalidStatusTransition),
 		errors.Is(err, models.ErrTicketTerminalState),
@@ -1173,7 +1840,10 @@ func ticketErrorCode(err error) codes.Code {
 	}
 }
 
+// toProtoCategory преобразует категорию с кодом, активностью и датами в protobuf;
+// для nil возвращает nil.
 func toProtoCategory(category *models.TicketCategory) *ticketv1.TicketCategory {
+
 	if category == nil {
 		return nil
 	}
@@ -1189,22 +1859,28 @@ func toProtoCategory(category *models.TicketCategory) *ticketv1.TicketCategory {
 	}
 }
 
+// toProtoStatusHistory преобразует переход статуса в protobuf; отсутствующий
+// прежний статус даёт UNSPECIFIED, автор и комментарий — пустые строки, nil запись — nil.
 func toProtoStatusHistory(item *models.TicketStatusHistory) *ticketv1.TicketStatusHistory {
+
 	if item == nil {
 		return nil
 	}
 
 	oldStatus := ticketv1.TicketStatus_TICKET_STATUS_UNSPECIFIED
+
 	if item.OldStatus != nil {
 		oldStatus = ToProtoStatus(*item.OldStatus)
 	}
 
 	changedBy := ""
+
 	if item.ChangedBy != nil {
 		changedBy = item.ChangedBy.String()
 	}
 
 	comment := ""
+
 	if item.Comment != nil {
 		comment = *item.Comment
 	}

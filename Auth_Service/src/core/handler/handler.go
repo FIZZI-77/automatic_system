@@ -20,6 +20,7 @@ type AuthHandler struct {
 	logger  *zap.Logger
 }
 
+// NewAuthHandler создаёт gRPC-обработчик авторизации с сервисом и журналом запросов.
 func NewAuthHandler(ser *service.Service, logger *zap.Logger) *AuthHandler {
 	return &AuthHandler{
 		service: ser,
@@ -27,6 +28,8 @@ func NewAuthHandler(ser *service.Service, logger *zap.Logger) *AuthHandler {
 	}
 }
 
+// Register передаёт имя, пароль и email сервису регистрации и возвращает ID,
+// email и признак подтверждения. Ошибки сервиса преобразует через authStatusError.
 func (h *AuthHandler) Register(ctx context.Context, req *v1.RegisterRequest) (*v1.RegisterResponse, error) {
 
 	start := time.Now()
@@ -71,6 +74,9 @@ func (h *AuthHandler) Register(ctx context.Context, req *v1.RegisterRequest) (*v
 	return registerResponse, nil
 
 }
+
+// Login передаёт учётные данные и сведения о клиенте сервису и возвращает токены,
+// сроки действия и сессию. Неизвестный email и неверный пароль скрывает общим Unauthenticated.
 func (h *AuthHandler) Login(ctx context.Context, request *v1.LoginRequest) (*v1.LoginResponse, error) {
 
 	start := time.Now()
@@ -123,12 +129,15 @@ func (h *AuthHandler) Login(ctx context.Context, request *v1.LoginRequest) (*v1.
 	return loginResponse, nil
 }
 
+// Logout разбирает UUID пользователя и сессии и передаёт завершение сервису.
+// Неверный UUID даёт InvalidArgument; при успехе возвращает Success=true.
 func (h *AuthHandler) Logout(ctx context.Context, request *v1.LogoutRequest) (*v1.LogoutResponse, error) {
 
 	start := time.Now()
 	logger := h.logger.With(pkg.RequestIDField(ctx))
 
 	userID, err := uuid.Parse(request.GetUserId())
+
 	if err != nil {
 		logger.Warn("invalid user_id in request",
 			zap.String("method", "Logout"),
@@ -139,6 +148,7 @@ func (h *AuthHandler) Logout(ctx context.Context, request *v1.LogoutRequest) (*v
 	}
 
 	sessionID, err := uuid.Parse(request.GetSessionId())
+
 	if err != nil {
 		logger.Warn("invalid session_id in request",
 			zap.String("method", "Logout"),
@@ -154,6 +164,7 @@ func (h *AuthHandler) Logout(ctx context.Context, request *v1.LogoutRequest) (*v
 	}
 
 	err = h.service.Logout(ctx, logoutInput)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "Logout"),
@@ -179,6 +190,8 @@ func (h *AuthHandler) Logout(ctx context.Context, request *v1.LogoutRequest) (*v
 	return logoutResponse, nil
 }
 
+// Refresh передаёт refresh-токен и данные клиента сервису обновления и возвращает
+// новую пару токенов, сроки действия, тип токена и ID сессии.
 func (h *AuthHandler) Refresh(ctx context.Context, request *v1.RefreshRequest) (*v1.RefreshResponse, error) {
 	start := time.Now()
 	logger := h.logger.With(pkg.RequestIDField(ctx))
@@ -198,6 +211,7 @@ func (h *AuthHandler) Refresh(ctx context.Context, request *v1.RefreshRequest) (
 	}
 
 	result, err := h.service.Refresh(ctx, refreshInput)
+
 	if err != nil {
 		logger.Info("gRPC request received",
 			zap.String("method", "Refresh"),
@@ -226,6 +240,8 @@ func (h *AuthHandler) Refresh(ctx context.Context, request *v1.RefreshRequest) (
 	return refreshResponse, nil
 }
 
+// LogoutAll разбирает UUID пользователя и вызывает отзыв всех сессий через сервис;
+// возвращает число отозванных сессий, неверный UUID даёт InvalidArgument.
 func (h *AuthHandler) LogoutAll(ctx context.Context, request *v1.LogoutAllRequest) (*v1.LogoutAllResponse, error) {
 
 	start := time.Now()
@@ -237,6 +253,7 @@ func (h *AuthHandler) LogoutAll(ctx context.Context, request *v1.LogoutAllReques
 	)
 
 	userID, err := uuid.Parse(request.GetUserId())
+
 	if err != nil {
 		logger.Warn("invalid user_id in request",
 			zap.String("method", "LogoutAll"),
@@ -251,6 +268,7 @@ func (h *AuthHandler) LogoutAll(ctx context.Context, request *v1.LogoutAllReques
 	}
 
 	result, err := h.service.LogoutAll(ctx, logoutInput)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "LogoutAll"),
@@ -276,6 +294,8 @@ func (h *AuthHandler) LogoutAll(ctx context.Context, request *v1.LogoutAllReques
 	return logoutResponse, nil
 }
 
+// GetUserAuthInfo разбирает UUID пользователя и возвращает полученные от сервиса
+// email, роли, разрешения, активность и признак подтверждения email.
 func (h *AuthHandler) GetUserAuthInfo(ctx context.Context, request *v1.GetUserAuthInfoRequest) (*v1.GetUserAuthInfoResponse, error) {
 	start := time.Now()
 	logger := h.logger.With(pkg.RequestIDField(ctx))
@@ -286,6 +306,7 @@ func (h *AuthHandler) GetUserAuthInfo(ctx context.Context, request *v1.GetUserAu
 	)
 
 	userID, err := uuid.Parse(request.GetUserId())
+
 	if err != nil {
 		logger.Warn("invalid user_id in request",
 			zap.String("method", "GetUserAuthInfo"),
@@ -296,6 +317,7 @@ func (h *AuthHandler) GetUserAuthInfo(ctx context.Context, request *v1.GetUserAu
 	}
 
 	user, err := h.service.GetUserAuthInfo(ctx, userID)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "GetUserAuthInfo"),
@@ -328,6 +350,8 @@ func (h *AuthHandler) GetUserAuthInfo(ctx context.Context, request *v1.GetUserAu
 	return userAuthInfo, nil
 }
 
+// GetJWKS возвращает предоставленный сервисом набор публичных ключей в JSON;
+// ошибки преобразует через authStatusError.
 func (h *AuthHandler) GetJWKS(ctx context.Context, _ *v1.GetJWKSRequest) (*v1.GetJWKSResponse, error) {
 	start := time.Now()
 	logger := h.logger.With(pkg.RequestIDField(ctx))
@@ -359,6 +383,8 @@ func (h *AuthHandler) GetJWKS(ctx context.Context, _ *v1.GetJWKSRequest) (*v1.Ge
 	return jWKSResponse, nil
 }
 
+// ChangePassword разбирает UUID пользователя и сессии и передаёт пароли и флаг
+// отзыва сессий сервису; возвращает результат и число инвалидированных сессий.
 func (h *AuthHandler) ChangePassword(ctx context.Context, request *v1.ChangePasswordRequest) (*v1.ChangePasswordResponse, error) {
 	start := time.Now()
 	logger := h.logger.With(pkg.RequestIDField(ctx))
@@ -371,6 +397,7 @@ func (h *AuthHandler) ChangePassword(ctx context.Context, request *v1.ChangePass
 	)
 
 	userID, err := uuid.Parse(request.GetUserId())
+
 	if err != nil {
 		logger.Warn("invalid user_id in request",
 			zap.String("method", "ChangePassword"),
@@ -381,6 +408,7 @@ func (h *AuthHandler) ChangePassword(ctx context.Context, request *v1.ChangePass
 	}
 
 	sessionID, err := uuid.Parse(request.GetSessionId())
+
 	if err != nil {
 		logger.Warn("invalid session_id in request",
 			zap.String("method", "ChangePassword"),
@@ -399,6 +427,7 @@ func (h *AuthHandler) ChangePassword(ctx context.Context, request *v1.ChangePass
 	}
 
 	out, err := h.service.ChangePassword(ctx, input)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "ChangePassword"),
@@ -424,6 +453,8 @@ func (h *AuthHandler) ChangePassword(ctx context.Context, request *v1.ChangePass
 	return response, nil
 }
 
+// SendVerificationEmail разбирает UUID пользователя и передаёт email сервису
+// отправки подтверждения; возвращает результат и срок действия в Unix-секундах.
 func (h *AuthHandler) SendVerificationEmail(ctx context.Context, request *v1.SendVerificationEmailRequest) (*v1.SendVerificationEmailResponse, error) {
 	start := time.Now()
 	logger := h.logger.With(pkg.RequestIDField(ctx))
@@ -435,6 +466,7 @@ func (h *AuthHandler) SendVerificationEmail(ctx context.Context, request *v1.Sen
 	)
 
 	userID, err := uuid.Parse(request.GetUserId())
+
 	if err != nil {
 		logger.Warn("invalid user_id in request",
 			zap.String("method", "SendVerificationEmail"),
@@ -450,6 +482,7 @@ func (h *AuthHandler) SendVerificationEmail(ctx context.Context, request *v1.Sen
 	}
 
 	out, err := h.service.SendVerification(ctx, input)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "SendVerificationEmail"),
@@ -476,6 +509,8 @@ func (h *AuthHandler) SendVerificationEmail(ctx context.Context, request *v1.Sen
 	return response, nil
 }
 
+// VerifyEmail передаёт токен сервису подтверждения и возвращает результат,
+// пользователя, email, признак подтверждения и сообщение из сервисного ответа.
 func (h *AuthHandler) VerifyEmail(ctx context.Context, request *v1.VerifyEmailRequest) (*v1.VerifyEmailResponse, error) {
 	start := time.Now()
 	logger := h.logger.With(pkg.RequestIDField(ctx))
@@ -490,6 +525,7 @@ func (h *AuthHandler) VerifyEmail(ctx context.Context, request *v1.VerifyEmailRe
 	}
 
 	out, err := h.service.VerifyEmail(ctx, input)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "VerifyEmail"),
@@ -518,6 +554,8 @@ func (h *AuthHandler) VerifyEmail(ctx context.Context, request *v1.VerifyEmailRe
 	return response, nil
 }
 
+// RequestPasswordReset передаёт email сервису запроса сброса пароля и возвращает
+// результат и срок действия; ошибки переводит в gRPC через authStatusError.
 func (h *AuthHandler) RequestPasswordReset(ctx context.Context, request *v1.RequestPasswordResetRequest) (*v1.RequestPasswordResetResponse, error) {
 	start := time.Now()
 	logger := h.logger.With(pkg.RequestIDField(ctx))
@@ -532,6 +570,7 @@ func (h *AuthHandler) RequestPasswordReset(ctx context.Context, request *v1.Requ
 	}
 
 	out, err := h.service.RequestPasswordReset(ctx, input)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "RequestPasswordReset"),
@@ -558,6 +597,8 @@ func (h *AuthHandler) RequestPasswordReset(ctx context.Context, request *v1.Requ
 	return response, nil
 }
 
+// ResetPassword передаёт токен сброса и новый пароль сервису и возвращает
+// признак успеха и число инвалидированных сессий.
 func (h *AuthHandler) ResetPassword(ctx context.Context, request *v1.ResetPasswordRequest) (*v1.ResetPasswordResponse, error) {
 	start := time.Now()
 	logger := h.logger.With(pkg.RequestIDField(ctx))
@@ -573,6 +614,7 @@ func (h *AuthHandler) ResetPassword(ctx context.Context, request *v1.ResetPasswo
 	}
 
 	out, err := h.service.ResetPassword(ctx, input)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "ResetPassword"),
@@ -596,11 +638,16 @@ func (h *AuthHandler) ResetPassword(ctx context.Context, request *v1.ResetPasswo
 	return response, nil
 }
 
+// authStatusError формирует gRPC-ошибку с кодом authErrorCode, именем метода
+// и исходным текстом ошибки; предназначена для ненулевой ошибки.
 func authStatusError(method string, err error) error {
 	return status.Errorf(authErrorCode(err), "failed %s: %v", method, err)
 }
 
+// loginStatusError скрывает различие неизвестного пользователя и неверного пароля
+// общим Unauthenticated; остальные ошибки преобразует как ошибку Login.
 func loginStatusError(err error) error {
+
 	if errors.Is(err, models.ErrUserNotFound) || errors.Is(err, models.ErrInvalidPassword) {
 		return status.Error(codes.Unauthenticated, "invalid email or password")
 	}
@@ -608,7 +655,12 @@ func loginStatusError(err error) error {
 	return authStatusError("Login", err)
 }
 
+// authErrorCode сопоставляет доменные ошибки кодам gRPC: валидацию — InvalidArgument,
+// дубликаты — AlreadyExists, незавершённую идемпотентную операцию — Aborted,
+// неверные секреты — Unauthenticated, ограничения состояния — FailedPrecondition.
+// Отсутствие сущности даёт NotFound, nil — OK, неизвестная ошибка — Internal.
 func authErrorCode(err error) codes.Code {
+
 	if err == nil {
 		return codes.OK
 	}
@@ -647,6 +699,8 @@ func authErrorCode(err error) codes.Code {
 	}
 }
 
+// isValidationError распознаёт через errors.Is перечисленные ошибки обязательных
+// полей и форматов учётных данных, клиента, сессии и токена.
 func isValidationError(err error) bool {
 	validationErrors := []error{
 		models.ErrEmailRequired,
@@ -670,9 +724,11 @@ func isValidationError(err error) bool {
 	}
 
 	for _, validationErr := range validationErrors {
+
 		if errors.Is(err, validationErr) {
 			return true
 		}
+
 	}
 
 	return false

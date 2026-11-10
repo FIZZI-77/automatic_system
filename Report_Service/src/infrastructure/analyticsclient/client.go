@@ -29,6 +29,7 @@ func (c *Client) Build(ctx context.Context, t models.Type, f models.Filter, role
 		x, e := c.api.GetTicketOverview(ctx, &analyticsv1.GetTicketOverviewRequest{
 			Filter: filter,
 		})
+
 		if e != nil {
 			return nil, e
 		}
@@ -47,6 +48,7 @@ func (c *Client) Build(ctx context.Context, t models.Type, f models.Filter, role
 		x, e := c.api.GetSLASummary(ctx, &analyticsv1.GetSLASummaryRequest{
 			Filter: filter,
 		})
+
 		if e != nil {
 			return nil, e
 		}
@@ -66,6 +68,7 @@ func (c *Client) Build(ctx context.Context, t models.Type, f models.Filter, role
 			Dimension: analyticsv1.BreakdownDimension_BREAKDOWN_DIMENSION_DEPARTMENT,
 			Limit:     100,
 		})
+
 		if e != nil {
 			return nil, e
 		}
@@ -86,6 +89,7 @@ func (c *Client) Build(ctx context.Context, t models.Type, f models.Filter, role
 		x, e := c.api.ListDailyTicketMetrics(ctx, &analyticsv1.ListDailyTicketMetricsRequest{
 			Filter: filter,
 		})
+
 		if e != nil {
 			return nil, e
 		}

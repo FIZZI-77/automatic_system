@@ -4,7 +4,7 @@ go 1.25.9
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.40.3
-	github.com/FIZZI-77/automatic-system-contracts v0.0.0-20260831131140-88cf08aabb04
+	github.com/FIZZI-77/automatic-system-contracts v0.0.0-20260930105439-b423c8f34efb
 	github.com/google/uuid v1.6.0
 	github.com/prometheus/client_golang v1.24.1
 	github.com/segmentio/kafka-go v0.4.49

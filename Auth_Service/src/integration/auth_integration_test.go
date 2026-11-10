@@ -22,6 +22,7 @@ func TestAuthServiceIntegration_RegisterLoginRefreshLogout(t *testing.T) {
 		Username: "integration_user",
 		Password: password,
 	})
+
 	if err != nil {
 		t.Fatalf("register failed: %v", err)
 	}
@@ -35,6 +36,7 @@ func TestAuthServiceIntegration_RegisterLoginRefreshLogout(t *testing.T) {
 	}
 
 	userID, err := uuid.Parse(registerResult.UserID)
+
 	if err != nil {
 		t.Fatalf("failed to parse user id: %v", err)
 	}
@@ -46,6 +48,7 @@ func TestAuthServiceIntegration_RegisterLoginRefreshLogout(t *testing.T) {
 		IP:        "127.0.0.1",
 		UserAgent: "integration-test",
 	})
+
 	if err != nil {
 		t.Fatalf("login failed: %v", err)
 	}
@@ -70,6 +73,7 @@ func TestAuthServiceIntegration_RegisterLoginRefreshLogout(t *testing.T) {
 		IP:           "127.0.0.1",
 		UserAgent:    "integration-test",
 	})
+
 	if err != nil {
 		t.Fatalf("refresh failed: %v", err)
 	}
@@ -83,6 +87,7 @@ func TestAuthServiceIntegration_RegisterLoginRefreshLogout(t *testing.T) {
 	}
 
 	authInfo, err := app.auth.GetUserAuthInfo(ctx, userID)
+
 	if err != nil {
 		t.Fatalf("get user auth info failed: %v", err)
 	}
@@ -103,6 +108,7 @@ func TestAuthServiceIntegration_RegisterLoginRefreshLogout(t *testing.T) {
 		UserID:    userID,
 		SessionID: sessionID,
 	})
+
 	if err != nil {
 		t.Fatalf("logout failed: %v", err)
 	}
@@ -113,9 +119,11 @@ func TestAuthServiceIntegration_RegisterLoginRefreshLogout(t *testing.T) {
 		IP:           "127.0.0.1",
 		UserAgent:    "integration-test",
 	})
+
 	if err == nil {
 		t.Fatal("expected refresh to fail after logout")
 	}
+
 }
 
 func TestAuthServiceIntegration_RegisterDuplicateEmailFails(t *testing.T) {
@@ -131,6 +139,7 @@ func TestAuthServiceIntegration_RegisterDuplicateEmailFails(t *testing.T) {
 		Username: "first_user",
 		Password: "Password123!",
 	})
+
 	if err != nil {
 		t.Fatalf("first register failed: %v", err)
 	}
@@ -140,9 +149,11 @@ func TestAuthServiceIntegration_RegisterDuplicateEmailFails(t *testing.T) {
 		Username: "second_user",
 		Password: "Password123!",
 	})
+
 	if err == nil {
 		t.Fatal("expected duplicate email register to fail")
 	}
+
 }
 
 func TestAuthServiceIntegration_SendVerificationAndVerifyEmail(t *testing.T) {
@@ -158,11 +169,13 @@ func TestAuthServiceIntegration_SendVerificationAndVerifyEmail(t *testing.T) {
 		Username: "verify_user",
 		Password: "Password123!",
 	})
+
 	if err != nil {
 		t.Fatalf("register failed: %v", err)
 	}
 
 	userID, err := uuid.Parse(registerResult.UserID)
+
 	if err != nil {
 		t.Fatalf("failed to parse user id: %v", err)
 	}
@@ -171,11 +184,13 @@ func TestAuthServiceIntegration_SendVerificationAndVerifyEmail(t *testing.T) {
 		UserID: userID,
 		Email:  email,
 	})
+
 	if err != nil {
 		t.Fatalf("send verification failed: %v", err)
 	}
 
 	token := app.mail.getVerificationToken()
+
 	if token == "" {
 		t.Fatal("expected verification token to be sent")
 	}
@@ -183,6 +198,7 @@ func TestAuthServiceIntegration_SendVerificationAndVerifyEmail(t *testing.T) {
 	verifyResult, err := app.auth.VerifyEmail(ctx, models.VerifyEmailInput{
 		Token: token,
 	})
+
 	if err != nil {
 		t.Fatalf("verify email failed: %v", err)
 	}
@@ -192,6 +208,7 @@ func TestAuthServiceIntegration_SendVerificationAndVerifyEmail(t *testing.T) {
 	}
 
 	authInfo, err := app.auth.GetUserAuthInfo(ctx, userID)
+
 	if err != nil {
 		t.Fatalf("get user auth info failed: %v", err)
 	}
@@ -199,6 +216,7 @@ func TestAuthServiceIntegration_SendVerificationAndVerifyEmail(t *testing.T) {
 	if !authInfo.EmailVerified {
 		t.Fatal("expected email_verified true")
 	}
+
 }
 
 func TestAuthServiceIntegration_ChangePassword(t *testing.T) {
@@ -216,11 +234,13 @@ func TestAuthServiceIntegration_ChangePassword(t *testing.T) {
 		Username: "change_password_user",
 		Password: oldPassword,
 	})
+
 	if err != nil {
 		t.Fatalf("register failed: %v", err)
 	}
 
 	userID, err := uuid.Parse(registerResult.UserID)
+
 	if err != nil {
 		t.Fatalf("failed to parse user id: %v", err)
 	}
@@ -232,6 +252,7 @@ func TestAuthServiceIntegration_ChangePassword(t *testing.T) {
 		IP:        "127.0.0.1",
 		UserAgent: "integration-test",
 	})
+
 	if err != nil {
 		t.Fatalf("login failed: %v", err)
 	}
@@ -245,6 +266,7 @@ func TestAuthServiceIntegration_ChangePassword(t *testing.T) {
 		NewPassword:         newPassword,
 		RevokeOtherSessions: false,
 	})
+
 	if err != nil {
 		t.Fatalf("change password failed: %v", err)
 	}
@@ -256,6 +278,7 @@ func TestAuthServiceIntegration_ChangePassword(t *testing.T) {
 		IP:        "127.0.0.1",
 		UserAgent: "integration-test",
 	})
+
 	if err == nil {
 		t.Fatal("expected login with old password to fail")
 	}
@@ -267,9 +290,11 @@ func TestAuthServiceIntegration_ChangePassword(t *testing.T) {
 		IP:        "127.0.0.1",
 		UserAgent: "integration-test",
 	})
+
 	if err != nil {
 		t.Fatalf("expected login with new password to succeed, got %v", err)
 	}
+
 }
 
 func TestAuthServiceIntegration_RequestAndResetPassword(t *testing.T) {
@@ -287,6 +312,7 @@ func TestAuthServiceIntegration_RequestAndResetPassword(t *testing.T) {
 		Username: "reset_password_user",
 		Password: oldPassword,
 	})
+
 	if err != nil {
 		t.Fatalf("register failed: %v", err)
 	}
@@ -294,11 +320,13 @@ func TestAuthServiceIntegration_RequestAndResetPassword(t *testing.T) {
 	_, err = app.auth.RequestPasswordReset(ctx, models.RequestPasswordResetInput{
 		Email: email,
 	})
+
 	if err != nil {
 		t.Fatalf("request password reset failed: %v", err)
 	}
 
 	token := app.mail.getPasswordResetToken()
+
 	if token == "" {
 		t.Fatal("expected password reset token to be sent")
 	}
@@ -307,6 +335,7 @@ func TestAuthServiceIntegration_RequestAndResetPassword(t *testing.T) {
 		Token:       token,
 		NewPassword: newPassword,
 	})
+
 	if err != nil {
 		t.Fatalf("reset password failed: %v", err)
 	}
@@ -322,6 +351,7 @@ func TestAuthServiceIntegration_RequestAndResetPassword(t *testing.T) {
 		IP:        "127.0.0.1",
 		UserAgent: "integration-test",
 	})
+
 	if err == nil {
 		t.Fatal("expected login with old password to fail")
 	}
@@ -333,9 +363,11 @@ func TestAuthServiceIntegration_RequestAndResetPassword(t *testing.T) {
 		IP:        "127.0.0.1",
 		UserAgent: "integration-test",
 	})
+
 	if err != nil {
 		t.Fatalf("expected login with new password to succeed, got %v", err)
 	}
+
 }
 
 func TestAuthServiceIntegration_GetJWKS(t *testing.T) {
@@ -345,6 +377,7 @@ func TestAuthServiceIntegration_GetJWKS(t *testing.T) {
 	ctx := context.Background()
 
 	jwks, err := app.auth.GetJWKS(ctx)
+
 	if err != nil {
 		t.Fatalf("get jwks failed: %v", err)
 	}
@@ -352,4 +385,5 @@ func TestAuthServiceIntegration_GetJWKS(t *testing.T) {
 	if jwks == "" {
 		t.Fatal("expected jwks not empty")
 	}
+
 }

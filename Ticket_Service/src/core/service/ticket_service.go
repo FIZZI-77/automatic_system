@@ -18,10 +18,25 @@ type TicketServiceStruct struct {
 	logger *zap.Logger
 }
 
+// NewTicketServiceStruct создаёт службу заявок с переданными репозиторием и журналом.
 func NewTicketServiceStruct(repo *repository.Repository, logger *zap.Logger) *TicketServiceStruct {
 	return &TicketServiceStruct{repo: repo, logger: logger}
 }
 
+// SubmitTicketFeedback передаёт сохранение оценки заявки репозиторию.
+// Проверки автора, состояния заявки и допустимости оценки выполняются в хранилище.
+func (s *TicketServiceStruct) SubmitTicketFeedback(ctx context.Context, in *models.SubmitTicketFeedbackInput) (*models.TicketFeedback, error) {
+	return s.repo.SubmitTicketFeedback(ctx, in)
+}
+
+// GetTicketFeedback запрашивает оценку заявки у репозитория вместе с проверками доступа.
+func (s *TicketServiceStruct) GetTicketFeedback(ctx context.Context, in *models.GetTicketFeedbackInput) (*models.TicketFeedback, error) {
+	return s.repo.GetTicketFeedback(ctx, in)
+}
+
+// CreateTicket создаёт заявку после проверки данных и полномочий исполнителя.
+// Обычный пользователь может создавать заявку только от своего имени.
+// При ключе идемпотентности возвращает сохранённый результат повторного запроса.
 func (s *TicketServiceStruct) CreateTicket(ctx context.Context, in *models.CreateTicketInput) (*models.CreateTicketResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -43,18 +58,23 @@ func (s *TicketServiceStruct) CreateTicket(ctx context.Context, in *models.Creat
 	}
 
 	if !hasPrivilegedRole(in.ActorRoles) {
+
 		if in.ActorUserID == nil || in.UserID != *in.ActorUserID {
 			return nil, fmt.Errorf("service: CreateTicket(): %w", models.ErrPermissionDenied)
 		}
+
 	}
 
 	result, err := s.withIdempotency(ctx, "CreateTicket", idempotencyActor(in.ActorUserID, in.UserID), in, func(ctx context.Context) (any, uuid.UUID, error) {
 		ticket, err := s.repo.CreateTicket(ctx, in)
+
 		if err != nil {
 			return nil, uuid.Nil, err
 		}
+
 		return &models.CreateTicketResult{Ticket: ticket}, ticket.ID, nil
 	})
+
 	if err != nil {
 		logger.Error("CreateTicket failed",
 			zap.String("user_id", in.UserID.String()),
@@ -63,10 +83,13 @@ func (s *TicketServiceStruct) CreateTicket(ctx context.Context, in *models.Creat
 		)
 		return nil, fmt.Errorf("service: CreateTicket(): %w", err)
 	}
+
 	createResult, err := cachedResult[models.CreateTicketResult](result)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: CreateTicket(): idempotency result: %w", err)
 	}
+
 	ticket := createResult.Ticket
 
 	logger.Info("CreateTicket success",
@@ -79,6 +102,8 @@ func (s *TicketServiceStruct) CreateTicket(ctx context.Context, in *models.Creat
 	return createResult, nil
 }
 
+// GetTicket возвращает заявку по идентификатору после проверки права чтения.
+// При недопустимом входе возвращает ErrValidation, при отсутствии доступа — ErrPermissionDenied.
 func (s *TicketServiceStruct) GetTicket(ctx context.Context, in *models.GetTicketInput) (*models.GetTicketResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -97,6 +122,7 @@ func (s *TicketServiceStruct) GetTicket(ctx context.Context, in *models.GetTicke
 	}
 
 	ticket, err := s.repo.GetTicketByID(ctx, in.TicketID)
+
 	if err != nil {
 		logger.Error("GetTicket failed",
 			zap.String("ticket_id", in.TicketID.String()),
@@ -106,7 +132,7 @@ func (s *TicketServiceStruct) GetTicket(ctx context.Context, in *models.GetTicke
 		return nil, fmt.Errorf("service: GetTicket(): %w", err)
 	}
 
-	if !canReadTicket(ticket, in.ActorUserID, in.ActorBrigadeID, in.ActorRoles) {
+	if !canReadTicket(ticket, in.ActorUserID, in.ActorBrigadeID, in.ActorDepartmentID, in.ActorRoles) {
 		return nil, fmt.Errorf("service: GetTicket(): %w", models.ErrPermissionDenied)
 	}
 
@@ -121,6 +147,9 @@ func (s *TicketServiceStruct) GetTicket(ctx context.Context, in *models.GetTicke
 	}, nil
 }
 
+// ListTickets возвращает страницу заявок и общее количество с учётом роли исполнителя.
+// Изменяет фильтры in: диспетчеру оставляет его департамент, работнику — его бригаду,
+// обычному пользователю — собственные заявки. Администратор сохраняет переданные фильтры.
 func (s *TicketServiceStruct) ListTickets(ctx context.Context, in *models.ListTicketsInput) (*models.ListTicketsResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -133,23 +162,38 @@ func (s *TicketServiceStruct) ListTickets(ctx context.Context, in *models.ListTi
 	if in.DepartmentID != nil {
 		logger.Debug("ListTickets department_id", zap.String("department_id", in.DepartmentID.String()))
 	}
+
 	if in.UserID != nil {
 		logger.Debug("ListTickets user_id", zap.String("user_id", in.UserID.String()))
 	}
+
 	if in.Status != nil {
 		logger.Debug("ListTickets status", zap.String("status", string(*in.Status)))
 	}
+
 	if in.Priority != nil {
 		logger.Debug("ListTickets priority", zap.String("priority", string(*in.Priority)))
 	}
 
-	if hasRole(in.ActorRoles, "worker") {
+	if hasRole(in.ActorRoles, "admin") {
+		// Администратор может запрашивать данные всех ведомств.
+	} else if hasRole(in.ActorRoles, "dispatcher") {
+		if in.ActorDepartmentID == nil {
+			return nil, fmt.Errorf("service: ListTickets(): %w", models.ErrPermissionDenied)
+		}
+		in.DepartmentID = in.ActorDepartmentID
+		in.UserID = nil
+		in.BrigadeID = nil
+	} else if hasRole(in.ActorRoles, "worker") {
+
 		if in.ActorUserID == nil || in.ActorBrigadeID == nil {
 			return nil, fmt.Errorf("service: ListTickets(): %w", models.ErrPermissionDenied)
 		}
+
 		in.UserID = nil
 		in.BrigadeID = in.ActorBrigadeID
-	} else if !hasPrivilegedRole(in.ActorRoles) {
+	} else {
+
 		if in.ActorUserID == nil {
 			return nil, fmt.Errorf("service: ListTickets(): %w", models.ErrPermissionDenied)
 		}
@@ -167,6 +211,7 @@ func (s *TicketServiceStruct) ListTickets(ctx context.Context, in *models.ListTi
 	}
 
 	tickets, total, err := s.repo.ListTickets(ctx, in)
+
 	if err != nil {
 		logger.Error("ListTickets failed",
 			zap.Int64("duration", time.Since(start).Milliseconds()),
@@ -187,15 +232,20 @@ func (s *TicketServiceStruct) ListTickets(ctx context.Context, in *models.ListTi
 	}, nil
 }
 
+// hasRole проверяет наличие точного имени expected в списке ролей; регистр не изменяет.
 func hasRole(roles []string, expected string) bool {
 	for _, role := range roles {
+
 		if role == expected {
 			return true
 		}
+
 	}
 	return false
 }
 
+// UpdateTicket проверяет частичное изменение заявки и передаёт его репозиторию идемпотентно.
+// При ключе идемпотентности повторяет ранее сохранённый результат.
 func (s *TicketServiceStruct) UpdateTicket(ctx context.Context, in *models.UpdateTicketInput) (*models.UpdateTicketResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -207,6 +257,7 @@ func (s *TicketServiceStruct) UpdateTicket(ctx context.Context, in *models.Updat
 	if in.Title != nil {
 		logger.Debug("UpdateTicket title", zap.String("title", *in.Title))
 	}
+
 	if in.Priority != nil {
 		logger.Debug("UpdateTicket priority", zap.String("priority", string(*in.Priority)))
 	}
@@ -220,13 +271,24 @@ func (s *TicketServiceStruct) UpdateTicket(ctx context.Context, in *models.Updat
 		return nil, fmt.Errorf("service: UpdateTicket(): %w: %v", models.ErrValidation, err)
 	}
 
+	currentTicket, err := s.repo.GetTicketByID(ctx, in.TicketID)
+	if err != nil {
+		return nil, fmt.Errorf("service: UpdateTicket(): get ticket: %w", err)
+	}
+	if !canReadTicket(currentTicket, in.UpdatedBy, in.ActorBrigadeID, in.ActorDepartmentID, in.ActorRoles) {
+		return nil, fmt.Errorf("service: UpdateTicket(): %w", models.ErrPermissionDenied)
+	}
+
 	result, err := s.withIdempotency(ctx, "UpdateTicket", idempotencyActor(in.UpdatedBy, uuid.Nil), in, func(ctx context.Context) (any, uuid.UUID, error) {
 		ticket, err := s.repo.UpdateTicket(ctx, in)
+
 		if err != nil {
 			return nil, uuid.Nil, err
 		}
+
 		return &models.UpdateTicketResult{Ticket: ticket}, ticket.ID, nil
 	})
+
 	if err != nil {
 		logger.Error("UpdateTicket failed",
 			zap.String("ticket_id", in.TicketID.String()),
@@ -235,10 +297,13 @@ func (s *TicketServiceStruct) UpdateTicket(ctx context.Context, in *models.Updat
 		)
 		return nil, fmt.Errorf("service: UpdateTicket(): %w", err)
 	}
+
 	updateResult, err := cachedResult[models.UpdateTicketResult](result)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: UpdateTicket(): idempotency result: %w", err)
 	}
+
 	ticket := updateResult.Ticket
 
 	logger.Info("UpdateTicket success",
@@ -250,6 +315,9 @@ func (s *TicketServiceStruct) UpdateTicket(ctx context.Context, in *models.Updat
 	return updateResult, nil
 }
 
+// ChangeTicketStatus идемпотентно меняет состояние заявки после проверки данных и доступа.
+// Работник своей назначенной бригады может выбрать только IN_PROGRESS; остальные
+// изменения требуют права управления заявкой. Допустимость перехода проверяет репозиторий.
 func (s *TicketServiceStruct) ChangeTicketStatus(ctx context.Context, in *models.ChangeTicketStatusInput) (*models.ChangeTicketStatusResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -269,26 +337,33 @@ func (s *TicketServiceStruct) ChangeTicketStatus(ctx context.Context, in *models
 		return nil, fmt.Errorf("service: ChangeTicketStatus(): %w: %v", models.ErrValidation, err)
 	}
 
-	if !hasPrivilegedRole(in.ActorRoles) {
+	currentTicket, err := s.repo.GetTicketByID(ctx, in.TicketID)
+	if err != nil {
+		return nil, fmt.Errorf("service: ChangeTicketStatus(): get ticket: %w", err)
+	}
+
+	if !canManageTicket(currentTicket, in.ActorDepartmentID, in.ActorRoles) {
+
 		if !hasRole(in.ActorRoles, "worker") || in.NewStatus != models.TicketStatusInProgress || in.ActorBrigadeID == nil {
 			return nil, fmt.Errorf("service: ChangeTicketStatus(): %w", models.ErrPermissionDenied)
 		}
-		currentTicket, err := s.repo.GetTicketByID(ctx, in.TicketID)
-		if err != nil {
-			return nil, fmt.Errorf("service: ChangeTicketStatus(): get ticket: %w", err)
-		}
+
 		if currentTicket.BrigadeID == nil || *currentTicket.BrigadeID != *in.ActorBrigadeID {
 			return nil, fmt.Errorf("service: ChangeTicketStatus(): %w", models.ErrPermissionDenied)
 		}
+
 	}
 
 	result, err := s.withIdempotency(ctx, "ChangeTicketStatus", in.ChangedBy.String(), in, func(ctx context.Context) (any, uuid.UUID, error) {
 		ticket, err := s.repo.ChangeTicketStatus(ctx, in)
+
 		if err != nil {
 			return nil, uuid.Nil, err
 		}
+
 		return &models.ChangeTicketStatusResult{Ticket: ticket}, ticket.ID, nil
 	})
+
 	if err != nil {
 		logger.Error("ChangeTicketStatus failed",
 			zap.String("ticket_id", in.TicketID.String()),
@@ -298,10 +373,13 @@ func (s *TicketServiceStruct) ChangeTicketStatus(ctx context.Context, in *models
 		)
 		return nil, fmt.Errorf("service: ChangeTicketStatus(): %w", err)
 	}
+
 	statusResult, err := cachedResult[models.ChangeTicketStatusResult](result)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: ChangeTicketStatus(): idempotency result: %w", err)
 	}
+
 	ticket := statusResult.Ticket
 
 	logger.Info("ChangeTicketStatus success",
@@ -313,6 +391,8 @@ func (s *TicketServiceStruct) ChangeTicketStatus(ctx context.Context, in *models
 	return statusResult, nil
 }
 
+// AssignBrigade проверяет назначение бригады и право управления заявкой.
+// Выполняет изменение через механизм идемпотентности, возвращая обновлённую заявку.
 func (s *TicketServiceStruct) AssignBrigade(ctx context.Context, in *models.AssignBrigadeInput) (*models.AssignBrigadeResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -332,16 +412,24 @@ func (s *TicketServiceStruct) AssignBrigade(ctx context.Context, in *models.Assi
 		return nil, fmt.Errorf("service: AssignBrigade(): %w: %v", models.ErrValidation, err)
 	}
 
-	if !hasPrivilegedRole(in.ActorRoles) {
+	currentTicket, err := s.repo.GetTicketByID(ctx, in.TicketID)
+	if err != nil {
+		return nil, fmt.Errorf("service: AssignBrigade(): get ticket: %w", err)
+	}
+	if !canManageTicket(currentTicket, in.ActorDepartmentID, in.ActorRoles) {
 		return nil, fmt.Errorf("service: AssignBrigade(): %w", models.ErrPermissionDenied)
 	}
+
 	result, err := s.withIdempotency(ctx, "AssignBrigade", in.AssignedBy.String(), in, func(ctx context.Context) (any, uuid.UUID, error) {
 		ticket, err := s.repo.AssignBrigade(ctx, in)
+
 		if err != nil {
 			return nil, uuid.Nil, err
 		}
+
 		return &models.AssignBrigadeResult{Ticket: ticket}, ticket.ID, nil
 	})
+
 	if err != nil {
 		logger.Error("AssignBrigade failed",
 			zap.String("ticket_id", in.TicketID.String()),
@@ -351,10 +439,13 @@ func (s *TicketServiceStruct) AssignBrigade(ctx context.Context, in *models.Assi
 		)
 		return nil, fmt.Errorf("service: AssignBrigade(): %w", err)
 	}
+
 	assignResult, err := cachedResult[models.AssignBrigadeResult](result)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: AssignBrigade(): idempotency result: %w", err)
 	}
+
 	ticket := assignResult.Ticket
 
 	logger.Info("AssignBrigade success",
@@ -367,6 +458,8 @@ func (s *TicketServiceStruct) AssignBrigade(ctx context.Context, in *models.Assi
 	return assignResult, nil
 }
 
+// CancelTicket отменяет заявку с проверкой входных данных и полномочий исполнителя.
+// Операция выполняется идемпотентно; допустимость отмены проверяет репозиторий.
 func (s *TicketServiceStruct) CancelTicket(ctx context.Context, in *models.CancelTicketInput) (*models.CancelTicketResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -386,21 +479,25 @@ func (s *TicketServiceStruct) CancelTicket(ctx context.Context, in *models.Cance
 	}
 
 	currentTicket, err := s.repo.GetTicketByID(ctx, in.TicketID)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: CancelTicket(): get ticket: %w", err)
 	}
 
-	if !hasPrivilegedRole(in.ActorRoles) && currentTicket.UserID != in.CanceledBy {
+	if !canManageTicket(currentTicket, in.ActorDepartmentID, in.ActorRoles) && currentTicket.UserID != in.CanceledBy {
 		return nil, fmt.Errorf("service: CancelTicket(): %w", models.ErrPermissionDenied)
 	}
 
 	result, err := s.withIdempotency(ctx, "CancelTicket", in.CanceledBy.String(), in, func(ctx context.Context) (any, uuid.UUID, error) {
 		ticket, err := s.repo.CancelTicket(ctx, in)
+
 		if err != nil {
 			return nil, uuid.Nil, err
 		}
+
 		return &models.CancelTicketResult{Ticket: ticket}, ticket.ID, nil
 	})
+
 	if err != nil {
 		logger.Error("CancelTicket failed",
 			zap.String("ticket_id", in.TicketID.String()),
@@ -409,10 +506,13 @@ func (s *TicketServiceStruct) CancelTicket(ctx context.Context, in *models.Cance
 		)
 		return nil, fmt.Errorf("service: CancelTicket(): %w", err)
 	}
+
 	cancelResult, err := cachedResult[models.CancelTicketResult](result)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: CancelTicket(): idempotency result: %w", err)
 	}
+
 	ticket := cancelResult.Ticket
 
 	logger.Info("CancelTicket success",
@@ -424,6 +524,9 @@ func (s *TicketServiceStruct) CancelTicket(ctx context.Context, in *models.Cance
 	return cancelResult, nil
 }
 
+// CompleteTicket идемпотентно завершает заявку после проверки данных и полномочий.
+// Разрешает действие управляющему заявкой либо работнику назначенной бригады;
+// переход состояния и ограничения составного инцидента проверяет репозиторий.
 func (s *TicketServiceStruct) CompleteTicket(ctx context.Context, in *models.CompleteTicketInput) (*models.CompleteTicketResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -442,26 +545,33 @@ func (s *TicketServiceStruct) CompleteTicket(ctx context.Context, in *models.Com
 		return nil, fmt.Errorf("service: CompleteTicket(): %w: %v", models.ErrValidation, err)
 	}
 
-	if !hasPrivilegedRole(in.ActorRoles) {
+	currentTicket, err := s.repo.GetTicketByID(ctx, in.TicketID)
+	if err != nil {
+		return nil, fmt.Errorf("service: CompleteTicket(): get ticket: %w", err)
+	}
+
+	if !canManageTicket(currentTicket, in.ActorDepartmentID, in.ActorRoles) {
+
 		if !hasRole(in.ActorRoles, "worker") || in.ActorBrigadeID == nil {
 			return nil, fmt.Errorf("service: CompleteTicket(): %w", models.ErrPermissionDenied)
 		}
-		currentTicket, err := s.repo.GetTicketByID(ctx, in.TicketID)
-		if err != nil {
-			return nil, fmt.Errorf("service: CompleteTicket(): get ticket: %w", err)
-		}
+
 		if currentTicket.BrigadeID == nil || *currentTicket.BrigadeID != *in.ActorBrigadeID {
 			return nil, fmt.Errorf("service: CompleteTicket(): %w", models.ErrPermissionDenied)
 		}
+
 	}
 
 	result, err := s.withIdempotency(ctx, "CompleteTicket", in.CompletedBy.String(), in, func(ctx context.Context) (any, uuid.UUID, error) {
 		ticket, err := s.repo.CompleteTicket(ctx, in)
+
 		if err != nil {
 			return nil, uuid.Nil, err
 		}
+
 		return &models.CompleteTicketResult{Ticket: ticket}, ticket.ID, nil
 	})
+
 	if err != nil {
 		logger.Error("CompleteTicket failed",
 			zap.String("ticket_id", in.TicketID.String()),
@@ -470,10 +580,13 @@ func (s *TicketServiceStruct) CompleteTicket(ctx context.Context, in *models.Com
 		)
 		return nil, fmt.Errorf("service: CompleteTicket(): %w", err)
 	}
+
 	completeResult, err := cachedResult[models.CompleteTicketResult](result)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: CompleteTicket(): idempotency result: %w", err)
 	}
+
 	ticket := completeResult.Ticket
 
 	logger.Info("CompleteTicket success",
@@ -485,6 +598,8 @@ func (s *TicketServiceStruct) CompleteTicket(ctx context.Context, in *models.Com
 	return completeResult, nil
 }
 
+// GetTicketStatusHistory возвращает страницу истории и общее количество переходов заявки.
+// Проверяет входные данные и право чтения заявки перед запросом истории.
 func (s *TicketServiceStruct) GetTicketStatusHistory(ctx context.Context, in *models.GetTicketStatusHistoryInput) (*models.GetTicketStatusHistoryResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -505,15 +620,17 @@ func (s *TicketServiceStruct) GetTicketStatusHistory(ctx context.Context, in *mo
 	}
 
 	ticket, err := s.repo.GetTicketByID(ctx, in.TicketID)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: GetTicketStatusHistory(): get ticket: %w", err)
 	}
 
-	if !canReadTicket(ticket, in.ActorUserID, in.ActorBrigadeID, in.ActorRoles) {
+	if !canReadTicket(ticket, in.ActorUserID, in.ActorBrigadeID, in.ActorDepartmentID, in.ActorRoles) {
 		return nil, fmt.Errorf("service: GetTicketStatusHistory(): %w", models.ErrPermissionDenied)
 	}
 
 	history, total, err := s.repo.GetTicketStatusHistory(ctx, in)
+
 	if err != nil {
 		logger.Error("GetTicketStatusHistory failed",
 			zap.String("ticket_id", in.TicketID.String()),
@@ -536,13 +653,21 @@ func (s *TicketServiceStruct) GetTicketStatusHistory(ctx context.Context, in *mo
 	}, nil
 }
 
-func canReadTicket(ticket *models.Ticket, actorUserID, actorBrigadeID *uuid.UUID, actorRoles []string) bool {
+// canReadTicket проверяет право чтения заявки по роли, автору, бригаде и департаменту.
+// Администратор видит все заявки, диспетчер — свой департамент; автор и работник
+// назначенной бригады получают доступ по принадлежности. Для nil возвращает false.
+func canReadTicket(ticket *models.Ticket, actorUserID, actorBrigadeID, actorDepartmentID *uuid.UUID, actorRoles []string) bool {
+
 	if ticket == nil {
 		return false
 	}
 
-	if hasPrivilegedRole(actorRoles) {
+	if hasRole(actorRoles, "admin") {
 		return true
+	}
+
+	if hasRole(actorRoles, "dispatcher") {
+		return actorDepartmentID != nil && ticket.DepartmentID == *actorDepartmentID
 	}
 
 	if actorUserID != nil && ticket.UserID == *actorUserID {
@@ -552,6 +677,20 @@ func canReadTicket(ticket *models.Ticket, actorUserID, actorBrigadeID *uuid.UUID
 	return hasRole(actorRoles, "worker") && actorBrigadeID != nil && ticket.BrigadeID != nil && *ticket.BrigadeID == *actorBrigadeID
 }
 
+// canManageTicket разрешает управление администратору либо диспетчеру департамента заявки.
+// Для nil или неподходящих полномочий возвращает false.
+func canManageTicket(ticket *models.Ticket, actorDepartmentID *uuid.UUID, actorRoles []string) bool {
+	if ticket == nil {
+		return false
+	}
+	if hasRole(actorRoles, "admin") {
+		return true
+	}
+	return hasRole(actorRoles, "dispatcher") && actorDepartmentID != nil && ticket.DepartmentID == *actorDepartmentID
+}
+
+// hasPrivilegedRole сообщает, есть ли среди ролей admin или dispatcher.
+// Принадлежность конкретному департаменту эта проверка не учитывает.
 func hasPrivilegedRole(roles []string) bool {
 	for _, role := range roles {
 		switch role {

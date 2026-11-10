@@ -1,0 +1,1194 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e4]:
+      - link [ref=e5] [cursor=pointer]:
+        - /url: /
+      - generic [ref=e7]:
+        - generic [ref=e9]:
+          - generic [ref=e10] [cursor=pointer]: Спрос и продажи
+          - generic [ref=e12] [cursor=pointer]: Инвестиции
+          - generic [ref=e14] [cursor=pointer]: Интеллектуальная собственность
+          - generic [ref=e16] [cursor=pointer]: Инфраструктура
+          - generic [ref=e18] [cursor=pointer]: Субсидии
+          - generic [ref=e20] [cursor=pointer]: Партнерские программы
+        - generic [ref=e22] [cursor=pointer]
+      - generic [ref=e25]:
+        - generic [ref=e26] [cursor=pointer]
+        - generic [ref=e29]:
+          - link [ref=e30] [cursor=pointer]:
+            - /url: https://t.me/innocluster
+          - link [ref=e34] [cursor=pointer]:
+            - /url: https://max.ru/id9710075695_biz
+        - link [ref=e38] [cursor=pointer]:
+          - /url: /connect/sudir
+  - main [ref=e42]:
+    - generic [ref=e43]:
+      - generic [ref=e44]:
+        - generic [ref=e45]:
+          - heading "Тестируй инновации в Москве" [level=1] [ref=e46]
+          - generic [ref=e47]: Сервис для апробации инновационных решений в реальных условиях на крупнейшей в мире инфраструктуре
+          - generic [ref=e48]:
+            - generic [ref=e49]: получи грант до ₽4 млн
+            - link "Подать заявку" [ref=e50] [cursor=pointer]:
+              - /url: https://i.moscow/measure-supports/site/form/3d4a828185bd4017b49c60a07c44a5fb
+          - generic [ref=e51]:
+            - generic [ref=e52]:
+              - generic [ref=e53]: Выйди на реальных заказчиков
+              - generic [ref=e54]:
+                - generic [ref=e55]: "345"
+                - generic [ref=e56]: объектов инфраструктуры для тестирования
+            - generic [ref=e57]:
+              - generic [ref=e58]: Проведи тест-драйв инноваций в Москве
+              - generic [ref=e59]:
+                - generic [ref=e60]: 820+
+                - generic [ref=e61]: запущенных пилотных тестирований
+            - generic [ref=e62]:
+              - generic [ref=e63]: Внедри инновацию в городе
+              - generic [ref=e64]:
+                - generic [ref=e65]: ₽12,5 млрд
+                - generic [ref=e66]: сумма закупленных решений у участников тестирований
+            - generic [ref=e67]:
+              - generic [ref=e68]: Расскажи о своём решении миллионам
+              - link "Предложить решение" [ref=e70] [cursor=pointer]:
+                - /url: https://i.moscow/measure-supports/site/form/8fee59f52cb64f9696b5b0a640c53f12
+          - generic [ref=e73]:
+            - generic [ref=e74]: Кто может участвовать
+            - generic [ref=e75]:
+              - generic [ref=e76]: Высокотехнологичные компании
+              - generic [ref=e79]: С высоким уровенем готовности технологии
+              - generic [ref=e82]: С потенциалом внедрения
+              - generic [ref=e85]: Имеющие интеллектуальную собственность
+        - generic [ref=e88]:
+          - generic [ref=e89]: Как стать участником
+          - generic [ref=e90]:
+            - generic [ref=e91]:
+              - generic [ref=e92]:
+                - generic [ref=e93]: "1"
+                - generic [ref=e94]:
+                  - link "Подай заявку" [ref=e95] [cursor=pointer]:
+                    - /url: https://i.moscow/measure-supports/site/form/8fee59f52cb64f9696b5b0a640c53f12
+                  - text: и пройди экспертизу
+              - button "Что нужно" [ref=e98] [cursor=pointer]
+            - generic [ref=e101]:
+              - generic [ref=e102]:
+                - generic [ref=e103]: "2"
+                - generic [ref=e104]: Найди площадку
+              - button "Как найти" [ref=e107] [cursor=pointer]
+            - generic [ref=e110]:
+              - generic [ref=e111]:
+                - generic [ref=e112]: "3"
+                - generic [ref=e113]: Запусти тестирование и получи грант
+              - button "Какие этапы" [ref=e116] [cursor=pointer]
+            - generic [ref=e119]:
+              - generic [ref=e120]:
+                - generic [ref=e121]: "4"
+                - generic [ref=e122]: Внедри решение
+              - button "Что потом" [ref=e125] [cursor=pointer]
+        - generic [ref=e128]:
+          - generic [ref=e129]:
+            - text: Где протестировать инновацию
+            - link "Предложить площадку" [ref=e131] [cursor=pointer]:
+              - /url: https://i.moscow/measure-supports/site/form/5893523bdc28466dae4ca83e765bd417
+          - generic [ref=e132]:
+            - button "Здравоохранение 84 объекта" [ref=e133] [cursor=pointer]:
+              - generic [ref=e134]: Здравоохранение
+              - generic [ref=e136]:
+                - generic [ref=e137]: "84"
+                - generic [ref=e138]: объекта
+            - button "Образование и спорт 75 объектов" [ref=e142] [cursor=pointer]:
+              - generic [ref=e143]: Образование и спорт
+              - generic [ref=e145]:
+                - generic [ref=e146]: "75"
+                - generic [ref=e147]: объектов
+            - button "Транспорт 15 объектов" [ref=e151] [cursor=pointer]:
+              - generic [ref=e152]: Транспорт
+              - generic [ref=e154]:
+                - generic [ref=e155]: "15"
+                - generic [ref=e156]: объектов
+            - button "Парки и культура 57 объектов" [ref=e160] [cursor=pointer]:
+              - generic [ref=e161]: Парки и культура
+              - generic [ref=e163]:
+                - generic [ref=e164]: "57"
+                - generic [ref=e165]: объектов
+            - generic [ref=e169]: Выбери своего заказчика
+            - button "Лайфстайл 9 объектов" [ref=e170] [cursor=pointer]:
+              - generic [ref=e171]: Лайфстайл
+              - generic [ref=e173]:
+                - generic [ref=e174]: "9"
+                - generic [ref=e175]: объектов
+            - button "Инфраструктура 15 объектов" [ref=e179] [cursor=pointer]:
+              - generic [ref=e180]: Инфраструктура
+              - generic [ref=e182]:
+                - generic [ref=e183]: "15"
+                - generic [ref=e184]: объектов
+            - button "Строительство и ЖКХ 31 объект" [ref=e188] [cursor=pointer]:
+              - generic [ref=e189]: Строительство и ЖКХ
+              - generic [ref=e191]:
+                - generic [ref=e192]: "31"
+                - generic [ref=e193]: объект
+            - button "Производство и ИТ 59 объектов" [ref=e197] [cursor=pointer]:
+              - generic [ref=e198]: Производство и ИТ
+              - generic [ref=e200]:
+                - generic [ref=e201]: "59"
+                - generic [ref=e202]: объектов
+      - generic [ref=e210]:
+        - generic [ref=e212]:
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - text: © Яндекс
+                    - link "Условия использования":
+                      - /url: https://yandex.ru/legal/maps_termsofuse/?lang=ru_RU
+                  - link:
+                    - /url: https://yandex.ru/maps/?from=api-maps&utm_source=jsapi&ll=37.617698%2C55.75586399999371&origin=jsapi_3&z=11&l=map
+                - button "Открыть Яндекс Карты" [ref=e214] [cursor=pointer]
+        - generic [ref=e216]: Инфраструктура для тестирования
+      - generic [ref=e245]:
+        - heading "Что тестируют прямо сейчас" [level=2] [ref=e246]
+        - generic [ref=e247]:
+          - button [ref=e248] [cursor=pointer]
+          - generic [ref=e250]:
+            - generic [ref=e255]:
+              - generic [ref=e257]:
+                - generic [ref=e258]: Ретех
+                - generic [ref=e259]: Московский городской педагогический университет
+              - generic [ref=e261]:
+                - generic [ref=e262]: Комплекс для 3D-печати керамических изделий
+                - generic [ref=e264]:
+                  - generic [ref=e265]:
+                    - generic [ref=e266]: В чем суть технологии
+                    - generic [ref=e267]: Установка с собственным ПО для печати керамических изделий, их постобработки, термообработки и 3D-сканирования
+                  - generic [ref=e268]:
+                    - generic [ref=e269]: Как проходит тестирование
+                    - generic [ref=e270]: Студенты МГПУ осваивают керамическую 3D-печать на лабораторной установке и последующую обработку готовых изделий
+            - generic [ref=e275]:
+              - generic [ref=e277]:
+                - generic [ref=e278]: ЮМАП
+                - generic [ref=e279]: Технопарк «Сколково»
+              - generic [ref=e281]:
+                - generic [ref=e282]: Цифровая платформа для навигации по крупным объектам
+                - generic [ref=e284]:
+                  - generic [ref=e285]:
+                    - generic [ref=e286]: В чем суть технологии
+                    - generic [ref=e287]: Платформа объединяет интерактивные карты, мессенджер-бота и ИИ-ассистента, выстраивая оптимальные маршруты без установки приложения
+                  - generic [ref=e288]:
+                    - generic [ref=e289]: Как проходит тестирование
+                    - generic [ref=e290]: Платформа формирует цифровую навигацию по ключевым локациям технопарка «Сколково» для быстрого поиска помещений и построения маршрутов
+            - tabpanel [ref=e291]:
+              - generic [ref=e295]:
+                - generic [ref=e297]:
+                  - generic [ref=e298]: Медтехнопроект
+                  - generic [ref=e299]: ГКБ № 1 им. Н.И. Пирогова
+                - generic [ref=e301]:
+                  - generic [ref=e302]: Биополимерные протезы для замены поврежденных сосудов
+                  - generic [ref=e304]:
+                    - generic [ref=e305]:
+                      - generic [ref=e306]: В чем суть технологии
+                      - generic [ref=e307]: Уникальные отечественные протезы из биополимерных материалов заменяют поврежденные сосуды и хорошо приживаются в тканях, снижая риск осложнений
+                    - generic [ref=e308]:
+                      - generic [ref=e309]: Как проходит тестирование
+                      - generic [ref=e310]: В Первой градской больнице уже успешно провели более 30 операций с применением протезов для замены поврежденных сосудов
+            - tabpanel [ref=e311]:
+              - generic [ref=e315]:
+                - generic [ref=e317]:
+                  - generic [ref=e318]: МИ ТЕХ
+                  - generic [ref=e319]: Парк Северное Тушино
+                - generic [ref=e321]:
+                  - generic [ref=e322]: Интеллектуальная система мониторинга городской среды
+                  - generic [ref=e324]:
+                    - generic [ref=e325]:
+                      - generic [ref=e326]: В чем суть технологии
+                      - generic [ref=e327]: Нейросетевые технологии обеспечивают высокоточную обработку шумовых данных с датчиков в режиме реального времени
+                    - generic [ref=e328]:
+                      - generic [ref=e329]: Как проходит тестирование
+                      - generic [ref=e330]: Три датчика мониторинга шума установлены в центральной части парка «Северное Тушино» и уже передают данные в городские системы
+            - tabpanel [aria-hidden] [ref=e331]:
+              - generic [ref=e335]:
+                - generic [ref=e337]:
+                  - generic [ref=e338]: МАПЛАБ
+                  - generic [ref=e339]: АНО Развитие парков
+                - generic [ref=e341]:
+                  - generic [ref=e342]: Автоматизированное 3D-моделирование пространств
+                  - generic [ref=e344]:
+                    - generic [ref=e345]:
+                      - generic [ref=e346]: В чем суть технологии
+                      - generic [ref=e347]: Алгоритмы детально моделируют архитектурные решения объектов и ускоряют разработку концепций благоустройства территорий
+                    - generic [ref=e348]:
+                      - generic [ref=e349]: Как проходит тестирование
+                      - generic [ref=e350]: Специалисты АНО «Развитие парков» моделируют благоустройство столичных парков и получают готовые визуализации проектов
+            - tabpanel [aria-hidden] [ref=e351]:
+              - generic [ref=e355]:
+                - generic [ref=e357]:
+                  - generic [ref=e358]: Эталон
+                  - generic [ref=e359]: Мосинжпроект
+                - generic [ref=e361]:
+                  - generic [ref=e362]: Система дистанционного мониторинга прочности бетона
+                  - generic [ref=e364]:
+                    - generic [ref=e365]:
+                      - generic [ref=e366]: В чем суть технологии
+                      - generic [ref=e367]: Датчики внутри бетонной конструкции круглосуточно передают данные о температуре, влажности и прочности материала, снижая риск дефектов
+                    - generic [ref=e368]:
+                      - generic [ref=e369]: Как проходит тестирование
+                      - generic [ref=e370]: 20 датчиков установлены в монолите при строительстве станции метро «ЗИЛ» Бирюлевской линнии для контроля качества бетона в режиме реального времени
+            - tabpanel [aria-hidden] [ref=e371]:
+              - generic [ref=e375]:
+                - generic [ref=e377]:
+                  - generic [ref=e378]: СТЕМ-игры
+                  - generic [ref=e379]: Школа № 1995
+                - generic [ref=e381]:
+                  - generic [ref=e382]: Образовательная VR-лаборатория для практических работ
+                  - generic [ref=e384]:
+                    - generic [ref=e385]:
+                      - generic [ref=e386]: В чем суть технологии
+                      - generic [ref=e387]: VR-тренажер воспроизводит химические реакции и физические эксперименты, позволяя проводить практические работы без реальных реактивов и оборудования
+                    - generic [ref=e388]:
+                      - generic [ref=e389]: Как проходит тестирование
+                      - generic [ref=e390]: Группа из 25 старшеклассников школы № 1995 еженедельно выполняют индивидуальные практические задания на тренажерах
+            - tabpanel [aria-hidden] [ref=e391]:
+              - generic [ref=e395]:
+                - generic [ref=e397]:
+                  - generic [ref=e398]: Информационные системы и стратегии
+                  - generic [ref=e399]: Жилищник района Черемушки
+                - generic [ref=e401]:
+                  - generic [ref=e402]: Контроллер для передачи данных инженерных систем
+                  - generic [ref=e404]:
+                    - generic [ref=e405]:
+                      - generic [ref=e406]: В чем суть технологии
+                      - generic [ref=e407]: Технология работает на базе отечественной ОС Astra Linux с фиксацией операций в системе безопасности
+                    - generic [ref=e408]:
+                      - generic [ref=e409]: Как проходит тестирование
+                      - generic [ref=e410]: В жилом доме района Черёмушки контроллер напрямую передает данные о работе инженерных систем в учетную платформу, исключая сторонний доступ
+            - tabpanel [aria-hidden] [ref=e411]:
+              - generic [ref=e415]:
+                - generic [ref=e417]:
+                  - generic [ref=e418]: Айдол
+                  - generic [ref=e419]: Парк Ходынское поле
+                - generic [ref=e421]:
+                  - generic [ref=e422]: Антропоморфный робот для голосового консультирования
+                  - generic [ref=e424]:
+                    - generic [ref=e425]:
+                      - generic [ref=e426]: В чем суть технологии
+                      - generic [ref=e427]: Робот распознает людей и их речь, обрабатывает запросы и отвечает голосом, поддерживая живой формат общения
+                    - generic [ref=e428]:
+                      - generic [ref=e429]: Как проходит тестирование
+                      - generic [ref=e430]: Робот встречает посетителей парка «Ходынское поле» — за первый месяц работы обслужил более 380 гостей
+            - tabpanel [aria-hidden] [ref=e431]:
+              - generic [ref=e435]:
+                - generic [ref=e437]:
+                  - generic [ref=e438]: Ретех
+                  - generic [ref=e439]: Московский городской педагогический университет
+                - generic [ref=e441]:
+                  - generic [ref=e442]: Комплекс для 3D-печати керамических изделий
+                  - generic [ref=e444]:
+                    - generic [ref=e445]:
+                      - generic [ref=e446]: В чем суть технологии
+                      - generic [ref=e447]: Установка с собственным ПО для печати керамических изделий, их постобработки, термообработки и 3D-сканирования
+                    - generic [ref=e448]:
+                      - generic [ref=e449]: Как проходит тестирование
+                      - generic [ref=e450]: Студенты МГПУ осваивают керамическую 3D-печать на лабораторной установке и последующую обработку готовых изделий
+            - tabpanel [aria-hidden] [ref=e451]:
+              - generic [ref=e455]:
+                - generic [ref=e457]:
+                  - generic [ref=e458]: ЮМАП
+                  - generic [ref=e459]: Технопарк «Сколково»
+                - generic [ref=e461]:
+                  - generic [ref=e462]: Цифровая платформа для навигации по крупным объектам
+                  - generic [ref=e464]:
+                    - generic [ref=e465]:
+                      - generic [ref=e466]: В чем суть технологии
+                      - generic [ref=e467]: Платформа объединяет интерактивные карты, мессенджер-бота и ИИ-ассистента, выстраивая оптимальные маршруты без установки приложения
+                    - generic [ref=e468]:
+                      - generic [ref=e469]: Как проходит тестирование
+                      - generic [ref=e470]: Платформа формирует цифровую навигацию по ключевым локациям технопарка «Сколково» для быстрого поиска помещений и построения маршрутов
+            - generic [ref=e475]:
+              - generic [ref=e477]:
+                - generic [ref=e478]: Медтехнопроект
+                - generic [ref=e479]: ГКБ № 1 им. Н.И. Пирогова
+              - generic [ref=e481]:
+                - generic [ref=e482]: Биополимерные протезы для замены поврежденных сосудов
+                - generic [ref=e484]:
+                  - generic [ref=e485]:
+                    - generic [ref=e486]: В чем суть технологии
+                    - generic [ref=e487]: Уникальные отечественные протезы из биополимерных материалов заменяют поврежденные сосуды и хорошо приживаются в тканях, снижая риск осложнений
+                  - generic [ref=e488]:
+                    - generic [ref=e489]: Как проходит тестирование
+                    - generic [ref=e490]: В Первой градской больнице уже успешно провели более 30 операций с применением протезов для замены поврежденных сосудов
+            - generic [ref=e495]:
+              - generic [ref=e497]:
+                - generic [ref=e498]: МИ ТЕХ
+                - generic [ref=e499]: Парк Северное Тушино
+              - generic [ref=e501]:
+                - generic [ref=e502]: Интеллектуальная система мониторинга городской среды
+                - generic [ref=e504]:
+                  - generic [ref=e505]:
+                    - generic [ref=e506]: В чем суть технологии
+                    - generic [ref=e507]: Нейросетевые технологии обеспечивают высокоточную обработку шумовых данных с датчиков в режиме реального времени
+                  - generic [ref=e508]:
+                    - generic [ref=e509]: Как проходит тестирование
+                    - generic [ref=e510]: Три датчика мониторинга шума установлены в центральной части парка «Северное Тушино» и уже передают данные в городские системы
+            - generic [ref=e515]:
+              - generic [ref=e517]:
+                - generic [ref=e518]: МАПЛАБ
+                - generic [ref=e519]: АНО Развитие парков
+              - generic [ref=e521]:
+                - generic [ref=e522]: Автоматизированное 3D-моделирование пространств
+                - generic [ref=e524]:
+                  - generic [ref=e525]:
+                    - generic [ref=e526]: В чем суть технологии
+                    - generic [ref=e527]: Алгоритмы детально моделируют архитектурные решения объектов и ускоряют разработку концепций благоустройства территорий
+                  - generic [ref=e528]:
+                    - generic [ref=e529]: Как проходит тестирование
+                    - generic [ref=e530]: Специалисты АНО «Развитие парков» моделируют благоустройство столичных парков и получают готовые визуализации проектов
+            - generic [ref=e535]:
+              - generic [ref=e537]:
+                - generic [ref=e538]: Эталон
+                - generic [ref=e539]: Мосинжпроект
+              - generic [ref=e541]:
+                - generic [ref=e542]: Система дистанционного мониторинга прочности бетона
+                - generic [ref=e544]:
+                  - generic [ref=e545]:
+                    - generic [ref=e546]: В чем суть технологии
+                    - generic [ref=e547]: Датчики внутри бетонной конструкции круглосуточно передают данные о температуре, влажности и прочности материала, снижая риск дефектов
+                  - generic [ref=e548]:
+                    - generic [ref=e549]: Как проходит тестирование
+                    - generic [ref=e550]: 20 датчиков установлены в монолите при строительстве станции метро «ЗИЛ» Бирюлевской линнии для контроля качества бетона в режиме реального времени
+            - generic [ref=e555]:
+              - generic [ref=e557]:
+                - generic [ref=e558]: СТЕМ-игры
+                - generic [ref=e559]: Школа № 1995
+              - generic [ref=e561]:
+                - generic [ref=e562]: Образовательная VR-лаборатория для практических работ
+                - generic [ref=e564]:
+                  - generic [ref=e565]:
+                    - generic [ref=e566]: В чем суть технологии
+                    - generic [ref=e567]: VR-тренажер воспроизводит химические реакции и физические эксперименты, позволяя проводить практические работы без реальных реактивов и оборудования
+                  - generic [ref=e568]:
+                    - generic [ref=e569]: Как проходит тестирование
+                    - generic [ref=e570]: Группа из 25 старшеклассников школы № 1995 еженедельно выполняют индивидуальные практические задания на тренажерах
+            - generic [ref=e575]:
+              - generic [ref=e577]:
+                - generic [ref=e578]: Информационные системы и стратегии
+                - generic [ref=e579]: Жилищник района Черемушки
+              - generic [ref=e581]:
+                - generic [ref=e582]: Контроллер для передачи данных инженерных систем
+                - generic [ref=e584]:
+                  - generic [ref=e585]:
+                    - generic [ref=e586]: В чем суть технологии
+                    - generic [ref=e587]: Технология работает на базе отечественной ОС Astra Linux с фиксацией операций в системе безопасности
+                  - generic [ref=e588]:
+                    - generic [ref=e589]: Как проходит тестирование
+                    - generic [ref=e590]: В жилом доме района Черёмушки контроллер напрямую передает данные о работе инженерных систем в учетную платформу, исключая сторонний доступ
+            - generic [ref=e595]:
+              - generic [ref=e597]:
+                - generic [ref=e598]: Айдол
+                - generic [ref=e599]: Парк Ходынское поле
+              - generic [ref=e601]:
+                - generic [ref=e602]: Антропоморфный робот для голосового консультирования
+                - generic [ref=e604]:
+                  - generic [ref=e605]:
+                    - generic [ref=e606]: В чем суть технологии
+                    - generic [ref=e607]: Робот распознает людей и их речь, обрабатывает запросы и отвечает голосом, поддерживая живой формат общения
+                  - generic [ref=e608]:
+                    - generic [ref=e609]: Как проходит тестирование
+                    - generic [ref=e610]: Робот встречает посетителей парка «Ходынское поле» — за первый месяц работы обслужил более 380 гостей
+            - generic [ref=e615]:
+              - generic [ref=e617]:
+                - generic [ref=e618]: Ретех
+                - generic [ref=e619]: Московский городской педагогический университет
+              - generic [ref=e621]:
+                - generic [ref=e622]: Комплекс для 3D-печати керамических изделий
+                - generic [ref=e624]:
+                  - generic [ref=e625]:
+                    - generic [ref=e626]: В чем суть технологии
+                    - generic [ref=e627]: Установка с собственным ПО для печати керамических изделий, их постобработки, термообработки и 3D-сканирования
+                  - generic [ref=e628]:
+                    - generic [ref=e629]: Как проходит тестирование
+                    - generic [ref=e630]: Студенты МГПУ осваивают керамическую 3D-печать на лабораторной установке и последующую обработку готовых изделий
+            - generic [ref=e635]:
+              - generic [ref=e637]:
+                - generic [ref=e638]: ЮМАП
+                - generic [ref=e639]: Технопарк «Сколково»
+              - generic [ref=e641]:
+                - generic [ref=e642]: Цифровая платформа для навигации по крупным объектам
+                - generic [ref=e644]:
+                  - generic [ref=e645]:
+                    - generic [ref=e646]: В чем суть технологии
+                    - generic [ref=e647]: Платформа объединяет интерактивные карты, мессенджер-бота и ИИ-ассистента, выстраивая оптимальные маршруты без установки приложения
+                  - generic [ref=e648]:
+                    - generic [ref=e649]: Как проходит тестирование
+                    - generic [ref=e650]: Платформа формирует цифровую навигацию по ключевым локациям технопарка «Сколково» для быстрого поиска помещений и построения маршрутов
+          - button [ref=e651] [cursor=pointer]
+          - tablist [ref=e652]:
+            - tab "1 of 5" [selected] [ref=e653] [cursor=pointer]
+            - tab "2 of 5" [ref=e654] [cursor=pointer]
+            - tab "3 of 5" [ref=e655] [cursor=pointer]
+            - tab "4 of 5" [ref=e656] [cursor=pointer]
+            - tab "5 of 5" [ref=e657] [cursor=pointer]
+      - generic [ref=e659]:
+        - generic [ref=e660]: Какие инновации ищут
+        - generic [ref=e662]:
+          - button [ref=e663] [cursor=pointer]
+          - generic [ref=e665]:
+            - generic [ref=e669]:
+              - generic [ref=e670]:
+                - generic [ref=e671]: Производство и ИТ
+                - generic [ref=e672]: "#инвентаризация"
+              - generic [ref=e673]: Автоматизация учета и инвентаризации имущества с RFID и интеграцией с 1С, бухгалтерией и внутренним интернет-магазином
+              - generic [ref=e674]:
+                - generic [ref=e675]: ГБУ «Аналитический центр»
+                - link [ref=e677] [cursor=pointer]:
+                  - /url: https://i.moscow/measure-supports/site/form/8fee59f52cb64f9696b5b0a640c53f12
+                  - text: Предложить продукт
+            - generic [ref=e681]:
+              - generic [ref=e682]:
+                - generic [ref=e683]: Здравоохранение
+                - generic [ref=e684]: "#реабилитация"
+                - generic [ref=e685]: "#medtech"
+              - generic [ref=e686]: Реабилитационное оборудование с биологической обратной связью
+              - generic [ref=e687]:
+                - generic [ref=e688]: Реабилитационно-образовательный центр № 76
+                - link [ref=e690] [cursor=pointer]:
+                  - /url: https://i.moscow/measure-supports/site/form/8fee59f52cb64f9696b5b0a640c53f12
+                  - text: Предложить продукт
+            - tabpanel [ref=e691]:
+              - generic [ref=e694]:
+                - generic [ref=e695]:
+                  - generic [ref=e696]: Здравоохранение
+                  - generic [ref=e697]: "#software"
+                  - generic [ref=e698]: "#medtech"
+                - generic [ref=e699]: Оценка суставного синдрома для сбора и анализа жалоб пациента на боли, отеков и ограничения движений в суставах
+                - generic [ref=e700]:
+                  - generic [ref=e701]: Морозовская ДГКБ ДЗМ
+                  - link "Предложить продукт" [ref=e703] [cursor=pointer]:
+                    - /url: https://i.moscow/measure-supports/site/form/8fee59f52cb64f9696b5b0a640c53f12
+            - tabpanel [ref=e704]:
+              - generic [ref=e707]:
+                - generic [ref=e708]:
+                  - generic [ref=e709]: Здравоохранение
+                  - generic [ref=e710]: "#hardware"
+                  - generic [ref=e711]: "#реабилитация"
+                - generic [ref=e712]: Экзоскелеты для восстановления подвижности после повреждения позвоночника или конечностей
+                - generic [ref=e713]:
+                  - generic [ref=e714]: ГКБ №15 имени Филатова
+                  - link "Предложить продукт" [ref=e716] [cursor=pointer]:
+                    - /url: https://i.moscow/measure-supports/site/form/8fee59f52cb64f9696b5b0a640c53f12
+            - tabpanel [aria-hidden] [ref=e717]:
+              - generic [ref=e720]:
+                - generic [ref=e721]:
+                  - generic [ref=e722]: Здравоохранение
+                  - generic [ref=e723]: "#hardware"
+                  - generic [ref=e724]: "#реабилитация"
+                - generic [ref=e725]: Экзоскелеты для восстановления подвижности после повреждения позвоночника или конечностей
+                - generic [ref=e726]:
+                  - generic [ref=e727]: ГКБ №15 имени Филатова
+                  - link [ref=e729] [cursor=pointer]:
+                    - /url: https://i.moscow/measure-supports/site/form/8fee59f52cb64f9696b5b0a640c53f12
+                    - text: Предложить продукт
+            - tabpanel [aria-hidden] [ref=e730]:
+              - generic [ref=e733]:
+                - generic [ref=e734]:
+                  - generic [ref=e735]: Образование и спорт
+                  - generic [ref=e736]: "#edtech"
+                  - generic [ref=e737]: "#AI"
+                - generic [ref=e738]: ИИ-ассистент для адаптивного обучения финансовым дисциплинам и система автоматизированной проверки знаний с прокторингом и биометрией
+                - generic [ref=e739]:
+                  - generic [ref=e740]: Институт фондового рынка и управления
+                  - link [ref=e742] [cursor=pointer]:
+                    - /url: https://i.moscow/measure-supports/site/form/8fee59f52cb64f9696b5b0a640c53f12
+                    - text: Предложить продукт
+            - tabpanel [aria-hidden] [ref=e743]:
+              - generic [ref=e746]:
+                - generic [ref=e747]:
+                  - generic [ref=e748]: Образование и спорт
+                  - generic [ref=e749]: "#edtech"
+                  - generic [ref=e750]: "#IoT"
+                - generic [ref=e751]: IoT-система мониторинга состояния спортивной инфраструктуры и VR/AR-симуляторы для обучения технике видов спорта
+                - generic [ref=e752]:
+                  - generic [ref=e753]: ГБУ ДО МКСШ «Новая Москва»
+                  - link [ref=e755] [cursor=pointer]:
+                    - /url: https://i.moscow/measure-supports/site/form/8fee59f52cb64f9696b5b0a640c53f12
+                    - text: Предложить продукт
+            - tabpanel [aria-hidden] [ref=e756]:
+              - generic [ref=e759]:
+                - generic [ref=e760]:
+                  - generic [ref=e761]: Образование и спорт
+                  - generic [ref=e762]: "#edtech"
+                  - generic [ref=e763]: "#IoT"
+                - generic [ref=e764]: Цифровой двойник производственной мастерской для виртуального обучения и умная система управления запасами и логистикой для учебных производств
+                - generic [ref=e765]:
+                  - generic [ref=e766]: Московский образовательный комплекс им. Виктора Талалихина
+                  - link [ref=e768] [cursor=pointer]:
+                    - /url: https://i.moscow/measure-supports/site/form/8fee59f52cb64f9696b5b0a640c53f12
+                    - text: Предложить продукт
+            - tabpanel [aria-hidden] [ref=e769]:
+              - generic [ref=e772]:
+                - generic [ref=e773]:
+                  - generic [ref=e774]: Парки и культура
+                  - generic [ref=e775]: "#urbantech"
+                  - generic [ref=e776]: "#ecology"
+                - generic [ref=e777]: "Технологии для обслуживания территории: сбор мусора, удаление вандальных надписей, контроль посещаемости на входных группах, решения для озеленения"
+                - generic [ref=e778]:
+                  - generic [ref=e779]: Музей-заповедник «Коломенское»
+                  - link [ref=e781] [cursor=pointer]:
+                    - /url: https://i.moscow/measure-supports/site/form/8fee59f52cb64f9696b5b0a640c53f12
+                    - text: Предложить продукт
+            - tabpanel [aria-hidden] [ref=e782]:
+              - generic [ref=e785]:
+                - generic [ref=e786]:
+                  - generic [ref=e787]: Парки и культура
+                  - generic [ref=e788]: "#multimedia"
+                  - generic [ref=e789]: "#AR"
+                - generic [ref=e790]: Мультимедийное оборудование, умные роботы для взаимодействия с посетителями, платформы с дополненной реальностью
+                - generic [ref=e791]:
+                  - generic [ref=e792]: Дарвиновский музей
+                  - link [ref=e794] [cursor=pointer]:
+                    - /url: https://i.moscow/measure-supports/site/form/8fee59f52cb64f9696b5b0a640c53f12
+                    - text: Предложить продукт
+            - tabpanel [aria-hidden] [ref=e795]:
+              - generic [ref=e798]:
+                - generic [ref=e799]:
+                  - generic [ref=e800]: Инфраструктура
+                  - generic [ref=e801]: "#urbantech"
+                  - generic [ref=e802]: "#parking"
+                - generic [ref=e803]: Технологии организации парковочных пространтств
+                - generic [ref=e804]:
+                  - generic [ref=e805]: Технопарк «Строгино»
+                  - link [ref=e807] [cursor=pointer]:
+                    - /url: https://i.moscow/measure-supports/site/form/8fee59f52cb64f9696b5b0a640c53f12
+                    - text: Предложить продукт
+            - tabpanel [aria-hidden] [ref=e808]:
+              - generic [ref=e811]:
+                - generic [ref=e812]:
+                  - generic [ref=e813]: Инфраструктура
+                  - generic [ref=e814]: "#IT"
+                  - generic [ref=e815]: "#software"
+                - generic [ref=e816]: IT-системы для управления бронирование помещений
+                - generic [ref=e817]:
+                  - generic [ref=e818]: Дирекция технологической инфраструктуры
+                  - link [ref=e820] [cursor=pointer]:
+                    - /url: https://i.moscow/measure-supports/site/form/8fee59f52cb64f9696b5b0a640c53f12
+                    - text: Предложить продукт
+            - tabpanel [aria-hidden] [ref=e821]:
+              - generic [ref=e824]:
+                - generic [ref=e825]:
+                  - generic [ref=e826]: Строительство и ЖКХ
+                  - generic [ref=e827]: "#power"
+                  - generic [ref=e828]: "#IoT"
+                - generic [ref=e829]: Системы для управления распределением электроэнергии
+                - generic [ref=e830]:
+                  - generic [ref=e831]: Объединенная энергетическая компания
+                  - link [ref=e833] [cursor=pointer]:
+                    - /url: https://i.moscow/measure-supports/site/form/8fee59f52cb64f9696b5b0a640c53f12
+                    - text: Предложить продукт
+            - tabpanel [aria-hidden] [ref=e834]:
+              - generic [ref=e837]:
+                - generic [ref=e838]:
+                  - generic [ref=e839]: Строительство и ЖКХ
+                  - generic [ref=e840]: "#software"
+                  - generic [ref=e841]: "#BIM"
+                - generic [ref=e842]: Решения для работы с ЦИМ и формирования ведомостей объемов работ
+                - generic [ref=e843]:
+                  - generic [ref=e844]: Развитие социальной инфраструктуры
+                  - link [ref=e846] [cursor=pointer]:
+                    - /url: https://i.moscow/measure-supports/site/form/8fee59f52cb64f9696b5b0a640c53f12
+                    - text: Предложить продукт
+            - tabpanel [aria-hidden] [ref=e847]:
+              - generic [ref=e850]:
+                - generic [ref=e851]:
+                  - generic [ref=e852]: Производство и ИТ
+                  - generic [ref=e853]: "#ecotech"
+                  - generic [ref=e854]: "#водоочистка"
+                - generic [ref=e855]: Системы и решения для очистки ливневых вод для использования их в хозяйственных нуждах (полив растений, дорог)
+                - generic [ref=e856]:
+                  - generic [ref=e857]: Особая экономическая зона «Технополис Москва»
+                  - link [ref=e859] [cursor=pointer]:
+                    - /url: https://i.moscow/measure-supports/site/form/8fee59f52cb64f9696b5b0a640c53f12
+                    - text: Предложить продукт
+            - tabpanel [aria-hidden] [ref=e860]:
+              - generic [ref=e863]:
+                - generic [ref=e864]:
+                  - generic [ref=e865]: Производство и ИТ
+                  - generic [ref=e866]: "#инвентаризация"
+                - generic [ref=e867]: Автоматизация учета и инвентаризации имущества с RFID и интеграцией с 1С, бухгалтерией и внутренним интернет-магазином
+                - generic [ref=e868]:
+                  - generic [ref=e869]: ГБУ «Аналитический центр»
+                  - link [ref=e871] [cursor=pointer]:
+                    - /url: https://i.moscow/measure-supports/site/form/8fee59f52cb64f9696b5b0a640c53f12
+                    - text: Предложить продукт
+            - tabpanel [aria-hidden] [ref=e872]:
+              - generic [ref=e875]:
+                - generic [ref=e876]:
+                  - generic [ref=e877]: Здравоохранение
+                  - generic [ref=e878]: "#реабилитация"
+                  - generic [ref=e879]: "#medtech"
+                - generic [ref=e880]: Реабилитационное оборудование с биологической обратной связью
+                - generic [ref=e881]:
+                  - generic [ref=e882]: Реабилитационно-образовательный центр № 76
+                  - link [ref=e884] [cursor=pointer]:
+                    - /url: https://i.moscow/measure-supports/site/form/8fee59f52cb64f9696b5b0a640c53f12
+                    - text: Предложить продукт
+            - generic [ref=e888]:
+              - generic [ref=e889]:
+                - generic [ref=e890]: Здравоохранение
+                - generic [ref=e891]: "#software"
+                - generic [ref=e892]: "#medtech"
+              - generic [ref=e893]: Оценка суставного синдрома для сбора и анализа жалоб пациента на боли, отеков и ограничения движений в суставах
+              - generic [ref=e894]:
+                - generic [ref=e895]: Морозовская ДГКБ ДЗМ
+                - link [ref=e897] [cursor=pointer]:
+                  - /url: https://i.moscow/measure-supports/site/form/8fee59f52cb64f9696b5b0a640c53f12
+                  - text: Предложить продукт
+            - generic [ref=e901]:
+              - generic [ref=e902]:
+                - generic [ref=e903]: Здравоохранение
+                - generic [ref=e904]: "#hardware"
+                - generic [ref=e905]: "#реабилитация"
+              - generic [ref=e906]: Экзоскелеты для восстановления подвижности после повреждения позвоночника или конечностей
+              - generic [ref=e907]:
+                - generic [ref=e908]: ГКБ №15 имени Филатова
+                - link [ref=e910] [cursor=pointer]:
+                  - /url: https://i.moscow/measure-supports/site/form/8fee59f52cb64f9696b5b0a640c53f12
+                  - text: Предложить продукт
+            - generic [ref=e914]:
+              - generic [ref=e915]:
+                - generic [ref=e916]: Здравоохранение
+                - generic [ref=e917]: "#hardware"
+                - generic [ref=e918]: "#реабилитация"
+              - generic [ref=e919]: Экзоскелеты для восстановления подвижности после повреждения позвоночника или конечностей
+              - generic [ref=e920]:
+                - generic [ref=e921]: ГКБ №15 имени Филатова
+                - link [ref=e923] [cursor=pointer]:
+                  - /url: https://i.moscow/measure-supports/site/form/8fee59f52cb64f9696b5b0a640c53f12
+                  - text: Предложить продукт
+            - generic [ref=e927]:
+              - generic [ref=e928]:
+                - generic [ref=e929]: Образование и спорт
+                - generic [ref=e930]: "#edtech"
+                - generic [ref=e931]: "#AI"
+              - generic [ref=e932]: ИИ-ассистент для адаптивного обучения финансовым дисциплинам и система автоматизированной проверки знаний с прокторингом и биометрией
+              - generic [ref=e933]:
+                - generic [ref=e934]: Институт фондового рынка и управления
+                - link [ref=e936] [cursor=pointer]:
+                  - /url: https://i.moscow/measure-supports/site/form/8fee59f52cb64f9696b5b0a640c53f12
+                  - text: Предложить продукт
+            - generic [ref=e940]:
+              - generic [ref=e941]:
+                - generic [ref=e942]: Образование и спорт
+                - generic [ref=e943]: "#edtech"
+                - generic [ref=e944]: "#IoT"
+              - generic [ref=e945]: IoT-система мониторинга состояния спортивной инфраструктуры и VR/AR-симуляторы для обучения технике видов спорта
+              - generic [ref=e946]:
+                - generic [ref=e947]: ГБУ ДО МКСШ «Новая Москва»
+                - link [ref=e949] [cursor=pointer]:
+                  - /url: https://i.moscow/measure-supports/site/form/8fee59f52cb64f9696b5b0a640c53f12
+                  - text: Предложить продукт
+            - generic [ref=e953]:
+              - generic [ref=e954]:
+                - generic [ref=e955]: Образование и спорт
+                - generic [ref=e956]: "#edtech"
+                - generic [ref=e957]: "#IoT"
+              - generic [ref=e958]: Цифровой двойник производственной мастерской для виртуального обучения и умная система управления запасами и логистикой для учебных производств
+              - generic [ref=e959]:
+                - generic [ref=e960]: Московский образовательный комплекс им. Виктора Талалихина
+                - link [ref=e962] [cursor=pointer]:
+                  - /url: https://i.moscow/measure-supports/site/form/8fee59f52cb64f9696b5b0a640c53f12
+                  - text: Предложить продукт
+            - generic [ref=e966]:
+              - generic [ref=e967]:
+                - generic [ref=e968]: Парки и культура
+                - generic [ref=e969]: "#urbantech"
+                - generic [ref=e970]: "#ecology"
+              - generic [ref=e971]: "Технологии для обслуживания территории: сбор мусора, удаление вандальных надписей, контроль посещаемости на входных группах, решения для озеленения"
+              - generic [ref=e972]:
+                - generic [ref=e973]: Музей-заповедник «Коломенское»
+                - link [ref=e975] [cursor=pointer]:
+                  - /url: https://i.moscow/measure-supports/site/form/8fee59f52cb64f9696b5b0a640c53f12
+                  - text: Предложить продукт
+            - generic [ref=e979]:
+              - generic [ref=e980]:
+                - generic [ref=e981]: Парки и культура
+                - generic [ref=e982]: "#multimedia"
+                - generic [ref=e983]: "#AR"
+              - generic [ref=e984]: Мультимедийное оборудование, умные роботы для взаимодействия с посетителями, платформы с дополненной реальностью
+              - generic [ref=e985]:
+                - generic [ref=e986]: Дарвиновский музей
+                - link [ref=e988] [cursor=pointer]:
+                  - /url: https://i.moscow/measure-supports/site/form/8fee59f52cb64f9696b5b0a640c53f12
+                  - text: Предложить продукт
+            - generic [ref=e992]:
+              - generic [ref=e993]:
+                - generic [ref=e994]: Инфраструктура
+                - generic [ref=e995]: "#urbantech"
+                - generic [ref=e996]: "#parking"
+              - generic [ref=e997]: Технологии организации парковочных пространтств
+              - generic [ref=e998]:
+                - generic [ref=e999]: Технопарк «Строгино»
+                - link [ref=e1001] [cursor=pointer]:
+                  - /url: https://i.moscow/measure-supports/site/form/8fee59f52cb64f9696b5b0a640c53f12
+                  - text: Предложить продукт
+            - generic [ref=e1005]:
+              - generic [ref=e1006]:
+                - generic [ref=e1007]: Инфраструктура
+                - generic [ref=e1008]: "#IT"
+                - generic [ref=e1009]: "#software"
+              - generic [ref=e1010]: IT-системы для управления бронирование помещений
+              - generic [ref=e1011]:
+                - generic [ref=e1012]: Дирекция технологической инфраструктуры
+                - link [ref=e1014] [cursor=pointer]:
+                  - /url: https://i.moscow/measure-supports/site/form/8fee59f52cb64f9696b5b0a640c53f12
+                  - text: Предложить продукт
+            - generic [ref=e1018]:
+              - generic [ref=e1019]:
+                - generic [ref=e1020]: Строительство и ЖКХ
+                - generic [ref=e1021]: "#power"
+                - generic [ref=e1022]: "#IoT"
+              - generic [ref=e1023]: Системы для управления распределением электроэнергии
+              - generic [ref=e1024]:
+                - generic [ref=e1025]: Объединенная энергетическая компания
+                - link [ref=e1027] [cursor=pointer]:
+                  - /url: https://i.moscow/measure-supports/site/form/8fee59f52cb64f9696b5b0a640c53f12
+                  - text: Предложить продукт
+            - generic [ref=e1031]:
+              - generic [ref=e1032]:
+                - generic [ref=e1033]: Строительство и ЖКХ
+                - generic [ref=e1034]: "#software"
+                - generic [ref=e1035]: "#BIM"
+              - generic [ref=e1036]: Решения для работы с ЦИМ и формирования ведомостей объемов работ
+              - generic [ref=e1037]:
+                - generic [ref=e1038]: Развитие социальной инфраструктуры
+                - link [ref=e1040] [cursor=pointer]:
+                  - /url: https://i.moscow/measure-supports/site/form/8fee59f52cb64f9696b5b0a640c53f12
+                  - text: Предложить продукт
+            - generic [ref=e1044]:
+              - generic [ref=e1045]:
+                - generic [ref=e1046]: Производство и ИТ
+                - generic [ref=e1047]: "#ecotech"
+                - generic [ref=e1048]: "#водоочистка"
+              - generic [ref=e1049]: Системы и решения для очистки ливневых вод для использования их в хозяйственных нуждах (полив растений, дорог)
+              - generic [ref=e1050]:
+                - generic [ref=e1051]: Особая экономическая зона «Технополис Москва»
+                - link [ref=e1053] [cursor=pointer]:
+                  - /url: https://i.moscow/measure-supports/site/form/8fee59f52cb64f9696b5b0a640c53f12
+                  - text: Предложить продукт
+            - generic [ref=e1057]:
+              - generic [ref=e1058]:
+                - generic [ref=e1059]: Производство и ИТ
+                - generic [ref=e1060]: "#инвентаризация"
+              - generic [ref=e1061]: Автоматизация учета и инвентаризации имущества с RFID и интеграцией с 1С, бухгалтерией и внутренним интернет-магазином
+              - generic [ref=e1062]:
+                - generic [ref=e1063]: ГБУ «Аналитический центр»
+                - link [ref=e1065] [cursor=pointer]:
+                  - /url: https://i.moscow/measure-supports/site/form/8fee59f52cb64f9696b5b0a640c53f12
+                  - text: Предложить продукт
+            - generic [ref=e1069]:
+              - generic [ref=e1070]:
+                - generic [ref=e1071]: Здравоохранение
+                - generic [ref=e1072]: "#реабилитация"
+                - generic [ref=e1073]: "#medtech"
+              - generic [ref=e1074]: Реабилитационное оборудование с биологической обратной связью
+              - generic [ref=e1075]:
+                - generic [ref=e1076]: Реабилитационно-образовательный центр № 76
+                - link [ref=e1078] [cursor=pointer]:
+                  - /url: https://i.moscow/measure-supports/site/form/8fee59f52cb64f9696b5b0a640c53f12
+                  - text: Предложить продукт
+          - button [ref=e1079] [cursor=pointer]
+          - tablist [ref=e1080]:
+            - tab "1 of 8" [selected] [ref=e1081] [cursor=pointer]
+            - tab "2 of 8" [ref=e1082] [cursor=pointer]
+            - tab "3 of 8" [ref=e1083] [cursor=pointer]
+            - tab "4 of 8" [ref=e1084] [cursor=pointer]
+            - tab "5 of 8" [ref=e1085] [cursor=pointer]
+            - tab "6 of 8" [ref=e1086] [cursor=pointer]
+            - tab "7 of 8" [ref=e1087] [cursor=pointer]
+            - tab "8 of 8" [ref=e1088] [cursor=pointer]
+        - link "Больше запросов на Витрине заказчиков" [ref=e1090] [cursor=pointer]:
+          - /url: "#"
+      - generic [ref=e1091]:
+        - generic [ref=e1093]:
+          - generic [ref=e1094]:
+            - heading "Флагманская инфраструктура" [level=2] [ref=e1095]
+            - generic [ref=e1096]:
+              - generic [ref=e1097] [cursor=pointer]
+              - generic [ref=e1100] [cursor=pointer]
+          - generic [ref=e1105]:
+            - generic [ref=e1109]:
+              - generic [ref=e1111]:
+                - img "Герб Кластер «Ломоносов»" [ref=e1112]
+                - heading "Кластер «Ломоносов»" [level=3] [ref=e1113]
+              - generic [ref=e1117]:
+                - generic [ref=e1118]:
+                  - heading [level=4]
+                  - generic [ref=e1120]:
+                    - text: Запросы на инновации
+                    - list [ref=e1121]:
+                      - listitem [ref=e1122]: Система контроля проведения мероприятий
+                      - listitem [ref=e1123]: Модернизация аудио- и видеосистем
+                      - listitem [ref=e1124]: Создание интерактивных зон
+                      - listitem [ref=e1125]: Системы энергосбережения и повышения энергоэффективности
+                      - listitem [ref=e1126]: Платформы для взаимодействия с резидентами
+                      - listitem [ref=e1127]: Технологии для повышения безопасности
+                      - listitem [ref=e1128]: Роботизация пространства
+                      - listitem [ref=e1129]: Цифровизация внутренних процессов с применением ИИ
+                - button "Подать заявку" [ref=e1131] [cursor=pointer]
+            - generic [ref=e1136]:
+              - generic [ref=e1138]:
+                - img "Герб Сколково" [ref=e1139]
+                - heading "Сколково" [level=3] [ref=e1140]
+              - generic [ref=e1144]:
+                - generic [ref=e1145]:
+                  - heading [level=4]
+                  - generic [ref=e1147]:
+                    - text: Запросы на инновации
+                    - list [ref=e1148]:
+                      - listitem [ref=e1149]: Мобильное приложения для Технопарка
+                      - listitem [ref=e1150]: Чат-бота с ИИ для поддержки пользователей
+                      - listitem [ref=e1151]: Решения для навигации
+                      - listitem [ref=e1152]: Медиаоборудование для рекламы
+                      - listitem [ref=e1153]: Вендинговые аппараты
+                      - listitem [ref=e1154]: Электронные бейджи с QR-кодом
+                      - listitem [ref=e1155]: Решения для визуализации и планирования пространства под мероприятия
+                      - listitem [ref=e1156]: Системы интерактивного голосования и опросов для резидентов и мероприятий
+                - button "Подать заявку" [ref=e1158] [cursor=pointer]
+            - generic [ref=e1163]:
+              - heading "Кластер Медиатехнологий" [level=3] [ref=e1166]
+              - generic [ref=e1170]:
+                - generic [ref=e1171]:
+                  - heading [level=4]
+                  - generic [ref=e1173]:
+                    - text: Запросы на инновации
+                    - list [ref=e1174]:
+                      - listitem [ref=e1175]: Инновационная архитектурная подсветка
+                      - listitem [ref=e1176]: Системы управления помещениями
+                      - listitem [ref=e1177]: Системы анализа посещаемости
+                      - listitem [ref=e1178]: Роботизированная уборка внутренняя
+                      - listitem [ref=e1179]: Роботизированное мытьё фасадов
+                      - listitem [ref=e1180]: Навигационные системы внутри здания
+                      - listitem [ref=e1181]: Энергосберегающие технологии
+                      - listitem [ref=e1182]: Электрозарядные станции для электромобилей
+                - button "Подать заявку" [ref=e1184] [cursor=pointer]
+          - link "Предложить решение" [ref=e1188] [cursor=pointer]:
+            - /url: https://i.moscow/measure-supports/site/form/8fee59f52cb64f9696b5b0a640c53f12
+        - generic [ref=e1189]:
+          - generic [ref=e1190]:
+            - generic [ref=e1191]: Получи поддержку от города
+            - generic [ref=e1192]: И компенсируй затраты на пилотное тестирование
+            - generic [ref=e1193]:
+              - generic [ref=e1194]: Что можно компенсировать
+              - generic [ref=e1195]:
+                - generic [ref=e1196]: Лабораторные анализы и исследования
+                - generic [ref=e1198]: Монтаж и демонтаж на площадке
+                - generic [ref=e1200]: Страхование
+                - generic [ref=e1202]: Фонд оплаты труда
+                - generic [ref=e1204]: Техническое обслуживание и ремонт
+                - generic [ref=e1206]: Сертификация и госрегистрация
+                - generic [ref=e1208]: Клинические испытания
+                - generic [ref=e1210]: Подготовка площадки
+                - generic [ref=e1212]: Материалы и комплектующие
+                - generic [ref=e1214]: Логистика до площадки и обратно
+                - generic [ref=e1216]: Аренда оборудования
+          - link "Подать заявку" [ref=e1219] [cursor=pointer]:
+            - /url: https://i.moscow/measure-supports/site/form/8fee59f52cb64f9696b5b0a640c53f12
+    - generic [ref=e1221]:
+      - generic [ref=e1222]: Что рассказывают об участниках
+      - generic [ref=e1223]:
+        - button [ref=e1224] [cursor=pointer]
+        - generic [ref=e1226]:
+          - link [ref=e1230] [cursor=pointer]:
+            - /url: https://www.mos.ru/news/item/155147073/
+            - generic [ref=e1231]: В Москве продлен прием заявок на грант на пилотное тестирование инноваций
+            - generic [ref=e1232]: Mos.ru
+          - link [ref=e1236] [cursor=pointer]:
+            - /url: https://www.mos.ru/mayor/themes/12081050/
+            - generic [ref=e1237]: Сергей Собянин рассказал о программе пилотных тестирований инноваций в Москве
+            - generic [ref=e1238]: Mos.ru
+          - link [ref=e1242] [cursor=pointer]:
+            - /url: https://www.vedomosti.ru/gorod/smartcity/articles/podderzhivat-innovatsionnie-kompanii
+            - generic [ref=e1243]: "Технологический вектор: Москва продолжит поддерживать инновационные компании"
+            - generic [ref=e1244]: Ведомости
+          - tabpanel [ref=e1245]:
+            - link "Сергей Собянин рассказал о передовых разработках, внедренных в Москве Москва 24" [ref=e1248] [cursor=pointer]:
+              - /url: https://www.m24.ru/news/23062026/913309/?utm_source=telegram&utm_medium=messenger&utm_campaign=linkshare&utm_content=news
+              - generic [ref=e1249]: Сергей Собянин рассказал о передовых разработках, внедренных в Москве
+              - generic [ref=e1250]: Москва 24
+          - tabpanel [ref=e1251]:
+            - 'link "Гендиректор МИК Парабучев: в Москве идет вторая волна внедрения робототехники ТАСС" [ref=e1254] [cursor=pointer]':
+              - /url: https://tass.ru/interviews/27624927/?utm_source=telegram&utm_medium=messenger&utm_campaign=linkshare&utm_content=news
+              - generic [ref=e1255]: "Гендиректор МИК Парабучев: в Москве идет вторая волна внедрения робототехники"
+              - generic [ref=e1256]: ТАСС
+          - tabpanel [ref=e1257]:
+            - link "В «Сколково» пройдут испытания робота для мойки фасадов зданий РБК" [ref=e1260] [cursor=pointer]:
+              - /url: https://www.rbc.ru/society/29/05/2026/6a17ec189a79476832af3019?utm_referrer=https%3A%2F%2Fyandex.ru%2F/?utm_source=telegram&utm_medium=messenger&utm_campaign=linkshare&utm_content=news
+              - generic [ref=e1261]: В «Сколково» пройдут испытания робота для мойки фасадов зданий
+              - generic [ref=e1262]: РБК
+          - tabpanel [aria-hidden] [ref=e1263]:
+            - link [ref=e1266] [cursor=pointer]:
+              - /url: https://www.sobyanin.ru/innovatsii-v-stroitelstve-moskovskie-kompanii-menyayut-otrasl/?utm_source=telegram&utm_medium=messenger&utm_campaign=linkshare&utm_content=news
+              - generic [ref=e1267]: "Инновации в строительстве: как московские компании меняют отрасль"
+              - generic [ref=e1268]: Блог Сергея Собянина
+          - tabpanel [aria-hidden] [ref=e1269]:
+            - link [ref=e1272] [cursor=pointer]:
+              - /url: https://www.mos.ru/news/item/164317073/?utm_source=telegram&utm_medium=messenger&utm_campaign=linkshare&utm_content=news
+              - generic [ref=e1273]: "Робот-патрульный и VR-симулятор бионического зрения: что еще тестируют на площадке «МосХаб. Сколково»"
+              - generic [ref=e1274]: Mos.ru
+          - tabpanel [aria-hidden] [ref=e1275]:
+            - link [ref=e1278] [cursor=pointer]:
+              - /url: https://www.mos.ru/news/item/164278073/
+              - generic [ref=e1279]: "Ночь, улица, фонарь, инновация: какие технологии тестируются в московских парках"
+              - generic [ref=e1280]: Mos.ru
+          - tabpanel [aria-hidden] [ref=e1281]:
+            - link [ref=e1284] [cursor=pointer]:
+              - /url: https://www.mos.ru/news/item/164115073/?ysclid=mkfhydt5ve32922827
+              - generic [ref=e1285]: Московская программа пилотирования инноваций объединила уже более 300 площадок
+              - generic [ref=e1286]: Mos.ru
+          - tabpanel [aria-hidden] [ref=e1287]:
+            - link [ref=e1290] [cursor=pointer]:
+              - /url: https://www.mos.ru/news/item/164921073/
+              - generic [ref=e1291]: "Привлечь инвестиции, партнеров и заказчиков: какие возможности дает Московский инновационный кластер"
+              - generic [ref=e1292]: Mos.ru
+          - tabpanel [aria-hidden] [ref=e1293]:
+            - link [ref=e1296] [cursor=pointer]:
+              - /url: https://www.forbes.ru/spetsproekt/545562-testirovanie-startapov-kak-moskva-pomogaet-vnedrat-novye-tehnologii?erid=F7NfYUJCUneTSxJAgfwW
+              - generic [ref=e1297]: "Тестирование стартапов: как Москва помогает внедрять новые технологии"
+              - generic [ref=e1298]: Forbes
+          - tabpanel [aria-hidden] [ref=e1299]:
+            - link [ref=e1302] [cursor=pointer]:
+              - /url: https://www.rbc.ru/industries/news/68e8c5f79a794745965a6288
+              - generic [ref=e1303]: На западе Москвы появится полигон тестирования «города будущего»
+              - generic [ref=e1304]: РБК
+          - tabpanel [aria-hidden] [ref=e1305]:
+            - link [ref=e1308] [cursor=pointer]:
+              - /url: https://www.mos.ru/news/item/160463073/
+              - generic [ref=e1309]: "Инновации для школ и колледжей: что создают и тестируют в Москве"
+              - generic [ref=e1310]: Mos.ru
+          - tabpanel [aria-hidden] [ref=e1311]:
+            - link [ref=e1314] [cursor=pointer]:
+              - /url: https://www.mos.ru/news/item/155147073/
+              - generic [ref=e1315]: В Москве продлен прием заявок на грант на пилотное тестирование инноваций
+              - generic [ref=e1316]: Mos.ru
+          - tabpanel [aria-hidden] [ref=e1317]:
+            - link [ref=e1320] [cursor=pointer]:
+              - /url: https://www.mos.ru/mayor/themes/12081050/
+              - generic [ref=e1321]: Сергей Собянин рассказал о программе пилотных тестирований инноваций в Москве
+              - generic [ref=e1322]: Mos.ru
+          - tabpanel [aria-hidden] [ref=e1323]:
+            - link [ref=e1326] [cursor=pointer]:
+              - /url: https://www.vedomosti.ru/gorod/smartcity/articles/podderzhivat-innovatsionnie-kompanii
+              - generic [ref=e1327]: "Технологический вектор: Москва продолжит поддерживать инновационные компании"
+              - generic [ref=e1328]: Ведомости
+          - link [ref=e1332] [cursor=pointer]:
+            - /url: https://www.m24.ru/news/23062026/913309/?utm_source=telegram&utm_medium=messenger&utm_campaign=linkshare&utm_content=news
+            - generic [ref=e1333]: Сергей Собянин рассказал о передовых разработках, внедренных в Москве
+            - generic [ref=e1334]: Москва 24
+          - link [ref=e1338] [cursor=pointer]:
+            - /url: https://tass.ru/interviews/27624927/?utm_source=telegram&utm_medium=messenger&utm_campaign=linkshare&utm_content=news
+            - generic [ref=e1339]: "Гендиректор МИК Парабучев: в Москве идет вторая волна внедрения робототехники"
+            - generic [ref=e1340]: ТАСС
+          - link [ref=e1344] [cursor=pointer]:
+            - /url: https://www.rbc.ru/society/29/05/2026/6a17ec189a79476832af3019?utm_referrer=https%3A%2F%2Fyandex.ru%2F/?utm_source=telegram&utm_medium=messenger&utm_campaign=linkshare&utm_content=news
+            - generic [ref=e1345]: В «Сколково» пройдут испытания робота для мойки фасадов зданий
+            - generic [ref=e1346]: РБК
+          - link [ref=e1350] [cursor=pointer]:
+            - /url: https://www.sobyanin.ru/innovatsii-v-stroitelstve-moskovskie-kompanii-menyayut-otrasl/?utm_source=telegram&utm_medium=messenger&utm_campaign=linkshare&utm_content=news
+            - generic [ref=e1351]: "Инновации в строительстве: как московские компании меняют отрасль"
+            - generic [ref=e1352]: Блог Сергея Собянина
+          - link [ref=e1356] [cursor=pointer]:
+            - /url: https://www.mos.ru/news/item/164317073/?utm_source=telegram&utm_medium=messenger&utm_campaign=linkshare&utm_content=news
+            - generic [ref=e1357]: "Робот-патрульный и VR-симулятор бионического зрения: что еще тестируют на площадке «МосХаб. Сколково»"
+            - generic [ref=e1358]: Mos.ru
+          - link [ref=e1362] [cursor=pointer]:
+            - /url: https://www.mos.ru/news/item/164278073/
+            - generic [ref=e1363]: "Ночь, улица, фонарь, инновация: какие технологии тестируются в московских парках"
+            - generic [ref=e1364]: Mos.ru
+          - link [ref=e1368] [cursor=pointer]:
+            - /url: https://www.mos.ru/news/item/164115073/?ysclid=mkfhydt5ve32922827
+            - generic [ref=e1369]: Московская программа пилотирования инноваций объединила уже более 300 площадок
+            - generic [ref=e1370]: Mos.ru
+          - link [ref=e1374] [cursor=pointer]:
+            - /url: https://www.mos.ru/news/item/164921073/
+            - generic [ref=e1375]: "Привлечь инвестиции, партнеров и заказчиков: какие возможности дает Московский инновационный кластер"
+            - generic [ref=e1376]: Mos.ru
+          - link [ref=e1380] [cursor=pointer]:
+            - /url: https://www.forbes.ru/spetsproekt/545562-testirovanie-startapov-kak-moskva-pomogaet-vnedrat-novye-tehnologii?erid=F7NfYUJCUneTSxJAgfwW
+            - generic [ref=e1381]: "Тестирование стартапов: как Москва помогает внедрять новые технологии"
+            - generic [ref=e1382]: Forbes
+          - link [ref=e1386] [cursor=pointer]:
+            - /url: https://www.rbc.ru/industries/news/68e8c5f79a794745965a6288
+            - generic [ref=e1387]: На западе Москвы появится полигон тестирования «города будущего»
+            - generic [ref=e1388]: РБК
+          - link [ref=e1392] [cursor=pointer]:
+            - /url: https://www.mos.ru/news/item/160463073/
+            - generic [ref=e1393]: "Инновации для школ и колледжей: что создают и тестируют в Москве"
+            - generic [ref=e1394]: Mos.ru
+          - link [ref=e1398] [cursor=pointer]:
+            - /url: https://www.mos.ru/news/item/155147073/
+            - generic [ref=e1399]: В Москве продлен прием заявок на грант на пилотное тестирование инноваций
+            - generic [ref=e1400]: Mos.ru
+          - link [ref=e1404] [cursor=pointer]:
+            - /url: https://www.mos.ru/mayor/themes/12081050/
+            - generic [ref=e1405]: Сергей Собянин рассказал о программе пилотных тестирований инноваций в Москве
+            - generic [ref=e1406]: Mos.ru
+          - link [ref=e1410] [cursor=pointer]:
+            - /url: https://www.vedomosti.ru/gorod/smartcity/articles/podderzhivat-innovatsionnie-kompanii
+            - generic [ref=e1411]: "Технологический вектор: Москва продолжит поддерживать инновационные компании"
+            - generic [ref=e1412]: Ведомости
+        - button [ref=e1413] [cursor=pointer]
+        - tablist [ref=e1414]:
+          - tab "1 of 5" [selected] [ref=e1415] [cursor=pointer]
+          - tab "2 of 5" [ref=e1416] [cursor=pointer]
+          - tab "3 of 5" [ref=e1417] [cursor=pointer]
+          - tab "4 of 5" [ref=e1418] [cursor=pointer]
+          - tab "5 of 5" [ref=e1419] [cursor=pointer]
+    - generic [ref=e1421]:
+      - generic [ref=e1422]: Часто задаваемые вопросы
+      - generic [ref=e1423]:
+        - generic [ref=e1424]: Как подать заявку на участие в пилотном тестировании?
+        - generic [ref=e1427]: Требования к заявителям
+        - generic [ref=e1430]: Какие основные сроки в программе?
+        - generic [ref=e1433]: Как добавить личный кабинет организации?
+        - generic [ref=e1436]: Можно ли доработать заявку после её отправки?
+        - generic [ref=e1439]: Прошел экспертизу на инновационность, но со мной никто не связался, что делать?
+        - generic [ref=e1442]: У меня есть ещё вопросы!
+    - generic [ref=e1446]:
+      - generic [ref=e1447]: Документы
+      - generic [ref=e1448]:
+        - generic [ref=e1449]:
+          - link "PDF 149 kB" [ref=e1450] [cursor=pointer]:
+            - /url: https://i.moscow/upload/lending/newPiloting/d291ed.pdf
+            - generic [ref=e1451]: PDF
+            - generic [ref=e1452]: 149 kB
+          - generic [ref=e1456]: О проведении пилотных тестирований (631-ПП)
+        - generic [ref=e1458]:
+          - link "PDF 323,5 Kb" [ref=e1459] [cursor=pointer]:
+            - /url: https://i.moscow/upload/lending/newPiloting/fe37c9.pdf
+            - generic [ref=e1460]: PDF
+            - generic [ref=e1461]: 323,5 Kb
+          - generic [ref=e1465]: О финансовой поддержке пилотных тестирований (410-ПП)
+        - generic [ref=e1467]:
+          - link "PDF 1,9 Mb" [ref=e1468] [cursor=pointer]:
+            - /url: https://i.moscow/upload/lending/newPiloting/52a3f9.pdf
+            - generic [ref=e1469]: PDF
+            - generic [ref=e1470]: 1,9 Mb
+          - generic [ref=e1474]: Положение об организации и проведении пилотных тестирований
+        - generic [ref=e1476]:
+          - link "PDF 1 Mb" [ref=e1477] [cursor=pointer]:
+            - /url: https://i.moscow/upload/lending/newPiloting/10c7dc.pdf
+            - generic [ref=e1478]: PDF
+            - generic [ref=e1479]: 1 Mb
+          - generic [ref=e1483]: Реестр площадок пилотного тестирования
+        - generic [ref=e1485]:
+          - link "PDF 1,5 Mb" [ref=e1486] [cursor=pointer]:
+            - /url: https://i.moscow/upload/lending/newPiloting/346869.pdf
+            - generic [ref=e1487]: PDF
+            - generic [ref=e1488]: 1,5 Mb
+          - generic [ref=e1492]: Реестр инновационных решений по результатам пилотных тестирований
+        - generic [ref=e1494]:
+          - link "PDF 1,2 Mb" [ref=e1495] [cursor=pointer]:
+            - /url: https://i.moscow/upload/lending/DigitalHealth/d80f6d.pdf
+            - generic [ref=e1496]: PDF
+            - generic [ref=e1497]: 1,2 Mb
+          - generic [ref=e1501]: Правила проведения экспертизы инновационных решений
+        - generic [ref=e1503]:
+          - link "PPTX 1,4 Mb" [ref=e1504] [cursor=pointer]:
+            - /url: https://i.moscow/upload/media/contentfiles/0001/22/c40d519c4a0fb825a62bb7d2f7ef946b6e8bdc76.pptx
+            - generic [ref=e1505]: PPTX
+            - generic [ref=e1506]: 1,4 Mb
+          - generic [ref=e1510]: Шаблон презентации
+        - generic [ref=e1512]:
+          - link "PDF 200 Kb" [ref=e1513] [cursor=pointer]:
+            - /url: https://i.moscow/upload/media/contentfiles/0001/22/001bf1e32e343e107b8865b76d243cd2017cc012.pdf
+            - generic [ref=e1514]: PDF
+            - generic [ref=e1515]: 200 Kb
+          - generic [ref=e1519]: Пример соглашения
+    - generic [ref=e1523]:
+      - generic [ref=e1524]:
+        - heading "Остались вопросы?" [level=2] [ref=e1525]
+        - paragraph [ref=e1526]: Свяжитесь с нами, и мы поможем
+      - list [ref=e1528]:
+        - listitem [ref=e1529]:
+          - generic [ref=e1530]: Мессенджер
+          - link "@miccopilot" [ref=e1531] [cursor=pointer]:
+            - /url: https://t.me/miccopilot
+        - listitem [ref=e1532]:
+          - generic [ref=e1533]: Почта
+          - link "pilot@cluster.mos.ru" [ref=e1534] [cursor=pointer]:
+            - /url: mailto:pilot@cluster.mos.ru
+  - contentinfo [ref=e1535]:
+    - generic [ref=e1536]:
+      - generic [ref=e1537]:
+        - generic [ref=e1538]:
+          - generic [ref=e1540]:
+            - link [ref=e1541] [cursor=pointer]:
+              - /url: /
+            - link [ref=e1543] [cursor=pointer]:
+              - /url: https://бизнесмосквы.рф/
+          - generic [ref=e1546]:
+            - link "Инвестиции" [ref=e1548] [cursor=pointer]:
+              - /url: /invest/startup
+            - link "Интеллектуальная собственность" [ref=e1550] [cursor=pointer]:
+              - /url: /ip
+            - link "Субсидии" [ref=e1552] [cursor=pointer]:
+              - /url: /measure-supports/
+            - link "О кластере" [ref=e1554] [cursor=pointer]:
+              - /url: /mic
+            - link "Аналитика" [ref=e1556] [cursor=pointer]:
+              - /url: /analytics
+            - link "Техномаркет" [ref=e1558] [cursor=pointer]:
+              - /url: https://i.moscow/techmarket
+            - link "Новые кластеры" [ref=e1560] [cursor=pointer]:
+              - /url: /newclusters
+            - link "ЛЦТ" [ref=e1562] [cursor=pointer]:
+              - /url: /lct
+          - generic [ref=e1563]:
+            - link "Навигатор мер поддержки" [ref=e1564] [cursor=pointer]:
+              - /url: /measure-supports
+            - link "Мероприятия" [ref=e1568] [cursor=pointer]:
+              - /url: /events
+            - link "Блог" [ref=e1572] [cursor=pointer]:
+              - /url: /blog
+        - generic [ref=e1576]:
+          - generic [ref=e1577]:
+            - generic [ref=e1578]:
+              - link "8-495-870-45-55" [ref=e1580] [cursor=pointer]:
+                - /url: tel:8 495 870-45-55
+              - link "support@i.moscow" [ref=e1585] [cursor=pointer]:
+                - /url: mailto:support@i.moscow
+            - link "Служба поддержки" [ref=e1590] [cursor=pointer]:
+              - /url: /support-service
+          - generic [ref=e1591]:
+            - link [ref=e1592] [cursor=pointer]:
+              - /url: https://t.me/innocluster
+            - link [ref=e1596] [cursor=pointer]:
+              - /url: https://max.ru/id9710075695_biz
+            - link [ref=e1600] [cursor=pointer]:
+              - /url: https://vk.com/innocluster
+      - generic [ref=e1604]:
+        - generic [ref=e1605]:
+          - link "Соглашение о пользовании информационной системой на территории города Москвы" [ref=e1606] [cursor=pointer]:
+            - /url: https://i.moscow/soglashenie-o-polzovanii
+          - link "Согласие на обработку персональных данных" [ref=e1608] [cursor=pointer]:
+            - /url: https://i.moscow/soglasie-na-obrabotku-personalnyh-dannyh
+          - generic [ref=e1609]: © 2026 Фонд «Московский инновационный кластер»
+        - generic [ref=e1610]:
+          - generic [ref=e1611]: 119019, г. Москва, ул. Воздвиженка, д. 4/7, стр. 2
+          - generic [ref=e1612]:
+            - generic [ref=e1613]: ИНН 9710075695
+            - generic [ref=e1614]: ОГРН 1197700007141
+            - generic [ref=e1615]: КПП 770401001
+  - alert [ref=e1616]:
+    - generic [ref=e1617]:
+      - text: Используя сайт вы соглашаетесь на применение
+      - link "файлов cookie*" [ref=e1618] [cursor=pointer]:
+        - /url: https://www.mos.ru/legal/rules/
+      - text: . Вы можете запретить сохранение cookie в настройках своего браузера
+    - button "Принять" [ref=e1620] [cursor=pointer]
+    - button "Close" [ref=e1623] [cursor=pointer]
+  - generic [ref=e1627]:
+    - generic [ref=e1629]: Кажется, у вас включен VPN
+    - paragraph [ref=e1631]:
+      - text: Для стабильной работы платформы i.moscow рекомендуем его отключить Если VPN выключен, а вы видите это сообщение -
+      - link "напишите нам" [ref=e1632] [cursor=pointer]:
+        - /url: /support-service#other
+    - button "Продолжить" [ref=e1634] [cursor=pointer]
+    - button [ref=e1635] [cursor=pointer]

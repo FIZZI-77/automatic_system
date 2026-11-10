@@ -14,6 +14,7 @@ var (
 	ErrConflict        = errors.New("conflict")
 )
 
+// Priority задаёт приоритет доменной модели.
 type Priority string
 
 const (
@@ -23,10 +24,12 @@ const (
 	PriorityEmergency Priority = "EMERGENCY"
 )
 
+// Valid сообщает, является ли приоритет одним из LOW, MEDIUM, HIGH или EMERGENCY.
 func (p Priority) Valid() bool {
 	return p == PriorityLow || p == PriorityMedium || p == PriorityHigh || p == PriorityEmergency
 }
 
+// Status задаёт допустимое состояние модели.
 type Status string
 
 const (
@@ -35,6 +38,7 @@ const (
 	StatusCancelled Status = "CANCELLED"
 )
 
+// EventType задаёт тип доменной модели.
 type EventType string
 
 const (
@@ -49,6 +53,7 @@ const (
 	EventCancelled          EventType = "CANCELLED"
 )
 
+// Rule описывает правило SLA и заданные им сроки.
 type Rule struct {
 	ID             uuid.UUID
 	Name           string
@@ -63,16 +68,23 @@ type Rule struct {
 	UpdatedAt      time.Time
 }
 
+// Validate проверяет непустое имя, положительные сроки, время реакции не больше
+// времени решения, процент предупреждения 1–99 и заданный приоритет.
+// Правило не изменяет; нарушение возвращает как ErrInvalidArgument.
 func (r *Rule) Validate() error {
+
 	if strings.TrimSpace(r.Name) == "" || r.ResponseTime <= 0 || r.ResolutionTime <= 0 || r.ResponseTime > r.ResolutionTime || r.WarningPercent < 1 || r.WarningPercent > 99 {
 		return ErrInvalidArgument
 	}
+
 	if r.Priority != nil && !r.Priority.Valid() {
 		return ErrInvalidArgument
 	}
+
 	return nil
 }
 
+// TicketSLA описывает рассчитанные SLA-сроки конкретной заявки.
 type TicketSLA struct {
 	ID                    uuid.UUID
 	TicketID              uuid.UUID
@@ -94,6 +106,8 @@ type TicketSLA struct {
 	CreatedAt             time.Time
 	UpdatedAt             time.Time
 }
+
+// History описывает доменную модель.
 type History struct {
 	ID          uuid.UUID
 	TicketSLAID uuid.UUID
@@ -102,6 +116,8 @@ type History struct {
 	OccurredAt  time.Time
 	Details     string
 }
+
+// TicketEvent описывает событие ticket.
 type TicketEvent struct {
 	EventID      string
 	EventType    string
@@ -113,6 +129,8 @@ type TicketEvent struct {
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }
+
+// RuleFilter задаёт условия фильтрации.
 type RuleFilter struct {
 	DepartmentID *uuid.UUID
 	CategoryID   *uuid.UUID
@@ -121,6 +139,8 @@ type RuleFilter struct {
 	Limit        int32
 	Offset       int32
 }
+
+// SLAFilter задаёт условия фильтрации.
 type SLAFilter struct {
 	DepartmentID *uuid.UUID
 	Status       *Status

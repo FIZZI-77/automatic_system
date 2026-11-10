@@ -18,8 +18,10 @@ func TestDownloadableStatus(t *testing.T) {
 		{models.StatusDeleted, false},
 	}
 	for _, test := range tests {
+
 		if got := downloadable(test.status); got != test.want {
 			t.Errorf("downloadable(%q) = %v, want %v", test.status, got, test.want)
 		}
+
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 )
 
+// WorkReport описывает доменную модель.
 type WorkReport struct {
 	ID               uuid.UUID   `json:"id"`
 	TicketID         uuid.UUID   `json:"ticket_id"`
@@ -21,17 +22,20 @@ type WorkReport struct {
 	CompletionError  string      `json:"completion_error,omitempty"`
 }
 
+// CreateWorkReportInput задаёт входные данные операции.
 type CreateWorkReportInput struct {
-	TicketID       uuid.UUID
-	AuthorUserID   uuid.UUID
-	Description    string
-	FileIDs        []uuid.UUID
-	ActorBrigadeID *uuid.UUID
-	ActorRoles     []string
-	IdempotencyKey string
-	Completion     *CompletionReportInput
+	TicketID          uuid.UUID
+	AuthorUserID      uuid.UUID
+	Description       string
+	FileIDs           []uuid.UUID
+	ActorBrigadeID    *uuid.UUID
+	ActorDepartmentID *uuid.UUID
+	ActorRoles        []string
+	IdempotencyKey    string
+	Completion        *CompletionReportInput
 }
 
+// CompletionReportInput задаёт входные данные операции.
 type CompletionReportInput struct {
 	RequestedBy string
 	ActorRoles  []string
@@ -39,37 +43,49 @@ type CompletionReportInput struct {
 	Brigade     CompletionBrigadeInput
 }
 
+// CompletionBrigadeInput задаёт входные данные операции.
 type CompletionBrigadeInput struct {
 	ID      string
 	Name    string
 	Members []CompletionBrigadeMemberInput
 }
 
+// CompletionBrigadeMemberInput задаёт входные данные операции.
 type CompletionBrigadeMemberInput struct {
 	UserID   string
 	FullName string
 	Role     string
 }
 
+// Validate удаляет пробелы по краям Description и проверяет параметры отчёта.
+// Требует заявку, автора, описание длиной 1–4000 байтов и не более 20 уникальных
+// ненулевых идентификаторов файлов. Изменяет in.Description.
 func (in *CreateWorkReportInput) Validate() error {
 	in.Description = strings.TrimSpace(in.Description)
+
 	if in.TicketID == uuid.Nil || in.AuthorUserID == uuid.Nil {
 		return errors.New("ticket_id and author_user_id are required")
 	}
+
 	if len(in.Description) == 0 || len(in.Description) > 4000 {
 		return errors.New("description must contain 1..4000 characters")
 	}
+
 	if len(in.FileIDs) > 20 {
 		return errors.New("report may contain at most 20 files")
 	}
+
 	seen := make(map[uuid.UUID]struct{}, len(in.FileIDs))
 	for _, id := range in.FileIDs {
+
 		if id == uuid.Nil {
 			return errors.New("file_id is invalid")
 		}
+
 		if _, ok := seen[id]; ok {
 			return errors.New("file_ids contain duplicates")
 		}
+
 		seen[id] = struct{}{}
 	}
 	return nil

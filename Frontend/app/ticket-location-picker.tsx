@@ -23,13 +23,24 @@ const defaultLocation: TicketLocation = {
 
 export function TicketLocationPicker({ value, onChange }: Props) {
   const mapRoot = useRef<HTMLDivElement>(null);
+  const selectedLocation = useRef(value);
+  const changeLocation = useRef(onChange);
   const [mode, setMode] = useState<"address" | "map">("address");
   const [query, setQuery] = useState(value?.address || "");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [searching, setSearching] = useState(false);
 
   useEffect(() => {
-    if (mode !== "address" || query.trim().length < 3 || query === value?.address) {
+    selectedLocation.current = value;
+    changeLocation.current = onChange;
+  }, [value, onChange]);
+
+  useEffect(() => {
+    if (
+      mode !== "address" ||
+      query.trim().length < 3 ||
+      query === value?.address
+    ) {
       return;
     }
 
@@ -37,10 +48,15 @@ export function TicketLocationPicker({ value, onChange }: Props) {
     const timer = window.setTimeout(async () => {
       setSearching(true);
       try {
-        const response = await fetch(`/api/geocode?q=${encodeURIComponent(query)}`, {
-          signal: controller.signal,
-        });
-        const payload = await response.json() as { suggestions?: Suggestion[] };
+        const response = await fetch(
+          `/api/geocode?q=${encodeURIComponent(query)}`,
+          {
+            signal: controller.signal,
+          },
+        );
+        const payload = (await response.json()) as {
+          suggestions?: Suggestion[];
+        };
         setSuggestions(response.ok ? payload.suggestions || [] : []);
       } catch {
         if (!controller.signal.aborted) setSuggestions([]);
@@ -60,17 +76,35 @@ export function TicketLocationPicker({ value, onChange }: Props) {
 
     let disposed = false;
     let map: import("leaflet").Map | undefined;
+    let invalidateTimer: number | undefined;
     void import("leaflet").then((leaflet) => {
       if (disposed || !mapRoot.current) return;
 
-      const location = value || defaultLocation;
-      map = leaflet.map(mapRoot.current).setView([location.latitude, location.longitude], 13);
-      leaflet.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "© OpenStreetMap contributors",
-        maxZoom: 19,
-      }).addTo(map);
+      const location = selectedLocation.current || defaultLocation;
+      map = leaflet
+        .map(mapRoot.current, {
+          zoomAnimation: false,
+          fadeAnimation: false,
+          markerZoomAnimation: false,
+        })
+        .setView([location.latitude, location.longitude], 13);
+      leaflet
+        .tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: "© OpenStreetMap contributors",
+          maxZoom: 19,
+        })
+        .addTo(map);
 
-      const marker = leaflet.marker([location.latitude, location.longitude]).addTo(map);
+      const marker = leaflet
+        .marker([location.latitude, location.longitude], {
+          icon: leaflet.divIcon({
+            className: "ticket-location-marker",
+            html: "<span></span>",
+            iconSize: [26, 34],
+            iconAnchor: [13, 34],
+          }),
+        })
+        .addTo(map);
       map.on("click", (event: import("leaflet").LeafletMouseEvent) => {
         marker.setLatLng(event.latlng);
         const next = {
@@ -79,15 +113,21 @@ export function TicketLocationPicker({ value, onChange }: Props) {
           longitude: event.latlng.lng,
         };
         setQuery(next.address);
-        onChange(next);
+        changeLocation.current(next);
       });
+      invalidateTimer = window.setTimeout(() => {
+        if (!disposed) map?.invalidateSize();
+      }, 50);
     });
 
     return () => {
       disposed = true;
+      if (invalidateTimer !== undefined) window.clearTimeout(invalidateTimer);
+      map?.stop();
+      map?.off();
       map?.remove();
     };
-  }, [mode, onChange, value]);
+  }, [mode]);
 
   function select(suggestion: Suggestion) {
     const next = {
@@ -102,20 +142,70 @@ export function TicketLocationPicker({ value, onChange }: Props) {
 
   return (
     <div className="ticket-location wide">
-      <div className="location-mode" role="group" aria-label="Способ выбора места">
-        <button type="button" className={mode === "address" ? "active" : ""} onClick={() => { setSuggestions([]); setMode("address"); }}>Найти адрес</button>
-        <button type="button" className={mode === "map" ? "active" : ""} onClick={() => { setSuggestions([]); setMode("map"); }}>Указать на карте</button>
+      <div
+        className="location-mode"
+        role="group"
+        aria-label="Способ выбора места"
+      >
+        <button
+          type="button"
+          className={mode === "address" ? "active" : ""}
+          onClick={() => {
+            setSuggestions([]);
+            setMode("address");
+          }}
+        >
+          Найти адрес
+        </button>
+        <button
+          type="button"
+          className={mode === "map" ? "active" : ""}
+          onClick={() => {
+            setSuggestions([]);
+            setMode("map");
+          }}
+        >
+          Указать на карте
+        </button>
       </div>
       {mode === "address" ? (
-        <label>Адрес
-          <input value={query} onChange={(event) => { setQuery(event.target.value); setSuggestions([]); }} placeholder="Начните вводить улицу и дом" autoComplete="off" />
+        <label>
+          Адрес
+          <input
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setSuggestions([]);
+            }}
+            placeholder="Начните вводить улицу и дом"
+            autoComplete="off"
+          />
           {searching && <small>Ищем адрес…</small>}
-          {suggestions.length > 0 && <div className="address-suggestions">
-            {suggestions.map((suggestion) => <button type="button" key={suggestion.id} onClick={() => select(suggestion)}>{suggestion.address}</button>)}
-          </div>}
+          {suggestions.length > 0 && (
+            <div className="address-suggestions">
+              {suggestions.map((suggestion) => (
+                <button
+                  type="button"
+                  key={suggestion.id}
+                  onClick={() => select(suggestion)}
+                >
+                  {suggestion.address}
+                </button>
+              ))}
+            </div>
+          )}
         </label>
-      ) : <><p>Нажмите на нужное место. Координаты сохранятся автоматически.</p><div className="ticket-location-map" ref={mapRoot} /></>}
-      {value && <div className="selected-location"><b>Выбрано:</b> {value.address}</div>}
+      ) : (
+        <>
+          <p>Нажмите на нужное место. Координаты сохранятся автоматически.</p>
+          <div className="ticket-location-map" ref={mapRoot} />
+        </>
+      )}
+      {value && (
+        <div className="selected-location">
+          <b>Выбрано:</b> {value.address}
+        </div>
+      )}
     </div>
   );
 }

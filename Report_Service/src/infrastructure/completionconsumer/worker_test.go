@@ -10,9 +10,11 @@ func TestHeaderIsCaseInsensitive(t *testing.T) {
 	t.Parallel()
 
 	headers := []kafka.Header{{Key: "Event_Type", Value: []byte(requestedEvent)}}
+
 	if got := header(headers, "event_type"); got != requestedEvent {
 		t.Errorf("header(%q) = %q, want %q", "event_type", got, requestedEvent)
 	}
+
 }
 
 func TestTruncate(t *testing.T) {
@@ -30,9 +32,11 @@ func TestTruncate(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
+
 			if got := truncate(test.value, test.limit); got != test.wanted {
 				t.Errorf("truncate(%q, %d) = %q, want %q", test.value, test.limit, got, test.wanted)
 			}
+
 		})
 	}
 }

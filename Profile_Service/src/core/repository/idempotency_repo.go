@@ -18,6 +18,8 @@ type IdempotencyRecord struct {
 	Error       sql.NullString
 }
 
+// beginIdempotency создаёт ключ через q либо читает существующий с FOR UPDATE.
+// bool сообщает о создании; существующую запись, включая истёкшую, не изменяет.
 func beginIdempotency(ctx context.Context, q Querier, actorKey, operation, key, requestHash string, ttl time.Duration) (*IdempotencyRecord, bool, error) {
 	record := &IdempotencyRecord{}
 	err := q.QueryRow(ctx, `
@@ -27,66 +29,92 @@ func beginIdempotency(ctx context.Context, q Querier, actorKey, operation, key, 
 		RETURNING status, request_hash, response, error`,
 		actorKey, operation, key, requestHash, time.Now().UTC().Add(ttl),
 	).Scan(&record.Status, &record.RequestHash, &record.Response, &record.Error)
+
 	if err == nil {
 		return record, true, nil
 	}
+
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return nil, false, fmt.Errorf("repository: beginIdempotency(): insert: %w", err)
 	}
+
 	err = q.QueryRow(ctx, `
 		SELECT status, request_hash, response, error FROM idempotency_keys
 		WHERE actor_key = $1 AND operation = $2 AND idempotency_key = $3 FOR UPDATE`,
 		actorKey, operation, key,
 	).Scan(&record.Status, &record.RequestHash, &record.Response, &record.Error)
+
 	if err != nil {
 		return nil, false, fmt.Errorf("repository: beginIdempotency(): select: %w", err)
 	}
+
 	return record, false, nil
 }
 
+// completeIdempotency сохраняет COMPLETED, JSON-ответ и ресурс через q, очищая ошибку.
+// Требует обновления ровно одной строки; resource_type задаёт именем operation.
 func completeIdempotency(ctx context.Context, q Querier, actorKey, operation, key string, response []byte, resourceID any) error {
 	result, err := q.Exec(ctx, `
 		UPDATE idempotency_keys SET status = 'COMPLETED', response = $4::jsonb, error = NULL,
 			resource_type = $5, resource_id = $6, updated_at = now()
 		WHERE actor_key = $1 AND operation = $2 AND idempotency_key = $3`,
 		actorKey, operation, key, response, operation, resourceID)
+
 	if err != nil {
 		return fmt.Errorf("repository: completeIdempotency(): update: %w", err)
 	}
+
 	if result.RowsAffected() != 1 {
 		return fmt.Errorf("repository: completeIdempotency(): idempotency record not found")
 	}
+
 	return nil
 }
 
+// RunIdempotentTx атомарно создаёт ключ, выполняет fn с транзакцией в контексте
+// и сохраняет JSON-ответ со ссылкой на ресурс. Существующий ключ возвращает
+// с acquired=false без fn; ошибка откатывает ключ и изменения команды.
 func (r *Repository) RunIdempotentTx(ctx context.Context, actorKey, operation, key, requestHash string, ttl time.Duration, fn func(context.Context) (any, any, error)) (any, *IdempotencyRecord, bool, error) {
 	tx, err := r.writePool.Begin(ctx)
+
 	if err != nil {
 		return nil, nil, false, fmt.Errorf("repository: RunIdempotentTx(): begin: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 	record, acquired, err := beginIdempotency(ctx, tx, actorKey, operation, key, requestHash, ttl)
+
 	if err != nil || !acquired {
 		return nil, record, acquired, err
 	}
+
 	txCtx := contextWithCommandTx(ctx, tx)
 	result, resourceID, err := fn(txCtx)
+
 	if err != nil {
 		return nil, nil, true, err
 	}
+
 	response, err := json.Marshal(result)
+
 	if err != nil {
 		return nil, nil, true, fmt.Errorf("repository: RunIdempotentTx(): encode response: %w", err)
 	}
+
 	if err = completeIdempotency(ctx, tx, actorKey, operation, key, response, resourceID); err != nil {
 		return nil, nil, true, err
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return nil, nil, true, fmt.Errorf("repository: RunIdempotentTx(): commit: %w", err)
 	}
+
 	return result, record, true, nil
 }
 
+// BeginIdempotency создаёт ключ со сроком ttl через корневой пул записи
+// или читает существующий без блокировки. bool сообщает о создании;
+// истёкшую запись самостоятельно не удаляет и не переиспользует.
 func (r *Repository) BeginIdempotency(
 	ctx context.Context,
 	actorKey string,
@@ -95,6 +123,7 @@ func (r *Repository) BeginIdempotency(
 	requestHash string,
 	ttl time.Duration,
 ) (*IdempotencyRecord, bool, error) {
+
 	if r.writePool == nil {
 		return nil, false, fmt.Errorf("repository: BeginIdempotency(): write pool is unavailable")
 	}
@@ -120,9 +149,11 @@ func (r *Repository) BeginIdempotency(
 		&record.Response,
 		&record.Error,
 	)
+
 	if err == nil {
 		return record, true, nil
 	}
+
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return nil, false, fmt.Errorf("repository: BeginIdempotency(): insert: %w", err)
 	}
@@ -140,6 +171,7 @@ func (r *Repository) BeginIdempotency(
 		&record.Response,
 		&record.Error,
 	)
+
 	if err != nil {
 		return nil, false, fmt.Errorf("repository: BeginIdempotency(): select: %w", err)
 	}
@@ -147,6 +179,8 @@ func (r *Repository) BeginIdempotency(
 	return record, false, nil
 }
 
+// CompleteIdempotency сохраняет COMPLETED, JSON-ответ и ресурс через корневой пул записи.
+// Отсутствие ключа не считается ошибкой: число обновлённых строк не проверяется.
 func (r *Repository) CompleteIdempotency(
 	ctx context.Context,
 	actorKey string,
@@ -156,6 +190,7 @@ func (r *Repository) CompleteIdempotency(
 	resourceType string,
 	resourceID any,
 ) error {
+
 	if r.writePool == nil {
 		return fmt.Errorf("repository: CompleteIdempotency(): write pool is unavailable")
 	}
@@ -172,21 +207,28 @@ func (r *Repository) CompleteIdempotency(
 		  AND operation = $2
 		  AND idempotency_key = $3
 	`
+
 	if _, err := r.writePool.Exec(ctx, query, actorKey, operation, key, response, resourceType, resourceID); err != nil {
 		return fmt.Errorf("repository: CompleteIdempotency(): update: %w", err)
 	}
+
 	return nil
 }
 
+// FailIdempotency сохраняет FAILED и текст operationErr через корневой пул записи.
+// nil ошибка даёт пустой текст; отсутствие ключа не считается ошибкой.
 func (r *Repository) FailIdempotency(ctx context.Context, actorKey string, operation string, key string, operationErr error) error {
+
 	if r.writePool == nil {
 		return fmt.Errorf("repository: FailIdempotency(): write pool is unavailable")
 	}
 
 	errText := ""
+
 	if operationErr != nil {
 		errText = operationErr.Error()
 	}
+
 	const query = `
 		UPDATE idempotency_keys
 		SET status = 'FAILED', error = $4, updated_at = now()
@@ -194,8 +236,10 @@ func (r *Repository) FailIdempotency(ctx context.Context, actorKey string, opera
 		  AND operation = $2
 		  AND idempotency_key = $3
 	`
+
 	if _, err := r.writePool.Exec(ctx, query, actorKey, operation, key, errText); err != nil {
 		return fmt.Errorf("repository: FailIdempotency(): update: %w", err)
 	}
+
 	return nil
 }

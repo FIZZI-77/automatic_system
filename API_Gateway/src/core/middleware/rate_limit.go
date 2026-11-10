@@ -65,6 +65,7 @@ func (l *RedisRateLimiter) Middleware(config RateLimitConfig) gin.HandlerFunc {
 	config.normalize()
 
 	return func(c *gin.Context) {
+
 		if l.bypassLoadTests && c.GetHeader("X-Load-Test-Run-ID") != "" {
 			c.Next()
 			return
@@ -77,6 +78,7 @@ func (l *RedisRateLimiter) Middleware(config RateLimitConfig) gin.HandlerFunc {
 
 		key := fmt.Sprintf("%s:%s:%s", l.prefix, config.Name, config.KeyFunc(c))
 		allowed, remaining, retryAfter, err := l.allow(c.Request.Context(), key, config)
+
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"error": "rate limiter unavailable"})
 			return
@@ -84,6 +86,7 @@ func (l *RedisRateLimiter) Middleware(config RateLimitConfig) gin.HandlerFunc {
 
 		c.Header("X-RateLimit-Limit", strconv.Itoa(config.Limit))
 		c.Header("X-RateLimit-Remaining", strconv.Itoa(remaining))
+
 		if !allowed {
 			c.Header("Retry-After", strconv.Itoa(int(math.Ceil(retryAfter.Seconds()))))
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{"error": "rate limit exceeded"})
@@ -101,41 +104,54 @@ func (l *RedisRateLimiter) allow(ctx context.Context, key string, config RateLim
 	result, err := l.script.Run(ctx, l.client, []string{key},
 		time.Now().UnixMilli(), config.Burst, refillPerMillisecond, ttl.Milliseconds(),
 	).Slice()
+
 	if err != nil {
 		return false, 0, 0, fmt.Errorf("redis rate limiter: %w", err)
 	}
+
 	if len(result) != 3 {
 		return false, 0, 0, fmt.Errorf("redis rate limiter: unexpected result")
 	}
 
 	allowed, err := redisInt(result[0])
+
 	if err != nil {
 		return false, 0, 0, err
 	}
+
 	remaining, err := redisInt(result[1])
+
 	if err != nil {
 		return false, 0, 0, err
 	}
+
 	retryAfter, err := redisInt(result[2])
+
 	if err != nil {
 		return false, 0, 0, err
 	}
+
 	return allowed == 1, int(remaining), time.Duration(retryAfter) * time.Millisecond, nil
 }
 
 func (c *RateLimitConfig) normalize() {
+
 	if c.Window <= 0 {
 		c.Window = time.Minute
 	}
+
 	if c.Limit <= 0 {
 		c.Limit = 60
 	}
+
 	if c.Burst <= 0 {
 		c.Burst = c.Limit
 	}
+
 	if c.KeyFunc == nil {
 		c.KeyFunc = func(ctx *gin.Context) string { return ctx.ClientIP() }
 	}
+
 }
 
 func redisInt(value any) (int64, error) {

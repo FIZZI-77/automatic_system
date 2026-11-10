@@ -58,36 +58,47 @@ type event struct {
 
 func New(db *pgxpool.Pool, config Config, logger *zap.Logger) (*Worker, error) {
 	config.Brokers = cleanBrokers(config.Brokers)
+
 	if db == nil {
 		return nil, errors.New("outbox relay: database is required")
 	}
+
 	if len(config.Brokers) == 0 {
 		return nil, errors.New("outbox relay: at least one Kafka broker is required")
 	}
+
 	if strings.TrimSpace(config.Topic) == "" {
 		return nil, errors.New("outbox relay: topic is required")
 	}
+
 	if config.BatchSize <= 0 {
 		config.BatchSize = defaultBatchSize
 	}
+
 	if config.PollInterval <= 0 {
 		config.PollInterval = defaultPollInterval
 	}
+
 	if config.MaxAttempts <= 0 {
 		config.MaxAttempts = defaultMaxAttempts
 	}
+
 	if config.LockTimeout <= 0 {
 		config.LockTimeout = defaultLockTimeout
 	}
+
 	if config.WorkerCount <= 0 {
 		config.WorkerCount = defaultWorkerCount
 	}
+
 	if config.InstanceID == uuid.Nil {
 		config.InstanceID = uuid.New()
 	}
+
 	if logger == nil {
 		logger = zap.NewNop()
 	}
+
 	writer := &kafka.Writer{
 		Addr:         kafka.TCP(config.Brokers...),
 		Topic:        config.Topic,
@@ -118,9 +129,11 @@ func (w *Worker) runWorker(ctx context.Context, workerID int) {
 	ticker := time.NewTicker(w.cfg.PollInterval)
 	defer ticker.Stop()
 	for {
+
 		if err := w.processBatch(ctx); err != nil && !errors.Is(err, context.Canceled) {
 			w.logger.Error("dispatch outbox batch failed", zap.Int("worker_id", workerID), zap.Error(err))
 		}
+
 		select {
 		case <-ctx.Done():
 			return
@@ -132,12 +145,15 @@ func (w *Worker) runWorker(ctx context.Context, workerID int) {
 func (w *Worker) processBatch(ctx context.Context) error {
 	for range w.cfg.BatchSize {
 		item, err := w.claim(ctx)
+
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
+
 		if err != nil {
 			return err
 		}
+
 		err = telemetry.WriteKafka(ctx, w.writer, kafka.Message{
 			Key:   []byte(item.AggregateID.String()),
 			Value: item.Payload,
@@ -149,24 +165,31 @@ func (w *Worker) processBatch(ctx context.Context) error {
 			},
 			Time: time.Now().UTC(),
 		})
+
 		if err != nil {
+
 			if markErr := w.markFailed(ctx, item, err); markErr != nil {
 				return errors.Join(err, markErr)
 			}
+
 			continue
 		}
+
 		if err = w.markSent(ctx, item); err != nil {
 			return err
 		}
+
 	}
 	return nil
 }
 
 func (w *Worker) claim(ctx context.Context) (event, error) {
 	tx, err := w.db.Begin(ctx)
+
 	if err != nil {
 		return event{}, fmt.Errorf("begin outbox claim: %w", err)
 	}
+
 	defer tx.Rollback(ctx)
 	var item event
 	err = tx.QueryRow(ctx, `SELECT id,aggregate_id,event_type,payload,attempts
@@ -177,18 +200,23 @@ func (w *Worker) claim(ctx context.Context) (event, error) {
 		ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1`,
 		w.cfg.LockTimeout.Seconds(), w.cfg.MaxAttempts,
 	).Scan(&item.ID, &item.AggregateID, &item.EventType, &item.Payload, &item.Attempts)
+
 	if err != nil {
 		return event{}, err
 	}
+
 	item.LockOwner = w.cfg.InstanceID
+
 	if _, err = tx.Exec(ctx, `UPDATE dispatch_outbox_events
 		SET status='PROCESSING',locked_at=now(),locked_by=$2,attempts=attempts+1,last_error=NULL
 		WHERE id=$1`, item.ID, item.LockOwner); err != nil {
 		return event{}, fmt.Errorf("mark outbox processing: %w", err)
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return event{}, fmt.Errorf("commit outbox claim: %w", err)
 	}
+
 	item.Attempts++
 	return item, nil
 }
@@ -209,28 +237,35 @@ func (w *Worker) markFailed(ctx context.Context, item event, publishErr error) e
 }
 
 func requireLease(rowsAffected int64, err error) error {
+
 	if err != nil {
 		return err
 	}
+
 	if rowsAffected != 1 {
 		return errLeaseLost
 	}
+
 	return nil
 }
 
 func cleanBrokers(values []string) []string {
 	result := make([]string, 0, len(values))
 	for _, value := range values {
+
 		if value = strings.TrimSpace(value); value != "" {
 			result = append(result, value)
 		}
+
 	}
 	return result
 }
 
 func truncate(value string, maxLength int) string {
+
 	if len(value) <= maxLength {
 		return value
 	}
+
 	return value[:maxLength]
 }

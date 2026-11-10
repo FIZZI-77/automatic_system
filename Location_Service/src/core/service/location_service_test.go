@@ -72,20 +72,26 @@ func TestRecordPositionBuffersOnlyNewPosition(t *testing.T) {
 	svc := NewPositionServiceStructWithHistory(repo, sink)
 	input := validRecordInput(position)
 	result, err := svc.RecordPosition(context.Background(), input)
+
 	if err != nil {
 		t.Fatalf("record position: %v", err)
 	}
+
 	if result.Duplicate || len(sink.positions) != 1 {
 		t.Fatalf("duplicate=%v buffered=%d", result.Duplicate, len(sink.positions))
 	}
+
 	current.location.Duplicate = true
 	result, err = svc.RecordPosition(context.Background(), input)
+
 	if err != nil {
 		t.Fatalf("record duplicate: %v", err)
 	}
+
 	if !result.Duplicate || len(sink.positions) != 1 {
 		t.Fatalf("duplicate=%v buffered=%d", result.Duplicate, len(sink.positions))
 	}
+
 }
 
 func TestDetectLostSignalsReturnsRepositoryChanges(t *testing.T) {
@@ -107,12 +113,15 @@ func TestDetectLostSignalsReturnsRepositoryChanges(t *testing.T) {
 			Limit:         10,
 		},
 	)
+
 	if err != nil {
 		t.Fatalf("detect signals: %v", err)
 	}
+
 	if len(result.Changes) != 2 {
 		t.Fatalf("changes = %#v", result.Changes)
 	}
+
 }
 
 func TestRecordPositionHistoryFailureIsBestEffort(t *testing.T) {
@@ -126,12 +135,15 @@ func TestRecordPositionHistoryFailureIsBestEffort(t *testing.T) {
 		repo,
 		failingSinkStub{err: models.ErrPositionBufferFull},
 	).RecordPosition(context.Background(), validRecordInput(position))
+
 	if err != nil {
 		t.Fatalf("record position: %v", err)
 	}
+
 	if result.Position != position {
 		t.Fatal("position was not returned")
 	}
+
 }
 
 func TestPositionServiceWrapsRepositoryErrors(t *testing.T) {
@@ -149,9 +161,11 @@ func TestPositionServiceWrapsRepositoryErrors(t *testing.T) {
 			SubjectID:   "device",
 		},
 	)
+
 	if !errors.Is(err, models.ErrDependencyUnavailable) {
 		t.Fatalf("error = %v", err)
 	}
+
 }
 
 func validPosition() *models.Position {

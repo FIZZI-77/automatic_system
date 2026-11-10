@@ -1638,7 +1638,7 @@
               "type": "logs"
             }
           ],
-          "query": "kubernetes.pod.name: pgbouncer-ticket-primary-*",
+          "query": "(kubernetes.pod.name: pgbouncer-ticket-primary-*) AND NOT log.file.path:*istio-proxy*",
           "datasource": {
             "type": "elasticsearch",
             "uid": "elasticsearch"

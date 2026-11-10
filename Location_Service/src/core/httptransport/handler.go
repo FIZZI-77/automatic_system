@@ -1,9 +1,11 @@
 package httptransport
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"location/models"
@@ -18,7 +20,7 @@ type Handler struct {
 }
 
 func New(service *service.Service, apiKey string) *Handler {
-	return &Handler{service: service, apiKey: apiKey}
+	return &Handler{service: service, apiKey: strings.TrimSpace(apiKey)}
 }
 func (h *Handler) Routes() *http.ServeMux {
 	mux := http.NewServeMux()
@@ -50,34 +52,45 @@ type envelope struct {
 }
 
 func (h *Handler) recordPosition(w http.ResponseWriter, r *http.Request) {
-	if h.apiKey != "" && r.Header.Get("X-Transponder-Key") != h.apiKey {
+
+	if h.apiKey == "" || subtle.ConstantTimeCompare([]byte(r.Header.Get("X-Transponder-Key")), []byte(h.apiKey)) != 1 {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
+
 	var req envelope
+
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&req); err != nil {
 		http.Error(w, "invalid JSON", http.StatusBadRequest)
 		return
 	}
+
 	if req.EventType != "VehiclePositionUpdated" {
 		http.Error(w, "unsupported event_type", http.StatusBadRequest)
 		return
 	}
+
 	eventID, err := uuid.Parse(req.EventID)
+
 	if err != nil {
 		http.Error(w, "invalid event_id", http.StatusBadRequest)
 		return
 	}
+
 	vehicleID, err := uuid.Parse(req.Payload.VehicleID)
+
 	if err != nil {
 		http.Error(w, "invalid vehicle_id", http.StatusBadRequest)
 		return
 	}
+
 	brigadeID, err := uuid.Parse(req.Payload.BrigadeID)
+
 	if err != nil {
 		http.Error(w, "invalid brigade_id", http.StatusBadRequest)
 		return
 	}
+
 	result, err := h.service.RecordPosition(
 		r.Context(),
 		&models.RecordPositionInput{
@@ -97,14 +110,18 @@ func (h *Handler) recordPosition(w http.ResponseWriter, r *http.Request) {
 			Simulated:      req.Payload.Simulated,
 		},
 	)
+
 	if err != nil {
 		code := http.StatusInternalServerError
+
 		if errors.Is(err, models.ErrValidation) || errors.Is(err, models.ErrOutOfOrderPosition) {
 			code = http.StatusBadRequest
 		}
+
 		http.Error(w, err.Error(), code)
 		return
 	}
+
 	writeJSON(
 		w,
 		http.StatusAccepted,

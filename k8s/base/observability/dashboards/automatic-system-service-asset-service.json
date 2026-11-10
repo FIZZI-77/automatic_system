@@ -1239,7 +1239,7 @@
               "type": "logs"
             }
           ],
-          "query": "kubernetes.pod.name: asset-service-*",
+          "query": "(kubernetes.pod.name: asset-service-*) AND NOT log.file.path:*istio-proxy*",
           "datasource": {
             "type": "elasticsearch",
             "uid": "elasticsearch"

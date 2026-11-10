@@ -20,29 +20,42 @@ type Handler struct {
 	service service.AuditService
 }
 
+// New создаёт gRPC-обработчик журнала аудита с переданным сервисом.
 func New(service service.AuditService) *Handler {
 	return &Handler{service: service}
 }
 
+// GetAuditEntry требует admin или dispatcher, разбирает UUID записи и возвращает
+// её в protobuf. Неверный UUID даёт InvalidArgument, отсутствие записи — NotFound.
 func (h *Handler) GetAuditEntry(ctx context.Context, req *auditv1.GetAuditEntryRequest) (*auditv1.GetAuditEntryResponse, error) {
+
 	if err := authorize(ctx); err != nil {
 		return nil, err
 	}
+
 	id, err := uuid.Parse(req.GetId())
+
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid audit entry id")
 	}
+
 	entry, err := h.service.Get(ctx, id)
+
 	if err != nil {
 		return nil, mapError(err)
 	}
+
 	return &auditv1.GetAuditEntryResponse{Entry: toProto(entry)}, nil
 }
 
+// ListAuditEntries требует admin или dispatcher, преобразует фильтры и временные
+// границы и возвращает страницу аудита с общим счётчиком. Неверный ActorId даёт InvalidArgument.
 func (h *Handler) ListAuditEntries(ctx context.Context, req *auditv1.ListAuditEntriesRequest) (*auditv1.ListAuditEntriesResponse, error) {
+
 	if err := authorize(ctx); err != nil {
 		return nil, err
 	}
+
 	filter := models.Filter{
 		Action:     req.Action,
 		EntityType: req.EntityType,
@@ -53,25 +66,33 @@ func (h *Handler) ListAuditEntries(ctx context.Context, req *auditv1.ListAuditEn
 		Limit:      req.GetLimit(),
 		Offset:     req.GetOffset(),
 	}
+
 	if req.ActorId != nil {
 		id, err := uuid.Parse(req.GetActorId())
+
 		if err != nil {
 			return nil, status.Error(codes.InvalidArgument, "invalid actor id")
 		}
+
 		filter.ActorID = &id
 	}
+
 	if req.From != nil {
 		value := req.From.AsTime()
 		filter.From = &value
 	}
+
 	if req.To != nil {
 		value := req.To.AsTime()
 		filter.To = &value
 	}
+
 	entries, total, err := h.service.List(ctx, filter)
+
 	if err != nil {
 		return nil, mapError(err)
 	}
+
 	result := make([]*auditv1.AuditEntry, 0, len(entries))
 	for _, entry := range entries {
 		result = append(result, toProto(entry))
@@ -79,6 +100,8 @@ func (h *Handler) ListAuditEntries(ctx context.Context, req *auditv1.ListAuditEn
 	return &auditv1.ListAuditEntriesResponse{Entries: result, Total: total}, nil
 }
 
+// authorize разрешает роли admin и dispatcher из x-actor-roles, игнорируя регистр
+// и крайние пробелы; иначе возвращает gRPC PermissionDenied.
 func authorize(ctx context.Context) error {
 	values, _ := metadata.FromIncomingContext(ctx)
 	roles := strings.Split(strings.Join(values.Get("x-actor-roles"), ","), ",")
@@ -91,10 +114,14 @@ func authorize(ctx context.Context) error {
 	return status.Error(codes.PermissionDenied, "admin or dispatcher role required")
 }
 
+// toProto преобразует запись аудита в protobuf с необязательным автором и данными
+// Struct; nil сохраняет как nil, ошибку преобразования Data игнорирует.
 func toProto(entry *models.Entry) *auditv1.AuditEntry {
+
 	if entry == nil {
 		return nil
 	}
+
 	data, _ := structpb.NewStruct(entry.Data)
 	result := &auditv1.AuditEntry{
 		Id:         entry.ID.String(),
@@ -109,16 +136,22 @@ func toProto(entry *models.Entry) *auditv1.AuditEntry {
 		OccurredAt: timestamppb.New(entry.OccurredAt),
 		RecordedAt: timestamppb.New(entry.RecordedAt),
 	}
+
 	if entry.ActorID != nil {
 		value := entry.ActorID.String()
 		result.ActorId = &value
 	}
+
 	return result
 }
 
+// mapError преобразует отсутствие записи в NotFound, прочие ошибки — в Internal
+// с общим сообщением без раскрытия исходного текста.
 func mapError(err error) error {
+
 	if service.IsNotFound(err) {
 		return status.Error(codes.NotFound, "audit entry not found")
 	}
+
 	return status.Error(codes.Internal, "audit operation failed")
 }

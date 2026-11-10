@@ -15,6 +15,7 @@ type requestIDContextKey struct{}
 
 func WithRequestID(ctx context.Context, requestID string) context.Context {
 	requestID = strings.TrimSpace(requestID)
+
 	if requestID == "" {
 		return ctx
 	}
@@ -24,6 +25,7 @@ func WithRequestID(ctx context.Context, requestID string) context.Context {
 
 func RequestIDFromContext(ctx context.Context) (string, bool) {
 	requestID, ok := ctx.Value(requestIDContextKey{}).(string)
+
 	if !ok || requestID == "" {
 		return "", false
 	}
@@ -33,6 +35,7 @@ func RequestIDFromContext(ctx context.Context) (string, bool) {
 
 func RequestIDField(ctx context.Context) zap.Field {
 	requestID, ok := RequestIDFromContext(ctx)
+
 	if !ok {
 		return zap.Skip()
 	}
@@ -46,11 +49,14 @@ func RequestIDUnaryServerInterceptor(
 	_ *grpc.UnaryServerInfo,
 	handler grpc.UnaryHandler,
 ) (interface{}, error) {
+
 	if md, ok := metadata.FromIncomingContext(ctx); ok {
 		values := md.Get(requestIDMetadataKey)
+
 		if len(values) > 0 {
 			ctx = WithRequestID(ctx, values[0])
 		}
+
 	}
 
 	return handler(ctx, req)

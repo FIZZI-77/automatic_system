@@ -9,12 +9,12 @@
 | `build-images.ps1` | Сборка образов сервисов и миграторов. |
 | `deploy-applications-helm.ps1` | Установка или обновление единого Helm-выпуска. |
 | `delete-local.ps1` | Удаление локального развертывания; перед запуском нужно проверить выбранный контекст. |
-| `validate.ps1` | Клиентская проверка Kustomize и Helm. Содержит ссылку на удаленный чарт Dispatch, поэтому текущий запуск сценария завершится ошибкой. |
+| `validate.ps1` | Рендеринг Kustomize и lint единого Helm-чарта applications, включая Dispatch; `-ValidateAgainstCluster` дополнительно выполняет клиентский dry-run через выбранный кластер. |
 | `install-metrics-server.ps1` | Установка Metrics Server для метрик ресурсов и HPA. |
 | `install-mesh.ps1` | Установка Istio, Kiali, базовых политик и входного шлюза. |
 | `setup-ingress.ps1` | Создание локального сертификата и применение маршрутов Istio. |
 | `install-flux.ps1` | Установка Flux и, при параметре, источника `deploy/local`. |
-| `open-observability.ps1` | Фоновые port-forward Grafana, Jaeger, Prometheus, Kibana и Kiali. |
+| `open-observability.ps1` | Открытие постоянного защищенного URL observability. |
 | `generate-grafana-dashboards.ps1` | Формирование проектных панелей Grafana. |
 | `import-grafana-community-dashboards.ps1` | Обновление выбранных общественных панелей. |
 | `setup-kibana-dashboards.ps1` | Создание объектов просмотра и панелей Kibana. |
@@ -156,15 +156,43 @@ kubectl get peerauthentication,destinationrule,virtualservice,gateway `
 .\k8s\scripts\open-observability.ps1
 ```
 
-Адреса по умолчанию:
+Адреса по умолчанию после настройки пароля и публикации через Funnel:
 
 | Система | Адрес |
 |---|---|
-| Grafana | `http://localhost:3001` |
-| Jaeger | `http://localhost:16686` |
-| Prometheus | `http://localhost:9090` |
-| Kibana | `http://localhost:5601` |
-| Kiali | `http://localhost:20001` |
+| Grafana | `https://fizzi.tail2c9430.ts.net/observe/grafana/` |
+| Jaeger | `https://fizzi.tail2c9430.ts.net/observe/jaeger/` |
+| Prometheus | `https://fizzi.tail2c9430.ts.net/observe/prometheus/` |
+| Kibana | `https://fizzi.tail2c9430.ts.net/observe/kibana/` |
+| Kiali | `https://fizzi.tail2c9430.ts.net/observe/kiali/` |
+| pgAdmin | `https://fizzi.tail2c9430.ts.net/observe/pgadmin/` |
+
+Первичная установка или ротация pgAdmin:
+
+```powershell
+.\k8s\scripts\setup-pgadmin.ps1
+```
+
+Для автоматической генерации обоих паролей используйте `-GeneratePasswords`.
+Сгенерированные значения не печатаются и доступны только в соответствующих
+Kubernetes Secrets.
+
+Сценарий запрашивает два пароля скрытым вводом, обновляет Helm-релиз с
+существующим PVC, создает администратора pgAdmin и роль `pgadmin_viewer`.
+Роль получает `pg_read_all_data` и `pg_monitor`, а также принудительный
+`default_transaction_read_only=on`. Подключения к Platform PostgreSQL и Ticket
+Citus загружаются автоматически; их пароли передаются через Kubernetes Secret
+и pgpass, но не записываются в Git или Helm values.
+Встроенный Helm hook-тест отключен, поскольку он всегда запрашивает `/` и не
+учитывает `SCRIPT_NAME`. Сценарий настройки вместо него проверяет правильный
+health endpoint `/observe/pgadmin/misc/ping` и оба подключения к БД.
+
+Kibana хранит панели в системном индексе Elasticsearch. CronJob
+`kibana-dashboards` в `automatic-system` каждые 15 минут восстанавливает
+управляемые панели и data view `logs-automatic-system-*`, если индекс был
+пересоздан. Для обновления набора сначала выполните
+`.\k8s\scripts\setup-kibana-dashboards.ps1 -OutputDirectory k8s/base/logging/kibana-dashboards`,
+затем примените GitOps-изменения. Созданные вручную панели не затрагиваются.
 
 Отсутствие данных проверяется от источника к панели:
 
@@ -204,3 +232,25 @@ Port-forward к API Gateway проверяет Gateway, JWT и внутренн�
 `-ResetData` является разрушительным действием: он удаляет пространство
 `automatic-system` и локальные данные. Его нельзя использовать как обычный
 способ исправления одного неготового пода.
+
+## Устойчивые адреса Citus и архивирование Ticket
+
+В `postgres-ticket-citus` адреса REST API Patroni и PostgreSQL используют DNS
+StatefulSet pod: `<pod>.postgres-ticket-citus-nodes.<namespace>.svc.cluster.local`
+вместо изменяющегося Pod IP. Init-контейнер удаляет устаревшую аннотацию `status`,
+если записанный адрес не совпадает с ожидаемым DNS. Это устраняет зависимость
+адресов участников от смены Pod IP; фактическое восстановление проверяется
+запросами к Citus, а не только готовностью pod.
+
+`k8s/scripts/run-local-ha-chaos.ps1` после отказа coordinator и worker group 1
+ожидает новый primary и выполняет распределенный запрос Ticket. Этот сценарий
+перезапускает компоненты и предназначен для локального HA-контура.
+
+В retention worker Ticket исправлены SQL-параметры `archived_at`, `updated_at`
+и порога возраста. Есть интеграционная проверка архивации с outbox event;
+порог архивации по умолчанию — 24 часа, удаления — 30 дней. Конкретные значения
+зависят от конфигурации запуска. См. `Ticket_Service/src/infrastructure/retentionworker/worker.go`
+и `Ticket_Service/src/integration/retention_worker_test.go`.
+
+CI при ожидании Flux дополнительно выводит последние Jobs миграций. Наличие
+этой диагностики не подтверждает успешное выполнение миграции.

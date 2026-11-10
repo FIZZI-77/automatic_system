@@ -17,8 +17,10 @@ type SessionRepoStruct struct {
 	readDB  DBTX
 }
 
+// NewSessionRepoStruct создаёт хранилище сессий с необязательным отдельным исполнителем чтения.
 func NewSessionRepoStruct(writeDB DBTX, readDB ...DBTX) *SessionRepoStruct {
 	reader := writeDB
+
 	if len(readDB) > 0 && readDB[0] != nil {
 		reader = readDB[0]
 	}
@@ -29,6 +31,8 @@ func NewSessionRepoStruct(writeDB DBTX, readDB ...DBTX) *SessionRepoStruct {
 	}
 }
 
+// CreateSession сохраняет сведения клиента и сроки сессии, возвращая присвоенный БД UUID.
+// Саму структуру session идентификатором не дополняет.
 func (s *SessionRepoStruct) CreateSession(ctx context.Context, session *models.Session) (uuid.UUID, error) {
 	var id uuid.UUID
 
@@ -58,6 +62,8 @@ func (s *SessionRepoStruct) CreateSession(ctx context.Context, session *models.S
 
 }
 
+// GetSessionByID возвращает сессию по UUID независимо от отзыва или истечения срока.
+// При отсутствии записи возвращает обёрнутую pgx.ErrNoRows.
 func (s *SessionRepoStruct) GetSessionByID(ctx context.Context, id uuid.UUID) (*models.Session, error) {
 	var session models.Session
 
@@ -77,25 +83,31 @@ func (s *SessionRepoStruct) GetSessionByID(ctx context.Context, id uuid.UUID) (*
 	)
 
 	if err != nil {
+
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, fmt.Errorf("session_repo: GetByID(): session not found: %w", err)
 		}
+
 		return nil, fmt.Errorf("session_repo: GetByID(): %w", err)
 	}
 
 	return &session, nil
 }
 
+// GetSessionByUserID читает все сессии пользователя, включая отозванные и истёкшие.
+// При отсутствии записей возвращает nil-список без ошибки.
 func (s *SessionRepoStruct) GetSessionByUserID(ctx context.Context, userID uuid.UUID) ([]*models.Session, error) {
 	var sessions []*models.Session
 
 	const query = `SELECT id, user_id, client_id, host(ip), user_agent, is_revoked, revoked_at, expires_at, last_seen_at, created_at FROM sessions WHERE user_id = $1`
 
 	rows, err := s.readDB.Query(ctx, query, userID)
+
 	if err != nil {
 
 		return nil, fmt.Errorf("session_repo: GetByUserID(): %w", err)
 	}
+
 	defer rows.Close()
 
 	for rows.Next() {
@@ -112,22 +124,29 @@ func (s *SessionRepoStruct) GetSessionByUserID(ctx context.Context, userID uuid.
 			&session.LastSeenAt,
 			&session.CreatedAt,
 		)
+
 		if err != nil {
 			return nil, fmt.Errorf("session_repo: GetByUserID(): cant scan rows: %w", err)
 		}
+
 		sessions = append(sessions, &session)
 
 	}
+
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("session_repo: GetByUserID(): %w", err)
 	}
+
 	return sessions, nil
 }
 
+// RevokeSessionByID устанавливает отзыв и время отзыва ещё активной сессии.
+// Отсутствующая либо уже отозванная сессия не вызывает ошибки.
 func (s *SessionRepoStruct) RevokeSessionByID(ctx context.Context, sessionID uuid.UUID) error {
 	const query = `UPDATE sessions SET is_revoked = TRUE, revoked_at = now() WHERE id = $1 AND is_revoked = FALSE`
 
 	_, err := s.writeDB.Exec(ctx, query, sessionID)
+
 	if err != nil {
 		return fmt.Errorf("session_repo: RevokeByID(): %w", err)
 	}
@@ -138,10 +157,13 @@ func (s *SessionRepoStruct) RevokeSessionByID(ctx context.Context, sessionID uui
 
 }
 
+// RevokeAllSessionByUserID отзывает все ещё активные сессии пользователя.
+// Возвращает количество изменённых строк; refresh-токены отдельно не изменяет.
 func (s *SessionRepoStruct) RevokeAllSessionByUserID(ctx context.Context, userID uuid.UUID) (int64, error) {
 	const query = `UPDATE sessions SET is_revoked = TRUE, revoked_at = now() WHERE user_id = $1 AND is_revoked = FALSE`
 
 	result, err := s.writeDB.Exec(ctx, query, userID)
+
 	if err != nil {
 		return 0, fmt.Errorf("session_repo: RevokeAllByUserID(): %w", err)
 	}
@@ -151,6 +173,8 @@ func (s *SessionRepoStruct) RevokeAllSessionByUserID(ctx context.Context, userID
 	return rowAffected, nil
 }
 
+// UpdateLastSeenSession обновляет last_seen_at у неотозванной сессии текущим временем БД.
+// Отсутствующую или уже отозванную запись ошибкой не считает.
 func (s *SessionRepoStruct) UpdateLastSeenSession(ctx context.Context, sessionID uuid.UUID) error {
 	const query = `UPDATE sessions SET last_seen_at = now() WHERE id = $1 AND is_revoked = FALSE`
 

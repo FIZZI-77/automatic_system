@@ -22,6 +22,7 @@ func NewPostgresDB(cfg Config) (*pgxpool.Pool, error) {
 		cfg.Host, cfg.Port, cfg.Username, cfg.DbName, cfg.Password, cfg.SSLMode)
 
 	db, err := telemetry.NewPostgresPool(context.Background(), connString)
+
 	if err != nil {
 		return nil, err
 	}
@@ -30,5 +31,6 @@ func NewPostgresDB(cfg Config) (*pgxpool.Pool, error) {
 		db.Close()
 		return nil, err
 	}
+
 	return db, nil
 }

@@ -43,9 +43,11 @@ func FuzzRecordPositionInputValidate(f *testing.F) {
 				heading < 0 ||
 				heading >= 360 ||
 				accuracy < 0
+
 			if invalid && err == nil {
 				t.Fatal("invalid telemetry accepted")
 			}
+
 		},
 	)
 }
@@ -65,9 +67,11 @@ func FuzzFindNearbyBrigadesInputValidate(f *testing.F) {
 			radius <= 0 ||
 			limit < 0 ||
 			limit > MaxLimit
+
 		if invalid && err == nil {
 			t.Fatal("invalid nearby query accepted")
 		}
+
 	})
 }
 
@@ -77,8 +81,10 @@ func FuzzGeoZoneInputsValidate(f *testing.F) {
 	f.Fuzz(func(t *testing.T, name, geoJSON string, latitude, longitude float64) {
 		_ = (&CreateGeoZoneInput{DepartmentID: uuid.New(), Name: name, GeoJSON: geoJSON}).Validate()
 		err := (&CheckPointInZonesInput{Latitude: latitude, Longitude: longitude}).Validate()
+
 		if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) && err == nil {
 			t.Fatal("invalid point accepted")
 		}
+
 	})
 }

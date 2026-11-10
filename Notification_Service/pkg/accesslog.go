@@ -25,17 +25,20 @@ func AccessLogUnaryServerInterceptor(logger *zap.Logger) grpc.UnaryServerInterce
 			zap.String("layer", "transport.grpc"),
 			zap.Duration("duration", time.Since(startedAt)),
 		}
+
 		if err == nil {
 			logger.Info("gRPC request completed", fields...)
 			return response, nil
 		}
 
 		fields = append(fields, zap.Error(err))
+
 		if isServerError(code) {
 			logger.Error("gRPC request failed", fields...)
 		} else {
 			logger.Warn("gRPC request rejected", fields...)
 		}
+
 		return response, err
 	}
 }

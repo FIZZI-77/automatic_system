@@ -73,6 +73,7 @@ spec:
         app.kubernetes.io/name: asset-service
         app.kubernetes.io/part-of: automatic-system
     spec:
+      serviceAccountName: asset-service
       automountServiceAccountToken: false
       containers:
       - env:

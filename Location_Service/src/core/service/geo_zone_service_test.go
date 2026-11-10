@@ -61,20 +61,25 @@ func TestGeoZoneServiceAuthorization(t *testing.T) {
 		GeoJSON:      "{}",
 		ActorRoles:   []string{"viewer"},
 	}
+
 	if _, err := svc.CreateGeoZone(context.Background(), input); !errors.Is(
 		err,
 		models.ErrPermissionDenied,
 	) {
 		t.Fatalf("permission error = %v", err)
 	}
+
 	input.ActorRoles = []string{" Dispatcher "}
 	result, err := svc.CreateGeoZone(context.Background(), input)
+
 	if err != nil {
 		t.Fatalf("create zone: %v", err)
 	}
+
 	if result.Zone.ID != zone.ID {
 		t.Fatalf("zone id = %s", result.Zone.ID)
 	}
+
 }
 
 func TestGeoZoneServiceValidationPrecedesAuthorization(t *testing.T) {
@@ -82,18 +87,24 @@ func TestGeoZoneServiceValidationPrecedesAuthorization(t *testing.T) {
 	_, err := NewGeoZoneServiceStruct(
 		repo,
 	).CreateGeoZone(context.Background(), &models.CreateGeoZoneInput{ActorRoles: []string{"admin"}})
+
 	if !errors.Is(err, models.ErrValidation) {
 		t.Fatalf("error = %v", err)
 	}
+
 }
 
 func TestCanManageZones(t *testing.T) {
 	for _, role := range []string{"admin", "SYSTEM_ADMIN", " dispatcher "} {
+
 		if !canManageZones([]string{role}) {
 			t.Fatalf("role %q denied", role)
 		}
+
 	}
+
 	if canManageZones([]string{"viewer", "driver"}) {
 		t.Fatal("unauthorized roles accepted")
 	}
+
 }

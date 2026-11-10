@@ -35,6 +35,7 @@ func TestTicketErrorCode_ContextErrors(t *testing.T) {
 			if got := ticketErrorCode(tt.err); got != tt.want {
 				t.Fatalf("ticketErrorCode() = %s, want %s", got, tt.want)
 			}
+
 		})
 	}
 }

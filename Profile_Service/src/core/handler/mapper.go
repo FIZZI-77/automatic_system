@@ -10,6 +10,7 @@ import (
 	"profile/models"
 )
 
+// ToProtoPreferredContactMethod преобразует способ связи в protobuf; неизвестный даёт UNSPECIFIED.
 func ToProtoPreferredContactMethod(value models.PreferredContactMethod) profilev1.PreferredContactMethod {
 	switch value {
 	case models.PreferredContactMethodEmail:
@@ -23,6 +24,8 @@ func ToProtoPreferredContactMethod(value models.PreferredContactMethod) profilev
 	}
 }
 
+// FromProtoPreferredContactMethod преобразует способ связи в доменный;
+// неизвестное значение возвращает как пустую строку.
 func FromProtoPreferredContactMethod(value profilev1.PreferredContactMethod) models.PreferredContactMethod {
 	switch value {
 	case profilev1.PreferredContactMethod_PREFERRED_CONTACT_METHOD_EMAIL:
@@ -36,6 +39,8 @@ func FromProtoPreferredContactMethod(value profilev1.PreferredContactMethod) mod
 	}
 }
 
+// ToProtoWorkProfileStatus преобразует статус рабочего профиля в protobuf;
+// неизвестное значение даёт UNSPECIFIED.
 func ToProtoWorkProfileStatus(value models.WorkProfileStatus) profilev1.WorkProfileStatus {
 	switch value {
 	case models.WorkProfileStatusActive:
@@ -53,6 +58,8 @@ func ToProtoWorkProfileStatus(value models.WorkProfileStatus) profilev1.WorkProf
 	}
 }
 
+// FromProtoWorkProfileStatus преобразует статус рабочего профиля в доменный;
+// неизвестное значение возвращает как пустую строку.
 func FromProtoWorkProfileStatus(value profilev1.WorkProfileStatus) models.WorkProfileStatus {
 	switch value {
 	case profilev1.WorkProfileStatus_WORK_PROFILE_STATUS_ACTIVE:
@@ -70,6 +77,8 @@ func FromProtoWorkProfileStatus(value profilev1.WorkProfileStatus) models.WorkPr
 	}
 }
 
+// ToProtoCanJoinBrigadeReason преобразует причину допуска или отказа вступления
+// в бригаду в protobuf; неизвестная причина даёт UNSPECIFIED.
 func ToProtoCanJoinBrigadeReason(value models.CanJoinBrigadeReason) profilev1.CanJoinBrigadeReason {
 	switch value {
 	case models.CanJoinBrigadeReasonAllowed:
@@ -89,6 +98,8 @@ func ToProtoCanJoinBrigadeReason(value models.CanJoinBrigadeReason) profilev1.Ca
 	}
 }
 
+// ToProtoCertificationStatus преобразует статус сертификата в protobuf;
+// неизвестное значение даёт UNSPECIFIED.
 func ToProtoCertificationStatus(value models.CertificationStatus) profilev1.CertificationStatus {
 	switch value {
 	case models.CertificationStatusPending:
@@ -106,6 +117,8 @@ func ToProtoCertificationStatus(value models.CertificationStatus) profilev1.Cert
 	}
 }
 
+// FromProtoCertificationStatus преобразует статус сертификата в доменный;
+// неизвестное значение возвращает как пустую строку.
 func FromProtoCertificationStatus(value profilev1.CertificationStatus) models.CertificationStatus {
 	switch value {
 	case profilev1.CertificationStatus_CERTIFICATION_STATUS_PENDING:
@@ -123,6 +136,8 @@ func FromProtoCertificationStatus(value profilev1.CertificationStatus) models.Ce
 	}
 }
 
+// ToProtoSkillGrantSourceType преобразует ручной или сертификационный источник
+// навыка в protobuf; неизвестное значение даёт UNSPECIFIED.
 func ToProtoSkillGrantSourceType(value models.SkillGrantSourceType) profilev1.SkillGrantSourceType {
 	switch value {
 	case models.SkillGrantSourceTypeManual:
@@ -134,6 +149,8 @@ func ToProtoSkillGrantSourceType(value models.SkillGrantSourceType) profilev1.Sk
 	}
 }
 
+// FromProtoUserProfileSortBy преобразует поле сортировки пользовательских профилей;
+// неизвестное значение возвращает как пустую строку.
 func FromProtoUserProfileSortBy(value profilev1.UserProfileSortBy) models.UserProfileSortBy {
 	switch value {
 	case profilev1.UserProfileSortBy_USER_PROFILE_SORT_BY_CREATED_AT:
@@ -147,6 +164,8 @@ func FromProtoUserProfileSortBy(value profilev1.UserProfileSortBy) models.UserPr
 	}
 }
 
+// FromProtoWorkProfileSortBy преобразует поле сортировки рабочих профилей;
+// неизвестное значение возвращает как пустую строку.
 func FromProtoWorkProfileSortBy(value profilev1.WorkProfileSortBy) models.WorkProfileSortBy {
 	switch value {
 	case profilev1.WorkProfileSortBy_WORK_PROFILE_SORT_BY_CREATED_AT:
@@ -166,6 +185,8 @@ func FromProtoWorkProfileSortBy(value profilev1.WorkProfileSortBy) models.WorkPr
 	}
 }
 
+// FromProtoSortOrder преобразует ASC или DESC в доменный порядок;
+// неизвестное значение возвращает как пустую строку.
 func FromProtoSortOrder(value profilev1.SortOrder) models.SortOrder {
 	switch value {
 	case profilev1.SortOrder_SORT_ORDER_ASC:
@@ -177,47 +198,70 @@ func FromProtoSortOrder(value profilev1.SortOrder) models.SortOrder {
 	}
 }
 
+// ToProtoTimestamp преобразует время в protobuf; нулевое время даёт nil.
 func ToProtoTimestamp(t time.Time) *timestamppb.Timestamp {
+
 	if t.IsZero() {
 		return nil
 	}
+
 	return timestamppb.New(t)
 }
 
+// ToProtoTimestampPtr преобразует необязательное время в protobuf;
+// nil и указатель на нулевое время дают nil.
 func ToProtoTimestampPtr(t *time.Time) *timestamppb.Timestamp {
+
 	if t == nil || t.IsZero() {
 		return nil
 	}
+
 	return timestamppb.New(*t)
 }
 
+// FromProtoTimestamp преобразует timestamp в указатель time.Time;
+// nil сохраняет как nil без дополнительной проверки корректности timestamp.
 func FromProtoTimestamp(t *timestamppb.Timestamp) *time.Time {
+
 	if t == nil {
 		return nil
 	}
+
 	value := t.AsTime()
 	return &value
 }
 
+// uuidPtrToStringPtr возвращает строковый UUID по указателю;
+// nil и указатель на uuid.Nil дают nil.
 func uuidPtrToStringPtr(value *uuid.UUID) *string {
+
 	if value == nil || *value == uuid.Nil {
 		return nil
 	}
+
 	result := value.String()
 	return &result
 }
 
+// stringPtrToUUIDPtr сохраняет nil; заданную строку передаёт parseOptionalUUID
+// для разбора с указанием имени поля в ошибке.
 func stringPtrToUUIDPtr(value *string, field string) (*uuid.UUID, error) {
+
 	if value == nil {
 		return nil, nil
 	}
+
 	return parseOptionalUUID(*value, field)
 }
 
+// ToProtoUserProfile преобразует личные данные, аватар, способ связи и даты
+// в protobuf; nil сохраняет как nil.
 func ToProtoUserProfile(profile *models.UserProfile) *profilev1.UserProfile {
+
 	if profile == nil {
 		return nil
 	}
+
 	return &profilev1.UserProfile{
 		Id:                     profile.ID.String(),
 		UserId:                 profile.UserID.String(),
@@ -230,10 +274,14 @@ func ToProtoUserProfile(profile *models.UserProfile) *profilev1.UserProfile {
 	}
 }
 
+// ToProtoWorkProfile преобразует рабочий профиль со статусом, должностью,
+// ведомством и датами в protobuf; nil сохраняет как nil.
 func ToProtoWorkProfile(profile *models.WorkProfile) *profilev1.WorkProfile {
+
 	if profile == nil {
 		return nil
 	}
+
 	return &profilev1.WorkProfile{
 		Id:             profile.ID.String(),
 		UserProfileId:  profile.UserProfileID.String(),
@@ -247,20 +295,28 @@ func ToProtoWorkProfile(profile *models.WorkProfile) *profilev1.WorkProfile {
 	}
 }
 
+// ToProtoWorkProfileDetails преобразует связанные рабочий и пользовательский
+// профили в protobuf; nil сохраняет как nil.
 func ToProtoWorkProfileDetails(details *models.WorkProfileDetails) *profilev1.WorkProfileDetails {
+
 	if details == nil {
 		return nil
 	}
+
 	return &profilev1.WorkProfileDetails{
 		WorkProfile: ToProtoWorkProfile(details.WorkProfile),
 		UserProfile: ToProtoUserProfile(details.UserProfile),
 	}
 }
 
+// ToProtoWorkProfileStatusHistory преобразует переход статуса с причиной,
+// необязательными исходным статусом, автором и request ID; nil сохраняет как nil.
 func ToProtoWorkProfileStatusHistory(item *models.WorkProfileStatusHistory) *profilev1.WorkProfileStatusHistory {
+
 	if item == nil {
 		return nil
 	}
+
 	return &profilev1.WorkProfileStatusHistory{
 		Id:              item.ID.String(),
 		WorkProfileId:   item.WorkProfileID.String(),
@@ -273,18 +329,26 @@ func ToProtoWorkProfileStatusHistory(item *models.WorkProfileStatusHistory) *pro
 	}
 }
 
+// workProfileStatusPtr преобразует необязательный статус в указатель на enum;
+// nil сохраняет как nil, неизвестный статус даёт указатель на UNSPECIFIED.
 func workProfileStatusPtr(value *models.WorkProfileStatus) *profilev1.WorkProfileStatus {
+
 	if value == nil {
 		return nil
 	}
+
 	result := ToProtoWorkProfileStatus(*value)
 	return &result
 }
 
+// ToProtoCertificationType преобразует тип сертификата со сроком действия,
+// требованием файла, активностью и датами в protobuf; nil сохраняет как nil.
 func ToProtoCertificationType(item *models.CertificationType) *profilev1.CertificationType {
+
 	if item == nil {
 		return nil
 	}
+
 	return &profilev1.CertificationType{
 		Id:                  item.ID.String(),
 		Code:                item.Code,
@@ -298,10 +362,14 @@ func ToProtoCertificationType(item *models.CertificationType) *profilev1.Certifi
 	}
 }
 
+// ToProtoCertificationTypeSkill преобразует связь типа сертификата с навыком,
+// уровнем владения и активностью в protobuf; nil сохраняет как nil.
 func ToProtoCertificationTypeSkill(item *models.CertificationTypeSkill) *profilev1.CertificationTypeSkill {
+
 	if item == nil {
 		return nil
 	}
+
 	return &profilev1.CertificationTypeSkill{
 		Id:                  item.ID.String(),
 		CertificationTypeId: item.CertificationTypeID.String(),
@@ -313,10 +381,15 @@ func ToProtoCertificationTypeSkill(item *models.CertificationTypeSkill) *profile
 	}
 }
 
+// ToProtoWorkProfileCertification преобразует сертификат рабочего профиля,
+// статус и необязательные данные выдачи, проверки, файла и отказа в protobuf;
+// nil сохраняет как nil.
 func ToProtoWorkProfileCertification(item *models.WorkProfileCertification) *profilev1.WorkProfileCertification {
+
 	if item == nil {
 		return nil
 	}
+
 	return &profilev1.WorkProfileCertification{
 		Id:                  item.ID.String(),
 		WorkProfileId:       item.WorkProfileID.String(),
@@ -335,10 +408,14 @@ func ToProtoWorkProfileCertification(item *models.WorkProfileCertification) *pro
 	}
 }
 
+// ToProtoWorkProfileSkillGrant преобразует выдачу навыка с источником, уровнем,
+// сроком, активностью и датой отзыва в protobuf; nil сохраняет как nil.
 func ToProtoWorkProfileSkillGrant(item *models.WorkProfileSkillGrant) *profilev1.WorkProfileSkillGrant {
+
 	if item == nil {
 		return nil
 	}
+
 	return &profilev1.WorkProfileSkillGrant{
 		Id:               item.ID.String(),
 		WorkProfileId:    item.WorkProfileID.String(),
@@ -353,6 +430,8 @@ func ToProtoWorkProfileSkillGrant(item *models.WorkProfileSkillGrant) *profilev1
 	}
 }
 
+// toProtoUserProfiles преобразует профили с сохранением порядка и nil-элементов;
+// пустой вход даёт пустой ненулевой срез.
 func toProtoUserProfiles(items []*models.UserProfile) []*profilev1.UserProfile {
 	result := make([]*profilev1.UserProfile, 0, len(items))
 	for _, item := range items {
@@ -361,6 +440,7 @@ func toProtoUserProfiles(items []*models.UserProfile) []*profilev1.UserProfile {
 	return result
 }
 
+// toProtoWorkProfileDetails преобразует подробные профили с сохранением порядка и nil-элементов.
 func toProtoWorkProfileDetails(items []*models.WorkProfileDetails) []*profilev1.WorkProfileDetails {
 	result := make([]*profilev1.WorkProfileDetails, 0, len(items))
 	for _, item := range items {
@@ -369,6 +449,7 @@ func toProtoWorkProfileDetails(items []*models.WorkProfileDetails) []*profilev1.
 	return result
 }
 
+// toProtoStatusHistory преобразует историю статусов с сохранением порядка и nil-элементов.
 func toProtoStatusHistory(items []*models.WorkProfileStatusHistory) []*profilev1.WorkProfileStatusHistory {
 	result := make([]*profilev1.WorkProfileStatusHistory, 0, len(items))
 	for _, item := range items {
@@ -377,6 +458,7 @@ func toProtoStatusHistory(items []*models.WorkProfileStatusHistory) []*profilev1
 	return result
 }
 
+// toProtoCertificationTypes преобразует типы сертификатов с сохранением порядка и nil-элементов.
 func toProtoCertificationTypes(items []*models.CertificationType) []*profilev1.CertificationType {
 	result := make([]*profilev1.CertificationType, 0, len(items))
 	for _, item := range items {
@@ -385,6 +467,7 @@ func toProtoCertificationTypes(items []*models.CertificationType) []*profilev1.C
 	return result
 }
 
+// toProtoCertificationTypeSkills преобразует связи типов с навыками с сохранением порядка и nil-элементов.
 func toProtoCertificationTypeSkills(items []*models.CertificationTypeSkill) []*profilev1.CertificationTypeSkill {
 	result := make([]*profilev1.CertificationTypeSkill, 0, len(items))
 	for _, item := range items {
@@ -393,6 +476,7 @@ func toProtoCertificationTypeSkills(items []*models.CertificationTypeSkill) []*p
 	return result
 }
 
+// toProtoCertifications преобразует сертификаты с сохранением порядка и nil-элементов.
 func toProtoCertifications(items []*models.WorkProfileCertification) []*profilev1.WorkProfileCertification {
 	result := make([]*profilev1.WorkProfileCertification, 0, len(items))
 	for _, item := range items {
@@ -401,6 +485,7 @@ func toProtoCertifications(items []*models.WorkProfileCertification) []*profilev
 	return result
 }
 
+// toProtoSkillGrants преобразует выдачи навыков с сохранением порядка и nil-элементов.
 func toProtoSkillGrants(items []*models.WorkProfileSkillGrant) []*profilev1.WorkProfileSkillGrant {
 	result := make([]*profilev1.WorkProfileSkillGrant, 0, len(items))
 	for _, item := range items {

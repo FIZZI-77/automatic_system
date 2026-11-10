@@ -178,14 +178,39 @@
 
 ## Функции
 
-### `NewAuthServiceStruct`
+Имя функции открывает её реализацию в ветке `test`; структуры параметров и результатов описаны в конце README.
+
+### func [NewAuthServiceStruct](https://github.com/FIZZI-77/automatic_system/blob/test/Auth_Service/src/core/service/auth_service.go#L42)
+
+```go
+func NewAuthServiceStruct(
+    repo *repository.Repo,
+    privateKey *rsa.PrivateKey,
+    keyID string,
+    mailService MailService,
+    profiles ProfileProvisioner,
+    logger *zap.Logger,
+) *AuthServiceStruct
+```
+
+Типы: [AuthServiceStruct](#type-authservicestruct), [MailService](#type-mailservice), [ProfileProvisioner](#type-profileprovisioner).
+
+Структуры: [MailService](#type-mailservice), [ProfileProvisioner](#type-profileprovisioner), [AuthServiceStruct](#type-authservicestruct).
 
 Создает основную реализацию прикладного слоя. Принимает объединенный репозиторий,
 закрытый ключ RSA, идентификатор ключа, отправщик писем, клиент создания профиля
 и журнал `zap`. Функция только сохраняет зависимости; их доступность здесь не
 проверяется.
 
-### `Register`
+### func (*AuthServiceStruct) [Register](https://github.com/FIZZI-77/automatic_system/blob/test/Auth_Service/src/core/service/auth_service.go#L60)
+
+```go
+func (a *AuthServiceStruct) Register(ctx context.Context, in models.RegisterInput) (*models.RegisterResult, error)
+```
+
+Типы: [AuthServiceStruct](#type-authservicestruct), [RegisterInput](#type-registerinput), [RegisterResult](#type-registerresult).
+
+Структуры: [RegisterInput](#type-registerinput), [RegisterResult](#type-registerresult).
 
 **Принимает:** `RegisterInput`. **Возвращает:** `RegisterResult`.
 
@@ -201,7 +226,15 @@
    обе ошибки.
 7. Возвращает идентификатор, почту и `EmailVerified=false`.
 
-### `Login`
+### func (*AuthServiceStruct) [Login](https://github.com/FIZZI-77/automatic_system/blob/test/Auth_Service/src/core/service/auth_service.go#L177)
+
+```go
+func (a *AuthServiceStruct) Login(ctx context.Context, in models.LoginInput) (*models.LoginResult, error)
+```
+
+Типы: [AuthServiceStruct](#type-authservicestruct), [LoginInput](#type-logininput), [LoginResult](#type-loginresult).
+
+Структуры: [LoginInput](#type-logininput), [LoginResult](#type-loginresult).
 
 **Принимает:** `LoginInput`. **Возвращает:** `LoginResult`.
 
@@ -216,7 +249,15 @@
    `cleanupFailedLogin` и отзывает незавершенную сессию.
 8. Возвращает оба исходных токена, сроки, идентификатор сессии и `Bearer`.
 
-### `Refresh`
+### func (*AuthServiceStruct) [Refresh](https://github.com/FIZZI-77/automatic_system/blob/test/Auth_Service/src/core/service/auth_service.go#L307)
+
+```go
+func (a *AuthServiceStruct) Refresh(ctx context.Context, in models.RefreshInput) (*models.RefreshResult, error)
+```
+
+Типы: [AuthServiceStruct](#type-authservicestruct), [RefreshInput](#type-refreshinput), [RefreshResult](#type-refreshresult).
+
+Структуры: [RefreshInput](#type-refreshinput), [RefreshResult](#type-refreshresult).
 
 **Принимает:** `RefreshInput`. **Возвращает:** `RefreshResult`.
 
@@ -234,38 +275,82 @@
 `IP` и `UserAgent` в этом сценарии валидируются, но текущая реализация не
 сравнивает их с сохраненными значениями и не обновляет ими сессию.
 
-### `Logout`
+### func (*AuthServiceStruct) [Logout](https://github.com/FIZZI-77/automatic_system/blob/test/Auth_Service/src/core/service/auth_service.go#L459)
+
+```go
+func (a *AuthServiceStruct) Logout(ctx context.Context, in models.LogoutInput) error
+```
+
+Типы: [AuthServiceStruct](#type-authservicestruct), [LogoutInput](#type-logoutinput).
+
+Структуры: [LogoutInput](#type-logoutinput).
 
 Проверяет идентификаторы пользователя и сессии, загружает сессию и убеждается,
 что она принадлежит этому пользователю. Затем транзакционно отзывает сессию и
 все ее токены обновления и создает событие `auth.session.logged_out`.
 
-### `cleanupFailedLogin`
+### func (*AuthServiceStruct) [cleanupFailedLogin](https://github.com/FIZZI-77/automatic_system/blob/test/Auth_Service/src/core/service/auth_service.go#L515)
+
+```go
+func (a *AuthServiceStruct) cleanupFailedLogin(ctx context.Context, sessionID uuid.UUID, logger *zap.Logger)
+```
+
+Типы: [AuthServiceStruct](#type-authservicestruct).
 
 Служебная компенсация незавершенного входа. Создает независимый от отмены
 исходного запроса контекст на 2 секунды и вызывает ту же транзакцию выхода.
 Ошибка компенсации только записывается в журнал, поскольку основной метод уже
 возвращает исходную ошибку.
 
-### `LogoutAll`
+### func (*AuthServiceStruct) [LogoutAll](https://github.com/FIZZI-77/automatic_system/blob/test/Auth_Service/src/core/service/auth_service.go#L526)
+
+```go
+func (a *AuthServiceStruct) LogoutAll(ctx context.Context, in models.LogoutAllInput) (uint32, error)
+```
+
+Типы: [AuthServiceStruct](#type-authservicestruct), [LogoutAllInput](#type-logoutallinput).
+
+Структуры: [LogoutAllInput](#type-logoutallinput).
 
 Проверяет `UserID`, убеждается в существовании пользователя и транзакционно
 отзывает все его сессии и токены обновления. Возвращает число измененных сессий
 как `uint32` и создает событие `auth.user.logged_out_all`.
 
-### `GetUserAuthInfo`
+### func (*AuthServiceStruct) [GetUserAuthInfo](https://github.com/FIZZI-77/automatic_system/blob/test/Auth_Service/src/core/service/auth_service.go#L574)
+
+```go
+func (a *AuthServiceStruct) GetUserAuthInfo(ctx context.Context, userID uuid.UUID) (*models.UserAuthInfo, error)
+```
+
+Типы: [AuthServiceStruct](#type-authservicestruct), [UserAuthInfo](#type-userauthinfo).
+
+Структуры: [UserAuthInfo](#type-userauthinfo).
 
 Загружает пользователя и отдельно его роли. Возвращает идентификатор, почту,
 роли, активность и состояние подтверждения почты. Поле `Permissions` в
 текущем коде остается пустым.
 
-### `GetJWKS`
+### func (*AuthServiceStruct) [GetJWKS](https://github.com/FIZZI-77/automatic_system/blob/test/Auth_Service/src/core/service/auth_service.go#L621)
+
+```go
+func (a *AuthServiceStruct) GetJWKS(ctx context.Context) (string, error)
+```
+
+Типы: [AuthServiceStruct](#type-authservicestruct).
 
 Преобразует открытую часть настроенного ключа RSA в JWK, задает ей `kid`,
 алгоритм `RS256` и назначение `sig`, добавляет ключ в набор и возвращает
 набор как JSON. Закрытая часть ключа в ответ не включается.
 
-### `ChangePassword`
+### func (*AuthServiceStruct) [ChangePassword](https://github.com/FIZZI-77/automatic_system/blob/test/Auth_Service/src/core/service/auth_service.go#L685)
+
+```go
+func (a *AuthServiceStruct) ChangePassword(ctx context.Context, in models.ChangePasswordInput) (*models.ChangePasswordResult, error)
+```
+
+Типы: [AuthServiceStruct](#type-authservicestruct), [ChangePasswordInput](#type-changepasswordinput), [ChangePasswordResult](#type-changepasswordresult).
+
+Структуры: [ChangePasswordInput](#type-changepasswordinput), [ChangePasswordResult](#type-changepasswordresult).
 
 1. Проверяет пользователя, сессию, оба пароля и их различие.
 2. Запускает идемпотентную транзакционную операцию.
@@ -276,7 +361,15 @@
 6. Создает событие `auth.user.password_changed` и возвращает число завершенных
    сессий.
 
-### `SendVerification`
+### func (*AuthServiceStruct) [SendVerification](https://github.com/FIZZI-77/automatic_system/blob/test/Auth_Service/src/core/service/auth_service.go#L764)
+
+```go
+func (a *AuthServiceStruct) SendVerification(ctx context.Context, in models.SendVerificationEmailInput) (*models.SendVerificationEmailResult, error)
+```
+
+Типы: [AuthServiceStruct](#type-authservicestruct), [SendVerificationEmailInput](#type-sendverificationemailinput), [SendVerificationEmailResult](#type-sendverificationemailresult).
+
+Структуры: [SendVerificationEmailInput](#type-sendverificationemailinput), [SendVerificationEmailResult](#type-sendverificationemailresult).
 
 1. Проверяет пользователя и необязательный адрес.
 2. Загружает фактический адрес из записи пользователя и запрещает повторное
@@ -287,21 +380,45 @@
 6. Возвращает срок ссылки. Из-за внешней отправки письма используется отдельный
    вариант идемпотентности, не удерживающий транзакцию базы во время SMTP.
 
-### `VerifyEmail`
+### func (*AuthServiceStruct) [VerifyEmail](https://github.com/FIZZI-77/automatic_system/blob/test/Auth_Service/src/core/service/auth_service.go#L865)
+
+```go
+func (a *AuthServiceStruct) VerifyEmail(ctx context.Context, in models.VerifyEmailInput) (*models.VerifyEmailResult, error)
+```
+
+Типы: [AuthServiceStruct](#type-authservicestruct), [VerifyEmailInput](#type-verifyemailinput), [VerifyEmailResult](#type-verifyemailresult).
+
+Структуры: [VerifyEmailInput](#type-verifyemailinput), [VerifyEmailResult](#type-verifyemailresult).
 
 Вычисляет хеш токена, находит токен типа `email_verification`, проверяет
 отсутствие `UsedAt` и срок действия. После проверки пользователя транзакционно
 помечает токен использованным, выставляет `users.email_verified=true` и
 создает событие `auth.user.email_verified`.
 
-### `RequestPasswordReset`
+### func (*AuthServiceStruct) [RequestPasswordReset](https://github.com/FIZZI-77/automatic_system/blob/test/Auth_Service/src/core/service/auth_service.go#L935)
+
+```go
+func (a *AuthServiceStruct) RequestPasswordReset(ctx context.Context, in models.RequestPasswordResetInput) (*models.RequestPasswordResetResult, error)
+```
+
+Типы: [AuthServiceStruct](#type-authservicestruct), [RequestPasswordResetInput](#type-requestpasswordresetinput), [RequestPasswordResetResult](#type-requestpasswordresetresult).
+
+Структуры: [RequestPasswordResetInput](#type-requestpasswordresetinput), [RequestPasswordResetResult](#type-requestpasswordresetresult).
 
 Нормализует и проверяет почту. Если пользователь не найден, возвращает успешный
 ответ с нулевым сроком, не раскрывая наличие учетной записи. Для существующего
 пользователя отзывает прежние токены восстановления, создает новый токен на
 30 минут, сохраняет его хеш и отправляет исходное значение по почте.
 
-### `ResetPassword`
+### func (*AuthServiceStruct) [ResetPassword](https://github.com/FIZZI-77/automatic_system/blob/test/Auth_Service/src/core/service/auth_service.go#L1022)
+
+```go
+func (a *AuthServiceStruct) ResetPassword(ctx context.Context, in models.ResetPasswordInput) (*models.ResetPasswordResult, error)
+```
+
+Типы: [AuthServiceStruct](#type-authservicestruct), [ResetPasswordInput](#type-resetpasswordinput), [ResetPasswordResult](#type-resetpasswordresult).
+
+Структуры: [ResetPasswordInput](#type-resetpasswordinput), [ResetPasswordResult](#type-resetpasswordresult).
 
 Проверяет токен и новый пароль, затем выполняет идемпотентную операцию. Находит
 токен типа `password_reset` по хешу, проверяет использование и срок, загружает
@@ -309,19 +426,55 @@
 токен использованным, меняет пароль, отзывает все сессии и токены обновления и
 создает событие `auth.user.password_reset`.
 
-### `generateAccessToken`
+### func (*AuthServiceStruct) [generateAccessToken](https://github.com/FIZZI-77/automatic_system/blob/test/Auth_Service/src/core/service/auth_service.go#L1102)
+
+```go
+func (a *AuthServiceStruct) generateAccessToken(ctx context.Context, userID uuid.UUID, sessionID uuid.UUID, roles []string) (string, int64, error)
+```
+
+Типы: [AuthServiceStruct](#type-authservicestruct).
 
 Создает `JWT` с полями `sub` (пользователь), `sid` (сессия), `roles`,
 `exp`, `iat`, `iss=auth-jwt` и `aud=api-gateway`. Подписывает его
 `RS256` закрытым ключом и возвращает строку токена и срок действия.
 
-### `generateRefreshToken` и `generateOpaqueToken`
+### func (*AuthServiceStruct) [generateRefreshToken](https://github.com/FIZZI-77/automatic_system/blob/test/Auth_Service/src/core/service/auth_service.go#L1133)
+
+```go
+func (a *AuthServiceStruct) generateRefreshToken(ctx context.Context) (raw string, hash string, exp int64, err error)
+```
+
+Типы: [AuthServiceStruct](#type-authservicestruct).
 
 Обе функции получают 32 криптографически случайных байта, кодируют исходное
 значение как `base64url` и строят такой же кодированный хеш `SHA-256`.
 `generateRefreshToken` дополнительно возвращает срок через 30 суток.
 
-### `withIdempotency`
+### func (*AuthServiceStruct) [generateOpaqueToken](https://github.com/FIZZI-77/automatic_system/blob/test/Auth_Service/src/core/service/auth_service.go#L1157)
+
+```go
+func (a *AuthServiceStruct) generateOpaqueToken(ctx context.Context) (raw string, hash string, err error)
+```
+
+Типы: [AuthServiceStruct](#type-authservicestruct).
+
+Обе функции получают 32 криптографически случайных байта, кодируют исходное
+значение как `base64url` и строят такой же кодированный хеш `SHA-256`.
+`generateRefreshToken` дополнительно возвращает срок через 30 суток.
+
+### func (*AuthServiceStruct) [withIdempotency](https://github.com/FIZZI-77/automatic_system/blob/test/Auth_Service/src/core/service/idempotency.go#L19)
+
+```go
+func (a *AuthServiceStruct) withIdempotency(
+    ctx context.Context,
+    operation string,
+    actorKey string,
+    request any,
+    fn func(context.Context) (any, uuid.UUID, error),
+) (any, error)
+```
+
+Типы: [AuthServiceStruct](#type-authservicestruct).
 
 Если в контексте нет ключа идемпотентности, сразу выполняет переданную функцию.
 Иначе вычисляет устойчивый хеш JSON-запроса и передает выполнение
@@ -329,7 +482,19 @@
 `COMPLETED` возвращает сохраненный JSON, `PROCESSING` и `FAILED` дают
 соответствующие ошибки. Срок записи — 24 часа.
 
-### `withExternalSideEffectIdempotency`
+### func (*AuthServiceStruct) [withExternalSideEffectIdempotency](https://github.com/FIZZI-77/automatic_system/blob/test/Auth_Service/src/core/service/idempotency.go#L71)
+
+```go
+func (a *AuthServiceStruct) withExternalSideEffectIdempotency(
+    ctx context.Context,
+    operation string,
+    actorKey string,
+    request any,
+    fn func(context.Context) (any, uuid.UUID, error),
+) (any, error)
+```
+
+Типы: [AuthServiceStruct](#type-authservicestruct).
 
 Вариант для отправки писем и других внешних действий. Сначала отдельно создает
 запись `PROCESSING`, затем выполняет действие вне транзакции. При ошибке
@@ -338,48 +503,106 @@
 SMTP и записью результата; комментарий в коде предусматривает перенос писем в
 надежную очередь исходящих событий.
 
-### `cachedResult`
+### func [cachedResult](https://github.com/FIZZI-77/automatic_system/blob/test/Auth_Service/src/core/service/idempotency.go#L126)
+
+```go
+func cachedResult[T any](result any) (*T, error)
+```
 
 Приводит обычный или восстановленный из JSON результат к требуемому типу. Если
 указатель уже имеет нужный тип, возвращает его без преобразования; иначе
 выполняет промежуточную сериализацию и разбор JSON.
 
-### `hashRequest`
+### func [hashRequest](https://github.com/FIZZI-77/automatic_system/blob/test/Auth_Service/src/core/service/idempotency.go#L144)
+
+```go
+func hashRequest(request any) (string, error)
+```
 
 Сериализует запрос в JSON, вычисляет `SHA-256` и возвращает шестнадцатеричную
 строку. Хеш позволяет обнаружить повторное использование одного ключа
 идемпотентности с другими данными.
 
-### `NewSMTPMailService`
+### func [NewSMTPMailService](https://github.com/FIZZI-77/automatic_system/blob/test/Auth_Service/src/core/service/mail_service.go#L39)
+
+```go
+func NewSMTPMailService(cfg SMTPMailConfig, logger *zap.Logger) (*SMTPMailService, error)
+```
+
+Типы: [SMTPMailConfig](#type-smtpmailconfig), [SMTPMailService](#type-smtpmailservice).
+
+Структуры: [SMTPMailConfig](#type-smtpmailconfig), [SMTPMailService](#type-smtpmailservice).
 
 Проверяет обязательные `Host`, `Port`, `FromEmail` и
 `FrontendBaseURL`. Для отсутствующего или неположительного `Timeout`
 устанавливает 10 секунд и создает почтовую реализацию.
 
-### `SendVerificationEmail` и `SendPasswordResetEmail`
+### func (*SMTPMailService) [SendVerificationEmail](https://github.com/FIZZI-77/automatic_system/blob/test/Auth_Service/src/core/service/mail_service.go#L62)
+
+```go
+func (s *SMTPMailService) SendVerificationEmail(ctx context.Context, toEmail string, token string) error
+```
+
+Типы: [SMTPMailService](#type-smtpmailservice).
 
 Строят соответственно пути `/verify-email` и `/reset-password` с параметром
 `token`, формируют русские текстовую и HTML-версии письма и передают их в
 `send`.
 
-### `buildURL`
+### func (*SMTPMailService) [SendPasswordResetEmail](https://github.com/FIZZI-77/automatic_system/blob/test/Auth_Service/src/core/service/mail_service.go#L103)
+
+```go
+func (s *SMTPMailService) SendPasswordResetEmail(ctx context.Context, toEmail string, token string) error
+```
+
+Типы: [SMTPMailService](#type-smtpmailservice).
+
+Строят соответственно пути `/verify-email` и `/reset-password` с параметром
+`token`, формируют русские текстовую и HTML-версии письма и передают их в
+`send`.
+
+### func (*SMTPMailService) [buildURL](https://github.com/FIZZI-77/automatic_system/blob/test/Auth_Service/src/core/service/mail_service.go#L144)
+
+```go
+func (s *SMTPMailService) buildURL(ctx context.Context, path string, params map[string]string) (string, error)
+```
+
+Типы: [SMTPMailService](#type-smtpmailservice).
 
 Разбирает `FrontendBaseURL`, удаляет завершающий косой знак, добавляет путь и
 кодирует параметры стандартными средствами `net/url`. Возвращает полностью
 собранную ссылку.
 
-### `send`
+### func (*SMTPMailService) [send](https://github.com/FIZZI-77/automatic_system/blob/test/Auth_Service/src/core/service/mail_service.go#L168)
+
+```go
+func (s *SMTPMailService) send(ctx context.Context, to []string, subject string, textBody string, htmlBody string) error
+```
+
+Типы: [SMTPMailService](#type-smtpmailservice).
 
 Сначала вызывает `buildMessage`, затем `sendSMTP`. Ошибки снабжаются
 контекстом этапа; успешная отправка записывается в журнал.
 
-### `buildMessage`
+### func (*SMTPMailService) [buildMessage](https://github.com/FIZZI-77/automatic_system/blob/test/Auth_Service/src/core/service/mail_service.go#L187)
+
+```go
+func (s *SMTPMailService) buildMessage(to []string, subject string, textBody string, htmlBody string) ([]byte, error)
+```
+
+Типы: [SMTPMailService](#type-smtpmailservice).
 
 Формирует сообщение `multipart/alternative`: заголовки отправителя,
 получателей и темы, текстовую часть и HTML-часть. Русские имя отправителя и тема
 кодируются по MIME. Граница частей строится из текущего времени.
 
-### `sendSMTP`
+### func (*SMTPMailService) [sendSMTP](https://github.com/FIZZI-77/automatic_system/blob/test/Auth_Service/src/core/service/mail_service.go#L226)
+
+```go
+func (s *SMTPMailService) sendSMTP(ctx context.Context, to []string, msg []byte) error
+```
+
+Типы: [SMTPMailService](#type-smtpmailservice).
 
 1. Открывает соединение с ограничением `Timeout`.
 2. При `UseTLS` сразу использует TLS; иначе создает обычное соединение.
@@ -388,7 +611,44 @@ SMTP и записью результата; комментарий в коде 
 5. Передает отправителя, каждого получателя и тело сообщения.
 6. Закрывает поток данных, отправляет `QUIT` и закрывает клиент.
 
-### `NewService` и `NewAuthService`
+### func [NewService](https://github.com/FIZZI-77/automatic_system/blob/test/Auth_Service/src/core/service/service.go#L44)
+
+```go
+func NewService(
+    repo *repository.Repository,
+    privateKey *rsa.PrivateKey,
+    keyID string,
+    mailService MailService,
+    profileProvisioner ProfileProvisioner,
+    logger *zap.Logger,
+) *Service
+```
+
+Типы: [MailService](#type-mailservice), [ProfileProvisioner](#type-profileprovisioner), [Repository](#type-repository), [Service](#type-service).
+
+Структуры: [MailService](#type-mailservice), [ProfileProvisioner](#type-profileprovisioner).
+
+`NewService` заменяет отсутствующий журнал на `zap.NewNop()`, создает
+`AuthServiceStruct` и объединяет прикладной и почтовый интерфейсы в
+`Service`. `NewAuthService` является совместимым псевдонимом и просто
+вызывает `NewService`.
+
+### func [NewAuthService](https://github.com/FIZZI-77/automatic_system/blob/test/Auth_Service/src/core/service/service.go#L70)
+
+```go
+func NewAuthService(
+    repo *repository.Repo,
+    privateKey *rsa.PrivateKey,
+    keyID string,
+    mailService MailService,
+    profileProvisioner ProfileProvisioner,
+    logger *zap.Logger,
+) *Service
+```
+
+Типы: [MailService](#type-mailservice), [ProfileProvisioner](#type-profileprovisioner), [Service](#type-service).
+
+Структуры: [MailService](#type-mailservice), [ProfileProvisioner](#type-profileprovisioner).
 
 `NewService` заменяет отсутствующий журнал на `zap.NewNop()`, создает
 `AuthServiceStruct` и объединяет прикладной и почтовый интерфейсы в
@@ -538,3 +798,280 @@ SMTP и записью результата; комментарий в коде 
 
 Сочетание `actor_key`, `operation` и `idempotency_key` уникально. Индексы
 созданы по `expires_at` и `status`.
+
+## Структуры параметров и результатов
+
+### type AuthServiceStruct
+
+```go
+type AuthServiceStruct struct {
+	repo        *repository.Repo
+	privateKey  *rsa.PrivateKey
+	keyID       string
+	mailService MailService
+	profiles    ProfileProvisioner
+	logger      *zap.Logger
+}
+```
+
+### type ChangePasswordInput
+
+```go
+type ChangePasswordInput struct {
+	UserID              uuid.UUID
+	OldPassword         string
+	NewPassword         string
+	SessionID           uuid.UUID
+	RevokeOtherSessions bool
+}
+```
+
+### type ChangePasswordResult
+
+```go
+type ChangePasswordResult struct {
+	Success                  bool
+	InvalidatedSessionsCount int32
+}
+```
+
+### type LoginInput
+
+```go
+type LoginInput struct {
+	Email     string
+	Password  string
+	ClientID  string
+	IP        string
+	UserAgent string
+}
+```
+
+### type LoginResult
+
+```go
+type LoginResult struct {
+	AccessToken          string
+	RefreshToken         string
+	AccessExpiresAtUnix  int64
+	RefreshExpiresAtUnix int64
+	SessionID            uuid.UUID
+	TokenType            string
+}
+```
+
+### type LogoutAllInput
+
+```go
+type LogoutAllInput struct {
+	UserID uuid.UUID
+}
+```
+
+### type LogoutInput
+
+```go
+type LogoutInput struct {
+	UserID    uuid.UUID
+	SessionID uuid.UUID
+}
+```
+
+### type MailService
+
+```go
+type MailService interface {
+	SendVerificationEmail(ctx context.Context, toEmail string, token string) error
+	SendPasswordResetEmail(ctx context.Context, toEmail string, token string) error
+}
+```
+
+### type ProfileProvisioner
+
+```go
+type ProfileProvisioner interface {
+	CreateUserProfile(ctx context.Context, userID uuid.UUID, fullName string) error
+	UserProfileExists(ctx context.Context, userID uuid.UUID) (bool, error)
+}
+```
+
+### type RefreshInput
+
+```go
+type RefreshInput struct {
+	RefreshToken string
+	ClientID     string
+	IP           string
+	UserAgent    string
+}
+```
+
+### type RefreshResult
+
+```go
+type RefreshResult struct {
+	AccessToken          string
+	RefreshToken         string
+	AccessExpiresAtUnix  int64
+	RefreshExpiresAtUnix int64
+	SessionID            uuid.UUID
+	TokenType            string
+}
+```
+
+### type RegisterInput
+
+```go
+type RegisterInput struct {
+	Email    string
+	Password string
+	Username string
+}
+```
+
+### type RegisterResult
+
+```go
+type RegisterResult struct {
+	UserID        string
+	Email         string
+	EmailVerified bool
+}
+```
+
+### type Repository
+
+```go
+type Repository struct {
+	writePool *pgxpool.Pool
+	readPool  *pgxpool.Pool
+	UserRepository
+	SessionRepository
+	RefreshTokenRepository
+	RoleRepository
+	TXRepository
+	OneTimeTokenRepo
+}
+```
+
+### type RequestPasswordResetInput
+
+```go
+type RequestPasswordResetInput struct {
+	Email string
+}
+```
+
+### type RequestPasswordResetResult
+
+```go
+type RequestPasswordResetResult struct {
+	Success       bool
+	ExpiresAtUnix int64
+}
+```
+
+### type ResetPasswordInput
+
+```go
+type ResetPasswordInput struct {
+	Token       string
+	NewPassword string
+}
+```
+
+### type ResetPasswordResult
+
+```go
+type ResetPasswordResult struct {
+	Success                  bool
+	InvalidatedSessionsCount int32
+}
+```
+
+### type SMTPMailConfig
+
+```go
+type SMTPMailConfig struct {
+	Host               string
+	Port               int
+	Username           string
+	Password           string
+	FromEmail          string
+	FromName           string
+	FrontendBaseURL    string
+	UseTLS             bool
+	UseStartTLS        bool
+	InsecureSkipVerify bool
+	Timeout            time.Duration
+}
+```
+
+### type SMTPMailService
+
+```go
+type SMTPMailService struct {
+	cfg    SMTPMailConfig
+	logger *zap.Logger
+}
+```
+
+### type SendVerificationEmailInput
+
+```go
+type SendVerificationEmailInput struct {
+	UserID uuid.UUID
+	Email  string
+}
+```
+
+### type SendVerificationEmailResult
+
+```go
+type SendVerificationEmailResult struct {
+	Success       bool
+	ExpiresAtUnix int64
+}
+```
+
+### type Service
+
+```go
+type Service struct {
+	AuthService
+	MailService
+}
+```
+
+### type UserAuthInfo
+
+```go
+type UserAuthInfo struct {
+	UserID        uuid.UUID
+	Email         string
+	Roles         []string
+	Permissions   []string
+	IsActive      bool
+	EmailVerified bool
+}
+```
+
+### type VerifyEmailInput
+
+```go
+type VerifyEmailInput struct {
+	Token string
+}
+```
+
+### type VerifyEmailResult
+
+```go
+type VerifyEmailResult struct {
+	Success       bool
+	UserID        uuid.UUID
+	Email         string
+	EmailVerified bool
+	Message       string
+}
+```

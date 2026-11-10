@@ -14,12 +14,16 @@ type AuditHandler struct {
 	client auditv1.AuditServiceClient
 }
 
+// NewAuditHandler создаёт HTTP-обработчик аудита с переданным gRPC-клиентом.
 func NewAuditHandler(client auditv1.AuditServiceClient) *AuditHandler {
 	return &AuditHandler{client: client}
 }
 
+// Get разбирает ID записи из JSON и вызывает Audit Service с контекстом dispatchContext;
+// ответ сериализует через dispatchResponse с HTTP 200 при успехе.
 func (h *AuditHandler) Get(c *gin.Context) {
 	var request models.GetAuditEntryRequest
+
 	if !bindJSON(c, &request) {
 		return
 	}
@@ -30,8 +34,11 @@ func (h *AuditHandler) Get(c *gin.Context) {
 	dispatchResponse(c, http.StatusOK, err, response)
 }
 
+// List преобразует JSON-фильтры и временные границы в запрос Audit Service;
+// сохраняет необязательные условия и пагинацию, ответ отдаёт через dispatchResponse.
 func (h *AuditHandler) List(c *gin.Context) {
 	var request models.ListAuditEntriesRequest
+
 	if !bindJSON(c, &request) {
 		return
 	}

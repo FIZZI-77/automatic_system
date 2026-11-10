@@ -46,29 +46,39 @@ func newTestApp(t *testing.T) *testApp {
 				WithStartupTimeout(90*time.Second),
 		),
 	)
+
 	if err != nil {
 		t.Fatalf("start postgres: %v", err)
 	}
+
 	postgresURL, err := postgresContainer.ConnectionString(ctx, "sslmode=disable")
+
 	if err != nil {
 		_ = postgresContainer.Terminate(ctx)
 		t.Fatalf("postgres url: %v", err)
 	}
+
 	migrationDB, err := sql.Open("pgx", postgresURL)
+
 	if err != nil {
 		_ = postgresContainer.Terminate(ctx)
 		t.Fatalf("open migration db: %v", err)
 	}
+
 	if err = goose.SetDialect("postgres"); err != nil {
 		t.Fatalf("goose dialect: %v", err)
 	}
+
 	if err = goose.Up(migrationDB, filepath.Clean("../../scheme")); err != nil {
 		t.Fatalf("migrations: %v", err)
 	}
+
 	db, err := pgxpool.New(ctx, postgresURL)
+
 	if err != nil {
 		t.Fatalf("open postgres pool: %v", err)
 	}
+
 	redisContainer, err := testcontainers.GenericContainer(
 		ctx,
 		testcontainers.GenericContainerRequest{
@@ -81,24 +91,32 @@ func newTestApp(t *testing.T) *testApp {
 			Started: true,
 		},
 	)
+
 	if err != nil {
 		db.Close()
 		_ = migrationDB.Close()
 		_ = postgresContainer.Terminate(ctx)
 		t.Fatalf("start redis: %v", err)
 	}
+
 	host, err := redisContainer.Host(ctx)
+
 	if err != nil {
 		t.Fatalf("redis host: %v", err)
 	}
+
 	port, err := redisContainer.MappedPort(ctx, "6379/tcp")
+
 	if err != nil {
 		t.Fatalf("redis port: %v", err)
 	}
+
 	rdb := redis.NewClient(&redis.Options{Addr: fmt.Sprintf("%s:%s", host, port.Port())})
+
 	if err = rdb.Ping(ctx).Err(); err != nil {
 		t.Fatalf("redis ping: %v", err)
 	}
+
 	repo := repository.NewRepositoryFromClients(repository.DBPools{Write: db, Read: db}, rdb)
 	cleanup := func() {
 		_ = rdb.Close()

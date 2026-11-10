@@ -90,6 +90,11 @@ try {
     }
   }
 
+  kubectl apply --kustomize (Join-Path $repoRoot "k8s\mesh\observability-auth")
+  if ($LASTEXITCODE -ne 0) {
+    throw "Failed to apply Istio observability authentication"
+  }
+
   kubectl apply --kustomize (Join-Path $repoRoot "k8s\mesh\ingress")
   if ($LASTEXITCODE -ne 0) {
     throw "Failed to apply Istio ingress routes"

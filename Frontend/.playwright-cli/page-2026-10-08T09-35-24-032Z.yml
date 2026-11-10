@@ -1,0 +1,666 @@
+- generic [ref=f6e90]:
+  - complementary [ref=f6e91]:
+    - link "Г 〽" [ref=f6e92] [cursor=pointer]:
+      - /url: "#"
+    - navigation [ref=f6e94]:
+      - button "⌂ Показатели" [ref=f6e262] [cursor=pointer]:
+        - generic [ref=f6e96]: ⌂
+        - generic [ref=f6e97]: Показатели
+      - button "◎ Заявки" [ref=f6e263] [cursor=pointer]:
+        - generic [ref=f6e102]: ◎
+        - generic [ref=f6e103]: Заявки
+      - button "♜ Структура" [ref=f6e264] [cursor=pointer]:
+        - generic [ref=f6e105]: ♜
+        - generic [ref=f6e106]: Структура
+      - button "▦ Аналитика" [active] [ref=f6e265] [cursor=pointer]:
+        - generic [ref=f6e266]: ▦
+        - generic [ref=f6e267]: Аналитика
+      - button "▥ SLA" [ref=f6e107] [cursor=pointer]:
+        - generic [ref=f6e108]: ▥
+        - generic [ref=f6e109]: SLA
+      - button "▧ Инфраструктура" [ref=f6e268] [cursor=pointer]:
+        - generic [ref=f6e269]: ▧
+        - generic [ref=f6e270]: Инфраструктура
+      - button "⌘ Регламенты" [ref=f6e271] [cursor=pointer]:
+        - generic [ref=f6e272]: ⌘
+        - generic [ref=f6e273]: Регламенты
+      - button "✦ Квалификации" [ref=f6e274] [cursor=pointer]:
+        - generic [ref=f6e275]: ✦
+        - generic [ref=f6e276]: Квалификации
+      - button "◆ Удостоверения" [ref=f6e277] [cursor=pointer]:
+        - generic [ref=f6e278]: ◆
+        - generic [ref=f6e279]: Удостоверения
+      - button "⇄ Операции" [ref=f6e110] [cursor=pointer]:
+        - generic [ref=f6e111]: ⇄
+        - generic [ref=f6e112]: Операции
+      - button "▤ Отчёты" [ref=f6e113] [cursor=pointer]:
+        - generic [ref=f6e114]: ▤
+        - generic [ref=f6e115]: Отчёты
+      - button "≡ Аудит" [ref=f6e280] [cursor=pointer]:
+        - generic [ref=f6e281]: ≡
+        - generic [ref=f6e282]: Аудит
+      - button "⚙ Управление" [ref=f6e283] [cursor=pointer]:
+        - generic [ref=f6e284]: ⚙
+        - generic [ref=f6e285]: Управление
+      - button "⌁ Зоны бригад" [ref=f6e122] [cursor=pointer]:
+        - generic [ref=f6e123]: ⌁
+        - generic [ref=f6e124]: Зоны бригад
+    - button "↗ Выйти" [ref=f6e126] [cursor=pointer]:
+      - generic [ref=f6e127]: ↗
+      - generic [ref=f6e128]: Выйти
+  - main [ref=f6e129]:
+    - generic [ref=f6e130]:
+      - generic [ref=f6e131]:
+        - generic [ref=f6e132]: Администратор · Москва
+        - heading "Аналитика" [level=1] [ref=f6e342]
+      - generic [ref=f6e134]:
+        - button "Включить тёмную тему" [ref=f6e135] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f6e136]: ◐
+        - button "Открыть поиск" [ref=f6e137] [cursor=pointer]:
+          - generic [ref=f6e141]: Поиск
+        - button "Открыть уведомления" [ref=f6e142] [cursor=pointer]:
+          - generic [ref=f6e145]: Уведомления
+        - button "Открыть профиль" [ref=f6e146] [cursor=pointer]:
+          - generic [ref=f6e147]: ДА
+          - generic [ref=f6e148]:
+            - generic [ref=f6e149]: "Демо: Администратор"
+            - generic [ref=f6e150]: Администратор
+    - generic [ref=f6e151]:
+      - generic [ref=f6e152]: Демонстрационный режим
+      - generic [ref=f6e153]:
+        - button "Житель" [ref=f6e154] [cursor=pointer]
+        - button "Работник" [ref=f6e155] [cursor=pointer]
+        - button "Диспетчер" [ref=f6e156] [cursor=pointer]
+        - button "Администратор" [ref=f6e157] [cursor=pointer]
+    - generic [ref=f6e343]:
+      - generic [ref=f6e344]:
+        - generic [ref=f6e345]:
+          - text: Analytics Service
+          - heading "Динамика обращений" [level=2] [ref=f6e346]
+          - paragraph [ref=f6e347]: Все показатели заявок, SLA и городской инфраструктуры
+        - generic [ref=f6e348]:
+          - button "7 дней" [ref=f6e349] [cursor=pointer]
+          - button "14 дней" [ref=f6e350] [cursor=pointer]
+          - button "30 дней" [ref=f6e351] [cursor=pointer]
+          - button "90 дней" [ref=f6e352] [cursor=pointer]
+      - generic [ref=f6e353]:
+        - generic [ref=f6e354]:
+          - generic [ref=f6e355]:
+            - text: Качество данных
+            - heading "Состояние аналитических проекций" [level=3] [ref=f6e356]
+          - generic [ref=f6e357]: 0.0% пригодных событий
+        - generic [ref=f6e358]:
+          - article [ref=f6e359]:
+            - generic [ref=f6e360]: Событий
+            - generic [ref=f6e361]: "0"
+            - generic [ref=f6e362]: 0 в read model
+          - article [ref=f6e363]:
+            - generic [ref=f6e364]: Ошибки проекции
+            - generic [ref=f6e365]: "0"
+            - generic [ref=f6e366]: 0.00% отсутствуют
+          - article [ref=f6e367]:
+            - generic [ref=f6e368]: Неизвестные версии
+            - generic [ref=f6e369]: "0"
+            - generic [ref=f6e370]: исключены из проекций
+          - article [ref=f6e371]:
+            - generic [ref=f6e372]: Freshness
+            - generic [ref=f6e373]: 0 сек
+            - generic [ref=f6e374]: с последнего события
+          - article [ref=f6e375]:
+            - generic [ref=f6e376]: Ingestion p95
+            - generic [ref=f6e377]: 0 сек
+            - generic [ref=f6e378]: event → ClickHouse
+          - article [ref=f6e379]:
+            - generic [ref=f6e380]: Топиков
+            - generic [ref=f6e381]: "0"
+            - generic [ref=f6e382]: источников данных
+      - generic [ref=f6e383]:
+        - generic [ref=f6e384]:
+          - generic [ref=f6e385]:
+            - text: Автоматизация
+            - heading "Эффективность назначения" [level=3] [ref=f6e386]
+          - generic [ref=f6e387]: Переназначения ещё не измеряются
+        - generic [ref=f6e388]:
+          - article [ref=f6e389]:
+            - heading "Автоматическое назначение" [level=3] [ref=f6e390]
+            - paragraph [ref=f6e391]: Среднее 0 сек · p95 0 сек
+            - generic [ref=f6e392]:
+              - generic [ref=f6e393]:
+                - generic "Запрошено" [ref=f6e394]
+                - generic [ref=f6e397]: "0"
+              - generic [ref=f6e398]:
+                - generic "Назначено" [ref=f6e399]
+                - generic [ref=f6e401]: "0"
+          - article [ref=f6e402]:
+            - heading "Ручное назначение" [level=3] [ref=f6e403]
+            - paragraph [ref=f6e404]: Среднее 0 сек · p95 0 сек
+            - generic [ref=f6e405]:
+              - generic [ref=f6e406]:
+                - generic "Запрошено" [ref=f6e407]
+                - generic [ref=f6e410]: "0"
+              - generic [ref=f6e411]:
+                - generic "Назначено" [ref=f6e412]
+                - generic [ref=f6e414]: "0"
+      - generic [ref=f6e415]:
+        - generic [ref=f6e416]:
+          - generic [ref=f6e417]:
+            - text: Drill-down
+            - heading "Последние операции Dispatch" [level=3] [ref=f6e418]
+          - generic [ref=f6e419]: 0 операций
+        - paragraph [ref=f6e422]: Нет операций за выбранный период.
+      - generic [ref=f6e423]:
+        - generic [ref=f6e424]:
+          - generic [ref=f6e425]:
+            - text: Исполнение
+            - heading "Производительность бригад" [level=3] [ref=f6e426]
+          - generic [ref=f6e427]: Без данных о сменах
+        - generic [ref=f6e428]:
+          - article [ref=f6e429]:
+            - generic [ref=f6e430]: Завершено
+            - generic [ref=f6e431]: "0"
+            - generic [ref=f6e432]: заявок за период
+          - article [ref=f6e433]:
+            - generic [ref=f6e434]: Среднее выполнение
+            - generic [ref=f6e435]: 0 сек
+            - generic [ref=f6e436]: p95 0 сек
+          - article [ref=f6e437]:
+            - generic [ref=f6e438]: SLA breaches
+            - generic [ref=f6e439]: "0"
+            - generic [ref=f6e440]: 0.0% завершённых
+          - article [ref=f6e441]:
+            - generic [ref=f6e442]: Повторные по объекту
+            - generic [ref=f6e443]: "0"
+            - generic [ref=f6e444]: после первого обращения
+          - article [ref=f6e445]:
+            - generic [ref=f6e446]: Завершено на смену
+            - generic [ref=f6e447]: —
+            - generic [ref=f6e448]: нужны события начала смены
+          - article [ref=f6e449]:
+            - generic [ref=f6e450]: Утилизация смен
+            - generic [ref=f6e451]: —
+            - generic [ref=f6e452]: время исполнения / смено-часы
+        - article [ref=f6e454]:
+          - heading "Завершено по бригадам" [level=3] [ref=f6e455]
+          - paragraph [ref=f6e456]: Текущий период
+          - paragraph [ref=f6e458]: Нет данных за выбранный период.
+      - generic [ref=f6e459]:
+        - generic [ref=f6e460]:
+          - generic [ref=f6e461]:
+            - text: Распределение ресурсов
+            - heading "Баланс нагрузки бригад" [level=3] [ref=f6e462]
+          - generic [ref=f6e463]: Gini 0.00
+        - generic [ref=f6e464]:
+          - article [ref=f6e465]:
+            - generic [ref=f6e466]: Бригад в выборке
+            - generic [ref=f6e467]: "0"
+            - generic [ref=f6e468]: включая простаивающие
+          - article [ref=f6e469]:
+            - generic [ref=f6e470]: Максимальная нагрузка
+            - generic [ref=f6e471]: "0"
+            - generic [ref=f6e472]: активных заявок на бригаду
+          - article [ref=f6e473]:
+            - generic [ref=f6e474]: Средняя нагрузка
+            - generic [ref=f6e475]: "0.00"
+            - generic [ref=f6e476]: активных заявок
+          - article [ref=f6e477]:
+            - generic [ref=f6e478]: Стандартное отклонение
+            - generic [ref=f6e479]: "0.00"
+            - generic [ref=f6e480]: разброс нагрузки
+          - article [ref=f6e481]:
+            - generic [ref=f6e482]: Коэффициент вариации
+            - generic [ref=f6e483]: "0.00"
+            - generic [ref=f6e484]: σ / среднее
+          - article [ref=f6e485]:
+            - generic [ref=f6e486]: Gini
+            - generic [ref=f6e487]: "0.00"
+            - generic [ref=f6e488]: 0 — равномерно, 1 — перекос
+      - generic [ref=f6e489]:
+        - generic [ref=f6e490]:
+          - generic [ref=f6e491]:
+            - text: Планирование
+            - heading "Очередь, выезд и маршруты" [level=3] [ref=f6e492]
+          - generic [ref=f6e493]: "Прогноз: 0 заявок"
+        - generic [ref=f6e494]:
+          - article [ref=f6e495]:
+            - generic [ref=f6e496]: Среднее до выезда
+            - generic [ref=f6e497]: 0 сек
+            - generic [ref=f6e498]: p95 0 сек
+          - article [ref=f6e499]:
+            - generic [ref=f6e500]: Возраст очереди p95
+            - generic [ref=f6e501]: 0 сек
+            - generic [ref=f6e502]: 0 без назначения
+          - article [ref=f6e503]:
+            - generic [ref=f6e504]: Перестроения
+            - generic [ref=f6e505]: "0"
+            - generic [ref=f6e506]: 0 маршрутов
+          - article [ref=f6e507]:
+            - generic [ref=f6e508]: Отмены маршрутов
+            - generic [ref=f6e509]: "0"
+            - generic [ref=f6e510]: 0.0% кандидатов недостижимы
+          - article [ref=f6e511]:
+            - generic [ref=f6e512]: Ошибка ETA
+            - generic [ref=f6e513]: Нет данных
+            - generic [ref=f6e514]: 0 arrivals · 0.0% ±5 мин
+          - article [ref=f6e515]:
+            - generic [ref=f6e516]: Требуется бригад
+            - generic [ref=f6e517]: "0"
+            - generic [ref=f6e518]: 0 дней наблюдений
+        - article [ref=f6e520]:
+          - heading "Возраст неназначенной очереди" [level=3] [ref=f6e521]
+          - paragraph [ref=f6e522]: Интервалы в минутах
+          - paragraph [ref=f6e524]: Нет данных за выбранный период.
+      - generic [ref=f6e525]:
+        - article [ref=f6e526]:
+          - generic [ref=f6e527]: Создано обращений
+          - generic [ref=f6e528]: "6"
+          - generic [ref=f6e529]: за выбранный период
+        - article [ref=f6e530]:
+          - generic [ref=f6e531]: Активные
+          - generic [ref=f6e532]: "6"
+          - generic [ref=f6e533]: ещё требуют исполнения
+        - article [ref=f6e534]:
+          - generic [ref=f6e535]: Выполнено
+          - generic [ref=f6e536]: "0"
+          - generic [ref=f6e537]: 0% от созданных
+        - article [ref=f6e538]:
+          - generic [ref=f6e539]: Отменено
+          - generic [ref=f6e540]: "0"
+          - generic [ref=f6e541]: закрыто без выполнения
+        - article [ref=f6e542]:
+          - generic [ref=f6e543]: Средняя реакция
+          - generic [ref=f6e544]: 0 сек
+          - generic [ref=f6e545]: до назначения или начала работ
+        - article [ref=f6e546]:
+          - generic [ref=f6e547]: Среднее решение
+          - generic [ref=f6e548]: 0 сек
+          - generic [ref=f6e549]: от создания до выполнения
+        - article [ref=f6e550]:
+          - generic [ref=f6e551]: Экстренные
+          - generic [ref=f6e552]: "2"
+          - generic [ref=f6e553]: наивысший приоритет
+        - article [ref=f6e554]:
+          - generic [ref=f6e555]: Исполнение
+          - generic [ref=f6e556]: 0%
+          - generic [ref=f6e557]: коэффициент завершения
+      - generic [ref=f6e558]:
+        - article [ref=f6e559]:
+          - generic [ref=f6e560]:
+            - generic [ref=f6e561]:
+              - heading "Обращения и SLA по дням" [level=3] [ref=f6e562]
+              - paragraph [ref=f6e563]: Создание, выполнение, отмены и нарушения контрольных сроков
+            - generic [ref=f6e564]:
+              - generic [ref=f6e565]: Создано
+              - generic [ref=f6e567]: Выполнено
+              - generic [ref=f6e569]: Отменено
+              - generic [ref=f6e571]: SLA нарушен
+          - generic [ref=f6e573]:
+            - generic [ref=f6e574]:
+              - generic [ref=f6e575]:
+                - 'generic "Создано: 0" [ref=f6e576]'
+                - 'generic "Выполнено: 0" [ref=f6e577]'
+                - 'generic "Отменено: 0" [ref=f6e578]'
+                - 'generic "Нарушения SLA: 0" [ref=f6e579]'
+              - generic [ref=f6e580]: 09 сент.
+            - generic [ref=f6e581]:
+              - generic [ref=f6e582]:
+                - 'generic "Создано: 0" [ref=f6e583]'
+                - 'generic "Выполнено: 0" [ref=f6e584]'
+                - 'generic "Отменено: 0" [ref=f6e585]'
+                - 'generic "Нарушения SLA: 0" [ref=f6e586]'
+              - generic [ref=f6e587]: 10 сент.
+            - generic [ref=f6e588]:
+              - generic [ref=f6e589]:
+                - 'generic "Создано: 0" [ref=f6e590]'
+                - 'generic "Выполнено: 0" [ref=f6e591]'
+                - 'generic "Отменено: 0" [ref=f6e592]'
+                - 'generic "Нарушения SLA: 0" [ref=f6e593]'
+              - generic [ref=f6e594]: 11 сент.
+            - generic [ref=f6e595]:
+              - generic [ref=f6e596]:
+                - 'generic "Создано: 0" [ref=f6e597]'
+                - 'generic "Выполнено: 0" [ref=f6e598]'
+                - 'generic "Отменено: 0" [ref=f6e599]'
+                - 'generic "Нарушения SLA: 0" [ref=f6e600]'
+              - generic [ref=f6e601]: 12 сент.
+            - generic [ref=f6e602]:
+              - generic [ref=f6e603]:
+                - 'generic "Создано: 0" [ref=f6e604]'
+                - 'generic "Выполнено: 0" [ref=f6e605]'
+                - 'generic "Отменено: 0" [ref=f6e606]'
+                - 'generic "Нарушения SLA: 0" [ref=f6e607]'
+              - generic [ref=f6e608]: 13 сент.
+            - generic [ref=f6e609]:
+              - generic [ref=f6e610]:
+                - 'generic "Создано: 0" [ref=f6e611]'
+                - 'generic "Выполнено: 0" [ref=f6e612]'
+                - 'generic "Отменено: 0" [ref=f6e613]'
+                - 'generic "Нарушения SLA: 0" [ref=f6e614]'
+              - generic [ref=f6e615]: 14 сент.
+            - generic [ref=f6e616]:
+              - generic [ref=f6e617]:
+                - 'generic "Создано: 0" [ref=f6e618]'
+                - 'generic "Выполнено: 0" [ref=f6e619]'
+                - 'generic "Отменено: 0" [ref=f6e620]'
+                - 'generic "Нарушения SLA: 0" [ref=f6e621]'
+              - generic [ref=f6e622]: 15 сент.
+            - generic [ref=f6e623]:
+              - generic [ref=f6e624]:
+                - 'generic "Создано: 0" [ref=f6e625]'
+                - 'generic "Выполнено: 0" [ref=f6e626]'
+                - 'generic "Отменено: 0" [ref=f6e627]'
+                - 'generic "Нарушения SLA: 0" [ref=f6e628]'
+              - generic [ref=f6e629]: 16 сент.
+            - generic [ref=f6e630]:
+              - generic [ref=f6e631]:
+                - 'generic "Создано: 0" [ref=f6e632]'
+                - 'generic "Выполнено: 0" [ref=f6e633]'
+                - 'generic "Отменено: 0" [ref=f6e634]'
+                - 'generic "Нарушения SLA: 0" [ref=f6e635]'
+              - generic [ref=f6e636]: 17 сент.
+            - generic [ref=f6e637]:
+              - generic [ref=f6e638]:
+                - 'generic "Создано: 0" [ref=f6e639]'
+                - 'generic "Выполнено: 0" [ref=f6e640]'
+                - 'generic "Отменено: 0" [ref=f6e641]'
+                - 'generic "Нарушения SLA: 0" [ref=f6e642]'
+              - generic [ref=f6e643]: 18 сент.
+            - generic [ref=f6e644]:
+              - generic [ref=f6e645]:
+                - 'generic "Создано: 0" [ref=f6e646]'
+                - 'generic "Выполнено: 0" [ref=f6e647]'
+                - 'generic "Отменено: 0" [ref=f6e648]'
+                - 'generic "Нарушения SLA: 0" [ref=f6e649]'
+              - generic [ref=f6e650]: 19 сент.
+            - generic [ref=f6e651]:
+              - generic [ref=f6e652]:
+                - 'generic "Создано: 0" [ref=f6e653]'
+                - 'generic "Выполнено: 0" [ref=f6e654]'
+                - 'generic "Отменено: 0" [ref=f6e655]'
+                - 'generic "Нарушения SLA: 0" [ref=f6e656]'
+              - generic [ref=f6e657]: 20 сент.
+            - generic [ref=f6e658]:
+              - generic [ref=f6e659]:
+                - 'generic "Создано: 0" [ref=f6e660]'
+                - 'generic "Выполнено: 0" [ref=f6e661]'
+                - 'generic "Отменено: 0" [ref=f6e662]'
+                - 'generic "Нарушения SLA: 0" [ref=f6e663]'
+              - generic [ref=f6e664]: 21 сент.
+            - generic [ref=f6e665]:
+              - generic [ref=f6e666]:
+                - 'generic "Создано: 0" [ref=f6e667]'
+                - 'generic "Выполнено: 0" [ref=f6e668]'
+                - 'generic "Отменено: 0" [ref=f6e669]'
+                - 'generic "Нарушения SLA: 0" [ref=f6e670]'
+              - generic [ref=f6e671]: 22 сент.
+            - generic [ref=f6e672]:
+              - generic [ref=f6e673]:
+                - 'generic "Создано: 0" [ref=f6e674]'
+                - 'generic "Выполнено: 0" [ref=f6e675]'
+                - 'generic "Отменено: 0" [ref=f6e676]'
+                - 'generic "Нарушения SLA: 0" [ref=f6e677]'
+              - generic [ref=f6e678]: 23 сент.
+            - generic [ref=f6e679]:
+              - generic [ref=f6e680]:
+                - 'generic "Создано: 0" [ref=f6e681]'
+                - 'generic "Выполнено: 0" [ref=f6e682]'
+                - 'generic "Отменено: 0" [ref=f6e683]'
+                - 'generic "Нарушения SLA: 0" [ref=f6e684]'
+              - generic [ref=f6e685]: 24 сент.
+            - generic [ref=f6e686]:
+              - generic [ref=f6e687]:
+                - 'generic "Создано: 0" [ref=f6e688]'
+                - 'generic "Выполнено: 0" [ref=f6e689]'
+                - 'generic "Отменено: 0" [ref=f6e690]'
+                - 'generic "Нарушения SLA: 0" [ref=f6e691]'
+              - generic [ref=f6e692]: 25 сент.
+            - generic [ref=f6e693]:
+              - generic [ref=f6e694]:
+                - 'generic "Создано: 0" [ref=f6e695]'
+                - 'generic "Выполнено: 0" [ref=f6e696]'
+                - 'generic "Отменено: 0" [ref=f6e697]'
+                - 'generic "Нарушения SLA: 0" [ref=f6e698]'
+              - generic [ref=f6e699]: 26 сент.
+            - generic [ref=f6e700]:
+              - generic [ref=f6e701]:
+                - 'generic "Создано: 0" [ref=f6e702]'
+                - 'generic "Выполнено: 0" [ref=f6e703]'
+                - 'generic "Отменено: 0" [ref=f6e704]'
+                - 'generic "Нарушения SLA: 0" [ref=f6e705]'
+              - generic [ref=f6e706]: 27 сент.
+            - generic [ref=f6e707]:
+              - generic [ref=f6e708]:
+                - 'generic "Создано: 0" [ref=f6e709]'
+                - 'generic "Выполнено: 0" [ref=f6e710]'
+                - 'generic "Отменено: 0" [ref=f6e711]'
+                - 'generic "Нарушения SLA: 0" [ref=f6e712]'
+              - generic [ref=f6e713]: 28 сент.
+            - generic [ref=f6e714]:
+              - generic [ref=f6e715]:
+                - 'generic "Создано: 0" [ref=f6e716]'
+                - 'generic "Выполнено: 0" [ref=f6e717]'
+                - 'generic "Отменено: 0" [ref=f6e718]'
+                - 'generic "Нарушения SLA: 0" [ref=f6e719]'
+              - generic [ref=f6e720]: 29 сент.
+            - generic [ref=f6e721]:
+              - generic [ref=f6e722]:
+                - 'generic "Создано: 0" [ref=f6e723]'
+                - 'generic "Выполнено: 0" [ref=f6e724]'
+                - 'generic "Отменено: 0" [ref=f6e725]'
+                - 'generic "Нарушения SLA: 0" [ref=f6e726]'
+              - generic [ref=f6e727]: 30 сент.
+            - generic [ref=f6e728]:
+              - generic [ref=f6e729]:
+                - 'generic "Создано: 0" [ref=f6e730]'
+                - 'generic "Выполнено: 0" [ref=f6e731]'
+                - 'generic "Отменено: 0" [ref=f6e732]'
+                - 'generic "Нарушения SLA: 0" [ref=f6e733]'
+              - generic [ref=f6e734]: 01 окт.
+            - generic [ref=f6e735]:
+              - generic [ref=f6e736]:
+                - 'generic "Создано: 0" [ref=f6e737]'
+                - 'generic "Выполнено: 0" [ref=f6e738]'
+                - 'generic "Отменено: 0" [ref=f6e739]'
+                - 'generic "Нарушения SLA: 0" [ref=f6e740]'
+              - generic [ref=f6e741]: 02 окт.
+            - generic [ref=f6e742]:
+              - generic [ref=f6e743]:
+                - 'generic "Создано: 0" [ref=f6e744]'
+                - 'generic "Выполнено: 0" [ref=f6e745]'
+                - 'generic "Отменено: 0" [ref=f6e746]'
+                - 'generic "Нарушения SLA: 0" [ref=f6e747]'
+              - generic [ref=f6e748]: 03 окт.
+            - generic [ref=f6e749]:
+              - generic [ref=f6e750]:
+                - 'generic "Создано: 0" [ref=f6e751]'
+                - 'generic "Выполнено: 0" [ref=f6e752]'
+                - 'generic "Отменено: 0" [ref=f6e753]'
+                - 'generic "Нарушения SLA: 0" [ref=f6e754]'
+              - generic [ref=f6e755]: 04 окт.
+            - generic [ref=f6e756]:
+              - generic [ref=f6e757]:
+                - 'generic "Создано: 0" [ref=f6e758]'
+                - 'generic "Выполнено: 0" [ref=f6e759]'
+                - 'generic "Отменено: 0" [ref=f6e760]'
+                - 'generic "Нарушения SLA: 0" [ref=f6e761]'
+              - generic [ref=f6e762]: 05 окт.
+            - generic [ref=f6e763]:
+              - generic [ref=f6e764]:
+                - 'generic "Создано: 0" [ref=f6e765]'
+                - 'generic "Выполнено: 0" [ref=f6e766]'
+                - 'generic "Отменено: 0" [ref=f6e767]'
+                - 'generic "Нарушения SLA: 0" [ref=f6e768]'
+              - generic [ref=f6e769]: 06 окт.
+            - generic [ref=f6e770]:
+              - generic [ref=f6e771]:
+                - 'generic "Создано: 0" [ref=f6e772]'
+                - 'generic "Выполнено: 0" [ref=f6e773]'
+                - 'generic "Отменено: 0" [ref=f6e774]'
+                - 'generic "Нарушения SLA: 0" [ref=f6e775]'
+              - generic [ref=f6e776]: 07 окт.
+            - generic [ref=f6e777]:
+              - generic [ref=f6e778]:
+                - 'generic "Создано: 6" [ref=f6e779]'
+                - 'generic "Выполнено: 0" [ref=f6e780]'
+                - 'generic "Отменено: 0" [ref=f6e781]'
+                - 'generic "Нарушения SLA: 0" [ref=f6e782]'
+              - generic [ref=f6e783]: 08 окт.
+        - article [ref=f6e784]:
+          - heading "Обращения по статусам" [level=3] [ref=f6e785]
+          - paragraph [ref=f6e786]: Текущее распределение очереди
+          - generic [ref=f6e787]:
+            - generic [ref=f6e788]:
+              - generic "Новые" [ref=f6e789]
+              - generic [ref=f6e792]: "4"
+            - generic [ref=f6e793]:
+              - generic "Назначены" [ref=f6e794]
+              - generic [ref=f6e797]: "1"
+            - generic [ref=f6e798]:
+              - generic "В работе" [ref=f6e799]
+              - generic [ref=f6e802]: "1"
+        - article [ref=f6e803]:
+          - heading "Обращения по приоритету" [level=3] [ref=f6e804]
+          - paragraph [ref=f6e805]: Структура поступивших обращений
+          - generic [ref=f6e806]:
+            - generic [ref=f6e807]:
+              - generic "Средний" [ref=f6e808]
+              - generic [ref=f6e811]: "1"
+            - generic [ref=f6e812]:
+              - generic "Высокий" [ref=f6e813]
+              - generic [ref=f6e816]: "3"
+            - generic [ref=f6e817]:
+              - generic "Экстренный" [ref=f6e818]
+              - generic [ref=f6e821]: "2"
+        - article [ref=f6e822]:
+          - heading "По департаментам" [level=3] [ref=f6e823]
+          - paragraph [ref=f6e824]: Нагрузка городских служб
+          - paragraph [ref=f6e826]: Нет данных за выбранный период.
+        - article [ref=f6e827]:
+          - heading "По категориям" [level=3] [ref=f6e828]
+          - paragraph [ref=f6e829]: Основные типы городских проблем
+          - paragraph [ref=f6e831]: Нет данных за выбранный период.
+      - generic [ref=f6e832]:
+        - generic [ref=f6e833]:
+          - generic [ref=f6e834]:
+            - text: Операционный контур
+            - heading "Диспетчеризация и ресурсы" [level=3] [ref=f6e835]
+          - generic [ref=f6e836]: 0% неуспешных назначений
+        - generic [ref=f6e837]:
+          - article [ref=f6e838]:
+            - generic [ref=f6e839]: Запросы назначения
+            - generic [ref=f6e840]: "0"
+            - generic [ref=f6e841]: операций Dispatch
+          - article [ref=f6e842]:
+            - generic [ref=f6e843]: Ошибки
+            - generic [ref=f6e844]: "0"
+            - generic [ref=f6e845]: статус FAILED
+          - article [ref=f6e846]:
+            - generic [ref=f6e847]: Истекли
+            - generic [ref=f6e848]: "0"
+            - generic [ref=f6e849]: статус EXPIRED
+          - article [ref=f6e850]:
+            - generic [ref=f6e851]: Отменены
+            - generic [ref=f6e852]: "0"
+            - generic [ref=f6e853]: статус CANCELED
+          - article [ref=f6e854]:
+            - generic [ref=f6e855]: Активные у бригад
+            - generic [ref=f6e856]: "0"
+            - generic [ref=f6e857]: ASSIGNED / IN_PROGRESS
+          - article [ref=f6e858]:
+            - generic [ref=f6e859]: Без назначения
+            - generic [ref=f6e860]: "0"
+            - generic [ref=f6e861]: backlog NEW
+        - generic [ref=f6e862]:
+          - article [ref=f6e863]:
+            - heading "Воронка назначения" [level=3] [ref=f6e864]
+            - paragraph [ref=f6e865]: Конверсия этапа; в подписи показан p95 перехода
+            - paragraph [ref=f6e867]: Нет данных за выбранный период.
+          - article [ref=f6e868]:
+            - heading "Ключевые причины неназначения" [level=3] [ref=f6e869]
+            - paragraph [ref=f6e870]: Доля от всех запросов Dispatch
+            - paragraph [ref=f6e872]: Нет данных за выбранный период.
+          - article [ref=f6e873]:
+            - heading "Top причин по департаментам" [level=3] [ref=f6e874]
+            - paragraph [ref=f6e875]: Доля департамента внутри каждой причины
+            - paragraph [ref=f6e877]: Нет данных за выбранный период.
+          - article [ref=f6e878]:
+            - heading "Top причин по категориям" [level=3] [ref=f6e879]
+            - paragraph [ref=f6e880]: Доля категории внутри каждой причины
+            - paragraph [ref=f6e882]: Нет данных за выбранный период.
+          - article [ref=f6e883]:
+            - heading "Причины ошибок Dispatch" [level=3] [ref=f6e884]
+            - paragraph [ref=f6e885]: Неуспешные операции по коду
+            - paragraph [ref=f6e887]: Нет данных за выбранный период.
+          - article [ref=f6e888]:
+            - heading "Стадии отказа" [level=3] [ref=f6e889]
+            - paragraph [ref=f6e890]: Этап, на котором остановилось назначение
+            - paragraph [ref=f6e892]: Нет данных за выбранный период.
+          - article [ref=f6e893]:
+            - heading "Нагрузка бригад" [level=3] [ref=f6e894]
+            - paragraph [ref=f6e895]: Текущие активные заявки
+            - paragraph [ref=f6e897]: Нет данных за выбранный период.
+          - article [ref=f6e898]:
+            - heading "Доступные работники" [level=3] [ref=f6e899]
+            - paragraph [ref=f6e900]: 0 из 0 активных участников
+            - paragraph [ref=f6e902]: Нет данных за выбранный период.
+      - generic [ref=f6e903]:
+        - generic [ref=f6e904]:
+          - generic [ref=f6e905]:
+            - text: Контроль сроков
+            - heading "Состояние SLA" [level=3] [ref=f6e906]
+          - generic [ref=f6e907]: 0% нарушений
+        - generic [ref=f6e908]:
+          - article [ref=f6e909]:
+            - generic [ref=f6e910]: Предупреждения реакции
+            - generic [ref=f6e911]: "0"
+            - generic [ref=f6e912]: срок реакции приближается
+          - article [ref=f6e913]:
+            - generic [ref=f6e914]: Нарушения реакции
+            - generic [ref=f6e915]: "0"
+            - generic [ref=f6e916]: реакция просрочена
+          - article [ref=f6e917]:
+            - generic [ref=f6e918]: Предупреждения выполнения
+            - generic [ref=f6e919]: "0"
+            - generic [ref=f6e920]: срок выполнения приближается
+          - article [ref=f6e921]:
+            - generic [ref=f6e922]: Нарушения выполнения
+            - generic [ref=f6e923]: "0"
+            - generic [ref=f6e924]: выполнение просрочено
+          - article [ref=f6e925]:
+            - generic [ref=f6e926]: Завершено под SLA
+            - generic [ref=f6e927]: "0"
+            - generic [ref=f6e928]: контролей закрыто
+          - article [ref=f6e929]:
+            - generic [ref=f6e930]: Доля нарушений
+            - generic [ref=f6e931]: 0%
+            - generic [ref=f6e932]: по событиям SLA Service
+      - generic [ref=f6e933]:
+        - generic [ref=f6e934]:
+          - generic [ref=f6e935]:
+            - text: Городские объекты
+            - heading "Аналитика инфраструктуры" [level=3] [ref=f6e936]
+          - generic [ref=f6e937]: События Asset Service
+        - generic [ref=f6e938]:
+          - article [ref=f6e939]:
+            - generic [ref=f6e940]: Создано паспортов
+            - generic [ref=f6e941]: "0"
+            - generic [ref=f6e942]: новых объектов
+          - article [ref=f6e943]:
+            - generic [ref=f6e944]: Инциденты
+            - generic [ref=f6e945]: "0"
+            - generic [ref=f6e946]: зарегистрировано
+          - article [ref=f6e947]:
+            - generic [ref=f6e948]: Повторные инциденты
+            - generic [ref=f6e949]: "0"
+            - generic [ref=f6e950]: требуют анализа причин
+          - article [ref=f6e951]:
+            - generic [ref=f6e952]: Ремонты
+            - generic [ref=f6e953]: "0"
+            - generic [ref=f6e954]: выполнено работ
+          - article [ref=f6e955]:
+            - generic [ref=f6e956]: Осмотры
+            - generic [ref=f6e957]: "0"
+            - generic [ref=f6e958]: проведено проверок
+          - article [ref=f6e959]:
+            - generic [ref=f6e960]: Критический риск
+            - generic [ref=f6e961]: "0"
+            - generic [ref=f6e962]: опасных обновлений риска

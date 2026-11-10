@@ -17,6 +17,7 @@ type ScheduleServiceStruct struct {
 	log  *zap.Logger
 }
 
+// NewScheduleServiceStruct создаёт сервис расписаний с хранилищем и обязательным журналом log.
 func NewScheduleServiceStruct(repo *repository.Repo, log *zap.Logger) *ScheduleServiceStruct {
 	return &ScheduleServiceStruct{
 		repo: repo,
@@ -24,6 +25,8 @@ func NewScheduleServiceStruct(repo *repository.Repo, log *zap.Logger) *ScheduleS
 	}
 }
 
+// SetBrigadeSchedule проверяет элементы и заменяет расписание неархивной бригады
+// для администратора или диспетчера её ведомства. Ошибки входа оборачивает в ErrValidation.
 func (s *ScheduleServiceStruct) SetBrigadeSchedule(ctx context.Context, in *models.SetBrigadeScheduleInput) (*models.SetBrigadeScheduleResult, error) {
 	log := s.log.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -39,6 +42,7 @@ func (s *ScheduleServiceStruct) SetBrigadeSchedule(ctx context.Context, in *mode
 	}
 
 	brigade, err := s.getBrigadeForScheduleOperation(ctx, log, start, in.BrigadeID, in.ActorUserID, in.ActorDepartmentID, in.ActorRoles, "SetBrigadeSchedule")
+
 	if err != nil {
 		return nil, err
 	}
@@ -48,6 +52,7 @@ func (s *ScheduleServiceStruct) SetBrigadeSchedule(ctx context.Context, in *mode
 	}
 
 	result, err := s.repo.SetBrigadeSchedule(ctx, in)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: SetBrigadeSchedule: %w", err)
 	}
@@ -60,6 +65,8 @@ func (s *ScheduleServiceStruct) SetBrigadeSchedule(ctx context.Context, in *mode
 	return result, nil
 }
 
+// ListBrigadeSchedule возвращает расписание неархивной бригады администратору,
+// диспетчеру её ведомства или активному участнику этой бригады.
 func (s *ScheduleServiceStruct) ListBrigadeSchedule(ctx context.Context, in *models.ListBrigadeScheduleInput) (*models.ListBrigadeScheduleResult, error) {
 	log := s.log.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -75,23 +82,28 @@ func (s *ScheduleServiceStruct) ListBrigadeSchedule(ctx context.Context, in *mod
 	}
 
 	brigade, err := s.getBrigadeForScheduleOperation(ctx, log, start, in.BrigadeID, in.ActorUserID, in.ActorDepartmentID, in.ActorRoles, "ListBrigadeSchedule")
+
 	if err != nil {
 		return nil, err
 	}
 
 	if err = checkPermissionAndDepartmentForAdminAndDispatcher(log, start, in.ActorRoles, in.ActorDepartmentID, brigade.DepartmentID); err != nil {
-		// A worker may read the schedule of the brigade they actively belong to.
-		// Schedule modification remains restricted to an admin or dispatcher.
+		// Активный участник может читать расписание своей бригады.
+		// Изменять его вправе только администратор или диспетчер.
 		if in.ActorUserID == nil {
 			return nil, err
 		}
+
 		own, ownErr := s.repo.GetBrigadeByUserID(ctx, &models.GetBrigadeByUserIDInput{UserID: *in.ActorUserID, OnlyActive: true})
+
 		if ownErr != nil || own == nil || own.Brigade == nil || own.Brigade.ID != brigade.ID {
 			return nil, err
 		}
+
 	}
 
 	result, err := s.repo.ListBrigadeSchedule(ctx, in)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: ListBrigadeSchedule: %w", err)
 	}
@@ -104,6 +116,8 @@ func (s *ScheduleServiceStruct) ListBrigadeSchedule(ctx context.Context, in *mod
 	return result, nil
 }
 
+// getBrigadeForScheduleOperation читает бригаду и отклоняет ARCHIVED с ErrPermissionDenied.
+// Ошибку чтения дополняет именем operation; права на конкретное действие проверяются снаружи.
 func (s *ScheduleServiceStruct) getBrigadeForScheduleOperation(
 	ctx context.Context,
 	log *zap.Logger,
@@ -120,6 +134,7 @@ func (s *ScheduleServiceStruct) getBrigadeForScheduleOperation(
 		ActorDepartmentID: actorDepartmentID,
 		ActorRoles:        actorRoles,
 	})
+
 	if err != nil {
 		return nil, fmt.Errorf("service: %s: get brigade: %w", operation, err)
 	}

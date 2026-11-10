@@ -3,10 +3,11 @@ module gateway
 go 1.25.9
 
 require (
-	github.com/FIZZI-77/automatic-system-contracts v0.0.0-20260831131140-88cf08aabb04
+	github.com/FIZZI-77/automatic-system-contracts v0.0.0-20261026063334-79b52236033f
 	github.com/alicebob/miniredis/v2 v2.37.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
+	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/prometheus/client_golang v1.24.1
 	github.com/redis/go-redis/extra/redisotel/v9 v9.22.0
@@ -47,7 +48,6 @@ require (
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/goccy/go-yaml v1.19.2 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.29.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect

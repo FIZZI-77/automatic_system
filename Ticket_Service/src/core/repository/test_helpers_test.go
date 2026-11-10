@@ -36,7 +36,9 @@ func setupTestDB(t *testing.T) (*pgxpool.Pool, func()) {
 				WithStartupTimeout(60*time.Second),
 		),
 	)
+
 	if err != nil {
+
 		if isDockerProviderUnavailable(err) {
 			t.Skipf("skipping repository integration tests: %v", err)
 		}
@@ -49,12 +51,14 @@ func setupTestDB(t *testing.T) (*pgxpool.Pool, func()) {
 	}
 
 	connStr, err := container.ConnectionString(ctx, "sslmode=disable")
+
 	if err != nil {
 		cleanup()
 		t.Fatalf("failed to get connection string: %v", err)
 	}
 
 	db, err := sql.Open("pgx", connStr)
+
 	if err != nil {
 		cleanup()
 		t.Fatalf("failed to open db: %v", err)
@@ -69,10 +73,12 @@ func setupTestDB(t *testing.T) (*pgxpool.Pool, func()) {
 	runMigrations(t, db)
 
 	pool, err := pgxpool.New(ctx, connStr)
+
 	if err != nil {
 		cleanup()
 		t.Fatalf("failed to create pgx pool: %v", err)
 	}
+
 	if err = pool.Ping(ctx); err != nil {
 		pool.Close()
 		cleanup()
@@ -100,6 +106,7 @@ func runMigrations(t *testing.T, db *sql.DB) {
 	if err := goose.Up(db, migrationsDir); err != nil {
 		t.Fatalf("failed to apply goose migrations from %s: %v", migrationsDir, err)
 	}
+
 }
 
 func waitForDB(t *testing.T, ctx context.Context, db *sql.DB) {
@@ -109,6 +116,7 @@ func waitForDB(t *testing.T, ctx context.Context, db *sql.DB) {
 
 	for i := 0; i < 30; i++ {
 		err = db.PingContext(ctx)
+
 		if err == nil {
 			return
 		}
@@ -135,6 +143,7 @@ func createTestCategory(t *testing.T, repo *Repository) *models.TicketCategory {
 		Name:        "Test Category",
 		Description: stringPtr("Test category description"),
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create test category: %v", err)
 	}
@@ -156,6 +165,7 @@ func createTestTicket(t *testing.T, repo *Repository, categoryID uuid.UUID) *mod
 		Latitude:     55.751244,
 		Longitude:    37.618423,
 	})
+
 	if err != nil {
 		t.Fatalf("failed to create test ticket: %v", err)
 	}

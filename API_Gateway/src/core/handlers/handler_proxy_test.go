@@ -27,6 +27,7 @@ func TestConfigureTrustedProxiesRejectsSpoofedForwardedAddress(t *testing.T) {
 	if response.Body.String() != "198.51.100.25" {
 		t.Fatalf("client IP = %q, want rightmost untrusted proxy address", response.Body.String())
 	}
+
 }
 
 func TestConfigureTrustedProxiesIgnoresHeadersFromUntrustedPeer(t *testing.T) {
@@ -48,4 +49,5 @@ func TestConfigureTrustedProxiesIgnoresHeadersFromUntrustedPeer(t *testing.T) {
 	if response.Body.String() != "192.0.2.44" {
 		t.Fatalf("client IP = %q, want direct peer address", response.Body.String())
 	}
+
 }

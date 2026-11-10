@@ -53,6 +53,23 @@ Replicas provide availability; they are not backups. pgBackRest archives WAL and
 stores differential backups in the versioned MinIO bucket `postgres-backups`.
 Initialization Jobs create and verify every stanza before scheduled backups begin.
 
+An isolated PostgreSQL 16 restore drill is available without an existing cluster:
+
+```powershell
+./scripts/test-postgres-recovery.ps1
+```
+
+The drill creates a base backup, archives WAL, stops the source, and restores to a
+named recovery point in separate Docker volumes. It checks that the transaction
+before the target exists and the transaction after it does not. It enforces a
+120-second restore budget and a 30-second observed WAL archive lag budget by
+default; both are parameters. Measurements are saved under ignored
+`output/recovery/` and the CI job uploads them as artifacts.
+
+This measures a small isolated PostgreSQL fixture. It does not establish production
+RPO/RTO or validate pgBackRest/MinIO credentials, Patroni failover, or coordinated
+Citus shard recovery. The production pgBackRest/PITR drill below remains required.
+
 Before production rollout:
 
 1. Replace every `change-me-*` value in `runtime.env` and create `runtime-secrets`.

@@ -51,28 +51,36 @@ func departmentHandlerContext(roles string) context.Context {
 
 func assertDepartmentGRPCCode(t *testing.T, err error, expected codes.Code) {
 	t.Helper()
+
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
+
 	st, ok := status.FromError(err)
+
 	if !ok {
 		t.Fatalf("expected grpc status error, got %v", err)
 	}
+
 	if st.Code() != expected {
 		t.Fatalf("expected grpc code %v, got %v", expected, st.Code())
 	}
+
 }
 
 func TestDepartmentHandler_CreateDepartment_Success(t *testing.T) {
 	departmentID := uuid.New()
 	mock := &mockDepartmentService{
 		createDepartmentFunc: func(ctx context.Context, in *models.CreateDepartmentInput) (*models.CreateDepartmentResult, error) {
+
 			if in.Name != "Roads" {
 				t.Fatalf("expected name Roads, got %s", in.Name)
 			}
+
 			if len(in.ActorRoles) != 2 || in.ActorRoles[0] != "admin" || in.ActorRoles[1] != "dispatcher" {
 				t.Fatalf("unexpected actor roles: %#v", in.ActorRoles)
 			}
+
 			return &models.CreateDepartmentResult{Department: testDepartment(departmentID)}, nil
 		},
 	}
@@ -86,9 +94,11 @@ func TestDepartmentHandler_CreateDepartment_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
+
 	if resp.GetDepartment().GetId() != departmentID.String() {
 		t.Fatalf("expected department id %s, got %s", departmentID, resp.GetDepartment().GetId())
 	}
+
 }
 
 func TestDepartmentHandler_CreateDepartment_ValidationError(t *testing.T) {
@@ -104,6 +114,7 @@ func TestDepartmentHandler_CreateDepartment_ValidationError(t *testing.T) {
 	if resp != nil {
 		t.Fatal("expected nil response")
 	}
+
 	assertDepartmentGRPCCode(t, err, codes.InvalidArgument)
 }
 
@@ -111,9 +122,11 @@ func TestDepartmentHandler_GetDepartmentByID_Success(t *testing.T) {
 	departmentID := uuid.New()
 	mock := &mockDepartmentService{
 		getDepartmentByIDFunc: func(ctx context.Context, in *models.GetDepartmentByIDInput) (*models.GetDepartmentByIDResult, error) {
+
 			if in.ID != departmentID {
 				t.Fatalf("expected id %s, got %s", departmentID, in.ID)
 			}
+
 			return &models.GetDepartmentByIDResult{Department: testDepartment(departmentID)}, nil
 		},
 	}
@@ -124,9 +137,11 @@ func TestDepartmentHandler_GetDepartmentByID_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
+
 	if resp.GetDepartment().GetName() != "Roads" {
 		t.Fatalf("expected Roads, got %s", resp.GetDepartment().GetName())
 	}
+
 }
 
 func TestDepartmentHandler_GetDepartmentByID_InvalidID(t *testing.T) {
@@ -137,6 +152,7 @@ func TestDepartmentHandler_GetDepartmentByID_InvalidID(t *testing.T) {
 	if resp != nil {
 		t.Fatal("expected nil response")
 	}
+
 	assertDepartmentGRPCCode(t, err, codes.InvalidArgument)
 }
 
@@ -147,15 +163,19 @@ func TestDepartmentHandler_ListDepartments_Success(t *testing.T) {
 	sortOrder := departmentv1.SortOrder_SORT_ORDER_ASC
 	mock := &mockDepartmentService{
 		listDepartmentsFunc: func(ctx context.Context, in *models.ListDepartmentsInput) (*models.ListDepartmentsResult, error) {
+
 			if in.Status == nil || *in.Status != models.DepartmentStatusActive {
 				t.Fatalf("expected active status, got %v", in.Status)
 			}
+
 			if in.SortBy != models.DepartmentSortByName {
 				t.Fatalf("expected sort by name, got %s", in.SortBy)
 			}
+
 			if in.SortOrder != models.SortOrderAsc {
 				t.Fatalf("expected sort asc, got %s", in.SortOrder)
 			}
+
 			return &models.ListDepartmentsResult{Departments: []*models.Department{testDepartment(departmentID)}, Total: 1}, nil
 		},
 	}
@@ -172,9 +192,11 @@ func TestDepartmentHandler_ListDepartments_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
+
 	if resp.GetTotal() != 1 || len(resp.GetDepartments()) != 1 {
 		t.Fatalf("expected one department, got total=%d len=%d", resp.GetTotal(), len(resp.GetDepartments()))
 	}
+
 }
 
 func TestDepartmentHandler_UpdateDepartment_Success(t *testing.T) {
@@ -183,15 +205,19 @@ func TestDepartmentHandler_UpdateDepartment_Success(t *testing.T) {
 	statusValue := departmentv1.DepartmentStatus_DEPARTMENT_STATUS_INACTIVE
 	mock := &mockDepartmentService{
 		updateDepartmentFunc: func(ctx context.Context, in *models.UpdateDepartmentInput) (*models.UpdateDepartmentResult, error) {
+
 			if in.ID != departmentID {
 				t.Fatalf("expected id %s, got %s", departmentID, in.ID)
 			}
+
 			if in.Name == nil || *in.Name != name {
 				t.Fatalf("expected name %s, got %v", name, in.Name)
 			}
+
 			if in.Status == nil || *in.Status != models.DepartmentStatusInactive {
 				t.Fatalf("expected inactive status, got %v", in.Status)
 			}
+
 			department := testDepartment(departmentID)
 			department.Name = name
 			department.Status = models.DepartmentStatusInactive
@@ -209,9 +235,11 @@ func TestDepartmentHandler_UpdateDepartment_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
+
 	if resp.GetDepartment().GetStatus() != departmentv1.DepartmentStatus_DEPARTMENT_STATUS_INACTIVE {
 		t.Fatalf("expected inactive status, got %s", resp.GetDepartment().GetStatus())
 	}
+
 }
 
 func TestDepartmentHandler_DeleteDepartment_MapsNotFound(t *testing.T) {
@@ -228,6 +256,7 @@ func TestDepartmentHandler_DeleteDepartment_MapsNotFound(t *testing.T) {
 	if resp != nil {
 		t.Fatal("expected nil response")
 	}
+
 	assertDepartmentGRPCCode(t, err, codes.NotFound)
 }
 
@@ -247,9 +276,11 @@ func TestDepartmentErrorCode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+
 			if got := departmentErrorCode(tt.err); got != tt.code {
 				t.Fatalf("expected %v, got %v", tt.code, got)
 			}
+
 		})
 	}
 }

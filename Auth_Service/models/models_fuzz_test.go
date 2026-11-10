@@ -33,6 +33,7 @@ func FuzzRegisterInputValidate(f *testing.F) {
 		if username == "" && err == nil {
 			t.Fatal("empty username should be invalid")
 		}
+
 	})
 }
 
@@ -64,6 +65,7 @@ func FuzzLoginInputValidate(f *testing.F) {
 		if clientID == "" && err == nil {
 			t.Fatal("empty client_id should be invalid")
 		}
+
 	})
 }
 
@@ -90,6 +92,7 @@ func FuzzRefreshInputValidate(f *testing.F) {
 		if clientID == "" && err == nil {
 			t.Fatal("empty client_id should be invalid")
 		}
+
 	})
 }
 
@@ -110,6 +113,7 @@ func FuzzVerifyEmailInputValidate(f *testing.F) {
 		if token == "" && err == nil {
 			t.Fatal("empty token should be invalid")
 		}
+
 	})
 }
 
@@ -130,6 +134,7 @@ func FuzzRequestPasswordResetInputValidate(f *testing.F) {
 		if email == "" && err == nil {
 			t.Fatal("empty email should be invalid")
 		}
+
 	})
 }
 
@@ -155,6 +160,7 @@ func FuzzResetPasswordInputValidate(f *testing.F) {
 		if newPassword == "" && err == nil {
 			t.Fatal("empty new password should be invalid")
 		}
+
 	})
 }
 
@@ -185,6 +191,7 @@ func FuzzLogoutInputValidate(f *testing.F) {
 		if sessionID == uuid.Nil && err == nil {
 			t.Fatal("empty session_id should be invalid")
 		}
+
 	})
 }
 
@@ -208,6 +215,7 @@ func FuzzLogoutAllInputValidate(f *testing.F) {
 		if userID == uuid.Nil && err == nil {
 			t.Fatal("empty user_id should be invalid")
 		}
+
 	})
 }
 
@@ -249,6 +257,7 @@ func FuzzChangePasswordInputValidate(f *testing.F) {
 		if newPassword == "" && err == nil {
 			t.Fatal("empty new password should be invalid")
 		}
+
 	})
 }
 
@@ -277,5 +286,6 @@ func FuzzSendVerificationEmailInputValidate(f *testing.F) {
 		if email == "" && err == nil {
 			t.Fatal("empty email should be invalid")
 		}
+
 	})
 }

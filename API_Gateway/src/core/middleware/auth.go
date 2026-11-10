@@ -26,11 +26,13 @@ type AuthMiddleware struct {
 
 func NewAuthMiddleware(publicKeyPath string, issuer string, audience string) (*AuthMiddleware, error) {
 	publicKeyPEM, err := os.ReadFile(publicKeyPath)
+
 	if err != nil {
 		return nil, err
 	}
 
 	publicKey, err := jwt.ParseRSAPublicKeyFromPEM(publicKeyPEM)
+
 	if err != nil {
 		return nil, err
 	}
@@ -45,6 +47,7 @@ func NewAuthMiddleware(publicKeyPath string, issuer string, audience string) (*A
 func (m *AuthMiddleware) Handle() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		rawToken, err := extractBearerToken(c.GetHeader("Authorization"))
+
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"error": "missing or invalid authorization header",
@@ -58,6 +61,7 @@ func (m *AuthMiddleware) Handle() gin.HandlerFunc {
 			rawToken,
 			claims,
 			func(token *jwt.Token) (interface{}, error) {
+
 				if token.Method.Alg() != jwt.SigningMethodRS256.Alg() {
 					return nil, errors.New("unexpected signing method")
 				}
@@ -99,21 +103,27 @@ func (m *AuthMiddleware) Handle() gin.HandlerFunc {
 
 func (m *AuthMiddleware) HandleWebSocket() gin.HandlerFunc {
 	return func(c *gin.Context) {
+
 		if c.GetHeader("Authorization") == "" {
+
 			if token := strings.TrimSpace(c.Query("access_token")); token != "" {
 				c.Request.Header.Set("Authorization", "Bearer "+token)
 			}
+
 		}
+
 		m.Handle()(c)
 	}
 }
 
 func extractBearerToken(header string) (string, error) {
+
 	if header == "" {
 		return "", errors.New("empty authorization header")
 	}
 
 	parts := strings.SplitN(header, " ", 2)
+
 	if len(parts) != 2 {
 		return "", errors.New("invalid authorization header")
 	}
@@ -123,6 +133,7 @@ func extractBearerToken(header string) (string, error) {
 	}
 
 	token := strings.TrimSpace(parts[1])
+
 	if token == "" {
 		return "", errors.New("empty token")
 	}

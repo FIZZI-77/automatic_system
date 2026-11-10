@@ -19,7 +19,10 @@ type CategoryRepoStruct struct {
 	readPool  *pgxpool.Pool
 }
 
+// NewCategoryRepository создаёт хранилище категорий с раздельными пулами чтения и записи.
+// При nil readPool использует writePool для обоих видов запросов.
 func NewCategoryRepository(writePool *pgxpool.Pool, readPool *pgxpool.Pool) *CategoryRepoStruct {
+
 	if readPool == nil {
 		readPool = writePool
 	}
@@ -41,17 +44,23 @@ type categoryEventPayload struct {
 	UpdatedAt  time.Time `json:"updated_at"`
 }
 
+// CreateCategory транзакционно создаёт активную категорию и событие ticket_category.created.
+// При общей транзакции из ctx оставляет её окончательную фиксацию вызывающему.
 func (c *CategoryRepoStruct) CreateCategory(ctx context.Context, in *models.CreateCategoryInput) (*models.TicketCategory, error) {
 	tx, err := beginCommandTx(ctx, c.writePool)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: CreateCategory(): begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	category, err := c.createCategory(ctx, tx, in)
+
 	if err != nil {
 		return nil, err
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repository: CreateCategory(): commit: %w", err)
 	}
@@ -59,6 +68,8 @@ func (c *CategoryRepoStruct) CreateCategory(ctx context.Context, in *models.Crea
 	return category, nil
 }
 
+// createCategory вставляет категорию с новым UUID и событие outbox через q.
+// Нарушение уникальности преобразует в ErrAlreadyExists; транзакцией управляет вызывающий.
 func (c *CategoryRepoStruct) createCategory(ctx context.Context, q Querier, in *models.CreateCategoryInput) (*models.TicketCategory, error) {
 	categoryID := uuid.NewString()
 
@@ -93,7 +104,9 @@ func (c *CategoryRepoStruct) createCategory(ctx context.Context, q Querier, in *
 	)
 
 	category, err := scanCategory(row)
+
 	if err != nil {
+
 		if isUniqueViolation(err) {
 			return nil, fmt.Errorf("repository: CreateCategory(): %w", models.ErrAlreadyExists)
 		}
@@ -108,6 +121,8 @@ func (c *CategoryRepoStruct) createCategory(ctx context.Context, q Querier, in *
 	return category, nil
 }
 
+// GetCategoryByID читает категорию по UUID, включая деактивированные записи.
+// При отсутствии записи возвращает обёрнутую ErrNotFound.
 func (c *CategoryRepoStruct) GetCategoryByID(ctx context.Context, categoryID uuid.UUID) (*models.TicketCategory, error) {
 	const query = `
 		SELECT
@@ -125,6 +140,7 @@ func (c *CategoryRepoStruct) GetCategoryByID(ctx context.Context, categoryID uui
 	row := c.readPool.QueryRow(ctx, query, categoryID)
 
 	category, err := scanCategory(row)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: GetCategoryByID(): %w", err)
 	}
@@ -132,6 +148,8 @@ func (c *CategoryRepoStruct) GetCategoryByID(ctx context.Context, categoryID uui
 	return category, nil
 }
 
+// ListCategories возвращает страницу категорий по имени в алфавитном порядке и общее число.
+// При OnlyActive выбирает только активные записи; Limit и Offset принимает без нормализации.
 func (c *CategoryRepoStruct) ListCategories(ctx context.Context, in *models.ListCategoriesInput) ([]*models.TicketCategory, int64, error) {
 	whereSQL := ""
 	args := make([]any, 0)
@@ -148,6 +166,7 @@ func (c *CategoryRepoStruct) ListCategories(ctx context.Context, in *models.List
 	`, whereSQL)
 
 	var total int64
+
 	if err := c.readPool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("repository: ListCategories(): count: %w", err)
 	}
@@ -172,15 +191,18 @@ func (c *CategoryRepoStruct) ListCategories(ctx context.Context, in *models.List
 	`, whereSQL, limitArg, offsetArg)
 
 	rows, err := c.readPool.Query(ctx, listQuery, args...)
+
 	if err != nil {
 		return nil, 0, fmt.Errorf("repository: ListCategories(): query: %w", err)
 	}
+
 	defer rows.Close()
 
 	categories := make([]*models.TicketCategory, 0)
 
 	for rows.Next() {
 		category, err := scanCategory(rows)
+
 		if err != nil {
 			return nil, 0, fmt.Errorf("repository: ListCategories(): scan: %w", err)
 		}
@@ -195,17 +217,23 @@ func (c *CategoryRepoStruct) ListCategories(ctx context.Context, in *models.List
 	return categories, total, nil
 }
 
+// UpdateCategory транзакционно изменяет категорию и записывает ticket_category.updated в outbox.
+// Возвращает обновлённую запись либо ошибку изменения или фиксации.
 func (c *CategoryRepoStruct) UpdateCategory(ctx context.Context, in *models.UpdateCategoryInput) (*models.TicketCategory, error) {
 	tx, err := beginCommandTx(ctx, c.writePool)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: UpdateCategory(): begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	category, err := c.updateCategory(ctx, tx, in)
+
 	if err != nil {
 		return nil, err
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repository: UpdateCategory(): commit: %w", err)
 	}
@@ -213,6 +241,8 @@ func (c *CategoryRepoStruct) UpdateCategory(ctx context.Context, in *models.Upda
 	return category, nil
 }
 
+// updateCategory меняет заданные имя, описание и активность через q и сохраняет событие outbox.
+// nil и пустые текстовые значения сохраняют прежние поля; код категории не изменяется.
 func (c *CategoryRepoStruct) updateCategory(ctx context.Context, q Querier, in *models.UpdateCategoryInput) (*models.TicketCategory, error) {
 	const query = `
 		UPDATE ticket_categories
@@ -242,7 +272,9 @@ func (c *CategoryRepoStruct) updateCategory(ctx context.Context, q Querier, in *
 	)
 
 	category, err := scanCategory(row)
+
 	if err != nil {
+
 		if isUniqueViolation(err) {
 			return nil, fmt.Errorf("repository: UpdateCategory(): %w", models.ErrAlreadyExists)
 		}
@@ -257,17 +289,23 @@ func (c *CategoryRepoStruct) updateCategory(ctx context.Context, q Querier, in *
 	return category, nil
 }
 
+// DeleteCategory транзакционно деактивирует категорию, сохраняя запись и связанные данные.
+// Возвращает категорию с IsActive=false и добавляет событие деактивации в outbox.
 func (c *CategoryRepoStruct) DeleteCategory(ctx context.Context, in *models.DeleteCategoryInput) (*models.TicketCategory, error) {
 	tx, err := beginCommandTx(ctx, c.writePool)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: DeleteCategory(): begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	category, err := c.deleteCategory(ctx, tx, in)
+
 	if err != nil {
 		return nil, err
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repository: DeleteCategory(): commit: %w", err)
 	}
@@ -275,6 +313,8 @@ func (c *CategoryRepoStruct) DeleteCategory(ctx context.Context, in *models.Dele
 	return category, nil
 }
 
+// deleteCategory устанавливает is_active=false и сохраняет событие через переданный q.
+// Отсутствие категории возвращает как ErrNotFound; повторную деактивацию допускает.
 func (c *CategoryRepoStruct) deleteCategory(ctx context.Context, q Querier, in *models.DeleteCategoryInput) (*models.TicketCategory, error) {
 	const query = `
 		UPDATE ticket_categories
@@ -295,6 +335,7 @@ func (c *CategoryRepoStruct) deleteCategory(ctx context.Context, q Querier, in *
 	row := q.QueryRow(ctx, query, in.CategoryID)
 
 	category, err := scanCategory(row)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: DeleteCategory(): deactivate category: %w", err)
 	}
@@ -306,6 +347,7 @@ func (c *CategoryRepoStruct) deleteCategory(ctx context.Context, q Querier, in *
 	return category, nil
 }
 
+// scanCategory считывает категорию из строки SQL и преобразует pgx.ErrNoRows в ErrNotFound.
 func scanCategory(s scanner) (*models.TicketCategory, error) {
 	var category models.TicketCategory
 
@@ -318,7 +360,9 @@ func scanCategory(s scanner) (*models.TicketCategory, error) {
 		&category.CreatedAt,
 		&category.UpdatedAt,
 	)
+
 	if err != nil {
+
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
 		}
@@ -329,11 +373,14 @@ func scanCategory(s scanner) (*models.TicketCategory, error) {
 	return &category, nil
 }
 
+// isUniqueViolation распознаёт PostgreSQL-ошибку нарушения уникальности с кодом 23505.
 func isUniqueViolation(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
 
+// insertCategoryOutboxEvent сохраняет JSON-снимок категории с новым UUID события в outbox.
+// Устанавливает статус PENDING; используется в той же транзакции, что изменение категории.
 func (c *CategoryRepoStruct) insertCategoryOutboxEvent(ctx context.Context,
 	exec Querier,
 	eventType string,
@@ -353,6 +400,7 @@ func (c *CategoryRepoStruct) insertCategoryOutboxEvent(ctx context.Context,
 	}
 
 	payloadBytes, err := json.Marshal(payload)
+
 	if err != nil {
 		return err
 	}

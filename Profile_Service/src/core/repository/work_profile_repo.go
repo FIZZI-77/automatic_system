@@ -20,18 +20,26 @@ type WorkProfileRepoStruct struct {
 
 var _ WorkProfileRepository = (*WorkProfileRepoStruct)(nil)
 
+// NewWorkProfileRepository создаёт хранилище рабочих профилей; при nil readPool читает через writePool.
 func NewWorkProfileRepository(writePool *pgxpool.Pool, readPool *pgxpool.Pool) *WorkProfileRepoStruct {
+
 	if readPool == nil {
 		readPool = writePool
 	}
+
 	return &WorkProfileRepoStruct{writePool: writePool, readPool: readPool}
 }
 
+// CreateWorkProfile сохраняет профиль ACTIVE, начальную историю и outbox в одной
+// транзакции, обрезая пробелы должности и табельного номера. Возвращает профиль
+// с данными пользователя; транзакцию команды из ctx заимствует.
 func (w *WorkProfileRepoStruct) CreateWorkProfile(ctx context.Context, in *models.CreateWorkProfileInput) (*models.CreateWorkProfileResult, error) {
 	tx, err := beginCommandTx(ctx, w.writePool)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: CreateWorkProfile(): begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	const query = `
@@ -56,6 +64,7 @@ func (w *WorkProfileRepoStruct) CreateWorkProfile(ctx context.Context, in *model
 		strings.TrimSpace(in.Position),
 		models.WorkProfileStatusActive,
 	).Scan(&workProfileID)
+
 	if err != nil {
 		return nil, mapDatabaseError("CreateWorkProfile()", err)
 	}
@@ -73,6 +82,7 @@ func (w *WorkProfileRepoStruct) CreateWorkProfile(ctx context.Context, in *model
 	}
 
 	details, err := getWorkProfileDetailsByID(ctx, tx, workProfileID, false)
+
 	if err != nil {
 		return nil, mapDatabaseError("CreateWorkProfile(): get details", err)
 	}
@@ -88,11 +98,16 @@ func (w *WorkProfileRepoStruct) CreateWorkProfile(ctx context.Context, in *model
 	return &models.CreateWorkProfileResult{Details: details}, nil
 }
 
+// UpdateWorkProfile транзакционно меняет заданные должность и табельный номер,
+// обрезая пробелы, и записывает outbox. ClearEmployeeNumber очищает номер;
+// возвращает профиль с пользователем, транзакцию команды из ctx заимствует.
 func (w *WorkProfileRepoStruct) UpdateWorkProfile(ctx context.Context, in *models.UpdateWorkProfileInput) (*models.UpdateWorkProfileResult, error) {
 	tx, err := beginCommandTx(ctx, w.writePool)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: UpdateWorkProfile(): begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	const query = `
@@ -114,11 +129,13 @@ func (w *WorkProfileRepoStruct) UpdateWorkProfile(ctx context.Context, in *model
 		trimOptionalString(in.Position),
 		in.ID,
 	).Scan(&workProfileID)
+
 	if err != nil {
 		return nil, mapDatabaseError("UpdateWorkProfile()", err)
 	}
 
 	details, err := getWorkProfileDetailsByID(ctx, tx, workProfileID, false)
+
 	if err != nil {
 		return nil, mapDatabaseError("UpdateWorkProfile(): get details", err)
 	}
@@ -134,14 +151,20 @@ func (w *WorkProfileRepoStruct) UpdateWorkProfile(ctx context.Context, in *model
 	return &models.UpdateWorkProfileResult{Details: details}, nil
 }
 
+// GetWorkProfileByID читает рабочий профиль вместе с пользовательским по ID.
+// Отсутствие возвращает как ErrNotFound.
 func (w *WorkProfileRepoStruct) GetWorkProfileByID(ctx context.Context, in *models.GetWorkProfileByIDInput) (*models.GetWorkProfileByIDResult, error) {
 	details, err := getWorkProfileDetailsByID(ctx, w.readPool, in.ID, false)
+
 	if err != nil {
 		return nil, mapDatabaseError("GetWorkProfileByID()", err)
 	}
+
 	return &models.GetWorkProfileByIDResult{Details: details}, nil
 }
 
+// GetWorkProfileByUserID возвращает рабочий профиль с данными пользователя по UserID.
+// Отсутствие возвращает как ErrNotFound.
 func (w *WorkProfileRepoStruct) GetWorkProfileByUserID(ctx context.Context, in *models.GetWorkProfileByUserIDInput) (*models.GetWorkProfileByUserIDResult, error) {
 	const query = `
 		SELECT
@@ -155,12 +178,17 @@ func (w *WorkProfileRepoStruct) GetWorkProfileByUserID(ctx context.Context, in *
 	`
 
 	details, err := scanWorkProfileDetails(w.readPool.QueryRow(ctx, query, in.UserID))
+
 	if err != nil {
 		return nil, mapDatabaseError("GetWorkProfileByUserID()", err)
 	}
+
 	return &models.GetWorkProfileByUserIDResult{Details: details}, nil
 }
 
+// ListWorkProfiles возвращает страницу рабочих профилей по ведомству, статусу
+// и поиску ILIKE по имени, должности и табельному номеру с отдельным общим счётчиком.
+// Требует подготовленную пагинацию; сортировку дополняет wp.id ASC.
 func (w *WorkProfileRepoStruct) ListWorkProfiles(ctx context.Context, in *models.ListWorkProfilesInput) (*models.ListWorkProfilesResult, error) {
 	whereParts := make([]string, 0, 3)
 	args := make([]any, 0, 5)
@@ -172,14 +200,17 @@ func (w *WorkProfileRepoStruct) ListWorkProfiles(ctx context.Context, in *models
 	if in.DepartmentID != nil {
 		addWhere("wp.department_id = $%d", *in.DepartmentID)
 	}
+
 	if in.Status != nil {
 		addWhere("wp.status = $%d", *in.Status)
 	}
+
 	if in.Query != nil {
 		addWhere("(up.full_name ILIKE $%[1]d OR wp.position ILIKE $%[1]d OR wp.employee_number ILIKE $%[1]d)", "%"+strings.TrimSpace(*in.Query)+"%")
 	}
 
 	whereSQL := ""
+
 	if len(whereParts) > 0 {
 		whereSQL = "WHERE " + strings.Join(whereParts, " AND ")
 	}
@@ -191,6 +222,7 @@ func (w *WorkProfileRepoStruct) ListWorkProfiles(ctx context.Context, in *models
 		%s
 	`, whereSQL)
 	var total int64
+
 	if err := w.readPool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, mapDatabaseError("ListWorkProfiles(): count", err)
 	}
@@ -210,19 +242,24 @@ func (w *WorkProfileRepoStruct) ListWorkProfiles(ctx context.Context, in *models
 	`, whereSQL, workProfileSortColumn(in.SortBy), sortOrderSQL(in.SortOrder), len(args)-1, len(args))
 
 	rows, err := w.readPool.Query(ctx, query, args...)
+
 	if err != nil {
 		return nil, mapDatabaseError("ListWorkProfiles(): query", err)
 	}
+
 	defer rows.Close()
 
 	profiles := make([]*models.WorkProfileDetails, 0)
 	for rows.Next() {
 		details, scanErr := scanWorkProfileDetails(rows)
+
 		if scanErr != nil {
 			return nil, mapDatabaseError("ListWorkProfiles(): scan", scanErr)
 		}
+
 		profiles = append(profiles, details)
 	}
+
 	if err = rows.Err(); err != nil {
 		return nil, mapDatabaseError("ListWorkProfiles(): rows", err)
 	}
@@ -230,21 +267,30 @@ func (w *WorkProfileRepoStruct) ListWorkProfiles(ctx context.Context, in *models
 	return &models.ListWorkProfilesResult{WorkProfiles: profiles, Total: total}, nil
 }
 
+// DeactivateWorkProfile блокирует профиль и транзакционно сохраняет INACTIVE,
+// время деактивации, историю и событие. Уже неактивный профиль возвращает без новых
+// записей; транзакцию команды из ctx заимствует.
 func (w *WorkProfileRepoStruct) DeactivateWorkProfile(ctx context.Context, in *models.DeactivateWorkProfileInput) (*models.DeactivateWorkProfileResult, error) {
 	tx, err := beginCommandTx(ctx, w.writePool)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: DeactivateWorkProfile(): begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	current, err := getWorkProfileDetailsByID(ctx, tx, in.ID, true)
+
 	if err != nil {
 		return nil, mapDatabaseError("DeactivateWorkProfile(): get profile", err)
 	}
+
 	if current.WorkProfile.Status == models.WorkProfileStatusInactive {
+
 		if err = tx.Commit(ctx); err != nil {
 			return nil, fmt.Errorf("repository: DeactivateWorkProfile(): commit no-op: %w", err)
 		}
+
 		return &models.DeactivateWorkProfileResult{Details: current}, nil
 	}
 
@@ -254,6 +300,7 @@ func (w *WorkProfileRepoStruct) DeactivateWorkProfile(ctx context.Context, in *m
 		SET status = $1, deactivated_at = now(), updated_at = now()
 		WHERE id = $2
 	`
+
 	if _, err = tx.Exec(ctx, query, models.WorkProfileStatusInactive, in.ID); err != nil {
 		return nil, mapDatabaseError("DeactivateWorkProfile(): update", err)
 	}
@@ -263,10 +310,18 @@ func (w *WorkProfileRepoStruct) DeactivateWorkProfile(ctx context.Context, in *m
 	}
 
 	details, err := getWorkProfileDetailsByID(ctx, tx, in.ID, false)
+
 	if err != nil {
 		return nil, mapDatabaseError("DeactivateWorkProfile(): get updated profile", err)
 	}
-	payload := map[string]any{"from_status": fromStatus, "to_status": models.WorkProfileStatusInactive, "reason": in.Reason, "profile": details}
+
+	payload := map[string]any{
+		"from_status": fromStatus,
+		"to_status":   models.WorkProfileStatusInactive,
+		"reason":      in.Reason,
+		"profile":     details,
+	}
+
 	if err = insertOutboxEvent(ctx, tx, "work_profile", in.ID, "WorkProfileDeactivated", in.ActorUserID, payload); err != nil {
 		return nil, fmt.Errorf("repository: DeactivateWorkProfile(): insert outbox event: %w", err)
 	}
@@ -274,37 +329,58 @@ func (w *WorkProfileRepoStruct) DeactivateWorkProfile(ctx context.Context, in *m
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repository: DeactivateWorkProfile(): commit: %w", err)
 	}
+
 	return &models.DeactivateWorkProfileResult{Details: details}, nil
 }
 
+// ChangeWorkProfileDepartment блокирует профиль и сохраняет новое ведомство с outbox
+// в одной транзакции. Совпадающее ведомство возвращает без изменений и события;
+// транзакцию команды из ctx заимствует.
 func (w *WorkProfileRepoStruct) ChangeWorkProfileDepartment(ctx context.Context, in *models.ChangeWorkProfileDepartmentInput) (*models.ChangeWorkProfileDepartmentResult, error) {
 	tx, err := beginCommandTx(ctx, w.writePool)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: ChangeWorkProfileDepartment(): begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	current, err := getWorkProfileDetailsByID(ctx, tx, in.ID, true)
+
 	if err != nil {
 		return nil, mapDatabaseError("ChangeWorkProfileDepartment(): get profile", err)
 	}
+
 	oldDepartmentID := current.WorkProfile.DepartmentID
+
 	if oldDepartmentID == in.DepartmentID {
+
 		if err = tx.Commit(ctx); err != nil {
 			return nil, fmt.Errorf("repository: ChangeWorkProfileDepartment(): commit no-op: %w", err)
 		}
+
 		return &models.ChangeWorkProfileDepartmentResult{Details: current}, nil
 	}
 
 	const query = `UPDATE work_profiles SET department_id = $1, updated_at = now() WHERE id = $2`
+
 	if _, err = tx.Exec(ctx, query, in.DepartmentID, in.ID); err != nil {
 		return nil, mapDatabaseError("ChangeWorkProfileDepartment(): update", err)
 	}
+
 	details, err := getWorkProfileDetailsByID(ctx, tx, in.ID, false)
+
 	if err != nil {
 		return nil, mapDatabaseError("ChangeWorkProfileDepartment(): get updated profile", err)
 	}
-	payload := map[string]any{"old_department_id": oldDepartmentID, "new_department_id": in.DepartmentID, "reason": in.Reason, "profile": details}
+
+	payload := map[string]any{
+		"old_department_id": oldDepartmentID,
+		"new_department_id": in.DepartmentID,
+		"reason":            in.Reason,
+		"profile":           details,
+	}
+
 	if err = insertOutboxEvent(ctx, tx, "work_profile", in.ID, "WorkProfileDepartmentChanged", in.ActorUserID, payload); err != nil {
 		return nil, fmt.Errorf("repository: ChangeWorkProfileDepartment(): insert outbox event: %w", err)
 	}
@@ -312,31 +388,45 @@ func (w *WorkProfileRepoStruct) ChangeWorkProfileDepartment(ctx context.Context,
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repository: ChangeWorkProfileDepartment(): commit: %w", err)
 	}
+
 	return &models.ChangeWorkProfileDepartmentResult{Details: details}, nil
 }
 
+// SetWorkProfileStatus блокирует профиль, проверяет права и сохраняет статус,
+// историю и outbox в одной транзакции. Администратор меняет любой статус, владелец —
+// только разрешённые переходы смены; повтор статуса допустим только администратору.
+// INACTIVE задаёт deactivated_at, остальные статусы очищают его.
 func (w *WorkProfileRepoStruct) SetWorkProfileStatus(ctx context.Context, in *models.SetWorkProfileStatusInput) (*models.SetWorkProfileStatusResult, error) {
 	tx, err := beginCommandTx(ctx, w.writePool)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: SetWorkProfileStatus(): begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	current, err := getWorkProfileDetailsByID(ctx, tx, in.ID, true)
+
 	if err != nil {
 		return nil, mapDatabaseError("SetWorkProfileStatus(): get profile", err)
 	}
+
 	if !canSetWorkProfileStatus(current, in) {
 		return nil, models.ErrPermissionDenied
 	}
+
 	fromStatus := current.WorkProfile.Status
+
 	if !hasAdminRole(in.ActorRoles) && !workerStatusTransitionAllowed(fromStatus, in.Status) {
 		return nil, models.ErrInvalidStatus
 	}
+
 	if fromStatus == in.Status {
+
 		if err = tx.Commit(ctx); err != nil {
 			return nil, fmt.Errorf("repository: SetWorkProfileStatus(): commit no-op: %w", err)
 		}
+
 		return &models.SetWorkProfileStatusResult{Details: current}, nil
 	}
 
@@ -348,18 +438,23 @@ func (w *WorkProfileRepoStruct) SetWorkProfileStatus(ctx context.Context, in *mo
 			updated_at = now()
 		WHERE id = $2
 	`
+
 	if _, err = tx.Exec(ctx, query, in.Status, in.ID); err != nil {
 		return nil, mapDatabaseError("SetWorkProfileStatus(): update", err)
 	}
+
 	if err = insertWorkProfileStatusHistory(ctx, tx, in.ID, &fromStatus, in.Status, in.Reason, in.ActorUserID); err != nil {
 		return nil, fmt.Errorf("repository: SetWorkProfileStatus(): insert status history: %w", err)
 	}
 
 	details, err := getWorkProfileDetailsByID(ctx, tx, in.ID, false)
+
 	if err != nil {
 		return nil, mapDatabaseError("SetWorkProfileStatus(): get updated profile", err)
 	}
+
 	payload := map[string]any{"from_status": fromStatus, "to_status": in.Status, "reason": in.Reason, "profile": details}
+
 	if err = insertOutboxEvent(ctx, tx, "work_profile", in.ID, "WorkProfileStatusChanged", in.ActorUserID, payload); err != nil {
 		return nil, fmt.Errorf("repository: SetWorkProfileStatus(): insert outbox event: %w", err)
 	}
@@ -367,25 +462,35 @@ func (w *WorkProfileRepoStruct) SetWorkProfileStatus(ctx context.Context, in *mo
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repository: SetWorkProfileStatus(): commit: %w", err)
 	}
+
 	return &models.SetWorkProfileStatusResult{Details: details}, nil
 }
 
+// canSetWorkProfileStatus допускает администратора или владельца рабочего профиля.
+// Переход статуса не проверяет; in должен быть ненулевым.
 func canSetWorkProfileStatus(current *models.WorkProfileDetails, in *models.SetWorkProfileStatusInput) bool {
+
 	if hasAdminRole(in.ActorRoles) {
 		return true
 	}
+
 	return in.ActorUserID != nil && current != nil && current.UserProfile != nil && *in.ActorUserID == current.UserProfile.UserID
 }
 
+// hasAdminRole проверяет роль admin без учёта регистра и крайних пробелов.
 func hasAdminRole(roles []string) bool {
 	for _, role := range roles {
+
 		if strings.EqualFold(strings.TrimSpace(role), "admin") {
 			return true
 		}
+
 	}
 	return false
 }
 
+// workerStatusTransitionAllowed разрешает ACTIVE → ON_SHIFT и чередование
+// ON_SHIFT ↔ OFF_SHIFT. Повторы и остальные переходы отклоняет.
 func workerStatusTransitionAllowed(from, to models.WorkProfileStatus) bool {
 	switch from {
 	case models.WorkProfileStatusActive:
@@ -399,9 +504,12 @@ func workerStatusTransitionAllowed(from, to models.WorkProfileStatus) bool {
 	}
 }
 
+// GetWorkProfileStatusHistory возвращает страницу истории от новых записей к старым
+// и отдельный общий счётчик. Существование профиля и права не проверяет.
 func (w *WorkProfileRepoStruct) GetWorkProfileStatusHistory(ctx context.Context, in *models.GetWorkProfileStatusHistoryInput) (*models.GetWorkProfileStatusHistoryResult, error) {
 	const countQuery = `SELECT COUNT(*) FROM work_profile_status_history WHERE work_profile_id = $1`
 	var total int64
+
 	if err := w.readPool.QueryRow(ctx, countQuery, in.WorkProfileID).Scan(&total); err != nil {
 		return nil, mapDatabaseError("GetWorkProfileStatusHistory(): count", err)
 	}
@@ -415,19 +523,24 @@ func (w *WorkProfileRepoStruct) GetWorkProfileStatusHistory(ctx context.Context,
 		LIMIT $2 OFFSET $3
 	`
 	rows, err := w.readPool.Query(ctx, query, in.WorkProfileID, in.Limit, in.Offset)
+
 	if err != nil {
 		return nil, mapDatabaseError("GetWorkProfileStatusHistory(): query", err)
 	}
+
 	defer rows.Close()
 
 	history := make([]*models.WorkProfileStatusHistory, 0)
 	for rows.Next() {
 		item, scanErr := scanWorkProfileStatusHistory(rows)
+
 		if scanErr != nil {
 			return nil, mapDatabaseError("GetWorkProfileStatusHistory(): scan", scanErr)
 		}
+
 		history = append(history, item)
 	}
+
 	if err = rows.Err(); err != nil {
 		return nil, mapDatabaseError("GetWorkProfileStatusHistory(): rows", err)
 	}
@@ -435,6 +548,8 @@ func (w *WorkProfileRepoStruct) GetWorkProfileStatusHistory(ctx context.Context,
 	return &models.GetWorkProfileStatusHistoryResult{History: history, Total: total}, nil
 }
 
+// ResolveWorkingDepartment возвращает ведомство и статус рабочего профиля пользователя.
+// CanOperate равен true для ACTIVE или ON_SHIFT; отсутствие профиля даёт ErrNotFound.
 func (w *WorkProfileRepoStruct) ResolveWorkingDepartment(ctx context.Context, in *models.ResolveWorkingDepartmentInput) (*models.ResolveWorkingDepartmentResult, error) {
 	const query = `
 		SELECT up.id, wp.id, up.user_id, wp.department_id, wp.status
@@ -451,14 +566,19 @@ func (w *WorkProfileRepoStruct) ResolveWorkingDepartment(ctx context.Context, in
 		&result.DepartmentID,
 		&result.WorkProfileStatus,
 	)
+
 	if err != nil {
 		return nil, mapDatabaseError("ResolveWorkingDepartment()", err)
 	}
+
 	result.CanOperate = result.WorkProfileStatus == models.WorkProfileStatusActive ||
 		result.WorkProfileStatus == models.WorkProfileStatusOnShift
 	return result, nil
 }
 
+// CheckProfileCanJoinBrigade читает профиль по пользователю или WorkProfileID
+// и оценивает статус и совпадение ведомств. Отсутствие профиля возвращает как
+// Allowed=false с причиной NO_WORK_PROFILE без ошибки; требует проверенный in.
 func (w *WorkProfileRepoStruct) CheckProfileCanJoinBrigade(ctx context.Context, in *models.CheckProfileCanJoinBrigadeInput) (*models.CheckProfileCanJoinBrigadeResult, error) {
 	result := &models.CheckProfileCanJoinBrigadeResult{
 		Allowed: false,
@@ -483,12 +603,16 @@ func (w *WorkProfileRepoStruct) CheckProfileCanJoinBrigade(ctx context.Context, 
 			&departmentID,
 			&status,
 		)
+
 		if err != nil {
+
 			if errors.Is(err, pgx.ErrNoRows) {
 				return result, nil
 			}
+
 			return nil, mapDatabaseError("CheckProfileCanJoinBrigade()", err)
 		}
+
 	} else {
 		const query = `
 			SELECT up.id, up.user_id, wp.id, wp.department_id, wp.status
@@ -503,28 +627,37 @@ func (w *WorkProfileRepoStruct) CheckProfileCanJoinBrigade(ctx context.Context, 
 			&departmentID,
 			&status,
 		)
+
 		if err != nil {
+
 			if errors.Is(err, pgx.ErrNoRows) {
 				return result, nil
 			}
+
 			return nil, mapDatabaseError("CheckProfileCanJoinBrigade()", err)
 		}
+
 	}
 
 	if workProfileID == nil || departmentID == nil || status == nil {
 		return result, nil
 	}
+
 	result.WorkProfileID = *workProfileID
 	result.DepartmentID = *departmentID
 	result.Allowed, result.Reason = evaluateCanJoinBrigade(*status, *departmentID, in.BrigadeDepartmentID)
 	return result, nil
 }
 
+// getWorkProfileDetailsByID читает рабочий профиль с пользователем через q.
+// При forUpdate блокирует только строку work_profiles; ошибку Scan возвращает без замены.
 func getWorkProfileDetailsByID(ctx context.Context, q Querier, id uuid.UUID, forUpdate bool) (*models.WorkProfileDetails, error) {
 	lockSQL := ""
+
 	if forUpdate {
 		lockSQL = "FOR UPDATE OF wp"
 	}
+
 	query := fmt.Sprintf(`
 		SELECT
 			wp.id, wp.user_profile_id, wp.department_id, wp.employee_number,
@@ -539,6 +672,8 @@ func getWorkProfileDetailsByID(ctx context.Context, q Querier, id uuid.UUID, for
 	return scanWorkProfileDetails(q.QueryRow(ctx, query, id))
 }
 
+// insertWorkProfileStatusHistory сохраняет переход с причиной без крайних пробелов,
+// инициатором и request ID из ctx через q. nil fromStatus допустим для первой записи.
 func insertWorkProfileStatusHistory(
 	ctx context.Context,
 	q Querier,
@@ -549,9 +684,11 @@ func insertWorkProfileStatusHistory(
 	actorUserID *uuid.UUID,
 ) error {
 	var requestID *string
+
 	if value, ok := profilepkg.RequestIDFromContext(ctx); ok {
 		requestID = &value
 	}
+
 	const query = `
 		INSERT INTO work_profile_status_history (
 			work_profile_id, from_status, to_status, reason,
@@ -563,6 +700,8 @@ func insertWorkProfileStatusHistory(
 	return err
 }
 
+// scanWorkProfileDetails читает рабочий и пользовательский профили из одной строки.
+// Ошибку Scan, включая отсутствие строки, возвращает без замены.
 func scanWorkProfileDetails(s scanner) (*models.WorkProfileDetails, error) {
 	workProfile := &models.WorkProfile{}
 	userProfile := &models.UserProfile{}
@@ -585,12 +724,16 @@ func scanWorkProfileDetails(s scanner) (*models.WorkProfileDetails, error) {
 		&userProfile.CreatedAt,
 		&userProfile.UpdatedAt,
 	)
+
 	if err != nil {
 		return nil, err
 	}
+
 	return &models.WorkProfileDetails{WorkProfile: workProfile, UserProfile: userProfile}, nil
 }
 
+// scanWorkProfileStatusHistory читает запись истории с необязательным прежним статусом.
+// Ошибку Scan возвращает без замены.
 func scanWorkProfileStatusHistory(s scanner) (*models.WorkProfileStatusHistory, error) {
 	item := &models.WorkProfileStatusHistory{}
 	var fromStatus *string
@@ -604,16 +747,21 @@ func scanWorkProfileStatusHistory(s scanner) (*models.WorkProfileStatusHistory, 
 		&item.RequestID,
 		&item.CreatedAt,
 	)
+
 	if err != nil {
 		return nil, err
 	}
+
 	if fromStatus != nil {
 		status := models.WorkProfileStatus(*fromStatus)
 		item.FromStatus = &status
 	}
+
 	return item, nil
 }
 
+// workProfileSortColumn выбирает разрешённый SQL-столбец сортировки профилей.
+// Неизвестное значение заменяет на wp.created_at.
 func workProfileSortColumn(sortBy models.WorkProfileSortBy) string {
 	switch sortBy {
 	case models.WorkProfileSortByUpdatedAt:
@@ -631,6 +779,9 @@ func workProfileSortColumn(sortBy models.WorkProfileSortBy) string {
 	}
 }
 
+// evaluateCanJoinBrigade отклоняет INACTIVE, SUSPENDED, OFF_SHIFT и несовпадение
+// ведомств, возвращая первую причину в этом порядке. Остальные статусы при
+// совпадающем ведомстве допускает, поэтому статус должен быть заранее проверен.
 func evaluateCanJoinBrigade(status models.WorkProfileStatus, departmentID uuid.UUID, brigadeDepartmentID uuid.UUID) (bool, models.CanJoinBrigadeReason) {
 	switch status {
 	case models.WorkProfileStatusInactive:
@@ -640,8 +791,10 @@ func evaluateCanJoinBrigade(status models.WorkProfileStatus, departmentID uuid.U
 	case models.WorkProfileStatusOffShift:
 		return false, models.CanJoinBrigadeReasonProfileOffShift
 	}
+
 	if departmentID != brigadeDepartmentID {
 		return false, models.CanJoinBrigadeReasonDepartmentMismatch
 	}
+
 	return true, models.CanJoinBrigadeReasonAllowed
 }

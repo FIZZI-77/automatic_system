@@ -15,12 +15,15 @@ func TestAnalyticsContextPropagatesActorRoles(t *testing.T) {
 	context.Set("roles", []string{"admin", "dispatcher"})
 
 	outgoing, ok := metadata.FromOutgoingContext(analyticsContext(context))
+
 	if !ok {
 		t.Fatal("analyticsContext() did not create outgoing metadata")
 	}
+
 	if got := outgoing.Get("x-actor-roles"); len(got) != 1 || got[0] != "admin,dispatcher" {
 		t.Fatalf("x-actor-roles = %v, want [admin,dispatcher]", got)
 	}
+
 }
 
 func TestOperationalLatencyDimension(t *testing.T) {
@@ -32,11 +35,15 @@ func TestOperationalLatencyDimension(t *testing.T) {
 		"failure_code":    analyticsv1.OperationalLatencyDimension_OPERATIONAL_LATENCY_DIMENSION_FAILURE_CODE,
 	}
 	for input, want := range tests {
+
 		if got := operationalLatencyDimension(input); got != want {
 			t.Errorf("operationalLatencyDimension(%q) = %v, want %v", input, got, want)
 		}
+
 	}
+
 	if got := operationalLatencyDimension("unknown"); got != analyticsv1.OperationalLatencyDimension_OPERATIONAL_LATENCY_DIMENSION_UNSPECIFIED {
 		t.Errorf("operationalLatencyDimension(unknown) = %v, want unspecified", got)
 	}
+
 }

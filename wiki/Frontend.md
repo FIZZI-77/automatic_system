@@ -35,3 +35,21 @@
 - [README frontend](https://github.com/FIZZI-77/automatic_system/blob/test/Frontend/README.md)
 - [Корневой компонент](https://github.com/FIZZI-77/automatic_system/blob/test/Frontend/app/city-app.tsx)
 - [Проверенная карта взаимодействий](https://github.com/FIZZI-77/automatic_system/blob/test/docs/architecture/code-interactions.md)
+
+## Управление интеграциями
+
+Администратору в разделе «Управление» доступна вкладка «Интеграции» с карточками
+предприятий и порталов. Можно зарегистрировать источник, ограничить его одним
+департаментом, отключить/включить и обновить секрет. Карточка показывает
+`client_id`, префикс секрета, департамент и время последнего использования.
+Полный секрет после регистрации или ротации показывается один раз; интерфейс
+позволяет скопировать и скрыть его. Список загружает первые 100 записей,
+переключение страниц пока не реализовано.
+
+Компонент: `Frontend/app/integration-management.tsx`; подключение:
+`Frontend/app/management-page.tsx`. Четыре адреса API настраиваются через
+`NEXT_PUBLIC_API_TICKET_INTEGRATIONS_REGISTER`,
+`NEXT_PUBLIC_API_TICKET_INTEGRATIONS_LIST`,
+`NEXT_PUBLIC_API_TICKET_INTEGRATIONS_SET_ACTIVE`,
+`NEXT_PUBLIC_API_TICKET_INTEGRATIONS_ROTATE_SECRET`.
+Сервер проверяет права независимо от видимости вкладки.

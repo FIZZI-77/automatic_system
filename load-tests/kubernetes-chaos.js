@@ -96,7 +96,12 @@ function post(path, body, token, phase, expectedStatus, operation) {
 }
 
 export function setup() {
-  const password = __ENV.K6_DEMO_PASSWORD || "CityDemo123!";
+  const password = __ENV.K6_DEMO_PASSWORD;
+
+  if (!password) {
+    fail("K6_DEMO_PASSWORD is required");
+  }
+
   const residentToken = login(__ENV.K6_RESIDENT_EMAIL || "demo.user@city.local", password, "k6-resident");
   const adminToken = login(__ENV.K6_ADMIN_EMAIL || "demo.admin@city.local", password, "k6-admin");
 

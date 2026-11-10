@@ -17,12 +17,15 @@ type Worker struct {
 }
 
 func New(profileService service.CertificationService, interval time.Duration, batch int32, logger *zap.Logger) *Worker {
+
 	if interval <= 0 {
 		interval = time.Minute
 	}
+
 	if batch <= 0 {
 		batch = 100
 	}
+
 	return &Worker{service: profileService, interval: interval, batch: batch, logger: logger}
 }
 
@@ -41,13 +44,18 @@ func (w *Worker) Run(ctx context.Context) {
 
 func (w *Worker) expire(ctx context.Context) {
 	result, err := w.service.ExpireWorkProfileCertifications(ctx, &models.ExpireWorkProfileCertificationsInput{Limit: w.batch})
+
 	if err != nil {
+
 		if ctx.Err() == nil {
 			w.logger.Error("certification expiry batch failed", zap.Error(err))
 		}
+
 		return
 	}
+
 	if len(result.ExpiredCertifications) > 0 {
 		w.logger.Info("expired certifications", zap.Int("count", len(result.ExpiredCertifications)))
 	}
+
 }

@@ -18,6 +18,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
+  actions: read
   contents: read
   packages: write
 
@@ -45,12 +46,40 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Find last successful deployment baseline
+        id: baseline
+        if: >
+          github.event_name == 'push' &&
+          (github.ref == 'refs/heads/test' ||
+           github.ref == 'refs/heads/feature' ||
+           startsWith(github.ref, 'refs/heads/feature/'))
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          if ! SUCCESSFUL_SHA="$(gh api \
+              --method GET \
+              -f branch="$GITHUB_REF_NAME" \
+              -f event=push \
+              -f status=success \
+              -f per_page=1 \
+              "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs" \
+              --jq '.workflow_runs[0].head_sha // ""')"; then
+            echo "::warning::Unable to find the last successful workflow run; all images will be rebuilt"
+            SUCCESSFUL_SHA=""
+          fi
+
+          echo "sha=$SUCCESSFUL_SHA" >> "$GITHUB_OUTPUT"
+
       - name: Detect changed components
         id: detect
         shell: bash
         env:
           BEFORE_SHA: ${{ github.event.before }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          SUCCESSFUL_SHA: ${{ steps.baseline.outputs.sha }}
         run: |
           set -euo pipefail
 
@@ -63,6 +92,17 @@ jobs:
             args+=(--force-all)
           elif [ -n "${PR_BASE_SHA:-}" ]; then
             args+=(--base "$PR_BASE_SHA")
+          elif [[ "$GITHUB_REF" == "refs/heads/test" ||
+                  "$GITHUB_REF" == "refs/heads/feature" ||
+                  "$GITHUB_REF" == refs/heads/feature/* ]]; then
+            if [ -n "${SUCCESSFUL_SHA:-}" ] &&
+               git merge-base --is-ancestor "$SUCCESSFUL_SHA" "$GITHUB_SHA"; then
+              echo "Detecting changes since last successful workflow run: $SUCCESSFUL_SHA"
+              args+=(--base "$SUCCESSFUL_SHA")
+            else
+              echo "No usable successful workflow baseline; rebuilding all images"
+              args+=(--force-all)
+            fi
           else
             args+=(--base "$BEFORE_SHA")
           fi
@@ -272,8 +312,56 @@ jobs:
   # FRONTEND ANALYTICS QUALITY
   # ===========================================================================
 
+  workflow-recovery-integration:
+    name: Recovery / ${{ matrix.path }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        path: [Dispatch_Service, File_Service]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: recovery-ci-only
+          POSTGRES_DB: recovery_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d recovery_test"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    defaults:
+      run:
+        working-directory: ${{ matrix.path }}
+    env:
+      GOWORK: "off"
+      RECOVERY_TEST_DATABASE_URL: postgres://postgres:recovery-ci-only@127.0.0.1:5432/recovery_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: ${{ matrix.path }}/go.sum
+      - name: Test compensation and storage recovery against PostgreSQL
+        run: go test -race -count=1 -timeout=5m -v ./src/core/service
+
+  data-recovery-drill:
+    name: PostgreSQL / isolated backup and PITR drill
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Restore base backup and WAL to named recovery point
+        shell: pwsh
+        run: ./scripts/test-postgres-recovery.ps1
+      - name: Upload recovery measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: postgres-recovery-drill
+          path: output/recovery/*.json
+          retention-days: 7
+
   frontend-quality:
-    name: Frontend / analytics and E2E contracts
+    name: Frontend / lint, build and browser smoke
     runs-on: ubuntu-latest
 
     steps:
@@ -291,13 +379,39 @@ jobs:
         working-directory: Frontend
         run: npm ci
 
-      - name: Lint analytics and E2E contracts
+      - name: Lint entire frontend
         working-directory: Frontend
-        run: npx eslint app/analytics-page.tsx e2e/api-contracts.spec.ts e2e/global-teardown.ts
+        run: npm run lint -- --max-warnings=0
+
+      - name: Typecheck frontend
+        working-directory: Frontend
+        run: npx tsc --noEmit
 
       - name: Build frontend
         working-directory: Frontend
         run: npm run build
+
+      - name: Test rendered HTML
+        working-directory: Frontend
+        run: node --test tests/rendered-html.test.mjs
+
+      - name: Install Chromium
+        working-directory: Frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run browser smoke and tooltip security checks
+        working-directory: Frontend
+        run: npm run e2e:smoke
+
+      - name: Upload browser failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-smoke-failure
+          path: |
+            Frontend/playwright-report/smoke/
+            Frontend/test-results/smoke/
+          retention-days: 7
 
       - name: Compile Playwright test inventory
         working-directory: Frontend
@@ -393,6 +507,10 @@ jobs:
 
       - name: Validate Compose
         shell: bash
+        # Validation only: this step does not start containers or deploy services.
+        env:
+          TRANSPONDER_API_KEY: ci-compose-validation-only
+          REPORT_INTERNAL_TOKEN: ci-compose-validation-only
         run: |
           set -euo pipefail
           docker compose config --quiet
@@ -515,6 +633,8 @@ jobs:
       - go-quality
       - analytics-integration
       - location-integration
+      - workflow-recovery-integration
+      - data-recovery-drill
       - frontend-quality
       - go-workspace-validation
       - compose-validation
@@ -583,6 +703,8 @@ jobs:
       - go-quality
       - analytics-integration
       - location-integration
+      - workflow-recovery-integration
+      - data-recovery-drill
       - frontend-quality
       - go-workspace-validation
       - compose-validation
@@ -1003,10 +1125,57 @@ jobs:
             reconcile.fluxcd.io/requestedAt="$(date +%s)" \
             --overwrite
 
-          kubectl wait kustomization/automatic-system-local-ha \
+          echo "Waiting for Flux reconciliation of ${DEPLOY_REVISION}"
+          for attempt in $(seq 1 480); do
+            READY_STATUS="$(kubectl get kustomization automatic-system-local-ha \
+              -n flux-system \
+              -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}')"
+            READY_REASON="$(kubectl get kustomization automatic-system-local-ha \
+              -n flux-system \
+              -o jsonpath='{.status.conditions[?(@.type=="Ready")].reason}')"
+            READY_MESSAGE="$(kubectl get kustomization automatic-system-local-ha \
+              -n flux-system \
+              -o jsonpath='{.status.conditions[?(@.type=="Ready")].message}')"
+            HELM_STALLED="$(kubectl get helmrelease applications \
+              -n flux-system \
+              -o jsonpath='{.status.conditions[?(@.type=="Stalled")].status}')"
+
+            if [ "$READY_STATUS" = "True" ]; then
+              echo "Flux reconciliation completed: $READY_MESSAGE"
+              break
+            fi
+
+            if (( attempt > 6 )) && \
+               { [ "$HELM_STALLED" = "True" ] || \
+                 [[ "$READY_REASON" =~ (HealthCheckFailed|ReconciliationFailed) ]] || \
+                 [[ "$READY_MESSAGE" =~ (stalled|Failed) ]]; }; then
+              echo "::error::Flux reconciliation failed: ${READY_REASON}: ${READY_MESSAGE}"
+              kubectl get helmrelease applications -n flux-system -o wide || true
+              kubectl get helmrelease applications -n flux-system \
+                -o jsonpath='{range .status.conditions[*]}{.type}{"="}{.status}{" reason="}{.reason}{" message="}{.message}{"\n"}{end}' || true
+              exit 1
+            fi
+
+            if (( attempt % 6 == 1 )); then
+              echo "Flux reconciliation pending (${attempt}/480): ${READY_STATUS:-Unknown} ${READY_REASON:-Unknown}: ${READY_MESSAGE:-no message}"
+              kubectl get helmrelease applications -n flux-system -o wide || true
+              kubectl get jobs -n automatic-system \
+                --sort-by=.metadata.creationTimestamp \
+                -o custom-columns='NAME:.metadata.name,STATUS:.status.conditions[-1].type,SUCCEEDED:.status.succeeded,FAILED:.status.failed,AGE:.metadata.creationTimestamp' |
+                grep -E '(^NAME|^applications-.+-migrate-[0-9]+)' |
+                tail -n 6 || true
+            fi
+
+            sleep 5
+          done
+
+          READY_STATUS="$(kubectl get kustomization automatic-system-local-ha \
             -n flux-system \
-            --for=condition=ready \
-            --timeout=40m
+            -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}')"
+          if [ "$READY_STATUS" != "True" ]; then
+            echo "::error::Flux reconciliation did not become Ready within 40 minutes"
+            exit 1
+          fi
 
       - name: Verify Flagger promotion
         shell: bash
@@ -1053,7 +1222,7 @@ jobs:
             fi
           done
 
-          for _ in $(seq 1 480); do
+          for attempt in $(seq 1 480); do
             PRIMARY_COUNT=0
 
             for CANARY_NAME in "${EXPECTED_CANARIES[@]}"; do
@@ -1070,10 +1239,23 @@ jobs:
                 -n automatic-system \
                 -o jsonpath='{.status.phase}')"
 
+              if (( attempt % 6 == 1 )); then
+                WEIGHT="$(kubectl get canary "$CANARY_NAME" \
+                  -n automatic-system \
+                  -o jsonpath='{.status.canaryWeight}')"
+                MESSAGE="$(kubectl get canary "$CANARY_NAME" \
+                  -n automatic-system \
+                  -o jsonpath='{.status.conditions[?(@.type=="Promoted")].message}')"
+                echo "Flagger ${CANARY_NAME}: phase=${PHASE:-Unknown}, weight=${WEIGHT:-0}, primary=${PRIMARY_IMAGE}, message=${MESSAGE:-no message}"
+              fi
+
               if [ "$PHASE" != "Failed" ]; then
                 ROLLOUT_STARTED["$CANARY_NAME"]=true
               elif [ "${ROLLOUT_STARTED[$CANARY_NAME]}" = "true" ]; then
-                echo "::error::Flagger failed: $CANARY_NAME"
+                MESSAGE="$(kubectl get canary "$CANARY_NAME" \
+                  -n automatic-system \
+                  -o jsonpath='{.status.conditions[?(@.type=="Promoted")].message}')"
+                echo "::error::Flagger failed: ${CANARY_NAME}: ${MESSAGE:-no status message}"
                 exit 1
               fi
             done
@@ -1095,6 +1277,8 @@ jobs:
           kubectl get kustomization,gitrepository -n flux-system -o wide || true
           kubectl get helmrelease -n flux-system -o wide || true
           kubectl get canary -n automatic-system || true
+          kubectl get jobs -n automatic-system \
+            --sort-by=.metadata.creationTimestamp -o wide || true
           kubectl get pods -n automatic-system -o wide || true
 
   # ===========================================================================

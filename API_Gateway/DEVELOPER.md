@@ -154,7 +154,7 @@ Gateway обычно получает через env:
 2. Добавить handler и mapper.
 3. Зарегистрировать routes.
 4. Пробросить request id, idempotency key и actor context.
-5. Обновить документацию и postman/openapi коллекции, если они ведутся.
+5. Обновить документацию и сгенерированную спецификацию OpenAPI (`go run ./tools/openapi`).
 
 ## Правила код-дизайна
 
@@ -179,6 +179,13 @@ go run ./tools/openapi -check
 при `SWAGGER_ENABLED=true`; по умолчанию маршруты не регистрируются. Например,
 для локального запуска в PowerShell установите `$env:SWAGGER_ENABLED='true'`.
 Ресурсы Swagger UI встроены в образ шлюза и не требуют доступа к CDN.
+В локальном Kubernetes после настройки ingress (`k8s/scripts/setup-ingress.ps1`)
+открывайте `https://api.city.localhost/swagger/`. Отдельный
+`VirtualService/api-gateway-local` направляет запросы в Service `api-gateway`;
+имя `VirtualService/api-gateway` занято Flagger и не должно использоваться для
+локального ingress. При изменении этих маршрутов убедитесь, что в развёрнутом
+образе API Gateway есть `/swagger/` и `/swagger/openapi.json`: значение
+`SWAGGER_ENABLED=true` не добавит маршруты в старый бинарный файл.
 Не включайте страницу в публичном окружении без
 отдельного ограничения доступа. В интерфейсе для защищённых методов укажите
 JWT через кнопку Authorize.

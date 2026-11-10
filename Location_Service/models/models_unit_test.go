@@ -97,18 +97,23 @@ func TestRecordPositionInputValidate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			in := valid()
+
 			if tt.mutate != nil {
 				tt.mutate(in)
 			}
+
 			if got := in.Validate(); (got != nil) != tt.wantErr {
 				t.Fatalf("Validate() error = %v, wantErr %v", got, tt.wantErr)
 			}
+
 		})
 	}
 	var nilInput *RecordPositionInput
+
 	if nilInput.Validate() == nil {
 		t.Fatal("nil input must fail")
 	}
+
 }
 
 func TestLocationQueryValidation(t *testing.T) {
@@ -163,9 +168,11 @@ func TestLocationQueryValidation(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+
 			if (tt.err != nil) != tt.wantErr {
 				t.Fatalf("error = %v, wantErr %v", tt.err, tt.wantErr)
 			}
+
 		})
 	}
 }
@@ -200,12 +207,16 @@ func TestGeoZoneValidation(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+
 			if (tt.err != nil) != tt.wantErr {
 				t.Fatalf("error = %v, wantErr %v", tt.err, tt.wantErr)
 			}
+
 		})
 	}
+
 	if !errors.Is(ErrValidation, ErrValidation) {
 		t.Fatal("sentinel error must support errors.Is")
 	}
+
 }

@@ -10,6 +10,7 @@ import (
 )
 
 type scanner interface {
+	// Scan переносит значения строки в dest и возвращает ошибку чтения или преобразования.
 	Scan(dest ...any) error
 }
 
@@ -20,21 +21,29 @@ type UserProfileRepoStruct struct {
 
 var _ UserProfileRepository = (*UserProfileRepoStruct)(nil)
 
+// NewUserProfileRepository создаёт хранилище профилей; при nil readPool читает через writePool.
 func NewUserProfileRepository(writePool *pgxpool.Pool, readPool *pgxpool.Pool) *UserProfileRepoStruct {
+
 	if readPool == nil {
 		readPool = writePool
 	}
+
 	return &UserProfileRepoStruct{writePool: writePool, readPool: readPool}
 }
 
+// CreateUserProfile сохраняет профиль и событие UserProfileCreated в одной транзакции.
+// Транзакцию команды из ctx заимствует без самостоятельной фиксации.
 func (u *UserProfileRepoStruct) CreateUserProfile(ctx context.Context, in *models.CreateUserProfileInput) (*models.CreateUserProfileResult, error) {
 	tx, err := beginCommandTx(ctx, u.writePool)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: CreateUserProfile(): begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	profile, err := u.createUserProfile(ctx, tx, in)
+
 	if err != nil {
 		return nil, err
 	}
@@ -50,6 +59,8 @@ func (u *UserProfileRepoStruct) CreateUserProfile(ctx context.Context, in *model
 	return &models.CreateUserProfileResult{UserProfile: profile}, nil
 }
 
+// createUserProfile вставляет профиль через q, обрезая крайние пробелы имени и телефона.
+// Ошибки базы переводит в доменные; транзакцией и событиями управляет вызывающий код.
 func (u *UserProfileRepoStruct) createUserProfile(ctx context.Context, q Querier, in *models.CreateUserProfileInput) (*models.UserProfile, error) {
 	const query = `
 		INSERT INTO user_profiles (
@@ -80,6 +91,7 @@ func (u *UserProfileRepoStruct) createUserProfile(ctx context.Context, q Querier
 		in.AvatarFileID,
 		in.PreferredContactMethod,
 	))
+
 	if err != nil {
 		return nil, mapDatabaseError("CreateUserProfile()", err)
 	}
@@ -87,11 +99,16 @@ func (u *UserProfileRepoStruct) createUserProfile(ctx context.Context, q Querier
 	return profile, nil
 }
 
+// UpdateUserProfile транзакционно меняет заданные поля и записывает outbox.
+// ClearPhone и ClearAvatarFileID очищают соответствующие значения; nil поля сохраняет,
+// текст обрезает по краям. Транзакцию команды из ctx заимствует.
 func (u *UserProfileRepoStruct) UpdateUserProfile(ctx context.Context, in *models.UpdateUserProfileInput) (*models.UpdateUserProfileResult, error) {
 	tx, err := beginCommandTx(ctx, u.writePool)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: UpdateUserProfile(): begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	const query = `
@@ -125,6 +142,7 @@ func (u *UserProfileRepoStruct) UpdateUserProfile(ctx context.Context, in *model
 		in.PreferredContactMethod,
 		in.ID,
 	))
+
 	if err != nil {
 		return nil, mapDatabaseError("UpdateUserProfile()", err)
 	}
@@ -140,6 +158,7 @@ func (u *UserProfileRepoStruct) UpdateUserProfile(ctx context.Context, in *model
 	return &models.UpdateUserProfileResult{UserProfile: profile}, nil
 }
 
+// GetUserProfileByID читает профиль по ID из пула чтения; отсутствие даёт ErrNotFound.
 func (u *UserProfileRepoStruct) GetUserProfileByID(ctx context.Context, in *models.GetUserProfileByIDInput) (*models.GetUserProfileByIDResult, error) {
 	const query = `
 		SELECT id, user_id, full_name, phone, avatar_file_id,
@@ -149,6 +168,7 @@ func (u *UserProfileRepoStruct) GetUserProfileByID(ctx context.Context, in *mode
 	`
 
 	profile, err := scanUserProfile(u.readPool.QueryRow(ctx, query, in.ID))
+
 	if err != nil {
 		return nil, mapDatabaseError("GetUserProfileByID()", err)
 	}
@@ -156,6 +176,7 @@ func (u *UserProfileRepoStruct) GetUserProfileByID(ctx context.Context, in *mode
 	return &models.GetUserProfileByIDResult{UserProfile: profile}, nil
 }
 
+// GetUserProfileByUserID читает профиль по ID пользователя; отсутствие даёт ErrNotFound.
 func (u *UserProfileRepoStruct) GetUserProfileByUserID(ctx context.Context, in *models.GetUserProfileByUserIDInput) (*models.GetUserProfileByUserIDResult, error) {
 	const query = `
 		SELECT id, user_id, full_name, phone, avatar_file_id,
@@ -165,6 +186,7 @@ func (u *UserProfileRepoStruct) GetUserProfileByUserID(ctx context.Context, in *
 	`
 
 	profile, err := scanUserProfile(u.readPool.QueryRow(ctx, query, in.UserID))
+
 	if err != nil {
 		return nil, mapDatabaseError("GetUserProfileByUserID()", err)
 	}
@@ -172,9 +194,12 @@ func (u *UserProfileRepoStruct) GetUserProfileByUserID(ctx context.Context, in *
 	return &models.GetUserProfileByUserIDResult{UserProfile: profile}, nil
 }
 
+// ListUserProfiles возвращает страницу профилей с поиском ILIKE по имени или телефону
+// и отдельным общим счётчиком. Сортировку дополняет ID ASC; требует подготовленную пагинацию.
 func (u *UserProfileRepoStruct) ListUserProfiles(ctx context.Context, in *models.ListUserProfilesInput) (*models.ListUserProfilesResult, error) {
 	whereSQL := ""
 	args := make([]any, 0, 3)
+
 	if in.Query != nil {
 		args = append(args, "%"+strings.TrimSpace(*in.Query)+"%")
 		whereSQL = "WHERE full_name ILIKE $1 OR phone ILIKE $1"
@@ -182,6 +207,7 @@ func (u *UserProfileRepoStruct) ListUserProfiles(ctx context.Context, in *models
 
 	countQuery := "SELECT COUNT(*) FROM user_profiles " + whereSQL
 	var total int64
+
 	if err := u.readPool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, mapDatabaseError("ListUserProfiles(): count", err)
 	}
@@ -199,19 +225,24 @@ func (u *UserProfileRepoStruct) ListUserProfiles(ctx context.Context, in *models
 	`, whereSQL, userProfileSortColumn(in.SortBy), sortOrderSQL(in.SortOrder), limitArg, offsetArg)
 
 	rows, err := u.readPool.Query(ctx, query, args...)
+
 	if err != nil {
 		return nil, mapDatabaseError("ListUserProfiles(): query", err)
 	}
+
 	defer rows.Close()
 
 	profiles := make([]*models.UserProfile, 0)
 	for rows.Next() {
 		profile, scanErr := scanUserProfile(rows)
+
 		if scanErr != nil {
 			return nil, mapDatabaseError("ListUserProfiles(): scan", scanErr)
 		}
+
 		profiles = append(profiles, profile)
 	}
+
 	if err = rows.Err(); err != nil {
 		return nil, mapDatabaseError("ListUserProfiles(): rows", err)
 	}
@@ -219,6 +250,7 @@ func (u *UserProfileRepoStruct) ListUserProfiles(ctx context.Context, in *models
 	return &models.ListUserProfilesResult{UserProfiles: profiles, Total: total}, nil
 }
 
+// scanUserProfile читает поля пользовательского профиля; ошибку Scan возвращает без замены.
 func scanUserProfile(s scanner) (*models.UserProfile, error) {
 	profile := &models.UserProfile{}
 	err := s.Scan(
@@ -231,12 +263,16 @@ func scanUserProfile(s scanner) (*models.UserProfile, error) {
 		&profile.CreatedAt,
 		&profile.UpdatedAt,
 	)
+
 	if err != nil {
 		return nil, err
 	}
+
 	return profile, nil
 }
 
+// userProfileSortColumn выбирает разрешённый SQL-столбец сортировки;
+// неизвестное значение заменяет на created_at.
 func userProfileSortColumn(sortBy models.UserProfileSortBy) string {
 	switch sortBy {
 	case models.UserProfileSortByUpdatedAt:
@@ -248,10 +284,14 @@ func userProfileSortColumn(sortBy models.UserProfileSortBy) string {
 	}
 }
 
+// trimOptionalString возвращает новую строку без крайних пробелов либо nil для nil value.
+// Исходную строку не изменяет.
 func trimOptionalString(value *string) *string {
+
 	if value == nil {
 		return nil
 	}
+
 	trimmed := strings.TrimSpace(*value)
 	return &trimmed
 }

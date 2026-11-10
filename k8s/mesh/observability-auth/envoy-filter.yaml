@@ -1,0 +1,55 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: observability-basic-auth
+  namespace: istio-system
+spec:
+  workloadSelector:
+    labels:
+      istio: ingressgateway
+  configPatches:
+    - applyTo: NETWORK_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          portNumber: 8082
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+      patch:
+        operation: MERGE
+        value:
+          name: envoy.filters.network.http_connection_manager
+          typed_config:
+            '@type': type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+            local_reply_config:
+              mappers:
+                - filter:
+                    status_code_filter:
+                      comparison:
+                        op: EQ
+                        value:
+                          default_value: 401
+                  headers_to_add:
+                    - header:
+                        key: www-authenticate
+                        value: 'Basic realm="observability"'
+                      append_action: OVERWRITE_IF_EXISTS_OR_ADD
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          portNumber: 8082
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+              subFilter:
+                name: envoy.filters.http.router
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.basic_auth
+          typed_config:
+            '@type': type.googleapis.com/envoy.extensions.filters.http.basic_auth.v3.BasicAuth
+            users:
+              filename: /etc/istio/observability-auth/users

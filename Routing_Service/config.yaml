@@ -1,4 +1,6 @@
 grpc_port: 50057
+ticket_service_addr: "ticket-service:50052"
+brigade_service_addr: "brigade-service:50054"
 valhalla_url: "http://valhalla:8002"
 valhalla_timeout: "15s"
 kafka_brokers: ["kafka-1:9092", "kafka-2:9092", "kafka-3:9092"]

@@ -1,10 +1,12 @@
 .git
 .idea
 .gocache
+.gocache-ci
 .gocache-contracts
 .codex-protoc
 .codex-test-results
 .contract-staging
+.tools
 **/.git
 **/.idea
 **/*.exe

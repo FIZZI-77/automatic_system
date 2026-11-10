@@ -149,16 +149,21 @@ func profileHandlerContext(userID uuid.UUID, roles string) context.Context {
 
 func assertProfileGRPCCode(t *testing.T, err error, expected codes.Code) {
 	t.Helper()
+
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
+
 	st, ok := status.FromError(err)
+
 	if !ok {
 		t.Fatalf("expected grpc status error, got %v", err)
 	}
+
 	if st.Code() != expected {
 		t.Fatalf("expected grpc code %v, got %v", expected, st.Code())
 	}
+
 }
 
 func testHandlerUserProfile(profileID uuid.UUID, userID uuid.UUID) *models.UserProfile {
@@ -178,21 +183,27 @@ func TestProfileHandler_CreateUserProfile_Success(t *testing.T) {
 	phone := "+79991234567"
 	mock := &mockProfileService{
 		createUserProfileFunc: func(ctx context.Context, in *models.CreateUserProfileInput) (*models.CreateUserProfileResult, error) {
+
 			if in.UserID != userID {
 				t.Fatalf("expected user id %s, got %s", userID, in.UserID)
 			}
+
 			if in.ActorUserID == nil || *in.ActorUserID != userID {
 				t.Fatalf("expected actor user id %s, got %v", userID, in.ActorUserID)
 			}
+
 			if len(in.ActorRoles) != 2 {
 				t.Fatalf("expected two actor roles, got %#v", in.ActorRoles)
 			}
+
 			if in.Phone == nil || *in.Phone != phone {
 				t.Fatalf("expected phone %s, got %v", phone, in.Phone)
 			}
+
 			if in.PreferredContactMethod != models.PreferredContactMethodPhone {
 				t.Fatalf("expected PHONE contact method, got %s", in.PreferredContactMethod)
 			}
+
 			profile := testHandlerUserProfile(profileID, userID)
 			profile.Phone = &phone
 			profile.PreferredContactMethod = models.PreferredContactMethodPhone
@@ -211,12 +222,15 @@ func TestProfileHandler_CreateUserProfile_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
+
 	if resp.GetUserProfile().GetId() != profileID.String() {
 		t.Fatalf("expected profile id %s, got %s", profileID, resp.GetUserProfile().GetId())
 	}
+
 	if resp.GetUserProfile().GetPhone() != phone {
 		t.Fatalf("expected phone %s, got %s", phone, resp.GetUserProfile().GetPhone())
 	}
+
 }
 
 func TestProfileHandler_CreateUserProfile_InvalidUserID(t *testing.T) {
@@ -230,6 +244,7 @@ func TestProfileHandler_CreateUserProfile_InvalidUserID(t *testing.T) {
 	if resp != nil {
 		t.Fatal("expected nil response")
 	}
+
 	assertProfileGRPCCode(t, err, codes.InvalidArgument)
 }
 
@@ -246,6 +261,7 @@ func TestProfileHandler_GetUserProfileByID_MapsNotFound(t *testing.T) {
 	if resp != nil {
 		t.Fatal("expected nil response")
 	}
+
 	assertProfileGRPCCode(t, err, codes.NotFound)
 }
 
@@ -256,15 +272,19 @@ func TestProfileHandler_ListWorkProfiles_ParsesOptionalFilters(t *testing.T) {
 	sortOrder := profilev1.SortOrder_SORT_ORDER_ASC
 	mock := &mockProfileService{
 		listWorkProfilesFunc: func(ctx context.Context, in *models.ListWorkProfilesInput) (*models.ListWorkProfilesResult, error) {
+
 			if in.DepartmentID == nil || *in.DepartmentID != departmentID {
 				t.Fatalf("expected department id %s, got %v", departmentID, in.DepartmentID)
 			}
+
 			if in.Status == nil || *in.Status != models.WorkProfileStatusActive {
 				t.Fatalf("expected status ACTIVE, got %v", in.Status)
 			}
+
 			if in.SortBy != models.WorkProfileSortByFullName || in.SortOrder != models.SortOrderAsc {
 				t.Fatalf("unexpected sorting: %s %s", in.SortBy, in.SortOrder)
 			}
+
 			return &models.ListWorkProfilesResult{WorkProfiles: []*models.WorkProfileDetails{}, Total: 0}, nil
 		},
 	}
@@ -282,9 +302,11 @@ func TestProfileHandler_ListWorkProfiles_ParsesOptionalFilters(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
+
 	if resp.GetTotal() != 0 {
 		t.Fatalf("expected total 0, got %d", resp.GetTotal())
 	}
+
 }
 
 func TestProfileHandler_VerifyCertification_ReturnsSkillGrants(t *testing.T) {
@@ -321,9 +343,11 @@ func TestProfileHandler_VerifyCertification_ReturnsSkillGrants(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
+
 	if len(resp.GetSkillGrants()) != 1 || resp.GetSkillGrants()[0].GetSkillId() != skillID.String() {
 		t.Fatalf("unexpected skill grants: %+v", resp.GetSkillGrants())
 	}
+
 }
 
 func TestProfileErrorCode(t *testing.T) {
@@ -342,9 +366,11 @@ func TestProfileErrorCode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+
 			if got := profileErrorCode(tt.err); got != tt.code {
 				t.Fatalf("expected %v, got %v", tt.code, got)
 			}
+
 		})
 	}
 }

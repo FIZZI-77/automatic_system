@@ -20,7 +20,12 @@ func main() {
 	defer conn.Close()
 	client := slav1.NewSLAServiceClient(conn)
 	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("x-actor-roles", "admin"))
-	created, err := client.CreateRule(ctx, &slav1.CreateRuleRequest{Name: "smoke rule " + time.Now().Format(time.RFC3339Nano), ResponseTimeSeconds: 60, ResolutionTimeSeconds: 300, WarningPercent: 80})
+	created, err := client.CreateRule(ctx, &slav1.CreateRuleRequest{
+		Name:                  "smoke rule " + time.Now().Format(time.RFC3339Nano),
+		ResponseTimeSeconds:   60,
+		ResolutionTimeSeconds: 300,
+		WarningPercent:        80,
+	})
 	check(err)
 	got, err := client.GetRule(ctx, &slav1.GetRuleRequest{Id: created.GetRule().GetId()})
 	check(err)
@@ -32,13 +37,17 @@ func main() {
 }
 
 func address() string {
+
 	if v := os.Getenv("SLA_ADDR"); v != "" {
 		return v
 	}
+
 	return "localhost:50060"
 }
 func check(err error) {
+
 	if err != nil {
 		panic(err)
 	}
+
 }

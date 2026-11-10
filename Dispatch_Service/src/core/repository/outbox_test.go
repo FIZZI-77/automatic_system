@@ -56,11 +56,15 @@ func TestOperationEventPayloadContracts(t *testing.T) {
 			eventID := uuid.New()
 			payload := operationEventPayload(context.Background(), eventID, test.eventType, operation)
 			assertDispatchEnvelope(t, payload, eventID, test.eventType, operation)
+
 			if test.timestamp != "" {
+
 				if got, ok := payload[test.timestamp].(time.Time); !ok || !got.Equal(now) {
 					t.Errorf("%s = %v, want %v", test.timestamp, payload[test.timestamp], now)
 				}
+
 			}
+
 		})
 	}
 }
@@ -83,9 +87,11 @@ func TestCandidateEventPayloadContract(t *testing.T) {
 	eventID := uuid.New()
 	payload := candidateEventPayload(context.Background(), eventID, operation, 5, 3, now)
 	assertDispatchEnvelope(t, payload, eventID, "dispatch.candidates_ranked", operation)
+
 	if payload["candidate_count"] != 5 || payload["reachable_candidate_count"] != 3 {
 		t.Errorf("candidate counts = (%v,%v), want (5,3)", payload["candidate_count"], payload["reachable_candidate_count"])
 	}
+
 }
 
 func assertDispatchEnvelope(t *testing.T, payload map[string]any, eventID uuid.UUID, eventType string, operation *models.Operation) {
@@ -97,14 +103,19 @@ func assertDispatchEnvelope(t *testing.T, payload map[string]any, eventID uuid.U
 		"priority": operation.Priority, "mode": operation.Mode,
 	}
 	for key, expected := range want {
+
 		if payload[key] != expected {
 			t.Errorf("%s = %v, want %v", key, payload[key], expected)
 		}
+
 	}
+
 	if _, ok := payload["occurred_at"].(time.Time); !ok {
 		t.Errorf("occurred_at = %T, want time.Time", payload["occurred_at"])
 	}
+
 	if _, ok := payload["trace_id"]; !ok {
 		t.Error("trace_id is missing")
 	}
+
 }
