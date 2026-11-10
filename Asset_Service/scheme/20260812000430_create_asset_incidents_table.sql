@@ -1,5 +1,5 @@
 -- +goose Up
-CREATE TABLE asset_incidents (
+CREATE TABLE IF NOT EXISTS asset_incidents (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     asset_id uuid NOT NULL REFERENCES assets,
     ticket_id uuid,
@@ -12,4 +12,4 @@ CREATE TABLE asset_incidents (
 );
 
 -- +goose Down
-DROP TABLE asset_incidents;
+DROP TABLE IF EXISTS asset_incidents;

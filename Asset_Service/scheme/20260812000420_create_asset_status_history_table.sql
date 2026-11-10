@@ -1,5 +1,5 @@
 -- +goose Up
-CREATE TABLE asset_status_history (
+CREATE TABLE IF NOT EXISTS asset_status_history (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     asset_id uuid NOT NULL REFERENCES assets,
     old_status text,
@@ -10,4 +10,4 @@ CREATE TABLE asset_status_history (
 );
 
 -- +goose Down
-DROP TABLE asset_status_history;
+DROP TABLE IF EXISTS asset_status_history;
