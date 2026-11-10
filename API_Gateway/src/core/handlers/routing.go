@@ -282,7 +282,7 @@ func routingContext(c *gin.Context) context.Context {
 		15*time.Second,
 	)
 	c.Set("routing_cancel", cancel)
-	// The route-group middleware already resolved the actor's department/brigade.
+	// Middleware группы маршрутов уже определил ведомство и бригаду пользователя.
 	return ctx
 }
 

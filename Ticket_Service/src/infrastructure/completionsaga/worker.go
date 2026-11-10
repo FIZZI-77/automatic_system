@@ -125,8 +125,8 @@ func (w *Worker) ProcessExpired(ctx context.Context) (processed int, err error) 
 	return processed, nil
 }
 
-// Resume restarts a failed saga. If a generated file is still present, Resume
-// retries compensation first; otherwise it republishes the original request.
+// Resume перезапускает завершившуюся ошибкой сагу. Если созданный файл ещё
+// существует, сначала повторяет компенсацию, иначе повторно публикует исходный запрос.
 func Resume(ctx context.Context, db *pgxpool.Pool, reportID uuid.UUID, attemptTimeout time.Duration) (err error) {
 	ctx, span := telemetry.Tracer("ticket/completion-saga").Start(ctx, "CompletionSaga.Resume")
 	defer func() { telemetry.End(span, err) }()

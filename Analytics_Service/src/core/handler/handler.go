@@ -4,12 +4,13 @@ import (
 	"analytics/models"
 	"analytics/src/core/service"
 	"context"
+	"strings"
+
 	analyticsv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/analytics/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"strings"
 )
 
 type Handler struct {
@@ -33,7 +34,7 @@ func (h *Handler) GetTicketOverview(c context.Context, q *analyticsv1.GetTicketO
 	v, e := h.s.Overview(c, filter(q.GetFilter()))
 
 	if e != nil {
-		return nil, internal(e)
+		return nil, internal()
 	}
 
 	return &analyticsv1.GetTicketOverviewResponse{
@@ -58,7 +59,7 @@ func (h *Handler) GetSLASummary(c context.Context, q *analyticsv1.GetSLASummaryR
 	v, e := h.s.SLA(c, filter(q.GetFilter()))
 
 	if e != nil {
-		return nil, internal(e)
+		return nil, internal()
 	}
 
 	return &analyticsv1.GetSLASummaryResponse{
@@ -110,7 +111,7 @@ func (h *Handler) ListDailyTicketMetrics(c context.Context, q *analyticsv1.ListD
 	items, e := h.s.Daily(c, filter(q.GetFilter()))
 
 	if e != nil {
-		return nil, internal(e)
+		return nil, internal()
 	}
 
 	out := make([]*analyticsv1.DailyTicketMetric, 0, len(items))
@@ -172,7 +173,7 @@ func auth(c context.Context) error {
 }
 
 // internal скрывает переданную ошибку за общим gRPC Internal для запроса аналитики.
-func internal(error) error {
+func internal() error {
 	return status.Error(codes.Internal, "analytics query failed")
 }
 
@@ -187,7 +188,7 @@ func (h *Handler) GetAssetSummary(c context.Context, q *analyticsv1.GetAssetSumm
 	v, e := h.s.AssetSummary(c, filter(q.Filter), q.AssetType, q.District)
 
 	if e != nil {
-		return nil, internal(e)
+		return nil, internal()
 	}
 
 	out := &analyticsv1.GetAssetSummaryResponse{
@@ -221,7 +222,7 @@ func (h *Handler) GetOperationalLatency(c context.Context, q *analyticsv1.GetOpe
 	value, err := h.s.OperationalLatency(c, filter(q.GetFilter()), groupBy)
 
 	if err != nil {
-		return nil, internal(err)
+		return nil, internal()
 	}
 
 	groups := make([]*analyticsv1.OperationalLatencyGroup, 0, len(value.Groups))
@@ -252,7 +253,7 @@ func (h *Handler) GetDispatchFailureSummary(c context.Context, q *analyticsv1.Ge
 	value, err := h.s.DispatchFailures(c, filter(q.GetFilter()))
 
 	if err != nil {
-		return nil, internal(err)
+		return nil, internal()
 	}
 
 	return &analyticsv1.GetDispatchFailureSummaryResponse{
@@ -277,7 +278,7 @@ func (h *Handler) GetBrigadeWorkload(c context.Context, q *analyticsv1.GetBrigad
 	value, err := h.s.BrigadeWorkload(c, filter(q.GetFilter()))
 
 	if err != nil {
-		return nil, internal(err)
+		return nil, internal()
 	}
 
 	brigades := make([]*analyticsv1.BrigadeWorkloadItem, 0, len(value.Brigades))
@@ -307,7 +308,7 @@ func (h *Handler) GetActiveWorkers(c context.Context, q *analyticsv1.GetActiveWo
 	value, err := h.s.ActiveWorkers(c, filter(q.GetFilter()))
 
 	if err != nil {
-		return nil, internal(err)
+		return nil, internal()
 	}
 
 	return &analyticsv1.GetActiveWorkersResponse{
@@ -330,7 +331,7 @@ func (h *Handler) GetAssignmentFunnel(c context.Context, q *analyticsv1.GetAssig
 	value, err := h.s.AssignmentFunnel(c, filter(q.GetFilter()))
 
 	if err != nil {
-		return nil, internal(err)
+		return nil, internal()
 	}
 
 	stages := make([]*analyticsv1.AssignmentFunnelStage, 0, len(value.Stages))
@@ -356,7 +357,7 @@ func (h *Handler) GetDispatchEffectiveness(c context.Context, q *analyticsv1.Get
 	value, err := h.s.DispatchEffectiveness(c, filter(q.GetFilter()))
 
 	if err != nil {
-		return nil, internal(err)
+		return nil, internal()
 	}
 
 	return &analyticsv1.GetDispatchEffectivenessResponse{
@@ -378,7 +379,7 @@ func (h *Handler) GetOperationalInsights(c context.Context, q *analyticsv1.GetOp
 	value, err := h.s.OperationalInsights(c, filter(q.GetFilter()))
 
 	if err != nil {
-		return nil, internal(err)
+		return nil, internal()
 	}
 
 	buckets := make([]*analyticsv1.QueueAgeBucket, 0, len(value.QueueAge.Buckets))
@@ -428,7 +429,7 @@ func (h *Handler) GetProjectionHealth(c context.Context, _ *analyticsv1.GetProje
 	value, err := h.s.ProjectionHealth(c)
 
 	if err != nil {
-		return nil, internal(err)
+		return nil, internal()
 	}
 
 	topics := make([]*analyticsv1.ProjectionTopicHealth, 0, len(value.Topics))
@@ -470,7 +471,7 @@ func (h *Handler) ListDispatchOperations(c context.Context, q *analyticsv1.ListD
 	values, err := h.s.DispatchOperations(c, filter(q.GetFilter()), q.GetLimit())
 
 	if err != nil {
-		return nil, internal(err)
+		return nil, internal()
 	}
 
 	items := make([]*analyticsv1.DispatchOperationItem, 0, len(values))
@@ -498,7 +499,7 @@ func (h *Handler) GetBrigadePerformance(c context.Context, q *analyticsv1.GetBri
 	value, err := h.s.BrigadePerformance(c, filter(q.GetFilter()))
 
 	if err != nil {
-		return nil, internal(err)
+		return nil, internal()
 	}
 
 	brigades := make([]*analyticsv1.BrigadePerformanceItem, 0, len(value.Brigades))
@@ -546,7 +547,7 @@ func (h *Handler) GetDepartmentPerformance(c context.Context, q *analyticsv1.Get
 	report, err := h.s.DepartmentPerformance(c, filter(q.GetFilter()))
 
 	if err != nil {
-		return nil, internal(err)
+		return nil, internal()
 	}
 
 	departments := make([]*analyticsv1.DepartmentPerformance, 0, len(report.Departments))

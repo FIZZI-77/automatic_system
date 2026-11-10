@@ -1,4 +1,4 @@
-// Command openapi generates the public HTTP contract from Gateway routes and models.
+// Команда openapi формирует публичный HTTP-контракт из маршрутов и моделей Gateway.
 package main
 
 import (
@@ -51,7 +51,7 @@ func main() {
 	data, err := generate(root)
 
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
@@ -59,7 +59,7 @@ func main() {
 		current, err := os.ReadFile(output)
 
 		if err != nil || !bytes.Equal(current, data) {
-			fmt.Fprintln(os.Stderr, "openapi.json is stale; run go run ./tools/openapi")
+			_, _ = fmt.Fprintln(os.Stderr, "openapi.json is stale; run go run ./tools/openapi")
 			os.Exit(1)
 		}
 
@@ -67,7 +67,7 @@ func main() {
 	}
 
 	if err := os.WriteFile(output, data, 0644); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 

@@ -154,9 +154,9 @@ func (w *Worker) apply(ctx context.Context, message kafka.Message) error {
 		return errors.New("ticket event misses event_type")
 	}
 
-	// Routing only owns the lifecycle reaction for terminal ticket events.
-	// Category, create, update and assignment events share the same topic and
-	// must be acknowledged instead of being treated as poison messages.
+	// Routing отвечает только за реакцию на финальные события жизненного цикла заявки.
+	// События категорий, создания, обновления и назначения используют тот же топик,
+	// поэтому их нужно подтверждать, а не считать проблемными сообщениями.
 	if eventType != "ticket.canceled" && eventType != "ticket.completed" {
 		return nil
 	}

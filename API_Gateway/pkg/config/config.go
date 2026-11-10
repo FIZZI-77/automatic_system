@@ -12,8 +12,8 @@ import (
 
 var secretParts = []string{"password", "secret", "token", "api_key", "private_key", "access_key", "database_url", "dbstring"}
 
-// Load reads non-secret settings from YAML and exposes them through the existing
-// environment-based configuration boundary. Environment variables always win.
+// Load читает несекретные настройки из YAML и объединяет их с конфигурацией окружения.
+// Значения переменных окружения имеют приоритет.
 func Load() error {
 	path := strings.TrimSpace(os.Getenv("CONFIG_FILE"))
 

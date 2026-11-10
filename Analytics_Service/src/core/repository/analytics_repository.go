@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"analytics/models"
+
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 )
 
@@ -269,7 +270,13 @@ func (r *AnalyticsRepoStruct) BrigadeWorkload(ctx context.Context, filter models
 		return models.BrigadeWorkload{}, err
 	}
 
-	defer rows.Close()
+	defer func(rows driver.Rows) {
+		err := rows.Close()
+		if err != nil {
+
+		}
+	}(rows)
+
 	result := models.BrigadeWorkload{Brigades: make([]models.BrigadeWorkloadItem, 0)}
 	for rows.Next() {
 		var item models.BrigadeWorkloadItem
@@ -367,7 +374,13 @@ func (r *AnalyticsRepoStruct) ProjectionHealth(ctx context.Context) (models.Proj
 		return models.ProjectionHealth{}, err
 	}
 
-	defer rows.Close()
+	defer func(rows driver.Rows) {
+		err := rows.Close()
+		if err != nil {
+
+		}
+	}(rows)
+
 	result.Topics = make([]models.ProjectionTopicHealth, 0)
 	for rows.Next() {
 		var item models.ProjectionTopicHealth
@@ -423,7 +436,13 @@ func (r *AnalyticsRepoStruct) DispatchOperations(ctx context.Context, filter mod
 		return nil, err
 	}
 
-	defer rows.Close()
+	defer func(rows driver.Rows) {
+		err := rows.Close()
+		if err != nil {
+
+		}
+	}(rows)
+
 	result := make([]models.DispatchOperationItem, 0)
 	for rows.Next() {
 		var item models.DispatchOperationItem
@@ -579,7 +598,13 @@ func (r *AnalyticsRepoStruct) brigadeShiftMetrics(ctx context.Context, filter mo
 		return brigadeShiftMetric{}, nil, err
 	}
 
-	defer rows.Close()
+	defer func(rows driver.Rows) {
+		err := rows.Close()
+		if err != nil {
+
+		}
+	}(rows)
+
 	byBrigade := make(map[string]brigadeShiftMetric)
 	var total brigadeShiftMetric
 	for rows.Next() {
@@ -649,7 +674,13 @@ func (r *AnalyticsRepoStruct) brigadePerformanceGroups(ctx context.Context, filt
 		return nil, err
 	}
 
-	defer rows.Close()
+	defer func(rows driver.Rows) {
+		err := rows.Close()
+		if err != nil {
+
+		}
+	}(rows)
+
 	result := make([]models.BrigadePerformanceItem, 0)
 	for rows.Next() {
 		var item models.BrigadePerformanceItem
@@ -962,7 +993,7 @@ func (r *AnalyticsRepoStruct) eligibleBrigadeIDs(ctx context.Context, filter mod
 		return nil, err
 	}
 
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	ids := make([]string, 0)
 	for rows.Next() {
 		var id string
@@ -1247,7 +1278,7 @@ func (r *AnalyticsRepoStruct) activeWorkerGroups(ctx context.Context, filter mod
 		return nil, err
 	}
 
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	result := make([]models.ActiveWorkerGroup, 0)
 	for rows.Next() {
 		item := models.ActiveWorkerGroup{Dimension: dimension}
@@ -1280,7 +1311,7 @@ func (r *AnalyticsRepoStruct) dispatchFailureBreakdown(ctx context.Context, filt
 		return nil, err
 	}
 
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	result := make([]models.DispatchFailureBreakdown, 0)
 	for rows.Next() {
 		var item models.DispatchFailureBreakdown
@@ -1311,7 +1342,7 @@ func (r *AnalyticsRepoStruct) dispatchBusinessReasons(ctx context.Context, filte
 		return nil, err
 	}
 
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	result := make([]models.DispatchFailureReasonSummary, 0, 3)
 	for rows.Next() {
 		var item models.DispatchFailureReasonSummary
@@ -1355,7 +1386,7 @@ func (r *AnalyticsRepoStruct) dispatchReasonDimensions(ctx context.Context, filt
 		return nil, err
 	}
 
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	result := make([]models.DispatchFailureReasonDimension, 0)
 	for rows.Next() {
 		var item models.DispatchFailureReasonDimension
@@ -1654,7 +1685,7 @@ func scanLatencyGroups(rows driver.Rows, err error) (map[string]models.LatencyDi
 		return nil, err
 	}
 
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	result := make(map[string]models.LatencyDistribution)
 	for rows.Next() {
 		var key string
@@ -1738,7 +1769,7 @@ func (r *AnalyticsRepoStruct) Breakdown(ctx context.Context, f models.Filter, di
 		return nil, 0, err
 	}
 
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	items := make([]models.Breakdown, 0)
 	var total uint64
 	for rows.Next() {
@@ -1764,7 +1795,7 @@ func (r *AnalyticsRepoStruct) Daily(ctx context.Context, f models.Filter) ([]mod
 		return nil, err
 	}
 
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	items := make([]models.Daily, 0)
 	for rows.Next() {
 		var v models.Daily
@@ -1836,8 +1867,8 @@ func (r *AnalyticsRepoStruct) assetGroups(ctx context.Context, where string, arg
 		return nil, e
 	}
 
-	defer rows.Close()
-	out := []models.AssetBreakdown{}
+	defer func() { _ = rows.Close() }()
+	var out []models.AssetBreakdown
 	for rows.Next() {
 		var x models.AssetBreakdown
 

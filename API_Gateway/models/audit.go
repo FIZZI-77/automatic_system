@@ -2,10 +2,12 @@ package models
 
 import "time"
 
+// GetAuditEntryRequest содержит параметры API-запроса.
 type GetAuditEntryRequest struct {
 	ID string `json:"id" binding:"required,uuid"`
 }
 
+// ListAuditEntriesRequest содержит параметры API-запроса.
 type ListAuditEntriesRequest struct {
 	ActorID    *string    `json:"actor_id,omitempty" binding:"omitempty,uuid"`
 	Action     *string    `json:"action,omitempty"`

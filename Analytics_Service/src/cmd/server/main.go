@@ -9,18 +9,20 @@ import (
 	"analytics/src/core/service"
 	"analytics/src/infrastructure/eventconsumer"
 	"context"
-	"github.com/ClickHouse/clickhouse-go/v2"
-	analyticsv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/analytics/v1"
-	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/health"
-	healthv1 "google.golang.org/grpc/health/grpc_health_v1"
 	"log"
 	"net"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	analyticsv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/analytics/v1"
+	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	healthv1 "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 func main() {
@@ -51,7 +53,12 @@ func main() {
 		log.Fatal(e)
 	}
 
-	defer logger.Sync()
+	defer func(logger *zap.Logger) {
+		err := logger.Sync()
+		if err != nil {
+
+		}
+	}(logger)
 
 	db, e := clickhouse.Open(&clickhouse.Options{
 		Addr: split(required("CLICKHOUSE_ADDR")),
@@ -70,7 +77,12 @@ func main() {
 		logger.Fatal("clickhouse failed", zap.Error(e))
 	}
 
-	defer db.Close()
+	defer func(db driver.Conn) {
+		err := db.Close()
+		if err != nil {
+
+		}
+	}(db)
 
 	if e = db.Ping(ctx); e != nil {
 		logger.Fatal("clickhouse unavailable", zap.Error(e))
@@ -78,7 +90,7 @@ func main() {
 
 	repo := repository.NewRepository(db)
 	svc := service.NewService(repo, logger)
-	workers := []*eventconsumer.Worker{}
+	var workers []*eventconsumer.Worker
 
 	for _, topic := range split(required("KAFKA_TOPICS")) {
 		w := eventconsumer.New(split(required("KAFKA_BROKERS")), topic, env("KAFKA_GROUP", "analytics-service"), svc, logger)
@@ -150,7 +162,7 @@ func required(k string) string {
 }
 func split(v string) []string {
 	var out []string
-	for _, x := range strings.Split(v, ",") {
+	for x := range strings.SplitSeq(v, ",") {
 
 		if x = strings.TrimSpace(x); x != "" {
 			out = append(out, x)

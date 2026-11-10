@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// NewPostgresPool creates a pgx pool with query spans and pool metrics.
+// NewPostgresPool создаёт пул pgx с трассировкой запросов и метриками соединений.
 func NewPostgresPool(ctx context.Context, connectionString string) (*pgxpool.Pool, error) {
 	config, err := pgxpool.ParseConfig(connectionString)
 

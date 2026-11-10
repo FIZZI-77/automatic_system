@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
+// TicketStatus задаёт допустимое состояние модели.
 type TicketStatus string
 
 const (
@@ -30,6 +31,7 @@ func (s TicketStatus) IsValid() bool {
 	}
 }
 
+// TicketPriority задаёт приоритет доменной модели.
 type TicketPriority string
 
 const (
@@ -52,6 +54,7 @@ func (p TicketPriority) IsValid() bool {
 	}
 }
 
+// TicketSortBy задаёт поле сортировки.
 type TicketSortBy string
 
 const (
@@ -74,6 +77,7 @@ func (s TicketSortBy) IsValid() bool {
 	}
 }
 
+// SortOrder задаёт направление сортировки результатов.
 type SortOrder string
 
 const (
@@ -91,6 +95,7 @@ func (s SortOrder) IsValid() bool {
 	}
 }
 
+// Ticket описывает заявку и её текущее состояние.
 type Ticket struct {
 	ID           uuid.UUID  `json:"id"`
 	DepartmentID uuid.UUID  `json:"department_id"`
@@ -121,6 +126,7 @@ type Ticket struct {
 	CanceledAt  *time.Time `json:"canceled_at,omitempty"`
 }
 
+// TicketCategory описывает доменную модель.
 type TicketCategory struct {
 	ID          uuid.UUID `json:"id"`
 	Code        string    `json:"code"`
@@ -131,6 +137,7 @@ type TicketCategory struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
+// TicketStatusHistory описывает доменную модель.
 type TicketStatusHistory struct {
 	ID       uuid.UUID `json:"id"`
 	TicketID uuid.UUID `json:"ticket_id"`
@@ -144,6 +151,7 @@ type TicketStatusHistory struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+// CreateTicketInput задаёт входные данные операции.
 type CreateTicketInput struct {
 	DepartmentID uuid.UUID
 	CategoryID   uuid.UUID
@@ -162,10 +170,12 @@ type CreateTicketInput struct {
 	ActorRoles  []string
 }
 
+// CreateTicketResult содержит результат операции.
 type CreateTicketResult struct {
 	Ticket *Ticket
 }
 
+// GetTicketInput задаёт входные данные операции.
 type GetTicketInput struct {
 	TicketID          uuid.UUID
 	ActorUserID       *uuid.UUID
@@ -174,10 +184,12 @@ type GetTicketInput struct {
 	ActorRoles        []string
 }
 
+// GetTicketResult содержит результат операции.
 type GetTicketResult struct {
 	Ticket *Ticket
 }
 
+// ListTicketsInput задаёт входные данные операции.
 type ListTicketsInput struct {
 	DepartmentID *uuid.UUID
 	UserID       *uuid.UUID
@@ -202,11 +214,13 @@ type ListTicketsInput struct {
 	ActorRoles        []string
 }
 
+// ListTicketsResult содержит результат операции.
 type ListTicketsResult struct {
 	Tickets []*Ticket
 	Total   int64
 }
 
+// UpdateTicketInput задаёт входные данные операции.
 type UpdateTicketInput struct {
 	TicketID uuid.UUID
 
@@ -226,10 +240,12 @@ type UpdateTicketInput struct {
 	ActorRoles        []string
 }
 
+// UpdateTicketResult содержит результат операции.
 type UpdateTicketResult struct {
 	Ticket *Ticket
 }
 
+// ChangeTicketStatusInput задаёт входные данные операции.
 type ChangeTicketStatusInput struct {
 	TicketID          uuid.UUID
 	NewStatus         TicketStatus
@@ -240,10 +256,12 @@ type ChangeTicketStatusInput struct {
 	ActorRoles        []string
 }
 
+// ChangeTicketStatusResult содержит результат операции.
 type ChangeTicketStatusResult struct {
 	Ticket *Ticket
 }
 
+// AssignBrigadeInput задаёт входные данные операции.
 type AssignBrigadeInput struct {
 	TicketID          uuid.UUID
 	BrigadeID         uuid.UUID
@@ -253,10 +271,12 @@ type AssignBrigadeInput struct {
 	ActorRoles        []string
 }
 
+// AssignBrigadeResult содержит результат операции.
 type AssignBrigadeResult struct {
 	Ticket *Ticket
 }
 
+// CancelTicketInput задаёт входные данные операции.
 type CancelTicketInput struct {
 	TicketID          uuid.UUID
 	CanceledBy        uuid.UUID
@@ -265,10 +285,12 @@ type CancelTicketInput struct {
 	ActorRoles        []string
 }
 
+// CancelTicketResult содержит результат операции.
 type CancelTicketResult struct {
 	Ticket *Ticket
 }
 
+// CompleteTicketInput задаёт входные данные операции.
 type CompleteTicketInput struct {
 	TicketID          uuid.UUID
 	CompletedBy       uuid.UUID
@@ -278,10 +300,12 @@ type CompleteTicketInput struct {
 	ActorRoles        []string
 }
 
+// CompleteTicketResult содержит результат операции.
 type CompleteTicketResult struct {
 	Ticket *Ticket
 }
 
+// GetTicketStatusHistoryInput задаёт входные данные операции.
 type GetTicketStatusHistoryInput struct {
 	TicketID          uuid.UUID
 	Limit             int32
@@ -292,11 +316,13 @@ type GetTicketStatusHistoryInput struct {
 	ActorRoles        []string
 }
 
+// GetTicketStatusHistoryResult содержит результат операции.
 type GetTicketStatusHistoryResult struct {
 	History []*TicketStatusHistory
 	Total   int64
 }
 
+// CreateCategoryInput задаёт входные данные операции.
 type CreateCategoryInput struct {
 	Code        string
 	Name        string
@@ -304,29 +330,35 @@ type CreateCategoryInput struct {
 	ActorRoles  []string
 }
 
+// CreateCategoryResult содержит результат операции.
 type CreateCategoryResult struct {
 	Category *TicketCategory
 }
 
+// GetCategoryInput задаёт входные данные операции.
 type GetCategoryInput struct {
 	CategoryID uuid.UUID
 }
 
+// GetCategoryResult содержит результат операции.
 type GetCategoryResult struct {
 	Category *TicketCategory
 }
 
+// ListCategoriesInput задаёт входные данные операции.
 type ListCategoriesInput struct {
 	OnlyActive bool
 	Limit      int32
 	Offset     int32
 }
 
+// ListCategoriesResult содержит результат операции.
 type ListCategoriesResult struct {
 	Categories []*TicketCategory
 	Total      int64
 }
 
+// UpdateCategoryInput задаёт входные данные операции.
 type UpdateCategoryInput struct {
 	CategoryID uuid.UUID
 
@@ -336,15 +368,18 @@ type UpdateCategoryInput struct {
 	ActorRoles  []string
 }
 
+// UpdateCategoryResult содержит результат операции.
 type UpdateCategoryResult struct {
 	Category *TicketCategory
 }
 
+// DeleteCategoryInput задаёт входные данные операции.
 type DeleteCategoryInput struct {
 	CategoryID uuid.UUID
 	ActorRoles []string
 }
 
+// DeleteCategoryResult содержит результат операции.
 type DeleteCategoryResult struct {
 	Category *TicketCategory
 }

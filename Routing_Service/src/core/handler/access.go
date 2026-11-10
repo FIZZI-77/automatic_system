@@ -81,8 +81,9 @@ func (h *Handler) authorizeRoute(ctx context.Context, id string, write bool) (*m
 	return route, nil
 }
 
-// allowedTickets delegates ownership rules to Ticket before route count/pagination.
-// A nil slice is reserved for admins; an empty non-nil slice allows no tickets.
+// allowedTickets передаёт проверку правил владения сервису Ticket до подсчёта
+// и пагинации маршрутов. nil-срез обозначает доступ администратора,
+// а пустой ненулевой срез запрещает доступ ко всем заявкам.
 func (h *Handler) allowedTickets(ctx context.Context, ticketID *string) ([]string, error) {
 	if err := requireActor(ctx); err != nil {
 		return nil, err

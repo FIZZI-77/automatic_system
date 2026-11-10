@@ -1,10 +1,12 @@
 package models
 
+// RoutingPoint описывает доменную модель.
 type RoutingPoint struct {
 	Latitude  float64 `json:"latitude" binding:"gte=-90,lte=90"`
 	Longitude float64 `json:"longitude" binding:"gte=-180,lte=180"`
 }
 
+// RoutingVehicleConstraints описывает доменную модель.
 type RoutingVehicleConstraints struct {
 	HeightMeters       *float64 `json:"height_meters,omitempty" binding:"omitempty,gt=0"`
 	WidthMeters        *float64 `json:"width_meters,omitempty" binding:"omitempty,gt=0"`
@@ -14,6 +16,7 @@ type RoutingVehicleConstraints struct {
 	HazardousMaterials bool     `json:"hazardous_materials"`
 }
 
+// RoutingOptions описывает доменную модель.
 type RoutingOptions struct {
 	TravelMode   string                     `json:"travel_mode,omitempty" binding:"omitempty,oneof=auto truck bicycle pedestrian"`
 	DepartureAt  string                     `json:"departure_at,omitempty"`
@@ -21,6 +24,7 @@ type RoutingOptions struct {
 	Vehicle      *RoutingVehicleConstraints `json:"vehicle,omitempty"`
 }
 
+// BuildRouteRequest содержит параметры API-запроса.
 type BuildRouteRequest struct {
 	Origin      RoutingPoint   `json:"origin" binding:"required"`
 	Destination RoutingPoint   `json:"destination" binding:"required"`
@@ -28,17 +32,20 @@ type BuildRouteRequest struct {
 	Options     RoutingOptions `json:"options"`
 }
 
+// BuildMatrixRequest содержит параметры API-запроса.
 type BuildMatrixRequest struct {
 	Sources []RoutingPoint `json:"sources" binding:"required,min=1,max=100,dive"`
 	Targets []RoutingPoint `json:"targets" binding:"required,min=1,max=100,dive"`
 	Options RoutingOptions `json:"options"`
 }
 
+// RoutingCandidate описывает доменную модель.
 type RoutingCandidate struct {
 	BrigadeID string       `json:"brigade_id" binding:"required,uuid"`
 	Location  RoutingPoint `json:"location" binding:"required"`
 }
 
+// RankCandidatesRequest содержит параметры API-запроса.
 type RankCandidatesRequest struct {
 	Destination RoutingPoint       `json:"destination" binding:"required"`
 	Candidates  []RoutingCandidate `json:"candidates" binding:"required,min=1,dive"`
@@ -46,6 +53,7 @@ type RankCandidatesRequest struct {
 	Limit       int32              `json:"limit,omitempty" binding:"omitempty,min=1,max=100"`
 }
 
+// CreateRoutingRouteRequest содержит параметры API-запроса.
 type CreateRoutingRouteRequest struct {
 	TicketID    string         `json:"ticket_id" binding:"required,uuid"`
 	BrigadeID   string         `json:"brigade_id" binding:"required,uuid"`
@@ -55,20 +63,24 @@ type CreateRoutingRouteRequest struct {
 	Options     RoutingOptions `json:"options"`
 }
 
+// GetRoutingRouteRequest содержит параметры API-запроса.
 type GetRoutingRouteRequest struct {
 	ID string `json:"id" binding:"required,uuid"`
 }
 
+// RecalculateRoutingRouteRequest содержит параметры API-запроса.
 type RecalculateRoutingRouteRequest struct {
 	ID              string       `json:"id" binding:"required,uuid"`
 	CurrentPosition RoutingPoint `json:"current_position" binding:"required"`
 }
 
+// SetRoutingRouteStatusRequest содержит параметры API-запроса.
 type SetRoutingRouteStatusRequest struct {
 	ID     string `json:"id" binding:"required,uuid"`
 	Status string `json:"status" binding:"required,oneof=ACTIVE COMPLETED CANCELLED"`
 }
 
+// ListRoutingRoutesRequest содержит параметры API-запроса.
 type ListRoutingRoutesRequest struct {
 	TicketID  *string `json:"ticket_id,omitempty" binding:"omitempty,uuid"`
 	BrigadeID *string `json:"brigade_id,omitempty" binding:"omitempty,uuid"`

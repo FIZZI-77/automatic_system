@@ -176,7 +176,7 @@ func (s *TicketServiceStruct) ListTickets(ctx context.Context, in *models.ListTi
 	}
 
 	if hasRole(in.ActorRoles, "admin") {
-		// Administrators may query all departments.
+		// Администратор может запрашивать данные всех ведомств.
 	} else if hasRole(in.ActorRoles, "dispatcher") {
 		if in.ActorDepartmentID == nil {
 			return nil, fmt.Errorf("service: ListTickets(): %w", models.ErrPermissionDenied)

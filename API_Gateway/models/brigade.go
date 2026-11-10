@@ -1,5 +1,6 @@
 package models
 
+// BrigadeStatus задаёт допустимое состояние модели.
 type BrigadeStatus string
 
 const (
@@ -13,6 +14,7 @@ const (
 	BrigadeStatusArchived  BrigadeStatus = "ARCHIVED"
 )
 
+// BrigadeMemberRole описывает доменную модель.
 type BrigadeMemberRole string
 
 const (
@@ -22,6 +24,7 @@ const (
 	BrigadeMemberRoleTrainee    BrigadeMemberRole = "TRAINEE"
 )
 
+// BrigadeMemberAvailabilityStatus задаёт допустимое состояние модели.
 type BrigadeMemberAvailabilityStatus string
 
 const (
@@ -29,6 +32,7 @@ const (
 	BrigadeMemberAvailabilityUnavailable BrigadeMemberAvailabilityStatus = "UNAVAILABLE"
 )
 
+// BrigadeMemberHistoryAction описывает доменную модель.
 type BrigadeMemberHistoryAction string
 
 const (
@@ -37,6 +41,7 @@ const (
 	BrigadeMemberHistoryActionRoleChanged BrigadeMemberHistoryAction = "ROLE_CHANGED"
 )
 
+// BrigadeSortBy задаёт поле сортировки.
 type BrigadeSortBy string
 
 const (
@@ -46,6 +51,7 @@ const (
 	BrigadeSortByStatus    BrigadeSortBy = "status"
 )
 
+// Brigade описывает бригаду, её принадлежность и рабочее состояние.
 type Brigade struct {
 	ID              string `json:"id"`
 	DepartmentID    string `json:"department_id"`
@@ -59,6 +65,7 @@ type Brigade struct {
 	ArchivedAtUnix  int64  `json:"archived_at,omitempty"`
 }
 
+// BrigadeMember описывает участника бригады и его роль.
 type BrigadeMember struct {
 	ID                              string `json:"id"`
 	BrigadeID                       string `json:"brigade_id"`
@@ -74,6 +81,7 @@ type BrigadeMember struct {
 	UpdatedAtUnix                   int64  `json:"updated_at"`
 }
 
+// Skill описывает профессиональный навык.
 type Skill struct {
 	ID            string `json:"id"`
 	Code          string `json:"code"`
@@ -84,6 +92,7 @@ type Skill struct {
 	UpdatedAtUnix int64  `json:"updated_at"`
 }
 
+// BrigadeSkill описывает доменную модель.
 type BrigadeSkill struct {
 	ID            string `json:"id"`
 	BrigadeID     string `json:"brigade_id"`
@@ -93,6 +102,7 @@ type BrigadeSkill struct {
 	UpdatedAtUnix int64  `json:"updated_at"`
 }
 
+// BrigadeSchedule описывает доменную модель.
 type BrigadeSchedule struct {
 	ID            string `json:"id"`
 	BrigadeID     string `json:"brigade_id"`
@@ -107,6 +117,7 @@ type BrigadeSchedule struct {
 	UpdatedAtUnix int64  `json:"updated_at"`
 }
 
+// BrigadeZone описывает доменную модель.
 type BrigadeZone struct {
 	ID            string `json:"id"`
 	BrigadeID     string `json:"brigade_id"`
@@ -119,6 +130,7 @@ type BrigadeZone struct {
 	UpdatedAtUnix int64  `json:"updated_at"`
 }
 
+// BrigadeStatusHistory описывает доменную модель.
 type BrigadeStatusHistory struct {
 	ID              string `json:"id"`
 	BrigadeID       string `json:"brigade_id"`
@@ -130,6 +142,7 @@ type BrigadeStatusHistory struct {
 	CreatedAtUnix   int64  `json:"created_at"`
 }
 
+// BrigadeMemberHistory описывает доменную модель.
 type BrigadeMemberHistory struct {
 	ID              string `json:"id"`
 	BrigadeID       string `json:"brigade_id"`
@@ -144,6 +157,7 @@ type BrigadeMemberHistory struct {
 	CreatedAtUnix   int64  `json:"created_at"`
 }
 
+// BrigadeMemberStatusHistory описывает доменную модель.
 type BrigadeMemberStatusHistory struct {
 	ID              string `json:"id"`
 	BrigadeID       string `json:"brigade_id"`
@@ -157,6 +171,7 @@ type BrigadeMemberStatusHistory struct {
 	CreatedAtUnix   int64  `json:"created_at"`
 }
 
+// CreateBrigadeRequest содержит параметры API-запроса.
 type CreateBrigadeRequest struct {
 	DepartmentID   string  `json:"department_id" binding:"required,uuid"`
 	Name           string  `json:"name" binding:"required,min=2,max=255"`
@@ -164,10 +179,12 @@ type CreateBrigadeRequest struct {
 	Specialization *string `json:"specialization,omitempty" binding:"omitempty,max=100"`
 }
 
+// GetBrigadeByIDRequest содержит параметры API-запроса.
 type GetBrigadeByIDRequest struct {
 	ID string `json:"id" binding:"required,uuid"`
 }
 
+// ListBrigadesRequest содержит параметры API-запроса.
 type ListBrigadesRequest struct {
 	DepartmentID   *string `json:"department_id,omitempty" binding:"omitempty,uuid"`
 	Status         *string `json:"status,omitempty" binding:"omitempty,oneof=active inactive available busy on_route on_site offline archived"`
@@ -180,6 +197,7 @@ type ListBrigadesRequest struct {
 	SortOrder      *string `json:"sort_order,omitempty" binding:"omitempty,oneof=asc desc"`
 }
 
+// UpdateBrigadeRequest содержит параметры API-запроса.
 type UpdateBrigadeRequest struct {
 	ID             string  `json:"id" binding:"required,uuid"`
 	Name           *string `json:"name,omitempty" binding:"omitempty,min=2,max=255"`
@@ -187,12 +205,14 @@ type UpdateBrigadeRequest struct {
 	Specialization *string `json:"specialization,omitempty" binding:"omitempty,max=100"`
 }
 
+// BrigadeReasonRequest содержит параметры API-запроса.
 type BrigadeReasonRequest struct {
 	ID              string `json:"id" binding:"required,uuid"`
 	Reason          string `json:"reason" binding:"required"`
 	ChangedByUserID string `json:"changed_by_user_id,omitempty" binding:"omitempty,uuid"`
 }
 
+// SetBrigadeStatusRequest содержит параметры API-запроса.
 type SetBrigadeStatusRequest struct {
 	BrigadeID       string `json:"brigade_id" binding:"required,uuid"`
 	Status          string `json:"status" binding:"required,oneof=active inactive available busy on_route on_site offline archived"`
@@ -200,12 +220,14 @@ type SetBrigadeStatusRequest struct {
 	ChangedByUserID string `json:"changed_by_user_id,omitempty" binding:"omitempty,uuid"`
 }
 
+// BrigadePageRequest содержит параметры API-запроса.
 type BrigadePageRequest struct {
 	BrigadeID string `json:"brigade_id" binding:"required,uuid"`
 	Limit     *int32 `json:"limit,omitempty" binding:"omitempty,min=1,max=100"`
 	Offset    *int32 `json:"offset,omitempty" binding:"omitempty,min=0"`
 }
 
+// AddBrigadeMemberRequest содержит параметры API-запроса.
 type AddBrigadeMemberRequest struct {
 	BrigadeID       string  `json:"brigade_id" binding:"required,uuid"`
 	UserID          string  `json:"user_id" binding:"required,uuid"`
@@ -214,6 +236,7 @@ type AddBrigadeMemberRequest struct {
 	ChangedByUserID string  `json:"changed_by_user_id,omitempty" binding:"omitempty,uuid"`
 }
 
+// BrigadeMemberMutationRequest содержит параметры API-запроса.
 type BrigadeMemberMutationRequest struct {
 	BrigadeID       string `json:"brigade_id" binding:"required,uuid"`
 	MemberID        string `json:"member_id" binding:"required,uuid"`
@@ -221,6 +244,7 @@ type BrigadeMemberMutationRequest struct {
 	ChangedByUserID string `json:"changed_by_user_id,omitempty" binding:"omitempty,uuid"`
 }
 
+// ChangeBrigadeMemberRoleRequest содержит параметры API-запроса.
 type ChangeBrigadeMemberRoleRequest struct {
 	BrigadeID       string `json:"brigade_id" binding:"required,uuid"`
 	MemberID        string `json:"member_id" binding:"required,uuid"`
@@ -228,6 +252,7 @@ type ChangeBrigadeMemberRoleRequest struct {
 	ChangedByUserID string `json:"changed_by_user_id,omitempty" binding:"omitempty,uuid"`
 }
 
+// SetBrigadeMemberAvailabilityRequest содержит параметры API-запроса.
 type SetBrigadeMemberAvailabilityRequest struct {
 	BrigadeID       string `json:"brigade_id" binding:"required,uuid"`
 	MemberID        string `json:"member_id" binding:"required,uuid"`
@@ -236,6 +261,7 @@ type SetBrigadeMemberAvailabilityRequest struct {
 	ChangedByUserID string `json:"changed_by_user_id,omitempty" binding:"omitempty,uuid"`
 }
 
+// ListBrigadeMembersRequest содержит параметры API-запроса.
 type ListBrigadeMembersRequest struct {
 	BrigadeID          string  `json:"brigade_id" binding:"required,uuid"`
 	Active             *bool   `json:"active,omitempty"`
@@ -245,6 +271,7 @@ type ListBrigadeMembersRequest struct {
 	Offset             *int32  `json:"offset,omitempty" binding:"omitempty,min=0"`
 }
 
+// BrigadeMemberHistoryRequest содержит параметры API-запроса.
 type BrigadeMemberHistoryRequest struct {
 	BrigadeID string  `json:"brigade_id" binding:"required,uuid"`
 	MemberID  *string `json:"member_id,omitempty" binding:"omitempty,uuid"`
@@ -252,17 +279,20 @@ type BrigadeMemberHistoryRequest struct {
 	Offset    *int32  `json:"offset,omitempty" binding:"omitempty,min=0"`
 }
 
+// GetBrigadeByUserIDRequest содержит параметры API-запроса.
 type GetBrigadeByUserIDRequest struct {
 	UserID     string `json:"user_id" binding:"required,uuid"`
 	OnlyActive *bool  `json:"only_active,omitempty"`
 }
 
+// CreateSkillRequest содержит параметры API-запроса.
 type CreateSkillRequest struct {
 	Code        string `json:"code" binding:"required,min=2,max=100"`
 	Name        string `json:"name" binding:"required,min=2,max=255"`
 	Description string `json:"description" binding:"omitempty,max=1000"`
 }
 
+// UpdateSkillRequest содержит параметры API-запроса.
 type UpdateSkillRequest struct {
 	ID          string  `json:"id" binding:"required,uuid"`
 	Code        *string `json:"code,omitempty" binding:"omitempty,min=2,max=100"`
@@ -271,10 +301,12 @@ type UpdateSkillRequest struct {
 	Active      *bool   `json:"active,omitempty"`
 }
 
+// IDRequest содержит параметры API-запроса.
 type IDRequest struct {
 	ID string `json:"id" binding:"required,uuid"`
 }
 
+// ListSkillsRequest содержит параметры API-запроса.
 type ListSkillsRequest struct {
 	Active *bool   `json:"active,omitempty"`
 	Query  *string `json:"query,omitempty"`
@@ -282,21 +314,25 @@ type ListSkillsRequest struct {
 	Offset *int32  `json:"offset,omitempty" binding:"omitempty,min=0"`
 }
 
+// BrigadeSkillRequest содержит параметры API-запроса.
 type BrigadeSkillRequest struct {
 	BrigadeID string `json:"brigade_id" binding:"required,uuid"`
 	SkillID   string `json:"skill_id" binding:"required,uuid"`
 }
 
+// ListBrigadeSkillsRequest содержит параметры API-запроса.
 type ListBrigadeSkillsRequest struct {
 	BrigadeID string `json:"brigade_id" binding:"required,uuid"`
 	Active    *bool  `json:"active,omitempty"`
 }
 
+// SetBrigadeScheduleRequest содержит параметры API-запроса.
 type SetBrigadeScheduleRequest struct {
 	BrigadeID string                 `json:"brigade_id" binding:"required,uuid"`
 	Items     []*BrigadeScheduleItem `json:"items" binding:"required,min=1"`
 }
 
+// BrigadeScheduleItem описывает доменную модель.
 type BrigadeScheduleItem struct {
 	DayOfWeek int32   `json:"day_of_week" binding:"required,min=1,max=7"`
 	StartsAt  string  `json:"starts_at" binding:"required"`
@@ -306,11 +342,13 @@ type BrigadeScheduleItem struct {
 	ValidTo   *string `json:"valid_to,omitempty"`
 }
 
+// ListBrigadeScheduleRequest содержит параметры API-запроса.
 type ListBrigadeScheduleRequest struct {
 	BrigadeID string `json:"brigade_id" binding:"required,uuid"`
 	Active    *bool  `json:"active,omitempty"`
 }
 
+// CreateBrigadeZoneRequest содержит параметры API-запроса.
 type CreateBrigadeZoneRequest struct {
 	BrigadeID    string `json:"brigade_id" binding:"required,uuid"`
 	DepartmentID string `json:"department_id" binding:"required,uuid"`
@@ -319,6 +357,7 @@ type CreateBrigadeZoneRequest struct {
 	Priority     int32  `json:"priority"`
 }
 
+// UpdateBrigadeZoneRequest содержит параметры API-запроса.
 type UpdateBrigadeZoneRequest struct {
 	ID       string  `json:"id" binding:"required,uuid"`
 	Name     *string `json:"name,omitempty" binding:"omitempty,min=2,max=255"`
@@ -327,17 +366,20 @@ type UpdateBrigadeZoneRequest struct {
 	Active   *bool   `json:"active,omitempty"`
 }
 
+// ListBrigadeZonesRequest содержит параметры API-запроса.
 type ListBrigadeZonesRequest struct {
 	BrigadeID string `json:"brigade_id" binding:"required,uuid"`
 	Active    *bool  `json:"active,omitempty"`
 }
 
+// CheckBrigadeCoversPointRequest содержит параметры API-запроса.
 type CheckBrigadeCoversPointRequest struct {
 	BrigadeID string  `json:"brigade_id" binding:"required,uuid"`
 	Longitude float64 `json:"longitude" binding:"required,longitude"`
 	Latitude  float64 `json:"latitude" binding:"required,latitude"`
 }
 
+// FindBrigadesByPointRequest содержит параметры API-запроса.
 type FindBrigadesByPointRequest struct {
 	DepartmentID     string   `json:"department_id" binding:"required,uuid"`
 	Longitude        float64  `json:"longitude" binding:"required,longitude"`
@@ -349,6 +391,7 @@ type FindBrigadesByPointRequest struct {
 	Offset           *int32   `json:"offset,omitempty" binding:"omitempty,min=0"`
 }
 
+// GetAvailableBrigadesRequest содержит параметры API-запроса.
 type GetAvailableBrigadesRequest struct {
 	DepartmentID     string   `json:"department_id" binding:"required,uuid"`
 	Longitude        *float64 `json:"longitude,omitempty" binding:"omitempty,longitude"`
@@ -359,6 +402,7 @@ type GetAvailableBrigadesRequest struct {
 	Offset           *int32   `json:"offset,omitempty" binding:"omitempty,min=0"`
 }
 
+// CheckBrigadeCanHandleTicketRequest содержит параметры API-запроса.
 type CheckBrigadeCanHandleTicketRequest struct {
 	BrigadeID        string   `json:"brigade_id" binding:"required,uuid"`
 	DepartmentID     string   `json:"department_id" binding:"required,uuid"`
@@ -368,62 +412,79 @@ type CheckBrigadeCanHandleTicketRequest struct {
 	RequiredRoles    []string `json:"required_roles,omitempty" binding:"omitempty,dive,oneof=lead driver technician trainee"`
 }
 
+// BrigadeResponse содержит данные API-ответа.
 type BrigadeResponse struct {
 	Brigade *Brigade `json:"brigade"`
 }
+// ListBrigadesResponse содержит данные API-ответа.
 type ListBrigadesResponse struct {
 	Brigades []*Brigade `json:"brigades"`
 	Total    int64      `json:"total"`
 }
+// BrigadeMemberResponse содержит данные API-ответа.
 type BrigadeMemberResponse struct {
 	Member *BrigadeMember `json:"member"`
 }
+// ListBrigadeMembersResponse содержит данные API-ответа.
 type ListBrigadeMembersResponse struct {
 	Members []*BrigadeMember `json:"members"`
 	Total   int64            `json:"total"`
 }
+// BrigadeStatusHistoryResponse содержит данные API-ответа.
 type BrigadeStatusHistoryResponse struct {
 	History []*BrigadeStatusHistory `json:"history"`
 	Total   int64                   `json:"total"`
 }
+// BrigadeMemberHistoryResponse содержит данные API-ответа.
 type BrigadeMemberHistoryResponse struct {
 	History []*BrigadeMemberHistory `json:"history"`
 	Total   int64                   `json:"total"`
 }
+// BrigadeMemberStatusHistoryResponse содержит данные API-ответа.
 type BrigadeMemberStatusHistoryResponse struct {
 	History []*BrigadeMemberStatusHistory `json:"history"`
 	Total   int64                         `json:"total"`
 }
+// GetBrigadeByUserIDResponse содержит данные API-ответа.
 type GetBrigadeByUserIDResponse struct {
 	Brigade *Brigade       `json:"brigade"`
 	Member  *BrigadeMember `json:"member"`
 }
+// SkillResponse содержит данные API-ответа.
 type SkillResponse struct {
 	Skill *Skill `json:"skill"`
 }
+// ListSkillsResponse содержит данные API-ответа.
 type ListSkillsResponse struct {
 	Skills []*Skill `json:"skills"`
 	Total  int64    `json:"total"`
 }
+// BrigadeSkillResponse содержит данные API-ответа.
 type BrigadeSkillResponse struct {
 	BrigadeSkill *BrigadeSkill `json:"brigade_skill"`
 }
+// ListBrigadeSkillsResponse содержит данные API-ответа.
 type ListBrigadeSkillsResponse struct {
 	Skills []*BrigadeSkill `json:"skills"`
 }
+// BrigadeScheduleResponse содержит данные API-ответа.
 type BrigadeScheduleResponse struct {
 	Schedule []*BrigadeSchedule `json:"schedule"`
 }
+// BrigadeZoneResponse содержит данные API-ответа.
 type BrigadeZoneResponse struct {
 	Zone *BrigadeZone `json:"zone"`
 }
+// ListBrigadeZonesResponse содержит данные API-ответа.
 type ListBrigadeZonesResponse struct {
 	Zones []*BrigadeZone `json:"zones"`
 }
+// CheckBrigadeCoversPointResponse содержит данные API-ответа.
 type CheckBrigadeCoversPointResponse struct {
 	Covers       bool           `json:"covers"`
 	MatchedZones []*BrigadeZone `json:"matched_zones"`
 }
+// CheckBrigadeCanHandleTicketResponse содержит данные API-ответа.
 type CheckBrigadeCanHandleTicketResponse struct {
 	CanHandle bool     `json:"can_handle"`
 	Reasons   []string `json:"reasons"`

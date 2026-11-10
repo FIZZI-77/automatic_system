@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
+// TicketFeedback описывает доменную модель.
 type TicketFeedback struct {
 	TicketID        uuid.UUID
 	UserID          uuid.UUID
@@ -16,6 +17,7 @@ type TicketFeedback struct {
 	UpdatedAt       time.Time
 }
 
+// SubmitTicketFeedbackInput задаёт входные данные операции.
 type SubmitTicketFeedbackInput struct {
 	TicketID        uuid.UUID
 	UserID          uuid.UUID
@@ -24,6 +26,7 @@ type SubmitTicketFeedbackInput struct {
 	Comment         string
 }
 
+// GetTicketFeedbackInput задаёт входные данные операции.
 type GetTicketFeedbackInput struct {
 	TicketID   uuid.UUID
 	ActorID    uuid.UUID

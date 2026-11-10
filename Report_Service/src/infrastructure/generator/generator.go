@@ -78,7 +78,7 @@ func csvFile(name string, rows [][]string) (models.Artifact, error) {
 
 func xlsxFile(name string, rows [][]string) (models.Artifact, error) {
 	f := excelize.NewFile()
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	for i, row := range rows {
 		for j, v := range row {
 			cell, _ := excelize.CoordinatesToCellName(j+1, i+1)
@@ -122,9 +122,9 @@ func pdfFile(name string, rows [][]string) (models.Artifact, error) {
 	}, e
 }
 
-// GenerateCompletion creates the concise work-completion act used by Ticket
-// Service. It deliberately contains only the fields required by the business
-// flow and embeds supported photos on following pages.
+// GenerateCompletion создаёт краткий акт выполненных работ для Ticket Service.
+// Документ содержит только необходимые бизнес-процессу поля и размещает
+// поддерживаемые фотографии на следующих страницах.
 func (g *Generator) GenerateCompletion(v models.CompletionReport, images []models.EmbeddedImage) (models.Artifact, error) {
 	p := gofpdf.New("P", "mm", "A4", "")
 

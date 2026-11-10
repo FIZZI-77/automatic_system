@@ -1,10 +1,12 @@
 package models
 
 import (
-	"github.com/google/uuid"
 	"time"
+
+	"github.com/google/uuid"
 )
 
+// TokenType задаёт тип доменной модели.
 type TokenType string
 
 const (
@@ -12,6 +14,7 @@ const (
 	TokenTypePasswordReset     TokenType = "password_reset"
 )
 
+// OneTimeToken описывает одноразовый токен и срок его действия.
 type OneTimeToken struct {
 	ID        uuid.UUID
 	UserID    uuid.UUID
@@ -22,18 +25,21 @@ type OneTimeToken struct {
 	CreatedAt time.Time
 }
 
+// RegisterInput задаёт входные данные операции.
 type RegisterInput struct {
 	Email    string
 	Password string
 	Username string
 }
 
+// RegisterResult содержит результат операции.
 type RegisterResult struct {
 	UserID        string
 	Email         string
 	EmailVerified bool
 }
 
+// LoginInput задаёт входные данные операции.
 type LoginInput struct {
 	Email     string
 	Password  string
@@ -42,6 +48,7 @@ type LoginInput struct {
 	UserAgent string
 }
 
+// LoginResult содержит результат операции.
 type LoginResult struct {
 	AccessToken          string
 	RefreshToken         string
@@ -51,6 +58,7 @@ type LoginResult struct {
 	TokenType            string
 }
 
+// RefreshInput задаёт входные данные операции.
 type RefreshInput struct {
 	RefreshToken string
 	ClientID     string
@@ -58,6 +66,7 @@ type RefreshInput struct {
 	UserAgent    string
 }
 
+// RefreshResult содержит результат операции.
 type RefreshResult struct {
 	AccessToken          string
 	RefreshToken         string
@@ -67,15 +76,18 @@ type RefreshResult struct {
 	TokenType            string
 }
 
+// LogoutInput задаёт входные данные операции.
 type LogoutInput struct {
 	UserID    uuid.UUID
 	SessionID uuid.UUID
 }
 
+// LogoutAllInput задаёт входные данные операции.
 type LogoutAllInput struct {
 	UserID uuid.UUID
 }
 
+// UserAuthInfo описывает доменную модель.
 type UserAuthInfo struct {
 	UserID        uuid.UUID
 	Email         string
@@ -85,6 +97,7 @@ type UserAuthInfo struct {
 	EmailVerified bool
 }
 
+// User описывает доменную модель.
 type User struct {
 	ID            uuid.UUID
 	Email         string
@@ -96,6 +109,7 @@ type User struct {
 	UpdatedAt     time.Time
 }
 
+// Session описывает доменную модель.
 type Session struct {
 	ID         uuid.UUID
 	UserID     uuid.UUID
@@ -109,6 +123,7 @@ type Session struct {
 	CreatedAt  time.Time
 }
 
+// RefreshToken описывает доменную модель.
 type RefreshToken struct {
 	ID                uuid.UUID
 	UserID            uuid.UUID
@@ -122,6 +137,7 @@ type RefreshToken struct {
 	CreatedAt         time.Time
 }
 
+// ChangePasswordInput задаёт входные данные операции.
 type ChangePasswordInput struct {
 	UserID              uuid.UUID
 	OldPassword         string
@@ -130,25 +146,30 @@ type ChangePasswordInput struct {
 	RevokeOtherSessions bool
 }
 
+// ChangePasswordResult содержит результат операции.
 type ChangePasswordResult struct {
 	Success                  bool
 	InvalidatedSessionsCount int32
 }
 
+// SendVerificationEmailInput задаёт входные данные операции.
 type SendVerificationEmailInput struct {
 	UserID uuid.UUID
 	Email  string
 }
 
+// SendVerificationEmailResult содержит результат операции.
 type SendVerificationEmailResult struct {
 	Success       bool
 	ExpiresAtUnix int64
 }
 
+// VerifyEmailInput задаёт входные данные операции.
 type VerifyEmailInput struct {
 	Token string
 }
 
+// VerifyEmailResult содержит результат операции.
 type VerifyEmailResult struct {
 	Success       bool
 	UserID        uuid.UUID
@@ -157,17 +178,24 @@ type VerifyEmailResult struct {
 	Message       string
 }
 
+// RequestPasswordResetInput задаёт входные данные операции.
 type RequestPasswordResetInput struct {
 	Email string
 }
+
+// RequestPasswordResetResult содержит результат операции.
 type RequestPasswordResetResult struct {
 	Success       bool
 	ExpiresAtUnix int64
 }
+
+// ResetPasswordInput задаёт входные данные операции.
 type ResetPasswordInput struct {
 	Token       string
 	NewPassword string
 }
+
+// ResetPasswordResult содержит результат операции.
 type ResetPasswordResult struct {
 	Success                  bool
 	InvalidatedSessionsCount int32
