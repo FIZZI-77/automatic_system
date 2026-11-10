@@ -956,6 +956,8 @@ jobs:
           kubectl auth can-i patch deployments -n automatic-system
           kubectl auth can-i patch kustomizations.kustomize.toolkit.fluxcd.io \
             -n flux-system
+          kubectl auth can-i patch helmreleases.helm.toolkit.fluxcd.io \
+            -n flux-system
           kubectl auth can-i patch gitrepositories.source.toolkit.fluxcd.io \
             -n flux-system
           kubectl auth can-i get canaries.flagger.app \
@@ -1120,9 +1122,16 @@ jobs:
             -o jsonpath='{.status.artifact.revision}')"
           test "$SOURCE_REVISION" = "${DEPLOY_BRANCH}@sha1:${DEPLOY_REVISION}"
 
+          RECONCILE_TOKEN="$(date +%s)"
+          kubectl annotate helmrelease applications \
+            -n flux-system \
+            "reconcile.fluxcd.io/resetAt=${RECONCILE_TOKEN}" \
+            "reconcile.fluxcd.io/requestedAt=${RECONCILE_TOKEN}" \
+            --overwrite
+
           kubectl annotate kustomization automatic-system-local-ha \
             -n flux-system \
-            reconcile.fluxcd.io/requestedAt="$(date +%s)" \
+            "reconcile.fluxcd.io/requestedAt=${RECONCILE_TOKEN}" \
             --overwrite
 
           echo "Waiting for Flux reconciliation of ${DEPLOY_REVISION}"
@@ -1153,6 +1162,20 @@ jobs:
               kubectl get helmrelease applications -n flux-system -o wide || true
               kubectl get helmrelease applications -n flux-system \
                 -o jsonpath='{range .status.conditions[*]}{.type}{"="}{.status}{" reason="}{.reason}{" message="}{.message}{"\n"}{end}' || true
+              mapfile -t FAILED_MIGRATION_JOBS < <(
+                kubectl get jobs -n automatic-system \
+                  --sort-by=.metadata.creationTimestamp \
+                  -o jsonpath='{range .items[?(@.status.failed>0)]}{.metadata.name}{"\n"}{end}' |
+                  grep -E '^applications-.+-migrate-[0-9]+$' |
+                  tail -n 5
+              )
+              for JOB_NAME in "${FAILED_MIGRATION_JOBS[@]}"; do
+                echo "::group::Migration failure: ${JOB_NAME}"
+                kubectl describe job "$JOB_NAME" -n automatic-system || true
+                kubectl logs "job/${JOB_NAME}" -n automatic-system \
+                  --all-containers=true --prefix=true --tail=-1 || true
+                echo "::endgroup::"
+              done
               exit 1
             fi
 
