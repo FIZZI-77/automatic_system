@@ -222,7 +222,13 @@ spec:
         - name: migrator
           image: {{ include "applications.dispatchMigrationImage" . | quote }}
           imagePullPolicy: {{ default .Values.dispatch.migration.image.pullPolicy .Values.migrations.pullPolicy }}
-          args: ["-dir", "/migrations", "up"]
+          args:
+            {{- if .Values.migrations.allowMissing }}
+            - -allow-missing
+            {{- end }}
+            - -dir
+            - /migrations
+            - up
           env:
             - name: GOOSE_DRIVER
               value: postgres
