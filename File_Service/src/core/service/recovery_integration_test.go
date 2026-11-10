@@ -147,7 +147,7 @@ func TestRecoveryMigrationRejectsRollbackWithPendingDeletions(t *testing.T) {
 	if err := repo.QueueDeletion(t.Context(), file.ID); err != nil {
 		t.Fatal(err)
 	}
-	data, err := os.ReadFile("../../../scheme/20261029000100_add_deletion_jobs.sql")
+	data, err := os.ReadFile("../../../scheme/20261029000110_create_file_deletion_jobs_table.sql")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -7,10 +7,12 @@ type CreateReportRequest struct {
 	Format string           `json:"format" binding:"required,oneof=pdf xlsx csv"`
 	Filter *AnalyticsFilter `json:"filter,omitempty"`
 }
+
 // GetReportRequest содержит параметры API-запроса.
 type GetReportRequest struct {
 	ReportID string `json:"report_id" binding:"required,uuid"`
 }
+
 // ListReportsRequest содержит параметры API-запроса.
 type ListReportsRequest struct {
 	Status *string `json:"status,omitempty" binding:"omitempty,oneof=pending processing completed failed canceled"`

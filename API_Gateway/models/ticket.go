@@ -403,12 +403,14 @@ type WorkReport struct {
 	CompletionFileID string    `json:"completion_file_id,omitempty"`
 	CompletionError  string    `json:"completion_error,omitempty"`
 }
+
 // CreateWorkReportRequest содержит параметры API-запроса.
 type CreateWorkReportRequest struct {
 	TicketID    string   `json:"ticket_id" binding:"required,uuid"`
 	Description string   `json:"description" binding:"required,max=4000"`
 	FileIDs     []string `json:"file_ids" binding:"max=20,dive,uuid"`
 }
+
 // ListWorkReportsRequest содержит параметры API-запроса.
 type ListWorkReportsRequest struct {
 	TicketID string `json:"ticket_id" binding:"required,uuid"`

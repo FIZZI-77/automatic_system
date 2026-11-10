@@ -416,74 +416,90 @@ type CheckBrigadeCanHandleTicketRequest struct {
 type BrigadeResponse struct {
 	Brigade *Brigade `json:"brigade"`
 }
+
 // ListBrigadesResponse содержит данные API-ответа.
 type ListBrigadesResponse struct {
 	Brigades []*Brigade `json:"brigades"`
 	Total    int64      `json:"total"`
 }
+
 // BrigadeMemberResponse содержит данные API-ответа.
 type BrigadeMemberResponse struct {
 	Member *BrigadeMember `json:"member"`
 }
+
 // ListBrigadeMembersResponse содержит данные API-ответа.
 type ListBrigadeMembersResponse struct {
 	Members []*BrigadeMember `json:"members"`
 	Total   int64            `json:"total"`
 }
+
 // BrigadeStatusHistoryResponse содержит данные API-ответа.
 type BrigadeStatusHistoryResponse struct {
 	History []*BrigadeStatusHistory `json:"history"`
 	Total   int64                   `json:"total"`
 }
+
 // BrigadeMemberHistoryResponse содержит данные API-ответа.
 type BrigadeMemberHistoryResponse struct {
 	History []*BrigadeMemberHistory `json:"history"`
 	Total   int64                   `json:"total"`
 }
+
 // BrigadeMemberStatusHistoryResponse содержит данные API-ответа.
 type BrigadeMemberStatusHistoryResponse struct {
 	History []*BrigadeMemberStatusHistory `json:"history"`
 	Total   int64                         `json:"total"`
 }
+
 // GetBrigadeByUserIDResponse содержит данные API-ответа.
 type GetBrigadeByUserIDResponse struct {
 	Brigade *Brigade       `json:"brigade"`
 	Member  *BrigadeMember `json:"member"`
 }
+
 // SkillResponse содержит данные API-ответа.
 type SkillResponse struct {
 	Skill *Skill `json:"skill"`
 }
+
 // ListSkillsResponse содержит данные API-ответа.
 type ListSkillsResponse struct {
 	Skills []*Skill `json:"skills"`
 	Total  int64    `json:"total"`
 }
+
 // BrigadeSkillResponse содержит данные API-ответа.
 type BrigadeSkillResponse struct {
 	BrigadeSkill *BrigadeSkill `json:"brigade_skill"`
 }
+
 // ListBrigadeSkillsResponse содержит данные API-ответа.
 type ListBrigadeSkillsResponse struct {
 	Skills []*BrigadeSkill `json:"skills"`
 }
+
 // BrigadeScheduleResponse содержит данные API-ответа.
 type BrigadeScheduleResponse struct {
 	Schedule []*BrigadeSchedule `json:"schedule"`
 }
+
 // BrigadeZoneResponse содержит данные API-ответа.
 type BrigadeZoneResponse struct {
 	Zone *BrigadeZone `json:"zone"`
 }
+
 // ListBrigadeZonesResponse содержит данные API-ответа.
 type ListBrigadeZonesResponse struct {
 	Zones []*BrigadeZone `json:"zones"`
 }
+
 // CheckBrigadeCoversPointResponse содержит данные API-ответа.
 type CheckBrigadeCoversPointResponse struct {
 	Covers       bool           `json:"covers"`
 	MatchedZones []*BrigadeZone `json:"matched_zones"`
 }
+
 // CheckBrigadeCanHandleTicketResponse содержит данные API-ответа.
 type CheckBrigadeCanHandleTicketResponse struct {
 	CanHandle bool     `json:"can_handle"`
