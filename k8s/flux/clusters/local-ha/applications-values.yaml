@@ -2,46 +2,46 @@ globalImage:
   registry: ghcr.io/fizzi-77
   tag: sha-7e50eb65738b
   tags:
-    analytics: sha-584dfe535555
-    api-gateway: sha-584dfe535555
-    asset: sha-584dfe535555
-    audit: sha-584dfe535555
-    auth: sha-584dfe535555
-    brigade: sha-584dfe535555
-    department: sha-584dfe535555
-    dispatch: sha-584dfe535555
-    file: sha-584dfe535555
-    frontend: sha-584dfe535555
-    location: sha-584dfe535555
-    notification: sha-584dfe535555
-    profile: sha-584dfe535555
-    report: sha-584dfe535555
-    routing: sha-584dfe535555
-    sla: sha-584dfe535555
-    ticket: sha-584dfe535555
+    analytics: sha-d81d9554989d
+    api-gateway: sha-d81d9554989d
+    asset: sha-d81d9554989d
+    audit: sha-d81d9554989d
+    auth: sha-d81d9554989d
+    brigade: sha-d81d9554989d
+    department: sha-d81d9554989d
+    dispatch: sha-d81d9554989d
+    file: sha-d81d9554989d
+    frontend: sha-d81d9554989d
+    location: sha-d81d9554989d
+    notification: sha-d81d9554989d
+    profile: sha-d81d9554989d
+    report: sha-d81d9554989d
+    routing: sha-d81d9554989d
+    sla: sha-d81d9554989d
+    ticket: sha-d81d9554989d
   pullPolicy: Always
 
 migrations:
   registry: ghcr.io/fizzi-77
   tag: sha-7e50eb65738b
   tags:
-    asset: sha-584dfe535555
-    audit: sha-584dfe535555
-    auth: sha-584dfe535555
-    brigade: sha-584dfe535555
-    department: sha-584dfe535555
-    dispatch: sha-584dfe535555
-    file: sha-584dfe535555
-    location: sha-584dfe535555
-    notification: sha-584dfe535555
-    profile: sha-584dfe535555
-    report: sha-584dfe535555
-    routing: sha-584dfe535555
-    sla: sha-584dfe535555
-    ticket: sha-584dfe535555
+    asset: sha-d81d9554989d
+    audit: sha-d81d9554989d
+    auth: sha-d81d9554989d
+    brigade: sha-d81d9554989d
+    department: sha-d81d9554989d
+    dispatch: sha-d81d9554989d
+    file: sha-d81d9554989d
+    location: sha-d81d9554989d
+    notification: sha-d81d9554989d
+    profile: sha-d81d9554989d
+    report: sha-d81d9554989d
+    routing: sha-d81d9554989d
+    sla: sha-d81d9554989d
+    ticket: sha-d81d9554989d
   pullPolicy: Always
 
 analyticsInit:
   registry: ghcr.io/fizzi-77
-  tag: sha-584dfe535555
+  tag: sha-d81d9554989d
   pullPolicy: Always

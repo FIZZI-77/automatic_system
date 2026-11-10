@@ -56,7 +56,7 @@ func run(parent context.Context, args []string) error {
 		return fmt.Errorf("open ClickHouse: %w", err)
 	}
 
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	ctx, cancel := context.WithTimeout(parent, 30*time.Minute)
 	defer cancel()
 	return replay(ctx, db, database, args[0])
@@ -126,9 +126,9 @@ func replay(ctx context.Context, db driver.Conn, database, version string) error
 		)
 	}
 
-	// Reinsert the raw source after restoring the view to cover events accepted
-	// during the short view replacement window. ReplacingMergeTree deduplicates
-	// them by (topic,event_id,version).
+	// Повторно вставляем исходные данные после восстановления представления,
+	// чтобы захватить события из короткого окна замены. ReplacingMergeTree
+	// удаляет дубликаты по (topic, event_id, version).
 	if err = db.Exec(ctx, "INSERT INTO "+current+" SELECT * FROM "+source); err != nil {
 		return fmt.Errorf("catch up replay projection: %w", err)
 	}

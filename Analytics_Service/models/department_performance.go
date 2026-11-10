@@ -1,5 +1,6 @@
 package models
 
+// DepartmentPerformance описывает доменную модель.
 type DepartmentPerformance struct {
 	DepartmentID                         string
 	Created                              uint64
@@ -24,6 +25,7 @@ type DepartmentPerformance struct {
 	FeedbackResponseRate                 float64
 }
 
+// DepartmentPerformanceReport описывает доменную модель.
 type DepartmentPerformanceReport struct {
 	Departments  []DepartmentPerformance
 	Organization DepartmentPerformance

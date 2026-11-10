@@ -7,8 +7,13 @@ import (
 	"github.com/google/uuid"
 )
 
+// Type задаёт тип доменной модели.
 type Type string
+
+// Format описывает доменную модель.
 type Format string
+
+// Status задаёт допустимое состояние модели.
 type Status string
 
 const (
@@ -29,6 +34,7 @@ const (
 var ErrForbidden = errors.New("permission denied")
 var ErrInvalidState = errors.New("invalid report state")
 
+// Filter задаёт условия фильтрации.
 type Filter struct {
 	From         *time.Time
 	To           *time.Time
@@ -36,6 +42,8 @@ type Filter struct {
 	CategoryID   *string
 	Priority     *string
 }
+
+// Report описывает задание на формирование отчёта.
 type Report struct {
 	ID          uuid.UUID
 	RequestedBy uuid.UUID
@@ -52,6 +60,8 @@ type Report struct {
 	UpdatedAt   time.Time
 	CompletedAt *time.Time
 }
+
+// CreateInput задаёт входные данные операции.
 type CreateInput struct {
 	RequestedBy uuid.UUID
 	Name        string
@@ -60,22 +70,25 @@ type CreateInput struct {
 	Filter      Filter
 	ActorRoles  []string
 }
+
+// ListFilter задаёт условия фильтрации.
 type ListFilter struct {
 	RequestedBy *uuid.UUID
 	Status      *Status
 	Limit       int32
 	Offset      int32
 }
+
+// Artifact описывает доменную модель.
 type Artifact struct {
 	Name        string
 	ContentType string
 	Data        []byte
 }
 
-// CompletionReport is the immutable snapshot used to build the final act for
-// one completed ticket. Names are resolved by the gateway before this snapshot
-// reaches Report Service so the PDF remains reproducible even if profiles are
-// edited later.
+// CompletionReport хранит неизменяемый снимок для формирования итогового акта
+// по завершённой заявке. Gateway разрешает имена до передачи снимка в Report
+// Service, поэтому PDF воспроизводим даже после изменения профилей.
 type CompletionReport struct {
 	WorkReportID string            `json:"work_report_id"`
 	RequestedBy  string            `json:"requested_by"`
@@ -87,41 +100,49 @@ type CompletionReport struct {
 	FileIDs      []string          `json:"file_ids"`
 }
 
+// CompletionTicket описывает доменную модель.
 type CompletionTicket struct {
 	ID      string `json:"id"`
 	Title   string `json:"title"`
 	Address string `json:"address"`
 }
 
+// CompletionBrigade описывает доменную модель.
 type CompletionBrigade struct {
 	ID      string                    `json:"id"`
 	Name    string                    `json:"name"`
 	Members []CompletionBrigadeMember `json:"members"`
 }
 
+// CompletionBrigadeMember описывает доменную модель.
 type CompletionBrigadeMember struct {
 	UserID   string `json:"user_id"`
 	FullName string `json:"full_name"`
 	Role     string `json:"role"`
 }
 
+// EmbeddedImage описывает доменную модель.
 type EmbeddedImage struct {
 	Name        string
 	ContentType string
 	Data        []byte
 }
 
+// CompletionReportResult содержит результат операции.
 type CompletionReportResult struct {
 	FileID string `json:"file_id"`
 	Name   string `json:"name"`
 }
 
+// CompletionCompensation описывает доменную модель.
 type CompletionCompensation struct {
 	WorkReportID string   `json:"work_report_id"`
 	FileID       string   `json:"file_id"`
 	RequestedBy  string   `json:"requested_by"`
 	ActorRoles   []string `json:"actor_roles"`
 }
+
+// Download описывает доменную модель.
 type Download struct {
 	Report    *Report
 	URL       string

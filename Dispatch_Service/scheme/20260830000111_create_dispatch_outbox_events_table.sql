@@ -1,8 +1,5 @@
 -- +goose Up
-ALTER TABLE dispatch_operations
-    ADD COLUMN department_id UUID,
-    ADD COLUMN failure_code VARCHAR(64);
-
+-- +goose StatementBegin
 CREATE TABLE dispatch_outbox_events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     aggregate_id UUID NOT NULL,
@@ -19,17 +16,9 @@ CREATE TABLE dispatch_outbox_events (
         status IN ('PENDING', 'PROCESSING', 'SENT', 'FAILED')
     )
 );
-
-CREATE INDEX dispatch_outbox_pending_idx
-    ON dispatch_outbox_events(next_attempt_at, created_at)
-    WHERE status IN ('PENDING', 'FAILED');
-
-CREATE INDEX dispatch_outbox_processing_idx
-    ON dispatch_outbox_events(locked_at)
-    WHERE status = 'PROCESSING';
+-- +goose StatementEnd
 
 -- +goose Down
-DROP TABLE IF EXISTS dispatch_outbox_events;
-ALTER TABLE dispatch_operations
-    DROP COLUMN IF EXISTS failure_code,
-    DROP COLUMN IF EXISTS department_id;
+-- +goose StatementBegin
+DROP TABLE dispatch_outbox_events CASCADE;
+-- +goose StatementEnd

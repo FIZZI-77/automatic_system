@@ -2,12 +2,17 @@ package models
 
 import "time"
 
+// AssetIDRequest содержит параметры API-запроса.
 type AssetIDRequest struct {
 	AssetID string `json:"asset_id" binding:"required,uuid"`
 }
+
+// ResolveAssetRequest содержит параметры API-запроса.
 type ResolveAssetRequest struct {
 	Identifier string `json:"identifier" binding:"required,min=1,max=255"`
 }
+
+// CreateAssetRequest содержит параметры API-запроса.
 type CreateAssetRequest struct {
 	ExternalID             *string `json:"external_id,omitempty"`
 	DepartmentID           string  `json:"department_id" binding:"required,uuid"`
@@ -29,6 +34,8 @@ type CreateAssetRequest struct {
 	RepairNormMinutes      int32   `json:"repair_norm_minutes,omitempty"`
 	Criticality            float64 `json:"criticality" binding:"min=0,max=1"`
 }
+
+// UpdateAssetRequest содержит параметры API-запроса.
 type UpdateAssetRequest struct {
 	AssetID         string   `json:"asset_id" binding:"required,uuid"`
 	Name            *string  `json:"name,omitempty"`
@@ -37,11 +44,15 @@ type UpdateAssetRequest struct {
 	Contractor      *string  `json:"contractor,omitempty"`
 	Criticality     *float64 `json:"criticality,omitempty" binding:"omitempty,min=0,max=1"`
 }
+
+// ChangeAssetStatusRequest содержит параметры API-запроса.
 type ChangeAssetStatusRequest struct {
 	AssetID string `json:"asset_id" binding:"required,uuid"`
 	Status  string `json:"status" binding:"required"`
 	Reason  string `json:"reason,omitempty"`
 }
+
+// ListAssetsRequest содержит параметры API-запроса.
 type ListAssetsRequest struct {
 	DepartmentID *string `json:"department_id,omitempty"`
 	Type         *string `json:"type,omitempty"`
@@ -51,6 +62,8 @@ type ListAssetsRequest struct {
 	Limit        int32   `json:"limit,omitempty"`
 	Offset       int32   `json:"offset,omitempty"`
 }
+
+// NearbyAssetsRequest содержит параметры API-запроса.
 type NearbyAssetsRequest struct {
 	Latitude     float64 `json:"latitude"`
 	Longitude    float64 `json:"longitude"`
@@ -58,6 +71,8 @@ type NearbyAssetsRequest struct {
 	Type         *string `json:"type,omitempty"`
 	Limit        int32   `json:"limit,omitempty"`
 }
+
+// AssetIncidentRequest содержит параметры API-запроса.
 type AssetIncidentRequest struct {
 	AssetID     string     `json:"asset_id" binding:"required,uuid"`
 	TicketID    *string    `json:"ticket_id,omitempty"`
@@ -67,6 +82,8 @@ type AssetIncidentRequest struct {
 	Priority    string     `json:"priority,omitempty"`
 	OccurredAt  *time.Time `json:"occurred_at,omitempty"`
 }
+
+// AssetRepairRequest содержит параметры API-запроса.
 type AssetRepairRequest struct {
 	AssetID            string     `json:"asset_id" binding:"required,uuid"`
 	IncidentID         *string    `json:"incident_id,omitempty"`
@@ -77,6 +94,8 @@ type AssetRepairRequest struct {
 	DurationMinutes    int32      `json:"duration_minutes"`
 	CompletedAt        *time.Time `json:"completed_at,omitempty"`
 }
+
+// AssetInspectionRequest содержит параметры API-запроса.
 type AssetInspectionRequest struct {
 	AssetID        string     `json:"asset_id" binding:"required,uuid"`
 	Kind           string     `json:"kind,omitempty"`
@@ -86,18 +105,24 @@ type AssetInspectionRequest struct {
 	ConditionScore float64    `json:"condition_score" binding:"min=0,max=1"`
 	InspectedAt    *time.Time `json:"inspected_at,omitempty"`
 }
+
+// MaintenancePlanRequest содержит параметры API-запроса.
 type MaintenancePlanRequest struct {
 	AssetID      string    `json:"asset_id" binding:"required,uuid"`
 	Kind         string    `json:"kind" binding:"required"`
 	IntervalDays int32     `json:"interval_days" binding:"required,gt=0"`
 	NextDueAt    time.Time `json:"next_due_at" binding:"required"`
 }
+
+// DueMaintenanceRequest содержит параметры API-запроса.
 type DueMaintenanceRequest struct {
 	DepartmentID *string   `json:"department_id,omitempty" binding:"omitempty,uuid"`
 	DueBefore    time.Time `json:"due_before" binding:"required"`
 	Limit        int32     `json:"limit,omitempty"`
 	Offset       int32     `json:"offset,omitempty"`
 }
+
+// RecalculateAssetRisksRequest содержит параметры API-запроса.
 type RecalculateAssetRisksRequest struct {
 	DepartmentID *string `json:"department_id,omitempty" binding:"omitempty,uuid"`
 }

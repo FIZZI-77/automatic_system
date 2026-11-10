@@ -14,7 +14,10 @@ var (
 	ErrForbidden       = errors.New("forbidden")
 )
 
+// Status задаёт допустимое состояние модели.
 type Status string
+
+// Mode задаёт режим выполнения операции.
 type Mode string
 
 const (
@@ -32,6 +35,7 @@ const (
 	StatusExpired    Status = "EXPIRED"
 )
 
+// Operation описывает операцию диспетчеризации заявки.
 type Operation struct {
 	ID                uuid.UUID
 	TicketID          uuid.UUID
@@ -55,6 +59,7 @@ type Operation struct {
 	AssignmentComment string
 }
 
+// CreateOperationInput задаёт входные данные операции.
 type CreateOperationInput struct {
 	TicketID          uuid.UUID
 	DepartmentID      uuid.UUID
@@ -67,6 +72,7 @@ type CreateOperationInput struct {
 	AssignmentComment string
 }
 
+// Candidate описывает доменную модель.
 type Candidate struct {
 	BrigadeID      uuid.UUID
 	Rank           int32
@@ -77,12 +83,14 @@ type Candidate struct {
 	Longitude      float64
 }
 
+// RecommendInput задаёт входные данные операции.
 type RecommendInput struct {
 	TicketID         uuid.UUID
 	RequiredSkillIDs []uuid.UUID
 	Limit            int32
 }
 
+// ReserveInput задаёт входные данные операции.
 type ReserveInput struct {
 	TicketID         uuid.UUID
 	BrigadeID        uuid.UUID
@@ -91,12 +99,14 @@ type ReserveInput struct {
 	TTL              time.Duration
 }
 
+// ConfirmInput задаёт входные данные операции.
 type ConfirmInput struct {
 	ID              uuid.UUID
 	ConfirmedBy     uuid.UUID
 	ExpectedVersion int32
 }
 
+// AutoInput задаёт входные данные операции.
 type AutoInput struct {
 	TicketID         uuid.UUID
 	RequiredSkillIDs []uuid.UUID
@@ -105,12 +115,15 @@ type AutoInput struct {
 	TriggerEventID   *uuid.UUID
 }
 
+// CancelInput задаёт входные данные операции.
 type CancelInput struct {
 	ID              uuid.UUID
 	CancelledBy     uuid.UUID
 	ExpectedVersion int32
 	Reason          string
 }
+
+// ListInput задаёт входные данные операции.
 type ListInput struct {
 	DepartmentID *uuid.UUID
 	TicketID     *uuid.UUID

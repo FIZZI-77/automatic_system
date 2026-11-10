@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
+// PreferredContactMethod описывает доменную модель.
 type PreferredContactMethod string
 
 const (
@@ -14,6 +15,7 @@ const (
 	PreferredContactMethodPush  PreferredContactMethod = "PUSH"
 )
 
+// WorkProfileStatus задаёт допустимое состояние модели.
 type WorkProfileStatus string
 
 const (
@@ -24,6 +26,7 @@ const (
 	WorkProfileStatusSuspended WorkProfileStatus = "SUSPENDED"
 )
 
+// UserProfileSortBy задаёт поле сортировки.
 type UserProfileSortBy string
 
 const (
@@ -32,6 +35,7 @@ const (
 	UserProfileSortByFullName  UserProfileSortBy = "full_name"
 )
 
+// WorkProfileSortBy задаёт поле сортировки.
 type WorkProfileSortBy string
 
 const (
@@ -43,6 +47,7 @@ const (
 	WorkProfileSortByEmployeeNumber WorkProfileSortBy = "employee_number"
 )
 
+// SortOrder задаёт направление сортировки результатов.
 type SortOrder string
 
 const (
@@ -50,6 +55,7 @@ const (
 	SortOrderDesc SortOrder = "desc"
 )
 
+// CanJoinBrigadeReason описывает доменную модель.
 type CanJoinBrigadeReason string
 
 const (
@@ -61,6 +67,7 @@ const (
 	CanJoinBrigadeReasonDepartmentMismatch CanJoinBrigadeReason = "DEPARTMENT_MISMATCH"
 )
 
+// OutboxEventStatus задаёт допустимое состояние модели.
 type OutboxEventStatus string
 
 const (
@@ -70,6 +77,7 @@ const (
 	OutboxEventStatusFailed     OutboxEventStatus = "FAILED"
 )
 
+// CertificationStatus задаёт допустимое состояние модели.
 type CertificationStatus string
 
 const (
@@ -80,6 +88,7 @@ const (
 	CertificationStatusRevoked  CertificationStatus = "REVOKED"
 )
 
+// SkillGrantSourceType задаёт тип доменной модели.
 type SkillGrantSourceType string
 
 const (
@@ -87,6 +96,7 @@ const (
 	SkillGrantSourceTypeCertification SkillGrantSourceType = "CERTIFICATION"
 )
 
+// UserProfile описывает пользовательский профиль сотрудника.
 type UserProfile struct {
 	ID                     uuid.UUID              `json:"id"`
 	UserID                 uuid.UUID              `json:"user_id"`
@@ -98,6 +108,7 @@ type UserProfile struct {
 	UpdatedAt              time.Time              `json:"updated_at"`
 }
 
+// WorkProfile описывает рабочий профиль сотрудника.
 type WorkProfile struct {
 	ID             uuid.UUID         `json:"id"`
 	UserProfileID  uuid.UUID         `json:"user_profile_id"`
@@ -110,11 +121,13 @@ type WorkProfile struct {
 	UpdatedAt      time.Time         `json:"updated_at"`
 }
 
+// WorkProfileDetails объединяет рабочий профиль и связанные с ним данные.
 type WorkProfileDetails struct {
 	WorkProfile *WorkProfile `json:"work_profile"`
 	UserProfile *UserProfile `json:"user_profile"`
 }
 
+// WorkProfileStatusHistory описывает доменную модель.
 type WorkProfileStatusHistory struct {
 	ID              uuid.UUID          `json:"id"`
 	WorkProfileID   uuid.UUID          `json:"work_profile_id"`
@@ -126,6 +139,7 @@ type WorkProfileStatusHistory struct {
 	CreatedAt       time.Time          `json:"created_at"`
 }
 
+// OutboxEvent описывает событие outbox.
 type OutboxEvent struct {
 	ID            uuid.UUID         `json:"id"`
 	AggregateType string            `json:"aggregate_type"`
@@ -141,6 +155,7 @@ type OutboxEvent struct {
 	SentAt        *time.Time        `json:"sent_at,omitempty"`
 }
 
+// CertificationType задаёт тип доменной модели.
 type CertificationType struct {
 	ID                  uuid.UUID `json:"id"`
 	Code                string    `json:"code"`
@@ -153,6 +168,7 @@ type CertificationType struct {
 	UpdatedAt           time.Time `json:"updated_at"`
 }
 
+// CertificationTypeSkill описывает доменную модель.
 type CertificationTypeSkill struct {
 	ID                  uuid.UUID `json:"id"`
 	CertificationTypeID uuid.UUID `json:"certification_type_id"`
@@ -163,6 +179,7 @@ type CertificationTypeSkill struct {
 	UpdatedAt           time.Time `json:"updated_at"`
 }
 
+// WorkProfileCertification описывает доменную модель.
 type WorkProfileCertification struct {
 	ID                  uuid.UUID           `json:"id"`
 	WorkProfileID       uuid.UUID           `json:"work_profile_id"`
@@ -180,6 +197,7 @@ type WorkProfileCertification struct {
 	UpdatedAt           time.Time           `json:"updated_at"`
 }
 
+// WorkProfileSkillGrant описывает доменную модель.
 type WorkProfileSkillGrant struct {
 	ID               uuid.UUID            `json:"id"`
 	WorkProfileID    uuid.UUID            `json:"work_profile_id"`
@@ -193,6 +211,7 @@ type WorkProfileSkillGrant struct {
 	RevokedAt        *time.Time           `json:"revoked_at,omitempty"`
 }
 
+// CreateUserProfileInput задаёт входные данные операции.
 type CreateUserProfileInput struct {
 	UserID                 uuid.UUID
 	FullName               string
@@ -203,38 +222,46 @@ type CreateUserProfileInput struct {
 	ActorRoles             []string
 }
 
+// CreateUserProfileResult содержит результат операции.
 type CreateUserProfileResult struct {
 	UserProfile *UserProfile
 }
 
+// GetUserProfileByIDInput задаёт входные данные операции.
 type GetUserProfileByIDInput struct {
 	ID          uuid.UUID
 	ActorUserID *uuid.UUID
 	ActorRoles  []string
 }
 
+// GetUserProfileByIDResult содержит результат операции.
 type GetUserProfileByIDResult struct {
 	UserProfile *UserProfile
 }
 
+// GetUserProfileByUserIDInput задаёт входные данные операции.
 type GetUserProfileByUserIDInput struct {
 	UserID      uuid.UUID
 	ActorUserID *uuid.UUID
 	ActorRoles  []string
 }
 
+// GetUserProfileByUserIDResult содержит результат операции.
 type GetUserProfileByUserIDResult struct {
 	UserProfile *UserProfile
 }
 
+// GetMyUserProfileInput задаёт входные данные операции.
 type GetMyUserProfileInput struct {
 	ActorUserID *uuid.UUID
 }
 
+// GetMyUserProfileResult содержит результат операции.
 type GetMyUserProfileResult struct {
 	UserProfile *UserProfile
 }
 
+// ListUserProfilesInput задаёт входные данные операции.
 type ListUserProfilesInput struct {
 	Query       *string
 	SortBy      UserProfileSortBy
@@ -245,11 +272,13 @@ type ListUserProfilesInput struct {
 	ActorRoles  []string
 }
 
+// ListUserProfilesResult содержит результат операции.
 type ListUserProfilesResult struct {
 	UserProfiles []*UserProfile
 	Total        int64
 }
 
+// UpdateUserProfileInput задаёт входные данные операции.
 type UpdateUserProfileInput struct {
 	ID                     uuid.UUID
 	FullName               *string
@@ -262,10 +291,12 @@ type UpdateUserProfileInput struct {
 	ActorRoles             []string
 }
 
+// UpdateUserProfileResult содержит результат операции.
 type UpdateUserProfileResult struct {
 	UserProfile *UserProfile
 }
 
+// CreateWorkProfileInput задаёт входные данные операции.
 type CreateWorkProfileInput struct {
 	UserProfileID  uuid.UUID
 	DepartmentID   uuid.UUID
@@ -275,30 +306,36 @@ type CreateWorkProfileInput struct {
 	ActorRoles     []string
 }
 
+// CreateWorkProfileResult содержит результат операции.
 type CreateWorkProfileResult struct {
 	Details *WorkProfileDetails
 }
 
+// GetWorkProfileByIDInput задаёт входные данные операции.
 type GetWorkProfileByIDInput struct {
 	ID          uuid.UUID
 	ActorUserID *uuid.UUID
 	ActorRoles  []string
 }
 
+// GetWorkProfileByIDResult содержит результат операции.
 type GetWorkProfileByIDResult struct {
 	Details *WorkProfileDetails
 }
 
+// GetWorkProfileByUserIDInput задаёт входные данные операции.
 type GetWorkProfileByUserIDInput struct {
 	UserID      uuid.UUID
 	ActorUserID *uuid.UUID
 	ActorRoles  []string
 }
 
+// GetWorkProfileByUserIDResult содержит результат операции.
 type GetWorkProfileByUserIDResult struct {
 	Details *WorkProfileDetails
 }
 
+// ListWorkProfilesInput задаёт входные данные операции.
 type ListWorkProfilesInput struct {
 	DepartmentID *uuid.UUID
 	Status       *WorkProfileStatus
@@ -311,11 +348,13 @@ type ListWorkProfilesInput struct {
 	ActorRoles   []string
 }
 
+// ListWorkProfilesResult содержит результат операции.
 type ListWorkProfilesResult struct {
 	WorkProfiles []*WorkProfileDetails
 	Total        int64
 }
 
+// UpdateWorkProfileInput задаёт входные данные операции.
 type UpdateWorkProfileInput struct {
 	ID                  uuid.UUID
 	EmployeeNumber      *string
@@ -325,10 +364,12 @@ type UpdateWorkProfileInput struct {
 	ActorRoles          []string
 }
 
+// UpdateWorkProfileResult содержит результат операции.
 type UpdateWorkProfileResult struct {
 	Details *WorkProfileDetails
 }
 
+// DeactivateWorkProfileInput задаёт входные данные операции.
 type DeactivateWorkProfileInput struct {
 	ID          uuid.UUID
 	Reason      string
@@ -336,10 +377,12 @@ type DeactivateWorkProfileInput struct {
 	ActorRoles  []string
 }
 
+// DeactivateWorkProfileResult содержит результат операции.
 type DeactivateWorkProfileResult struct {
 	Details *WorkProfileDetails
 }
 
+// ChangeWorkProfileDepartmentInput задаёт входные данные операции.
 type ChangeWorkProfileDepartmentInput struct {
 	ID           uuid.UUID
 	DepartmentID uuid.UUID
@@ -348,10 +391,12 @@ type ChangeWorkProfileDepartmentInput struct {
 	ActorRoles   []string
 }
 
+// ChangeWorkProfileDepartmentResult содержит результат операции.
 type ChangeWorkProfileDepartmentResult struct {
 	Details *WorkProfileDetails
 }
 
+// SetWorkProfileStatusInput задаёт входные данные операции.
 type SetWorkProfileStatusInput struct {
 	ID          uuid.UUID
 	Status      WorkProfileStatus
@@ -360,10 +405,12 @@ type SetWorkProfileStatusInput struct {
 	ActorRoles  []string
 }
 
+// SetWorkProfileStatusResult содержит результат операции.
 type SetWorkProfileStatusResult struct {
 	Details *WorkProfileDetails
 }
 
+// GetWorkProfileStatusHistoryInput задаёт входные данные операции.
 type GetWorkProfileStatusHistoryInput struct {
 	WorkProfileID uuid.UUID
 	Limit         int32
@@ -372,15 +419,18 @@ type GetWorkProfileStatusHistoryInput struct {
 	ActorRoles    []string
 }
 
+// GetWorkProfileStatusHistoryResult содержит результат операции.
 type GetWorkProfileStatusHistoryResult struct {
 	History []*WorkProfileStatusHistory
 	Total   int64
 }
 
+// ResolveWorkingDepartmentInput задаёт входные данные операции.
 type ResolveWorkingDepartmentInput struct {
 	UserID uuid.UUID
 }
 
+// ResolveWorkingDepartmentResult содержит результат операции.
 type ResolveWorkingDepartmentResult struct {
 	UserProfileID     uuid.UUID
 	WorkProfileID     uuid.UUID
@@ -390,12 +440,14 @@ type ResolveWorkingDepartmentResult struct {
 	CanOperate        bool
 }
 
+// CheckProfileCanJoinBrigadeInput задаёт входные данные операции.
 type CheckProfileCanJoinBrigadeInput struct {
 	UserID              *uuid.UUID
 	WorkProfileID       *uuid.UUID
 	BrigadeDepartmentID uuid.UUID
 }
 
+// CheckProfileCanJoinBrigadeResult содержит результат операции.
 type CheckProfileCanJoinBrigadeResult struct {
 	UserProfileID uuid.UUID
 	WorkProfileID uuid.UUID
@@ -405,6 +457,7 @@ type CheckProfileCanJoinBrigadeResult struct {
 	Reason        CanJoinBrigadeReason
 }
 
+// CreateCertificationTypeInput задаёт входные данные операции.
 type CreateCertificationTypeInput struct {
 	Code                string
 	Name                string
@@ -415,10 +468,12 @@ type CreateCertificationTypeInput struct {
 	ActorRoles          []string
 }
 
+// CreateCertificationTypeResult содержит результат операции.
 type CreateCertificationTypeResult struct {
 	CertificationType *CertificationType
 }
 
+// UpdateCertificationTypeInput задаёт входные данные операции.
 type UpdateCertificationTypeInput struct {
 	ID                  uuid.UUID
 	Code                *string
@@ -433,10 +488,12 @@ type UpdateCertificationTypeInput struct {
 	ActorRoles          []string
 }
 
+// UpdateCertificationTypeResult содержит результат операции.
 type UpdateCertificationTypeResult struct {
 	CertificationType *CertificationType
 }
 
+// ListCertificationTypesInput задаёт входные данные операции.
 type ListCertificationTypesInput struct {
 	Active      *bool
 	Query       *string
@@ -446,11 +503,13 @@ type ListCertificationTypesInput struct {
 	ActorRoles  []string
 }
 
+// ListCertificationTypesResult содержит результат операции.
 type ListCertificationTypesResult struct {
 	CertificationTypes []*CertificationType
 	Total              int64
 }
 
+// AddCertificationTypeSkillInput задаёт входные данные операции.
 type AddCertificationTypeSkillInput struct {
 	CertificationTypeID uuid.UUID
 	SkillID             uuid.UUID
@@ -459,10 +518,12 @@ type AddCertificationTypeSkillInput struct {
 	ActorRoles          []string
 }
 
+// AddCertificationTypeSkillResult содержит результат операции.
 type AddCertificationTypeSkillResult struct {
 	CertificationTypeSkill *CertificationTypeSkill
 }
 
+// RemoveCertificationTypeSkillInput задаёт входные данные операции.
 type RemoveCertificationTypeSkillInput struct {
 	CertificationTypeID uuid.UUID
 	SkillID             uuid.UUID
@@ -470,6 +531,7 @@ type RemoveCertificationTypeSkillInput struct {
 	ActorRoles          []string
 }
 
+// ListCertificationTypeSkillsInput задаёт входные данные операции.
 type ListCertificationTypeSkillsInput struct {
 	CertificationTypeID uuid.UUID
 	ActiveOnly          bool
@@ -477,10 +539,12 @@ type ListCertificationTypeSkillsInput struct {
 	ActorRoles          []string
 }
 
+// ListCertificationTypeSkillsResult содержит результат операции.
 type ListCertificationTypeSkillsResult struct {
 	Skills []*CertificationTypeSkill
 }
 
+// UploadWorkProfileCertificationInput задаёт входные данные операции.
 type UploadWorkProfileCertificationInput struct {
 	WorkProfileID       uuid.UUID
 	CertificationTypeID uuid.UUID
@@ -493,21 +557,25 @@ type UploadWorkProfileCertificationInput struct {
 	ActorRoles          []string
 }
 
+// UploadWorkProfileCertificationResult содержит результат операции.
 type UploadWorkProfileCertificationResult struct {
 	Certification *WorkProfileCertification
 }
 
+// VerifyWorkProfileCertificationInput задаёт входные данные операции.
 type VerifyWorkProfileCertificationInput struct {
 	ID          uuid.UUID
 	ActorUserID *uuid.UUID
 	ActorRoles  []string
 }
 
+// VerifyWorkProfileCertificationResult содержит результат операции.
 type VerifyWorkProfileCertificationResult struct {
 	Certification *WorkProfileCertification
 	SkillGrants   []*WorkProfileSkillGrant
 }
 
+// RejectWorkProfileCertificationInput задаёт входные данные операции.
 type RejectWorkProfileCertificationInput struct {
 	ID              uuid.UUID
 	RejectionReason string
@@ -515,10 +583,12 @@ type RejectWorkProfileCertificationInput struct {
 	ActorRoles      []string
 }
 
+// RejectWorkProfileCertificationResult содержит результат операции.
 type RejectWorkProfileCertificationResult struct {
 	Certification *WorkProfileCertification
 }
 
+// RevokeWorkProfileCertificationInput задаёт входные данные операции.
 type RevokeWorkProfileCertificationInput struct {
 	ID          uuid.UUID
 	Reason      string
@@ -526,22 +596,26 @@ type RevokeWorkProfileCertificationInput struct {
 	ActorRoles  []string
 }
 
+// RevokeWorkProfileCertificationResult содержит результат операции.
 type RevokeWorkProfileCertificationResult struct {
 	Certification *WorkProfileCertification
 	RevokedGrants []*WorkProfileSkillGrant
 }
 
+// ExpireWorkProfileCertificationsInput задаёт входные данные операции.
 type ExpireWorkProfileCertificationsInput struct {
 	Limit       int32
 	ActorUserID *uuid.UUID
 	ActorRoles  []string
 }
 
+// ExpireWorkProfileCertificationsResult содержит результат операции.
 type ExpireWorkProfileCertificationsResult struct {
 	ExpiredCertifications []*WorkProfileCertification
 	RevokedGrants         []*WorkProfileSkillGrant
 }
 
+// ListWorkProfileCertificationsInput задаёт входные данные операции.
 type ListWorkProfileCertificationsInput struct {
 	WorkProfileID       uuid.UUID
 	CertificationTypeID *uuid.UUID
@@ -552,11 +626,13 @@ type ListWorkProfileCertificationsInput struct {
 	ActorRoles          []string
 }
 
+// ListWorkProfileCertificationsResult содержит результат операции.
 type ListWorkProfileCertificationsResult struct {
 	Certifications []*WorkProfileCertification
 	Total          int64
 }
 
+// GrantManualWorkProfileSkillInput задаёт входные данные операции.
 type GrantManualWorkProfileSkillInput struct {
 	WorkProfileID    uuid.UUID
 	SkillID          uuid.UUID
@@ -567,10 +643,12 @@ type GrantManualWorkProfileSkillInput struct {
 	ActorRoles       []string
 }
 
+// GrantManualWorkProfileSkillResult содержит результат операции.
 type GrantManualWorkProfileSkillResult struct {
 	SkillGrant *WorkProfileSkillGrant
 }
 
+// RevokeWorkProfileSkillGrantInput задаёт входные данные операции.
 type RevokeWorkProfileSkillGrantInput struct {
 	ID          uuid.UUID
 	Reason      string
@@ -578,30 +656,36 @@ type RevokeWorkProfileSkillGrantInput struct {
 	ActorRoles  []string
 }
 
+// RevokeWorkProfileSkillGrantResult содержит результат операции.
 type RevokeWorkProfileSkillGrantResult struct {
 	SkillGrant *WorkProfileSkillGrant
 }
 
+// ListEffectiveWorkProfileSkillsInput задаёт входные данные операции.
 type ListEffectiveWorkProfileSkillsInput struct {
 	WorkProfileID uuid.UUID
 	ActorUserID   *uuid.UUID
 	ActorRoles    []string
 }
 
+// ListEffectiveWorkProfileSkillsResult содержит результат операции.
 type ListEffectiveWorkProfileSkillsResult struct {
 	SkillGrants []*WorkProfileSkillGrant
 }
 
+// BatchListEffectiveWorkProfileSkillsInput задаёт входные данные операции.
 type BatchListEffectiveWorkProfileSkillsInput struct {
 	WorkProfileIDs []uuid.UUID
 	ActorUserID    *uuid.UUID
 	ActorRoles     []string
 }
 
+// BatchListEffectiveWorkProfileSkillsResult содержит результат операции.
 type BatchListEffectiveWorkProfileSkillsResult struct {
 	SkillGrantsByWorkProfileID map[uuid.UUID][]*WorkProfileSkillGrant
 }
 
+// CheckWorkProfileHasSkillsInput задаёт входные данные операции.
 type CheckWorkProfileHasSkillsInput struct {
 	WorkProfileID    uuid.UUID
 	RequiredSkillIDs []uuid.UUID
@@ -609,6 +693,7 @@ type CheckWorkProfileHasSkillsInput struct {
 	ActorRoles       []string
 }
 
+// CheckWorkProfileHasSkillsResult содержит результат операции.
 type CheckWorkProfileHasSkillsResult struct {
 	Allowed         bool
 	MissingSkillIDs []uuid.UUID

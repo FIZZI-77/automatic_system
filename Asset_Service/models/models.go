@@ -7,7 +7,10 @@ import (
 	"github.com/google/uuid"
 )
 
+// Status задаёт допустимое состояние модели.
 type Status string
+
+// RiskLevel описывает доменную модель.
 type RiskLevel string
 
 const (
@@ -25,6 +28,7 @@ const (
 
 var ErrForbidden = errors.New("permission denied")
 
+// Asset описывает объект инфраструктуры и его эксплуатационные характеристики.
 type Asset struct {
 	ID                     uuid.UUID
 	ExternalID             *string
@@ -55,10 +59,14 @@ type Asset struct {
 	CreatedAt              time.Time
 	UpdatedAt              time.Time
 }
+
+// CreateInput задаёт входные данные операции.
 type CreateInput struct {
 	Asset
 	ActorID uuid.UUID
 }
+
+// UpdateInput задаёт входные данные операции.
 type UpdateInput struct {
 	ID          uuid.UUID
 	Name        *string
@@ -67,6 +75,8 @@ type UpdateInput struct {
 	Contractor  *string
 	Criticality *float64
 }
+
+// Filter задаёт условия фильтрации.
 type Filter struct {
 	DepartmentID *uuid.UUID
 	Type         *string
@@ -76,6 +86,8 @@ type Filter struct {
 	Limit        int32
 	Offset       int32
 }
+
+// Prediction описывает доменную модель.
 type Prediction struct {
 	AssetID      uuid.UUID
 	Score        float64
@@ -85,6 +97,8 @@ type Prediction struct {
 	Action       string
 	CalculatedAt time.Time
 }
+
+// Incident описывает доменную модель.
 type Incident struct {
 	ID          uuid.UUID
 	AssetID     uuid.UUID
@@ -96,6 +110,8 @@ type Incident struct {
 	Repeated    bool
 	OccurredAt  time.Time
 }
+
+// Repair описывает доменную модель.
 type Repair struct {
 	ID                 uuid.UUID
 	AssetID            uuid.UUID
@@ -107,6 +123,8 @@ type Repair struct {
 	DurationMinutes    int32
 	CompletedAt        time.Time
 }
+
+// Inspection описывает доменную модель.
 type Inspection struct {
 	ID             uuid.UUID
 	AssetID        uuid.UUID
@@ -118,6 +136,8 @@ type Inspection struct {
 	ConditionScore float64
 	InspectedAt    time.Time
 }
+
+// Plan описывает доменную модель.
 type Plan struct {
 	ID              uuid.UUID
 	AssetID         uuid.UUID

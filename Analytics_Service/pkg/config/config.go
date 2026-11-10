@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -24,7 +25,8 @@ func Load() error {
 
 	if err := v.ReadInConfig(); err != nil {
 
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok || os.IsNotExist(err) {
+		var configFileNotFoundError viper.ConfigFileNotFoundError
+		if errors.As(err, &configFileNotFoundError) || os.IsNotExist(err) {
 			return nil
 		}
 

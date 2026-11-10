@@ -11,7 +11,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-// KafkaHeaderCarrier adapts kafka-go headers to the OpenTelemetry propagator.
+// KafkaHeaderCarrier адаптирует заголовки kafka-go для распространителя OpenTelemetry.
 type KafkaHeaderCarrier []kafka.Header
 
 func (carrier KafkaHeaderCarrier) Get(key string) string {
@@ -44,14 +44,14 @@ func (carrier KafkaHeaderCarrier) Keys() []string {
 	return keys
 }
 
-// InjectKafka propagates the active trace through Kafka message headers.
+// InjectKafka передаёт активный контекст трассировки через заголовки сообщения Kafka.
 func InjectKafka(ctx context.Context, message *kafka.Message) {
 	carrier := newKafkaHeaderMap(message.Headers)
 	Inject(ctx, carrier)
 	message.Headers = carrier.headers()
 }
 
-// StartKafkaConsumer extracts the producer context and starts a consumer span.
+// StartKafkaConsumer извлекает контекст производителя и создаёт span потребителя.
 func StartKafkaConsumer(
 	ctx context.Context,
 	message kafka.Message,
@@ -74,8 +74,9 @@ func StartKafkaConsumer(
 	)
 }
 
-// TraceKafkaConsumer runs message processing in a consumer span restored from
-// the message headers. Offset commits intentionally remain outside process.
+// TraceKafkaConsumer выполняет обработку сообщения в span потребителя,
+// восстановленном из заголовков. Фиксация смещений намеренно остаётся
+// за пределами process.
 func TraceKafkaConsumer(
 	ctx context.Context,
 	message kafka.Message,
@@ -88,7 +89,7 @@ func TraceKafkaConsumer(
 	return err
 }
 
-// StartKafkaProducer starts a producer span and injects it into the message.
+// StartKafkaProducer создаёт span производителя и записывает его контекст в сообщение.
 func StartKafkaProducer(ctx context.Context, message *kafka.Message) (context.Context, trace.Span) {
 	ctx, span := Tracer("kafka").Start(
 		ctx,
@@ -104,8 +105,8 @@ func StartKafkaProducer(ctx context.Context, message *kafka.Message) (context.Co
 	return ctx, span
 }
 
-// WriteKafka creates a producer span, injects its context into every message,
-// and records the broker write result.
+// WriteKafka создаёт span производителя, записывает его контекст в каждое сообщение
+// и фиксирует результат записи в брокер.
 func WriteKafka(ctx context.Context, writer *kafka.Writer, messages ...kafka.Message) error {
 
 	if len(messages) == 0 {
@@ -132,7 +133,7 @@ func WriteKafka(ctx context.Context, writer *kafka.Writer, messages ...kafka.Mes
 	return err
 }
 
-// End records an operation error, sets the span status, and ends the span.
+// End записывает ошибку операции, устанавливает состояние span и завершает его.
 func End(span trace.Span, err error) {
 
 	if err != nil {
@@ -177,5 +178,5 @@ func newKafkaHeaderMap(headers []kafka.Header) kafkaHeaderMap {
 	return carrier
 }
 
-// Keep the carrier contract explicit.
+// Явно фиксируем реализацию контракта носителя заголовков.
 var _ propagation.TextMapCarrier = kafkaHeaderMap{}

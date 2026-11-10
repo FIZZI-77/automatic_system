@@ -1,19 +1,21 @@
 package service
 
 import (
-	"brigade/models"
-	"brigade/pkg"
-	"brigade/src/core/repository"
 	"context"
 	"errors"
 	"fmt"
+	"math/rand/v2"
+	"time"
+
+	"brigade/models"
+	"brigade/pkg"
+	"brigade/src/core/repository"
+
 	departmentv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/department/v1"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"math/rand/v2"
-	"time"
 )
 
 const (
@@ -233,8 +235,8 @@ func (b *BrigadeServiceStruct) GetBrigadeByID(ctx context.Context, in *models.Ge
 	}
 
 	if err = checkPermissionAndDepartmentForAdminAndDispatcher(log, start, in.ActorRoles, in.ActorDepartmentID, brigade.Brigade.DepartmentID); err != nil {
-		// Workers may read only the brigade they actively belong to. This is
-		// needed for the worker workspace and completion-report attribution.
+		// Работник может читать только бригаду, в которой он активно состоит.
+		// Это требуется для рабочего пространства и указания авторства отчёта.
 		if in.ActorUserID == nil {
 			return nil, err
 		}

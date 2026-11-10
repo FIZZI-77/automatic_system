@@ -275,7 +275,7 @@ func (th *TicketHandler) UpdateTicket(c *gin.Context) {
 	}
 
 	if roleValues, _ := c.Get("roles"); hasTicketRole(roleValues, "worker") {
-		// The verified brigade was already attached above.
+		// Проверенная бригада уже была добавлена выше.
 	}
 
 	res, err := th.ticketClient.UpdateTicket(ctx, buildUpdateTicketRequest(&req, c.GetString("user_id")))

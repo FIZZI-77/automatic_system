@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 )
 
+// WorkReport описывает доменную модель.
 type WorkReport struct {
 	ID               uuid.UUID   `json:"id"`
 	TicketID         uuid.UUID   `json:"ticket_id"`
@@ -21,6 +22,7 @@ type WorkReport struct {
 	CompletionError  string      `json:"completion_error,omitempty"`
 }
 
+// CreateWorkReportInput задаёт входные данные операции.
 type CreateWorkReportInput struct {
 	TicketID          uuid.UUID
 	AuthorUserID      uuid.UUID
@@ -33,6 +35,7 @@ type CreateWorkReportInput struct {
 	Completion        *CompletionReportInput
 }
 
+// CompletionReportInput задаёт входные данные операции.
 type CompletionReportInput struct {
 	RequestedBy string
 	ActorRoles  []string
@@ -40,12 +43,14 @@ type CompletionReportInput struct {
 	Brigade     CompletionBrigadeInput
 }
 
+// CompletionBrigadeInput задаёт входные данные операции.
 type CompletionBrigadeInput struct {
 	ID      string
 	Name    string
 	Members []CompletionBrigadeMemberInput
 }
 
+// CompletionBrigadeMemberInput задаёт входные данные операции.
 type CompletionBrigadeMemberInput struct {
 	UserID   string
 	FullName string

@@ -11,6 +11,7 @@ const (
 	DuplicateWindow       = 24 * time.Hour
 )
 
+// TicketType задаёт тип доменной модели.
 type TicketType string
 
 const (
@@ -28,6 +29,7 @@ func (t TicketType) IsValid() bool {
 	}
 }
 
+// CreateRequestInput задаёт входные данные операции.
 type CreateRequestInput struct {
 	DepartmentID uuid.UUID
 	CategoryID   uuid.UUID
@@ -46,12 +48,14 @@ type CreateRequestInput struct {
 	ExternalID       *string
 }
 
+// CreateRequestResult содержит результат операции.
 type CreateRequestResult struct {
 	Request          *Ticket
 	Incident         *Ticket
 	DuplicateMatched bool
 }
 
+// AttachRequestInput задаёт входные данные операции.
 type AttachRequestInput struct {
 	IncidentID uuid.UUID
 	RequestID  uuid.UUID
@@ -62,6 +66,7 @@ type AttachRequestInput struct {
 	ActorRoles        []string
 }
 
+// DetachRequestInput задаёт входные данные операции.
 type DetachRequestInput struct {
 	RequestID uuid.UUID
 	ChangedBy uuid.UUID
@@ -71,6 +76,7 @@ type DetachRequestInput struct {
 	ActorRoles        []string
 }
 
+// ListIncidentRequestsInput задаёт входные данные операции.
 type ListIncidentRequestsInput struct {
 	IncidentID uuid.UUID
 	Limit      int32

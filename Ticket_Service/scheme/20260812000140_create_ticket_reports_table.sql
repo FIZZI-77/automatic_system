@@ -1,4 +1,5 @@
 -- +goose Up
+-- +goose StatementBegin
 CREATE TABLE ticket_reports (
     id UUID NOT NULL DEFAULT gen_random_uuid(),
     department_id UUID NOT NULL,
@@ -30,34 +31,9 @@ CREATE TABLE ticket_reports (
         )
     )
 );
-
-CREATE TABLE ticket_report_files (
-    department_id UUID NOT NULL,
-    report_id UUID NOT NULL,
-    file_id UUID NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT ticket_report_files_pkey PRIMARY KEY (department_id, report_id, file_id),
-    CONSTRAINT ticket_report_files_report_fkey
-        FOREIGN KEY (department_id, report_id)
-        REFERENCES ticket_reports(department_id, id) ON DELETE CASCADE
-);
-
-CREATE INDEX ticket_reports_ticket_idx ON ticket_reports(ticket_id, created_at DESC);
-CREATE UNIQUE INDEX ticket_reports_idempotency_uidx
-    ON ticket_reports(department_id, author_user_id, idempotency_key)
-    WHERE idempotency_key IS NOT NULL;
-CREATE INDEX ticket_reports_completion_deadline_idx
-    ON ticket_reports(completion_deadline_at)
-    WHERE completion_status = 'PENDING';
-CREATE UNIQUE INDEX ticket_report_files_file_uidx
-    ON ticket_report_files(department_id, file_id);
-
-CREATE TABLE completion_report_inbox (
-    event_id UUID PRIMARY KEY,
-    received_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+-- +goose StatementEnd
 
 -- +goose Down
-DROP TABLE IF EXISTS ticket_report_files;
-DROP TABLE IF EXISTS completion_report_inbox;
-DROP TABLE IF EXISTS ticket_reports;
+-- +goose StatementBegin
+DROP TABLE ticket_reports CASCADE;
+-- +goose StatementEnd

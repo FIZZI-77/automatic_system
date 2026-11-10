@@ -34,9 +34,6 @@ CREATE TABLE position_history (
     CONSTRAINT position_history_geometry_type_check CHECK (GeometryType(position::geometry) = 'POINT')
 ) PARTITION BY RANGE(recorded_at);
 
-CREATE TABLE position_history_default
-    PARTITION OF position_history DEFAULT;
-
 CREATE OR REPLACE FUNCTION ensure_position_history_partitions(months_ahead INTEGER DEFAULT 3)
 RETURNS INTEGER
 LANGUAGE plpgsql
