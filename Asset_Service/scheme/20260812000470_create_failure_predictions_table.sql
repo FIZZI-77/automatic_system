@@ -1,5 +1,5 @@
 -- +goose Up
-CREATE TABLE failure_predictions (
+CREATE TABLE IF NOT EXISTS failure_predictions (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     asset_id uuid NOT NULL REFERENCES assets,
     risk_score double precision NOT NULL,
@@ -11,4 +11,4 @@ CREATE TABLE failure_predictions (
 );
 
 -- +goose Down
-DROP TABLE failure_predictions;
+DROP TABLE IF EXISTS failure_predictions;

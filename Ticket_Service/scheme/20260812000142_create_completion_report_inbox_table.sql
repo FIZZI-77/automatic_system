@@ -1,6 +1,6 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE TABLE completion_report_inbox (
+CREATE TABLE IF NOT EXISTS completion_report_inbox (
     event_id UUID PRIMARY KEY,
     received_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -8,5 +8,5 @@ CREATE TABLE completion_report_inbox (
 
 -- +goose Down
 -- +goose StatementBegin
-DROP TABLE completion_report_inbox CASCADE;
+DROP TABLE IF EXISTS completion_report_inbox CASCADE;
 -- +goose StatementEnd

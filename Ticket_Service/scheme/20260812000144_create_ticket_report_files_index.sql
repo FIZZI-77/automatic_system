@@ -1,6 +1,6 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE UNIQUE INDEX ticket_report_files_file_uidx
+CREATE UNIQUE INDEX IF NOT EXISTS ticket_report_files_file_uidx
     ON ticket_report_files(department_id, file_id);
 -- +goose StatementEnd
 

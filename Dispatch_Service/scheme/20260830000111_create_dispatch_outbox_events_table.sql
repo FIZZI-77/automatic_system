@@ -1,6 +1,6 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE TABLE dispatch_outbox_events (
+CREATE TABLE IF NOT EXISTS dispatch_outbox_events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     aggregate_id UUID NOT NULL,
     event_type VARCHAR(96) NOT NULL,
@@ -20,5 +20,5 @@ CREATE TABLE dispatch_outbox_events (
 
 -- +goose Down
 -- +goose StatementBegin
-DROP TABLE dispatch_outbox_events CASCADE;
+DROP TABLE IF EXISTS dispatch_outbox_events CASCADE;
 -- +goose StatementEnd

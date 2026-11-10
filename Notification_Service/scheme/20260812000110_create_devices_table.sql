@@ -1,6 +1,6 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE TABLE devices (
+CREATE TABLE IF NOT EXISTS devices (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL,
     token TEXT NOT NULL UNIQUE,
@@ -13,5 +13,5 @@ CREATE TABLE devices (
 
 -- +goose Down
 -- +goose StatementBegin
-DROP TABLE devices CASCADE;
+DROP TABLE IF EXISTS devices CASCADE;
 -- +goose StatementEnd

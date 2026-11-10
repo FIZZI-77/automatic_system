@@ -1,10 +1,10 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE INDEX deliveries_work_idx
+CREATE INDEX IF NOT EXISTS deliveries_work_idx
     ON deliveries(status, next_attempt_at);
 -- +goose StatementEnd
 
 -- +goose Down
 -- +goose StatementBegin
-DROP INDEX deliveries_work_idx;
+DROP INDEX IF EXISTS deliveries_work_idx;
 -- +goose StatementEnd

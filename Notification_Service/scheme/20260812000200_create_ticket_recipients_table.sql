@@ -1,6 +1,6 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE TABLE ticket_recipients (
+CREATE TABLE IF NOT EXISTS ticket_recipients (
     ticket_id UUID PRIMARY KEY,
     user_id UUID,
     department_id UUID,
@@ -11,5 +11,5 @@ CREATE TABLE ticket_recipients (
 
 -- +goose Down
 -- +goose StatementBegin
-DROP TABLE ticket_recipients CASCADE;
+DROP TABLE IF EXISTS ticket_recipients CASCADE;
 -- +goose StatementEnd

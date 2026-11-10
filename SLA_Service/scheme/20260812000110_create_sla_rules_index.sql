@@ -1,6 +1,6 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE UNIQUE INDEX sla_rules_scope_unique
+CREATE UNIQUE INDEX IF NOT EXISTS sla_rules_scope_unique
     ON sla_rules(
         COALESCE(department_id, '00000000-0000-0000-0000-000000000000'),
         COALESCE(category_id, '00000000-0000-0000-0000-000000000000'),
@@ -11,5 +11,5 @@ CREATE UNIQUE INDEX sla_rules_scope_unique
 
 -- +goose Down
 -- +goose StatementBegin
-DROP INDEX sla_rules_scope_unique;
+DROP INDEX IF EXISTS sla_rules_scope_unique;
 -- +goose StatementEnd

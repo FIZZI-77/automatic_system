@@ -1,6 +1,6 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE TABLE ticket_report_files (
+CREATE TABLE IF NOT EXISTS ticket_report_files (
     department_id UUID NOT NULL,
     report_id UUID NOT NULL,
     file_id UUID NOT NULL,
@@ -14,5 +14,5 @@ CREATE TABLE ticket_report_files (
 
 -- +goose Down
 -- +goose StatementBegin
-DROP TABLE ticket_report_files CASCADE;
+DROP TABLE IF EXISTS ticket_report_files CASCADE;
 -- +goose StatementEnd

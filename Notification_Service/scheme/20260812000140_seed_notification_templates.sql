@@ -7,7 +7,8 @@ VALUES
     ('sla.RESOLUTION_WARNING', 'IN_APP', 'Срок выполнения истекает', 'По заявке {{ticket_id}} приближается срок выполнения'),
     ('sla.RESOLUTION_BREACHED', 'IN_APP', 'Нарушен SLA выполнения', 'По заявке {{ticket_id}} нарушен срок выполнения'),
     ('ticket.assigned', 'IN_APP', 'Назначена заявка', 'Заявка {{ticket_id}} назначена бригаде'),
-    ('ticket.completed', 'IN_APP', 'Заявка выполнена', 'Работы по заявке {{ticket_id}} завершены');
+    ('ticket.completed', 'IN_APP', 'Заявка выполнена', 'Работы по заявке {{ticket_id}} завершены')
+ON CONFLICT DO NOTHING;
 -- +goose StatementEnd
 
 -- +goose Down

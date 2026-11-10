@@ -1,6 +1,6 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE TABLE brigade_route_projection (
+CREATE TABLE IF NOT EXISTS brigade_route_projection (
     brigade_id UUID PRIMARY KEY REFERENCES brigades(id) ON DELETE CASCADE,
     route_id UUID NOT NULL,
     ticket_id UUID NOT NULL,
@@ -16,5 +16,5 @@ CREATE TABLE brigade_route_projection (
 
 -- +goose Down
 -- +goose StatementBegin
-DROP TABLE brigade_route_projection CASCADE;
+DROP TABLE IF EXISTS brigade_route_projection CASCADE;
 -- +goose StatementEnd

@@ -1,8 +1,8 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE INDEX brigade_skills_brigade_id_idx ON brigade_skills(brigade_id);
-CREATE INDEX brigade_skills_skill_id_idx ON brigade_skills(skill_id);
-CREATE UNIQUE INDEX brigade_skills_active_uidx
+CREATE INDEX IF NOT EXISTS brigade_skills_brigade_id_idx ON brigade_skills(brigade_id);
+CREATE INDEX IF NOT EXISTS brigade_skills_skill_id_idx ON brigade_skills(skill_id);
+CREATE UNIQUE INDEX IF NOT EXISTS brigade_skills_active_uidx
     ON brigade_skills(brigade_id, skill_id)
     WHERE active = true;
 -- +goose StatementEnd
