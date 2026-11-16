@@ -50,7 +50,7 @@ OPTIONS := ENV SERVICE NAMESPACE CONTEXT DRY_RUN IMAGE_TAG MIGRATOR_TAG \
 $(foreach option,$(OPTIONS),$(eval export ACS_$(option) = $$($(option))))
 
 TASKS := help doctor bootstrap deps-go deps-frontend go-build fmt fmt-check vet test \
- test-unit test-integration test-compile test-tools lint check frontend-dev frontend-build \
+ test-unit test-integration test-compile test-tools go-lint coverage lint check frontend-dev frontend-build \
  frontend-test frontend-lint frontend-typecheck test-inventory test-api test-ui \
  test-ui-ha test-report up down compose-config compose-status compose-logs \
  simulation-up build deploy deploy-local deploy-ha deploy-infra deploy-apps \

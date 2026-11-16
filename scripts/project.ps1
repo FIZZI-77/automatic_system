@@ -51,7 +51,9 @@ $descriptions = [ordered]@{
     'test-integration' = 'Run Go tests with integration build tag; needs dependencies'
     'test-compile' = 'Compile Go tests without running them'
     'test-tools' = 'Test Make targets, argument forwarding and validation without deployment'
-    lint = 'Go vet, frontend ESLint and TypeScript'
+    'go-lint' = 'Run pinned golangci-lint (all selects Report/Notification/SLA/Asset)'
+    coverage = 'Run peripheral unit tests and enforce package coverage gates'
+    lint = 'Go vet, golangci-lint, frontend ESLint and TypeScript'
     check = 'Formatting, vet, frontend lint/types, OpenAPI and inventory; no cluster'
     'frontend-dev' = 'Start frontend development server'
     'frontend-build' = 'Build frontend'
@@ -216,6 +218,33 @@ function Invoke-GoTask([string]$Action) {
     }
 }
 
+function Invoke-PeripheralQuality([string]$Action) {
+    $gates = Get-Content (Join-Path $repoRoot 'coverage-gates.json') -Raw | ConvertFrom-Json -AsHashtable
+    $modules = if ((Get-Option 'SERVICE' 'all') -eq 'all') { @($gates.Keys | Sort-Object) } else { @(Get-Modules) }
+    $lintVersion = (Get-Content (Join-Path $repoRoot '.golangci-version') -Raw).Trim()
+    foreach ($module in $modules) {
+        if ($Action -eq 'coverage' -and -not $gates.ContainsKey($module)) {
+            throw "No coverage gates configured for SERVICE=$module"
+        }
+        Push-Location (Join-Path $repoRoot $module)
+        try {
+            if ($Action -eq 'go-lint') {
+                Invoke-Tool 'go' @('run', "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$lintVersion", 'run', '--config', (Join-Path $repoRoot '.golangci.yml'), './...')
+            } else {
+                $profile = Join-Path $repoRoot "output/coverage/$module.out"
+                if (-not $dryRun) { New-Item -ItemType Directory -Force (Split-Path -Parent $profile) | Out-Null }
+                $arguments = @('test', '-count=1', '-covermode=atomic', "-coverprofile=$profile")
+                if (Get-Flag 'RACE') { $arguments += '-race' }
+                # Do not honor TEST_RUN: a partial run must never satisfy the gate.
+                Invoke-Tool 'go' ($arguments + './...')
+                Push-Location $repoRoot
+                try { Invoke-Tool 'go' @('run', './tools/coveragecheck', '-module', $module, '-profile', $profile) }
+                finally { Pop-Location }
+            }
+        } finally { Pop-Location }
+    }
+}
+
 function Show-ClusterTarget {
     Write-Host "ENV=$environment NAMESPACE=$namespace EXPECTED_CONTEXT=$(Get-Option 'CONTEXT' '(current)')"
     if ($dryRun) { return }
@@ -266,7 +295,8 @@ function Invoke-Task([string]$Name) {
         { $_ -in @('deps-go', 'go-build', 'fmt', 'fmt-check', 'vet', 'test', 'test-unit', 'test-integration', 'test-compile') } { Invoke-GoTask $Name }
         'deps-frontend' { Invoke-Frontend @('ci') }
         'test-tools' { Invoke-Script 'scripts/tests/project.test.ps1' }
-        'lint' { Invoke-Task 'vet'; Invoke-Task 'frontend-lint'; Invoke-Task 'frontend-typecheck' }
+        { $_ -in @('go-lint', 'coverage') } { Invoke-PeripheralQuality $Name }
+        'lint' { Invoke-Task 'vet'; Invoke-Task 'go-lint'; Invoke-Task 'frontend-lint'; Invoke-Task 'frontend-typecheck' }
         'check' { foreach ($step in @('fmt-check', 'lint', 'openapi-check', 'test-inventory')) { Invoke-Task $step } }
         'frontend-dev' { Invoke-Frontend @('run', 'dev') }
         'frontend-build' { Invoke-Frontend @('run', 'build') }

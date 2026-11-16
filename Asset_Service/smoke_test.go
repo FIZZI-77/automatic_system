@@ -27,7 +27,7 @@ func TestSmoke(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer conn.Close()
+	defer func() { _ = conn.Close() }() // Best effort cleanup after the operation.
 	c := assetv1.NewAssetServiceClient(conn)
 	actor, department := uuid.NewString(), uuid.NewString()
 	created, err := c.CreateAsset(ctx, &assetv1.CreateAssetRequest{

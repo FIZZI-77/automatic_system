@@ -70,7 +70,7 @@ func (s *Email) Send(ctx context.Context, d *models.Delivery, n *models.Notifica
 		return "", fmt.Errorf("connect SMTP: %w", err)
 	}
 
-	defer conn.Close()
+	defer func() { _ = conn.Close() }() // Best effort cleanup after the operation.
 	deadline := time.Now().Add(30 * time.Second)
 
 	if contextDeadline, ok := ctx.Deadline(); ok && contextDeadline.Before(deadline) {
@@ -87,8 +87,7 @@ func (s *Email) Send(ctx context.Context, d *models.Delivery, n *models.Notifica
 		return "", fmt.Errorf("create SMTP client: %w", err)
 	}
 
-	defer client.Close()
-
+	defer func() { _ = client.Close() }() // Best effort cleanup after the operation.
 	if auth != nil {
 
 		if err = client.Auth(auth); err != nil {

@@ -3,16 +3,42 @@ package service
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/google/uuid"
+
 	"sla/models"
 	"sla/src/core/repository"
-	"time"
 )
 
-type Service struct{ repo *repository.Repository }
+type ruleStore interface {
+	CreateRule(context.Context, *models.Rule) (*models.Rule, error)
+	GetRule(context.Context, uuid.UUID) (*models.Rule, error)
+	UpdateRule(context.Context, *models.Rule) (*models.Rule, error)
+	DeleteRule(context.Context, uuid.UUID) (*models.Rule, error)
+	ListRules(context.Context, models.RuleFilter) ([]*models.Rule, int64, error)
+	MatchRule(context.Context, uuid.UUID, uuid.UUID, models.Priority) (*models.Rule, error)
+}
+
+type ticketStore interface {
+	GetTicketSLA(context.Context, uuid.UUID) (*models.TicketSLA, error)
+	ListSLAs(context.Context, models.SLAFilter) ([]*models.TicketSLA, int64, error)
+	ListHistory(context.Context, uuid.UUID, int32, int32) ([]*models.History, int64, error)
+	ApplyEvent(context.Context, models.TicketEvent, *models.Rule) error
+	CheckDeadlines(context.Context, time.Time) error
+}
+
+type store interface {
+	ruleStore
+	ticketStore
+}
+
+var _ store = (*repository.Repository)(nil)
+
+type Service struct{ repo store }
 
 // New создаёт сервис правил и контроля SLA с хранилищем r.
-func New(r *repository.Repository) *Service { return &Service{repo: r} }
+func New(r store) *Service { return &Service{repo: r} }
 
 // CreateRule проверяет правило и сохраняет его; хранилище заполняет ID,
 // активность и временные метки в переданном v.

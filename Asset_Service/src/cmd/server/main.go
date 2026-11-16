@@ -52,7 +52,7 @@ func main() {
 		log.Fatal(e)
 	}
 
-	defer l.Sync()
+	defer func() { _ = l.Sync() }() // Best effort flush during shutdown.
 	db, e := telemetry.NewPostgresPool(ctx, must("DATABASE_URL"))
 
 	if e != nil {
@@ -70,8 +70,12 @@ func main() {
 
 	if len(brokers) > 0 {
 		w := outboxrelay.New(db, brokers, env("KAFKA_ASSET_TOPIC", "assets.events.v1"), l)
-		defer w.Close()
-		go w.Run(ctx)
+		defer func() { _ = w.Close() }() // Best effort cleanup after the operation.
+		go func() {
+			if err := w.Run(ctx); err != nil && ctx.Err() == nil {
+				l.Error("asset outbox relay stopped", zap.Error(err))
+			}
+		}()
 		startCriticalTicketWorker(ctx, brokers, l)
 	}
 

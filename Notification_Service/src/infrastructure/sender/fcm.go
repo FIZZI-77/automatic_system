@@ -61,7 +61,7 @@ func (f *FCM) Send(ctx context.Context, d *models.Delivery, n *models.Notificati
 		return "", e
 	}
 
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }() // Best effort cleanup after the operation.
 	body, _ := io.ReadAll(io.LimitReader(res.Body, 1<<20))
 
 	if res.StatusCode/100 != 2 {

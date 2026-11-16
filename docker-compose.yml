@@ -23,6 +23,7 @@ services:
     container_name: file-service
     environment:
       DATABASE_URL: postgres://file:file@postgres-file:5432/file?sslmode=disable
+      KAFKA_BROKERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
       GRPC_PORT: "50059"
       S3_ENDPOINT: http://minio:9000
       S3_PUBLIC_ENDPOINT: http://localhost:${MINIO_API_PORT:-9000}
@@ -34,6 +35,8 @@ services:
       PRESIGN_TTL: 15m
       REPORT_INTERNAL_TOKEN: ${REPORT_INTERNAL_TOKEN:?set REPORT_INTERNAL_TOKEN}
     depends_on:
+      kafka-init:
+        condition: service_completed_successfully
       migrator-file:
         condition: service_completed_successfully
       minio:

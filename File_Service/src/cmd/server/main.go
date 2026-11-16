@@ -69,6 +69,7 @@ func main() {
 	}
 
 	defer readDB.Close()
+	defer startOutboxRelay(ctx, writeDB, logger)()
 	store := storage.New(storage.Config{
 		Endpoint:       required("S3_ENDPOINT"),
 		PublicEndpoint: env("S3_PUBLIC_ENDPOINT", required("S3_ENDPOINT")),

@@ -73,6 +73,8 @@ gRPC-клиентов Department или Brigade. Эти связи в старо
 | Asset | `assets.events.v1` | [Передатчик](../../Asset_Service/src/cmd/server/main.go). |
 | SLA | `sla.events.v1` | [Передатчик](../../SLA_Service/src/cmd/server/main.go). |
 | Report | `reports.events.v1` | [Передатчик и обработчик заявки](../../Report_Service/src/cmd/server/main.go). |
+| File | `files.events.v1` | [Передатчик](../../File_Service/src/cmd/server/outbox.go), [транзакционный outbox](../../File_Service/scheme/20261116000100_create_event_outbox.sql). |
+| Notification | `notifications.events.v1` | [Передатчик](../../Notification_Service/src/cmd/server/outbox.go), [транзакционный outbox](../../Notification_Service/scheme/20261116000100_create_event_outbox.sql). |
 
 | Читатель | Темы | Основание |
 |---|---|---|
@@ -81,16 +83,35 @@ gRPC-клиентов Department или Brigade. Эти связи в старо
 | Ticket | `routing.events.v1`, `reports.events.v1` | [Запуск двух читателей](../../Ticket_Service/src/cmd/server/main.go). |
 | Dispatch, Routing, SLA, Report | `tickets.events.v1` | [Dispatch](../../Dispatch_Service/src/cmd/server/ticket_consumer.go), [Routing](../../Routing_Service/src/cmd/server/ticket_consumer.go), [SLA](../../SLA_Service/src/cmd/server/main.go), [Report](../../Report_Service/src/cmd/server/main.go). |
 | Notification | `tickets`, `sla`, `dispatch`, `departments`, `brigades`, `locations`, `routing`, `files`, `reports` с суффиксом `.events.v1` | [Код читателя](../../Notification_Service/src/cmd/server/main.go), [настройка Kubernetes](../../k8s/helm/applications/templates/services/notification.yaml). |
-| Audit и Analytics | `auth`, `tickets`, `departments`, `brigades`, `profiles`, `locations`, `routing`, `dispatch`, `sla`, `notifications`, `reports`, `assets` с суффиксом `.events.v1` | [Код Audit](../../Audit_Service/src/cmd/server/main.go), [его конфигурация](../../Audit_Service/config.yaml), [код Analytics](../../Analytics_Service/src/cmd/server/main.go), [ее конфигурация](../../Analytics_Service/config.yaml). |
+| Audit и Analytics | `auth`, `tickets`, `departments`, `brigades`, `profiles`, `locations`, `routing`, `dispatch`, `sla`, `files`, `notifications`, `reports`, `assets` с суффиксом `.events.v1` | [Код Audit](../../Audit_Service/src/cmd/server/main.go), [его конфигурация](../../Audit_Service/config.yaml), [код Analytics](../../Analytics_Service/src/cmd/server/main.go), [ее конфигурация](../../Analytics_Service/config.yaml). |
 
-`files.events.v1` указана у Notification, однако в
-[запуске File Service](../../File_Service/src/cmd/server/main.go) нет передатчика
-событий. `notifications.events.v1` указана у Audit и Analytics, но в
-[запуске Notification Service](../../Notification_Service/src/cmd/server/main.go)
-нет издателя Kafka. Поэтому эти две темы нельзя изображать как реально
-публикуемые данным кодом. Читатель, настроенный на тему, не означает, что
-каждое ее событие становится уведомлением или аналитической записью:
-дополнительную фильтрацию выполняет код соответствующего сервиса.
+File публикует `file.created`, `file.uploaded`, `file.linked`, `file.quarantined`
+и `file.deleted` (включая удаление просроченной загрузки). Notification публикует
+`notification.created`, `notification.read` и `notification.delivery.sent`,
+`notification.delivery.failed`, `notification.delivery.dead`. Повторное прочтение,
+удаление или привязка к тому же ресурсу новых событий не создаёт.
+
+Триггеры PostgreSQL записывают outbox в той же транзакции, что и изменение
+состояния. Передатчики запускаются вместе с сервисами и требуют `KAFKA_BROKERS`.
+Миграции нужно применить перед запуском новой версии. Старые записи не порождают
+событий задним числом. Доставка — at-least-once: после сбоя между подтверждением
+Kafka и записью `sent_at` возможен повтор с тем же `event_id`. Audit и Analytics
+уже исключают такие повторы. Событие содержит плоские поля `event_id`,
+`event_type`, `event_version=1`, `occurred_at`, `entity_type`, `entity_id`;
+Kafka key — ID файла или уведомления. Повторы сохраняют исходное время события.
+Ошибки Kafka не удаляют события: передатчик повторяет отправку с задержкой
+до 256 секунд, сохраняя попытки и последнюю ошибку в outbox.
+
+События содержат идентификаторы и состояния, исключая имена и ключи файлов,
+подписанные URL, тексты сообщений, контакты, токены устройств и ответы провайдеров.
+Подписка Notification на файлы не означает создания пользовательского уведомления:
+его обработчик по-прежнему пропускает типы вне списка пользовательских событий.
+Analytics сохраняет файловые и уведомительные события в общем журнале;
+предметные проекции и показатели применяются только к поддерживаемым типам.
+
+Проверки атомарности, идемпотентности и восстановления передатчиков запускаются
+с `OUTBOX_TEST_DATABASE_URL` командой `go test -tags=integration -v ./src/infrastructure/outboxrelay`
+из File_Service и Notification_Service; в CI используется изолированный PostgreSQL.
 
 ## Границы карты
 

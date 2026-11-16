@@ -38,7 +38,7 @@ func (r *AssetRepoStruct) Create(c context.Context, v models.CreateInput) (*mode
 		return nil, e
 	}
 
-	defer tx.Rollback(c)
+	defer func() { _ = tx.Rollback(c) }() // Best effort: the transaction may already be committed.
 	x, e := scan(tx.QueryRow(c, `INSERT INTO assets(external_id,department_id,type,name,address,district,municipality,geometry,model,serial_number,installation_year,service_life_years,warranty_until,owner,service_organization,contractor,inspection_interval_days,response_norm_minutes,repair_norm_minutes,criticality,next_inspection_at)VALUES($1,$2,$3,$4,$5,$6,$7,ST_SetSRID(ST_GeomFromGeoJSON($8),4326),$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,now()+make_interval(days=>$17))RETURNING `+cols, v.ExternalID, v.DepartmentID, v.Type, v.Name, v.Address, v.District, v.Municipality, v.Geometry, v.Model, v.SerialNumber, v.InstallationYear, v.ServiceLifeYears, v.WarrantyUntil, v.Owner, v.ServiceOrganization, v.Contractor, v.InspectionIntervalDays, v.ResponseNormMinutes, v.RepairNormMinutes, v.Criticality))
 
 	if e == nil {
@@ -66,7 +66,7 @@ func (r *AssetRepoStruct) Update(c context.Context, v models.UpdateInput) (*mode
 		return nil, e
 	}
 
-	defer tx.Rollback(c)
+	defer func() { _ = tx.Rollback(c) }() // Best effort: the transaction may already be committed.
 	x, e := scan(tx.QueryRow(c, `UPDATE assets SET
 		name=COALESCE($2,name),address=COALESCE($3,address),
 		geometry=CASE WHEN $4::text IS NULL THEN geometry ELSE ST_SetSRID(ST_GeomFromGeoJSON($4),4326) END,
@@ -152,7 +152,7 @@ func (r *AssetRepoStruct) ChangeStatus(c context.Context, id uuid.UUID, s models
 		return nil, e
 	}
 
-	defer tx.Rollback(c)
+	defer func() { _ = tx.Rollback(c) }() // Best effort: the transaction may already be committed.
 	var old models.Status
 	e = tx.QueryRow(c, "SELECT status FROM assets WHERE id=$1 FOR UPDATE", id).Scan(&old)
 
@@ -211,7 +211,7 @@ func (r *AssetRepoStruct) RecordIncident(c context.Context, v models.Incident) (
 		return nil, e
 	}
 
-	defer tx.Rollback(c)
+	defer func() { _ = tx.Rollback(c) }() // Best effort: the transaction may already be committed.
 	e = tx.QueryRow(c, "SELECT EXISTS(SELECT 1 FROM asset_incidents WHERE asset_id=$1 AND failure_type=$2 AND occurred_at>$3)", v.AssetID, v.FailureType, v.OccurredAt.AddDate(0, 0, -90)).Scan(&v.Repeated)
 
 	if e == nil {
@@ -242,7 +242,7 @@ func (r *AssetRepoStruct) CompleteRepair(c context.Context, v models.Repair) (*m
 		return nil, e
 	}
 
-	defer tx.Rollback(c)
+	defer func() { _ = tx.Rollback(c) }() // Best effort: the transaction may already be committed.
 	e = tx.QueryRow(c, `INSERT INTO asset_repairs(asset_id,incident_id,ticket_id,brigade_id,description,replaced_components,duration_minutes,completed_at)VALUES($1,$2,$3,$4,$5,$6,$7,$8)RETURNING id`, v.AssetID, v.IncidentID, v.TicketID, v.BrigadeID, v.Description, v.ReplacedComponents, v.DurationMinutes, v.CompletedAt).Scan(&v.ID)
 
 	if e == nil {
@@ -269,7 +269,7 @@ func (r *AssetRepoStruct) RecordInspection(c context.Context, v models.Inspectio
 		return nil, e
 	}
 
-	defer tx.Rollback(c)
+	defer func() { _ = tx.Rollback(c) }() // Best effort: the transaction may already be committed.
 	e = tx.QueryRow(c, `INSERT INTO asset_inspections(asset_id,inspector_user_id,kind,result,defect_found,condition_score,recommendation,inspected_at)VALUES($1,$2,$3,$4,$5,$6,$7,$8)RETURNING id`, v.AssetID, v.InspectorID, v.Kind, v.Result, v.DefectFound, v.ConditionScore, v.Recommendation, v.InspectedAt).Scan(&v.ID)
 
 	if e == nil {

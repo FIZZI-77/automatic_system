@@ -1,0 +1,6 @@
+{
+  "Report_Service": {"report/src/core/service": 90},
+  "Notification_Service": {"notification/src/core/service": 90},
+  "SLA_Service": {"sla/src/core/service": 90},
+  "Asset_Service": {"asset/src/core/service": 90}
+}

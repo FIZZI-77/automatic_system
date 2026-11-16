@@ -14,6 +14,58 @@
 запись уже сохранена, поэтому клиент после переподключения может получить ее
 через `List`.
 
+## События Kafka
+
+**Издатель `notifications.events.v1` — Notification_Service.** Это отдельный
+канал от Redis/live `Publisher`: PostgreSQL-триггеры сохраняют исходящие события
+в `outbox_events` атомарно с изменением уведомления или доставки, затем
+[фоновый передатчик](src/cmd/server/outbox.go) отправляет их в Kafka.
+Топик читают Audit и Analytics. Сам Notification не подписан на собственный топик.
+
+| Тип события | Когда создаётся |
+|---|---|
+| `notification.created` | Создана запись уведомления в `Dispatch`, в том числе при выключенном IN_APP. |
+| `notification.read` | Признак прочтения изменён с `false` на `true` через `MarkRead` или `MarkAllRead`. |
+| `notification.delivery.sent` | Доставка переведена в `SENT`. |
+| `notification.delivery.failed` | Попытка доставки завершилась состоянием `FAILED`. |
+| `notification.delivery.dead` | Доставка переведена в `DEAD` после исчерпания попыток. |
+
+Повтор исходного события не создаёт новые уведомления и исходящие события.
+Повторное прочтение и отклонённое обновление устаревшей попытки доставки также
+не создают событий. `notification.created` не означает успешную доставку;
+`notification.delivery.sent` отражает сохранённый результат соответствующего
+канала, а прочтение подтверждается отдельным событием.
+
+Kafka key — ID уведомления. Общие поля JSON: `event_id`, `event_type`,
+`event_version=1`, `occurred_at`, `entity_type=notification`, `entity_id`,
+`notification_id`, `user_id`, `source_event_id`, `source_event_type`.
+События уведомления дополнительно содержат `read`, события доставки —
+`delivery_id`, `channel`, `status`, `attempts`. `source_event_id` связывает
+уведомление с исходным входящим событием и отличается от ID исходящего события.
+Тексты, адреса получателей, токены устройств, ID провайдеров и их ошибки
+в Kafka payload не включаются.
+
+Перед запуском нужно применить
+[миграцию outbox](scheme/20261116000100_create_event_outbox.sql), задать
+`KAFKA_BROKERS` и создать топик через `kafka-init`. Исторические записи
+автоматически не публикуются. Доставка — at-least-once: после подтверждения Kafka
+записывается `sent_at`; сбой между этими шагами может вызвать повтор с тем же
+`event_id` и временем события. Передатчик сохраняет неотправленные строки,
+повторяет отправку с задержкой до 256 секунд и восстанавливается после перезапуска.
+
+Из каталога Notification_Service проверки атомарности, идемпотентности и
+восстановления передатчика запускаются так:
+
+```powershell
+$env:OUTBOX_TEST_DATABASE_URL = "postgres://user:password@localhost:5432/test_db?sslmode=disable"
+go test -tags=integration -v ./src/infrastructure/outboxrelay
+```
+
+Без `OUTBOX_TEST_DATABASE_URL` эти проверки пропускаются. В CI они подключены
+к PostgreSQL. Общая карта потоков — в
+[событийной архитектуре](../wiki/Event-Driven-Architecture.md), диагностика — в
+[Troubleshooting](../wiki/Troubleshooting.md#5-kafka-events-пропали).
+
 ## Модели
 
 ### `Notification`

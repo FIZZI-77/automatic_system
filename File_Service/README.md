@@ -28,6 +28,53 @@ S3-совместимом хранилище. Двоичные данные не
 PNG, GIF, WebP, PDF, CSV и XLSX. Kafka и таблица исходящих событий не
 используются.
  
+## События Kafka
+
+**Издатель `files.events.v1` — File_Service.** PostgreSQL-триггер
+`files_event_outbox` сохраняет событие в `outbox_events` в той же транзакции,
+что и изменение метаданных. Фоновый передатчик запускается из
+[outbox.go](src/cmd/server/outbox.go) вместе с сервисом.
+
+| Тип события | Когда создаётся |
+|---|---|
+| `file.created` | Сохранены метаданные и подготовлена загрузка; содержимое ещё не подтверждено. |
+| `file.uploaded` | Загрузка подтверждена, статус стал `UPLOADED`. |
+| `file.linked` | Файл связан с ресурсом или изменена его привязка. |
+| `file.quarantined` | Ожидающий загрузки файл переведён в карантин. |
+| `file.deleted` | Файл логически удалён, в том числе при очистке просроченной загрузки. Это не подтверждение физического удаления из S3. |
+
+Повторная привязка к тому же ресурсу и повторное логическое удаление новых
+событий не создают. Файловые события читают Notification, Audit и Analytics;
+Notification по-прежнему отбирает пользовательские события через
+`isUserFacingEvent` и не создаёт уведомления из типов `file.*`.
+
+Kafka key — ID файла. JSON содержит `event_id`, `event_type`,
+`event_version=1`, `occurred_at`, `entity_type=file`, `entity_id`, `file_id`,
+`owner_user_id`, `resource_type`, `resource_id`, `status`, `content_type`, `size`.
+Имя файла, `object_key`, checksum и подписанные URL не передаются.
+
+Перед запуском нужно применить
+[миграцию outbox](scheme/20261116000100_create_event_outbox.sql), задать
+`KAFKA_BROKERS` и создать топик через `kafka-init`. Compose и Helm содержат
+настройки брокеров. Исторические записи автоматически не публикуются.
+
+Доставка — at-least-once: строка отмечается отправленной только после
+подтверждения Kafka; при сбоях повторяются отправки с тем же ID и временем
+события, с задержкой до 256 секунд. Неотправленные строки сохраняются при
+перезапуске. Повторы исключают потребители по `event_id`.
+
+Проверки атомарности, повторов и восстановления передатчика используют
+изолированную схему PostgreSQL. Из каталога File_Service:
+
+```powershell
+$env:OUTBOX_TEST_DATABASE_URL = "postgres://user:password@localhost:5432/test_db?sslmode=disable"
+go test -tags=integration -v ./src/infrastructure/outboxrelay
+```
+
+Без `OUTBOX_TEST_DATABASE_URL` эти проверки пропускаются. В CI они подключены
+к PostgreSQL; команды диагностики очереди приведены в
+[Troubleshooting](../wiki/Troubleshooting.md#5-kafka-events-пропали).
+
 ## Модели
 
 ### `Status`

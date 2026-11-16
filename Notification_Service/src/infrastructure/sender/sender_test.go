@@ -16,7 +16,7 @@ func TestEmailSendHonorsContextDeadline(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer listener.Close()
+	defer func() { _ = listener.Close() }() // Best effort cleanup after the operation.
 	accepted := make(chan net.Conn, 1)
 	go func() {
 		conn, acceptErr := listener.Accept()

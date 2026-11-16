@@ -160,7 +160,7 @@ func (r *Repository) ApplyEvent(ctx context.Context, ev models.TicketEvent, rule
 		return e
 	}
 
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }() // Best effort: the transaction may already be committed.
 	tag, e := tx.Exec(ctx, `INSERT INTO ticket_event_inbox(event_id,event_type,ticket_id,payload) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING`, ev.EventID, ev.EventType, ev.TicketID, mustJSON(ev))
 
 	if e != nil {
@@ -293,7 +293,7 @@ func (r *Repository) CheckDeadlines(ctx context.Context, now time.Time) error {
 		return e
 	}
 
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }() // Best effort: the transaction may already be committed.
 	rows, e := tx.Query(ctx, slaSelect+` WHERE status='ACTIVE' FOR UPDATE SKIP LOCKED`)
 
 	if e != nil {
@@ -326,7 +326,7 @@ func (r *Repository) CheckDeadlines(ctx context.Context, now time.Time) error {
 			v.ResponseBreached = true
 			changed = true
 			e = history(ctx, tx, v, models.EventResponseBreached, "response deadline breached")
-		} else if v.RespondedAt == nil && !v.ResponseWarningSent && warningReached(v.TicketCreatedAt, v.ResponseDeadline, rule.WarningPercent, now) {
+		} else if v.RespondedAt == nil && !v.ResponseBreached && !v.ResponseWarningSent && warningReached(v.TicketCreatedAt, v.ResponseDeadline, rule.WarningPercent, now) {
 			v.ResponseWarningSent = true
 			changed = true
 			e = history(ctx, tx, v, models.EventResponseWarning, "response deadline approaching")
@@ -340,7 +340,7 @@ func (r *Repository) CheckDeadlines(ctx context.Context, now time.Time) error {
 			v.ResolutionBreached = true
 			changed = true
 			e = history(ctx, tx, v, models.EventResolutionBreached, "resolution deadline breached")
-		} else if !v.ResolutionWarningSent && warningReached(v.TicketCreatedAt, v.ResolutionDeadline, rule.WarningPercent, now) {
+		} else if !v.ResolutionBreached && !v.ResolutionWarningSent && warningReached(v.TicketCreatedAt, v.ResolutionDeadline, rule.WarningPercent, now) {
 			v.ResolutionWarningSent = true
 			changed = true
 			e = history(ctx, tx, v, models.EventResolutionWarning, "resolution deadline approaching")

@@ -24,7 +24,8 @@ $help = Invoke-Make @('help')
 $tasks = @([regex]::Matches($help, '(?m)^  ([a-z][a-z-]+)\s+') | ForEach-Object { $_.Groups[1].Value })
 if ($tasks.Count -lt 50) { throw 'Incomplete task inventory' }
 foreach ($task in $tasks) {
-    $output = Invoke-Make @($task, 'DRY_RUN=1', 'SERVICE=ticket')
+    $service = if ($task -eq 'coverage') { 'report' } else { 'ticket' }
+    $output = Invoke-Make @($task, 'DRY_RUN=1', "SERVICE=$service")
     # Named arguments must exist in the real script, even for paths not executed here.
     foreach ($match in [regex]::Matches($output, '(?m)-File (.+?\.ps1)([^\r\n]*)')) {
         $scriptPath = $match.Groups[1].Value
@@ -49,7 +50,19 @@ if (([regex]::Matches($format, 'go list -f')).Count -ne 18) { throw 'Formatting 
 $unit = Invoke-Make @('test-unit', 'DRY_RUN=1', 'SERVICE=API_Gateway')
 if ($unit -notmatch 'API_Gateway' -or $unit -notmatch 'excluding node_modules and integration/e2e') { throw 'Unit module/package selection is incorrect' }
 
+$coverage = Invoke-Make @('coverage', 'DRY_RUN=1', 'SERVICE=report', 'RACE=1', 'TEST_RUN=MustNotFilterCoverage')
+if ($coverage -notmatch '-covermode=atomic' -or $coverage -notmatch '-race' -or
+    $coverage -notmatch 'tools/coveragecheck -module Report_Service' -or $coverage -match 'MustNotFilterCoverage') {
+    throw 'Coverage must collect a complete atomic profile and enforce the module gate'
+}
+$goLint = Invoke-Make @('go-lint', 'DRY_RUN=1', 'SERVICE=asset')
+$lintVersion = (Get-Content (Join-Path $repoRoot '.golangci-version') -Raw).Trim()
+if (-not $goLint.Contains("golangci-lint@$lintVersion") -or $goLint -notmatch '\.golangci.yml') {
+    throw 'go-lint must use the pinned version and shared configuration'
+}
+
 $invalidCases = @(
+    @('coverage', 'DRY_RUN=1', 'SERVICE=ticket'),
     @('test', 'DRY_RUN=1', 'SERVICE=not-a-service'),
     @('deploy', 'DRY_RUN=1', 'ENV=unknown'),
     @('deploy-apps', 'DRY_RUN=1', 'ENV=prod'),

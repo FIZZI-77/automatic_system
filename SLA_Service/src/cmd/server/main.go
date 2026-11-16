@@ -51,7 +51,7 @@ func main() {
 		log.Fatal(e)
 	}
 
-	defer logger.Sync()
+	defer func() { _ = logger.Sync() }() // Best effort flush during shutdown.
 	db, e := telemetry.NewPostgresPool(ctx, must("DATABASE_URL"))
 
 	if e != nil {
@@ -70,8 +70,8 @@ func main() {
 	if len(brokers) > 0 {
 		consumer := ticketconsumer.New(brokers, env("KAFKA_TICKET_TOPIC", "tickets.events.v1"), env("KAFKA_CONSUMER_GROUP", "sla-service"), s, logger)
 		relay := outboxrelay.New(db, brokers, env("KAFKA_SLA_TOPIC", "sla.events.v1"), logger)
-		defer consumer.Close()
-		defer relay.Close()
+		defer func() { _ = consumer.Close() }() // Best effort cleanup after the operation.
+		defer func() { _ = relay.Close() }()    // Best effort cleanup after the operation.
 		go run(ctx, "ticket consumer", consumer.Run, logger)
 		go run(ctx, "outbox relay", relay.Run, logger)
 	}
