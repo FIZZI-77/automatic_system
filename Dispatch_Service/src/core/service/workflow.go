@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"dispatch/models"
+	"dispatch/pkg/grpcbreaker"
 
 	brigadev1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/brigade/v1"
 	locationv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/location/v1"
@@ -21,7 +22,8 @@ import (
 )
 
 // Preview подбирает доступные бригады для заявки NEW по ведомству, навыкам и свежим
-// координатам, затем ранжирует их через Routing. В in заменяет неположительный Limit
+// координатам, затем ранжирует их через Routing; при сбое доступности использует
+// расстояние по прямой и ETA=-1. В in заменяет неположительный Limit
 // на 10, отклоняет лимит выше 100; отсутствие кандидатов возвращает как пустой срез.
 func (s *Service) Preview(ctx context.Context, in *models.RecommendInput) ([]models.Candidate, error) {
 
@@ -109,7 +111,11 @@ func (s *Service) Preview(ctx context.Context, in *models.RecommendInput) ([]mod
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("rank candidates: %w", err)
+		if ctx.Err() != nil || !grpcbreaker.IsAvailabilityError(err) {
+			return nil, fmt.Errorf("rank candidates: %w", err)
+		}
+		s.log.Warn("routing unavailable; rank candidates by straight-line distance", zap.Error(err))
+		return distanceCandidates(candidates, ticket.GetLatitude(), ticket.GetLongitude(), in.Limit), nil
 	}
 
 	result := make([]models.Candidate, 0, len(ranked.GetCandidates()))
@@ -423,6 +429,14 @@ func (s *Service) confirm(ctx context.Context, in *models.ConfirmInput) (*models
 	})
 
 	if err != nil || route.GetRoute() == nil {
+		if err != nil && ctx.Err() == nil && op.Mode == models.ModeAutomatic && grpcbreaker.IsAvailabilityError(err) {
+			s.log.Warn("routing unavailable; assign without route", zap.Error(err), zap.String("operation_id", op.ID.String()))
+			op, err = s.repo.BeginConfirmWithoutRoute(ctx, op.ID, op.Version)
+			if err != nil {
+				return nil, err
+			}
+			return s.finishConfirm(ctx, op, in.ConfirmedBy)
+		}
 
 		if err == nil {
 			err = errors.New("routing returned an empty route")
@@ -449,11 +463,12 @@ func (s *Service) confirm(ctx context.Context, in *models.ConfirmInput) (*models
 }
 
 // finishConfirm назначает бригаду из op заявке и фиксирует ASSIGNED.
+// Автоматическое назначение допускает сохранённый режим деградации без маршрута.
 // При ошибке назначения принимает уже назначенную ту же бригаду как успех;
 // иначе отменяет маршрут и завершает операцию с освобождением резерва.
 func (s *Service) finishConfirm(ctx context.Context, op *models.Operation, actor uuid.UUID) (*models.Operation, error) {
 
-	if op.BrigadeID == nil || op.RouteID == nil {
+	if op.BrigadeID == nil || (op.RouteID == nil && op.Mode != models.ModeAutomatic) {
 		return nil, fmt.Errorf("%w: confirming dispatch misses brigade or route", models.ErrConflict)
 	}
 
@@ -469,7 +484,9 @@ func (s *Service) finishConfirm(ctx context.Context, op *models.Operation, actor
 		alreadyAssigned := getErr == nil && ticketResponse.GetTicket().GetBrigadeId() == op.BrigadeID.String()
 
 		if !alreadyAssigned {
-			s.cancelRoute(ctx, op.RouteID.String())
+			if op.RouteID != nil {
+				s.cancelRoute(ctx, op.RouteID.String())
+			}
 			return s.failAndRelease(ctx, op, fmt.Errorf("assign ticket: %w", err))
 		}
 

@@ -9,6 +9,7 @@ import (
 
 	"brigade/models"
 	"brigade/pkg"
+	"brigade/pkg/grpcbreaker"
 	"brigade/src/core/repository"
 
 	departmentv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/department/v1"
@@ -20,7 +21,6 @@ import (
 
 const (
 	departmentCheckAttempts       = 3
-	departmentCheckTimeout        = 2 * time.Second
 	departmentCheckInitialBackoff = 100 * time.Millisecond
 	departmentCheckMaxJitter      = 50 * time.Millisecond
 )
@@ -126,19 +126,17 @@ func (b *BrigadeServiceStruct) CreateBrigade(ctx context.Context, in *models.Cre
 	return result, nil
 }
 
-// getDepartmentByIDWithRetry запрашивает ведомство до трёх раз с таймаутом 2 секунды
-// на попытку. Временные ошибки gRPC повторяет с растущей задержкой и случайной
-// добавкой; ожидание прерывается отменой ctx, итоговая ошибка преобразуется в доменную.
+// getDepartmentByIDWithRetry запрашивает ведомство до трёх раз; таймаут сетевой
+// попытки задаёт interceptor клиента. Временные ошибки повторяет с растущей задержкой
+// и случайной добавкой; ожидание прерывается отменой ctx, итоговая ошибка преобразуется в доменную.
 func (b *BrigadeServiceStruct) getDepartmentByIDWithRetry(ctx context.Context, log *zap.Logger, departmentID uuid.UUID) (*departmentv1.GetDepartmentByIDResponse, error) {
 	var lastErr error
 	backoff := departmentCheckInitialBackoff
 
 	for attempt := 1; attempt <= departmentCheckAttempts; attempt++ {
-		callCtx, cancel := context.WithTimeout(ctx, departmentCheckTimeout)
-		department, err := b.departmentClient.GetDepartmentByID(callCtx, &departmentv1.GetDepartmentByIDRequest{
+		department, err := b.departmentClient.GetDepartmentByID(ctx, &departmentv1.GetDepartmentByIDRequest{
 			Id: departmentID.String(),
 		})
-		cancel()
 
 		if err == nil {
 			return department, nil
@@ -146,7 +144,7 @@ func (b *BrigadeServiceStruct) getDepartmentByIDWithRetry(ctx context.Context, l
 
 		lastErr = err
 
-		if !isRetryableDepartmentError(err) || attempt == departmentCheckAttempts {
+		if errors.Is(err, grpcbreaker.ErrRejected) || !isRetryableDepartmentError(err) || attempt == departmentCheckAttempts {
 			break
 		}
 

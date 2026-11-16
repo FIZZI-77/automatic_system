@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"dispatch/pkg"
+	"dispatch/pkg/grpcbreaker"
 	"dispatch/pkg/telemetry"
 	"log"
 	"net"
@@ -90,12 +91,17 @@ func main() {
 	}
 
 	dependencyTimeout := duration("DEPENDENCY_TIMEOUT", 10*time.Second)
-	dial := func(address string) *grpc.ClientConn {
+	breakerConfig, err := grpcbreaker.FromEnv()
+	if err != nil {
+		log.Fatalf("circuit breaker configuration: %v", err)
+	}
+	dial := func(address string, interceptors ...grpc.UnaryClientInterceptor) *grpc.ClientConn {
+		interceptors = append([]grpc.UnaryClientInterceptor{defaultTimeoutInterceptor(dependencyTimeout)}, interceptors...)
 		connection, dialErr := grpc.NewClient(
 			address,
 			telemetry.GRPCClientOption(),
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
-			grpc.WithChainUnaryInterceptor(defaultTimeoutInterceptor(dependencyTimeout)),
+			grpc.WithChainUnaryInterceptor(interceptors...),
 		)
 
 		if dialErr != nil {
@@ -108,9 +114,9 @@ func main() {
 	defer ticketConn.Close()
 	brigadeConn := dial(env("BRIGADE_SERVICE_ADDR", "brigade-service:50054"))
 	defer brigadeConn.Close()
-	locationConn := dial(env("LOCATION_SERVICE_ADDR", "location-service:50056"))
+	locationConn := dial(env("LOCATION_SERVICE_ADDR", "location-service:50056"), grpcbreaker.UnaryClient("Location", breakerConfig, logger))
 	defer locationConn.Close()
-	routingConn := dial(env("ROUTING_SERVICE_ADDR", "routing-service:50057"))
+	routingConn := dial(env("ROUTING_SERVICE_ADDR", "routing-service:50057"), grpcbreaker.UnaryClient("Routing", breakerConfig, logger))
 	defer routingConn.Close()
 	dependencies := service.Dependencies{
 		Tickets:  ticketv1.NewTicketServiceClient(ticketConn),
