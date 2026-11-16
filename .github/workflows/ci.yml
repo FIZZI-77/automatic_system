@@ -890,11 +890,10 @@ jobs:
   # LOCAL FLUX + FLAGGER DEPLOY
   # ===========================================================================
 
-  deploy-local:
-    name: Deploy test/feature through Flux and Flagger
+  check-local-server:
+    name: Check development server availability
 
     needs:
-      - changes
       - application-images
       - frontend-image
       - migrator-images
@@ -902,6 +901,71 @@ jobs:
 
     if: >
       always() &&
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/test' ||
+       github.ref == 'refs/heads/feature' ||
+       startsWith(github.ref, 'refs/heads/feature/')) &&
+      needs.application-images.result == 'success' &&
+      needs.migrator-images.result == 'success' &&
+      (needs.frontend-image.result == 'success' || needs.frontend-image.result == 'skipped') &&
+      (needs.clickhouse-init-image.result == 'success' || needs.clickhouse-init-image.result == 'skipped')
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    permissions: {}
+
+    outputs:
+      available: ${{ steps.server.outputs.available }}
+
+    steps:
+      - name: Check public server liveness
+        id: server
+        shell: bash
+        env:
+          HEALTH_URL: ${{ vars.LOCAL_DEPLOY_HEALTH_URL || 'https://fizzi.tail2c9430.ts.net/livez' }}
+        run: |
+          set -euo pipefail
+          echo "available=false" >> "$GITHUB_OUTPUT"
+
+          # ARC scales runners down to zero while idle. Probe the server instead
+          # of looking for an online runner before assigning a deployment job.
+          for attempt in 1 2; do
+            if STATUS="$(curl --silent --show-error \
+                --proto '=https' \
+                --connect-timeout 5 \
+                --max-time 10 \
+                --output /dev/null \
+                --write-out '%{http_code}' \
+                "$HEALTH_URL")" && [ "$STATUS" = "200" ]; then
+              echo "available=true" >> "$GITHUB_OUTPUT"
+              echo "Development server is available."
+              echo "Development server is available; deployment can start." >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+
+            if [ "$attempt" -lt 2 ]; then
+              sleep 5
+            fi
+          done
+
+          echo "::notice::Development server is offline or its liveness endpoint is unavailable. Deployment will be skipped."
+          echo "Development deployment skipped: server liveness endpoint is unavailable. CI and image builds are unaffected." >> "$GITHUB_STEP_SUMMARY"
+
+  deploy-local:
+    name: Deploy test/feature through Flux and Flagger
+
+    needs:
+      - changes
+      - check-local-server
+      - application-images
+      - frontend-image
+      - migrator-images
+      - clickhouse-init-image
+
+    if: >
+      always() &&
+      needs.check-local-server.outputs.available == 'true' &&
        github.event_name == 'push' &&
        (github.ref == 'refs/heads/test' ||
         github.ref == 'refs/heads/feature' ||
