@@ -1225,7 +1225,7 @@ export function TicketWorkspace({
                       placeholder="Почему заявки относятся к одному инциденту"
                     />
                   </label>
-                  <button type="submit" disabled={relationBusy}>
+                  <button className="ghost" type="submit" disabled={relationBusy}>
                     {relationBusy ? "Сохраняем…" : "Добавить в инцидент"}
                   </button>
                 </form>

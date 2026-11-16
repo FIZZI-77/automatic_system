@@ -2,7 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e",
-  testMatch: ["smoke.spec.ts", "map-tooltip-security.spec.ts"],
+  testMatch: ["smoke.spec.ts", "map-tooltip-security.spec.ts", "frontend-bugs.spec.ts"],
   workers: 1,
   retries: process.env.CI ? 1 : 0,
   timeout: 30_000,

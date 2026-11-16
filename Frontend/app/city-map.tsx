@@ -703,6 +703,7 @@ export function CityMap({
       if (disposed || !root.current) return;
       root.current.innerHTML = "";
       const map = L.map(root.current, {
+        attributionControl: false,
         zoomControl: true,
         zoomAnimation: false,
         fadeAnimation: false,
@@ -843,236 +844,242 @@ export function CityMap({
     ),
   );
   return (
-    <div className="map-shell yandex-map">
-      <div ref={root} className="map-root" />
-      <div className="map-route-filters" aria-label="Фильтры карты">
-        <label>
-          <span>Департамент</span>
-          <select
-            aria-label="Фильтр по департаменту"
-            value={departmentFilter}
-            onChange={(event) => {
-              setManualFilters({
-                selected: "",
-                department: event.target.value,
-                ticket: "",
-                brigade: "",
-              });
-              onSelect("");
-            }}
-          >
-            <option value="">Все департаменты</option>
-            {departmentOptions.map((department) => (
-              <option value={department.id} key={department.id}>
-                {department.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>Заявка</span>
-          <select
-            aria-label="Фильтр по заявке"
-            value={ticketFilter}
-            onChange={(event) =>
-              event.target.value
-                ? selectTicket(event.target.value)
-                : clearSelection()
-            }
-          >
-            <option value="">Все заявки</option>
-            {departmentTickets.map((ticket) => (
-              <option value={ticket.id} key={ticket.id}>
-                {ticket.id} · {ticket.title}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>Бригада</span>
-          <select
-            aria-label="Фильтр по бригаде"
-            value={brigadeFilter}
-            onChange={(event) =>
-              event.target.value
-                ? selectBrigade(event.target.value)
-                : clearSelection()
-            }
-          >
-            <option value="">Все бригады</option>
-            {departmentBrigades.map((brigade) => (
-              <option value={brigade.id} key={brigade.id}>
-                {brigade.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        {(departmentFilter || ticketFilter || brigadeFilter) && (
-          <button type="button" onClick={resetFilters}>
-            Сбросить
-          </button>
-        )}
-      </div>
-      {error && <div className="map-load-error">{error}</div>}
-      {!error && routeHint && <div className="map-route-note">{routeHint}</div>}
-      <button
-        className="layers-trigger"
-        onClick={() => setPanelOpen((value) => !value)}
-      >
-        ▦ Слои
-      </button>
-      {panelOpen && (
-        <div className="layers-window">
-          <div className="layers-title">
-            <div>
-              <b>Слои карты</b>
-              <span>Подложка и городские объекты</span>
-            </div>
-            <button onClick={() => setPanelOpen(false)}>×</button>
+    <>
+      <div className="map-shell yandex-map">
+        <div ref={root} className="map-root" />
+        <div className="map-controls">
+          <div className="map-route-filters" aria-label="Фильтры карты">
+            <label>
+              <span>Департамент</span>
+              <select
+                aria-label="Фильтр по департаменту"
+                value={departmentFilter}
+                onChange={(event) => {
+                  setManualFilters({
+                    selected: "",
+                    department: event.target.value,
+                    ticket: "",
+                    brigade: "",
+                  });
+                  onSelect("");
+                }}
+              >
+                <option value="">Все департаменты</option>
+                {departmentOptions.map((department) => (
+                  <option value={department.id} key={department.id}>
+                    {department.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Заявка</span>
+              <select
+                aria-label="Фильтр по заявке"
+                value={ticketFilter}
+                onChange={(event) =>
+                  event.target.value
+                    ? selectTicket(event.target.value)
+                    : clearSelection()
+                }
+              >
+                <option value="">Все заявки</option>
+                {departmentTickets.map((ticket) => (
+                  <option value={ticket.id} key={ticket.id}>
+                    {ticket.id} · {ticket.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Бригада</span>
+              <select
+                aria-label="Фильтр по бригаде"
+                value={brigadeFilter}
+                onChange={(event) =>
+                  event.target.value
+                    ? selectBrigade(event.target.value)
+                    : clearSelection()
+                }
+              >
+                <option value="">Все бригады</option>
+                {departmentBrigades.map((brigade) => (
+                  <option value={brigade.id} key={brigade.id}>
+                    {brigade.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {(departmentFilter || ticketFilter || brigadeFilter) && (
+              <button type="button" onClick={resetFilters}>
+                Сбросить
+              </button>
+            )}
           </div>
-          <fieldset>
-            <legend>Подложка</legend>
-            {(Object.keys(bases) as BaseId[]).map((item) => (
-              <label key={item}>
-                <input
-                  type="radio"
-                  name="base-map"
-                  checked={base === item}
-                  onChange={() => setBase(item)}
-                />
-                <span className={`base-preview ${item}`} />
-                <b>{bases[item].label}</b>
-              </label>
-            ))}
-          </fieldset>
-          <fieldset>
-            <legend>Инфраструктура</legend>
-            {(Object.keys(layerMeta) as LayerId[]).map((item) => (
-              <label key={item}>
-                <input
-                  type="checkbox"
-                  checked={layers.includes(item)}
-                  onChange={() => toggleLayer(item)}
-                />
-                <i style={{ background: layerMeta[item].color }}>
-                  {layerMeta[item].icon}
-                </i>
-                <span>{layerMeta[item].label}</span>
-              </label>
-            ))}
-          </fieldset>
-          <small>Открытые данные © OpenStreetMap</small>
-        </div>
-      )}
-      {selectedInfrastructure && (
-        <section
-          className="infrastructure-card"
-          aria-label="Карточка объекта инфраструктуры"
-        >
+          {error && <div className="map-load-error">{error}</div>}
+          {!error && routeHint && <div className="map-route-note">{routeHint}</div>}
           <button
-            className="infrastructure-card-close"
-            aria-label="Закрыть карточку"
-            onClick={() => setSelectedInfrastructure(undefined)}
+            className="layers-trigger"
+            aria-expanded={panelOpen}
+            onClick={() => setPanelOpen((value) => !value)}
           >
-            ×
+            ▦ Слои
           </button>
-          <span className="eyebrow">
-            {passport ? "Паспорт объекта" : "Данные OpenStreetMap"}
-          </span>
-          <h3>{passport?.name || selectedInfrastructure.name}</h3>
-          <p>
-            {layerMeta[selectedInfrastructure.category].label} ·{" "}
-            {selectedInfrastructure.kind}
-          </p>
-          <dl>
-            <div>
-              <dt>Внешний ID</dt>
-              <dd>{selectedInfrastructure.id}</dd>
+          {panelOpen && (
+            <div className="layers-window">
+              <div className="layers-title">
+                <div>
+                  <b>Слои карты</b>
+                  <span>Подложка и городские объекты</span>
+                </div>
+                <button aria-label="Закрыть слои карты" onClick={() => setPanelOpen(false)}>×</button>
+              </div>
+              <fieldset>
+                <legend>Подложка</legend>
+                {(Object.keys(bases) as BaseId[]).map((item) => (
+                  <label key={item}>
+                    <input
+                      type="radio"
+                      name="base-map"
+                      checked={base === item}
+                      onChange={() => setBase(item)}
+                    />
+                    <span className={`base-preview ${item}`} />
+                    <b>{bases[item].label}</b>
+                  </label>
+                ))}
+              </fieldset>
+              <fieldset>
+                <legend>Инфраструктура</legend>
+                {(Object.keys(layerMeta) as LayerId[]).map((item) => (
+                  <label key={item}>
+                    <input
+                      type="checkbox"
+                      checked={layers.includes(item)}
+                      onChange={() => toggleLayer(item)}
+                    />
+                    <i style={{ background: layerMeta[item].color }}>
+                      {layerMeta[item].icon}
+                    </i>
+                    <span>{layerMeta[item].label}</span>
+                  </label>
+                ))}
+              </fieldset>
+              <small>Открытые данные © OpenStreetMap</small>
             </div>
-            {selectedInfrastructure.ref && (
+          )}
+        </div>
+        {selectedInfrastructure && (
+          <section
+            className="infrastructure-card"
+            aria-label="Карточка объекта инфраструктуры"
+          >
+            <button
+              className="infrastructure-card-close"
+              aria-label="Закрыть карточку"
+              onClick={() => setSelectedInfrastructure(undefined)}
+            >
+              ×
+            </button>
+            <span className="eyebrow">
+              {passport ? "Паспорт объекта" : "Данные OpenStreetMap"}
+            </span>
+            <h3>{passport?.name || selectedInfrastructure.name}</h3>
+            <p>
+              {layerMeta[selectedInfrastructure.category].label} ·{" "}
+              {selectedInfrastructure.kind}
+            </p>
+            <dl>
               <div>
-                <dt>Номер</dt>
-                <dd>{selectedInfrastructure.ref}</dd>
+                <dt>Внешний ID</dt>
+                <dd>{selectedInfrastructure.id}</dd>
               </div>
-            )}
-            {selectedInfrastructure.operator && (
+              {selectedInfrastructure.ref && (
+                <div>
+                  <dt>Номер</dt>
+                  <dd>{selectedInfrastructure.ref}</dd>
+                </div>
+              )}
+              {selectedInfrastructure.operator && (
+                <div>
+                  <dt>Оператор</dt>
+                  <dd>{selectedInfrastructure.operator}</dd>
+                </div>
+              )}
+              {selectedInfrastructure.network && (
+                <div>
+                  <dt>Сеть</dt>
+                  <dd>{selectedInfrastructure.network}</dd>
+                </div>
+              )}
               <div>
-                <dt>Оператор</dt>
-                <dd>{selectedInfrastructure.operator}</dd>
+                <dt>Координаты</dt>
+                <dd>
+                  {selectedInfrastructure.latitude?.toFixed(6)},{" "}
+                  {selectedInfrastructure.longitude?.toFixed(6)}
+                </dd>
               </div>
-            )}
-            {selectedInfrastructure.network && (
-              <div>
-                <dt>Сеть</dt>
-                <dd>{selectedInfrastructure.network}</dd>
-              </div>
-            )}
-            <div>
-              <dt>Координаты</dt>
-              <dd>
-                {selectedInfrastructure.latitude?.toFixed(6)},{" "}
-                {selectedInfrastructure.longitude?.toFixed(6)}
-              </dd>
-            </div>
-            {passport && (
+              {passport && (
+                <>
+                  <div>
+                    <dt>ID паспорта</dt>
+                    <dd>{passport.id}</dd>
+                  </div>
+                  <div>
+                    <dt>Состояние</dt>
+                    <dd>{enumText(passport.status, assetStatusLabels)}</dd>
+                  </div>
+                  <div>
+                    <dt>Риск</dt>
+                    <dd>{enumText(passport.risk_level, riskLabels)}</dd>
+                  </div>
+                  <div>
+                    <dt>Критичность</dt>
+                    <dd>
+                      {Math.round(Number(passport.criticality || 0) * 100)}%
+                    </dd>
+                  </div>
+                </>
+              )}
+            </dl>
+            {passportBusy && <p className="passport-state">Проверяем реестр…</p>}
+            {passportError && <p className="passport-error">{passportError}</p>}
+            {!passport && !passportBusy && (
               <>
-                <div>
-                  <dt>ID паспорта</dt>
-                  <dd>{passport.id}</dd>
-                </div>
-                <div>
-                  <dt>Состояние</dt>
-                  <dd>{enumText(passport.status, assetStatusLabels)}</dd>
-                </div>
-                <div>
-                  <dt>Риск</dt>
-                  <dd>{enumText(passport.risk_level, riskLabels)}</dd>
-                </div>
-                <div>
-                  <dt>Критичность</dt>
-                  <dd>
-                    {Math.round(Number(passport.criticality || 0) * 100)}%
-                  </dd>
-                </div>
+                <p className="passport-state">
+                  Паспорт для этого объекта ещё не создан.
+                </p>
+                {canCreatePassport ? (
+                  <button
+                    className="passport-create"
+                    onClick={() => void createPassport()}
+                  >
+                    Создать паспорт объекта
+                  </button>
+                ) : (
+                  <small>
+                    Для создания паспорта нужны права сотрудника городской службы.
+                  </small>
+                )}
               </>
             )}
-          </dl>
-          {passportBusy && <p className="passport-state">Проверяем реестр…</p>}
-          {passportError && <p className="passport-error">{passportError}</p>}
-          {!passport && !passportBusy && (
-            <>
-              <p className="passport-state">
-                Паспорт для этого объекта ещё не создан.
-              </p>
-              {canCreatePassport ? (
-                <button
-                  className="passport-create"
-                  onClick={() => void createPassport()}
-                >
-                  Создать паспорт объекта
-                </button>
-              ) : (
-                <small>
-                  Для создания паспорта нужны права сотрудника городской службы.
-                </small>
-              )}
-            </>
-          )}
-        </section>
-      )}
-      <div className="map-legend">
-        <span>
-          <i className="dot incident" /> Инцидент
-        </span>
-        <span>
-          <i className="dot vehicle" /> Машина
-        </span>
-        {route.length > 1 && (
-          <span>
-            <i className="line" /> Назначенный маршрут
-          </span>
+          </section>
         )}
+        <div className="map-legend">
+          <span>
+            <i className="dot incident" /> Инцидент
+          </span>
+          <span>
+            <i className="dot vehicle" /> Машина
+          </span>
+          {route.length > 1 && (
+            <span>
+              <i className="line" /> Назначенный маршрут
+            </span>
+          )}
+        </div>
       </div>
-    </div>
+      <p className="map-data-credit">{bases[base].attribution}</p>
+    </>
   );
 }

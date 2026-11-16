@@ -1,6 +1,7 @@
 "use client";
 
 import { Position, Role } from "./api";
+import type { NavigationIconName } from "./navigation-icon";
 
 export const roleNames: Record<Role, string> = {
   user: "Житель",
@@ -52,56 +53,58 @@ export function pluralRu(
 
 export const navByRole: Record<
   Role,
-  { icon: string; label: string; id: string }[]
+  { icon: NavigationIconName; label: string; id: string }[]
 > = {
   user: [
-    { icon: "⌂", label: "Обзор", id: "overview" },
-    { icon: "◎", label: "Мои заявки", id: "tickets" },
-    { icon: "＋", label: "Сообщить", id: "create" },
-    { icon: "◌", label: "Уведомления", id: "notifications" },
-    { icon: "◇", label: "Профиль", id: "profile" },
+    { icon: "home", label: "Обзор", id: "overview" },
+    { icon: "clipboard", label: "Мои заявки", id: "tickets" },
+    { icon: "plus", label: "Сообщить", id: "create" },
+    { icon: "bell", label: "Уведомления", id: "notifications" },
+    { icon: "user", label: "Профиль", id: "profile" },
   ],
   worker: [
-    { icon: "⌂", label: "Смена", id: "overview" },
-    { icon: "✓", label: "Задания", id: "tickets" },
-    { icon: "⌖", label: "Маршрут", id: "map" },
-    { icon: "▤", label: "Отчёты", id: "reports" },
-    { icon: "◇", label: "Профиль", id: "profile" },
+    { icon: "home", label: "Смена", id: "overview" },
+    { icon: "clipboard", label: "Задания", id: "tickets" },
+    { icon: "map", label: "Маршрут", id: "map" },
+    { icon: "report", label: "Отчёты", id: "reports" },
+    { icon: "bell", label: "Уведомления", id: "notifications" },
+    { icon: "user", label: "Профиль", id: "profile" },
   ],
   dispatcher: [
-    { icon: "⌂", label: "Ситуационный центр", id: "overview" },
-    { icon: "⌖", label: "Живая карта", id: "map" },
-    { icon: "◎", label: "Инциденты", id: "tickets" },
-    { icon: "♜", label: "Бригады", id: "brigades" },
-    { icon: "▥", label: "SLA", id: "sla" },
-    { icon: "⇄", label: "Операции", id: "operations" },
-    { icon: "▤", label: "Отчёты", id: "reports" },
-    { icon: "◊", label: "Уведомления", id: "notifications" },
+    { icon: "home", label: "Ситуационный центр", id: "overview" },
+    { icon: "map", label: "Живая карта", id: "map" },
+    { icon: "clipboard", label: "Инциденты", id: "tickets" },
+    { icon: "users", label: "Бригады", id: "brigades" },
+    { icon: "clock", label: "SLA", id: "sla" },
+    { icon: "checklist", label: "Операции", id: "operations" },
+    { icon: "report", label: "Отчёты", id: "reports" },
+    { icon: "bell", label: "Уведомления", id: "notifications" },
   ],
   admin: [
-    { icon: "⌂", label: "Показатели", id: "overview" },
-    { icon: "◎", label: "Заявки", id: "tickets" },
-    { icon: "♜", label: "Структура", id: "brigades" },
-    { icon: "▦", label: "Аналитика", id: "analytics" },
-    { icon: "▥", label: "SLA", id: "sla" },
-    { icon: "▧", label: "Инфраструктура", id: "assets" },
-    { icon: "⌘", label: "Регламенты", id: "catalog" },
-    { icon: "✦", label: "Квалификации", id: "qualifications" },
-    { icon: "◆", label: "Удостоверения", id: "certifications" },
-    { icon: "⇄", label: "Операции", id: "operations" },
-    { icon: "▤", label: "Отчёты", id: "reports" },
-    { icon: "≡", label: "Аудит", id: "audit" },
-    { icon: "⚙", label: "Управление", id: "admin" },
+    { icon: "home", label: "Показатели", id: "overview" },
+    { icon: "clipboard", label: "Заявки", id: "tickets" },
+    { icon: "users", label: "Структура", id: "brigades" },
+    { icon: "chart", label: "Аналитика", id: "analytics" },
+    { icon: "clock", label: "SLA", id: "sla" },
+    { icon: "building", label: "Инфраструктура", id: "assets" },
+    { icon: "book", label: "Регламенты", id: "catalog" },
+    { icon: "graduation", label: "Квалификации", id: "qualifications" },
+    { icon: "badge", label: "Удостоверения", id: "certifications" },
+    { icon: "checklist", label: "Операции", id: "operations" },
+    { icon: "report", label: "Отчёты", id: "reports" },
+    { icon: "history", label: "Аудит", id: "audit" },
+    { icon: "bell", label: "Уведомления", id: "notifications" },
+    { icon: "settings", label: "Управление", id: "admin" },
   ],
 };
 
-export const extraNavigation = { icon: "⌁", label: "Зоны бригад", id: "zones" };
+export const extraNavigation = { icon: "zones", label: "Зоны бригад", id: "zones" } as const;
 
 export const managementNavigation = {
-  icon: "⚙",
+  icon: "settings",
   label: "Управление",
   id: "management",
-};
+} as const;
 
 export const pageTitles: Record<string, string> = {
   overview: "Ситуационный центр",

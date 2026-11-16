@@ -359,7 +359,7 @@ export function ProfilePage({
               Изменить пароль
             </button>
             <div className="security-actions">
-              <button type="button" onClick={() => void sendVerification()}>
+              <button type="button" className="ghost" onClick={() => void sendVerification()}>
                 Подтвердить email
               </button>
               <button

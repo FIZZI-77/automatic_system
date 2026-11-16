@@ -13,6 +13,7 @@ import { defaultBrigades } from "./brigade-store";
 import { demoTickets, demoVehicles } from "./city-demo-data";
 
 import { navByRole, roleNames, statusNames } from "./city-shared";
+import { NavigationIcon } from "./navigation-icon";
 
 import { VehicleGroups } from "./vehicle-groups";
 
@@ -79,7 +80,7 @@ export function LegacyDashboard({
     <div className="app-shell">
       <aside>
         <a className="brand inverse" href="#">
-          <span>Г</span>
+          <span className="sidebar-logo" role="img" aria-label="Город рядом" />
           <b>
             Город
             <br />
@@ -91,9 +92,10 @@ export function LegacyDashboard({
             <button
               key={item.id}
               className={section === item.id ? "active" : ""}
+              aria-current={section === item.id ? "page" : undefined}
               onClick={() => setSection(item.id)}
             >
-              <i>{item.icon}</i>
+              <i aria-hidden="true"><NavigationIcon name={item.icon} /></i>
               <span>{item.label}</span>
             </button>
           ))}
@@ -104,7 +106,7 @@ export function LegacyDashboard({
             <span>Поддержка</span>
           </button>
           <button onClick={onExit}>
-            <i>↗</i>
+            <i aria-hidden="true"><NavigationIcon name="logout" /></i>
             <span>Выйти</span>
           </button>
         </div>

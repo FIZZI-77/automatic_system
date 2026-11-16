@@ -1586,7 +1586,7 @@ function AnalyticsSection({
           ⌄
         </span>
       </summary>
-      {children}
+      <div className="analytics-section-body">{children}</div>
     </details>
   );
 }

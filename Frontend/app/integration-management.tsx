@@ -244,7 +244,7 @@ export function IntegrationManagement({
               </div>
             </article>
           ))}
-          {!integrations.length && <p>Интеграции ещё не зарегистрированы.</p>}
+          {!integrations.length && <p className="integration-empty">Интеграции ещё не зарегистрированы.</p>}
         </div>
       )}
       {showForm && (

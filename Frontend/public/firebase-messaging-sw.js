@@ -55,8 +55,8 @@ if (Object.values(firebaseConfig).every(Boolean)) {
         payload.notification?.body ||
         data.body ||
         "В системе появилось обновление.",
-      icon: "/favicon.ico",
-      badge: "/favicon.ico",
+      icon: "/city-logo.png",
+      badge: "/city-logo.png",
       data: {
         notificationId: data.notification_id,
         url: data.url || "/?section=notifications",

@@ -70,7 +70,7 @@ export function BrigadeZones({
     import("leaflet").then((L) => {
       if (disposed || !root.current) return;
       root.current.innerHTML = "";
-      const map = L.map(root.current).setView([55.751244, 37.618423], 12);
+      const map = L.map(root.current, { attributionControl: false }).setView([55.751244, 37.618423], 12);
       mapInstance = map;
       L.tileLayer(config.openMapTileUrl, {
         attribution: config.openMapAttribution,
@@ -280,6 +280,7 @@ export function BrigadeZones({
     <section className="zones-page">
       <div className="zones-map">
         <div ref={root} />
+        <p className="map-data-credit">{config.openMapAttribution}</p>
         <div className="draw-hint">
           <b>Нарисуйте область</b>
           <span>
@@ -435,7 +436,7 @@ export function BrigadeZones({
           >
             Очистить
           </button>
-          <button className="primary" onClick={save} disabled={!brigadeId}>
+          <button className="ghost" onClick={save} disabled={!brigadeId}>
             {editingId ? "Обновить зону" : "Сохранить зону"}
           </button>
         </div>

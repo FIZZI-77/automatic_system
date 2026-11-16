@@ -38,6 +38,7 @@ import { TicketCards } from "./ticket-cards";
 import { VehicleGroups } from "./vehicle-groups";
 
 import { SectionPage } from "./section-page";
+import { NavigationIcon } from "./navigation-icon";
 
 export function DashboardV2({
   theme,
@@ -589,23 +590,24 @@ export function DashboardV2({
     <div className={`app-shell theme-${theme}`} data-theme={theme}>
       <aside>
         <a className="brand inverse" href="#">
-          <span>Г</span>
+          <span className="sidebar-logo" role="img" aria-label="Город рядом" />
         </a>
         <nav>
           {navigation.map((item) => (
             <button
               key={item.id}
               className={section === item.id ? "active" : ""}
+              aria-current={section === item.id ? "page" : undefined}
               onClick={() => setSection(item.id)}
             >
-              <i>{item.icon}</i>
+              <i aria-hidden="true"><NavigationIcon name={item.icon} /></i>
               <span>{item.label}</span>
             </button>
           ))}
         </nav>
         <div className="aside-bottom">
           <button onClick={onExit}>
-            <i>↗</i>
+            <i aria-hidden="true"><NavigationIcon name="logout" /></i>
             <span>Выйти</span>
           </button>
         </div>

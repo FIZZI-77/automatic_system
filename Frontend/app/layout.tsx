@@ -6,6 +6,10 @@ export const metadata: Metadata = {
     process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
   ),
   title: "Город рядом — городские службы в одном окне",
+  icons: {
+    icon: { url: "/city-logo.png", type: "image/png" },
+    apple: "/city-logo.png",
+  },
   description:
     "Заявки жителей, диспетчеризация, маршруты бригад и контроль городской инфраструктуры.",
   openGraph: {
