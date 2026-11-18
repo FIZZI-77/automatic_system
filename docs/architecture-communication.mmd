@@ -55,7 +55,8 @@ flowchart LR
     Dispatch -->|"dispatch.events"| Kafka
     Location -->|"locations.events"| Kafka
     Routing -->|"routing.events"| Kafka
-    File -->|"files.events"| Kafka
+    File -->|"files.events.v1"| Kafka
+    Notification -->|"notifications.events.v1"| Kafka
     SLA -->|"sla.events"| Kafka
     Report -->|"reports.events"| Kafka
 

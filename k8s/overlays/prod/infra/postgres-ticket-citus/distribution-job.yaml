@@ -37,6 +37,11 @@ spec:
                 --username=ticket_user \
                 --dbname=ticket_db \
                 --file=/config/distribute.sql
+              PGPASSWORD="$POSTGRES_SUPERUSER_PASSWORD" psql \
+                --host=postgres-ticket-primary \
+                --username=postgres \
+                --dbname=ticket_db \
+                --file=/config/sync-metadata.sql
           env:
             - name: POSTGRES_SUPERUSER_PASSWORD
               valueFrom:

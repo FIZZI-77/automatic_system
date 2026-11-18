@@ -14,6 +14,58 @@
 запись уже сохранена, поэтому клиент после переподключения может получить ее
 через `List`.
 
+## События Kafka
+
+**Издатель `notifications.events.v1` — Notification_Service.** Это отдельный
+канал от Redis/live `Publisher`: PostgreSQL-триггеры сохраняют исходящие события
+в `outbox_events` атомарно с изменением уведомления или доставки, затем
+[фоновый передатчик](src/cmd/server/outbox.go) отправляет их в Kafka.
+Топик читают Audit и Analytics. Сам Notification не подписан на собственный топик.
+
+| Тип события | Когда создаётся |
+|---|---|
+| `notification.created` | Создана запись уведомления в `Dispatch`, в том числе при выключенном IN_APP. |
+| `notification.read` | Признак прочтения изменён с `false` на `true` через `MarkRead` или `MarkAllRead`. |
+| `notification.delivery.sent` | Доставка переведена в `SENT`. |
+| `notification.delivery.failed` | Попытка доставки завершилась состоянием `FAILED`. |
+| `notification.delivery.dead` | Доставка переведена в `DEAD` после исчерпания попыток. |
+
+Повтор исходного события не создаёт новые уведомления и исходящие события.
+Повторное прочтение и отклонённое обновление устаревшей попытки доставки также
+не создают событий. `notification.created` не означает успешную доставку;
+`notification.delivery.sent` отражает сохранённый результат соответствующего
+канала, а прочтение подтверждается отдельным событием.
+
+Kafka key — ID уведомления. Общие поля JSON: `event_id`, `event_type`,
+`event_version=1`, `occurred_at`, `entity_type=notification`, `entity_id`,
+`notification_id`, `user_id`, `source_event_id`, `source_event_type`.
+События уведомления дополнительно содержат `read`, события доставки —
+`delivery_id`, `channel`, `status`, `attempts`. `source_event_id` связывает
+уведомление с исходным входящим событием и отличается от ID исходящего события.
+Тексты, адреса получателей, токены устройств, ID провайдеров и их ошибки
+в Kafka payload не включаются.
+
+Перед запуском нужно применить
+[миграцию outbox](scheme/20261116000100_create_event_outbox.sql), задать
+`KAFKA_BROKERS` и создать топик через `kafka-init`. Исторические записи
+автоматически не публикуются. Доставка — at-least-once: после подтверждения Kafka
+записывается `sent_at`; сбой между этими шагами может вызвать повтор с тем же
+`event_id` и временем события. Передатчик сохраняет неотправленные строки,
+повторяет отправку с задержкой до 256 секунд и восстанавливается после перезапуска.
+
+Из каталога Notification_Service проверки атомарности, идемпотентности и
+восстановления передатчика запускаются так:
+
+```powershell
+$env:OUTBOX_TEST_DATABASE_URL = "postgres://user:password@localhost:5432/test_db?sslmode=disable"
+go test -tags=integration -v ./src/infrastructure/outboxrelay
+```
+
+Без `OUTBOX_TEST_DATABASE_URL` эти проверки пропускаются. В CI они подключены
+к PostgreSQL. Общая карта потоков — в
+[событийной архитектуре](../wiki/Event-Driven-Architecture.md), диагностика — в
+[Troubleshooting](../wiki/Troubleshooting.md#5-kafka-events-пропали).
+
 ## Модели
 
 ### `Notification`
@@ -43,11 +95,29 @@
 
 ## Функции
 
-### `New`
+Имя функции открывает её реализацию в ветке `test`; структуры параметров и результатов описаны в конце README.
+
+### func [New](https://github.com/FIZZI-77/automatic_system/blob/test/Notification_Service/src/core/service/service.go#L23)
+
+```go
+func New(r *repository.Repository, p Publisher) *Service
+```
+
+Типы: [Publisher](#type-publisher), [Repository](#type-repository), [Service](#type-service).
+
+Структуры: [Publisher](#type-publisher).
 
 Создает сервис с репозиторием и необязательным издателем живых уведомлений.
 
-### `Consume`
+### func (*Service) [Consume](https://github.com/FIZZI-77/automatic_system/blob/test/Notification_Service/src/core/service/service.go#L24)
+
+```go
+func (s *Service) Consume(c context.Context, e models.Event) error
+```
+
+Типы: [Event](#type-event), [Service](#type-service).
+
+Структуры: [Event](#type-event).
 
 1. Проверяет вид события через `isUserFacingEvent`; неизвестное событие
    считается успешно пропущенным.
@@ -58,7 +128,11 @@
    настроен.
 5. Ошибка живого канала не возвращается и не отменяет сохраненные данные.
 
-### `isUserFacingEvent`
+### func [isUserFacingEvent](https://github.com/FIZZI-77/automatic_system/blob/test/Notification_Service/src/core/service/service.go#L45)
+
+```go
+func isUserFacingEvent(eventType string) bool
+```
 
 Удаляет пробелы, приводит вид события к нижнему регистру и разрешает:
 `ticket.created`, `ticket.assigned`, `ticket.status_changed`,
@@ -66,54 +140,139 @@
 `ticket.completion_report.generated.v1` и
 `ticket.completion_report.failed.v1`.
 
-### `List`
+### func (*Service) [List](https://github.com/FIZZI-77/automatic_system/blob/test/Notification_Service/src/core/service/service.go#L59)
+
+```go
+func (s *Service) List(c context.Context, u uuid.UUID, x *bool, l, o int32) ([]*models.Notification, int64, int64, error)
+```
+
+Типы: [Notification](#type-notification), [Service](#type-service).
+
+Структуры: [Notification](#type-notification).
 
 Передает пользователя, необязательный признак прочтения, предел и смещение
 репозиторию. Возвращает страницу уведомлений, общее количество и число
 непрочитанных.
 
-### `MarkRead`
+### func (*Service) [MarkRead](https://github.com/FIZZI-77/automatic_system/blob/test/Notification_Service/src/core/service/service.go#L62)
+
+```go
+func (s *Service) MarkRead(c context.Context, u, id uuid.UUID) (*models.Notification, error)
+```
+
+Типы: [Notification](#type-notification), [Service](#type-service).
+
+Структуры: [Notification](#type-notification).
 
 Помечает одно уведомление пользователя прочитанным. Ошибка отсутствующей строки
 преобразуется функцией `mapErr` в `ErrNotFound`.
 
-### `MarkAllRead`
+### func (*Service) [MarkAllRead](https://github.com/FIZZI-77/automatic_system/blob/test/Notification_Service/src/core/service/service.go#L66)
+
+```go
+func (s *Service) MarkAllRead(c context.Context, u uuid.UUID) (int64, error)
+```
+
+Типы: [Service](#type-service).
 
 Помечает прочитанными все уведомления пользователя и возвращает число
 измененных строк.
 
-### `GetPreferences` и `SavePreferences`
+### func (*Service) [GetPreferences](https://github.com/FIZZI-77/automatic_system/blob/test/Notification_Service/src/core/service/service.go#L69)
 
-Первый метод читает настройки каналов пользователя. Второй передает всю
-`Preferences` репозиторию для вставки либо обновления.
+```go
+func (s *Service) GetPreferences(c context.Context, u uuid.UUID) (*models.Preferences, error)
+```
 
-### `RegisterDevice`
+Типы: [Preferences](#type-preferences), [Service](#type-service).
+
+Структуры: [Preferences](#type-preferences).
+
+Читает настройки каналов пользователя из репозитория по UUID. Возвращает полную `Preferences` либо ошибку чтения без изменения состояния.
+
+### func (*Service) [SavePreferences](https://github.com/FIZZI-77/automatic_system/blob/test/Notification_Service/src/core/service/service.go#L72)
+
+```go
+func (s *Service) SavePreferences(c context.Context, v *models.Preferences) (*models.Preferences, error)
+```
+
+Типы: [Preferences](#type-preferences), [Service](#type-service).
+
+Структуры: [Preferences](#type-preferences).
+
+Передаёт всю `Preferences` репозиторию для вставки либо обновления; возвращает сохранённую структуру и ошибку операции. Проверка разрешённых каналов и адресов выполняется на уровне данных репозитория.
+
+### func (*Service) [RegisterDevice](https://github.com/FIZZI-77/automatic_system/blob/test/Notification_Service/src/core/service/service.go#L75)
+
+```go
+func (s *Service) RegisterDevice(c context.Context, v *models.Device) (*models.Device, error)
+```
+
+Типы: [Device](#type-device), [Service](#type-service).
+
+Структуры: [Device](#type-device).
 
 Приводит платформу к нижнему регистру, удаляет пробелы и требует непустой токен
 и платформу `android`, `ios` или `web`. Затем регистрирует устройство
 через репозиторий.
 
-### `DeleteDevice`
+### func (*Service) [DeleteDevice](https://github.com/FIZZI-77/automatic_system/blob/test/Notification_Service/src/core/service/service.go#L82)
+
+```go
+func (s *Service) DeleteDevice(c context.Context, u, id uuid.UUID) (*models.Device, error)
+```
+
+Типы: [Device](#type-device), [Service](#type-service).
+
+Структуры: [Device](#type-device).
 
 Удаляет либо деактивирует устройство конкретного пользователя. Отсутствие
 строки преобразуется в `ErrNotFound`.
 
-### `UpsertTemplate`
+### func (*Service) [UpsertTemplate](https://github.com/FIZZI-77/automatic_system/blob/test/Notification_Service/src/core/service/service.go#L86)
+
+```go
+func (s *Service) UpsertTemplate(c context.Context, v *models.Template) (*models.Template, error)
+```
+
+Типы: [Service](#type-service), [Template](#type-template).
+
+Структуры: [Template](#type-template).
 
 Требует непустые `EventType`, `Body` и `Channel`, после чего вставляет или
 обновляет шаблон. Допустимость канала дополнительно защищена ограничением базы.
 
-### `ListTemplates`
+### func (*Service) [ListTemplates](https://github.com/FIZZI-77/automatic_system/blob/test/Notification_Service/src/core/service/service.go#L92)
+
+```go
+func (s *Service) ListTemplates(c context.Context, e, ch *string, l, o int32) ([]*models.Template, int64, error)
+```
+
+Типы: [Service](#type-service), [Template](#type-template).
+
+Структуры: [Template](#type-template).
 
 Возвращает страницу шаблонов с необязательными ограничениями по событию и
 каналу.
 
-### `ListDeliveries`
+### func (*Service) [ListDeliveries](https://github.com/FIZZI-77/automatic_system/blob/test/Notification_Service/src/core/service/service.go#L95)
+
+```go
+func (s *Service) ListDeliveries(c context.Context, st, ch *string, l, o int32) ([]*models.Delivery, int64, error)
+```
+
+Типы: [Delivery](#type-delivery), [Service](#type-service).
+
+Структуры: [Delivery](#type-delivery).
 
 Возвращает страницу попыток доставки с необязательными ограничениями по
 состоянию и каналу.
 
-### `mapErr`
+### func [mapErr](https://github.com/FIZZI-77/automatic_system/blob/test/Notification_Service/src/core/service/service.go#L98)
+
+```go
+func mapErr(e error) error
+```
 
 Преобразует `pgx.ErrNoRows` в предметную `ErrNotFound`; остальные ошибки
 возвращает без изменения.
@@ -201,3 +360,123 @@
 | `department_id` | `uuid` | Подразделение. |
 | `brigade_id` | `uuid` | Назначенная бригада. |
 | `updated_at` | `timestamptz` | Время обновления снимка. |
+
+## Структуры параметров и результатов
+
+### type Delivery
+
+```go
+type Delivery struct {
+	ID             uuid.UUID
+	NotificationID uuid.UUID
+	Channel        string
+	Recipient      string
+	Title          string
+	Body           string
+	Status         string
+	ProviderID     *string
+	LastError      *string
+	Attempts       int32
+	NextAttemptAt  time.Time
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+```
+
+### type Device
+
+```go
+type Device struct {
+	ID        uuid.UUID
+	UserID    uuid.UUID
+	Token     string
+	Platform  string
+	Active    bool
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+```
+
+### type Event
+
+```go
+type Event struct {
+	ID      string
+	Type    string
+	Topic   string
+	Payload map[string]any
+}
+```
+
+### type Notification
+
+```go
+type Notification struct {
+	ID        uuid.UUID
+	EventID   string
+	UserID    uuid.UUID
+	EventType string
+	Title     string
+	Body      string
+	Data      map[string]string
+	Read      bool
+	ReadAt    *time.Time
+	CreatedAt time.Time
+}
+```
+
+### type Preferences
+
+```go
+type Preferences struct {
+	UserID       uuid.UUID
+	InApp        bool
+	Push         bool
+	Email        bool
+	SMS          bool
+	EmailAddress *string
+	Phone        *string
+	UpdatedAt    time.Time
+}
+```
+
+### type Publisher
+
+```go
+type Publisher struct {
+	redis  *redis.Client
+	prefix string
+}
+```
+
+### type Repository
+
+```go
+type Repository struct {
+	db *pgxpool.Pool
+}
+```
+
+### type Service
+
+```go
+type Service struct {
+	repo *repository.Repository
+	live Publisher
+}
+```
+
+### type Template
+
+```go
+type Template struct {
+	ID        uuid.UUID
+	EventType string
+	Channel   string
+	Subject   string
+	Body      string
+	Active    bool
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+```

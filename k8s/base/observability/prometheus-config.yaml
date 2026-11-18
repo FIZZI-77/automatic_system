@@ -277,6 +277,10 @@ scrape_configs:
         regex: "true"
       - source_labels: [__meta_kubernetes_node_address_InternalIP]
         target_label: __address__
-        replacement: $1:2381
+        replacement: $1:9100
       - source_labels: [__meta_kubernetes_node_name]
         target_label: instance
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        action: keep
+        regex: 'etcd_.*|grpc_server_.*'

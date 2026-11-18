@@ -6,5 +6,6 @@ resources:
   - strict-mtls.yaml
   - clickhouse-plaintext.yaml
   - authorization-audit.yaml
+  - ticket-service-authorization.yaml
   - destination-rules.yaml
   - infrastructure-plaintext.yaml

@@ -11,15 +11,13 @@
     "start": "vinext start",
     "test": "npm run build && node --test tests/rendered-html.test.mjs",
     "e2e": "playwright test",
+    "e2e:smoke": "playwright test --config playwright.smoke.config.ts",
     "e2e:headed": "playwright test --headed",
     "e2e:ui": "playwright test --ui",
     "e2e:report": "playwright show-report",
-    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
-    "db:generate": "drizzle-kit generate"
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next"
   },
   "dependencies": {
-    "@types/leaflet": "^1.9.22",
-    "drizzle-orm": "0.45.2",
     "firebase": "^12.18.0",
     "leaflet": "^1.9.4",
     "react": "19.2.6",
@@ -32,11 +30,11 @@
     "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
+    "@types/leaflet": "^1.9.22",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.0.2",
     "@vitejs/plugin-rsc": "0.5.26",
-    "drizzle-kit": "0.31.10",
     "eslint": "9.39.4",
     "eslint-plugin-jsx-a11y": "6.10.2",
     "eslint-plugin-react": "7.37.5",
@@ -49,6 +47,10 @@
     "vinext": "1.0.0-beta.2",
     "vite": "8.0.13",
     "wrangler": "4.92.0"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "1.13.6",
+    "re2js": "2.8.7"
   },
   "type": "module"
 }

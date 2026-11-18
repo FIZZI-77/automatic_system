@@ -1,0 +1,34 @@
+version: "2"
+
+run:
+  timeout: 5m
+  relative-path-mode: gomod
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - ineffassign
+    - revive
+    - bodyclose
+    - sqlclosecheck
+    - nolintlint
+  settings:
+    revive:
+      rules:
+        - name: var-naming
+          disabled: true # Existing module/package names are part of public imports.
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+  exclusions:
+    generated: strict
+    presets: []
+    paths:
+      - node_modules
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

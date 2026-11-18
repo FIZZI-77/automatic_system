@@ -32,9 +32,11 @@ func (m *mockUserRepo) CreateUser(ctx context.Context, user *models.User) (uuid.
 }
 
 func (m *mockUserRepo) DeleteUserRegistration(ctx context.Context, userID uuid.UUID) error {
+
 	if m.deleteUserFunc == nil {
 		return nil
 	}
+
 	return m.deleteUserFunc(ctx, userID)
 }
 
@@ -196,16 +198,20 @@ type mockProfileProvisioner struct {
 }
 
 func (m mockProfileProvisioner) CreateUserProfile(ctx context.Context, userID uuid.UUID, fullName string) error {
+
 	if m.createFunc == nil {
 		return nil
 	}
+
 	return m.createFunc(ctx, userID, fullName)
 }
 
 func (m mockProfileProvisioner) UserProfileExists(ctx context.Context, userID uuid.UUID) (bool, error) {
+
 	if m.existsFunc == nil {
 		return false, nil
 	}
+
 	return m.existsFunc(ctx, userID)
 }
 
@@ -221,6 +227,7 @@ func newTestPrivateKey(t *testing.T) *rsa.PrivateKey {
 	t.Helper()
 
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
+
 	if err != nil {
 		t.Fatalf("failed to generate rsa key: %v", err)
 	}
@@ -252,6 +259,7 @@ func TestAuthService_Register_Success(t *testing.T) {
 
 	userRepo := &mockUserRepo{
 		getUserByEmailFunc: func(ctx context.Context, email string) (*models.User, error) {
+
 			if email != "test@example.com" {
 				t.Fatalf("expected email test@example.com, got %s", email)
 			}
@@ -259,6 +267,7 @@ func TestAuthService_Register_Success(t *testing.T) {
 			return nil, sql.ErrNoRows
 		},
 		createUserFunc: func(ctx context.Context, user *models.User) (uuid.UUID, error) {
+
 			if user.Email != "test@example.com" {
 				t.Fatalf("expected email test@example.com, got %s", user.Email)
 			}
@@ -289,12 +298,15 @@ func TestAuthService_Register_Success(t *testing.T) {
 
 	svc := newTestService(repo, &mockMailService{}, t)
 	svc.profiles = mockProfileProvisioner{createFunc: func(_ context.Context, gotUserID uuid.UUID, fullName string) error {
+
 		if gotUserID != userID {
 			t.Fatalf("expected profile user id %s, got %s", userID, gotUserID)
 		}
+
 		if fullName != "testuser" {
 			t.Fatalf("expected profile full name testuser, got %s", fullName)
 		}
+
 		profileCreated = true
 		return nil
 	}}
@@ -320,9 +332,11 @@ func TestAuthService_Register_Success(t *testing.T) {
 	if result.EmailVerified {
 		t.Fatal("expected email verified false")
 	}
+
 	if !profileCreated {
 		t.Fatal("expected profile to be created before registration succeeds")
 	}
+
 }
 
 func TestAuthService_Register_ProfileFailureCompensatesUser(t *testing.T) {
@@ -338,9 +352,11 @@ func TestAuthService_Register_ProfileFailureCompensatesUser(t *testing.T) {
 			return userID, nil
 		},
 		deleteUserFunc: func(_ context.Context, gotUserID uuid.UUID) error {
+
 			if gotUserID != userID {
 				t.Fatalf("expected compensated user id %s, got %s", userID, gotUserID)
 			}
+
 			compensated = true
 			return nil
 		},
@@ -360,12 +376,15 @@ func TestAuthService_Register_ProfileFailureCompensatesUser(t *testing.T) {
 	if result != nil {
 		t.Fatal("expected nil result")
 	}
+
 	if !errors.Is(err, profileErr) {
 		t.Fatalf("expected profile error, got %v", err)
 	}
+
 	if !compensated {
 		t.Fatal("expected auth user registration to be compensated")
 	}
+
 }
 
 func TestAuthService_Register_AmbiguousProfileFailureKeepsUser(t *testing.T) {
@@ -384,12 +403,15 @@ func TestAuthService_Register_AmbiguousProfileFailureKeepsUser(t *testing.T) {
 		return status.Error(codes.DeadlineExceeded, "response lost")
 	}}
 	result, err := svc.Register(context.Background(), models.RegisterInput{Email: "ambiguous@example.com", Password: "password123", Username: "ambiguous"})
+
 	if result != nil || status.Code(err) != codes.DeadlineExceeded {
 		t.Fatalf("expected ambiguous provisioning error, result=%+v err=%v", result, err)
 	}
+
 	if compensated {
 		t.Fatal("ambiguous profile outcome must not delete auth user")
 	}
+
 }
 
 func TestAuthService_Register_LostCreateResponseKeepsConsistentUser(t *testing.T) {
@@ -413,12 +435,15 @@ func TestAuthService_Register_LostCreateResponseKeepsConsistentUser(t *testing.T
 		existsFunc: func(context.Context, uuid.UUID) (bool, error) { return profileExists, nil },
 	}
 	result, err := svc.Register(context.Background(), models.RegisterInput{Email: "lost-response@example.com", Password: "password123", Username: "lostresponse"})
+
 	if err != nil || result == nil || result.UserID != userID.String() {
 		t.Fatalf("registration should reconcile committed profile: result=%+v err=%v", result, err)
 	}
+
 	if compensated {
 		t.Fatal("auth user was deleted after profile commit")
 	}
+
 }
 
 func TestAuthService_Register_UserAlreadyExists(t *testing.T) {
@@ -452,6 +477,7 @@ func TestAuthService_Register_UserAlreadyExists(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
+
 }
 
 func TestAuthService_Register_InvalidInput(t *testing.T) {
@@ -472,6 +498,7 @@ func TestAuthService_Register_InvalidInput(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected validation error")
 	}
+
 }
 
 func TestAuthService_Login_Success(t *testing.T) {
@@ -479,6 +506,7 @@ func TestAuthService_Login_Success(t *testing.T) {
 	sessionID := uuid.New()
 
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
+
 	if err != nil {
 		t.Fatalf("failed to hash password: %v", err)
 	}
@@ -497,6 +525,7 @@ func TestAuthService_Login_Success(t *testing.T) {
 
 	sessionRepo := &mockSessionRepo{
 		createSessionFunc: func(ctx context.Context, session *models.Session) (uuid.UUID, error) {
+
 			if session.UserID != userID {
 				t.Fatalf("expected user id %s, got %s", userID, session.UserID)
 			}
@@ -511,6 +540,7 @@ func TestAuthService_Login_Success(t *testing.T) {
 
 	roleRepo := &mockRoleRepo{
 		getRolesByUserIDFunc: func(ctx context.Context, id uuid.UUID) ([]string, error) {
+
 			if id != userID {
 				t.Fatalf("expected user id %s, got %s", userID, id)
 			}
@@ -521,6 +551,7 @@ func TestAuthService_Login_Success(t *testing.T) {
 
 	refreshRepo := &mockRefreshTokenRepo{
 		createTokenFunc: func(ctx context.Context, token *models.RefreshToken) error {
+
 			if token.UserID != userID {
 				t.Fatalf("expected user id %s, got %s", userID, token.UserID)
 			}
@@ -573,6 +604,7 @@ func TestAuthService_Login_Success(t *testing.T) {
 	if result.TokenType != "Bearer" {
 		t.Fatalf("expected Bearer, got %s", result.TokenType)
 	}
+
 }
 
 func TestAuthService_Login_UserNotFound(t *testing.T) {
@@ -603,12 +635,14 @@ func TestAuthService_Login_UserNotFound(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
+
 }
 
 func TestAuthService_Login_CleansUpSessionAfterRoleFailure(t *testing.T) {
 	userID := uuid.New()
 	sessionID := uuid.New()
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
+
 	if err != nil {
 		t.Fatalf("failed to hash password: %v", err)
 	}
@@ -643,16 +677,20 @@ func TestAuthService_Login_CleansUpSessionAfterRoleFailure(t *testing.T) {
 		Email: "test@example.com", Password: "password123", ClientID: "web-client",
 		IP: "127.0.0.1", UserAgent: "Mozilla/5.0",
 	})
+
 	if result != nil || err == nil {
 		t.Fatalf("expected login failure, got result=%v err=%v", result, err)
 	}
+
 	if !cleanupCalled {
 		t.Fatal("expected created session to be revoked")
 	}
+
 }
 
 func TestAuthService_Login_InvalidPassword(t *testing.T) {
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte("correct-password"), bcrypt.DefaultCost)
+
 	if err != nil {
 		t.Fatalf("failed to hash password: %v", err)
 	}
@@ -689,6 +727,7 @@ func TestAuthService_Login_InvalidPassword(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
+
 }
 
 func TestAuthService_Refresh_Success(t *testing.T) {
@@ -701,6 +740,7 @@ func TestAuthService_Refresh_Success(t *testing.T) {
 
 	refreshRepo := &mockRefreshTokenRepo{
 		getByTokenHashFunc: func(ctx context.Context, tokenHash string) (*models.RefreshToken, error) {
+
 			if tokenHash != oldHash {
 				t.Fatalf("expected hash %s, got %s", oldHash, tokenHash)
 			}
@@ -714,6 +754,7 @@ func TestAuthService_Refresh_Success(t *testing.T) {
 			}, nil
 		},
 		markUsedAndReplaceTokenFunc: func(ctx context.Context, tokenID uuid.UUID, newToken *models.RefreshToken) error {
+
 			if tokenID != oldTokenID {
 				t.Fatalf("expected old token id %s, got %s", oldTokenID, tokenID)
 			}
@@ -729,6 +770,7 @@ func TestAuthService_Refresh_Success(t *testing.T) {
 			if newToken.TokenHash == "" {
 				t.Fatal("expected new token hash")
 			}
+
 			if !newToken.ExpiresAt.Equal(sessionExpiresAt) {
 				t.Fatalf("expected refresh expiry %s, got %s", sessionExpiresAt, newToken.ExpiresAt)
 			}
@@ -739,6 +781,7 @@ func TestAuthService_Refresh_Success(t *testing.T) {
 
 	sessionRepo := &mockSessionRepo{
 		getSessionByIDFunc: func(ctx context.Context, id uuid.UUID) (*models.Session, error) {
+
 			if id != sessionID {
 				t.Fatalf("expected session id %s, got %s", sessionID, id)
 			}
@@ -792,6 +835,7 @@ func TestAuthService_Refresh_Success(t *testing.T) {
 	if result.TokenType != "Bearer" {
 		t.Fatalf("expected Bearer, got %s", result.TokenType)
 	}
+
 }
 
 func TestAuthService_Refresh_RejectsDifferentClient(t *testing.T) {
@@ -825,9 +869,11 @@ func TestAuthService_Refresh_RejectsDifferentClient(t *testing.T) {
 		IP:           "127.0.0.1",
 		UserAgent:    "Mozilla/5.0",
 	})
+
 	if result != nil || !errors.Is(err, models.ErrInvalidRefreshToken) {
 		t.Fatalf("expected invalid refresh token, got result=%v err=%v", result, err)
 	}
+
 }
 
 func TestAuthService_Refresh_TokenNotFound(t *testing.T) {
@@ -857,6 +903,7 @@ func TestAuthService_Refresh_TokenNotFound(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
+
 }
 
 func TestAuthService_Logout_Success(t *testing.T) {
@@ -874,6 +921,7 @@ func TestAuthService_Logout_Success(t *testing.T) {
 
 	txRepo := &mockTXRepo{
 		logoutFunc: func(ctx context.Context, id uuid.UUID) error {
+
 			if id != sessionID {
 				t.Fatalf("expected session id %s, got %s", sessionID, id)
 			}
@@ -897,6 +945,7 @@ func TestAuthService_Logout_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
+
 }
 
 func TestAuthService_Logout_SessionNotFound(t *testing.T) {
@@ -920,6 +969,7 @@ func TestAuthService_Logout_SessionNotFound(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
+
 }
 
 func TestAuthService_Logout_RejectsForeignSession(t *testing.T) {
@@ -942,12 +992,15 @@ func TestAuthService_Logout_RejectsForeignSession(t *testing.T) {
 
 	svc := newTestService(repo, &mockMailService{}, t)
 	err := svc.Logout(context.Background(), models.LogoutInput{UserID: requestUserID, SessionID: sessionID})
+
 	if !errors.Is(err, models.ErrInvalidSession) {
 		t.Fatalf("expected invalid session, got %v", err)
 	}
+
 	if logoutCalled {
 		t.Fatal("foreign session must not be logged out")
 	}
+
 }
 
 func TestAuthService_LogoutAll_Success(t *testing.T) {
@@ -964,6 +1017,7 @@ func TestAuthService_LogoutAll_Success(t *testing.T) {
 
 	txRepo := &mockTXRepo{
 		logoutAllFunc: func(ctx context.Context, id uuid.UUID) (int64, error) {
+
 			if id != userID {
 				t.Fatalf("expected user id %s, got %s", userID, id)
 			}
@@ -990,6 +1044,7 @@ func TestAuthService_LogoutAll_Success(t *testing.T) {
 	if count != 3 {
 		t.Fatalf("expected count 3, got %d", count)
 	}
+
 }
 
 func TestAuthService_GetUserAuthInfo_Success(t *testing.T) {
@@ -1044,6 +1099,7 @@ func TestAuthService_GetUserAuthInfo_Success(t *testing.T) {
 	if !result.EmailVerified {
 		t.Fatal("expected email verified")
 	}
+
 }
 
 func TestAuthService_GetJWKS_Success(t *testing.T) {
@@ -1060,6 +1116,7 @@ func TestAuthService_GetJWKS_Success(t *testing.T) {
 	if jwks == "" {
 		t.Fatal("expected jwks json")
 	}
+
 }
 
 func TestAuthService_ChangePassword_Success(t *testing.T) {
@@ -1067,6 +1124,7 @@ func TestAuthService_ChangePassword_Success(t *testing.T) {
 	sessionID := uuid.New()
 
 	oldHash, err := bcrypt.GenerateFromPassword([]byte("old-password"), bcrypt.DefaultCost)
+
 	if err != nil {
 		t.Fatalf("failed to hash password: %v", err)
 	}
@@ -1082,6 +1140,7 @@ func TestAuthService_ChangePassword_Success(t *testing.T) {
 
 	txRepo := &mockTXRepo{
 		changePasswordFunc: func(ctx context.Context, id uuid.UUID, password string, sid uuid.UUID, revokeOtherSessions bool) (int32, error) {
+
 			if id != userID {
 				t.Fatalf("expected user id %s, got %s", userID, id)
 			}
@@ -1128,6 +1187,7 @@ func TestAuthService_ChangePassword_Success(t *testing.T) {
 	if result.InvalidatedSessionsCount != 2 {
 		t.Fatalf("expected 2 invalidated sessions, got %d", result.InvalidatedSessionsCount)
 	}
+
 }
 
 func TestAuthService_ChangePassword_InvalidOldPassword(t *testing.T) {
@@ -1135,6 +1195,7 @@ func TestAuthService_ChangePassword_InvalidOldPassword(t *testing.T) {
 	sessionID := uuid.New()
 
 	oldHash, err := bcrypt.GenerateFromPassword([]byte("correct-old-password"), bcrypt.DefaultCost)
+
 	if err != nil {
 		t.Fatalf("failed to hash password: %v", err)
 	}
@@ -1168,6 +1229,7 @@ func TestAuthService_ChangePassword_InvalidOldPassword(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
+
 }
 
 func TestAuthService_SendVerification_Success(t *testing.T) {
@@ -1185,6 +1247,7 @@ func TestAuthService_SendVerification_Success(t *testing.T) {
 
 	oneTimeRepo := &mockOneTimeTokenRepo{
 		revokeUnusedTokensByUserIDAndTypeFunc: func(ctx context.Context, id uuid.UUID, tokenType models.TokenType) error {
+
 			if id != userID {
 				t.Fatalf("expected user id %s, got %s", userID, id)
 			}
@@ -1196,6 +1259,7 @@ func TestAuthService_SendVerification_Success(t *testing.T) {
 			return nil
 		},
 		createOneTimeTokenFunc: func(ctx context.Context, token *models.OneTimeToken) error {
+
 			if token.UserID != userID {
 				t.Fatalf("expected user id %s, got %s", userID, token.UserID)
 			}
@@ -1214,6 +1278,7 @@ func TestAuthService_SendVerification_Success(t *testing.T) {
 
 	mail := &mockMailService{
 		sendVerificationEmailFunc: func(ctx context.Context, toEmail string, token string) error {
+
 			if toEmail != "test@example.com" {
 				t.Fatalf("expected email test@example.com, got %s", toEmail)
 			}
@@ -1248,6 +1313,7 @@ func TestAuthService_SendVerification_Success(t *testing.T) {
 	if result.ExpiresAtUnix == 0 {
 		t.Fatal("expected expires_at_unix")
 	}
+
 }
 
 func TestAuthService_VerifyEmail_Success(t *testing.T) {
@@ -1258,6 +1324,7 @@ func TestAuthService_VerifyEmail_Success(t *testing.T) {
 
 	oneTimeRepo := &mockOneTimeTokenRepo{
 		getOneTimeTokenByHashAndTypeFunc: func(ctx context.Context, tokenHash string, tokenType models.TokenType) (*models.OneTimeToken, error) {
+
 			if tokenHash != hash {
 				t.Fatalf("expected hash %s, got %s", hash, tokenHash)
 			}
@@ -1271,6 +1338,7 @@ func TestAuthService_VerifyEmail_Success(t *testing.T) {
 			}, nil
 		},
 		markOneTimeTokenUsedFunc: func(ctx context.Context, id uuid.UUID) error {
+
 			if id != tokenID {
 				t.Fatalf("expected token id %s, got %s", tokenID, id)
 			}
@@ -1291,6 +1359,7 @@ func TestAuthService_VerifyEmail_Success(t *testing.T) {
 
 	txRepo := &mockTXRepo{
 		verifyEmailFunc: func(ctx context.Context, id uuid.UUID, usedTokenID uuid.UUID) error {
+
 			if id != userID {
 				t.Fatalf("expected user id %s, got %s", userID, id)
 			}
@@ -1330,6 +1399,7 @@ func TestAuthService_VerifyEmail_Success(t *testing.T) {
 	if !result.EmailVerified {
 		t.Fatal("expected email verified true")
 	}
+
 }
 
 func TestAuthService_RequestPasswordReset_UserNotFound_ReturnsSuccess(t *testing.T) {
@@ -1360,6 +1430,7 @@ func TestAuthService_RequestPasswordReset_UserNotFound_ReturnsSuccess(t *testing
 	if result.ExpiresAtUnix != 0 {
 		t.Fatalf("expected expires_at_unix 0, got %d", result.ExpiresAtUnix)
 	}
+
 }
 
 func TestAuthService_ResetPassword_Success(t *testing.T) {
@@ -1370,6 +1441,7 @@ func TestAuthService_ResetPassword_Success(t *testing.T) {
 
 	oneTimeRepo := &mockOneTimeTokenRepo{
 		getOneTimeTokenByHashAndTypeFunc: func(ctx context.Context, tokenHash string, tokenType models.TokenType) (*models.OneTimeToken, error) {
+
 			if tokenHash != hash {
 				t.Fatalf("expected hash %s, got %s", hash, tokenHash)
 			}
@@ -1387,6 +1459,7 @@ func TestAuthService_ResetPassword_Success(t *testing.T) {
 			}, nil
 		},
 		markOneTimeTokenUsedFunc: func(ctx context.Context, id uuid.UUID) error {
+
 			if id != tokenID {
 				t.Fatalf("expected token id %s, got %s", tokenID, id)
 			}
@@ -1406,6 +1479,7 @@ func TestAuthService_ResetPassword_Success(t *testing.T) {
 
 	txRepo := &mockTXRepo{
 		resetPasswordWithTokenFunc: func(ctx context.Context, id uuid.UUID, passwordHash string, usedTokenID uuid.UUID) (int32, error) {
+
 			if id != userID {
 				t.Fatalf("expected user id %s, got %s", userID, id)
 			}
@@ -1446,4 +1520,5 @@ func TestAuthService_ResetPassword_Success(t *testing.T) {
 	if result.InvalidatedSessionsCount != 4 {
 		t.Fatalf("expected invalidated sessions count 4, got %d", result.InvalidatedSessionsCount)
 	}
+
 }

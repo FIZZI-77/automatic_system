@@ -25,8 +25,9 @@ var (
 	)
 )
 
-// ObserveHTTPRequest records bounded RED metrics. Recording with the request
-// context lets the OTLP pipeline attach the active trace as an exemplar.
+// ObserveHTTPRequest записывает RED-метрики с ограниченной cardinality.
+// Контекст запроса позволяет OTLP-конвейеру прикрепить активную трассировку
+// как exemplar.
 func ObserveHTTPRequest(
 	ctx context.Context,
 	method string,

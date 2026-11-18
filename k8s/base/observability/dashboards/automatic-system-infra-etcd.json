@@ -771,7 +771,7 @@
           },
           "refId": "L",
           "legendFormat": "{{instance}}",
-          "expr": "process_resident_memory_bytes{job=\"etcd\"}",
+          "expr": "etcd_process_resident_memory_bytes{job=\"etcd\"}",
           "range": true
         }
       ],
@@ -814,7 +814,7 @@
             "uid": "elasticsearch"
           },
           "timeField": "@timestamp",
-          "query": "kubernetes.pod.name: etcd-*",
+          "query": "(log.file.path:*kube-system_etcd-*) AND NOT log.file.path:*istio-proxy*",
           "bucketAggs": [],
           "refId": "Logs",
           "metrics": [

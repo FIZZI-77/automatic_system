@@ -103,45 +103,73 @@ const values: Record<string, string> = {
   "RESPONSE DEADLINE BREACHED": "Срок реакции на заявку нарушен",
 };
 
-function normalizedKey(key:string){return key.replace(/([a-zа-я0-9])([A-ZА-Я])/g,"$1_$2").replace(/[\s-]+/g,"_").toLowerCase()}
+function normalizedKey(key: string) {
+  return key
+    .replace(/([a-zа-я0-9])([A-ZА-Я])/g, "$1_$2")
+    .replace(/[\s-]+/g, "_")
+    .toLowerCase();
+}
 
 function fieldLabel(key: string) {
-  const normalized=normalizedKey(key);
+  const normalized = normalizedKey(key);
   if (labels[normalized]) return labels[normalized];
-  const spaced = key.replace(/_/g, " ").replace(/([a-zа-я])([A-ZА-Я])/g, "$1 $2");
+  const spaced = key
+    .replace(/_/g, " ")
+    .replace(/([a-zа-я])([A-ZА-Я])/g, "$1 $2");
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
 
 function isDateField(key: string) {
-  const normalized=normalizedKey(key);
-  return /(^|_)(created|updated|occurred|expires|completed|responded|calculated|deadline|attempt)_?(at|unix_ms)?$/i.test(normalized) || normalized.endsWith("_at") || normalized.endsWith("_unix_ms");
+  const normalized = normalizedKey(key);
+  return (
+    /(^|_)(created|updated|occurred|expires|completed|responded|calculated|deadline|attempt)_?(at|unix_ms)?$/i.test(
+      normalized,
+    ) ||
+    normalized.endsWith("_at") ||
+    normalized.endsWith("_unix_ms")
+  );
 }
 
 function dateValue(value: unknown) {
   let raw = value;
-  if (typeof value === "object" && value !== null && "seconds" in value) raw = (value as { seconds?: unknown }).seconds;
+  if (typeof value === "object" && value !== null && "seconds" in value)
+    raw = (value as { seconds?: unknown }).seconds;
   if (typeof raw === "string" && raw && !/^\d+$/.test(raw)) {
     const parsed = new Date(raw);
-    return Number.isNaN(parsed.getTime()) ? null : parsed.toLocaleString("ru-RU");
+    return Number.isNaN(parsed.getTime())
+      ? null
+      : parsed.toLocaleString("ru-RU");
   }
   const number = Number(raw);
   if (!Number.isFinite(number) || number <= 0) return null;
-  return new Date(number > 10_000_000_000 ? number : number * 1000).toLocaleString("ru-RU");
+  return new Date(
+    number > 10_000_000_000 ? number : number * 1000,
+  ).toLocaleString("ru-RU");
 }
 
 function scalar(key: string, value: unknown): ReactNode {
   if (value === null || value === undefined || value === "") return "—";
   if (typeof value === "boolean") return value ? "Да" : "Нет";
   if (isDateField(key)) return dateValue(value) || String(value);
-  const normalized=normalizedKey(key);
-  if (normalized === "distance_meters" && Number.isFinite(Number(value))) return `${Math.round(Number(value) / 10) / 100} км`;
-  if (normalized === "duration_seconds" && Number.isFinite(Number(value))) return `${Math.max(1, Math.round(Number(value) / 60))} мин`;
+  const normalized = normalizedKey(key);
+  if (normalized === "distance_meters" && Number.isFinite(Number(value)))
+    return `${Math.round(Number(value) / 10) / 100} км`;
+  if (normalized === "duration_seconds" && Number.isFinite(Number(value)))
+    return `${Math.max(1, Math.round(Number(value) / 60))} мин`;
   const source = String(value);
   return values[source.toUpperCase()] || source;
 }
 
-export function ReadableDetails({ data, className = "" }: { data: Details; className?: string }) {
-  const sourceEntries = Object.entries(data).filter(([, value]) => value !== undefined && value !== null && value !== "");
+export function ReadableDetails({
+  data,
+  className = "",
+}: {
+  data: Details;
+  className?: string;
+}) {
+  const sourceEntries = Object.entries(data).filter(
+    ([, value]) => value !== undefined && value !== null && value !== "",
+  );
   const presentKeys = new Set(sourceEntries.map(([key]) => normalizedKey(key)));
   const entries = sourceEntries.filter(([key]) => {
     const normalized = normalizedKey(key);
@@ -149,11 +177,59 @@ export function ReadableDetails({ data, className = "" }: { data: Details; class
     const canonical = normalized.replace(/_unix_ms$/, "");
     return !presentKeys.has(canonical);
   });
-  if (!entries.length) return <p className="readable-details-empty">Дополнительных сведений нет.</p>;
-  return <dl className={`readable-details ${className}`.trim()}>{entries.map(([key, value]) => {
-    if (isDateField(key)) return <div className="readable-detail-row readable-detail-date" key={key}><dt>{fieldLabel(key)}</dt><dd>{scalar(key, value)}</dd></div>;
-    if (Array.isArray(value)) return <div className="readable-detail-group" key={key}><dt>{fieldLabel(key)}</dt><dd>{value.length ? <ul>{value.map((item, index) => <li key={index}>{typeof item === "object" && item !== null ? <ReadableDetails data={item as Details} /> : scalar(key, item)}</li>)}</ul> : "—"}</dd></div>;
-    if (typeof value === "object") return <div className="readable-detail-group" key={key}><dt>{fieldLabel(key)}</dt><dd><ReadableDetails data={value as Details} /></dd></div>;
-    return <div className="readable-detail-row" key={key}><dt>{fieldLabel(key)}</dt><dd>{scalar(key, value)}</dd></div>;
-  })}</dl>;
+  if (!entries.length)
+    return (
+      <p className="readable-details-empty">Дополнительных сведений нет.</p>
+    );
+  return (
+    <dl className={`readable-details ${className}`.trim()}>
+      {entries.map(([key, value]) => {
+        if (isDateField(key))
+          return (
+            <div className="readable-detail-row readable-detail-date" key={key}>
+              <dt>{fieldLabel(key)}</dt>
+              <dd>{scalar(key, value)}</dd>
+            </div>
+          );
+        if (Array.isArray(value))
+          return (
+            <div className="readable-detail-group" key={key}>
+              <dt>{fieldLabel(key)}</dt>
+              <dd>
+                {value.length ? (
+                  <ul>
+                    {value.map((item, index) => (
+                      <li key={index}>
+                        {typeof item === "object" && item !== null ? (
+                          <ReadableDetails data={item as Details} />
+                        ) : (
+                          scalar(key, item)
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  "—"
+                )}
+              </dd>
+            </div>
+          );
+        if (typeof value === "object")
+          return (
+            <div className="readable-detail-group" key={key}>
+              <dt>{fieldLabel(key)}</dt>
+              <dd>
+                <ReadableDetails data={value as Details} />
+              </dd>
+            </div>
+          );
+        return (
+          <div className="readable-detail-row" key={key}>
+            <dt>{fieldLabel(key)}</dt>
+            <dd>{scalar(key, value)}</dd>
+          </div>
+        );
+      })}
+    </dl>
+  );
 }

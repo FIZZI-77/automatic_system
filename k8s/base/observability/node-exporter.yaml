@@ -30,6 +30,7 @@ spec:
           args:
             - --path.rootfs=/host
             - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|var/lib/docker/.+|var/lib/kubelet/.+)($|/)
+            - --collector.textfile.directory=/textfile
           ports:
             - name: metrics
               containerPort: 9100
@@ -59,10 +60,45 @@ spec:
               mountPath: /host
               readOnly: true
               mountPropagation: HostToContainer
+            - name: textfile
+              mountPath: /textfile
+              readOnly: true
+        - name: etcd-metrics-reader
+          image: busybox:1.37.0
+          command: [/bin/sh, -ec]
+          args:
+            - |
+              while true; do
+                if wget -q -T 5 -O /textfile/etcd.raw http://127.0.0.1:2381/metrics 2>/dev/null; then
+                  sed 's/process_resident_memory_bytes/etcd_process_resident_memory_bytes/g' /textfile/etcd.raw |
+                    awk '/^# (HELP|TYPE) (etcd_|grpc_server_|etcd_process_resident_memory_bytes)/ || /^(etcd_|grpc_server_|etcd_process_resident_memory_bytes)/' > /textfile/etcd.prom.tmp
+                  mv /textfile/etcd.prom.tmp /textfile/etcd.prom
+                else
+                  rm -f /textfile/etcd.prom /textfile/etcd.prom.tmp
+                fi
+                rm -f /textfile/etcd.raw
+                sleep 30
+              done
+          resources:
+            requests:
+              cpu: 5m
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: textfile
+              mountPath: /textfile
       securityContext:
         runAsNonRoot: true
         runAsUser: 65534
         runAsGroup: 65534
+        fsGroup: 65534
         seccompProfile:
           type: RuntimeDefault
       tolerations:
@@ -72,3 +108,5 @@ spec:
           hostPath:
             path: /
             type: Directory
+        - name: textfile
+          emptyDir: {}

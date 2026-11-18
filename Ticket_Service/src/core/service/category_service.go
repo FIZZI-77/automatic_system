@@ -18,6 +18,7 @@ type CategoryServiceStruct struct {
 	logger *zap.Logger
 }
 
+// NewCategoryServiceStruct создаёт службу категорий с переданными репозиторием и журналом.
 func NewCategoryServiceStruct(repo *repository.Repository, logger *zap.Logger) *CategoryServiceStruct {
 	return &CategoryServiceStruct{
 		repo:   repo,
@@ -25,6 +26,8 @@ func NewCategoryServiceStruct(repo *repository.Repository, logger *zap.Logger) *
 	}
 }
 
+// CreateCategory проверяет данные и идемпотентно создаёт категорию.
+// Требует роль admin или dispatcher; иначе возвращает ErrPermissionDenied.
 func (s *CategoryServiceStruct) CreateCategory(ctx context.Context, in *models.CreateCategoryInput) (*models.CreateCategoryResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -49,11 +52,14 @@ func (s *CategoryServiceStruct) CreateCategory(ctx context.Context, in *models.C
 
 	result, err := s.withIdempotency(ctx, "CreateCategory", "", in, func(ctx context.Context) (any, uuid.UUID, error) {
 		category, err := s.repo.CreateCategory(ctx, in)
+
 		if err != nil {
 			return nil, uuid.Nil, err
 		}
+
 		return &models.CreateCategoryResult{Category: category}, category.ID, nil
 	})
+
 	if err != nil {
 		logger.Error("CreateCategory failed",
 			zap.String("code", in.Code),
@@ -62,10 +68,13 @@ func (s *CategoryServiceStruct) CreateCategory(ctx context.Context, in *models.C
 		)
 		return nil, fmt.Errorf("service: CreateCategory(): %w", err)
 	}
+
 	createResult, err := cachedResult[models.CreateCategoryResult](result)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: CreateCategory(): idempotency result: %w", err)
 	}
+
 	category := createResult.Category
 
 	logger.Info("CreateCategory success",
@@ -77,6 +86,8 @@ func (s *CategoryServiceStruct) CreateCategory(ctx context.Context, in *models.C
 	return createResult, nil
 }
 
+// GetCategory возвращает категорию по идентификатору после проверки входных данных.
+// Отдельного ограничения по роли не вводит; ошибки хранилища возвращает с контекстом операции.
 func (s *CategoryServiceStruct) GetCategory(ctx context.Context, in *models.GetCategoryInput) (*models.GetCategoryResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -95,6 +106,7 @@ func (s *CategoryServiceStruct) GetCategory(ctx context.Context, in *models.GetC
 	}
 
 	category, err := s.repo.GetCategoryByID(ctx, in.CategoryID)
+
 	if err != nil {
 		logger.Error("GetCategory failed",
 			zap.String("category_id", in.CategoryID.String()),
@@ -115,6 +127,8 @@ func (s *CategoryServiceStruct) GetCategory(ctx context.Context, in *models.GetC
 	}, nil
 }
 
+// ListCategories возвращает страницу категорий и общее количество записей.
+// Проверяет и нормализует входные параметры через Validate перед запросом к хранилищу.
 func (s *CategoryServiceStruct) ListCategories(ctx context.Context, in *models.ListCategoriesInput) (*models.ListCategoriesResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -134,6 +148,7 @@ func (s *CategoryServiceStruct) ListCategories(ctx context.Context, in *models.L
 	}
 
 	categories, total, err := s.repo.ListCategories(ctx, in)
+
 	if err != nil {
 		logger.Error("ListCategories failed",
 			zap.Int64("duration", time.Since(start).Milliseconds()),
@@ -154,6 +169,8 @@ func (s *CategoryServiceStruct) ListCategories(ctx context.Context, in *models.L
 	}, nil
 }
 
+// UpdateCategory проверяет частичные изменения и идемпотентно обновляет категорию.
+// Требует роль admin или dispatcher; возвращает изменённую запись либо ошибку.
 func (s *CategoryServiceStruct) UpdateCategory(ctx context.Context, in *models.UpdateCategoryInput) (*models.UpdateCategoryResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -165,6 +182,7 @@ func (s *CategoryServiceStruct) UpdateCategory(ctx context.Context, in *models.U
 	if in.Name != nil {
 		logger.Debug("UpdateCategory name", zap.String("name", *in.Name))
 	}
+
 	if in.IsActive != nil {
 		logger.Debug("UpdateCategory is_active", zap.Bool("is_active", *in.IsActive))
 	}
@@ -184,11 +202,14 @@ func (s *CategoryServiceStruct) UpdateCategory(ctx context.Context, in *models.U
 
 	result, err := s.withIdempotency(ctx, "UpdateCategory", "", in, func(ctx context.Context) (any, uuid.UUID, error) {
 		category, err := s.repo.UpdateCategory(ctx, in)
+
 		if err != nil {
 			return nil, uuid.Nil, err
 		}
+
 		return &models.UpdateCategoryResult{Category: category}, category.ID, nil
 	})
+
 	if err != nil {
 		logger.Error("UpdateCategory failed",
 			zap.String("category_id", in.CategoryID.String()),
@@ -197,10 +218,13 @@ func (s *CategoryServiceStruct) UpdateCategory(ctx context.Context, in *models.U
 		)
 		return nil, fmt.Errorf("service: UpdateCategory(): %w", err)
 	}
+
 	updateResult, err := cachedResult[models.UpdateCategoryResult](result)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: UpdateCategory(): idempotency result: %w", err)
 	}
+
 	category := updateResult.Category
 
 	logger.Info("UpdateCategory success",
@@ -212,6 +236,8 @@ func (s *CategoryServiceStruct) UpdateCategory(ctx context.Context, in *models.U
 	return updateResult, nil
 }
 
+// DeleteCategory идемпотентно удаляет категорию после проверки входа и привилегированной роли.
+// Возвращает удалённую запись; ограничения удаления проверяет репозиторий.
 func (s *CategoryServiceStruct) DeleteCategory(ctx context.Context, in *models.DeleteCategoryInput) (*models.DeleteCategoryResult, error) {
 	logger := s.logger.With(pkg.RequestIDField(ctx))
 
@@ -236,11 +262,14 @@ func (s *CategoryServiceStruct) DeleteCategory(ctx context.Context, in *models.D
 
 	result, err := s.withIdempotency(ctx, "DeleteCategory", "", in, func(ctx context.Context) (any, uuid.UUID, error) {
 		category, err := s.repo.DeleteCategory(ctx, in)
+
 		if err != nil {
 			return nil, uuid.Nil, err
 		}
+
 		return &models.DeleteCategoryResult{Category: category}, category.ID, nil
 	})
+
 	if err != nil {
 		logger.Error("DeleteCategory failed",
 			zap.String("category_id", in.CategoryID.String()),
@@ -249,10 +278,13 @@ func (s *CategoryServiceStruct) DeleteCategory(ctx context.Context, in *models.D
 		)
 		return nil, fmt.Errorf("service: DeleteCategory(): %w", err)
 	}
+
 	deleteResult, err := cachedResult[models.DeleteCategoryResult](result)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: DeleteCategory(): idempotency result: %w", err)
 	}
+
 	category := deleteResult.Category
 
 	logger.Info("DeleteCategory success",

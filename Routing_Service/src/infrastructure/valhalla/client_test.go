@@ -14,16 +14,21 @@ import (
 func TestClientBuildRouteUsesTruckConstraints(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(
 		func(writer http.ResponseWriter, request *http.Request) {
+
 			if request.URL.Path != "/route" {
 				t.Fatalf("path = %s", request.URL.Path)
 			}
+
 			var body map[string]any
+
 			if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
 				t.Fatalf("decode request: %v", err)
 			}
+
 			if body["costing"] != "truck" {
 				t.Fatalf("costing = %v", body["costing"])
 			}
+
 			writer.Header().Set("Content-Type", "application/json")
 			_, _ = writer.Write([]byte(
 				`{"trip":{"summary":{"length":1.5,"time":120},` +
@@ -35,9 +40,11 @@ func TestClientBuildRouteUsesTruckConstraints(t *testing.T) {
 	defer server.Close()
 
 	client, err := New(Config{BaseURL: server.URL})
+
 	if err != nil {
 		t.Fatalf("new client: %v", err)
 	}
+
 	height := 3.2
 	route, err := client.BuildRoute(
 		context.Background(),
@@ -52,19 +59,23 @@ func TestClientBuildRouteUsesTruckConstraints(t *testing.T) {
 			},
 		},
 	)
+
 	if err != nil {
 		t.Fatalf("build route: %v", err)
 	}
+
 	if route.Summary.DistanceMeters != 1500 ||
 		route.Summary.DurationSeconds != 120 {
 		t.Fatalf("route = %#v", route)
 	}
+
 }
 
 func TestClientBuildRouteFallsBackToValhallaJSONQuery(t *testing.T) {
 	var requests atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		requests.Add(1)
+
 		if request.Method == http.MethodPost {
 			writer.WriteHeader(http.StatusBadRequest)
 			_, _ = writer.Write([]byte("Malformed HTTP request"))
@@ -74,9 +85,11 @@ func TestClientBuildRouteFallsBackToValhallaJSONQuery(t *testing.T) {
 		if request.Method != http.MethodGet {
 			t.Errorf("fallback method = %s, want GET", request.Method)
 		}
+
 		if request.URL.Query().Get("json") == "" {
 			t.Error("fallback json query is empty")
 		}
+
 		writer.Header().Set("Content-Type", "application/json")
 		_, _ = writer.Write([]byte(
 			`{"trip":{"summary":{"length":1.5,"time":120},` +
@@ -86,27 +99,34 @@ func TestClientBuildRouteFallsBackToValhallaJSONQuery(t *testing.T) {
 	defer server.Close()
 
 	client, err := New(Config{BaseURL: server.URL})
+
 	if err != nil {
 		t.Fatalf("New() error = %v, want nil", err)
 	}
+
 	_, err = client.BuildRoute(context.Background(), &models.BuildRouteInput{
 		Origin:      models.Point{Latitude: 55.75, Longitude: 37.61},
 		Destination: models.Point{Latitude: 55.76, Longitude: 37.62},
 		Options:     models.RouteOptions{TravelMode: models.TravelModeAuto},
 	})
+
 	if err != nil {
 		t.Fatalf("BuildRoute() error = %v, want nil", err)
 	}
+
 	if got := requests.Load(); got != 2 {
 		t.Errorf("BuildRoute() request count = %d, want 2", got)
 	}
+
 }
 
 func TestMergePolyline6JoinsValhallaLegShapes(t *testing.T) {
 	first := []polylinePoint{{55755800, 37617300}, {55756000, 37618000}}
 	second := []polylinePoint{{55756000, 37618000}, {55757000, 37620000}}
 	merged := decodePolyline6(mergePolyline6([]string{encodePolyline6(first), encodePolyline6(second)}))
+
 	if len(merged) != 3 || merged[0] != first[0] || merged[1] != first[1] || merged[2] != second[1] {
 		t.Fatalf("merged points = %#v", merged)
 	}
+
 }

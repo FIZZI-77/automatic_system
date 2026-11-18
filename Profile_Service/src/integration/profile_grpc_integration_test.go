@@ -46,6 +46,7 @@ func newGRPCTestApp(t *testing.T) *grpcTestApp {
 		}),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
+
 	if err != nil {
 		grpcServer.Stop()
 		app.cleanup()
@@ -83,9 +84,11 @@ func TestProfileGRPCIntegration_UserWorkAndSkills(t *testing.T) {
 		FullName:               "Grpc User",
 		PreferredContactMethod: profilev1.PreferredContactMethod_PREFERRED_CONTACT_METHOD_EMAIL,
 	})
+
 	if err != nil {
 		t.Fatalf("grpc create user profile failed: %v", err)
 	}
+
 	if userResp.GetUserProfile().GetId() == "" {
 		t.Fatal("expected user profile id")
 	}
@@ -95,9 +98,11 @@ func TestProfileGRPCIntegration_UserWorkAndSkills(t *testing.T) {
 		DepartmentId:  departmentID.String(),
 		Position:      "Dispatcher",
 	})
+
 	if err != nil {
 		t.Fatalf("grpc create work profile failed: %v", err)
 	}
+
 	if workResp.GetDetails().GetWorkProfile().GetId() == "" {
 		t.Fatal("expected work profile id")
 	}
@@ -107,6 +112,7 @@ func TestProfileGRPCIntegration_UserWorkAndSkills(t *testing.T) {
 		Name:         "GRPC certificate",
 		RequiresFile: false,
 	})
+
 	if err != nil {
 		t.Fatalf("grpc create certification type failed: %v", err)
 	}
@@ -115,6 +121,7 @@ func TestProfileGRPCIntegration_UserWorkAndSkills(t *testing.T) {
 		CertificationTypeId: typeResp.GetCertificationType().GetId(),
 		SkillId:             skillID.String(),
 	})
+
 	if err != nil {
 		t.Fatalf("grpc add certification type skill failed: %v", err)
 	}
@@ -123,6 +130,7 @@ func TestProfileGRPCIntegration_UserWorkAndSkills(t *testing.T) {
 		WorkProfileId:       workResp.GetDetails().GetWorkProfile().GetId(),
 		CertificationTypeId: typeResp.GetCertificationType().GetId(),
 	})
+
 	if err != nil {
 		t.Fatalf("grpc upload certification failed: %v", err)
 	}
@@ -130,12 +138,15 @@ func TestProfileGRPCIntegration_UserWorkAndSkills(t *testing.T) {
 	verifyResp, err := grpcApp.client.VerifyWorkProfileCertification(actorCtx, &profilev1.VerifyWorkProfileCertificationRequest{
 		Id: uploadResp.GetCertification().GetId(),
 	})
+
 	if err != nil {
 		t.Fatalf("grpc verify certification failed: %v", err)
 	}
+
 	if len(verifyResp.GetSkillGrants()) != 1 || verifyResp.GetSkillGrants()[0].GetSkillId() != skillID.String() {
 		t.Fatalf("unexpected skill grants: %+v", verifyResp.GetSkillGrants())
 	}
+
 }
 
 func TestProfileGRPCIntegration_InvalidIDFails(t *testing.T) {
@@ -143,7 +154,9 @@ func TestProfileGRPCIntegration_InvalidIDFails(t *testing.T) {
 	defer grpcApp.cleanup()
 
 	_, err := grpcApp.client.GetUserProfileByID(context.Background(), &profilev1.GetUserProfileByIDRequest{Id: "bad-id"})
+
 	if err == nil {
 		t.Fatal("expected grpc get to fail")
 	}
+
 }

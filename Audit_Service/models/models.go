@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
+// Entry описывает доменную модель.
 type Entry struct {
 	ID         uuid.UUID
 	EventID    string
@@ -21,6 +22,7 @@ type Entry struct {
 	RecordedAt time.Time
 }
 
+// Filter задаёт условия фильтрации.
 type Filter struct {
 	ActorID    *uuid.UUID
 	Action     *string
@@ -35,6 +37,7 @@ type Filter struct {
 	Offset     int32
 }
 
+// Event описывает событие event.
 type Event struct {
 	ID        string
 	Type      string

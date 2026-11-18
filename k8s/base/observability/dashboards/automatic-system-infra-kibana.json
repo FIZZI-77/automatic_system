@@ -208,7 +208,7 @@
               "type": "logs"
             }
           ],
-          "query": "kubernetes.pod.name: kibana-*",
+          "query": "(kubernetes.pod.name: kibana-*) AND NOT log.file.path:*istio-proxy*",
           "datasource": {
             "type": "elasticsearch",
             "uid": "elasticsearch"

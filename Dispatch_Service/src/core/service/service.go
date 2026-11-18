@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"dispatch/models"
@@ -29,67 +30,99 @@ type Service struct {
 	log  *zap.Logger
 }
 
+// New создаёт сервис диспетчеризации, требуя хранилище и всех клиентов deps.
+// Неположительный ttl заменяет на две минуты, nil logger — на журнал без вывода.
 func New(repo *repository.Repository, deps Dependencies, ttl time.Duration, logger *zap.Logger) (*Service, error) {
+
 	if repo == nil || deps.Tickets == nil || deps.Brigades == nil || deps.Location == nil || deps.Routing == nil {
 		return nil, errors.New("dispatch: all dependencies are required")
 	}
+
 	if ttl <= 0 {
 		ttl = 2 * time.Minute
 	}
+
 	if logger == nil {
 		logger = zap.NewNop()
 	}
+
 	return &Service{repo: repo, deps: deps, ttl: ttl, log: logger}, nil
 }
 
+// Cleanup обрабатывает до 100 компенсаций и просроченных операций.
+// Ошибка одной операции не мешает обработке остальных; ошибки объединяются.
 func (s *Service) Cleanup(ctx context.Context) error {
 	const batchSize = 100
 	items, err := s.repo.Expire(ctx, batchSize)
+
 	if err != nil {
 		return err
 	}
+
+	var cleanupErr error
 	for _, item := range items {
-		if err = s.cleanupExpired(ctx, item); err != nil {
-			return err
+		if err := s.cleanupExpired(ctx, item); err != nil {
+			cleanupErr = errors.Join(cleanupErr, fmt.Errorf("cleanup dispatch %s: %w", item.ID, err))
 		}
 	}
-	return nil
+	return cleanupErr
 }
 
+// cleanupExpired захватывает блокировку и повторно читает просроченную операцию,
+// затем восстанавливает CONFIRMING либо завершает PENDING и RESERVED как EXPIRED.
+// Занятые операции и конфликты пропускает; сбои восстановления или освобождения
+// оставляет для следующей попытки. Ошибку снятия блокировки присоединяет к результату.
 func (s *Service) cleanupExpired(ctx context.Context, item *models.Operation) (err error) {
 	releaseLock, acquired, err := s.repo.TryOperationLock(ctx, item.ID)
+
 	if err != nil || !acquired {
 		return err
 	}
+
 	defer func() { err = errors.Join(err, releaseLock()) }()
 	item, err = s.repo.Get(ctx, item.ID)
+
 	if errors.Is(err, models.ErrNotFound) {
 		return nil
 	}
-	if err != nil || time.Now().UTC().Before(item.ExpiresAt) {
+
+	if err != nil {
 		return err
 	}
+
 	compensationCtx := compensationContext(ctx, item)
+	if item.ReleasePending {
+		return s.releaseOperation(compensationCtx, item)
+	}
+	if time.Now().UTC().Before(item.ExpiresAt) {
+		return nil
+	}
 	switch item.Status {
 	case models.StatusConfirming:
 		_, err = s.finishConfirm(compensationCtx, item, item.RequestedBy)
+
 		if err != nil {
-			s.log.Error("recover confirming dispatch", zap.Error(err), zap.String("operation_id", item.ID.String()))
-			return nil
+			return err
 		}
+
 	case models.StatusReserved:
+
 		if item.BrigadeID == nil {
 			return nil
 		}
+
 		if err = s.release(compensationCtx, *item.BrigadeID, item.RequestedBy); err != nil {
-			return nil
+			return err
 		}
-		_, err = s.repo.SetTerminal(ctx, item.ID, models.StatusExpired, "dispatch operation expired", item.Version)
+
+		_, err = s.repo.SetExpired(ctx, item.ID, "dispatch operation expired", item.Version)
 	case models.StatusPending:
-		_, err = s.repo.SetTerminal(ctx, item.ID, models.StatusExpired, "dispatch operation expired", item.Version)
+		_, err = s.repo.SetExpired(ctx, item.ID, "dispatch operation expired", item.Version)
 	}
+
 	if errors.Is(err, models.ErrConflict) {
 		return nil
 	}
+
 	return err
 }

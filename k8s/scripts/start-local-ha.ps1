@@ -3,7 +3,8 @@ param(
     [switch]$SkipImageImport,
     [switch]$ResetSecrets,
     [switch]$ResetData,
-    [switch]$SkipApplications
+    [switch]$SkipApplications,
+    [switch]$SkipMetricsServer
 )
 
 $ErrorActionPreference = "Stop"
@@ -229,9 +230,13 @@ function Import-ImagesToNodes {
 Push-Location $repoRoot
 try {
     Invoke-Kubectl cluster-info
-    & (Join-Path $PSScriptRoot "install-metrics-server.ps1")
-    if ($LASTEXITCODE -ne 0) {
-        throw "Metrics Server installation failed"
+    if (-not $SkipMetricsServer) {
+        & (Join-Path $PSScriptRoot "install-metrics-server.ps1")
+        if ($LASTEXITCODE -ne 0) {
+            throw "Metrics Server installation failed"
+        }
+    } else {
+        Write-Warning "Skipping Metrics Server installation."
     }
 
     if (-not $SkipBuild) {
@@ -301,13 +306,13 @@ try {
         Wait-Job $job
     }
 
-    Invoke-Kubectl -n $namespace delete job postgres-ticket-citus-distribute --ignore-not-found --wait=true
-    Invoke-Kubectl apply -f (Join-Path $k8sRoot "overlays/prod/infra/postgres-ticket-citus/distribution-job.yaml")
-    Wait-Job "postgres-ticket-citus-distribute"
-
     if (-not $SkipApplications) {
         & (Join-Path $PSScriptRoot "deploy-applications-helm.ps1") -Environment local-ha
         if ($LASTEXITCODE -ne 0) { throw "Applications Helm release failed" }
+
+        Invoke-Kubectl -n $namespace delete job postgres-ticket-citus-distribute --ignore-not-found --wait=true
+        Invoke-Kubectl apply -f (Join-Path $k8sRoot "overlays/prod/infra/postgres-ticket-citus/distribution-job.yaml")
+        Wait-Job "postgres-ticket-citus-distribute"
     }
 
     Write-Host "Local HA deployment is ready."

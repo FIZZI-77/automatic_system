@@ -22,53 +22,71 @@ type RouteRepo struct {
 	readPool  *pgxpool.Pool
 }
 
+// NewRouteRepo создаёт хранилище маршрутов; при nil readPool читает через writePool.
 func NewRouteRepo(
 	writePool *pgxpool.Pool,
 	readPool *pgxpool.Pool,
 ) *RouteRepo {
+
 	if readPool == nil {
 		readPool = writePool
 	}
+
 	return &RouteRepo{
 		writePool: writePool,
 		readPool:  readPool,
 	}
 }
 
+// CreateRoute сохраняет маршрут и событие создания в одной транзакции.
+// При конфликте единственного открытого маршрута заявки возвращает существующий
+// для той же бригады либо ErrConflict для другой; route не изменяет.
 func (r *RouteRepo) CreateRoute(
 	ctx context.Context,
 	route *models.Route,
 ) (*models.Route, error) {
 	tx, err := r.writePool.Begin(ctx)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: begin create route: %w", err)
 	}
+
 	defer tx.Rollback(ctx)
 
 	if err = writeRoute(ctx, tx, route); err != nil {
 		var databaseError *pgconn.PgError
+
 		if errors.As(err, &databaseError) && databaseError.ConstraintName == "routes_one_open_route_per_ticket_idx" {
 			_ = tx.Rollback(ctx)
 			existing, lookupErr := r.GetOpenRouteByTicket(ctx, route.TicketID)
+
 			if lookupErr != nil {
 				return nil, lookupErr
 			}
+
 			if existing.BrigadeID != route.BrigadeID {
 				return nil, models.ErrConflict
 			}
+
 			return existing, nil
 		}
+
 		return nil, err
 	}
+
 	if err = appendEvent(ctx, tx, "routing.route.created.v1", route); err != nil {
 		return nil, err
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repository: commit create route: %w", err)
 	}
+
 	return route, nil
 }
 
+// GetRoute читает маршрут по ID из пула чтения и декодирует JSON-поля.
+// Отсутствие записи возвращает как ErrNotFound.
 func (r *RouteRepo) GetRoute(
 	ctx context.Context,
 	id string,
@@ -90,15 +108,20 @@ func (r *RouteRepo) GetRoute(
  WHERE id = $1`
 
 	route, err := scanRoute(r.readPool.QueryRow(ctx, query, id))
+
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, models.ErrNotFound
 	}
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: get route: %w", err)
 	}
+
 	return route, nil
 }
 
+// GetOpenRouteByTicket возвращает новейший маршрут заявки в PLANNED или ACTIVE
+// из пула чтения. Отсутствие открытого маршрута даёт ErrNotFound.
 func (r *RouteRepo) GetOpenRouteByTicket(ctx context.Context, ticketID string) (*models.Route, error) {
 	const query = `SELECT
   id, ticket_id, brigade_id, status, origin, destination, waypoints,
@@ -109,31 +132,43 @@ func (r *RouteRepo) GetOpenRouteByTicket(ctx context.Context, ticketID string) (
  LIMIT 1`
 
 	route, err := scanRoute(r.readPool.QueryRow(ctx, query, ticketID))
+
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, models.ErrNotFound
 	}
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: get open route by ticket: %w", err)
 	}
+
 	return route, nil
 }
+
+// UpdateCalculation транзакционно заменяет начало, расчёт, ревизию и время обновления
+// маршрута значениями route, затем записывает событие перерасчёта.
+// Отсутствие даёт ErrNotFound; статус и предыдущее значение ревизии не проверяет.
 func (r *RouteRepo) UpdateCalculation(
 	ctx context.Context,
 	route *models.Route,
 ) (*models.Route, error) {
 	origin, err := json.Marshal(route.Origin)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: encode origin: %w", err)
 	}
+
 	calculation, err := json.Marshal(route.Calculation)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: encode calculation: %w", err)
 	}
 
 	tx, err := r.writePool.Begin(ctx)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: begin recalculate route: %w", err)
 	}
+
 	defer tx.Rollback(ctx)
 
 	const query = `UPDATE routes
@@ -168,21 +203,28 @@ func (r *RouteRepo) UpdateCalculation(
 			route.UpdatedAt,
 		),
 	)
+
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, models.ErrNotFound
 	}
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: recalculate route: %w", err)
 	}
+
 	if err = appendEvent(ctx, tx, "routing.route.recalculated.v1", updated); err != nil {
 		return nil, err
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repository: commit recalculate route: %w", err)
 	}
+
 	return updated, nil
 }
 
+// ListRoutes возвращает страницу маршрутов по заявке, бригаде и статусу от новых
+// к старым с отдельным общим счётчиком. Требует ненулевой in с подготовленной пагинацией.
 func (r *RouteRepo) ListRoutes(
 	ctx context.Context,
 	in *models.ListRoutesInput,
@@ -197,18 +239,25 @@ func (r *RouteRepo) ListRoutes(
 			fmt.Sprintf(expression, len(args)),
 		)
 	}
+
 	if in.TicketID != nil {
 		add("ticket_id = $%d", *in.TicketID)
 	}
+	if in.AllowedTicketIDs != nil {
+		add("ticket_id = ANY($%d::uuid[])", in.AllowedTicketIDs)
+	}
+
 	if in.BrigadeID != nil {
 		add("brigade_id = $%d", *in.BrigadeID)
 	}
+
 	if in.Status != nil {
 		add("status = $%d", *in.Status)
 	}
 
 	clause := strings.Join(where, " AND ")
 	var total int64
+
 	if err := r.readPool.QueryRow(
 		ctx,
 		"SELECT count(*) FROM routes WHERE "+clause,
@@ -239,9 +288,11 @@ func (r *RouteRepo) ListRoutes(
 	)
 
 	rows, err := r.readPool.Query(ctx, query, args...)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: list routes: %w", err)
 	}
+
 	defer rows.Close()
 
 	result := &models.ListRoutesResult{
@@ -250,39 +301,54 @@ func (r *RouteRepo) ListRoutes(
 	}
 	for rows.Next() {
 		route, scanErr := scanRoute(rows)
+
 		if scanErr != nil {
 			return nil, fmt.Errorf("repository: scan route: %w", scanErr)
 		}
+
 		result.Routes = append(result.Routes, route)
 	}
+
 	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("repository: route rows: %w", err)
 	}
+
 	return result, nil
 }
 
+// writeRoute сериализует точки, опции и расчёт в JSON и вставляет маршрут через tx.
+// Историю событий не записывает; возвращает ошибки сериализации или вставки.
 func writeRoute(
 	ctx context.Context,
 	tx pgx.Tx,
 	route *models.Route,
 ) error {
 	origin, err := json.Marshal(route.Origin)
+
 	if err != nil {
 		return fmt.Errorf("repository: encode origin: %w", err)
 	}
+
 	destination, err := json.Marshal(route.Destination)
+
 	if err != nil {
 		return fmt.Errorf("repository: encode destination: %w", err)
 	}
+
 	waypoints, err := json.Marshal(route.Waypoints)
+
 	if err != nil {
 		return fmt.Errorf("repository: encode waypoints: %w", err)
 	}
+
 	options, err := json.Marshal(route.Options)
+
 	if err != nil {
 		return fmt.Errorf("repository: encode options: %w", err)
 	}
+
 	calculation, err := json.Marshal(route.Calculation)
+
 	if err != nil {
 		return fmt.Errorf("repository: encode calculation: %w", err)
 	}
@@ -304,6 +370,7 @@ func writeRoute(
   $1, $2, $3, $4, $5, $6,
   $7, $8, $9, $10, $11, $12
  )`
+
 	if _, err = tx.Exec(
 		ctx,
 		query,
@@ -322,9 +389,12 @@ func writeRoute(
 	); err != nil {
 		return fmt.Errorf("repository: create route: %w", err)
 	}
+
 	return nil
 }
 
+// appendEvent сохраняет через tx событие со снимком маршрута, показателями расчёта,
+// версией схемы и trace ID. Время события берёт из route.UpdatedAt.
 func appendEvent(
 	ctx context.Context,
 	tx pgx.Tx,
@@ -360,15 +430,18 @@ func appendEvent(
 		DurationSeconds: route.Calculation.Summary.DurationSeconds,
 		Success:         route.CalculationSuccess != nil && *route.CalculationSuccess,
 	})
+
 	if err != nil {
 		return fmt.Errorf("repository: encode route event: %w", err)
 	}
+
 	const query = `INSERT INTO outbox_events(
   id,
   aggregate_id,
   event_type,
   payload
  ) VALUES($1, $2, $3, $4)`
+
 	if _, err = tx.Exec(
 		ctx,
 		query,
@@ -379,9 +452,12 @@ func appendEvent(
 	); err != nil {
 		return fmt.Errorf("repository: append route event: %w", err)
 	}
+
 	return nil
 }
 
+// RecordCalculationFailure сохраняет событие routing.calculation.failed.v1
+// в outbox с trace ID и временем завершения расчёта. Требует AggregateID в формате UUID.
 func (r *RouteRepo) RecordCalculationFailure(ctx context.Context, failure models.CalculationFailure) error {
 	eventID := uuid.New()
 	payload, err := json.Marshal(struct {
@@ -403,32 +479,44 @@ func (r *RouteRepo) RecordCalculationFailure(ctx context.Context, failure models
 		TraceID:            traceID(ctx),
 		Success:            false,
 	})
+
 	if err != nil {
 		return fmt.Errorf("repository: encode calculation failure: %w", err)
 	}
+
 	aggregateID, err := uuid.Parse(failure.AggregateID)
+
 	if err != nil {
 		return fmt.Errorf("repository: parse calculation failure aggregate id: %w", err)
 	}
+
 	_, err = r.writePool.Exec(ctx, `INSERT INTO outbox_events(id,aggregate_type,aggregate_id,event_type,payload) VALUES($1,$2,$3,$4,$5)`, eventID, failure.AggregateType, aggregateID, "routing.calculation.failed.v1", payload)
+
 	if err != nil {
 		return fmt.Errorf("repository: append calculation failure: %w", err)
 	}
+
 	return nil
 }
 
+// traceID возвращает ID действующего span-контекста либо пустую строку, если его нет.
 func traceID(ctx context.Context) string {
 	spanContext := trace.SpanContextFromContext(ctx)
+
 	if !spanContext.IsValid() {
 		return ""
 	}
+
 	return spanContext.TraceID().String()
 }
 
 type rowScanner interface {
+	// Scan переносит значения строки в dest и возвращает ошибку чтения или преобразования.
 	Scan(dest ...any) error
 }
 
+// scanRoute читает маршрут и декодирует JSON точек, опций и расчёта.
+// Ошибку чтения, включая pgx.ErrNoRows, возвращает без замены.
 func scanRoute(row rowScanner) (*models.Route, error) {
 	route := new(models.Route)
 	var origin []byte
@@ -465,9 +553,11 @@ func scanRoute(row rowScanner) (*models.Route, error) {
 		{data: calculation, target: &route.Calculation},
 	}
 	for _, value := range values {
+
 		if err := json.Unmarshal(value.data, value.target); err != nil {
 			return nil, fmt.Errorf("decode route: %w", err)
 		}
+
 	}
 	return route, nil
 }

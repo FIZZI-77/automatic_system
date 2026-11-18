@@ -19,8 +19,5 @@ CREATE TABLE files (
     CHECK ((resource_type IS NULL) = (resource_id IS NULL))
 );
 
-CREATE INDEX files_owner_idx ON files(owner_user_id, created_at DESC) WHERE status <> 'DELETED';
-CREATE INDEX files_resource_idx ON files(resource_type, resource_id, created_at) WHERE status = 'LINKED';
-
 -- +goose Down
 DROP TABLE IF EXISTS files;

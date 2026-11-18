@@ -29,7 +29,7 @@ Gateway не становится доменным владельцем. Он в
 
 | Механизм | Где используется | Зачем |
 |---|---|---|
-| Transactional outbox | Auth, Profile, Department, Brigade, Ticket, Dispatch, Routing, Asset, SLA, Report | Не отделять бизнес-изменение от фиксации исходящего события. |
+| Transactional outbox | Auth, Profile, Department, Brigade, Ticket, Dispatch, Routing, Asset, SLA, Report, File, Notification | Не отделять бизнес-изменение от фиксации исходящего события. Для File и Notification запись outbox выполняют PostgreSQL-триггеры. |
 | Redis Stream → Kafka | Location | События координат рождаются рядом с оперативным Redis-state. |
 | Idempotency key | Несколько write flows, включая Auth/Ticket/Profile | Безопасный retry одного и того же изменения. |
 | Optimistic version | Dispatch operation | Защита переходов операции назначения. |

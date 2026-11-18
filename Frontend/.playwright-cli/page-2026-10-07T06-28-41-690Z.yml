@@ -1,0 +1,31 @@
+- generic [active] [ref=f6e1]:
+  - button "Включить тёмную тему" [ref=f6e91] [cursor=pointer]: ◐ Тёмная
+  - main [ref=f6e92]:
+    - button "← На главную" [ref=f6e93] [cursor=pointer]
+    - generic [ref=f6e94]:
+      - link "Г 〽 Город рядом" [ref=f6e95] [cursor=pointer]:
+        - /url: "#"
+        - generic [ref=f6e96]: Г 〽
+        - text: Город рядом
+      - generic [ref=f6e97]:
+        - generic [ref=f6e98]: Учётная запись
+        - heading "Создание аккаунта" [level=2] [ref=f6e99]
+        - paragraph [ref=f6e100]: Зарегистрируйтесь как житель, чтобы создавать обращения и следить за их выполнением.
+      - generic [ref=f6e101]:
+        - text: Имя пользователя
+        - textbox "Имя пользователя" [ref=f6e102]:
+          - /placeholder: Не менее 3 символов
+      - generic [ref=f6e103]:
+        - text: Электронная почта
+        - textbox "Электронная почта" [ref=f6e104]:
+          - /placeholder: name@example.ru
+      - generic [ref=f6e105]:
+        - text: Новый пароль
+        - textbox "Новый пароль" [ref=f6e106]:
+          - /placeholder: Не менее 8 символов
+      - generic [ref=f6e107]:
+        - text: Повторите пароль
+        - textbox "Повторите пароль" [ref=f6e108]
+      - button "Зарегистрироваться" [ref=f6e109] [cursor=pointer]
+      - button "Вернуться ко входу" [ref=f6e111] [cursor=pointer]
+      - generic [ref=f6e112]: После регистрации назначается роль «Житель». Рабочие роли создаёт администратор.

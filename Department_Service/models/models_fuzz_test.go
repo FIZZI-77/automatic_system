@@ -27,6 +27,7 @@ func FuzzCreateDepartmentInputValidate(f *testing.F) {
 		if strings.TrimSpace(name) == "" && err == nil {
 			t.Fatal("empty name should be invalid")
 		}
+
 	})
 }
 
@@ -47,6 +48,7 @@ func FuzzGetDepartmentByIDInputValidate(f *testing.F) {
 		if id == uuid.Nil && err == nil {
 			t.Fatal("empty id should be invalid")
 		}
+
 	})
 }
 
@@ -58,6 +60,7 @@ func FuzzListDepartmentsInputValidate(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, statusRaw string, sortByRaw string, sortOrderRaw string, limit int32, offset int32, invalidRange bool) {
 		var status *DepartmentStatus
+
 		if statusRaw != "" {
 			value := DepartmentStatus(statusRaw)
 			status = &value
@@ -65,6 +68,7 @@ func FuzzListDepartmentsInputValidate(f *testing.F) {
 
 		var createdFrom *time.Time
 		var createdTo *time.Time
+
 		if invalidRange {
 			from := time.Now()
 			to := from.Add(-time.Hour)
@@ -98,16 +102,19 @@ func FuzzUpdateDepartmentInputValidate(f *testing.F) {
 		id, _ := uuid.Parse(idRaw)
 
 		var namePtr *string
+
 		if includeName {
 			namePtr = &name
 		}
 
 		var descriptionPtr *string
+
 		if includeDescription {
 			descriptionPtr = &description
 		}
 
 		var statusPtr *DepartmentStatus
+
 		if includeStatus {
 			value := DepartmentStatus(statusRaw)
 			statusPtr = &value
@@ -125,9 +132,11 @@ func FuzzUpdateDepartmentInputValidate(f *testing.F) {
 		if id == uuid.Nil && err == nil {
 			t.Fatal("empty id should be invalid")
 		}
+
 		if namePtr == nil && descriptionPtr == nil && statusPtr == nil && err == nil {
 			t.Fatal("update without fields should be invalid")
 		}
+
 	})
 }
 
@@ -148,5 +157,6 @@ func FuzzDeleteDepartmentInputValidate(f *testing.F) {
 		if id == uuid.Nil && err == nil {
 			t.Fatal("empty id should be invalid")
 		}
+
 	})
 }

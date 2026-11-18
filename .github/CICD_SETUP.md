@@ -130,6 +130,24 @@ sha-<12 символов commit SHA>
 
 ## Порядок deploy
 
+Перед локальным deploy веток `test`, `feature` и `feature/**` job
+`check-local-server` на `ubuntu-latest` проверяет
+`https://fizzi.tail2c9430.ts.net/livez`. Выполняются две попытки по 10 секунд
+с паузой 5 секунд; только HTTP 200 разрешает deploy. Если сервер выключен,
+туннель недоступен или API Gateway не отвечает на `/livez`, `deploy-local`
+получает статус `skipped`, не попадая в очередь локального runner.
+CI и публикация образов продолжают работать независимо от доступности сервера.
+
+URL можно переопределить repository variable `LOCAL_DEPLOY_HEALTH_URL`
+(HTTPS endpoint, возвращающий HTTP 200). Проверка использует repository variable,
+а не переменную Environment. Она не требует дополнительных secrets.
+Проверяется доступность сервера через API Gateway, а не сам ARC listener:
+если listener остановлен при работающем `/livez` или сервер выключится после
+проверки, deploy всё ещё может ждать runner. Если сам Gateway сломан,
+для восстановления потребуется исправить его вручную или указать другой
+доступный liveness endpoint. После включения сервера пропущенный deploy
+нужно запустить повторно через Re-run jobs или новым push.
+
 Deploy выполняется фазами:
 
 1. namespace;

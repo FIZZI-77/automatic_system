@@ -1,8 +1,6 @@
 apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
-  annotations:
-    kustomize.toolkit.fluxcd.io/reconcile: disabled
   name: public-entrypoint
   namespace: automatic-system
 spec:
@@ -11,10 +9,38 @@ spec:
   gateways:
     - automatic-system-public
   http:
+    - name: observability
+      match:
+        - uri:
+            prefix: /observe
+      route:
+        - destination:
+            host: istio-observability-listener.istio-system.svc.cluster.local
+            port:
+              number: 8082
+    - name: signed-file-objects
+      match:
+        - uri:
+            prefix: /city-files/
+          method:
+            exact: GET
+        - uri:
+            prefix: /city-files/
+          method:
+            exact: HEAD
+        - uri:
+            prefix: /city-files/
+          method:
+            exact: PUT
+      route:
+        - destination:
+            host: minio.automatic-system.svc.cluster.local
+            port:
+              number: 9000
     - name: api-gateway
       match:
         - uri:
-            regex: '^/(auth|tickets|files|sla|notifications|audit|analytics|reports|assets|ticket-categories|departments|brigades|brigade-members|skills|brigade-skills|brigade-schedules|brigade-zones|locations|geo-zones|routing|dispatch|user-profiles|work-profiles|profile-checks|certification-types|certification-type-skills|work-profile-certifications|work-profile-skills)(/.*)?$'
+            regex: '^/(auth|tickets|integrations|files|sla|notifications|audit|analytics|reports|assets|ticket-categories|departments|brigades|brigade-members|skills|brigade-skills|brigade-schedules|brigade-zones|locations|geo-zones|routing|dispatch|user-profiles|work-profiles|profile-checks|certification-types|certification-type-skills|work-profile-certifications|work-profile-skills)(/.*)?$'
         - uri:
             prefix: /.well-known/
         - uri:

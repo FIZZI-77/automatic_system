@@ -22,9 +22,11 @@ func RequestLogger() gin.HandlerFunc {
 		c.Next()
 		duration := time.Since(start)
 		route := c.FullPath()
+
 		if route == "" {
 			route = "unmatched"
 		}
+
 		telemetry.ObserveHTTPRequest(
 			c.Request.Context(),
 			c.Request.Method,
@@ -47,6 +49,7 @@ func RequestLogger() gin.HandlerFunc {
 		if userID := c.GetString("user_id"); userID != "" {
 			attributes = append(attributes, "user_id", userID)
 		}
+
 		if errors := c.Errors.ByType(gin.ErrorTypePrivate).String(); errors != "" {
 			attributes = append(attributes, "errors", errors)
 		}
@@ -65,6 +68,7 @@ func RequestLogger() gin.HandlerFunc {
 }
 
 func safeRequestPath(requestURL *url.URL) string {
+
 	if requestURL == nil {
 		return ""
 	}
@@ -76,8 +80,10 @@ func safeRequestPath(requestURL *url.URL) string {
 			query.Set(key, "[REDACTED]")
 		}
 	}
+
 	if encoded := query.Encode(); encoded != "" {
 		return requestURL.Path + "?" + encoded
 	}
+
 	return requestURL.Path
 }

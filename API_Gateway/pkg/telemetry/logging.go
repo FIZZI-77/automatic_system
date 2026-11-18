@@ -8,13 +8,14 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-// TraceHandler enriches every context-aware slog record with the active span.
+// TraceHandler дополняет каждую контекстную запись slog данными активного span.
 type TraceHandler struct {
 	slog.Handler
 }
 
 func (h TraceHandler) Handle(ctx context.Context, record slog.Record) error {
 	spanContext := trace.SpanContextFromContext(ctx)
+
 	if spanContext.IsValid() {
 		record.AddAttrs(
 			slog.String("trace_id", spanContext.TraceID().String()),
@@ -33,7 +34,7 @@ func (h TraceHandler) WithGroup(name string) slog.Handler {
 	return TraceHandler{Handler: h.Handler.WithGroup(name)}
 }
 
-// NewJSONLogger creates a JSON logger with trace correlation.
+// NewJSONLogger создаёт JSON-логгер с привязкой записей к трассировке.
 func NewJSONLogger(serviceName string, level slog.Leveler) *slog.Logger {
 	handler := slog.NewJSONHandler(
 		os.Stdout,

@@ -16,9 +16,11 @@ func TestAPIDocsRequireOptIn(t *testing.T) {
 	registerAPIDocs(router)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/swagger/openapi.json", nil))
+
 	if w.Code != http.StatusNotFound {
 		t.Fatalf("disabled docs returned %d", w.Code)
 	}
+
 }
 
 func TestAPIDocsEnabled(t *testing.T) {
@@ -35,8 +37,10 @@ func TestAPIDocsEnabled(t *testing.T) {
 	} {
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
+
 		if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), expected) {
 			t.Errorf("GET %s: status %d, expected content missing", path, w.Code)
 		}
+
 	}
 }

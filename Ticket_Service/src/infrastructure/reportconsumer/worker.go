@@ -52,9 +52,11 @@ func New(
 	groupID string,
 	logger *zap.Logger,
 ) (*Worker, error) {
+
 	if db == nil || len(brokers) == 0 || strings.TrimSpace(topic) == "" || strings.TrimSpace(groupID) == "" {
 		return nil, errors.New("report consumer: db, brokers, topic and group id are required")
 	}
+
 	if logger == nil {
 		logger = zap.NewNop()
 	}
@@ -88,10 +90,13 @@ func (w *Worker) Close() error {
 func (w *Worker) Run(ctx context.Context) error {
 	for {
 		message, err := w.reader.FetchMessage(ctx)
+
 		if err != nil {
+
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return nil
 			}
+
 			w.logger.Warn("fetch report result failed; retrying", zap.Error(err))
 			select {
 			case <-ctx.Done():
@@ -100,19 +105,26 @@ func (w *Worker) Run(ctx context.Context) error {
 				continue
 			}
 		}
+
 		if err = telemetry.TraceKafkaConsumer(ctx, message, "", w.apply); err != nil {
 			var invalid poisonError
+
 			if !errors.As(err, &invalid) && !errors.Is(err, pgx.ErrNoRows) {
 				return fmt.Errorf("apply report result: %w", err)
 			}
+
 			w.logger.Error("poison report result moved to DLQ", zap.Error(err))
+
 			if dlqErr := w.publishDLQ(ctx, message, err); dlqErr != nil {
 				return errors.Join(err, dlqErr)
 			}
+
 		}
+
 		if err = w.reader.CommitMessages(ctx, message); err != nil {
 			return fmt.Errorf("commit report result: %w", err)
 		}
+
 	}
 }
 
@@ -140,12 +152,14 @@ func (w *Worker) publishDLQ(ctx context.Context, message kafka.Message, processE
 
 func (w *Worker) apply(ctx context.Context, message kafka.Message) (err error) {
 	eventType := header(message.Headers, "event_type")
+
 	if eventType != "ticket.completion_report.generated.v1" &&
 		eventType != "ticket.completion_report.failed.v1" &&
 		eventType != "ticket.completion_report.compensated.v1" &&
 		eventType != "ticket.completion_report.compensation_failed.v1" {
 		return nil
 	}
+
 	ctx, span := telemetry.Tracer("ticket/completion-saga").Start(ctx, "CompletionSaga.ApplyResult")
 	defer func() { telemetry.End(span, err) }()
 	span.SetAttributes(
@@ -153,60 +167,82 @@ func (w *Worker) apply(ctx context.Context, message kafka.Message) (err error) {
 		attribute.String("messaging.event.type", eventType),
 	)
 	eventID, err := uuid.Parse(header(message.Headers, "event_id"))
+
 	if err != nil {
 		return poisonError{err: fmt.Errorf("invalid result event id: %w", err)}
 	}
+
 	var payload resultEvent
+
 	if err = json.Unmarshal(message.Value, &payload); err != nil {
 		return poisonError{err: fmt.Errorf("decode report result: %w", err)}
 	}
+
 	workReportID, err := uuid.Parse(payload.WorkReportID)
+
 	if err != nil {
 		return poisonError{err: fmt.Errorf("invalid work report id: %w", err)}
 	}
+
 	tx, err := w.db.BeginTx(ctx, pgx.TxOptions{})
+
 	if err != nil {
 		return err
 	}
+
 	defer tx.Rollback(ctx)
 	var inserted uuid.UUID
 	err = tx.QueryRow(ctx, `INSERT INTO completion_report_inbox(event_id) VALUES($1) ON CONFLICT DO NOTHING RETURNING event_id`, eventID).Scan(&inserted)
+
 	if errors.Is(err, pgx.ErrNoRows) {
 		return tx.Commit(ctx)
 	}
+
 	if err != nil {
 		return err
 	}
+
+	var departmentID uuid.UUID
+
+	if err = tx.QueryRow(ctx, `SELECT department_id FROM ticket_reports WHERE id=$1`, workReportID).Scan(&departmentID); err != nil {
+		return fmt.Errorf("find work report department: %w", err)
+	}
+
 	switch eventType {
 	case "ticket.completion_report.generated.v1":
 		fileID, parseErr := uuid.Parse(payload.FileID)
+
 		if parseErr != nil {
 			return poisonError{err: fmt.Errorf("invalid completion file id: %w", parseErr)}
 		}
-		err = w.applyGenerated(ctx, tx, workReportID, fileID, payload)
+
+		err = w.applyGenerated(ctx, tx, departmentID, workReportID, fileID, payload)
 	case "ticket.completion_report.failed.v1":
 		_, err = tx.Exec(ctx, `
 			UPDATE ticket_reports
-			SET completion_error=$2, completion_deadline_at=now(), completion_updated_at=now(), updated_at=now()
-			WHERE id=$1 AND completion_status='PENDING'`, workReportID, truncate(payload.Error, 2000))
+			SET completion_error=$3, completion_deadline_at=now(), completion_updated_at=now(), updated_at=now()
+			WHERE department_id=$1 AND id=$2 AND completion_status='PENDING'`, departmentID, workReportID, truncate(payload.Error, 2000))
 	case "ticket.completion_report.compensated.v1":
 		_, err = tx.Exec(ctx, `
 			UPDATE ticket_reports
 			SET completion_status='COMPENSATED', completion_file_id=NULL, completion_error=NULL,
 				completion_deadline_at=NULL, completion_updated_at=now(), updated_at=now()
-			WHERE id=$1 AND completion_status='COMPENSATING'`, workReportID)
+			WHERE department_id=$1 AND id=$2 AND completion_status='COMPENSATING'`, departmentID, workReportID)
 	case "ticket.completion_report.compensation_failed.v1":
-		err = w.retryCompensation(ctx, tx, workReportID, payload)
+		err = w.retryCompensation(ctx, tx, departmentID, workReportID, payload)
 	}
+
 	if err != nil {
 		return err
 	}
+
 	return tx.Commit(ctx)
 }
 
 func (w *Worker) applyGenerated(
 	ctx context.Context,
 	tx pgx.Tx,
+	departmentID uuid.UUID,
 	workReportID uuid.UUID,
 	fileID uuid.UUID,
 	payload resultEvent,
@@ -216,8 +252,9 @@ func (w *Worker) applyGenerated(
 	err := tx.QueryRow(ctx, `
 		SELECT completion_status, completion_file_id
 		FROM ticket_reports
-		WHERE id=$1
-		FOR UPDATE`, workReportID).Scan(&status, &currentFileID)
+		WHERE department_id=$1 AND id=$2
+		FOR UPDATE`, departmentID, workReportID).Scan(&status, &currentFileID)
+
 	if err != nil {
 		return err
 	}
@@ -225,11 +262,12 @@ func (w *Worker) applyGenerated(
 	if status == "PENDING" {
 		_, err = tx.Exec(ctx, `
 			UPDATE ticket_reports
-			SET completion_status='COMPLETED', completion_file_id=$2, completion_error=NULL,
+			SET completion_status='COMPLETED', completion_file_id=$3, completion_error=NULL,
 				completion_deadline_at=NULL, completion_updated_at=now(), updated_at=now()
-			WHERE id=$1`, workReportID, fileID)
+			WHERE department_id=$1 AND id=$2`, departmentID, workReportID, fileID)
 		return err
 	}
+
 	if status == "COMPLETED" && currentFileID != nil && *currentFileID == fileID {
 		return nil
 	}
@@ -241,29 +279,35 @@ func (w *Worker) applyGenerated(
 		"actor_roles":    payload.ActorRoles,
 		"cleanup_only":   status == "COMPLETED",
 	})
+
 	if err != nil {
 		return fmt.Errorf("encode completion compensation: %w", err)
 	}
+
 	_, err = tx.Exec(ctx, `
 		INSERT INTO outbox_events(id,aggregate_type,aggregate_id,event_type,payload)
 		VALUES($1,'ticket_report',$2,'ticket.completion_report.compensation_requested.v1',$3)`,
 		uuid.New(), workReportID, compensation)
+
 	if err != nil {
 		return err
 	}
+
 	if status != "COMPLETED" {
 		_, err = tx.Exec(ctx, `
 			UPDATE ticket_reports
-			SET completion_status='COMPENSATING', completion_file_id=$2,
+			SET completion_status='COMPENSATING', completion_file_id=$3,
 				completion_compensation_attempts=1, completion_updated_at=now(), updated_at=now()
-			WHERE id=$1`, workReportID, fileID)
+			WHERE department_id=$1 AND id=$2`, departmentID, workReportID, fileID)
 	}
+
 	return err
 }
 
 func (w *Worker) retryCompensation(
 	ctx context.Context,
 	tx pgx.Tx,
+	departmentID uuid.UUID,
 	workReportID uuid.UUID,
 	payload resultEvent,
 ) error {
@@ -272,17 +316,19 @@ func (w *Worker) retryCompensation(
 	err := tx.QueryRow(ctx, `
 		SELECT completion_status, completion_compensation_attempts
 		FROM ticket_reports
-		WHERE id=$1
-		FOR UPDATE`, workReportID).Scan(&status, &attempts)
+		WHERE department_id=$1 AND id=$2
+		FOR UPDATE`, departmentID, workReportID).Scan(&status, &attempts)
+
 	if err != nil || status != "COMPENSATING" {
 		return err
 	}
+
 	if attempts >= 3 {
 		_, err = tx.Exec(ctx, `
 			UPDATE ticket_reports
-			SET completion_status='FAILED', completion_error=$2,
+			SET completion_status='FAILED', completion_error=$3,
 				completion_updated_at=now(), updated_at=now()
-			WHERE id=$1`, workReportID, "compensation failed: "+truncate(payload.Error, 1800))
+			WHERE department_id=$1 AND id=$2`, departmentID, workReportID, "compensation failed: "+truncate(payload.Error, 1800))
 		return err
 	}
 
@@ -292,35 +338,43 @@ func (w *Worker) retryCompensation(
 		"requested_by":   payload.RequestedBy,
 		"actor_roles":    payload.ActorRoles,
 	})
+
 	if err != nil {
 		return err
 	}
+
 	_, err = tx.Exec(ctx, `
 		INSERT INTO outbox_events(id,aggregate_type,aggregate_id,event_type,payload)
 		VALUES($1,'ticket_report',$2,'ticket.completion_report.compensation_requested.v1',$3)`,
 		uuid.New(), workReportID, compensation)
+
 	if err == nil {
 		_, err = tx.Exec(ctx, `
 			UPDATE ticket_reports
 			SET completion_compensation_attempts=completion_compensation_attempts+1,
-				completion_error=$2, completion_updated_at=now(), updated_at=now()
-			WHERE id=$1`, workReportID, truncate(payload.Error, 2000))
+				completion_error=$3, completion_updated_at=now(), updated_at=now()
+			WHERE department_id=$1 AND id=$2`, departmentID, workReportID, truncate(payload.Error, 2000))
 	}
+
 	return err
 }
 
 func header(headers []kafka.Header, key string) string {
 	for _, value := range headers {
+
 		if strings.EqualFold(value.Key, key) {
 			return string(value.Value)
 		}
+
 	}
 	return ""
 }
 
 func truncate(value string, maxLen int) string {
+
 	if len(value) <= maxLen {
 		return value
 	}
+
 	return value[:maxLen]
 }

@@ -56,7 +56,31 @@ kubectl get svc,endpoints,endpointslices -n automatic-system
 - publisher worker/outbox;
 - действительно ли publisher существует для этого topic.
 
-Особенно: `files.events.v1` и `notifications.events.v1` могут быть настроены у consumers без соответствующего publisher в текущем startup code.
+Издатель `files.events.v1` — File_Service, `notifications.events.v1` —
+Notification_Service. Для обоих проверить миграцию
+`20261116000100_create_event_outbox.sql`, `KAFKA_BROKERS` и логи
+`outbox publish failed; retrying`.
+
+В БД соответствующего сервиса состояние очереди можно проверить так:
+
+```sql
+SELECT event_type, count(*) AS pending, min(created_at) AS oldest
+FROM outbox_events
+WHERE sent_at IS NULL
+GROUP BY event_type;
+
+SELECT id, event_type, attempts, next_attempt_at, last_error
+FROM outbox_events
+WHERE sent_at IS NULL
+ORDER BY sequence
+LIMIT 20;
+```
+
+Не удалять ожидающие строки ради сброса ошибки: после восстановления Kafka
+передатчик повторит отправку. Если outbox уже отправлен, искать событие у
+потребителя по `event_id`. Файловое событие не обязано создавать уведомление:
+Notification применяет фильтр `isUserFacingEvent`. Для записей, существовавших
+до миграции, историческая публикация автоматически не выполняется.
 
 ## 6. Flagger `Failed`
 

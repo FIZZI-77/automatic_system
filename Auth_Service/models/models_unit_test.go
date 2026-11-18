@@ -97,6 +97,7 @@ func TestRegisterInputValidate(t *testing.T) {
 			if !tt.wantErr && err != nil {
 				t.Fatalf("expected nil error, got %v", err)
 			}
+
 		})
 	}
 }
@@ -208,6 +209,7 @@ func TestLoginInputValidate(t *testing.T) {
 			if !tt.wantErr && err != nil {
 				t.Fatalf("expected nil error, got %v", err)
 			}
+
 		})
 	}
 }
@@ -291,6 +293,7 @@ func TestRefreshInputValidate(t *testing.T) {
 			if !tt.wantErr && err != nil {
 				t.Fatalf("expected nil error, got %v", err)
 			}
+
 		})
 	}
 }
@@ -349,6 +352,7 @@ func TestLogoutInputValidate(t *testing.T) {
 			if !tt.wantErr && err != nil {
 				t.Fatalf("expected nil error, got %v", err)
 			}
+
 		})
 	}
 }
@@ -388,6 +392,7 @@ func TestLogoutAllInputValidate(t *testing.T) {
 			if !tt.wantErr && err != nil {
 				t.Fatalf("expected nil error, got %v", err)
 			}
+
 		})
 	}
 }
@@ -506,6 +511,7 @@ func TestChangePasswordInputValidate(t *testing.T) {
 			if !tt.wantErr && err != nil {
 				t.Fatalf("expected nil error, got %v", err)
 			}
+
 		})
 	}
 }
@@ -595,6 +601,7 @@ func TestSendVerificationEmailInputValidate(t *testing.T) {
 			if !tt.wantErr && err != nil {
 				t.Fatalf("expected nil error, got %v", err)
 			}
+
 		})
 	}
 }
@@ -646,6 +653,7 @@ func TestVerifyEmailInputValidate(t *testing.T) {
 			if !tt.wantErr && err != nil {
 				t.Fatalf("expected nil error, got %v", err)
 			}
+
 		})
 	}
 }
@@ -697,6 +705,7 @@ func TestRequestPasswordResetInputValidate(t *testing.T) {
 			if !tt.wantErr && err != nil {
 				t.Fatalf("expected nil error, got %v", err)
 			}
+
 		})
 	}
 }
@@ -776,6 +785,7 @@ func TestResetPasswordInputValidate(t *testing.T) {
 			if !tt.wantErr && err != nil {
 				t.Fatalf("expected nil error, got %v", err)
 			}
+
 		})
 	}
 }
@@ -787,6 +797,7 @@ func TestSendVerificationEmailInputValidate_NormalizesEmail(t *testing.T) {
 	}
 
 	err := in.Validate()
+
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -794,4 +805,5 @@ func TestSendVerificationEmailInputValidate_NormalizesEmail(t *testing.T) {
 	if in.Email != "test@example.com" {
 		t.Fatalf("expected normalized email %q, got %q", "test@example.com", in.Email)
 	}
+
 }

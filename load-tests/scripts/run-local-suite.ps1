@@ -4,13 +4,18 @@ param(
     [string]$Measurement = '20s',
     [string]$Stabilization = '5s',
     [string]$Email = 'demo.admin@city.local',
-    [string]$Password = 'CityDemo123!',
+    [string]$Password = $env:DEMO_PASSWORD,
     [string]$ScenarioFilter = '',
     [string]$ParallelRates = '3,5,10',
     [switch]$AllowWrites
 )
 
 $ErrorActionPreference = 'Stop'
+
+if ([string]::IsNullOrWhiteSpace($Password)) {
+    throw 'Demo password is required. Pass -Password or set DEMO_PASSWORD.'
+}
+
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $runtimeDir = Join-Path $repoRoot 'load-tests\.runtime'
 $suiteStamp = (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ')

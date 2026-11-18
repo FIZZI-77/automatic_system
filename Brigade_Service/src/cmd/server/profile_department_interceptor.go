@@ -19,18 +19,23 @@ func profileDepartmentInterceptor(client profilev1.ProfileServiceClient) grpc.Un
 
 		if hasMetadataRole(md, "dispatcher") && !hasMetadataRole(md, "admin") {
 			userIDs := md.Get("x-actor-user-id")
+
 			if len(userIDs) == 0 || strings.TrimSpace(userIDs[0]) == "" {
 				return nil, status.Error(codes.Unauthenticated, "dispatcher user id is missing")
 			}
+
 			result, err := client.ResolveWorkingDepartment(ctx, &profilev1.ResolveWorkingDepartmentRequest{
 				UserId: strings.TrimSpace(userIDs[0]),
 			})
+
 			if err != nil {
 				return nil, status.Errorf(codes.Unavailable, "resolve dispatcher department: %v", err)
 			}
+
 			if !result.GetCanOperate() || strings.TrimSpace(result.GetDepartmentId()) == "" {
 				return nil, status.Error(codes.PermissionDenied, "dispatcher has no active working department")
 			}
+
 			md.Set("x-actor-department-id", result.GetDepartmentId())
 		}
 
@@ -41,9 +46,11 @@ func profileDepartmentInterceptor(client profilev1.ProfileServiceClient) grpc.Un
 func hasMetadataRole(md metadata.MD, expected string) bool {
 	for _, value := range md.Get("x-actor-roles") {
 		for _, role := range strings.Split(value, ",") {
+
 			if strings.EqualFold(strings.TrimSpace(role), expected) {
 				return true
 			}
+
 		}
 	}
 	return false

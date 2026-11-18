@@ -5,11 +5,30 @@ resources:
   - elasticsearch.yaml
   - kibana.yaml
   - filebeat.yaml
+  - kibana-dashboards.yaml
 
 configMapGenerator:
   - name: filebeat-config
     files:
       - filebeat.yml=filebeat-config.yaml
+  - name: kibana-data-view
+    files:
+      - data-view.json=kibana-dashboards/data-view.json
+  - name: kibana-dashboards-0
+    files:
+      - objects-0.json=kibana-dashboards/objects-0.json
+  - name: kibana-dashboards-1
+    files:
+      - objects-1.json=kibana-dashboards/objects-1.json
+  - name: kibana-dashboards-2
+    files:
+      - objects-2.json=kibana-dashboards/objects-2.json
+  - name: kibana-dashboards-3
+    files:
+      - objects-3.json=kibana-dashboards/objects-3.json
+  - name: kibana-dashboards-4
+    files:
+      - objects-4.json=kibana-dashboards/objects-4.json
 
 generatorOptions:
   disableNameSuffixHash: true

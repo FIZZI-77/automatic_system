@@ -23,6 +23,10 @@ dispatch:
   topologySpread:
     enabled: true
     whenUnsatisfiable: DoNotSchedule
+applications:
+  notification:
+    fcm:
+      enabled: false
 apiGateway:
   serviceType: LoadBalancer
   pdb:
@@ -34,3 +38,5 @@ haDatabase:
   enabled: true
 applicationAutoscaling:
   enabled: false
+migrations:
+  allowMissing: true

@@ -1,10 +1,18 @@
 param(
     [switch]$SkipBuild,
-    [switch]$Headed
+    [switch]$Headed,
+    [string]$Password = $env:DEMO_PASSWORD
 )
 
 $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
+
+if ([string]::IsNullOrWhiteSpace($Password)) {
+    throw "Demo password is required. Pass -Password or set DEMO_PASSWORD."
+}
+
+$env:DEMO_PASSWORD = $Password
+$env:E2E_DEMO_PASSWORD = $Password
 
 Push-Location $repoRoot
 try {

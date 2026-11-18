@@ -8,6 +8,7 @@ resources:
   - flagger-loadtester-release.yaml
   - mesh-policies.yaml
   - mesh-ingress.yaml
+  - observability-auth.yaml
   - applications-release.yaml
 
 configMapGenerator:

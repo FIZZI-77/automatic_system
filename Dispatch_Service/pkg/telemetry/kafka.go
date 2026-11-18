@@ -24,10 +24,12 @@ func WriteKafka(ctx context.Context, writer *kafka.Writer, message kafka.Message
 	Inject(ctx, carrier)
 	message.Headers = carrier.headers()
 	err := writer.WriteMessages(ctx, message)
+
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 	}
+
 	span.End()
 	return err
 }
@@ -45,10 +47,12 @@ func TraceKafkaConsumer(ctx context.Context, message kafka.Message, group string
 		),
 	)
 	err := process(ctx, message)
+
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 	}
+
 	span.End()
 	return err
 }

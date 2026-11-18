@@ -29,10 +29,13 @@ type actorContext struct {
 	Roles []string
 }
 
+// NewDepartmentHandler создаёт gRPC-обработчик ведомств с сервисом и журналом запросов.
 func NewDepartmentHandler(service *service.Service, logger *zap.Logger) *DepartmentHandler {
 	return &DepartmentHandler{service: service, logger: logger}
 }
 
+// CreateDepartment передаёт имя, описание и роли из входящих метаданных сервису
+// создания ведомства; проверку прав выполняет сервис, ответ преобразуется в protobuf.
 func (h *DepartmentHandler) CreateDepartment(ctx context.Context, req *departmentv1.CreateDepartmentRequest) (*departmentv1.CreateDepartmentResponse, error) {
 	start := time.Now()
 	logger := h.logger.With(pkg.RequestIDField(ctx))
@@ -49,6 +52,7 @@ func (h *DepartmentHandler) CreateDepartment(ctx context.Context, req *departmen
 	}
 
 	res, err := h.service.CreateDepartment(ctx, in)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "CreateDepartment"),
@@ -69,6 +73,8 @@ func (h *DepartmentHandler) CreateDepartment(ctx context.Context, req *departmen
 	return &departmentv1.CreateDepartmentResponse{Department: ToProtoDepartment(res.Department)}, nil
 }
 
+// GetDepartmentByID разбирает UUID ведомства и возвращает результат сервиса
+// в protobuf; неверный UUID даёт InvalidArgument, отсутствие ведомства — NotFound.
 func (h *DepartmentHandler) GetDepartmentByID(ctx context.Context, req *departmentv1.GetDepartmentByIDRequest) (*departmentv1.GetDepartmentByIDResponse, error) {
 	start := time.Now()
 	logger := h.logger.With(pkg.RequestIDField(ctx))
@@ -79,6 +85,7 @@ func (h *DepartmentHandler) GetDepartmentByID(ctx context.Context, req *departme
 	)
 
 	id, err := parseUUID(req.GetId(), "id")
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "GetDepartmentByID"),
@@ -90,6 +97,7 @@ func (h *DepartmentHandler) GetDepartmentByID(ctx context.Context, req *departme
 	}
 
 	res, err := h.service.GetDepartmentByID(ctx, &models.GetDepartmentByIDInput{ID: id})
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "GetDepartmentByID"),
@@ -110,6 +118,8 @@ func (h *DepartmentHandler) GetDepartmentByID(ctx context.Context, req *departme
 	return &departmentv1.GetDepartmentByIDResponse{Department: ToProtoDepartment(res.Department)}, nil
 }
 
+// ListDepartments преобразует фильтры дат, сортировку и пагинацию и возвращает
+// страницу ведомств с общим счётчиком. Отсутствующий статус и UNSPECIFIED не фильтруют список.
 func (h *DepartmentHandler) ListDepartments(ctx context.Context, req *departmentv1.ListDepartmentsRequest) (*departmentv1.ListDepartmentsResponse, error) {
 	start := time.Now()
 	logger := h.logger.With(pkg.RequestIDField(ctx))
@@ -121,6 +131,7 @@ func (h *DepartmentHandler) ListDepartments(ctx context.Context, req *department
 	)
 
 	var statusValue *models.DepartmentStatus
+
 	if req.Status != nil && req.GetStatus() != departmentv1.DepartmentStatus_DEPARTMENT_STATUS_UNSPECIFIED {
 		departmentStatus := FromProtoStatus(req.GetStatus())
 		statusValue = &departmentStatus
@@ -133,14 +144,17 @@ func (h *DepartmentHandler) ListDepartments(ctx context.Context, req *department
 		Limit:       req.GetLimit(),
 		Offset:      req.GetOffset(),
 	}
+
 	if req.SortBy != nil {
 		in.SortBy = FromProtoSortBy(req.GetSortBy())
 	}
+
 	if req.SortOrder != nil {
 		in.SortOrder = FromProtoSortOrder(req.GetSortOrder())
 	}
 
 	res, err := h.service.ListDepartments(ctx, in)
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "ListDepartments"),
@@ -165,6 +179,8 @@ func (h *DepartmentHandler) ListDepartments(ctx context.Context, req *department
 	return &departmentv1.ListDepartmentsResponse{Departments: departments, Total: res.Total}, nil
 }
 
+// UpdateDepartment разбирает UUID, сохраняет необязательность имени и описания
+// и передаёт изменение с ролями из метаданных сервису; UNSPECIFIED-статус пропускает.
 func (h *DepartmentHandler) UpdateDepartment(ctx context.Context, req *departmentv1.UpdateDepartmentRequest) (*departmentv1.UpdateDepartmentResponse, error) {
 	start := time.Now()
 	logger := h.logger.With(pkg.RequestIDField(ctx))
@@ -175,6 +191,7 @@ func (h *DepartmentHandler) UpdateDepartment(ctx context.Context, req *departmen
 	)
 
 	id, err := parseUUID(req.GetId(), "id")
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "UpdateDepartment"),
@@ -186,6 +203,7 @@ func (h *DepartmentHandler) UpdateDepartment(ctx context.Context, req *departmen
 	}
 
 	var statusValue *models.DepartmentStatus
+
 	if req.Status != nil && req.GetStatus() != departmentv1.DepartmentStatus_DEPARTMENT_STATUS_UNSPECIFIED {
 		departmentStatus := FromProtoStatus(req.GetStatus())
 		statusValue = &departmentStatus
@@ -198,6 +216,7 @@ func (h *DepartmentHandler) UpdateDepartment(ctx context.Context, req *departmen
 		Status:      statusValue,
 		ActorRoles:  actorFromContext(ctx).Roles,
 	})
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "UpdateDepartment"),
@@ -218,6 +237,8 @@ func (h *DepartmentHandler) UpdateDepartment(ctx context.Context, req *departmen
 	return &departmentv1.UpdateDepartmentResponse{Department: ToProtoDepartment(res.Department)}, nil
 }
 
+// DeleteDepartment разбирает UUID и передаёт запрос удаления с ролями из метаданных
+// сервису; возвращает ведомство из результата, ошибки преобразует в коды gRPC.
 func (h *DepartmentHandler) DeleteDepartment(ctx context.Context, req *departmentv1.DeleteDepartmentRequest) (*departmentv1.DeleteDepartmentResponse, error) {
 	start := time.Now()
 	logger := h.logger.With(pkg.RequestIDField(ctx))
@@ -228,6 +249,7 @@ func (h *DepartmentHandler) DeleteDepartment(ctx context.Context, req *departmen
 	)
 
 	id, err := parseUUID(req.GetId(), "id")
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "DeleteDepartment"),
@@ -242,6 +264,7 @@ func (h *DepartmentHandler) DeleteDepartment(ctx context.Context, req *departmen
 		ID:         id,
 		ActorRoles: actorFromContext(ctx).Roles,
 	})
+
 	if err != nil {
 		logger.Warn("gRPC request failed",
 			zap.String("method", "DeleteDepartment"),
@@ -262,28 +285,37 @@ func (h *DepartmentHandler) DeleteDepartment(ctx context.Context, req *departmen
 	return &departmentv1.DeleteDepartmentResponse{Department: ToProtoDepartment(res.Department)}, nil
 }
 
+// parseUUID разбирает UUID либо возвращает uuid.Nil и ошибку с именем поля.
 func parseUUID(value string, field string) (uuid.UUID, error) {
 	parsed, err := uuid.Parse(value)
+
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("invalid %s: %w", field, err)
 	}
+
 	return parsed, nil
 }
 
+// actorFromContext читает все x-actor-roles из входящих метаданных, разделяет
+// запятыми, обрезает крайние пробелы и исключает пустые роли, сохраняя регистр.
 func actorFromContext(ctx context.Context) actorContext {
 	md, ok := metadata.FromIncomingContext(ctx)
+
 	if !ok {
 		return actorContext{}
 	}
 
 	var actor actorContext
+
 	if values := md.Get("x-actor-roles"); len(values) > 0 {
 		for _, value := range values {
 			for _, role := range strings.Split(value, ",") {
 				role = strings.TrimSpace(role)
+
 				if role != "" {
 					actor.Roles = append(actor.Roles, role)
 				}
+
 			}
 		}
 	}
@@ -291,11 +323,17 @@ func actorFromContext(ctx context.Context) actorContext {
 	return actor
 }
 
+// departmentStatusError формирует gRPC-ошибку с доменным кодом, именем метода
+// и исходным текстом; предназначена для ненулевой ошибки.
 func departmentStatusError(method string, err error) error {
 	return status.Errorf(departmentErrorCode(err), "failed %s: %v", method, err)
 }
 
+// departmentErrorCode сопоставляет валидацию, отсутствие, дубликат и запрет доступа
+// кодам gRPC; незавершённая идемпотентная операция даёт Aborted, неудачная —
+// FailedPrecondition. nil даёт OK, неизвестная ошибка — Internal.
 func departmentErrorCode(err error) codes.Code {
+
 	if err == nil {
 		return codes.OK
 	}

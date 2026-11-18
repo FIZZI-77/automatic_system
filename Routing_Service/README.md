@@ -135,35 +135,131 @@
 
 ## Функции
 
-### `New`
+Имя функции открывает её реализацию в ветке `test`; структуры параметров и результатов описаны в конце README.
+
+### func [New](https://github.com/FIZZI-77/automatic_system/blob/test/Routing_Service/src/core/service/routing_service.go#L23)
+
+```go
+func New(
+    repo RouteRepository,
+    engine RoutingEngine,
+    logger *zap.Logger,
+) *Service
+```
+
+Типы: [RouteRepository](#type-routerepository), [RoutingEngine](#type-routingengine), [Service](#type-service).
+
+Структуры: [RouteRepository](#type-routerepository), [RoutingEngine](#type-routingengine).
 
 Принимает `RouteRepository`, `RoutingEngine` и `*zap.Logger`, возвращает `*Service`. Если журнал отсутствует, подставляет `zap.NewNop()`, поэтому методы не проверяют журнал на `nil`.
 
-### `Point.Validate`
+### func [canTransition](https://github.com/FIZZI-77/automatic_system/blob/test/Routing_Service/src/core/service/status.go#L36)
+
+```go
+func canTransition(
+    current models.RouteStatus,
+    target models.RouteStatus,
+) bool
+```
+
+Возвращает `true` только для четырех разрешенных переходов состояния, перечисленных в общем описании.
+
+### func [routingEngineName](https://github.com/FIZZI-77/automatic_system/blob/test/Routing_Service/src/core/service/routing_service.go#L267)
+
+```go
+func routingEngineName(engine RoutingEngine) string
+```
+
+Типы: [RoutingEngine](#type-routingengine).
+
+Структуры: [RoutingEngine](#type-routingengine).
+
+Получает имя через необязательный метод `Name`, убирает пробелы и переводит его в нижний регистр. Для отсутствующего или пустого имени возвращает `unknown`.
+
+### func [routingFailureCode](https://github.com/FIZZI-77/automatic_system/blob/test/Routing_Service/src/core/service/routing_service.go#L275)
+
+```go
+func routingFailureCode(err error) string
+```
+
+Возвращает `ENGINE_TIMEOUT` для превышения срока, `REQUEST_CANCELED` для отмены, `INVALID_REQUEST` для неверных данных и `ENGINE_ERROR` для остальных ошибок.
+
+### func (Point) [Validate](https://github.com/FIZZI-77/automatic_system/blob/test/Routing_Service/models/validator.go#L10)
+
+```go
+func (p Point) Validate(field string) error
+```
+
+Типы: [Point](#type-point).
 
 Проверяет диапазоны широты и долготы. Имя поля включается в ошибку, чтобы указать неверную точку. Возвращает `ErrInvalidArgument` при выходе широты за `[-90, 90]` или долготы за `[-180, 180]`.
 
-### `RouteOptions.Normalize`
+
+### func (RouteOptions) [Normalize](https://github.com/FIZZI-77/automatic_system/blob/test/Routing_Service/models/validator.go#L20)
+
+```go
+func (o RouteOptions) Normalize() RouteOptions
+```
+
+Типы: [RouteOptions](#type-routeoptions).
 
 Возвращает копию параметров и подставляет `TravelModeAuto`, если режим не указан. Остальные поля не меняет.
 
-### `RouteOptions.Validate`
+
+### func (RouteOptions) [Validate](https://github.com/FIZZI-77/automatic_system/blob/test/Routing_Service/models/validator.go#L27)
+
+```go
+func (o RouteOptions) Validate() error
+```
+
+Типы: [RouteOptions](#type-routeoptions).
 
 Разрешает только поддерживаемые режимы движения и пустое значение. Затем проверяет каждое заданное ограничение транспорта: нулевые и отрицательные значения запрещены.
 
-### `BuildRouteInput.Validate`
+
+### func (*BuildRouteInput) [Validate](https://github.com/FIZZI-77/automatic_system/blob/test/Routing_Service/models/validator.go#L50)
+
+```go
+func (in *BuildRouteInput) Validate() error
+```
+
+Типы: [BuildRouteInput](#type-buildrouteinput).
 
 Отклоняет отсутствующий запрос, проверяет исходную и конечную координаты, каждую промежуточную точку и параметры маршрута. Возвращает первую найденную ошибку.
 
-### `BuildMatrixInput.Validate`
+
+### func (*BuildMatrixInput) [Validate](https://github.com/FIZZI-77/automatic_system/blob/test/Routing_Service/models/validator.go#L68)
+
+```go
+func (in *BuildMatrixInput) Validate() error
+```
+
+Типы: [BuildMatrixInput](#type-buildmatrixinput).
 
 Требует хотя бы одну исходную и одну конечную точку. Каждая сторона ограничена 100 точками. Затем проверяет все координаты и параметры.
 
-### `CreateRouteInput.Validate`
+
+### func (*CreateRouteInput) [Validate](https://github.com/FIZZI-77/automatic_system/blob/test/Routing_Service/models/validator.go#L88)
+
+```go
+func (in *CreateRouteInput) Validate() error
+```
+
+Типы: [CreateRouteInput](#type-createrouteinput).
 
 Отклоняет отсутствующий запрос, проверяет `TicketID` и `BrigadeID` как UUID, затем использует `BuildRouteInput.Validate` для остальных полей.
 
-### `Service.BuildRoute`
+
+### func (*Service) [BuildRoute](https://github.com/FIZZI-77/automatic_system/blob/test/Routing_Service/src/core/service/routing_service.go#L38)
+
+```go
+func (s *Service) BuildRoute(
+    ctx context.Context,
+    in *models.BuildRouteInput,
+) (*models.CalculatedRoute, error)
+```
+
+Типы: [BuildRouteInput](#type-buildrouteinput), [CalculatedRoute](#type-calculatedroute), [Service](#type-service).
 
 1. Проверяет `BuildRouteInput`.
 2. Подставляет режим `auto`, если он пуст.
@@ -171,11 +267,31 @@
 4. При ошибке пишет предупреждение и возвращает исходную ошибку.
 5. При успехе возвращает `CalculatedRoute` без сохранения.
 
-### `Service.BuildMatrix`
+
+### func (*Service) [BuildMatrix](https://github.com/FIZZI-77/automatic_system/blob/test/Routing_Service/src/core/service/routing_service.go#L54)
+
+```go
+func (s *Service) BuildMatrix(
+    ctx context.Context,
+    in *models.BuildMatrixInput,
+) ([]models.MatrixCell, error)
+```
+
+Типы: [BuildMatrixInput](#type-buildmatrixinput), [MatrixCell](#type-matrixcell), [Service](#type-service).
 
 Проверяет запрос, нормализует режим и вызывает `RoutingEngine.BuildMatrix`. Возвращает список `MatrixCell` без сохранения.
 
-### `Service.RankCandidates`
+
+### func (*Service) [RankCandidates](https://github.com/FIZZI-77/automatic_system/blob/test/Routing_Service/src/core/service/routing_service.go#L65)
+
+```go
+func (s *Service) RankCandidates(
+    ctx context.Context,
+    in *models.RankCandidatesInput,
+) ([]models.RankedCandidate, error)
+```
+
+Типы: [RankCandidatesInput](#type-rankcandidatesinput), [RankedCandidate](#type-rankedcandidate), [Service](#type-service).
 
 1. Требует непустой список бригад и корректное место назначения.
 2. Проверяет непустой `BrigadeID` и координату каждой бригады.
@@ -184,7 +300,17 @@
 5. Стабильно сортирует: доступные маршруты раньше недоступных, затем меньшее время, затем меньшее расстояние.
 6. Применяет положительный `Limit` и присваивает места начиная с единицы.
 
-### `Service.CreateRoute`
+
+### func (*Service) [CreateRoute](https://github.com/FIZZI-77/automatic_system/blob/test/Routing_Service/src/core/service/routing_service.go#L125)
+
+```go
+func (s *Service) CreateRoute(
+    ctx context.Context,
+    in *models.CreateRouteInput,
+) (*models.Route, error)
+```
+
+Типы: [CreateRouteInput](#type-createrouteinput), [Route](#type-route), [Service](#type-service).
 
 1. Проверяет запрос.
 2. Ищет открытый маршрут, если хранилище реализует `GetOpenRouteByTicket`.
@@ -194,11 +320,31 @@
 6. При успехе создает UUID, устанавливает `PLANNED`, версию `1`, временные отметки и `CalculationSuccess=true`.
 7. Копирует промежуточные точки в отдельный срез и вызывает `RouteRepository.CreateRoute`.
 
-### `Service.GetRoute`
+
+### func (*Service) [GetRoute](https://github.com/FIZZI-77/automatic_system/blob/test/Routing_Service/src/core/service/routing_service.go#L194)
+
+```go
+func (s *Service) GetRoute(
+    ctx context.Context,
+    id string,
+) (*models.Route, error)
+```
+
+Типы: [Route](#type-route), [Service](#type-service).
 
 Проверяет `id` как UUID и вызывает `RouteRepository.GetRoute`. Неверный формат не передается базе данных.
 
-### `Service.RecalculateRoute`
+
+### func (*Service) [RecalculateRoute](https://github.com/FIZZI-77/automatic_system/blob/test/Routing_Service/src/core/service/routing_service.go#L204)
+
+```go
+func (s *Service) RecalculateRoute(
+    ctx context.Context,
+    in *models.RecalculateRouteInput,
+) (*models.Route, error)
+```
+
+Типы: [RecalculateRouteInput](#type-recalculaterouteinput), [Route](#type-route), [Service](#type-service).
 
 1. Проверяет запрос и текущую координату.
 2. Загружает маршрут через `GetRoute`.
@@ -206,29 +352,46 @@
 4. При ошибке формирует `CalculationFailure` для сущности `route`.
 5. При успехе заменяет начало и расчет, увеличивает `Revision`, обновляет временные показатели и вызывает `UpdateCalculation`.
 
-### `Service.SetRouteStatus`
+
+### func (*Service) [SetRouteStatus](https://github.com/FIZZI-77/automatic_system/blob/test/Routing_Service/src/core/service/status.go#L13)
+
+```go
+func (s *Service) SetRouteStatus(
+    ctx context.Context,
+    id string,
+    target models.RouteStatus,
+) (*models.Route, error)
+```
+
+Типы: [Route](#type-route), [Service](#type-service).
 
 Проверяет UUID, загружает маршрут и проверяет переход через `canTransition`. Недопустимый переход возвращает `ErrConflict`; допустимый передается `UpdateStatus`.
 
-### `canTransition`
 
-Возвращает `true` только для четырех разрешенных переходов состояния, перечисленных в общем описании.
+### func (*Service) [ListRoutes](https://github.com/FIZZI-77/automatic_system/blob/test/Routing_Service/src/core/service/routing_service.go#L288)
 
-### `Service.ListRoutes`
+```go
+func (s *Service) ListRoutes(
+    ctx context.Context,
+    in *models.ListRoutesInput,
+) (*models.ListRoutesResult, error)
+```
+
+Типы: [ListRoutesInput](#type-listroutesinput), [ListRoutesResult](#type-listroutesresult), [Service](#type-service).
 
 При отсутствии запроса создает пустой фильтр. Неположительный `Limit` заменяет на `50`. Значение больше `500` и отрицательный `Offset` отклоняет. Затем вызывает хранилище.
 
-### `Service.recordCalculationFailure`
+
+### func (*Service) [recordCalculationFailure](https://github.com/FIZZI-77/automatic_system/blob/test/Routing_Service/src/core/service/routing_service.go#L257)
+
+```go
+func (s *Service) recordCalculationFailure(ctx context.Context, failure models.CalculationFailure) error
+```
+
+Типы: [CalculationFailure](#type-calculationfailure), [Service](#type-service).
 
 Проверяет, реализует ли хранилище дополнительный метод `RecordCalculationFailure`. Если нет, завершает работу без ошибки; если да, передает ему сведения о сбое.
 
-### `routingEngineName`
-
-Получает имя через необязательный метод `Name`, убирает пробелы и переводит его в нижний регистр. Для отсутствующего или пустого имени возвращает `unknown`.
-
-### `routingFailureCode`
-
-Возвращает `ENGINE_TIMEOUT` для превышения срока, `REQUEST_CANCELED` для отмены, `INVALID_REQUEST` для неверных данных и `ENGINE_ERROR` для остальных ошибок.
 
 ## Структура БД
 
@@ -285,3 +448,229 @@
 | `message_offset` | `bigint` | Позиция сообщения в разделе. |
 | `payload` | `jsonb` | Полученные данные события. |
 | `processed_at` | `timestamptz` | Время фиксации обработки. |
+
+## Структуры параметров и результатов
+
+### type BuildMatrixInput
+
+```go
+type BuildMatrixInput struct {
+	Sources []Point
+	Targets []Point
+	Options RouteOptions
+}
+```
+
+### type BuildRouteInput
+
+```go
+type BuildRouteInput struct {
+	Origin      Point
+	Destination Point
+	Waypoints   []Point
+	Options     RouteOptions
+}
+```
+
+### type CalculatedRoute
+
+```go
+type CalculatedRoute struct {
+	Summary         RouteSummary `json:"summary"`
+	EncodedPolyline string       `json:"encoded_polyline"`
+	Legs            []RouteLeg   `json:"legs"`
+	SnappedPoints   []Point      `json:"snapped_points"`
+	Engine          string       `json:"engine"`
+}
+```
+
+### type CalculationFailure
+
+```go
+type CalculationFailure struct {
+	AggregateType         string     `json:"aggregate_type"`
+	AggregateID           string     `json:"aggregate_id"`
+	TicketID              string     `json:"ticket_id"`
+	BrigadeID             string     `json:"brigade_id"`
+	RouteID               string     `json:"route_id,omitempty"`
+	Engine                string     `json:"engine"`
+	TravelMode            TravelMode `json:"travel_mode"`
+	FailureCode           string     `json:"failure_code"`
+	FailureReason         string     `json:"failure_reason"`
+	CalculationStartedAt  time.Time  `json:"calculation_started_at"`
+	CalculationFinishedAt time.Time  `json:"calculation_finished_at"`
+	CalculationDurationMS float64    `json:"calculation_duration_ms"`
+}
+```
+
+### type CreateRouteInput
+
+```go
+type CreateRouteInput struct {
+	TicketID    string
+	BrigadeID   string
+	Origin      Point
+	Destination Point
+	Waypoints   []Point
+	Options     RouteOptions
+}
+```
+
+### type ListRoutesInput
+
+```go
+type ListRoutesInput struct {
+	TicketID  *string
+	BrigadeID *string
+	Status    *RouteStatus
+	Limit     int32
+	Offset    int32
+}
+```
+
+### type ListRoutesResult
+
+```go
+type ListRoutesResult struct {
+	Routes []*Route
+	Total  int64
+}
+```
+
+### type MatrixCell
+
+```go
+type MatrixCell struct {
+	SourceIndex     int32
+	TargetIndex     int32
+	DistanceMeters  float64
+	DurationSeconds int64
+	Reachable       bool
+}
+```
+
+### type Point
+
+```go
+type Point struct {
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+}
+```
+
+### type RankCandidatesInput
+
+```go
+type RankCandidatesInput struct {
+	Destination Point
+	Candidates  []Candidate
+	Options     RouteOptions
+	Limit       int32
+}
+```
+
+### type RankedCandidate
+
+```go
+type RankedCandidate struct {
+	Candidate
+	Rank           int32
+	DistanceMeters float64
+	ETASeconds     int64
+	Reachable      bool
+}
+```
+
+### type RecalculateRouteInput
+
+```go
+type RecalculateRouteInput struct {
+	ID              string
+	CurrentPosition Point
+}
+```
+
+### type Route
+
+```go
+type Route struct {
+	ID                        string          `json:"id"`
+	TicketID                  string          `json:"ticket_id"`
+	BrigadeID                 string          `json:"brigade_id"`
+	Status                    RouteStatus     `json:"status"`
+	Origin                    Point           `json:"origin"`
+	Destination               Point           `json:"destination"`
+	Waypoints                 []Point         `json:"waypoints"`
+	Options                   RouteOptions    `json:"options"`
+	Calculation               CalculatedRoute `json:"calculation"`
+	Revision                  int32           `json:"revision"`
+	CreatedAt                 time.Time       `json:"created_at"`
+	UpdatedAt                 time.Time       `json:"updated_at"`
+	CalculationStartedAt      *time.Time      `json:"calculation_started_at,omitempty"`
+	CalculationFinishedAt     *time.Time      `json:"calculation_finished_at,omitempty"`
+	CalculationDurationMillis *float64        `json:"calculation_duration_ms,omitempty"`
+	CalculationSuccess        *bool           `json:"calculation_success,omitempty"`
+}
+```
+
+### type RouteOptions
+
+```go
+type RouteOptions struct {
+	TravelMode   TravelMode          `json:"travel_mode"`
+	DepartureAt  *time.Time          `json:"departure_at,omitempty"`
+	Alternatives bool                `json:"alternatives"`
+	Vehicle      *VehicleConstraints `json:"vehicle,omitempty"`
+}
+```
+
+### type RouteRepository
+
+```go
+type RouteRepository interface {
+	CreateRoute(
+		ctx context.Context,
+		route *models.Route,
+	) (*models.Route, error)
+	GetRoute(ctx context.Context, id string) (*models.Route, error)
+	UpdateCalculation(
+		ctx context.Context,
+		route *models.Route,
+	) (*models.Route, error)
+	UpdateStatus(
+		ctx context.Context,
+		id string,
+		expectedStatus models.RouteStatus,
+		status models.RouteStatus,
+	) (*models.Route, error)
+	ListRoutes(
+		ctx context.Context,
+		in *models.ListRoutesInput,
+	) (*models.ListRoutesResult, error)
+}
+```
+
+### type RoutingEngine
+
+```go
+type RoutingEngine interface {
+	BuildRoute(
+		ctx context.Context,
+		in *models.BuildRouteInput,
+	) (*models.CalculatedRoute, error)
+	BuildMatrix(
+		ctx context.Context,
+		in *models.BuildMatrixInput,
+	) ([]models.MatrixCell, error)
+}
+```
+
+### type Service
+
+```go
+type Service struct {
+	repo   RouteRepository
+	engine RoutingEngine
+	log    *zap.Logger
+}
+```

@@ -31,7 +31,9 @@ const swaggerPage = `<!doctype html>
 const swaggerInit = `SwaggerUIBundle({ url: './openapi.json', dom_id: '#swagger-ui', deepLinking: true,
   presets: [SwaggerUIBundle.presets.apis] });`
 
+// registerAPIDocs публикует Swagger UI и OpenAPI-спецификацию при включенном SWAGGER_ENABLED.
 func registerAPIDocs(router *gin.Engine) {
+
 	if os.Getenv("SWAGGER_ENABLED") != "true" {
 		return
 	}
@@ -59,10 +61,12 @@ func registerAPIDocs(router *gin.Engine) {
 	} {
 		router.GET("/swagger/"+asset.name, func(c *gin.Context) {
 			content, err := fs.ReadFile(swaggerFiles.FS, asset.name)
+
 			if err != nil {
 				c.Status(http.StatusInternalServerError)
 				return
 			}
+
 			c.Data(http.StatusOK, asset.contentType, content)
 		})
 	}

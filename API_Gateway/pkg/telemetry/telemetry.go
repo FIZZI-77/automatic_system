@@ -33,23 +33,25 @@ import (
 
 const defaultSampleRatio = 1.0
 
-// Providers owns the process-wide OpenTelemetry providers.
+// Providers хранит общие для процесса провайдеры OpenTelemetry.
 type Providers struct {
 	tracerProvider *sdktrace.TracerProvider
 	meterProvider  *metric.MeterProvider
 	metricsServer  *http.Server
 }
 
-// Init configures OTLP traces and a Prometheus metrics endpoint. The trace
-// exporter connects asynchronously, so a temporarily unavailable collector
-// does not prevent the service from starting.
+// Init настраивает экспорт трассировок через OTLP и endpoint метрик Prometheus.
+// Экспортёр подключается асинхронно, поэтому временная недоступность коллектора
+// не мешает запуску сервиса.
 func Init(ctx context.Context, serviceName string) (*Providers, error) {
 	res, err := newResource(ctx, serviceName)
+
 	if err != nil {
 		return nil, err
 	}
 
 	traceExporter, err := otlptracegrpc.New(ctx)
+
 	if err != nil {
 		return nil, fmt.Errorf("create OTLP trace exporter: %w", err)
 	}
@@ -63,6 +65,7 @@ func Init(ctx context.Context, serviceName string) (*Providers, error) {
 	metricExporter, err := prometheusexporter.New(
 		prometheusexporter.WithRegisterer(registry),
 	)
+
 	if err != nil {
 		_ = traceExporter.Shutdown(ctx)
 		return nil, fmt.Errorf("create Prometheus metric exporter: %w", err)
@@ -78,11 +81,13 @@ func Init(ctx context.Context, serviceName string) (*Providers, error) {
 		metric.WithReader(metricExporter),
 	)
 	metricsListener, err := net.Listen("tcp", env("METRICS_ADDR", ":9464"))
+
 	if err != nil {
 		_ = tracerProvider.Shutdown(ctx)
 		_ = meterProvider.Shutdown(ctx)
 		return nil, fmt.Errorf("listen for Prometheus metrics: %w", err)
 	}
+
 	metricsServer := &http.Server{
 		Handler: promhttp.HandlerFor(registry, promhttp.HandlerOpts{
 			EnableOpenMetrics: true,
@@ -90,10 +95,12 @@ func Init(ctx context.Context, serviceName string) (*Providers, error) {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	go func() {
+
 		if serveErr := metricsServer.Serve(metricsListener); serveErr != nil &&
 			!errors.Is(serveErr, http.ErrServerClosed) {
 			log.Printf("Prometheus metrics server failed: %v", serveErr)
 		}
+
 	}()
 
 	otel.SetTracerProvider(tracerProvider)
@@ -116,7 +123,7 @@ func Init(ctx context.Context, serviceName string) (*Providers, error) {
 	}, nil
 }
 
-// Close flushes pending telemetry with a bounded process-shutdown deadline.
+// Close сбрасывает накопленную телеметрию в пределах срока завершения процесса.
 func (p *Providers) Close() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -124,8 +131,9 @@ func (p *Providers) Close() error {
 	return p.Shutdown(ctx)
 }
 
-// Shutdown flushes pending telemetry and stops both providers.
+// Shutdown сбрасывает накопленную телеметрию и останавливает оба провайдера.
 func (p *Providers) Shutdown(ctx context.Context) error {
+
 	if p == nil {
 		return nil
 	}
@@ -137,17 +145,17 @@ func (p *Providers) Shutdown(ctx context.Context) error {
 	)
 }
 
-// GRPCServerOption instruments unary and streaming server calls.
+// GRPCServerOption добавляет телеметрию к унарным и потоковым серверным вызовам.
 func GRPCServerOption() grpc.ServerOption {
 	return grpc.StatsHandler(otelgrpc.NewServerHandler())
 }
 
-// GRPCClientOption instruments unary and streaming client calls.
+// GRPCClientOption добавляет телеметрию к унарным и потоковым клиентским вызовам.
 func GRPCClientOption() grpc.DialOption {
 	return grpc.WithStatsHandler(otelgrpc.NewClientHandler())
 }
 
-// HTTPHandler instruments inbound HTTP traffic and excludes operational probes.
+// HTTPHandler добавляет телеметрию к входящему HTTP-трафику и исключает служебные проверки.
 func HTTPHandler(handler http.Handler, operation string) http.Handler {
 	return otelhttp.NewHandler(
 		handler,
@@ -163,25 +171,27 @@ func HTTPHandler(handler http.Handler, operation string) http.Handler {
 	)
 }
 
-// HTTPTransport instruments outbound HTTP traffic.
+// HTTPTransport добавляет телеметрию к исходящему HTTP-трафику.
 func HTTPTransport(base http.RoundTripper) http.RoundTripper {
+
 	if base == nil {
 		base = http.DefaultTransport
 	}
+
 	return otelhttp.NewTransport(base)
 }
 
-// Inject writes the current trace and baggage into a message carrier.
+// Inject записывает текущий контекст трассировки и baggage в носитель сообщения.
 func Inject(ctx context.Context, carrier propagation.TextMapCarrier) {
 	otel.GetTextMapPropagator().Inject(ctx, carrier)
 }
 
-// Extract restores trace and baggage from a message carrier.
+// Extract восстанавливает контекст трассировки и baggage из носителя сообщения.
 func Extract(ctx context.Context, carrier propagation.TextMapCarrier) context.Context {
 	return otel.GetTextMapPropagator().Extract(ctx, carrier)
 }
 
-// Tracer returns a tracer scoped to a service package.
+// Tracer возвращает трассировщик, привязанный к пакету сервиса.
 func Tracer(name string) trace.Tracer {
 	return otel.Tracer(name)
 }
@@ -205,21 +215,25 @@ func newResource(ctx context.Context, serviceName string) (*resource.Resource, e
 func sampleRatio() float64 {
 	value := env("OTEL_TRACES_SAMPLER_ARG", strconv.FormatFloat(defaultSampleRatio, 'f', 2, 64))
 	ratio, err := strconv.ParseFloat(value, 64)
+
 	if err != nil || ratio < 0 || ratio > 1 {
 		return defaultSampleRatio
 	}
+
 	return ratio
 }
 
 func env(key string, fallback string) string {
 	value := strings.TrimSpace(os.Getenv(key))
+
 	if value == "" {
 		return fallback
 	}
+
 	return value
 }
 
-// Compile-time checks keep option return types explicit when gRPC APIs evolve.
+// Проверки времени компиляции фиксируют типы возвращаемых gRPC-параметров при изменении API.
 var (
 	_ grpc.ServerOption = GRPCServerOption()
 	_ grpc.DialOption   = GRPCClientOption()

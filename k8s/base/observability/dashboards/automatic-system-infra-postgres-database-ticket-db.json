@@ -1118,7 +1118,7 @@
               "type": "logs"
             }
           ],
-          "query": "(kubernetes.pod.name: coordinator-ticket-citus-* OR kubernetes.pod.name: worker-*-ticket-citus-*)",
+          "query": "((kubernetes.pod.name: coordinator-ticket-citus-* OR kubernetes.pod.name: worker-*-ticket-citus-*)) AND NOT log.file.path:*istio-proxy*",
           "datasource": {
             "type": "elasticsearch",
             "uid": "elasticsearch"
