@@ -20,9 +20,11 @@ type Closer struct {
 
 func New() *Closer { return &Closer{} }
 func (c *Closer) Add(name string, fn func() error) {
+
 	if fn == nil {
 		return
 	}
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.items = append(c.items, item{name: name, fn: fn})
@@ -41,9 +43,11 @@ func (c *Closer) closeAll(ctx context.Context) error {
 		go func(current item) { done <- current.fn() }(items[i])
 		select {
 		case err := <-done:
+
 			if err != nil {
 				result = errors.Join(result, fmt.Errorf("%s: %w", items[i].name, err))
 			}
+
 		case <-ctx.Done():
 			return errors.Join(result, ctx.Err())
 		}

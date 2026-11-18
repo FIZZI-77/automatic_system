@@ -83,6 +83,7 @@ func TestCreateTicketInput_Validate_CommonCases(t *testing.T) {
 			tt.mutate(in)
 
 			err := in.Validate()
+
 			if tt.wantErr && err == nil {
 				t.Fatal("expected error")
 			}
@@ -90,6 +91,7 @@ func TestCreateTicketInput_Validate_CommonCases(t *testing.T) {
 			if !tt.wantErr && err != nil {
 				t.Fatalf("expected nil error, got %v", err)
 			}
+
 		})
 	}
 }
@@ -138,6 +140,7 @@ func TestListTicketsInput_Validate_NormalizesAndRejectsCommonCases(t *testing.T)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.in.Validate()
+
 			if tt.wantErr && err == nil {
 				t.Fatal("expected error")
 			}
@@ -165,6 +168,7 @@ func TestListTicketsInput_Validate_NormalizesAndRejectsCommonCases(t *testing.T)
 			if tt.in.SortOrder != SortOrderDesc {
 				t.Fatalf("expected default sort_order desc, got %s", tt.in.SortOrder)
 			}
+
 		})
 	}
 }
@@ -253,6 +257,7 @@ func TestUpdateTicketInput_Validate_CommonCases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.in.Validate()
+
 			if tt.wantErr && err == nil {
 				t.Fatal("expected error")
 			}
@@ -260,6 +265,7 @@ func TestUpdateTicketInput_Validate_CommonCases(t *testing.T) {
 			if !tt.wantErr && err != nil {
 				t.Fatalf("expected nil error, got %v", err)
 			}
+
 		})
 	}
 }
@@ -318,6 +324,7 @@ func TestCategoryInputs_Validate_CommonCases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.run()
+
 			if tt.wantErr && err == nil {
 				t.Fatal("expected error")
 			}
@@ -325,6 +332,7 @@ func TestCategoryInputs_Validate_CommonCases(t *testing.T) {
 			if !tt.wantErr && err != nil {
 				t.Fatalf("expected nil error, got %v", err)
 			}
+
 		})
 	}
 }

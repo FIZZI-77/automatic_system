@@ -20,9 +20,10 @@ func NewRunner(cfg Config, route Route, sender Sender, logger *log.Logger) *Runn
 
 func (r *Runner) Run(ctx context.Context) error {
 	r.logger.Printf("transponder simulator started: %s route=%q points=%d", r.cfg.String(), r.route.Name, len(r.route.Points))
-	// Location Service orders the current position at brigade level, so several
-	// vehicles in one brigade need a shared, wall-clock-comparable sequence.
-	// Nanoseconds keep independent simulator instances globally ordered.
+	// Location Service упорядочивает текущие позиции на уровне бригады, поэтому
+	// нескольким машинам одной бригады нужна общая последовательность,
+	// сопоставимая по настенным часам. Наносекунды сохраняют глобальный порядок
+	// между независимыми экземплярами симулятора.
 	sequence := uint64(now().UnixNano())
 	for {
 		for index, point := range r.route.Points {
@@ -34,24 +35,32 @@ func (r *Runner) Run(ctx context.Context) error {
 			next := r.route.Points[(index+1)%len(r.route.Points)]
 			eventTime := now()
 			wallSequence := uint64(eventTime.UnixNano())
+
 			if wallSequence > sequence {
 				sequence = wallSequence
 			} else {
 				sequence++
 			}
+
 			event := NewEvent(r.cfg, point, next, sequence, eventTime)
+
 			if err := r.sender.Send(ctx, event); err != nil {
 				return fmt.Errorf("point %d sequence %d: %w", index, sequence, err)
 			}
+
 			r.logger.Printf("position sent: sequence=%d latitude=%.6f longitude=%.6f speed=%.1f heading=%.1f",
 				sequence, point.Latitude, point.Longitude, event.Payload.SpeedKMH, event.Payload.Heading)
+
 			if err := wait(ctx, r.cfg.Interval); err != nil {
 				return nil
 			}
+
 		}
+
 		if !r.cfg.LoopRoute {
 			return nil
 		}
+
 	}
 }
 

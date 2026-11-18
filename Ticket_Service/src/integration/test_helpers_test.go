@@ -46,7 +46,9 @@ func newTestApp(t *testing.T) *testApp {
 				WithStartupTimeout(60*time.Second),
 		),
 	)
+
 	if err != nil {
+
 		if isDockerProviderUnavailable(err) {
 			t.Skipf("skipping ticket integration tests: %v", err)
 		}
@@ -59,12 +61,14 @@ func newTestApp(t *testing.T) *testApp {
 	}
 
 	connStr, err := container.ConnectionString(ctx, "sslmode=disable")
+
 	if err != nil {
 		cleanup()
 		t.Fatalf("failed to get connection string: %v", err)
 	}
 
 	db, err := sql.Open("pgx", connStr)
+
 	if err != nil {
 		cleanup()
 		t.Fatalf("failed to open db: %v", err)
@@ -79,10 +83,12 @@ func newTestApp(t *testing.T) *testApp {
 	runGooseMigrations(t, db)
 
 	pool, err := pgxpool.New(ctx, connStr)
+
 	if err != nil {
 		cleanup()
 		t.Fatalf("failed to create pgx pool: %v", err)
 	}
+
 	if err = pool.Ping(ctx); err != nil {
 		pool.Close()
 		cleanup()
@@ -117,6 +123,7 @@ func runGooseMigrations(t *testing.T, db *sql.DB) {
 	if err := goose.Up(db, migrationsDir); err != nil {
 		t.Fatalf("failed to apply goose migrations from %s: %v", migrationsDir, err)
 	}
+
 }
 
 func waitForDB(t *testing.T, ctx context.Context, db *sql.DB) {
@@ -125,6 +132,7 @@ func waitForDB(t *testing.T, ctx context.Context, db *sql.DB) {
 	var err error
 	for i := 0; i < 30; i++ {
 		err = db.PingContext(ctx)
+
 		if err == nil {
 			return
 		}
@@ -172,6 +180,7 @@ func createIntegrationCategory(t *testing.T, app *testApp) *models.TicketCategor
 		Description: stringPtr("Created by integration test"),
 		ActorRoles:  adminRoles(),
 	})
+
 	if err != nil {
 		t.Fatalf("create category failed: %v", err)
 	}
@@ -196,6 +205,7 @@ func createIntegrationTicket(t *testing.T, app *testApp, categoryID uuid.UUID, u
 		Longitude:    37.618423,
 		ActorUserID:  &userID,
 	})
+
 	if err != nil {
 		t.Fatalf("create ticket failed: %v", err)
 	}

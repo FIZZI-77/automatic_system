@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
+// Notification описывает пользовательское уведомление.
 type Notification struct {
 	ID        uuid.UUID
 	EventID   string
@@ -18,6 +19,8 @@ type Notification struct {
 	ReadAt    *time.Time
 	CreatedAt time.Time
 }
+
+// Preferences описывает пользовательские настройки уведомлений.
 type Preferences struct {
 	UserID       uuid.UUID
 	InApp        bool
@@ -28,6 +31,8 @@ type Preferences struct {
 	Phone        *string
 	UpdatedAt    time.Time
 }
+
+// Device описывает устройство, зарегистрированное для уведомлений.
 type Device struct {
 	ID        uuid.UUID
 	UserID    uuid.UUID
@@ -37,6 +42,8 @@ type Device struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
+
+// Template описывает шаблон уведомления для события и канала.
 type Template struct {
 	ID        uuid.UUID
 	EventType string
@@ -47,6 +54,8 @@ type Template struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
+
+// Delivery описывает попытку доставки уведомления.
 type Delivery struct {
 	ID             uuid.UUID
 	NotificationID uuid.UUID
@@ -62,6 +71,8 @@ type Delivery struct {
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }
+
+// Event описывает событие event.
 type Event struct {
 	ID      string
 	Type    string

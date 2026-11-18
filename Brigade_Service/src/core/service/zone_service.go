@@ -17,6 +17,7 @@ type ZoneServiceStruct struct {
 	log  *zap.Logger
 }
 
+// NewZoneServiceStruct создаёт сервис зон бригад с обязательным журналом log.
 func NewZoneServiceStruct(repo *repository.Repo, log *zap.Logger) *ZoneServiceStruct {
 	return &ZoneServiceStruct{
 		repo: repo,
@@ -24,6 +25,8 @@ func NewZoneServiceStruct(repo *repository.Repo, log *zap.Logger) *ZoneServiceSt
 	}
 }
 
+// CreateBrigadeZone проверяет вход и совпадение ведомств зоны и неархивной бригады,
+// затем создаёт зону для администратора или диспетчера этого ведомства.
 func (z *ZoneServiceStruct) CreateBrigadeZone(ctx context.Context, in *models.CreateBrigadeZoneInput) (*models.CreateBrigadeZoneResult, error) {
 	log := z.log.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -39,6 +42,7 @@ func (z *ZoneServiceStruct) CreateBrigadeZone(ctx context.Context, in *models.Cr
 	}
 
 	brigade, err := z.getBrigadeForZoneOperation(ctx, log, start, in.BrigadeID, in.ActorUserID, in.ActorDepartmentID, in.ActorRoles, "CreateBrigadeZone")
+
 	if err != nil {
 		return nil, err
 	}
@@ -60,6 +64,7 @@ func (z *ZoneServiceStruct) CreateBrigadeZone(ctx context.Context, in *models.Cr
 	}
 
 	result, err := z.repo.CreateBrigadeZone(ctx, in)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: CreateBrigadeZone: %w", err)
 	}
@@ -72,6 +77,8 @@ func (z *ZoneServiceStruct) CreateBrigadeZone(ctx context.Context, in *models.Cr
 	return result, nil
 }
 
+// UpdateBrigadeZone проверяет запрос, читает зону и её неархивную бригаду
+// и меняет заданные поля для администратора или диспетчера ведомства бригады.
 func (z *ZoneServiceStruct) UpdateBrigadeZone(ctx context.Context, in *models.UpdateBrigadeZoneInput) (*models.UpdateBrigadeZoneResult, error) {
 	log := z.log.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -87,11 +94,13 @@ func (z *ZoneServiceStruct) UpdateBrigadeZone(ctx context.Context, in *models.Up
 	}
 
 	zone, err := z.repo.GetBrigadeZoneByID(ctx, in.ID)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: UpdateBrigadeZone: get zone: %w", err)
 	}
 
 	brigade, err := z.getBrigadeForZoneOperation(ctx, log, start, zone.BrigadeID, in.ActorUserID, in.ActorDepartmentID, in.ActorRoles, "UpdateBrigadeZone")
+
 	if err != nil {
 		return nil, err
 	}
@@ -101,6 +110,7 @@ func (z *ZoneServiceStruct) UpdateBrigadeZone(ctx context.Context, in *models.Up
 	}
 
 	result, err := z.repo.UpdateBrigadeZone(ctx, in)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: UpdateBrigadeZone: %w", err)
 	}
@@ -113,6 +123,8 @@ func (z *ZoneServiceStruct) UpdateBrigadeZone(ctx context.Context, in *models.Up
 	return result, nil
 }
 
+// DeleteBrigadeZone проверяет ID и доступ к неархивной бригаде, затем деактивирует
+// её зону для администратора или диспетчера ведомства бригады.
 func (z *ZoneServiceStruct) DeleteBrigadeZone(ctx context.Context, in *models.DeleteBrigadeZoneInput) (*models.DeleteBrigadeZoneResult, error) {
 	log := z.log.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -128,11 +140,13 @@ func (z *ZoneServiceStruct) DeleteBrigadeZone(ctx context.Context, in *models.De
 	}
 
 	zone, err := z.repo.GetBrigadeZoneByID(ctx, in.ID)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: DeleteBrigadeZone: get zone: %w", err)
 	}
 
 	brigade, err := z.getBrigadeForZoneOperation(ctx, log, start, zone.BrigadeID, in.ActorUserID, in.ActorDepartmentID, in.ActorRoles, "DeleteBrigadeZone")
+
 	if err != nil {
 		return nil, err
 	}
@@ -142,6 +156,7 @@ func (z *ZoneServiceStruct) DeleteBrigadeZone(ctx context.Context, in *models.De
 	}
 
 	result, err := z.repo.DeleteBrigadeZone(ctx, in)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: DeleteBrigadeZone: %w", err)
 	}
@@ -154,6 +169,8 @@ func (z *ZoneServiceStruct) DeleteBrigadeZone(ctx context.Context, in *models.De
 	return result, nil
 }
 
+// ListBrigadeZones проверяет запрос и возвращает зоны неархивной бригады
+// администратору или диспетчеру её ведомства.
 func (z *ZoneServiceStruct) ListBrigadeZones(ctx context.Context, in *models.ListBrigadeZonesInput) (*models.ListBrigadeZonesResult, error) {
 	log := z.log.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -169,6 +186,7 @@ func (z *ZoneServiceStruct) ListBrigadeZones(ctx context.Context, in *models.Lis
 	}
 
 	brigade, err := z.getBrigadeForZoneOperation(ctx, log, start, in.BrigadeID, in.ActorUserID, in.ActorDepartmentID, in.ActorRoles, "ListBrigadeZones")
+
 	if err != nil {
 		return nil, err
 	}
@@ -178,6 +196,7 @@ func (z *ZoneServiceStruct) ListBrigadeZones(ctx context.Context, in *models.Lis
 	}
 
 	result, err := z.repo.ListBrigadeZones(ctx, in)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: ListBrigadeZones: %w", err)
 	}
@@ -190,6 +209,8 @@ func (z *ZoneServiceStruct) ListBrigadeZones(ctx context.Context, in *models.Lis
 	return result, nil
 }
 
+// CheckBrigadeCoversPoint проверяет ID и координаты и возвращает признак покрытия
+// точки и совпавшие активные зоны. Отдельную проверку прав в сервисе не выполняет.
 func (z *ZoneServiceStruct) CheckBrigadeCoversPoint(ctx context.Context, in *models.CheckBrigadeCoversPointInput) (*models.CheckBrigadeCoversPointResult, error) {
 	log := z.log.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -205,6 +226,7 @@ func (z *ZoneServiceStruct) CheckBrigadeCoversPoint(ctx context.Context, in *mod
 	}
 
 	result, err := z.repo.CheckBrigadeCoversPoint(ctx, in)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: CheckBrigadeCoversPoint: %w", err)
 	}
@@ -218,6 +240,8 @@ func (z *ZoneServiceStruct) CheckBrigadeCoversPoint(ctx context.Context, in *mod
 	return result, nil
 }
 
+// FindBrigadesByPoint проверяет ведомство, точку и требования, нормализует пагинацию
+// в in и возвращает подходящие бригады с общим счётчиком. Права отдельно не проверяет.
 func (z *ZoneServiceStruct) FindBrigadesByPoint(ctx context.Context, in *models.FindBrigadesByPointInput) (*models.FindBrigadesByPointResult, error) {
 	log := z.log.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -233,6 +257,7 @@ func (z *ZoneServiceStruct) FindBrigadesByPoint(ctx context.Context, in *models.
 	}
 
 	result, err := z.repo.FindBrigadesByPoint(ctx, in)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: FindBrigadesByPoint: %w", err)
 	}
@@ -245,6 +270,8 @@ func (z *ZoneServiceStruct) FindBrigadesByPoint(ctx context.Context, in *models.
 	return result, nil
 }
 
+// getBrigadeForZoneOperation читает бригаду и отклоняет ARCHIVED с ErrPermissionDenied.
+// Ошибку чтения дополняет именем operation; проверку прав действия оставляет вызывающему коду.
 func (z *ZoneServiceStruct) getBrigadeForZoneOperation(
 	ctx context.Context,
 	log *zap.Logger,
@@ -261,6 +288,7 @@ func (z *ZoneServiceStruct) getBrigadeForZoneOperation(
 		ActorDepartmentID: actorDepartmentID,
 		ActorRoles:        actorRoles,
 	})
+
 	if err != nil {
 		return nil, fmt.Errorf("service: %s: get brigade: %w", operation, err)
 	}

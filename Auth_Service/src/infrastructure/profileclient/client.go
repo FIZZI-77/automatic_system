@@ -25,12 +25,15 @@ func (c *Client) UserProfileExists(ctx context.Context, userID uuid.UUID) (bool,
 	defer cancel()
 	callCtx = profileContext(callCtx, ctx, userID)
 	response, err := c.client.GetUserProfileByUserID(callCtx, &profilev1.GetUserProfileByUserIDRequest{UserId: userID.String()})
+
 	if status.Code(err) == codes.NotFound {
 		return false, nil
 	}
+
 	if err != nil {
 		return false, fmt.Errorf("profile GetUserProfileByUserID: %w", err)
 	}
+
 	return response.GetUserProfile() != nil && response.GetUserProfile().GetUserId() == userID.String(), nil
 }
 
@@ -48,6 +51,7 @@ func (c *Client) CreateUserProfile(ctx context.Context, userID uuid.UUID, fullNa
 		UserId:   userID.String(),
 		FullName: fullName,
 	})
+
 	if err != nil {
 		return fmt.Errorf("profile CreateUserProfile: %w", err)
 	}
@@ -60,8 +64,10 @@ func profileContext(callCtx, source context.Context, userID uuid.UUID) context.C
 		"x-actor-user-id", userID.String(),
 		"x-actor-roles", "user",
 	}
+
 	if requestID, ok := pkg.RequestIDFromContext(source); ok {
 		metadataPairs = append(metadataPairs, "x-request-id", requestID)
 	}
+
 	return metadata.NewOutgoingContext(callCtx, metadata.Pairs(metadataPairs...))
 }

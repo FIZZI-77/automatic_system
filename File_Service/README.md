@@ -7,11 +7,73 @@ S3-совместимом хранилище. Двоичные данные не
 временную подписанную ссылку, по которой клиент загружает или скачивает объект
 напрямую.
 
+Удаление сначала атомарно скрывает метаданные (`DELETED`) и сохраняет задачу
+в `file_deletion_jobs`. Фоновая очистка раз в минуту повторяет удаление S3;
+неудачная задача сохраняет ошибку и число попыток. Повтор запроса владельцем
+безопасен. Физическое удаление ожидает окончания ранее выданного PUT URL,
+включая уже подтверждённые файлы, чтобы поздний PUT не создал объект снова.
+Истечение подписи сохраняется в `upload_expires_at`; старые записи без этого
+поля получают консервативное окно в семь дней от создания.
+
+Неподтверждённые загрузки удаляются через час после истечения подписи. При
+остановке процесса очередь остаётся в PostgreSQL. Перед запуском новой версии
+нужна миграция `20261029000110_create_file_deletion_jobs_table.sql`; её откат запрещён, пока
+в очереди есть задачи. `PRESIGN_TTL` должен быть положительным и не превышать
+семь дней. Тесты восстановления используют `RECOVERY_TEST_DATABASE_URL` и
+изолированные временные схемы PostgreSQL.
+
 Порядок загрузки: `Create` создает метаданные и ссылку, клиент выполняет
 `PUT`, `Confirm` сверяет фактические размер и тип, затем `Link` связывает
 файл с предметной сущностью. Максимальный размер равен 25 МиБ. Разрешены JPEG,
 PNG, GIF, WebP, PDF, CSV и XLSX. Kafka и таблица исходящих событий не
 используются.
+ 
+## События Kafka
+
+**Издатель `files.events.v1` — File_Service.** PostgreSQL-триггер
+`files_event_outbox` сохраняет событие в `outbox_events` в той же транзакции,
+что и изменение метаданных. Фоновый передатчик запускается из
+[outbox.go](src/cmd/server/outbox.go) вместе с сервисом.
+
+| Тип события | Когда создаётся |
+|---|---|
+| `file.created` | Сохранены метаданные и подготовлена загрузка; содержимое ещё не подтверждено. |
+| `file.uploaded` | Загрузка подтверждена, статус стал `UPLOADED`. |
+| `file.linked` | Файл связан с ресурсом или изменена его привязка. |
+| `file.quarantined` | Ожидающий загрузки файл переведён в карантин. |
+| `file.deleted` | Файл логически удалён, в том числе при очистке просроченной загрузки. Это не подтверждение физического удаления из S3. |
+
+Повторная привязка к тому же ресурсу и повторное логическое удаление новых
+событий не создают. Файловые события читают Notification, Audit и Analytics;
+Notification по-прежнему отбирает пользовательские события через
+`isUserFacingEvent` и не создаёт уведомления из типов `file.*`.
+
+Kafka key — ID файла. JSON содержит `event_id`, `event_type`,
+`event_version=1`, `occurred_at`, `entity_type=file`, `entity_id`, `file_id`,
+`owner_user_id`, `resource_type`, `resource_id`, `status`, `content_type`, `size`.
+Имя файла, `object_key`, checksum и подписанные URL не передаются.
+
+Перед запуском нужно применить
+[миграцию outbox](scheme/20261116000100_create_event_outbox.sql), задать
+`KAFKA_BROKERS` и создать топик через `kafka-init`. Compose и Helm содержат
+настройки брокеров. Исторические записи автоматически не публикуются.
+
+Доставка — at-least-once: строка отмечается отправленной только после
+подтверждения Kafka; при сбоях повторяются отправки с тем же ID и временем
+события, с задержкой до 256 секунд. Неотправленные строки сохраняются при
+перезапуске. Повторы исключают потребители по `event_id`.
+
+Проверки атомарности, повторов и восстановления передатчика используют
+изолированную схему PostgreSQL. Из каталога File_Service:
+
+```powershell
+$env:OUTBOX_TEST_DATABASE_URL = "postgres://user:password@localhost:5432/test_db?sslmode=disable"
+go test -tags=integration -v ./src/infrastructure/outboxrelay
+```
+
+Без `OUTBOX_TEST_DATABASE_URL` эти проверки пропускаются. В CI они подключены
+к PostgreSQL; команды диагностики очереди приведены в
+[Troubleshooting](../wiki/Troubleshooting.md#5-kafka-events-пропали).
 
 ## Модели
 
@@ -80,7 +142,7 @@ PNG, GIF, WebP, PDF, CSV и XLSX. Kafka и таблица исходящих с�
 ### func [New](https://github.com/FIZZI-77/automatic_system/blob/test/File_Service/src/core/service/service.go#L31)
 
 ```go
-func New(repo *repository.Repository, store *storage.S3, ttl time.Duration, logger *zap.Logger) *Service
+func New(repo *repository.Repository, store objectStorage, ttl time.Duration, logger *zap.Logger) *Service
 ```
 
 Типы: [Repository](#type-repository), [S3](#type-s3), [Service](#type-service).
@@ -105,11 +167,11 @@ func (s *Service) Create(ctx context.Context, in models.CreateInput) (*models.Pr
 3. Проверяет владельца, имя, положительный размер не более 25 МиБ и разрешенный
    тип.
 4. Создает UUID и ключ вида `owner/id/name`.
-5. Записывает метаданные со статусом `PENDING_UPLOAD`.
-6. Получает подписанную ссылку загрузки с типом и контрольной суммой.
+5. Получает подписанную ссылку загрузки с типом, размером и контрольной суммой.
+6. Записывает метаданные со статусом `PENDING_UPLOAD` и сроком действия подписи.
 7. Возвращает файл, ссылку и вычисленный срок действия.
 
-Если получение ссылки не удалось, созданная строка метаданных остается в базе.
+Если получение ссылки не удалось, метаданные в базу не записываются.
 
 ### func (*Service) [Confirm](https://github.com/FIZZI-77/automatic_system/blob/test/File_Service/src/core/service/service.go#L67)
 
@@ -165,8 +227,8 @@ func (s *Service) Delete(ctx context.Context, id, actor uuid.UUID, privileged bo
 
 Типы: [Service](#type-service).
 
-Проверяет права, сначала удаляет объект из S3, затем переводит запись базы в
-состояние удаления через репозиторий. Ошибка хранилища останавливает операцию.
+Проверяет права, затем одной SQL-операцией скрывает метаданные и сохраняет
+задачу удаления объекта. Физическая очистка S3 повторяется фоновым обработчиком.
 
 ### func (*Service) [List](https://github.com/FIZZI-77/automatic_system/blob/test/File_Service/src/core/service/service.go#L148)
 

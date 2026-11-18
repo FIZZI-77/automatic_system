@@ -21,12 +21,16 @@ type Handler struct {
 	s service.ReportService
 }
 
+// New создаёт gRPC-обработчик отчётов с переданным сервисом.
 func New(s service.ReportService) *Handler {
 	return &Handler{s: s}
 }
 
+// CreateReport разбирает UUID заказчика, преобразует тип, формат и фильтр отчёта
+// и передаёт запрос с ролями сервису; ошибки UUID возвращает как InvalidArgument.
 func (h *Handler) CreateReport(c context.Context, q *reportv1.CreateReportRequest) (*reportv1.CreateReportResponse, error) {
 	owner, e := uuid.Parse(q.RequestedBy)
+
 	if e != nil {
 		return nil, bad(e)
 	}
@@ -39,6 +43,7 @@ func (h *Handler) CreateReport(c context.Context, q *reportv1.CreateReportReques
 		Filter:      filter(q.Filter),
 		ActorRoles:  q.ActorRoles,
 	})
+
 	if e != nil {
 		return nil, mapErr(e)
 	}
@@ -48,12 +53,17 @@ func (h *Handler) CreateReport(c context.Context, q *reportv1.CreateReportReques
 	}, nil
 }
 
+// GetReport разбирает UUID отчёта и пользователя и запрашивает отчёт у сервиса,
+// передавая признак admin или dispatcher для проверки доступа.
 func (h *Handler) GetReport(c context.Context, q *reportv1.GetReportRequest) (*reportv1.GetReportResponse, error) {
 	id, actor, e := ids(q.ReportId, q.ActorUserId)
+
 	if e != nil {
 		return nil, bad(e)
 	}
+
 	x, e := h.s.Get(c, id, actor, privileged(q.ActorRoles))
+
 	if e != nil {
 		return nil, mapErr(e)
 	}
@@ -63,18 +73,24 @@ func (h *Handler) GetReport(c context.Context, q *reportv1.GetReportRequest) (*r
 	}, nil
 }
 
+// ListReports разбирает UUID пользователя и необязательный статус, передаёт
+// пагинацию и признак привилегированной роли сервису и возвращает страницу со счётчиком.
 func (h *Handler) ListReports(c context.Context, q *reportv1.ListReportsRequest) (*reportv1.ListReportsResponse, error) {
 	actor, e := uuid.Parse(q.ActorUserId)
+
 	if e != nil {
 		return nil, bad(e)
 	}
+
 	var st *models.Status
+
 	if q.Status != nil {
 		x := models.Status(q.Status.String()[14:])
 		st = &x
 	}
 
 	items, total, e := h.s.List(c, actor, privileged(q.ActorRoles), st, q.Limit, q.Offset)
+
 	if e != nil {
 		return nil, mapErr(e)
 	}
@@ -90,12 +106,17 @@ func (h *Handler) ListReports(c context.Context, q *reportv1.ListReportsRequest)
 	}, nil
 }
 
+// CancelReport разбирает UUID отчёта и пользователя и вызывает отмену через сервис
+// с признаком привилегированной роли; ошибки преобразует в коды gRPC.
 func (h *Handler) CancelReport(c context.Context, q *reportv1.CancelReportRequest) (*reportv1.CancelReportResponse, error) {
 	id, a, e := ids(q.ReportId, q.ActorUserId)
+
 	if e != nil {
 		return nil, bad(e)
 	}
+
 	x, e := h.s.Cancel(c, id, a, privileged(q.ActorRoles))
+
 	if e != nil {
 		return nil, mapErr(e)
 	}
@@ -105,12 +126,17 @@ func (h *Handler) CancelReport(c context.Context, q *reportv1.CancelReportReques
 	}, nil
 }
 
+// RetryReport разбирает UUID отчёта и пользователя и передаёт повтор формирования
+// сервису, который проверяет доступ и допустимость текущего состояния.
 func (h *Handler) RetryReport(c context.Context, q *reportv1.RetryReportRequest) (*reportv1.RetryReportResponse, error) {
 	id, a, e := ids(q.ReportId, q.ActorUserId)
+
 	if e != nil {
 		return nil, bad(e)
 	}
+
 	x, e := h.s.Retry(c, id, a, privileged(q.ActorRoles))
+
 	if e != nil {
 		return nil, mapErr(e)
 	}
@@ -120,12 +146,17 @@ func (h *Handler) RetryReport(c context.Context, q *reportv1.RetryReportRequest)
 	}, nil
 }
 
+// GetReportDownloadURL разбирает UUID и передаёт пользователя и роли сервису;
+// возвращает отчёт, ссылку скачивания и срок её действия в protobuf.
 func (h *Handler) GetReportDownloadURL(c context.Context, q *reportv1.GetReportDownloadURLRequest) (*reportv1.GetReportDownloadURLResponse, error) {
 	id, a, e := ids(q.ReportId, q.ActorUserId)
+
 	if e != nil {
 		return nil, bad(e)
 	}
+
 	x, e := h.s.Download(c, id, a, q.ActorRoles, privileged(q.ActorRoles))
+
 	if e != nil {
 		return nil, mapErr(e)
 	}
@@ -137,28 +168,37 @@ func (h *Handler) GetReportDownloadURL(c context.Context, q *reportv1.GetReportD
 	}, nil
 }
 
+// ids последовательно разбирает два UUID; при ошибке второго сохраняет первый результат.
 func ids(a, b string) (uuid.UUID, uuid.UUID, error) {
 	x, e := uuid.Parse(a)
+
 	if e != nil {
 		return uuid.Nil, uuid.Nil, e
 	}
+
 	y, e := uuid.Parse(b)
 	return x, y, e
 }
 
+// privileged распознаёт точные роли admin и dispatcher без нормализации.
 func privileged(r []string) bool {
 	for _, x := range r {
+
 		if x == "admin" || x == "dispatcher" {
 			return true
 		}
+
 	}
 	return false
 }
 
+// bad преобразует ненулевую ошибку в gRPC InvalidArgument с исходным текстом.
 func bad(e error) error {
 	return status.Error(codes.InvalidArgument, e.Error())
 }
 
+// mapErr переводит отсутствие отчёта в NotFound, запрет доступа — в PermissionDenied,
+// недопустимое состояние — в FailedPrecondition, прочие ошибки — в InvalidArgument.
 func mapErr(e error) error {
 	switch {
 	case repository.IsNotFound(e):
@@ -172,15 +212,22 @@ func mapErr(e error) error {
 	}
 }
 
+// reportType получает доменный тип удалением первых 12 символов REPORT_TYPE_.
+// Требует строковое представление enum не короче префикса.
 func reportType(v reportv1.ReportType) models.Type {
 	return models.Type(v.String()[12:])
 }
 
+// reportFormat получает доменный формат удалением первых 14 символов REPORT_FORMAT_.
+// Требует строковое представление enum не короче префикса.
 func reportFormat(v reportv1.ReportFormat) models.Format {
 	return models.Format(v.String()[14:])
 }
 
+// filter преобразует фильтр аналитики в доменную модель, сохраняя необязательность
+// дат и остальных условий; nil даёт пустой фильтр.
 func filter(v *analyticsv1.AnalyticsFilter) models.Filter {
+
 	if v == nil {
 		return models.Filter{}
 	}
@@ -204,6 +251,8 @@ func filter(v *analyticsv1.AnalyticsFilter) models.Filter {
 	return x
 }
 
+// proto преобразует ненулевой отчёт в protobuf, включая фильтр, попытки,
+// необязательные файл, ошибку и дату завершения; неизвестные enum дают нулевое значение.
 func proto(x *models.Report) *reportv1.Report {
 	p := &reportv1.Report{
 		Id:          x.ID.String(),

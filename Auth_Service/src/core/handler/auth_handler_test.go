@@ -92,6 +92,7 @@ func assertGRPCCode(t *testing.T, err error, expected codes.Code) {
 	}
 
 	st, ok := status.FromError(err)
+
 	if !ok {
 		t.Fatalf("expected grpc status error, got %v", err)
 	}
@@ -99,11 +100,13 @@ func assertGRPCCode(t *testing.T, err error, expected codes.Code) {
 	if st.Code() != expected {
 		t.Fatalf("expected grpc code %v, got %v", expected, st.Code())
 	}
+
 }
 
 func TestAuthHandler_Register_Success(t *testing.T) {
 	mock := &mockAuthService{
 		registerFunc: func(ctx context.Context, in models.RegisterInput) (*models.RegisterResult, error) {
+
 			if in.Email != "test@example.com" {
 				t.Fatalf("expected email test@example.com, got %s", in.Email)
 			}
@@ -147,6 +150,7 @@ func TestAuthHandler_Register_Success(t *testing.T) {
 	if resp.GetEmailVerified() {
 		t.Fatal("expected email_verified false")
 	}
+
 }
 
 func TestAuthHandler_Register_ServiceError(t *testing.T) {
@@ -176,6 +180,7 @@ func TestAuthHandler_Login_Success(t *testing.T) {
 
 	mock := &mockAuthService{
 		loginFunc: func(ctx context.Context, in models.LoginInput) (*models.LoginResult, error) {
+
 			if in.Email != "test@example.com" {
 				t.Fatalf("expected email test@example.com, got %s", in.Email)
 			}
@@ -236,6 +241,7 @@ func TestAuthHandler_Login_Success(t *testing.T) {
 	if resp.GetTokenType() != "Bearer" {
 		t.Fatalf("expected Bearer, got %s", resp.GetTokenType())
 	}
+
 }
 
 func TestAuthHandler_Login_ServiceError(t *testing.T) {
@@ -294,10 +300,13 @@ func TestAuthHandler_Login_HidesUserExistence(t *testing.T) {
 			if response != nil {
 				t.Errorf("Login() response = %v, want nil", response)
 			}
+
 			assertGRPCCode(t, err, codes.Unauthenticated)
+
 			if got, want := status.Convert(err).Message(), "invalid email or password"; got != want {
 				t.Errorf("Login() error message = %q, want %q", got, want)
 			}
+
 		})
 	}
 }
@@ -307,6 +316,7 @@ func TestAuthHandler_Refresh_Success(t *testing.T) {
 
 	mock := &mockAuthService{
 		refreshFunc: func(ctx context.Context, in models.RefreshInput) (*models.RefreshResult, error) {
+
 			if in.RefreshToken != "old-refresh-token" {
 				t.Fatalf("expected refresh token old-refresh-token, got %s", in.RefreshToken)
 			}
@@ -358,6 +368,7 @@ func TestAuthHandler_Refresh_Success(t *testing.T) {
 	if resp.GetSessionId() != sessionID.String() {
 		t.Fatalf("expected session_id %s, got %s", sessionID.String(), resp.GetSessionId())
 	}
+
 }
 
 func TestAuthHandler_Refresh_ServiceError(t *testing.T) {
@@ -389,6 +400,7 @@ func TestAuthHandler_Logout_Success(t *testing.T) {
 
 	mock := &mockAuthService{
 		logoutFunc: func(ctx context.Context, in models.LogoutInput) error {
+
 			if in.UserID != userID {
 				t.Fatalf("expected user_id %s, got %s", userID.String(), in.UserID.String())
 			}
@@ -415,6 +427,7 @@ func TestAuthHandler_Logout_Success(t *testing.T) {
 	if !resp.GetSuccess() {
 		t.Fatal("expected success true")
 	}
+
 }
 
 func TestAuthHandler_Logout_InvalidUserID(t *testing.T) {
@@ -452,6 +465,7 @@ func TestAuthHandler_LogoutAll_Success(t *testing.T) {
 
 	mock := &mockAuthService{
 		logoutAllFunc: func(ctx context.Context, in models.LogoutAllInput) (uint32, error) {
+
 			if in.UserID != userID {
 				t.Fatalf("expected user_id %s, got %s", userID.String(), in.UserID.String())
 			}
@@ -477,6 +491,7 @@ func TestAuthHandler_LogoutAll_Success(t *testing.T) {
 	if resp.GetRevokedCount() != 3 {
 		t.Fatalf("expected revoked_count 3, got %d", resp.GetRevokedCount())
 	}
+
 }
 
 func TestAuthHandler_LogoutAll_InvalidUserID(t *testing.T) {
@@ -498,6 +513,7 @@ func TestAuthHandler_GetUserAuthInfo_Success(t *testing.T) {
 
 	mock := &mockAuthService{
 		getUserAuthInfoFunc: func(ctx context.Context, id uuid.UUID) (*models.UserAuthInfo, error) {
+
 			if id != userID {
 				t.Fatalf("expected user_id %s, got %s", userID.String(), id.String())
 			}
@@ -546,6 +562,7 @@ func TestAuthHandler_GetUserAuthInfo_Success(t *testing.T) {
 	if !resp.GetEmailVerified() {
 		t.Fatal("expected email_verified true")
 	}
+
 }
 
 func TestAuthHandler_GetUserAuthInfo_InvalidUserID(t *testing.T) {
@@ -580,6 +597,7 @@ func TestAuthHandler_GetJWKS_Success(t *testing.T) {
 	if resp.GetJwksJson() != `{"keys":[]}` {
 		t.Fatalf("expected jwks json, got %s", resp.GetJwksJson())
 	}
+
 }
 
 func TestAuthHandler_GetJWKS_ServiceError(t *testing.T) {
@@ -606,6 +624,7 @@ func TestAuthHandler_ChangePassword_Success(t *testing.T) {
 
 	mock := &mockAuthService{
 		changePasswordFunc: func(ctx context.Context, in models.ChangePasswordInput) (*models.ChangePasswordResult, error) {
+
 			if in.UserID != userID {
 				t.Fatalf("expected user_id %s, got %s", userID.String(), in.UserID.String())
 			}
@@ -654,6 +673,7 @@ func TestAuthHandler_ChangePassword_Success(t *testing.T) {
 	if resp.GetInvalidatedSessionsCount() != 2 {
 		t.Fatalf("expected invalidated_sessions_count 2, got %d", resp.GetInvalidatedSessionsCount())
 	}
+
 }
 
 func TestAuthHandler_ChangePassword_InvalidUserID(t *testing.T) {
@@ -691,6 +711,7 @@ func TestAuthHandler_SendVerificationEmail_Success(t *testing.T) {
 
 	mock := &mockAuthService{
 		sendVerificationFunc: func(ctx context.Context, in models.SendVerificationEmailInput) (*models.SendVerificationEmailResult, error) {
+
 			if in.UserID != userID {
 				t.Fatalf("expected user_id %s, got %s", userID.String(), in.UserID.String())
 			}
@@ -724,6 +745,7 @@ func TestAuthHandler_SendVerificationEmail_Success(t *testing.T) {
 	if resp.GetExpiresAtUnix() != 100 {
 		t.Fatalf("expected expires_at_unix 100, got %d", resp.GetExpiresAtUnix())
 	}
+
 }
 
 func TestAuthHandler_SendVerificationEmail_InvalidUserID(t *testing.T) {
@@ -746,6 +768,7 @@ func TestAuthHandler_VerifyEmail_Success(t *testing.T) {
 
 	mock := &mockAuthService{
 		verifyEmailFunc: func(ctx context.Context, in models.VerifyEmailInput) (*models.VerifyEmailResult, error) {
+
 			if in.Token != "verify-token" {
 				t.Fatalf("expected verify-token, got %s", in.Token)
 			}
@@ -789,11 +812,13 @@ func TestAuthHandler_VerifyEmail_Success(t *testing.T) {
 	if resp.GetMessage() != "email verified" {
 		t.Fatalf("expected message email verified, got %s", resp.GetMessage())
 	}
+
 }
 
 func TestAuthHandler_RequestPasswordReset_Success(t *testing.T) {
 	mock := &mockAuthService{
 		requestPasswordResetFunc: func(ctx context.Context, in models.RequestPasswordResetInput) (*models.RequestPasswordResetResult, error) {
+
 			if in.Email != "test@example.com" {
 				t.Fatalf("expected email test@example.com, got %s", in.Email)
 			}
@@ -822,11 +847,13 @@ func TestAuthHandler_RequestPasswordReset_Success(t *testing.T) {
 	if resp.GetExpiresAtUnix() != 200 {
 		t.Fatalf("expected expires_at_unix 200, got %d", resp.GetExpiresAtUnix())
 	}
+
 }
 
 func TestAuthHandler_ResetPassword_Success(t *testing.T) {
 	mock := &mockAuthService{
 		resetPasswordFunc: func(ctx context.Context, in models.ResetPasswordInput) (*models.ResetPasswordResult, error) {
+
 			if in.Token != "reset-token" {
 				t.Fatalf("expected reset-token, got %s", in.Token)
 			}
@@ -860,4 +887,5 @@ func TestAuthHandler_ResetPassword_Success(t *testing.T) {
 	if resp.GetInvalidatedSessionsCount() != 4 {
 		t.Fatalf("expected invalidated_sessions_count 4, got %d", resp.GetInvalidatedSessionsCount())
 	}
+
 }

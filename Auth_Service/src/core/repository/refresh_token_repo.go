@@ -17,27 +17,37 @@ type RefreshTokenRepoStruct struct {
 	writePool *pgxpool.Pool
 }
 
+// NewRefreshTokenRepoStruct создаёт хранилище refresh-токенов с необязательным чтением.
+// Сохраняет writePool для ротации только при передаче *pgxpool.Pool как writeDB.
 func NewRefreshTokenRepoStruct(writeDB DBTX, readDB ...DBTX) *RefreshTokenRepoStruct {
 	reader := writeDB
+
 	if len(readDB) > 0 && readDB[0] != nil {
 		reader = readDB[0]
 	}
+
 	repo := &RefreshTokenRepoStruct{
 		writeDB: writeDB,
 		readDB:  reader,
 	}
+
 	if pool, ok := writeDB.(*pgxpool.Pool); ok {
 		repo.writePool = pool
 	}
+
 	return repo
 }
 
+// beginTx начинает транзакцию ротации через writePool; при отсутствии пула возвращает ошибку.
+// operation используется для уточнения причины ошибки в сообщении.
 func (r *RefreshTokenRepoStruct) beginTx(ctx context.Context, operation string) (pgx.Tx, error) {
+
 	if r.writePool == nil {
 		return nil, fmt.Errorf("refresh_token_repo: %s: transaction source is unavailable", operation)
 	}
 
 	tx, err := r.writePool.Begin(ctx)
+
 	if err != nil {
 		return nil, fmt.Errorf("refresh_token_repo: %s: cant begin transaction: %w", operation, err)
 	}
@@ -45,6 +55,8 @@ func (r *RefreshTokenRepoStruct) beginTx(ctx context.Context, operation string) 
 	return tx, nil
 }
 
+// CreateToken сохраняет хеш refresh-токена, его сессию, сроки и состояние.
+// UUID вставленной записи используется для журнала, но в token не записывается.
 func (r *RefreshTokenRepoStruct) CreateToken(ctx context.Context, token *models.RefreshToken) error {
 	var id uuid.UUID
 
@@ -69,6 +81,8 @@ func (r *RefreshTokenRepoStruct) CreateToken(ctx context.Context, token *models.
 	return nil
 }
 
+// GetByTokenHash читает неотозванный refresh-токен по хешу; срок действия не проверяет.
+// Для отсутствующего либо отозванного токена возвращает обёрнутую pgx.ErrNoRows.
 func (r *RefreshTokenRepoStruct) GetByTokenHash(ctx context.Context, tokenHash string) (*models.RefreshToken, error) {
 	var token models.RefreshToken
 
@@ -87,10 +101,13 @@ func (r *RefreshTokenRepoStruct) GetByTokenHash(ctx context.Context, tokenHash s
 		&token.ReplacedByTokenID,
 		&token.CreatedAt,
 	)
+
 	if err != nil {
+
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, fmt.Errorf("refresh_token_repo: GetByTokenHash(): token not found %w", err)
 		}
+
 		return nil, fmt.Errorf("refresh_token_repo: GetByTokenHash(): %w", err)
 	}
 
@@ -98,44 +115,59 @@ func (r *RefreshTokenRepoStruct) GetByTokenHash(ctx context.Context, tokenHash s
 
 }
 
+// RevokeTokenByID помечает неотозванный токен отозванным и сохраняет время отзыва.
+// Отсутствие подходящей строки допускает.
 func (r *RefreshTokenRepoStruct) RevokeTokenByID(ctx context.Context, tokenID uuid.UUID) error {
 	const query = `UPDATE refresh_tokens SET is_revoked = TRUE, revoked_at = now() WHERE id = $1 AND is_revoked = FALSE`
 	_, err := r.writeDB.Exec(ctx, query, tokenID)
+
 	if err != nil {
 		return fmt.Errorf("refresh_token_repo: RevokeByID(): cant revoke refresh token: %w", err)
 	}
+
 	logrus.Printf("refresh token with id %s revoked", tokenID)
 	return nil
 }
 
+// RevokeTokenBySessionID отзывает все ещё действующие refresh-токены указанной сессии.
 func (r *RefreshTokenRepoStruct) RevokeTokenBySessionID(ctx context.Context, sessionID uuid.UUID) error {
 	const query = `UPDATE refresh_tokens SET is_revoked = TRUE, revoked_at = now() WHERE session_id = $1 AND is_revoked = FALSE`
 	_, err := r.writeDB.Exec(ctx, query, sessionID)
+
 	if err != nil {
 		return fmt.Errorf("refresh_token_repo: RevokeBySessionID(): cant revoke refresh token: %w", err)
 	}
+
 	logrus.Printf("refresh token with session id %s revoked", sessionID)
 	return nil
 
 }
 
+// RevokeAllTokenByUserID отзывает неотозванные refresh-токены пользователя во всех сессиях.
 func (r *RefreshTokenRepoStruct) RevokeAllTokenByUserID(ctx context.Context, userID uuid.UUID) error {
 	const query = `UPDATE refresh_tokens SET is_revoked = TRUE, revoked_at = now() WHERE user_id = $1 AND is_revoked = FALSE`
 	_, err := r.writeDB.Exec(ctx, query, userID)
+
 	if err != nil {
 		return fmt.Errorf("refresh_token_repo: RevokeAllByUserID(): cant revoke refresh token: %w", err)
 	}
+
 	logrus.Printf("refresh token with user id %s revoked", userID)
 	return nil
 
 }
 
+// MarkUsedAndReplaceToken в одной транзакции создаёт новый refresh-токен и отзывает старый,
+// записывая время использования и связь replaced_by_token_id. Если старый токен уже
+// отозван либо отсутствует, откатывает вставку и возвращает ошибку.
 func (r *RefreshTokenRepoStruct) MarkUsedAndReplaceToken(ctx context.Context, oldTokenID uuid.UUID, newToken *models.RefreshToken) error {
 	var newTokenID uuid.UUID
 	tx, err := r.beginTx(ctx, "MarkUsedAndReplace()")
+
 	if err != nil {
 		return err
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	const insertNewToken = `INSERT INTO refresh_tokens(user_id, session_id, token_hash, is_revoked, expires_at, used_at, replaced_by_token_id)
@@ -164,6 +196,7 @@ func (r *RefreshTokenRepoStruct) MarkUsedAndReplaceToken(ctx context.Context, ol
 	WHERE id = $2 AND is_revoked = FALSE`
 
 	result, err := tx.Exec(ctx, updateOldToken, newTokenID, oldTokenID)
+
 	if err != nil {
 		return fmt.Errorf("refresh_token_repo: MarkUsedAndReplace(): failed update old token, transaction rollback: %w", err)
 	}
@@ -171,9 +204,11 @@ func (r *RefreshTokenRepoStruct) MarkUsedAndReplaceToken(ctx context.Context, ol
 	if result.RowsAffected() == 0 {
 		return fmt.Errorf("refresh_token_repo: MarkUsedAndReplace(): old token not found or already revoked")
 	}
+
 	logrus.Printf("refresh token updated")
 
 	err = tx.Commit(ctx)
+
 	if err != nil {
 		return fmt.Errorf("refresh_token_repo: MarkUsedAndReplace(): cant commit transaction: %w", err)
 	}

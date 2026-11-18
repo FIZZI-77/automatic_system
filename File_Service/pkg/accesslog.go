@@ -22,11 +22,13 @@ func AccessLogUnaryServerInterceptor(logger *zap.Logger) grpc.UnaryServerInterce
 			zap.String("code", status.Code(err).String()),
 			zap.Duration("duration", time.Since(startedAt)),
 		}
+
 		if err != nil {
 			logger.Warn("gRPC request completed", append(fields, zap.Error(err))...)
 		} else {
 			logger.Info("gRPC request completed", fields...)
 		}
+
 		return response, err
 	}
 }

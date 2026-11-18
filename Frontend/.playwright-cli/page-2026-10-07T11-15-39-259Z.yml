@@ -1,0 +1,96 @@
+- generic [ref=f2e91]:
+  - complementary [ref=f2e92]:
+    - link "Г 〽" [ref=f2e93] [cursor=pointer]:
+      - /url: "#"
+    - navigation [ref=f2e95]:
+      - button "⌂ Показатели" [ref=f2e285] [cursor=pointer]:
+        - generic [ref=f2e97]: ⌂
+        - generic [ref=f2e98]: Показатели
+      - button "◎ Заявки" [ref=f2e286] [cursor=pointer]:
+        - generic [ref=f2e103]: ◎
+        - generic [ref=f2e104]: Заявки
+      - button "♜ Структура" [ref=f2e287] [cursor=pointer]:
+        - generic [ref=f2e106]: ♜
+        - generic [ref=f2e107]: Структура
+      - button "▦ Аналитика" [ref=f2e288] [cursor=pointer]:
+        - generic [ref=f2e289]: ▦
+        - generic [ref=f2e290]: Аналитика
+      - button "▥ SLA" [ref=f2e108] [cursor=pointer]:
+        - generic [ref=f2e109]: ▥
+        - generic [ref=f2e110]: SLA
+      - button "▧ Инфраструктура" [ref=f2e291] [cursor=pointer]:
+        - generic [ref=f2e292]: ▧
+        - generic [ref=f2e293]: Инфраструктура
+      - button "⌘ Регламенты" [ref=f2e294] [cursor=pointer]:
+        - generic [ref=f2e295]: ⌘
+        - generic [ref=f2e296]: Регламенты
+      - button "✦ Квалификации" [ref=f2e297] [cursor=pointer]:
+        - generic [ref=f2e298]: ✦
+        - generic [ref=f2e299]: Квалификации
+      - button "◆ Удостоверения" [ref=f2e300] [cursor=pointer]:
+        - generic [ref=f2e301]: ◆
+        - generic [ref=f2e302]: Удостоверения
+      - button "⇄ Операции" [ref=f2e111] [cursor=pointer]:
+        - generic [ref=f2e112]: ⇄
+        - generic [ref=f2e113]: Операции
+      - button "▤ Отчёты" [ref=f2e114] [cursor=pointer]:
+        - generic [ref=f2e115]: ▤
+        - generic [ref=f2e116]: Отчёты
+      - button "≡ Аудит" [ref=f2e303] [cursor=pointer]:
+        - generic [ref=f2e304]: ≡
+        - generic [ref=f2e305]: Аудит
+      - button "⚙ Управление" [ref=f2e306] [cursor=pointer]:
+        - generic [ref=f2e307]: ⚙
+        - generic [ref=f2e308]: Управление
+      - button "⌁ Зоны бригад" [ref=f2e123] [cursor=pointer]:
+        - generic [ref=f2e124]: ⌁
+        - generic [ref=f2e125]: Зоны бригад
+    - button "↗ Выйти" [ref=f2e127] [cursor=pointer]:
+      - generic [ref=f2e128]: ↗
+      - generic [ref=f2e129]: Выйти
+  - main [ref=f2e130]:
+    - generic [ref=f2e131]:
+      - generic [ref=f2e132]:
+        - generic [ref=f2e133]: Администратор · Москва
+        - heading "Квалификации" [level=1] [ref=f2e986]
+      - generic [ref=f2e135]:
+        - button "Включить тёмную тему" [ref=f2e136] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f2e137]: ◐
+          - generic [ref=f2e138]: Тёмная
+        - button "Открыть поиск" [ref=f2e139] [cursor=pointer]:
+          - generic [ref=f2e143]: Поиск
+        - button "Открыть уведомления" [ref=f2e144] [cursor=pointer]:
+          - generic [ref=f2e147]: Уведомления
+        - button "Открыть профиль" [ref=f2e148] [cursor=pointer]:
+          - generic [ref=f2e149]: ДА
+          - generic [ref=f2e150]:
+            - generic [ref=f2e151]: "Демо: Администратор"
+            - generic [ref=f2e152]: Администратор
+    - generic [ref=f2e153]:
+      - generic [ref=f2e154]: Демонстрационный режим
+      - generic [ref=f2e155]:
+        - button "Житель" [ref=f2e156] [cursor=pointer]
+        - button "Работник" [ref=f2e157] [cursor=pointer]
+        - button "Диспетчер" [ref=f2e158] [cursor=pointer]
+        - button "Администратор" [ref=f2e159] [cursor=pointer]
+    - generic [ref=f2e987]:
+      - generic [ref=f2e988]:
+        - generic [ref=f2e989]:
+          - text: Квалификации
+          - heading "Навыки и допуски сотрудников" [level=2] [ref=f2e990]
+          - paragraph [ref=f2e991]: Навыки служб, типы удостоверений и фактические допуски работников.
+        - button "+ Навык сотруднику" [disabled] [ref=f2e1011] [cursor=pointer]
+      - generic [ref=f2e993]:
+        - button "Навыки 3" [ref=f2e994] [cursor=pointer]
+        - button "Типы удостоверений 2" [ref=f2e995] [cursor=pointer]
+        - button "Навыки бригад 2" [ref=f2e996] [cursor=pointer]
+        - button "Сотрудники 2" [active] [ref=f2e997] [cursor=pointer]
+      - generic [ref=f2e1013]:
+        - button "Алексей Смирнов Мастер дорожных работ Активен" [ref=f2e1014] [cursor=pointer]:
+          - generic [ref=f2e1015]: Алексей Смирнов
+          - generic [ref=f2e1016]: Мастер дорожных работ
+          - emphasis [ref=f2e1017]: Активен
+        - button "Ирина Волкова Аварийный техник На смене" [ref=f2e1018] [cursor=pointer]:
+          - generic [ref=f2e1019]: Ирина Волкова
+          - generic [ref=f2e1020]: Аварийный техник
+          - emphasis [ref=f2e1021]: На смене

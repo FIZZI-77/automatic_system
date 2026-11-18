@@ -20,18 +20,26 @@ type CertificationRepoStruct struct {
 
 var _ CertificationRepository = (*CertificationRepoStruct)(nil)
 
+// NewCertificationRepository создаёт хранилище сертификатов и назначений навыков.
+// При nil readPool использует writePool для чтения.
 func NewCertificationRepository(writePool *pgxpool.Pool, readPool *pgxpool.Pool) *CertificationRepoStruct {
+
 	if readPool == nil {
 		readPool = writePool
 	}
+
 	return &CertificationRepoStruct{writePool: writePool, readPool: readPool}
 }
 
+// CreateCertificationType сохраняет тип и событие создания в одной транзакции,
+// обрезая крайние пробелы текстовых полей. Транзакцию команды из ctx заимствует.
 func (r *CertificationRepoStruct) CreateCertificationType(ctx context.Context, in *models.CreateCertificationTypeInput) (*models.CreateCertificationTypeResult, error) {
 	tx, err := beginCommandTx(ctx, r.writePool)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: CreateCertificationType(): begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	const query = `
@@ -46,23 +54,32 @@ func (r *CertificationRepoStruct) CreateCertificationType(ctx context.Context, i
 		in.DefaultValidityDays,
 		in.RequiresFile,
 	))
+
 	if err != nil {
 		return nil, mapDatabaseError("CreateCertificationType()", err)
 	}
+
 	if err = insertOutboxEvent(ctx, tx, "certification_type", item.ID, "CertificationTypeCreated", in.ActorUserID, item); err != nil {
 		return nil, fmt.Errorf("repository: CreateCertificationType(): insert outbox event: %w", err)
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repository: CreateCertificationType(): commit: %w", err)
 	}
+
 	return &models.CreateCertificationTypeResult{CertificationType: item}, nil
 }
 
+// UpdateCertificationType транзакционно меняет заданные поля типа и записывает outbox.
+// Флаги ClearDescription и ClearValidityDays очищают значения; nil поля сохраняет,
+// текст обрезает по краям. Транзакцию команды из ctx заимствует.
 func (r *CertificationRepoStruct) UpdateCertificationType(ctx context.Context, in *models.UpdateCertificationTypeInput) (*models.UpdateCertificationTypeResult, error) {
 	tx, err := beginCommandTx(ctx, r.writePool)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: UpdateCertificationType(): begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	const query = `
@@ -89,18 +106,24 @@ func (r *CertificationRepoStruct) UpdateCertificationType(ctx context.Context, i
 		in.Active,
 		in.ID,
 	))
+
 	if err != nil {
 		return nil, mapDatabaseError("UpdateCertificationType()", err)
 	}
+
 	if err = insertOutboxEvent(ctx, tx, "certification_type", item.ID, "CertificationTypeUpdated", in.ActorUserID, item); err != nil {
 		return nil, fmt.Errorf("repository: UpdateCertificationType(): insert outbox event: %w", err)
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repository: UpdateCertificationType(): commit: %w", err)
 	}
+
 	return &models.UpdateCertificationTypeResult{CertificationType: item}, nil
 }
 
+// GetCertificationTypeByID читает тип, включая неактивный, из пула чтения.
+// Отсутствие возвращает как ErrNotFound.
 func (r *CertificationRepoStruct) GetCertificationTypeByID(ctx context.Context, id uuid.UUID) (*models.CertificationType, error) {
 	const query = `
 		SELECT id, code, name, description, default_validity_days, requires_file, active, created_at, updated_at
@@ -108,32 +131,44 @@ func (r *CertificationRepoStruct) GetCertificationTypeByID(ctx context.Context, 
 		WHERE id = $1
 	`
 	item, err := scanCertificationType(r.readPool.QueryRow(ctx, query, id))
+
 	if err != nil {
 		return nil, mapDatabaseError("GetCertificationTypeByID()", err)
 	}
+
 	return item, nil
 }
 
+// ListCertificationTypes возвращает страницу типов по активности и поиску ILIKE
+// по коду или имени с отдельным общим счётчиком. Сортирует по созданию DESC и ID ASC;
+// требует подготовленную пагинацию.
 func (r *CertificationRepoStruct) ListCertificationTypes(ctx context.Context, in *models.ListCertificationTypesInput) (*models.ListCertificationTypesResult, error) {
 	whereParts := make([]string, 0, 2)
 	args := make([]any, 0, 4)
+
 	if in.Active != nil {
 		args = append(args, *in.Active)
 		whereParts = append(whereParts, fmt.Sprintf("active = $%d", len(args)))
 	}
+
 	if in.Query != nil {
 		args = append(args, "%"+strings.TrimSpace(*in.Query)+"%")
 		whereParts = append(whereParts, fmt.Sprintf("(code ILIKE $%[1]d OR name ILIKE $%[1]d)", len(args)))
 	}
+
 	whereSQL := ""
+
 	if len(whereParts) > 0 {
 		whereSQL = "WHERE " + strings.Join(whereParts, " AND ")
 	}
+
 	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM certification_types %s", whereSQL)
 	var total int64
+
 	if err := r.readPool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, mapDatabaseError("ListCertificationTypes(): count", err)
 	}
+
 	args = append(args, in.Limit, in.Offset)
 	query := fmt.Sprintf(`
 		SELECT id, code, name, description, default_validity_days, requires_file, active, created_at, updated_at
@@ -143,29 +178,40 @@ func (r *CertificationRepoStruct) ListCertificationTypes(ctx context.Context, in
 		LIMIT $%d OFFSET $%d
 	`, whereSQL, len(args)-1, len(args))
 	rows, err := r.readPool.Query(ctx, query, args...)
+
 	if err != nil {
 		return nil, mapDatabaseError("ListCertificationTypes(): query", err)
 	}
+
 	defer rows.Close()
 	items := make([]*models.CertificationType, 0)
 	for rows.Next() {
 		item, scanErr := scanCertificationType(rows)
+
 		if scanErr != nil {
 			return nil, mapDatabaseError("ListCertificationTypes(): scan", scanErr)
 		}
+
 		items = append(items, item)
 	}
+
 	if err = rows.Err(); err != nil {
 		return nil, mapDatabaseError("ListCertificationTypes(): rows", err)
 	}
+
 	return &models.ListCertificationTypesResult{CertificationTypes: items, Total: total}, nil
 }
 
+// AddCertificationTypeSkill восстанавливает неактивную связь с новым уровнем
+// либо вставляет новую и записывает событие в одной транзакции.
+// Уже активная связь обрабатывается ограничением уникальности базы.
 func (r *CertificationRepoStruct) AddCertificationTypeSkill(ctx context.Context, in *models.AddCertificationTypeSkillInput) (*models.AddCertificationTypeSkillResult, error) {
 	tx, err := beginCommandTx(ctx, r.writePool)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: AddCertificationTypeSkill(): begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	const reactivateQuery = `
@@ -175,9 +221,11 @@ func (r *CertificationRepoStruct) AddCertificationTypeSkill(ctx context.Context,
 		RETURNING id, certification_type_id, skill_id, proficiency_level, active, created_at, updated_at
 	`
 	item, err := scanCertificationTypeSkill(tx.QueryRow(ctx, reactivateQuery, trimOptionalString(in.ProficiencyLevel), in.CertificationTypeID, in.SkillID))
+
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return nil, mapDatabaseError("AddCertificationTypeSkill(): reactivate", err)
 	}
+
 	if errors.Is(err, pgx.ErrNoRows) {
 		const insertQuery = `
 			INSERT INTO certification_type_skills (certification_type_id, skill_id, proficiency_level)
@@ -185,24 +233,34 @@ func (r *CertificationRepoStruct) AddCertificationTypeSkill(ctx context.Context,
 			RETURNING id, certification_type_id, skill_id, proficiency_level, active, created_at, updated_at
 		`
 		item, err = scanCertificationTypeSkill(tx.QueryRow(ctx, insertQuery, in.CertificationTypeID, in.SkillID, trimOptionalString(in.ProficiencyLevel)))
+
 		if err != nil {
 			return nil, mapDatabaseError("AddCertificationTypeSkill(): insert", err)
 		}
+
 	}
+
 	if err = insertOutboxEvent(ctx, tx, "certification_type", in.CertificationTypeID, "CertificationTypeSkillAdded", in.ActorUserID, item); err != nil {
 		return nil, fmt.Errorf("repository: AddCertificationTypeSkill(): insert outbox event: %w", err)
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repository: AddCertificationTypeSkill(): commit: %w", err)
 	}
+
 	return &models.AddCertificationTypeSkillResult{CertificationTypeSkill: item}, nil
 }
 
+// RemoveCertificationTypeSkill транзакционно деактивирует связь типа с навыком
+// и записывает outbox. Отсутствующая или уже неактивная связь даёт ErrNotFound;
+// ранее выданные назначения навыков не меняет.
 func (r *CertificationRepoStruct) RemoveCertificationTypeSkill(ctx context.Context, in *models.RemoveCertificationTypeSkillInput) error {
 	tx, err := beginCommandTx(ctx, r.writePool)
+
 	if err != nil {
 		return fmt.Errorf("repository: RemoveCertificationTypeSkill(): begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	const query = `
@@ -212,18 +270,24 @@ func (r *CertificationRepoStruct) RemoveCertificationTypeSkill(ctx context.Conte
 		RETURNING id, certification_type_id, skill_id, proficiency_level, active, created_at, updated_at
 	`
 	item, err := scanCertificationTypeSkill(tx.QueryRow(ctx, query, in.CertificationTypeID, in.SkillID))
+
 	if err != nil {
 		return mapDatabaseError("RemoveCertificationTypeSkill()", err)
 	}
+
 	if err = insertOutboxEvent(ctx, tx, "certification_type", in.CertificationTypeID, "CertificationTypeSkillRemoved", in.ActorUserID, item); err != nil {
 		return fmt.Errorf("repository: RemoveCertificationTypeSkill(): insert outbox event: %w", err)
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return fmt.Errorf("repository: RemoveCertificationTypeSkill(): commit: %w", err)
 	}
+
 	return nil
 }
 
+// ListCertificationTypeSkills возвращает связи типа с навыками от старых к новым,
+// при ActiveOnly исключая неактивные. Наличие самого типа отдельно не проверяет.
 func (r *CertificationRepoStruct) ListCertificationTypeSkills(ctx context.Context, in *models.ListCertificationTypeSkillsInput) (*models.ListCertificationTypeSkillsResult, error) {
 	query := `
 		SELECT id, certification_type_id, skill_id, proficiency_level, active, created_at, updated_at
@@ -231,34 +295,47 @@ func (r *CertificationRepoStruct) ListCertificationTypeSkills(ctx context.Contex
 		WHERE certification_type_id = $1
 	`
 	args := []any{in.CertificationTypeID}
+
 	if in.ActiveOnly {
 		query += " AND active = true"
 	}
+
 	query += " ORDER BY created_at ASC, id ASC"
 	rows, err := r.readPool.Query(ctx, query, args...)
+
 	if err != nil {
 		return nil, mapDatabaseError("ListCertificationTypeSkills(): query", err)
 	}
+
 	defer rows.Close()
 	items := make([]*models.CertificationTypeSkill, 0)
 	for rows.Next() {
 		item, scanErr := scanCertificationTypeSkill(rows)
+
 		if scanErr != nil {
 			return nil, mapDatabaseError("ListCertificationTypeSkills(): scan", scanErr)
 		}
+
 		items = append(items, item)
 	}
+
 	if err = rows.Err(); err != nil {
 		return nil, mapDatabaseError("ListCertificationTypeSkills(): rows", err)
 	}
+
 	return &models.ListCertificationTypeSkillsResult{Skills: items}, nil
 }
 
+// UploadWorkProfileCertification сохраняет сертификат PENDING и событие загрузки
+// в одной транзакции, обрезая номер и издателя по краям. Переданный файл хранит
+// как ID; проверки доступа, типа и срока выполняет вызывающий код.
 func (r *CertificationRepoStruct) UploadWorkProfileCertification(ctx context.Context, in *models.UploadWorkProfileCertificationInput) (*models.UploadWorkProfileCertificationResult, error) {
 	tx, err := beginCommandTx(ctx, r.writePool)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: UploadWorkProfileCertification(): begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	const query = `
@@ -280,37 +357,51 @@ func (r *CertificationRepoStruct) UploadWorkProfileCertification(ctx context.Con
 		in.ExpiresAt,
 		in.CertificateFileID,
 	))
+
 	if err != nil {
 		return nil, mapDatabaseError("UploadWorkProfileCertification()", err)
 	}
+
 	if err = insertOutboxEvent(ctx, tx, "work_profile_certification", item.ID, "CertificationUploaded", in.ActorUserID, item); err != nil {
 		return nil, fmt.Errorf("repository: UploadWorkProfileCertification(): insert outbox event: %w", err)
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repository: UploadWorkProfileCertification(): commit: %w", err)
 	}
+
 	return &models.UploadWorkProfileCertificationResult{Certification: item}, nil
 }
 
+// VerifyWorkProfileCertification блокирует PENDING-сертификат, проверяет статус
+// рабочего профиля и сохраняет VERIFIED, назначения активных навыков типа и outbox
+// в одной транзакции. Повтор VERIFIED возвращает все существующие назначения
+// сертификата без новых записей; иной исходный статус даёт ErrInvalidCertificationStatus.
 func (r *CertificationRepoStruct) VerifyWorkProfileCertification(ctx context.Context, in *models.VerifyWorkProfileCertificationInput) (*models.VerifyWorkProfileCertificationResult, error) {
 	const operation = "VerifyWorkProfileCertification()"
 
 	tx, err := beginCommandTx(ctx, r.writePool)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: %s: begin tx: %w", operation, err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	current, err := getWorkProfileCertificationByID(ctx, tx, in.ID, true)
+
 	if err != nil {
 		return nil, mapDatabaseError(operation+": get certification", err)
 	}
+
 	if current.Status == models.CertificationStatusVerified {
 		return commitVerifiedCertificationNoop(ctx, tx, current, operation)
 	}
+
 	if current.Status != models.CertificationStatusPending {
 		return nil, fmt.Errorf("repository: %s: %w", operation, models.ErrInvalidCertificationStatus)
 	}
+
 	if err = ensureWorkProfileCanReceiveQualification(ctx, tx, current.WorkProfileID); err != nil {
 		return nil, err
 	}
@@ -324,47 +415,65 @@ func (r *CertificationRepoStruct) VerifyWorkProfileCertification(ctx context.Con
 		          verified_at, rejection_reason, created_at, updated_at
 	`
 	item, err := scanWorkProfileCertification(tx.QueryRow(ctx, updateQuery, in.ActorUserID, in.ID))
+
 	if err != nil {
 		return nil, mapDatabaseError(operation+": update", err)
 	}
 
 	grants, err := createCertificationSkillGrants(ctx, tx, item)
+
 	if err != nil {
 		return nil, mapDatabaseError(operation+": create skill grants", err)
 	}
+
 	if err = publishSkillGrantEvents(ctx, tx, operation, in.ActorUserID, grants); err != nil {
 		return nil, err
 	}
+
 	payload := map[string]any{"certification": item, "skill_grants": grants}
+
 	if err = insertOutboxEvent(ctx, tx, "work_profile_certification", item.ID, "CertificationVerified", in.ActorUserID, payload); err != nil {
 		return nil, fmt.Errorf("repository: %s: insert certification event: %w", operation, err)
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repository: %s: commit: %w", operation, err)
 	}
+
 	return &models.VerifyWorkProfileCertificationResult{Certification: item, SkillGrants: grants}, nil
 }
 
+// RejectWorkProfileCertification блокирует сертификат и транзакционно переводит
+// PENDING в REJECTED с причиной и outbox. Повтор REJECTED возвращает без изменения;
+// прочие исходные статусы дают ErrInvalidCertificationStatus.
 func (r *CertificationRepoStruct) RejectWorkProfileCertification(ctx context.Context, in *models.RejectWorkProfileCertificationInput) (*models.RejectWorkProfileCertificationResult, error) {
 	tx, err := beginCommandTx(ctx, r.writePool)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: RejectWorkProfileCertification(): begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	current, err := getWorkProfileCertificationByID(ctx, tx, in.ID, true)
+
 	if err != nil {
 		return nil, mapDatabaseError("RejectWorkProfileCertification(): get certification", err)
 	}
+
 	if current.Status == models.CertificationStatusRejected {
+
 		if err = tx.Commit(ctx); err != nil {
 			return nil, fmt.Errorf("repository: RejectWorkProfileCertification(): commit no-op: %w", err)
 		}
+
 		return &models.RejectWorkProfileCertificationResult{Certification: current}, nil
 	}
+
 	if current.Status != models.CertificationStatusPending {
 		return nil, fmt.Errorf("repository: RejectWorkProfileCertification(): %w", models.ErrInvalidCertificationStatus)
 	}
+
 	const query = `
 		UPDATE work_profile_certifications
 		SET status = 'REJECTED', rejection_reason = $1, updated_at = now()
@@ -374,54 +483,75 @@ func (r *CertificationRepoStruct) RejectWorkProfileCertification(ctx context.Con
 		          verified_at, rejection_reason, created_at, updated_at
 	`
 	item, err := scanWorkProfileCertification(tx.QueryRow(ctx, query, strings.TrimSpace(in.RejectionReason), in.ID))
+
 	if err != nil {
 		return nil, mapDatabaseError("RejectWorkProfileCertification(): update", err)
 	}
+
 	if err = insertOutboxEvent(ctx, tx, "work_profile_certification", item.ID, "CertificationRejected", in.ActorUserID, item); err != nil {
 		return nil, fmt.Errorf("repository: RejectWorkProfileCertification(): insert outbox event: %w", err)
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repository: RejectWorkProfileCertification(): commit: %w", err)
 	}
+
 	return &models.RejectWorkProfileCertificationResult{Certification: item}, nil
 }
 
+// RevokeWorkProfileCertification транзакционно отзывает PENDING/VERIFIED-сертификат
+// и его активные назначения навыков с событиями outbox. Повтор REVOKED возвращает
+// все назначения сертификата и снова записывает события, не меняя сам сертификат.
 func (r *CertificationRepoStruct) RevokeWorkProfileCertification(ctx context.Context, in *models.RevokeWorkProfileCertificationInput) (*models.RevokeWorkProfileCertificationResult, error) {
 	const operation = "RevokeWorkProfileCertification()"
 
 	tx, err := beginCommandTx(ctx, r.writePool)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: %s: begin tx: %w", operation, err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	item, grants, err := revokeCertification(ctx, tx, in.ID, models.CertificationStatusRevoked)
+
 	if err != nil {
 		return nil, err
 	}
+
 	payload := map[string]any{"certification": item, "revoked_grants": grants, "reason": strings.TrimSpace(in.Reason)}
+
 	if err = insertOutboxEvent(ctx, tx, "work_profile_certification", item.ID, "CertificationRevoked", in.ActorUserID, payload); err != nil {
 		return nil, fmt.Errorf("repository: %s: insert certification event: %w", operation, err)
 	}
+
 	if err = publishSkillGrantEvents(ctx, tx, operation, in.ActorUserID, grants); err != nil {
 		return nil, err
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repository: %s: commit: %w", operation, err)
 	}
+
 	return &models.RevokeWorkProfileCertificationResult{Certification: item, RevokedGrants: grants}, nil
 }
 
+// ExpireWorkProfileCertifications выбирает до Limit истёкших VERIFIED-сертификатов,
+// пропуская блокировки, и транзакционно сохраняет EXPIRED, отзыв активных назначений
+// и события. Лимит должен быть подготовлен вызывающим кодом.
 func (r *CertificationRepoStruct) ExpireWorkProfileCertifications(ctx context.Context, in *models.ExpireWorkProfileCertificationsInput) (*models.ExpireWorkProfileCertificationsResult, error) {
 	const operation = "ExpireWorkProfileCertifications()"
 
 	tx, err := beginCommandTx(ctx, r.writePool)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: %s: begin tx: %w", operation, err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	ids, err := selectExpiredCertificationIDs(ctx, tx, in.Limit)
+
 	if err != nil {
 		return nil, mapDatabaseError(operation+": select expired certifications", err)
 	}
@@ -430,35 +560,47 @@ func (r *CertificationRepoStruct) ExpireWorkProfileCertifications(ctx context.Co
 	grants := make([]*models.WorkProfileSkillGrant, 0)
 	for _, id := range ids {
 		cert, revokedGrants, err := expireCertification(ctx, tx, id, in.ActorUserID)
+
 		if err != nil {
 			return nil, err
 		}
+
 		certs = append(certs, cert)
 		grants = append(grants, revokedGrants...)
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repository: %s: commit: %w", operation, err)
 	}
+
 	return &models.ExpireWorkProfileCertificationsResult{ExpiredCertifications: certs, RevokedGrants: grants}, nil
 }
 
+// ListWorkProfileCertifications возвращает страницу сертификатов профиля с фильтрами
+// типа и статуса, от новых к старым, и отдельный общий счётчик.
+// Наличие профиля и права отдельно не проверяет.
 func (r *CertificationRepoStruct) ListWorkProfileCertifications(ctx context.Context, in *models.ListWorkProfileCertificationsInput) (*models.ListWorkProfileCertificationsResult, error) {
 	whereParts := []string{"work_profile_id = $1"}
 	args := []any{in.WorkProfileID}
+
 	if in.CertificationTypeID != nil {
 		args = append(args, *in.CertificationTypeID)
 		whereParts = append(whereParts, fmt.Sprintf("certification_type_id = $%d", len(args)))
 	}
+
 	if in.Status != nil {
 		args = append(args, *in.Status)
 		whereParts = append(whereParts, fmt.Sprintf("status = $%d", len(args)))
 	}
+
 	whereSQL := "WHERE " + strings.Join(whereParts, " AND ")
 	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM work_profile_certifications %s", whereSQL)
 	var total int64
+
 	if err := r.readPool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, mapDatabaseError("ListWorkProfileCertifications(): count", err)
 	}
+
 	args = append(args, in.Limit, in.Offset)
 	query := fmt.Sprintf(`
 		SELECT id, work_profile_id, certification_type_id, certificate_number, issuer,
@@ -470,53 +612,75 @@ func (r *CertificationRepoStruct) ListWorkProfileCertifications(ctx context.Cont
 		LIMIT $%d OFFSET $%d
 	`, whereSQL, len(args)-1, len(args))
 	rows, err := r.readPool.Query(ctx, query, args...)
+
 	if err != nil {
 		return nil, mapDatabaseError("ListWorkProfileCertifications(): query", err)
 	}
+
 	defer rows.Close()
 	items := make([]*models.WorkProfileCertification, 0)
 	for rows.Next() {
 		item, scanErr := scanWorkProfileCertification(rows)
+
 		if scanErr != nil {
 			return nil, mapDatabaseError("ListWorkProfileCertifications(): scan", scanErr)
 		}
+
 		items = append(items, item)
 	}
+
 	if err = rows.Err(); err != nil {
 		return nil, mapDatabaseError("ListWorkProfileCertifications(): rows", err)
 	}
+
 	return &models.ListWorkProfileCertificationsResult{Certifications: items, Total: total}, nil
 }
 
+// GrantManualWorkProfileSkill проверяет, что профиль не INACTIVE/SUSPENDED,
+// и транзакционно сохраняет MANUAL-назначение навыка и событие с причиной.
+// Срок и права проверяет вызывающий код.
 func (r *CertificationRepoStruct) GrantManualWorkProfileSkill(ctx context.Context, in *models.GrantManualWorkProfileSkillInput) (*models.GrantManualWorkProfileSkillResult, error) {
 	tx, err := beginCommandTx(ctx, r.writePool)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: GrantManualWorkProfileSkill(): begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	if err = ensureWorkProfileCanReceiveQualification(ctx, tx, in.WorkProfileID); err != nil {
 		return nil, err
 	}
+
 	grant, err := insertSkillGrant(ctx, tx, in.WorkProfileID, in.SkillID, models.SkillGrantSourceTypeManual, nil, in.ProficiencyLevel, in.ValidUntil)
+
 	if err != nil {
 		return nil, mapDatabaseError("GrantManualWorkProfileSkill(): insert grant", err)
 	}
+
 	payload := map[string]any{"skill_grant": grant, "reason": strings.TrimSpace(in.Reason)}
+
 	if err = insertOutboxEvent(ctx, tx, "work_profile_skill_grant", grant.ID, "WorkProfileSkillGrantChanged", in.ActorUserID, payload); err != nil {
 		return nil, fmt.Errorf("repository: GrantManualWorkProfileSkill(): insert outbox event: %w", err)
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repository: GrantManualWorkProfileSkill(): commit: %w", err)
 	}
+
 	return &models.GrantManualWorkProfileSkillResult{SkillGrant: grant}, nil
 }
 
+// RevokeWorkProfileSkillGrant транзакционно выключает активное назначение,
+// устанавливает revoked_at и записывает outbox с причиной. Отсутствующее
+// или уже выключенное назначение возвращает как ErrNotFound.
 func (r *CertificationRepoStruct) RevokeWorkProfileSkillGrant(ctx context.Context, in *models.RevokeWorkProfileSkillGrantInput) (*models.RevokeWorkProfileSkillGrantResult, error) {
 	tx, err := beginCommandTx(ctx, r.writePool)
+
 	if err != nil {
 		return nil, fmt.Errorf("repository: RevokeWorkProfileSkillGrant(): begin tx: %w", err)
 	}
+
 	defer rollbackTxOnCancel(ctx, tx)()
 
 	const query = `
@@ -526,32 +690,47 @@ func (r *CertificationRepoStruct) RevokeWorkProfileSkillGrant(ctx context.Contex
 		RETURNING id, work_profile_id, skill_id, source_type, source_id, proficiency_level, valid_until, active, created_at, revoked_at
 	`
 	grant, err := scanWorkProfileSkillGrant(tx.QueryRow(ctx, query, in.ID))
+
 	if err != nil {
 		return nil, mapDatabaseError("RevokeWorkProfileSkillGrant()", err)
 	}
+
 	payload := map[string]any{"skill_grant": grant, "reason": strings.TrimSpace(in.Reason)}
+
 	if err = insertOutboxEvent(ctx, tx, "work_profile_skill_grant", grant.ID, "WorkProfileSkillGrantChanged", in.ActorUserID, payload); err != nil {
 		return nil, fmt.Errorf("repository: RevokeWorkProfileSkillGrant(): insert outbox event: %w", err)
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repository: RevokeWorkProfileSkillGrant(): commit: %w", err)
 	}
+
 	return &models.RevokeWorkProfileSkillGrantResult{SkillGrant: grant}, nil
 }
 
+// ListEffectiveWorkProfileSkills возвращает действующие назначения навыков
+// для ACTIVE/ON_SHIFT-профиля с учётом сроков и состояния сертификата-источника.
+// Отсутствующий профиль даёт пустой список без ошибки.
 func (r *CertificationRepoStruct) ListEffectiveWorkProfileSkills(ctx context.Context, in *models.ListEffectiveWorkProfileSkillsInput) (*models.ListEffectiveWorkProfileSkillsResult, error) {
 	grants, err := listEffectiveGrants(ctx, r.readPool, []uuid.UUID{in.WorkProfileID})
+
 	if err != nil {
 		return nil, mapDatabaseError("ListEffectiveWorkProfileSkills()", err)
 	}
+
 	return &models.ListEffectiveWorkProfileSkillsResult{SkillGrants: grants}, nil
 }
 
+// BatchListEffectiveWorkProfileSkills возвращает карту действующих назначений
+// с ключом для каждого запрошенного ID. Для отсутствующих или не имеющих
+// действующих навыков профилей записывает пустой срез.
 func (r *CertificationRepoStruct) BatchListEffectiveWorkProfileSkills(ctx context.Context, in *models.BatchListEffectiveWorkProfileSkillsInput) (*models.BatchListEffectiveWorkProfileSkillsResult, error) {
 	grants, err := listEffectiveGrants(ctx, r.readPool, in.WorkProfileIDs)
+
 	if err != nil {
 		return nil, mapDatabaseError("BatchListEffectiveWorkProfileSkills()", err)
 	}
+
 	result := &models.BatchListEffectiveWorkProfileSkillsResult{SkillGrantsByWorkProfileID: make(map[uuid.UUID][]*models.WorkProfileSkillGrant, len(in.WorkProfileIDs))}
 	for _, id := range in.WorkProfileIDs {
 		result.SkillGrantsByWorkProfileID[id] = []*models.WorkProfileSkillGrant{}
@@ -562,36 +741,47 @@ func (r *CertificationRepoStruct) BatchListEffectiveWorkProfileSkills(ctx contex
 	return result, nil
 }
 
+// CheckWorkProfileHasSkills сравнивает требуемые ID с действующими назначениями,
+// возвращая недостающие в порядке входа и Allowed при их отсутствии.
+// Уровень владения не сравнивает; требует предварительно проверенный in.
 func (r *CertificationRepoStruct) CheckWorkProfileHasSkills(ctx context.Context, in *models.CheckWorkProfileHasSkillsInput) (*models.CheckWorkProfileHasSkillsResult, error) {
 	grants, err := listEffectiveGrants(ctx, r.readPool, []uuid.UUID{in.WorkProfileID})
+
 	if err != nil {
 		return nil, mapDatabaseError("CheckWorkProfileHasSkills()", err)
 	}
+
 	have := make(map[uuid.UUID]struct{}, len(grants))
 	for _, grant := range grants {
 		have[grant.SkillID] = struct{}{}
 	}
 	missing := make([]uuid.UUID, 0)
 	for _, skillID := range in.RequiredSkillIDs {
+
 		if _, ok := have[skillID]; !ok {
 			missing = append(missing, skillID)
 		}
+
 	}
 	return &models.CheckWorkProfileHasSkillsResult{Allowed: len(missing) == 0, MissingSkillIDs: missing}, nil
 }
 
+// scanCertificationType читает тип сертификата и возвращает выделенную модель вместе с ошибкой Scan.
 func scanCertificationType(s scanner) (*models.CertificationType, error) {
 	item := &models.CertificationType{}
 	err := s.Scan(&item.ID, &item.Code, &item.Name, &item.Description, &item.DefaultValidityDays, &item.RequiresFile, &item.Active, &item.CreatedAt, &item.UpdatedAt)
 	return item, err
 }
 
+// scanCertificationTypeSkill читает связь типа с навыком и возвращает модель вместе с ошибкой Scan.
 func scanCertificationTypeSkill(s scanner) (*models.CertificationTypeSkill, error) {
 	item := &models.CertificationTypeSkill{}
 	err := s.Scan(&item.ID, &item.CertificationTypeID, &item.SkillID, &item.ProficiencyLevel, &item.Active, &item.CreatedAt, &item.UpdatedAt)
 	return item, err
 }
 
+// scanWorkProfileCertification читает сертификат рабочего профиля, включая
+// необязательные реквизиты проверки, и возвращает модель вместе с ошибкой Scan.
 func scanWorkProfileCertification(s scanner) (*models.WorkProfileCertification, error) {
 	item := &models.WorkProfileCertification{}
 	err := s.Scan(
@@ -613,17 +803,22 @@ func scanWorkProfileCertification(s scanner) (*models.WorkProfileCertification, 
 	return item, err
 }
 
+// scanWorkProfileSkillGrant читает назначение навыка и возвращает выделенную модель вместе с ошибкой Scan.
 func scanWorkProfileSkillGrant(s scanner) (*models.WorkProfileSkillGrant, error) {
 	item := &models.WorkProfileSkillGrant{}
 	err := s.Scan(&item.ID, &item.WorkProfileID, &item.SkillID, &item.SourceType, &item.SourceID, &item.ProficiencyLevel, &item.ValidUntil, &item.Active, &item.CreatedAt, &item.RevokedAt)
 	return item, err
 }
 
+// getWorkProfileCertificationByID читает сертификат через q, при forUpdate блокируя строку.
+// Ошибку Scan, включая pgx.ErrNoRows, возвращает без замены.
 func getWorkProfileCertificationByID(ctx context.Context, q Querier, id uuid.UUID, forUpdate bool) (*models.WorkProfileCertification, error) {
 	lockSQL := ""
+
 	if forUpdate {
 		lockSQL = "FOR UPDATE"
 	}
+
 	query := fmt.Sprintf(`
 		SELECT id, work_profile_id, certification_type_id, certificate_number, issuer,
 		       issued_at, expires_at, status, certificate_file_id, verified_by_user_id,
@@ -635,18 +830,26 @@ func getWorkProfileCertificationByID(ctx context.Context, q Querier, id uuid.UUI
 	return scanWorkProfileCertification(q.QueryRow(ctx, query, id))
 }
 
+// ensureWorkProfileCanReceiveQualification читает статус профиля через q и отклоняет
+// INACTIVE/SUSPENDED с ErrWorkProfileInactive. Отсутствие даёт ErrNotFound;
+// строку профиля не блокирует.
 func ensureWorkProfileCanReceiveQualification(ctx context.Context, q Querier, workProfileID uuid.UUID) error {
 	const query = `SELECT status FROM work_profiles WHERE id = $1`
 	var status models.WorkProfileStatus
+
 	if err := q.QueryRow(ctx, query, workProfileID).Scan(&status); err != nil {
 		return mapDatabaseError("ensureWorkProfileCanReceiveQualification()", err)
 	}
+
 	if status == models.WorkProfileStatusInactive || status == models.WorkProfileStatusSuspended {
 		return fmt.Errorf("repository: ensureWorkProfileCanReceiveQualification(): %w", models.ErrWorkProfileInactive)
 	}
+
 	return nil
 }
 
+// listActiveCertificationTypeSkills читает активные связи типа с навыками через q
+// от старых к новым. Активность самого типа не проверяет.
 func listActiveCertificationTypeSkills(ctx context.Context, q Querier, certificationTypeID uuid.UUID) ([]*models.CertificationTypeSkill, error) {
 	const query = `
 		SELECT id, certification_type_id, skill_id, proficiency_level, active, created_at, updated_at
@@ -655,21 +858,27 @@ func listActiveCertificationTypeSkills(ctx context.Context, q Querier, certifica
 		ORDER BY created_at ASC, id ASC
 	`
 	rows, err := q.Query(ctx, query, certificationTypeID)
+
 	if err != nil {
 		return nil, err
 	}
+
 	defer rows.Close()
 	items := make([]*models.CertificationTypeSkill, 0)
 	for rows.Next() {
 		item, scanErr := scanCertificationTypeSkill(rows)
+
 		if scanErr != nil {
 			return nil, scanErr
 		}
+
 		items = append(items, item)
 	}
 	return items, rows.Err()
 }
 
+// insertSkillGrant вставляет назначение навыка через q с заданными источником и сроком,
+// обрезая пробелы уровня владения. Проверки профиля, прав и запись событий выполняются снаружи.
 func insertSkillGrant(ctx context.Context, q Querier, workProfileID uuid.UUID, skillID uuid.UUID, sourceType models.SkillGrantSourceType, sourceID *uuid.UUID, level *string, validUntil *time.Time) (*models.WorkProfileSkillGrant, error) {
 	const query = `
 		INSERT INTO work_profile_skill_grants (
@@ -681,19 +890,28 @@ func insertSkillGrant(ctx context.Context, q Querier, workProfileID uuid.UUID, s
 	return scanWorkProfileSkillGrant(q.QueryRow(ctx, query, workProfileID, skillID, sourceType, sourceID, trimOptionalString(level), validUntil))
 }
 
+// commitVerifiedCertificationNoop читает все назначения уже подтверждённого сертификата
+// и завершает tx без новых записей. Ошибки дополняет именем operation.
 func commitVerifiedCertificationNoop(ctx context.Context, tx pgx.Tx, certification *models.WorkProfileCertification, operation string) (*models.VerifyWorkProfileCertificationResult, error) {
 	grants, err := listCertificationGrants(ctx, tx, certification.ID)
+
 	if err != nil {
 		return nil, mapDatabaseError(operation+": list grants", err)
 	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("repository: %s: commit no-op: %w", operation, err)
 	}
+
 	return &models.VerifyWorkProfileCertificationResult{Certification: certification, SkillGrants: grants}, nil
 }
 
+// createCertificationSkillGrants выдаёт через q по одному назначению на каждую
+// активную связь типа сертификата с навыком. Источником ставит сертификат,
+// ValidUntil берёт из ExpiresAt; события не записывает.
 func createCertificationSkillGrants(ctx context.Context, q Querier, certification *models.WorkProfileCertification) ([]*models.WorkProfileSkillGrant, error) {
 	typeSkills, err := listActiveCertificationTypeSkills(ctx, q, certification.CertificationTypeID)
+
 	if err != nil {
 		return nil, err
 	}
@@ -710,23 +928,31 @@ func createCertificationSkillGrants(ctx context.Context, q Querier, certificatio
 			typeSkill.ProficiencyLevel,
 			certification.ExpiresAt,
 		)
+
 		if err != nil {
 			return nil, err
 		}
+
 		grants = append(grants, grant)
 	}
 	return grants, nil
 }
 
+// publishSkillGrantEvents сохраняет событие WorkProfileSkillGrantChanged для каждого
+// назначения через q, прерываясь на первой ошибке. Внешнюю транзакцию не завершает.
 func publishSkillGrantEvents(ctx context.Context, q Querier, operation string, actorUserID *uuid.UUID, grants []*models.WorkProfileSkillGrant) error {
 	for _, grant := range grants {
+
 		if err := insertOutboxEvent(ctx, q, "work_profile_skill_grant", grant.ID, "WorkProfileSkillGrantChanged", actorUserID, grant); err != nil {
 			return fmt.Errorf("repository: %s: insert skill event: %w", operation, err)
 		}
+
 	}
 	return nil
 }
 
+// selectExpiredCertificationIDs выбирает до limit VERIFIED-сертификатов со сроком
+// не позднее now() по сроку и ID, блокируя строки и пропуская уже заблокированные.
 func selectExpiredCertificationIDs(ctx context.Context, q Querier, limit int32) ([]uuid.UUID, error) {
 	const query = `
 		SELECT id
@@ -737,38 +963,51 @@ func selectExpiredCertificationIDs(ctx context.Context, q Querier, limit int32) 
 		FOR UPDATE SKIP LOCKED
 	`
 	rows, err := q.Query(ctx, query, limit)
+
 	if err != nil {
 		return nil, err
 	}
+
 	defer rows.Close()
 
 	ids := make([]uuid.UUID, 0)
 	for rows.Next() {
 		var id uuid.UUID
+
 		if err = rows.Scan(&id); err != nil {
 			return nil, err
 		}
+
 		ids = append(ids, id)
 	}
 	return ids, rows.Err()
 }
 
+// expireCertification переводит сертификат в EXPIRED, отзывает его активные назначения
+// и сохраняет события сертификата и навыков через q. Срок самостоятельно не проверяет;
+// вызывающий код управляет выбором записей и транзакцией.
 func expireCertification(ctx context.Context, q Querier, certificationID uuid.UUID, actorUserID *uuid.UUID) (*models.WorkProfileCertification, []*models.WorkProfileSkillGrant, error) {
 	const operation = "ExpireWorkProfileCertifications()"
 
 	certification, grants, err := revokeCertification(ctx, q, certificationID, models.CertificationStatusExpired)
+
 	if err != nil {
 		return nil, nil, fmt.Errorf("repository: %s: expire certification: %w", operation, err)
 	}
+
 	if err = insertOutboxEvent(ctx, q, "work_profile_certification", certification.ID, "CertificationExpired", actorUserID, certification); err != nil {
 		return nil, nil, fmt.Errorf("repository: %s: insert certification event: %w", operation, err)
 	}
+
 	if err = publishSkillGrantEvents(ctx, q, operation, actorUserID, grants); err != nil {
 		return nil, nil, fmt.Errorf("repository: %s: publish skill grants: %w", operation, err)
 	}
+
 	return certification, grants, nil
 }
 
+// listCertificationGrants возвращает все назначения с источником CERTIFICATION
+// и заданным ID сертификата, включая неактивные и истёкшие, от старых к новым.
 func listCertificationGrants(ctx context.Context, q Querier, certificationID uuid.UUID) ([]*models.WorkProfileSkillGrant, error) {
 	const query = `
 		SELECT id, work_profile_id, skill_id, source_type, source_id, proficiency_level, valid_until, active, created_at, revoked_at
@@ -777,33 +1016,45 @@ func listCertificationGrants(ctx context.Context, q Querier, certificationID uui
 		ORDER BY created_at ASC, id ASC
 	`
 	rows, err := q.Query(ctx, query, certificationID)
+
 	if err != nil {
 		return nil, err
 	}
+
 	defer rows.Close()
 	items := make([]*models.WorkProfileSkillGrant, 0)
 	for rows.Next() {
 		item, scanErr := scanWorkProfileSkillGrant(rows)
+
 		if scanErr != nil {
 			return nil, scanErr
 		}
+
 		items = append(items, item)
 	}
 	return items, rows.Err()
 }
 
+// revokeCertification блокирует сертификат и меняет PENDING/VERIFIED на заданный статус,
+// выключая его активные назначения навыков через q. При совпадении статуса возвращает
+// все прежние назначения без изменения; другие исходные статусы отклоняет.
 func revokeCertification(ctx context.Context, q Querier, certificationID uuid.UUID, status models.CertificationStatus) (*models.WorkProfileCertification, []*models.WorkProfileSkillGrant, error) {
 	current, err := getWorkProfileCertificationByID(ctx, q, certificationID, true)
+
 	if err != nil {
 		return nil, nil, mapDatabaseError("revokeCertification(): get certification", err)
 	}
+
 	if current.Status == status {
 		grants, listErr := listCertificationGrants(ctx, q, certificationID)
+
 		if listErr != nil {
 			return nil, nil, mapDatabaseError("revokeCertification(): list grants", listErr)
 		}
+
 		return current, grants, nil
 	}
+
 	if current.Status != models.CertificationStatusVerified && current.Status != models.CertificationStatusPending {
 		return nil, nil, fmt.Errorf("repository: revokeCertification(): %w", models.ErrInvalidCertificationStatus)
 	}
@@ -817,6 +1068,7 @@ func revokeCertification(ctx context.Context, q Querier, certificationID uuid.UU
 		          verified_at, rejection_reason, created_at, updated_at
 	`
 	item, err := scanWorkProfileCertification(q.QueryRow(ctx, updateQuery, status, certificationID))
+
 	if err != nil {
 		return nil, nil, mapDatabaseError("revokeCertification(): update certification", err)
 	}
@@ -828,24 +1080,33 @@ func revokeCertification(ctx context.Context, q Querier, certificationID uuid.UU
 		RETURNING id, work_profile_id, skill_id, source_type, source_id, proficiency_level, valid_until, active, created_at, revoked_at
 	`
 	rows, err := q.Query(ctx, revokeGrantsQuery, certificationID)
+
 	if err != nil {
 		return nil, nil, mapDatabaseError("revokeCertification(): revoke grants", err)
 	}
+
 	defer rows.Close()
 	grants := make([]*models.WorkProfileSkillGrant, 0)
 	for rows.Next() {
 		grant, scanErr := scanWorkProfileSkillGrant(rows)
+
 		if scanErr != nil {
 			return nil, nil, mapDatabaseError("revokeCertification(): scan grant", scanErr)
 		}
+
 		grants = append(grants, grant)
 	}
+
 	if err = rows.Err(); err != nil {
 		return nil, nil, mapDatabaseError("revokeCertification(): grant rows", err)
 	}
+
 	return item, grants, nil
 }
 
+// listEffectiveGrants читает активные непросроченные назначения ACTIVE/ON_SHIFT-профилей.
+// Источник должен быть MANUAL либо действующий VERIFIED-сертификат. Сортирует
+// по профилю, навыку и времени создания; несколько назначений одного навыка сохраняет.
 func listEffectiveGrants(ctx context.Context, q Querier, workProfileIDs []uuid.UUID) ([]*models.WorkProfileSkillGrant, error) {
 	const query = `
 		SELECT wpsg.id, wpsg.work_profile_id, wpsg.skill_id, wpsg.source_type, wpsg.source_id,
@@ -865,16 +1126,20 @@ func listEffectiveGrants(ctx context.Context, q Querier, workProfileIDs []uuid.U
 		ORDER BY wpsg.work_profile_id ASC, wpsg.skill_id ASC, wpsg.created_at ASC
 	`
 	rows, err := q.Query(ctx, query, workProfileIDs)
+
 	if err != nil {
 		return nil, err
 	}
+
 	defer rows.Close()
 	items := make([]*models.WorkProfileSkillGrant, 0)
 	for rows.Next() {
 		item, scanErr := scanWorkProfileSkillGrant(rows)
+
 		if scanErr != nil {
 			return nil, scanErr
 		}
+
 		items = append(items, item)
 	}
 	return items, rows.Err()

@@ -151,16 +151,21 @@ func brigadeHandlerContext(userID uuid.UUID, departmentID uuid.UUID, roles strin
 
 func assertBrigadeGRPCCode(t *testing.T, err error, expected codes.Code) {
 	t.Helper()
+
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
+
 	st, ok := status.FromError(err)
+
 	if !ok {
 		t.Fatalf("expected grpc status error, got %v", err)
 	}
+
 	if st.Code() != expected {
 		t.Fatalf("expected grpc code %v, got %v", expected, st.Code())
 	}
+
 }
 
 func TestBrigadeHandler_CreateBrigade_Success(t *testing.T) {
@@ -169,18 +174,23 @@ func TestBrigadeHandler_CreateBrigade_Success(t *testing.T) {
 	brigadeID := uuid.New()
 	mock := &mockService{
 		brigadeFunc: func(ctx context.Context, in *models.CreateBrigadeInput) (*models.CreateBrigadeResult, error) {
+
 			if in.DepartmentID != departmentID {
 				t.Fatalf("expected department id %s, got %s", departmentID, in.DepartmentID)
 			}
+
 			if in.ActorUserID == nil || *in.ActorUserID != userID {
 				t.Fatalf("expected actor user %s, got %v", userID, in.ActorUserID)
 			}
+
 			if in.ActorDepartmentID == nil || *in.ActorDepartmentID != departmentID {
 				t.Fatalf("expected actor department %s, got %v", departmentID, in.ActorDepartmentID)
 			}
+
 			if len(in.ActorRoles) != 2 {
 				t.Fatalf("expected 2 roles, got %#v", in.ActorRoles)
 			}
+
 			return &models.CreateBrigadeResult{Brigade: testHandlerBrigade(brigadeID, departmentID)}, nil
 		},
 	}
@@ -194,9 +204,11 @@ func TestBrigadeHandler_CreateBrigade_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
+
 	if resp.GetBrigade().GetId() != brigadeID.String() {
 		t.Fatalf("expected brigade id %s, got %s", brigadeID, resp.GetBrigade().GetId())
 	}
+
 }
 
 func TestBrigadeHandler_CreateBrigade_InvalidDepartmentID(t *testing.T) {
@@ -207,6 +219,7 @@ func TestBrigadeHandler_CreateBrigade_InvalidDepartmentID(t *testing.T) {
 	if resp != nil {
 		t.Fatal("expected nil response")
 	}
+
 	assertBrigadeGRPCCode(t, err, codes.InvalidArgument)
 }
 
@@ -224,6 +237,7 @@ func TestBrigadeHandler_GetBrigadeByID_NotFound(t *testing.T) {
 	if resp != nil {
 		t.Fatal("expected nil response")
 	}
+
 	assertBrigadeGRPCCode(t, err, codes.NotFound)
 }
 
@@ -232,12 +246,15 @@ func TestBrigadeHandler_ListBrigades_Success(t *testing.T) {
 	statusValue := brigadev1.BrigadeStatus_BRIGADE_STATUS_ACTIVE
 	mock := &mockService{
 		listFunc: func(ctx context.Context, in *models.ListBrigadesInput) (*models.ListBrigadesResult, error) {
+
 			if in.DepartmentID == nil || *in.DepartmentID != departmentID {
 				t.Fatalf("expected department id %s, got %v", departmentID, in.DepartmentID)
 			}
+
 			if in.Status == nil || *in.Status != models.BrigadeStatusActive {
 				t.Fatalf("expected active status, got %v", in.Status)
 			}
+
 			return &models.ListBrigadesResult{Brigades: []*models.Brigade{testHandlerBrigade(uuid.New(), departmentID)}, Total: 1}, nil
 		},
 	}
@@ -252,9 +269,11 @@ func TestBrigadeHandler_ListBrigades_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
+
 	if resp.GetTotal() != 1 {
 		t.Fatalf("expected total 1, got %d", resp.GetTotal())
 	}
+
 }
 
 func TestBrigadeHandler_AddMember_Success(t *testing.T) {
@@ -265,12 +284,15 @@ func TestBrigadeHandler_AddMember_Success(t *testing.T) {
 	memberID := uuid.New()
 	mock := &mockService{
 		addMemberFunc: func(ctx context.Context, in *models.AddBrigadeMemberInput) (*models.AddBrigadeMemberResult, error) {
+
 			if in.BrigadeID != brigadeID || in.UserID != memberUserID {
 				t.Fatalf("unexpected ids: %#v", in)
 			}
+
 			if in.Role != models.BrigadeMemberRoleLead {
 				t.Fatalf("expected lead role, got %s", in.Role)
 			}
+
 			return &models.AddBrigadeMemberResult{Member: testHandlerMember(memberID, brigadeID, memberUserID)}, nil
 		},
 	}
@@ -285,9 +307,11 @@ func TestBrigadeHandler_AddMember_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
+
 	if resp.GetMember().GetId() != memberID.String() {
 		t.Fatalf("expected member id %s, got %s", memberID, resp.GetMember().GetId())
 	}
+
 }
 
 func TestBrigadeHandler_CreateSkill_MapsPermissionDenied(t *testing.T) {
@@ -303,6 +327,7 @@ func TestBrigadeHandler_CreateSkill_MapsPermissionDenied(t *testing.T) {
 	if resp != nil {
 		t.Fatal("expected nil response")
 	}
+
 	assertBrigadeGRPCCode(t, err, codes.PermissionDenied)
 }
 
@@ -310,12 +335,15 @@ func TestBrigadeHandler_SetSchedule_ParsesItems(t *testing.T) {
 	brigadeID := uuid.New()
 	mock := &mockService{
 		scheduleFunc: func(ctx context.Context, in *models.SetBrigadeScheduleInput) (*models.SetBrigadeScheduleResult, error) {
+
 			if len(in.Items) != 1 {
 				t.Fatalf("expected one item, got %d", len(in.Items))
 			}
+
 			if in.Items[0].ValidFrom == nil || in.Items[0].ValidTo == nil {
 				t.Fatal("expected valid date range")
 			}
+
 			return &models.SetBrigadeScheduleResult{Schedule: []*models.BrigadeSchedule{{
 				ID:        uuid.New(),
 				BrigadeID: brigadeID,
@@ -346,9 +374,11 @@ func TestBrigadeHandler_SetSchedule_ParsesItems(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
+
 	if len(resp.GetSchedule()) != 1 {
 		t.Fatalf("expected one schedule item, got %d", len(resp.GetSchedule()))
 	}
+
 }
 
 func TestBrigadeHandler_CreateZone_Success(t *testing.T) {
@@ -357,9 +387,11 @@ func TestBrigadeHandler_CreateZone_Success(t *testing.T) {
 	zoneID := uuid.New()
 	mock := &mockService{
 		zoneFunc: func(ctx context.Context, in *models.CreateBrigadeZoneInput) (*models.CreateBrigadeZoneResult, error) {
+
 			if in.GeoJSON == "" {
 				t.Fatal("expected geojson")
 			}
+
 			return &models.CreateBrigadeZoneResult{Zone: &models.BrigadeZone{
 				ID:           zoneID,
 				BrigadeID:    brigadeID,
@@ -386,18 +418,22 @@ func TestBrigadeHandler_CreateZone_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
+
 	if resp.GetZone().GetId() != zoneID.String() {
 		t.Fatalf("expected zone id %s, got %s", zoneID, resp.GetZone().GetId())
 	}
+
 }
 
 func TestBrigadeHandler_CheckCovers_Success(t *testing.T) {
 	brigadeID := uuid.New()
 	mock := &mockService{
 		coversFunc: func(ctx context.Context, in *models.CheckBrigadeCoversPointInput) (*models.CheckBrigadeCoversPointResult, error) {
+
 			if in.Longitude != 37.62 || in.Latitude != 55.75 {
 				t.Fatalf("unexpected point: %f %f", in.Longitude, in.Latitude)
 			}
+
 			return &models.CheckBrigadeCoversPointResult{Covers: true}, nil
 		},
 	}
@@ -412,9 +448,11 @@ func TestBrigadeHandler_CheckCovers_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
+
 	if !resp.GetCovers() {
 		t.Fatal("expected covers true")
 	}
+
 }
 
 func TestBrigadeErrorCode(t *testing.T) {
@@ -436,9 +474,11 @@ func TestBrigadeErrorCode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+
 			if got := brigadeErrorCode(tt.err); got != tt.code {
 				t.Fatalf("expected %v, got %v", tt.code, got)
 			}
+
 		})
 	}
 }

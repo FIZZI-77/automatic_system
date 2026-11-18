@@ -82,6 +82,15 @@ spec:
             - name: GF_PLUGINS_CHECK_FOR_UPDATES
               value: "false"
 
+            - name: GF_INSTALL_PLUGINS
+              value: "grafana-clickhouse-datasource 4.22.1"
+
+            - name: CLICKHOUSE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: runtime-secrets
+                  key: CLICKHOUSE_PASSWORD
+
             # SMTP
             - name: GF_SMTP_ENABLED
               value: "true"
@@ -189,6 +198,8 @@ spec:
                   name: grafana-dashboards-messaging
               - configMap:
                   name: grafana-dashboards-platform
+              - configMap:
+                  name: grafana-dashboards-business-analytics
               - configMap:
                   name: grafana-dashboard-community-postgresql
               - configMap:

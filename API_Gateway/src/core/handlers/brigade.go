@@ -17,12 +17,15 @@ type BrigadeHandler struct {
 	brigadeClient brigadev1.BrigadeServiceClient
 }
 
+// NewBrigadeHandler создает обработчик операций с бригадами.
 func NewBrigadeHandler(brigadeClient brigadev1.BrigadeServiceClient) *BrigadeHandler {
 	return &BrigadeHandler{brigadeClient: brigadeClient}
 }
 
+// CreateBrigade создает новую бригаду.
 func (bh *BrigadeHandler) CreateBrigade(c *gin.Context) {
 	var req models.CreateBrigadeRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -33,51 +36,64 @@ func (bh *BrigadeHandler) CreateBrigade(c *gin.Context) {
 		Description:    req.Description,
 		Specialization: stringOrEmpty(req.Specialization),
 	})
+
 	if err != nil {
 		brigadeResponse(c, http.StatusInternalServerError, err, nil)
 		return
 	}
+
 	brigadeResponse(c, http.StatusCreated, nil, &models.BrigadeResponse{Brigade: FromProtoBrigade(res.GetBrigade())})
 }
 
+// GetBrigadeByID возвращает бригаду по идентификатору.
 func (bh *BrigadeHandler) GetBrigadeByID(c *gin.Context) {
 	var req models.GetBrigadeByIDRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
 
 	res, err := bh.brigadeClient.GetBrigadeByID(brigadeRequestContext(c), &brigadev1.GetBrigadeByIDRequest{Id: req.ID})
+
 	if err != nil {
 		brigadeResponse(c, http.StatusInternalServerError, err, nil)
 		return
 	}
+
 	brigadeResponse(c, http.StatusOK, nil, &models.BrigadeResponse{Brigade: FromProtoBrigade(res.GetBrigade())})
 }
 
+// ListBrigades возвращает список бригад с фильтрами и пагинацией.
 func (bh *BrigadeHandler) ListBrigades(c *gin.Context) {
 	var req models.ListBrigadesRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
 
 	protoReq, ok := buildListBrigadesRequest(c, &req)
+
 	if !ok {
 		return
 	}
 
 	res, err := bh.brigadeClient.ListBrigades(brigadeRequestContext(c), protoReq)
+
 	if err != nil {
 		brigadeResponse(c, http.StatusInternalServerError, err, nil)
 		return
 	}
+
 	brigadeResponse(c, http.StatusOK, nil, &models.ListBrigadesResponse{
 		Brigades: FromProtoBrigades(res.GetBrigades()),
 		Total:    res.GetTotal(),
 	})
 }
 
+// UpdateBrigade изменяет данные бригады.
 func (bh *BrigadeHandler) UpdateBrigade(c *gin.Context) {
 	var req models.UpdateBrigadeRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -88,15 +104,19 @@ func (bh *BrigadeHandler) UpdateBrigade(c *gin.Context) {
 		Description:    req.Description,
 		Specialization: req.Specialization,
 	})
+
 	if err != nil {
 		brigadeResponse(c, http.StatusInternalServerError, err, nil)
 		return
 	}
+
 	brigadeResponse(c, http.StatusOK, nil, &models.BrigadeResponse{Brigade: FromProtoBrigade(res.GetBrigade())})
 }
 
+// DeactivateBrigade деактивирует бригаду.
 func (bh *BrigadeHandler) DeactivateBrigade(c *gin.Context) {
 	var req models.BrigadeReasonRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -106,15 +126,19 @@ func (bh *BrigadeHandler) DeactivateBrigade(c *gin.Context) {
 		Reason:          req.Reason,
 		ChangedByUserId: req.ChangedByUserID,
 	})
+
 	if err != nil {
 		brigadeResponse(c, http.StatusInternalServerError, err, nil)
 		return
 	}
+
 	brigadeResponse(c, http.StatusOK, nil, &models.BrigadeResponse{Brigade: FromProtoBrigade(res.GetBrigade())})
 }
 
+// ArchiveBrigade архивирует бригаду.
 func (bh *BrigadeHandler) ArchiveBrigade(c *gin.Context) {
 	var req models.BrigadeReasonRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -124,15 +148,19 @@ func (bh *BrigadeHandler) ArchiveBrigade(c *gin.Context) {
 		Reason:          req.Reason,
 		ChangedByUserId: req.ChangedByUserID,
 	})
+
 	if err != nil {
 		brigadeResponse(c, http.StatusInternalServerError, err, nil)
 		return
 	}
+
 	brigadeResponse(c, http.StatusOK, nil, &models.BrigadeResponse{Brigade: FromProtoBrigade(res.GetBrigade())})
 }
 
+// SetBrigadeStatus изменяет статус бригады.
 func (bh *BrigadeHandler) SetBrigadeStatus(c *gin.Context) {
 	var req models.SetBrigadeStatusRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -143,15 +171,19 @@ func (bh *BrigadeHandler) SetBrigadeStatus(c *gin.Context) {
 		Reason:          req.Reason,
 		ChangedByUserId: req.ChangedByUserID,
 	})
+
 	if err != nil {
 		brigadeResponse(c, http.StatusInternalServerError, err, nil)
 		return
 	}
+
 	brigadeResponse(c, http.StatusOK, nil, &models.BrigadeResponse{Brigade: FromProtoBrigade(res.GetBrigade())})
 }
 
+// GetBrigadeStatusHistory возвращает историю статусов бригады.
 func (bh *BrigadeHandler) GetBrigadeStatusHistory(c *gin.Context) {
 	var req models.BrigadePageRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -161,18 +193,22 @@ func (bh *BrigadeHandler) GetBrigadeStatusHistory(c *gin.Context) {
 		Limit:     int32OrZero(req.Limit),
 		Offset:    int32OrZero(req.Offset),
 	})
+
 	if err != nil {
 		brigadeResponse(c, http.StatusInternalServerError, err, nil)
 		return
 	}
+
 	brigadeResponse(c, http.StatusOK, nil, &models.BrigadeStatusHistoryResponse{
 		History: FromProtoBrigadeStatusHistoryItems(res.GetHistory()),
 		Total:   res.GetTotal(),
 	})
 }
 
+// AddBrigadeMember добавляет пользователя в бригаду.
 func (bh *BrigadeHandler) AddBrigadeMember(c *gin.Context) {
 	var req models.AddBrigadeMemberRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -184,15 +220,19 @@ func (bh *BrigadeHandler) AddBrigadeMember(c *gin.Context) {
 		Role:            ToProtoBrigadeMemberRole(req.Role),
 		ChangedByUserId: req.ChangedByUserID,
 	})
+
 	if err != nil {
 		brigadeResponse(c, http.StatusInternalServerError, err, nil)
 		return
 	}
+
 	brigadeResponse(c, http.StatusCreated, nil, &models.BrigadeMemberResponse{Member: FromProtoBrigadeMember(res.GetMember())})
 }
 
+// RemoveBrigadeMember удаляет пользователя из бригады.
 func (bh *BrigadeHandler) RemoveBrigadeMember(c *gin.Context) {
 	var req models.BrigadeMemberMutationRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -203,15 +243,19 @@ func (bh *BrigadeHandler) RemoveBrigadeMember(c *gin.Context) {
 		Reason:          req.Reason,
 		ChangedByUserId: req.ChangedByUserID,
 	})
+
 	if err != nil {
 		brigadeResponse(c, http.StatusInternalServerError, err, nil)
 		return
 	}
+
 	brigadeResponse(c, http.StatusOK, nil, &models.BrigadeMemberResponse{Member: FromProtoBrigadeMember(res.GetMember())})
 }
 
+// ChangeBrigadeMemberRole изменяет роль участника бригады.
 func (bh *BrigadeHandler) ChangeBrigadeMemberRole(c *gin.Context) {
 	var req models.ChangeBrigadeMemberRoleRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -222,15 +266,19 @@ func (bh *BrigadeHandler) ChangeBrigadeMemberRole(c *gin.Context) {
 		Role:            ToProtoBrigadeMemberRole(req.Role),
 		ChangedByUserId: req.ChangedByUserID,
 	})
+
 	if err != nil {
 		brigadeResponse(c, http.StatusInternalServerError, err, nil)
 		return
 	}
+
 	brigadeResponse(c, http.StatusOK, nil, &models.BrigadeMemberResponse{Member: FromProtoBrigadeMember(res.GetMember())})
 }
 
+// SetBrigadeMemberAvailability изменяет доступность участника бригады.
 func (bh *BrigadeHandler) SetBrigadeMemberAvailability(c *gin.Context) {
 	var req models.SetBrigadeMemberAvailabilityRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -242,15 +290,19 @@ func (bh *BrigadeHandler) SetBrigadeMemberAvailability(c *gin.Context) {
 		Reason:          req.Reason,
 		ChangedByUserId: req.ChangedByUserID,
 	})
+
 	if err != nil {
 		brigadeResponse(c, http.StatusInternalServerError, err, nil)
 		return
 	}
+
 	brigadeResponse(c, http.StatusOK, nil, &models.BrigadeMemberResponse{Member: FromProtoBrigadeMember(res.GetMember())})
 }
 
+// ListBrigadeMembers возвращает участников бригады.
 func (bh *BrigadeHandler) ListBrigadeMembers(c *gin.Context) {
 	var req models.ListBrigadeMembersRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -261,28 +313,34 @@ func (bh *BrigadeHandler) ListBrigadeMembers(c *gin.Context) {
 		Limit:     int32OrZero(req.Limit),
 		Offset:    int32OrZero(req.Offset),
 	}
+
 	if req.Role != nil {
 		role := ToProtoBrigadeMemberRole(*req.Role)
 		protoReq.Role = &role
 	}
+
 	if req.AvailabilityStatus != nil {
 		status := ToProtoBrigadeMemberAvailability(*req.AvailabilityStatus)
 		protoReq.AvailabilityStatus = &status
 	}
 
 	res, err := bh.brigadeClient.ListBrigadeMembers(brigadeRequestContext(c), protoReq)
+
 	if err != nil {
 		brigadeResponse(c, http.StatusInternalServerError, err, nil)
 		return
 	}
+
 	brigadeResponse(c, http.StatusOK, nil, &models.ListBrigadeMembersResponse{
 		Members: FromProtoBrigadeMembers(res.GetMembers()),
 		Total:   res.GetTotal(),
 	})
 }
 
+// GetBrigadeMemberHistory возвращает историю участника бригады.
 func (bh *BrigadeHandler) GetBrigadeMemberHistory(c *gin.Context) {
 	var req models.BrigadeMemberHistoryRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -293,18 +351,22 @@ func (bh *BrigadeHandler) GetBrigadeMemberHistory(c *gin.Context) {
 		Limit:     int32OrZero(req.Limit),
 		Offset:    int32OrZero(req.Offset),
 	})
+
 	if err != nil {
 		brigadeResponse(c, http.StatusInternalServerError, err, nil)
 		return
 	}
+
 	brigadeResponse(c, http.StatusOK, nil, &models.BrigadeMemberHistoryResponse{
 		History: FromProtoBrigadeMemberHistoryItems(res.GetHistory()),
 		Total:   res.GetTotal(),
 	})
 }
 
+// GetBrigadeMemberStatusHistory возвращает историю статусов участника.
 func (bh *BrigadeHandler) GetBrigadeMemberStatusHistory(c *gin.Context) {
 	var req models.BrigadeMemberHistoryRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -315,18 +377,22 @@ func (bh *BrigadeHandler) GetBrigadeMemberStatusHistory(c *gin.Context) {
 		Limit:     int32OrZero(req.Limit),
 		Offset:    int32OrZero(req.Offset),
 	})
+
 	if err != nil {
 		brigadeResponse(c, http.StatusInternalServerError, err, nil)
 		return
 	}
+
 	brigadeResponse(c, http.StatusOK, nil, &models.BrigadeMemberStatusHistoryResponse{
 		History: FromProtoBrigadeMemberStatusHistoryItems(res.GetHistory()),
 		Total:   res.GetTotal(),
 	})
 }
 
+// GetBrigadeByUserID возвращает бригаду пользователя.
 func (bh *BrigadeHandler) GetBrigadeByUserID(c *gin.Context) {
 	var req models.GetBrigadeByUserIDRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -335,18 +401,22 @@ func (bh *BrigadeHandler) GetBrigadeByUserID(c *gin.Context) {
 		UserId:     req.UserID,
 		OnlyActive: req.OnlyActive,
 	})
+
 	if err != nil {
 		brigadeResponse(c, http.StatusInternalServerError, err, nil)
 		return
 	}
+
 	brigadeResponse(c, http.StatusOK, nil, &models.GetBrigadeByUserIDResponse{
 		Brigade: FromProtoBrigade(res.GetBrigade()),
 		Member:  FromProtoBrigadeMember(res.GetMember()),
 	})
 }
 
+// CreateSkill создает навык.
 func (bh *BrigadeHandler) CreateSkill(c *gin.Context) {
 	var req models.CreateSkillRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -356,15 +426,19 @@ func (bh *BrigadeHandler) CreateSkill(c *gin.Context) {
 		Name:        req.Name,
 		Description: req.Description,
 	})
+
 	if err != nil {
 		brigadeResponse(c, http.StatusInternalServerError, err, nil)
 		return
 	}
+
 	brigadeResponse(c, http.StatusCreated, nil, &models.SkillResponse{Skill: FromProtoSkill(res.GetSkill())})
 }
 
+// UpdateSkill изменяет навык.
 func (bh *BrigadeHandler) UpdateSkill(c *gin.Context) {
 	var req models.UpdateSkillRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -376,29 +450,37 @@ func (bh *BrigadeHandler) UpdateSkill(c *gin.Context) {
 		Description: req.Description,
 		Active:      req.Active,
 	})
+
 	if err != nil {
 		brigadeResponse(c, http.StatusInternalServerError, err, nil)
 		return
 	}
+
 	brigadeResponse(c, http.StatusOK, nil, &models.SkillResponse{Skill: FromProtoSkill(res.GetSkill())})
 }
 
+// DeactivateSkill деактивирует навык.
 func (bh *BrigadeHandler) DeactivateSkill(c *gin.Context) {
 	var req models.IDRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
 
 	res, err := bh.brigadeClient.DeactivateSkill(brigadeRequestContext(c), &brigadev1.DeactivateSkillRequest{Id: req.ID})
+
 	if err != nil {
 		brigadeResponse(c, http.StatusInternalServerError, err, nil)
 		return
 	}
+
 	brigadeResponse(c, http.StatusOK, nil, &models.SkillResponse{Skill: FromProtoSkill(res.GetSkill())})
 }
 
+// ListSkills возвращает список навыков.
 func (bh *BrigadeHandler) ListSkills(c *gin.Context) {
 	var req models.ListSkillsRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -409,18 +491,22 @@ func (bh *BrigadeHandler) ListSkills(c *gin.Context) {
 		Limit:  int32OrZero(req.Limit),
 		Offset: int32OrZero(req.Offset),
 	})
+
 	if err != nil {
 		brigadeResponse(c, http.StatusInternalServerError, err, nil)
 		return
 	}
+
 	brigadeResponse(c, http.StatusOK, nil, &models.ListSkillsResponse{
 		Skills: FromProtoSkills(res.GetSkills()),
 		Total:  res.GetTotal(),
 	})
 }
 
+// AddBrigadeSkill назначает навык бригаде.
 func (bh *BrigadeHandler) AddBrigadeSkill(c *gin.Context) {
 	var req models.BrigadeSkillRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -429,15 +515,19 @@ func (bh *BrigadeHandler) AddBrigadeSkill(c *gin.Context) {
 		BrigadeId: req.BrigadeID,
 		SkillId:   req.SkillID,
 	})
+
 	if err != nil {
 		brigadeResponse(c, http.StatusInternalServerError, err, nil)
 		return
 	}
+
 	brigadeResponse(c, http.StatusCreated, nil, &models.BrigadeSkillResponse{BrigadeSkill: FromProtoBrigadeSkill(res.GetBrigadeSkill())})
 }
 
+// RemoveBrigadeSkill снимает навык с бригады.
 func (bh *BrigadeHandler) RemoveBrigadeSkill(c *gin.Context) {
 	var req models.BrigadeSkillRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -446,15 +536,19 @@ func (bh *BrigadeHandler) RemoveBrigadeSkill(c *gin.Context) {
 		BrigadeId: req.BrigadeID,
 		SkillId:   req.SkillID,
 	})
+
 	if err != nil {
 		brigadeResponse(c, http.StatusInternalServerError, err, nil)
 		return
 	}
+
 	brigadeResponse(c, http.StatusOK, nil, &models.BrigadeSkillResponse{BrigadeSkill: FromProtoBrigadeSkill(res.GetBrigadeSkill())})
 }
 
+// ListBrigadeSkills возвращает навыки бригады.
 func (bh *BrigadeHandler) ListBrigadeSkills(c *gin.Context) {
 	var req models.ListBrigadeSkillsRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -463,15 +557,19 @@ func (bh *BrigadeHandler) ListBrigadeSkills(c *gin.Context) {
 		BrigadeId: req.BrigadeID,
 		Active:    req.Active,
 	})
+
 	if err != nil {
 		brigadeResponse(c, http.StatusInternalServerError, err, nil)
 		return
 	}
+
 	brigadeResponse(c, http.StatusOK, nil, &models.ListBrigadeSkillsResponse{Skills: FromProtoBrigadeSkills(res.GetSkills())})
 }
 
+// SetBrigadeSchedule сохраняет расписание бригады.
 func (bh *BrigadeHandler) SetBrigadeSchedule(c *gin.Context) {
 	var req models.SetBrigadeScheduleRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -480,15 +578,19 @@ func (bh *BrigadeHandler) SetBrigadeSchedule(c *gin.Context) {
 		BrigadeId: req.BrigadeID,
 		Items:     ToProtoScheduleItems(req.Items),
 	})
+
 	if err != nil {
 		brigadeResponse(c, http.StatusInternalServerError, err, nil)
 		return
 	}
+
 	brigadeResponse(c, http.StatusOK, nil, &models.BrigadeScheduleResponse{Schedule: FromProtoBrigadeSchedules(res.GetSchedule())})
 }
 
+// ListBrigadeSchedule возвращает расписание бригады.
 func (bh *BrigadeHandler) ListBrigadeSchedule(c *gin.Context) {
 	var req models.ListBrigadeScheduleRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -497,15 +599,19 @@ func (bh *BrigadeHandler) ListBrigadeSchedule(c *gin.Context) {
 		BrigadeId: req.BrigadeID,
 		Active:    req.Active,
 	})
+
 	if err != nil {
 		brigadeResponse(c, http.StatusInternalServerError, err, nil)
 		return
 	}
+
 	brigadeResponse(c, http.StatusOK, nil, &models.BrigadeScheduleResponse{Schedule: FromProtoBrigadeSchedules(res.GetSchedule())})
 }
 
+// CreateBrigadeZone создает зону покрытия бригады.
 func (bh *BrigadeHandler) CreateBrigadeZone(c *gin.Context) {
 	var req models.CreateBrigadeZoneRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -517,15 +623,19 @@ func (bh *BrigadeHandler) CreateBrigadeZone(c *gin.Context) {
 		GeoJson:      req.GeoJSON,
 		Priority:     req.Priority,
 	})
+
 	if err != nil {
 		brigadeResponse(c, http.StatusInternalServerError, err, nil)
 		return
 	}
+
 	brigadeResponse(c, http.StatusCreated, nil, &models.BrigadeZoneResponse{Zone: FromProtoBrigadeZone(res.GetZone())})
 }
 
+// UpdateBrigadeZone изменяет зону покрытия бригады.
 func (bh *BrigadeHandler) UpdateBrigadeZone(c *gin.Context) {
 	var req models.UpdateBrigadeZoneRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -537,29 +647,37 @@ func (bh *BrigadeHandler) UpdateBrigadeZone(c *gin.Context) {
 		Priority: req.Priority,
 		Active:   req.Active,
 	})
+
 	if err != nil {
 		brigadeResponse(c, http.StatusInternalServerError, err, nil)
 		return
 	}
+
 	brigadeResponse(c, http.StatusOK, nil, &models.BrigadeZoneResponse{Zone: FromProtoBrigadeZone(res.GetZone())})
 }
 
+// DeleteBrigadeZone удаляет зону покрытия бригады.
 func (bh *BrigadeHandler) DeleteBrigadeZone(c *gin.Context) {
 	var req models.IDRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
 
 	res, err := bh.brigadeClient.DeleteBrigadeZone(brigadeRequestContext(c), &brigadev1.DeleteBrigadeZoneRequest{Id: req.ID})
+
 	if err != nil {
 		brigadeResponse(c, http.StatusInternalServerError, err, nil)
 		return
 	}
+
 	brigadeResponse(c, http.StatusOK, nil, &models.BrigadeZoneResponse{Zone: FromProtoBrigadeZone(res.GetZone())})
 }
 
+// ListBrigadeZones возвращает зоны покрытия бригады.
 func (bh *BrigadeHandler) ListBrigadeZones(c *gin.Context) {
 	var req models.ListBrigadeZonesRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -568,15 +686,19 @@ func (bh *BrigadeHandler) ListBrigadeZones(c *gin.Context) {
 		BrigadeId: req.BrigadeID,
 		Active:    req.Active,
 	})
+
 	if err != nil {
 		brigadeResponse(c, http.StatusInternalServerError, err, nil)
 		return
 	}
+
 	brigadeResponse(c, http.StatusOK, nil, &models.ListBrigadeZonesResponse{Zones: FromProtoBrigadeZones(res.GetZones())})
 }
 
+// CheckBrigadeCoversPoint проверяет покрытие точки бригадой.
 func (bh *BrigadeHandler) CheckBrigadeCoversPoint(c *gin.Context) {
 	var req models.CheckBrigadeCoversPointRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -586,18 +708,22 @@ func (bh *BrigadeHandler) CheckBrigadeCoversPoint(c *gin.Context) {
 		Longitude: req.Longitude,
 		Latitude:  req.Latitude,
 	})
+
 	if err != nil {
 		brigadeResponse(c, http.StatusInternalServerError, err, nil)
 		return
 	}
+
 	brigadeResponse(c, http.StatusOK, nil, &models.CheckBrigadeCoversPointResponse{
 		Covers:       res.GetCovers(),
 		MatchedZones: FromProtoBrigadeZones(res.GetMatchedZones()),
 	})
 }
 
+// FindBrigadesByPoint находит бригады, покрывающие точку.
 func (bh *BrigadeHandler) FindBrigadesByPoint(c *gin.Context) {
 	var req models.FindBrigadesByPointRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -612,18 +738,22 @@ func (bh *BrigadeHandler) FindBrigadesByPoint(c *gin.Context) {
 		Limit:            int32OrZero(req.Limit),
 		Offset:           int32OrZero(req.Offset),
 	})
+
 	if err != nil {
 		brigadeResponse(c, http.StatusInternalServerError, err, nil)
 		return
 	}
+
 	brigadeResponse(c, http.StatusOK, nil, &models.ListBrigadesResponse{
 		Brigades: FromProtoBrigades(res.GetBrigades()),
 		Total:    res.GetTotal(),
 	})
 }
 
+// GetAvailableBrigades возвращает доступные бригады.
 func (bh *BrigadeHandler) GetAvailableBrigades(c *gin.Context) {
 	var req models.GetAvailableBrigadesRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -637,18 +767,22 @@ func (bh *BrigadeHandler) GetAvailableBrigades(c *gin.Context) {
 		Limit:            int32OrZero(req.Limit),
 		Offset:           int32OrZero(req.Offset),
 	})
+
 	if err != nil {
 		brigadeResponse(c, http.StatusInternalServerError, err, nil)
 		return
 	}
+
 	brigadeResponse(c, http.StatusOK, nil, &models.ListBrigadesResponse{
 		Brigades: FromProtoBrigades(res.GetBrigades()),
 		Total:    res.GetTotal(),
 	})
 }
 
+// CheckBrigadeCanHandleTicket проверяет возможность бригады обработать билет.
 func (bh *BrigadeHandler) CheckBrigadeCanHandleTicket(c *gin.Context) {
 	var req models.CheckBrigadeCanHandleTicketRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -661,16 +795,19 @@ func (bh *BrigadeHandler) CheckBrigadeCanHandleTicket(c *gin.Context) {
 		RequiredSkillIds: req.RequiredSkillIDs,
 		RequiredRoles:    ToProtoBrigadeMemberRoles(req.RequiredRoles),
 	})
+
 	if err != nil {
 		brigadeResponse(c, http.StatusInternalServerError, err, nil)
 		return
 	}
+
 	brigadeResponse(c, http.StatusOK, nil, &models.CheckBrigadeCanHandleTicketResponse{
 		CanHandle: res.GetCanHandle(),
 		Reasons:   res.GetReasons(),
 	})
 }
 
+// buildListBrigadesRequest преобразует параметры списка в запрос Brigade API.
 func buildListBrigadesRequest(c *gin.Context, req *models.ListBrigadesRequest) (*brigadev1.ListBrigadesRequest, bool) {
 	protoReq := &brigadev1.ListBrigadesRequest{
 		DepartmentId:   req.DepartmentID,
@@ -678,57 +815,74 @@ func buildListBrigadesRequest(c *gin.Context, req *models.ListBrigadesRequest) (
 		Limit:          int32OrZero(req.Limit),
 		Offset:         int32OrZero(req.Offset),
 	}
+
 	if req.Status != nil {
 		status := ToProtoBrigadeStatus(*req.Status)
 		protoReq.Status = &status
 	}
+
 	if req.SortBy != nil {
 		sortBy := ToProtoBrigadeSortBy(*req.SortBy)
 		protoReq.SortBy = &sortBy
 	}
+
 	if req.SortOrder != nil {
 		sortOrder := ToProtoBrigadeSortOrder(*req.SortOrder)
 		protoReq.SortOrder = &sortOrder
 	}
+
 	if req.CreatedFrom != nil {
 		createdFrom, err := ToProtoTimestamp(*req.CreatedFrom)
+
 		if err != nil {
 			c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "invalid created_from"})
 			return nil, false
 		}
+
 		protoReq.CreatedFrom = createdFrom
 	}
+
 	if req.CreatedTo != nil {
 		createdTo, err := ToProtoTimestamp(*req.CreatedTo)
+
 		if err != nil {
 			c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "invalid created_to"})
 			return nil, false
 		}
+
 		protoReq.CreatedTo = createdTo
 	}
 
 	return protoReq, true
 }
 
+// brigadeRequestContext создает контекст операции бригады с таймаутом и данными актора.
 func brigadeRequestContext(c *gin.Context) context.Context {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	c.Set("brigade_cancel", cancel)
 	return gatewayActorContext(ctx, c)
 }
 
+// brigadeResponse завершает контекст и отправляет успешный ответ либо ошибку gRPC.
 func brigadeResponse(c *gin.Context, httpStatus int, err error, response any) {
+
 	if cancelValue, ok := c.Get("brigade_cancel"); ok {
+
 		if cancel, ok := cancelValue.(context.CancelFunc); ok {
 			defer cancel()
 		}
+
 	}
+
 	if err != nil {
 		handleGRPCError(c, err)
 		return
 	}
+
 	c.JSON(httpStatus, response)
 }
 
+// gatewayActorContext добавляет в контекст исходящие метаданные текущего пользователя.
 func gatewayActorContext(ctx context.Context, c *gin.Context) context.Context {
 	roles, _ := c.Get("roles")
 	roleValues, _ := roles.([]string)
@@ -736,9 +890,6 @@ func gatewayActorContext(ctx context.Context, c *gin.Context) context.Context {
 	values := []string{
 		"x-actor-user-id", c.GetString("user_id"),
 		"x-actor-roles", strings.Join(roleValues, ","),
-	}
-	if departmentID := strings.TrimSpace(c.GetHeader("X-Actor-Department-ID")); departmentID != "" {
-		values = append(values, "x-actor-department-id", departmentID)
 	}
 
 	return metadata.AppendToOutgoingContext(ctx, values...)

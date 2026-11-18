@@ -47,6 +47,7 @@ Gateway URL задаётся environment variables.
 ## Демонстрационные данные
 
 ```powershell
+$env:DEMO_PASSWORD = Read-Host "Demo password"
 powershell -ExecutionPolicy Bypass -File scripts/seed-demo-data.ps1
 ```
 

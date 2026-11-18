@@ -31,9 +31,11 @@ func TestBuildRouteInputValidate(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			err := test.input.Validate()
+
 			if test.wantErr != errors.Is(err, ErrInvalidArgument) {
 				t.Fatalf("error = %v", err)
 			}
+
 		})
 	}
 }
@@ -50,8 +52,10 @@ func FuzzPointValidate(f *testing.F) {
 			latitude <= 90 &&
 			longitude >= -180 &&
 			longitude <= 180
+
 		if valid && err != nil {
 			t.Fatalf("valid point rejected: %v", err)
 		}
+
 	})
 }

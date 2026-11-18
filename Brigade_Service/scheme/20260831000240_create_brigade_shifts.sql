@@ -14,10 +14,5 @@ CREATE TABLE brigade_shifts (
     CONSTRAINT brigade_shifts_time_check CHECK (ended_at IS NULL OR ended_at >= started_at)
 );
 
-CREATE UNIQUE INDEX brigade_shifts_one_active_idx
-    ON brigade_shifts(brigade_id) WHERE ended_at IS NULL;
-CREATE INDEX brigade_shifts_department_started_idx
-    ON brigade_shifts(department_id, started_at DESC);
-
 -- +goose Down
 DROP TABLE brigade_shifts;

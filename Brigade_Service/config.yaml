@@ -10,3 +10,8 @@ kafka_brokers: ["kafka-1:9092", "kafka-2:9092", "kafka-3:9092"]
 kafka_routing_topic: "routing.events.v1"
 kafka_ticket_topic: "tickets.events.v1"
 outbox_worker_count: 4
+
+circuit_breaker_failure_threshold: 5
+circuit_breaker_interval: '30s'
+circuit_breaker_open_timeout: '60s'
+circuit_breaker_call_timeout: '2s'

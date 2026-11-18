@@ -16,14 +16,19 @@ import (
 
 const idempotencyTTL = 24 * time.Hour
 
+// withIdempotency выполняет fn напрямую без ключа в ctx, иначе атомарно сохраняет
+// результат и ключ со сроком 24 часа. Для повтора сравнивает JSON-хеш запроса:
+// возвращает сохранённый результат либо ошибку конфликта, выполнения или прежнего сбоя.
 func (s *DepartmentServiceStruct) withIdempotency(ctx context.Context, operation string, actorKey string, request any, fn func(context.Context) (any, uuid.UUID, error)) (any, error) {
 	key, ok := pkg.IdempotencyKeyFromContext(ctx)
+
 	if !ok {
 		result, _, err := fn(ctx)
 		return result, err
 	}
 
 	requestHash, err := hashRequest(request)
+
 	if err != nil {
 		return nil, err
 	}
@@ -32,11 +37,13 @@ func (s *DepartmentServiceStruct) withIdempotency(ctx context.Context, operation
 		value, resourceID, runErr := fn(txCtx)
 		return value, resourceID, runErr
 	})
+
 	if err != nil {
 		return nil, err
 	}
 
 	if !acquired {
+
 		if record.RequestHash != requestHash {
 			return nil, models.ErrIdempotencyConflict
 		}
@@ -44,9 +51,11 @@ func (s *DepartmentServiceStruct) withIdempotency(ctx context.Context, operation
 		switch record.Status {
 		case "COMPLETED":
 			var result any
+
 			if err = json.Unmarshal(record.Response, &result); err != nil {
 				return nil, fmt.Errorf("service: idempotency: decode cached response: %w", err)
 			}
+
 			return result, nil
 		case "PROCESSING":
 			return nil, models.ErrIdempotencyInProgress
@@ -60,17 +69,22 @@ func (s *DepartmentServiceStruct) withIdempotency(ctx context.Context, operation
 	return result, nil
 }
 
+// cachedResult возвращает result как *T либо восстанавливает T через JSON,
+// позволяя одинаково читать свежий и сохранённый результат операции.
 func cachedResult[T any](result any) (*T, error) {
+
 	if typed, ok := result.(*T); ok {
 		return typed, nil
 	}
 
 	bytes, err := json.Marshal(result)
+
 	if err != nil {
 		return nil, err
 	}
 
 	var typed T
+
 	if err = json.Unmarshal(bytes, &typed); err != nil {
 		return nil, err
 	}
@@ -78,8 +92,11 @@ func cachedResult[T any](result any) (*T, error) {
 	return &typed, nil
 }
 
+// hashRequest возвращает шестнадцатеричный SHA-256 от JSON запроса.
+// При невозможности сериализации возвращает ошибку с контекстом идемпотентности.
 func hashRequest(request any) (string, error) {
 	bytes, err := json.Marshal(request)
+
 	if err != nil {
 		return "", fmt.Errorf("service: idempotency: encode request: %w", err)
 	}

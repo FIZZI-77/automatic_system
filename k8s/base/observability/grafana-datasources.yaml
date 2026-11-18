@@ -40,3 +40,27 @@ datasources:
       timeField: '@timestamp'
       logMessageField: message
       logLevelField: log.level
+  - name: ClickHouse Analytics
+    uid: clickhouse-analytics
+    type: grafana-clickhouse-datasource
+    access: proxy
+    isDefault: false
+    editable: false
+    jsonData:
+      host: clickhouse
+      port: 8123
+      protocol: http
+      username: analytics
+      defaultDatabase: analytics
+      secure: false
+      validateSql: true
+      enableRowLimit: true
+      rowLimit: 100000
+      queryTimeout: 30
+      customSettings:
+        - setting: readonly
+          value: "1"
+        - setting: max_execution_time
+          value: "30"
+    secureJsonData:
+      password: $CLICKHOUSE_PASSWORD

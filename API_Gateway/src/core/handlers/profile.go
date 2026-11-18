@@ -15,12 +15,15 @@ type ProfileHandler struct {
 	profileClient profilev1.ProfileServiceClient
 }
 
+// NewProfileHandler создает обработчик операций с профилями пользователей.
 func NewProfileHandler(profileClient profilev1.ProfileServiceClient) *ProfileHandler {
 	return &ProfileHandler{profileClient: profileClient}
 }
 
+// CreateUserProfile создает пользовательский профиль.
 func (ph *ProfileHandler) CreateUserProfile(c *gin.Context) {
 	var req models.CreateUserProfileRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -35,8 +38,10 @@ func (ph *ProfileHandler) CreateUserProfile(c *gin.Context) {
 	profileResponse(c, http.StatusCreated, err, &models.UserProfileResponse{UserProfile: FromProtoUserProfile(res.GetUserProfile())})
 }
 
+// GetUserProfileByID возвращает профиль по идентификатору профиля.
 func (ph *ProfileHandler) GetUserProfileByID(c *gin.Context) {
 	var req models.GetUserProfileByIDRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -45,8 +50,10 @@ func (ph *ProfileHandler) GetUserProfileByID(c *gin.Context) {
 	profileResponse(c, http.StatusOK, err, &models.UserProfileResponse{UserProfile: FromProtoUserProfile(res.GetUserProfile())})
 }
 
+// GetUserProfileByUserID возвращает профиль по идентификатору пользователя.
 func (ph *ProfileHandler) GetUserProfileByUserID(c *gin.Context) {
 	var req models.GetUserProfileByUserIDRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -55,13 +62,16 @@ func (ph *ProfileHandler) GetUserProfileByUserID(c *gin.Context) {
 	profileResponse(c, http.StatusOK, err, &models.UserProfileResponse{UserProfile: FromProtoUserProfile(res.GetUserProfile())})
 }
 
+// GetMyUserProfile возвращает профиль текущего пользователя.
 func (ph *ProfileHandler) GetMyUserProfile(c *gin.Context) {
 	res, err := ph.profileClient.GetMyUserProfile(profileRequestContext(c), &profilev1.GetMyUserProfileRequest{})
 	profileResponse(c, http.StatusOK, err, &models.UserProfileResponse{UserProfile: FromProtoUserProfile(res.GetUserProfile())})
 }
 
+// ListUserProfiles возвращает список пользовательских профилей.
 func (ph *ProfileHandler) ListUserProfiles(c *gin.Context) {
 	var req models.ListUserProfilesRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -71,10 +81,12 @@ func (ph *ProfileHandler) ListUserProfiles(c *gin.Context) {
 		Limit:  int32OrZero(req.Limit),
 		Offset: int32OrZero(req.Offset),
 	}
+
 	if req.SortBy != nil {
 		sortBy := ToProtoUserProfileSortBy(*req.SortBy)
 		protoReq.SortBy = &sortBy
 	}
+
 	if req.SortOrder != nil {
 		sortOrder := ToProtoProfileSortOrder(*req.SortOrder)
 		protoReq.SortOrder = &sortOrder
@@ -87,8 +99,10 @@ func (ph *ProfileHandler) ListUserProfiles(c *gin.Context) {
 	})
 }
 
+// UpdateUserProfile изменяет пользовательский профиль.
 func (ph *ProfileHandler) UpdateUserProfile(c *gin.Context) {
 	var req models.UpdateUserProfileRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -101,6 +115,7 @@ func (ph *ProfileHandler) UpdateUserProfile(c *gin.Context) {
 		AvatarFileId:      req.AvatarFileID,
 		ClearAvatarFileId: req.ClearAvatarFileID,
 	}
+
 	if req.PreferredContactMethod != nil {
 		contactMethod := ToProtoPreferredContactMethod(*req.PreferredContactMethod)
 		protoReq.PreferredContactMethod = &contactMethod
@@ -110,8 +125,10 @@ func (ph *ProfileHandler) UpdateUserProfile(c *gin.Context) {
 	profileResponse(c, http.StatusOK, err, &models.UserProfileResponse{UserProfile: FromProtoUserProfile(res.GetUserProfile())})
 }
 
+// CreateWorkProfile создает рабочий профиль.
 func (ph *ProfileHandler) CreateWorkProfile(c *gin.Context) {
 	var req models.CreateWorkProfileRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -125,8 +142,10 @@ func (ph *ProfileHandler) CreateWorkProfile(c *gin.Context) {
 	profileResponse(c, http.StatusCreated, err, &models.WorkProfileDetailsResponse{Details: FromProtoWorkProfileDetails(res.GetDetails())})
 }
 
+// GetWorkProfileByID возвращает рабочий профиль по идентификатору.
 func (ph *ProfileHandler) GetWorkProfileByID(c *gin.Context) {
 	var req models.GetWorkProfileByIDRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -135,8 +154,10 @@ func (ph *ProfileHandler) GetWorkProfileByID(c *gin.Context) {
 	profileResponse(c, http.StatusOK, err, &models.WorkProfileDetailsResponse{Details: FromProtoWorkProfileDetails(res.GetDetails())})
 }
 
+// GetWorkProfileByUserID возвращает рабочий профиль пользователя.
 func (ph *ProfileHandler) GetWorkProfileByUserID(c *gin.Context) {
 	var req models.GetWorkProfileByUserIDRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -145,8 +166,10 @@ func (ph *ProfileHandler) GetWorkProfileByUserID(c *gin.Context) {
 	profileResponse(c, http.StatusOK, err, &models.WorkProfileDetailsResponse{Details: FromProtoWorkProfileDetails(res.GetDetails())})
 }
 
+// ListWorkProfiles возвращает список рабочих профилей.
 func (ph *ProfileHandler) ListWorkProfiles(c *gin.Context) {
 	var req models.ListWorkProfilesRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -157,14 +180,17 @@ func (ph *ProfileHandler) ListWorkProfiles(c *gin.Context) {
 		Limit:        int32OrZero(req.Limit),
 		Offset:       int32OrZero(req.Offset),
 	}
+
 	if req.Status != nil {
 		status := ToProtoWorkProfileStatus(*req.Status)
 		protoReq.Status = &status
 	}
+
 	if req.SortBy != nil {
 		sortBy := ToProtoWorkProfileSortBy(*req.SortBy)
 		protoReq.SortBy = &sortBy
 	}
+
 	if req.SortOrder != nil {
 		sortOrder := ToProtoProfileSortOrder(*req.SortOrder)
 		protoReq.SortOrder = &sortOrder
@@ -177,8 +203,10 @@ func (ph *ProfileHandler) ListWorkProfiles(c *gin.Context) {
 	})
 }
 
+// UpdateWorkProfile изменяет рабочий профиль.
 func (ph *ProfileHandler) UpdateWorkProfile(c *gin.Context) {
 	var req models.UpdateWorkProfileRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -192,8 +220,10 @@ func (ph *ProfileHandler) UpdateWorkProfile(c *gin.Context) {
 	profileResponse(c, http.StatusOK, err, &models.WorkProfileDetailsResponse{Details: FromProtoWorkProfileDetails(res.GetDetails())})
 }
 
+// DeactivateWorkProfile деактивирует рабочий профиль.
 func (ph *ProfileHandler) DeactivateWorkProfile(c *gin.Context) {
 	var req models.DeactivateWorkProfileRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -205,8 +235,10 @@ func (ph *ProfileHandler) DeactivateWorkProfile(c *gin.Context) {
 	profileResponse(c, http.StatusOK, err, &models.WorkProfileDetailsResponse{Details: FromProtoWorkProfileDetails(res.GetDetails())})
 }
 
+// ChangeWorkProfileDepartment изменяет подразделение рабочего профиля.
 func (ph *ProfileHandler) ChangeWorkProfileDepartment(c *gin.Context) {
 	var req models.ChangeWorkProfileDepartmentRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -219,8 +251,10 @@ func (ph *ProfileHandler) ChangeWorkProfileDepartment(c *gin.Context) {
 	profileResponse(c, http.StatusOK, err, &models.WorkProfileDetailsResponse{Details: FromProtoWorkProfileDetails(res.GetDetails())})
 }
 
+// SetWorkProfileStatus изменяет статус рабочего профиля.
 func (ph *ProfileHandler) SetWorkProfileStatus(c *gin.Context) {
 	var req models.SetWorkProfileStatusRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -233,8 +267,10 @@ func (ph *ProfileHandler) SetWorkProfileStatus(c *gin.Context) {
 	profileResponse(c, http.StatusOK, err, &models.WorkProfileDetailsResponse{Details: FromProtoWorkProfileDetails(res.GetDetails())})
 }
 
+// GetWorkProfileStatusHistory возвращает историю статусов рабочего профиля.
 func (ph *ProfileHandler) GetWorkProfileStatusHistory(c *gin.Context) {
 	var req models.WorkProfileStatusHistoryRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -250,8 +286,10 @@ func (ph *ProfileHandler) GetWorkProfileStatusHistory(c *gin.Context) {
 	})
 }
 
+// ResolveWorkingDepartment определяет рабочее подразделение пользователя.
 func (ph *ProfileHandler) ResolveWorkingDepartment(c *gin.Context) {
 	var req models.ResolveWorkingDepartmentRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -267,8 +305,10 @@ func (ph *ProfileHandler) ResolveWorkingDepartment(c *gin.Context) {
 	})
 }
 
+// CheckProfileCanJoinBrigade проверяет возможность присоединения профиля к бригаде.
 func (ph *ProfileHandler) CheckProfileCanJoinBrigade(c *gin.Context) {
 	var req models.CheckProfileCanJoinBrigadeRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -288,8 +328,10 @@ func (ph *ProfileHandler) CheckProfileCanJoinBrigade(c *gin.Context) {
 	})
 }
 
+// CreateCertificationType создает тип сертификации.
 func (ph *ProfileHandler) CreateCertificationType(c *gin.Context) {
 	var req models.CreateCertificationTypeRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -304,8 +346,10 @@ func (ph *ProfileHandler) CreateCertificationType(c *gin.Context) {
 	profileResponse(c, http.StatusCreated, err, &models.CertificationTypeResponse{CertificationType: FromProtoCertificationType(res.GetCertificationType())})
 }
 
+// UpdateCertificationType изменяет тип сертификации.
 func (ph *ProfileHandler) UpdateCertificationType(c *gin.Context) {
 	var req models.UpdateCertificationTypeRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -324,8 +368,10 @@ func (ph *ProfileHandler) UpdateCertificationType(c *gin.Context) {
 	profileResponse(c, http.StatusOK, err, &models.CertificationTypeResponse{CertificationType: FromProtoCertificationType(res.GetCertificationType())})
 }
 
+// ListCertificationTypes возвращает типы сертификаций.
 func (ph *ProfileHandler) ListCertificationTypes(c *gin.Context) {
 	var req models.ListCertificationTypesRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -342,8 +388,10 @@ func (ph *ProfileHandler) ListCertificationTypes(c *gin.Context) {
 	})
 }
 
+// AddCertificationTypeSkill добавляет навык к типу сертификации.
 func (ph *ProfileHandler) AddCertificationTypeSkill(c *gin.Context) {
 	var req models.CertificationTypeSkillRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -356,8 +404,10 @@ func (ph *ProfileHandler) AddCertificationTypeSkill(c *gin.Context) {
 	profileResponse(c, http.StatusCreated, err, &models.CertificationTypeSkillResponse{CertificationTypeSkill: FromProtoCertificationTypeSkill(res.GetCertificationTypeSkill())})
 }
 
+// RemoveCertificationTypeSkill удаляет навык из типа сертификации.
 func (ph *ProfileHandler) RemoveCertificationTypeSkill(c *gin.Context) {
 	var req models.CertificationTypeSkillRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -369,8 +419,10 @@ func (ph *ProfileHandler) RemoveCertificationTypeSkill(c *gin.Context) {
 	profileResponse(c, http.StatusOK, err, &models.RemoveCertificationTypeSkillResponse{Success: res.GetSuccess()})
 }
 
+// ListCertificationTypeSkills возвращает навыки типа сертификации.
 func (ph *ProfileHandler) ListCertificationTypeSkills(c *gin.Context) {
 	var req models.ListCertificationTypeSkillsRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -382,18 +434,23 @@ func (ph *ProfileHandler) ListCertificationTypeSkills(c *gin.Context) {
 	profileResponse(c, http.StatusOK, err, &models.ListCertificationTypeSkillsResponse{Skills: FromProtoCertificationTypeSkills(res.GetSkills())})
 }
 
+// UploadWorkProfileCertification загружает сертификацию рабочего профиля.
 func (ph *ProfileHandler) UploadWorkProfileCertification(c *gin.Context) {
 	var req models.UploadWorkProfileCertificationRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
 
 	issuedAt, ok := ToOptionalProtoTimestamp(req.IssuedAt)
+
 	if !ok {
 		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "invalid issued_at"})
 		return
 	}
+
 	expiresAt, ok := ToOptionalProtoTimestamp(req.ExpiresAt)
+
 	if !ok {
 		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "invalid expires_at"})
 		return
@@ -411,8 +468,10 @@ func (ph *ProfileHandler) UploadWorkProfileCertification(c *gin.Context) {
 	profileResponse(c, http.StatusCreated, err, &models.WorkProfileCertificationResponse{Certification: FromProtoWorkProfileCertification(res.GetCertification())})
 }
 
+// VerifyWorkProfileCertification подтверждает сертификацию рабочего профиля.
 func (ph *ProfileHandler) VerifyWorkProfileCertification(c *gin.Context) {
 	var req models.CertificationIDRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -424,8 +483,10 @@ func (ph *ProfileHandler) VerifyWorkProfileCertification(c *gin.Context) {
 	})
 }
 
+// RejectWorkProfileCertification отклоняет сертификацию рабочего профиля.
 func (ph *ProfileHandler) RejectWorkProfileCertification(c *gin.Context) {
 	var req models.RejectWorkProfileCertificationRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -437,8 +498,10 @@ func (ph *ProfileHandler) RejectWorkProfileCertification(c *gin.Context) {
 	profileResponse(c, http.StatusOK, err, &models.WorkProfileCertificationResponse{Certification: FromProtoWorkProfileCertification(res.GetCertification())})
 }
 
+// RevokeWorkProfileCertification отзывает сертификацию рабочего профиля.
 func (ph *ProfileHandler) RevokeWorkProfileCertification(c *gin.Context) {
 	var req models.RevokeWorkProfileCertificationRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -453,8 +516,10 @@ func (ph *ProfileHandler) RevokeWorkProfileCertification(c *gin.Context) {
 	})
 }
 
+// ExpireWorkProfileCertifications помечает просроченные сертификации.
 func (ph *ProfileHandler) ExpireWorkProfileCertifications(c *gin.Context) {
 	var req models.ExpireWorkProfileCertificationsRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -466,8 +531,10 @@ func (ph *ProfileHandler) ExpireWorkProfileCertifications(c *gin.Context) {
 	})
 }
 
+// ListWorkProfileCertifications возвращает сертификации рабочего профиля.
 func (ph *ProfileHandler) ListWorkProfileCertifications(c *gin.Context) {
 	var req models.ListWorkProfileCertificationsRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -478,6 +545,7 @@ func (ph *ProfileHandler) ListWorkProfileCertifications(c *gin.Context) {
 		Limit:               int32OrZero(req.Limit),
 		Offset:              int32OrZero(req.Offset),
 	}
+
 	if req.Status != nil {
 		status := ToProtoCertificationStatus(*req.Status)
 		protoReq.Status = &status
@@ -490,13 +558,16 @@ func (ph *ProfileHandler) ListWorkProfileCertifications(c *gin.Context) {
 	})
 }
 
+// GrantManualWorkProfileSkill выдает рабочему профилю навык вручную.
 func (ph *ProfileHandler) GrantManualWorkProfileSkill(c *gin.Context) {
 	var req models.GrantManualWorkProfileSkillRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
 
 	validUntil, ok := ToOptionalProtoTimestamp(req.ValidUntil)
+
 	if !ok {
 		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "invalid valid_until"})
 		return
@@ -512,8 +583,10 @@ func (ph *ProfileHandler) GrantManualWorkProfileSkill(c *gin.Context) {
 	profileResponse(c, http.StatusCreated, err, &models.WorkProfileSkillGrantResponse{SkillGrant: FromProtoWorkProfileSkillGrant(res.GetSkillGrant())})
 }
 
+// RevokeWorkProfileSkillGrant отзывает вручную выданный навык.
 func (ph *ProfileHandler) RevokeWorkProfileSkillGrant(c *gin.Context) {
 	var req models.RevokeWorkProfileSkillGrantRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -525,8 +598,10 @@ func (ph *ProfileHandler) RevokeWorkProfileSkillGrant(c *gin.Context) {
 	profileResponse(c, http.StatusOK, err, &models.WorkProfileSkillGrantResponse{SkillGrant: FromProtoWorkProfileSkillGrant(res.GetSkillGrant())})
 }
 
+// ListEffectiveWorkProfileSkills возвращает действующие навыки профиля.
 func (ph *ProfileHandler) ListEffectiveWorkProfileSkills(c *gin.Context) {
 	var req models.ListEffectiveWorkProfileSkillsRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -535,8 +610,10 @@ func (ph *ProfileHandler) ListEffectiveWorkProfileSkills(c *gin.Context) {
 	profileResponse(c, http.StatusOK, err, &models.ListEffectiveWorkProfileSkillsResponse{SkillGrants: FromProtoWorkProfileSkillGrants(res.GetSkillGrants())})
 }
 
+// BatchListEffectiveWorkProfileSkills возвращает действующие навыки нескольких профилей.
 func (ph *ProfileHandler) BatchListEffectiveWorkProfileSkills(c *gin.Context) {
 	var req models.BatchListEffectiveWorkProfileSkillsRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -545,8 +622,10 @@ func (ph *ProfileHandler) BatchListEffectiveWorkProfileSkills(c *gin.Context) {
 	profileResponse(c, http.StatusOK, err, &models.BatchListEffectiveWorkProfileSkillsResponse{Items: FromProtoEffectiveWorkProfileSkillsItems(res.GetItems())})
 }
 
+// CheckWorkProfileHasSkills проверяет наличие требуемых навыков у профиля.
 func (ph *ProfileHandler) CheckWorkProfileHasSkills(c *gin.Context) {
 	var req models.CheckWorkProfileHasSkillsRequest
+
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -561,21 +640,28 @@ func (ph *ProfileHandler) CheckWorkProfileHasSkills(c *gin.Context) {
 	})
 }
 
+// profileRequestContext создает контекст операции профиля с таймаутом и данными актора.
 func profileRequestContext(c *gin.Context) context.Context {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	c.Set("profile_cancel", cancel)
 	return gatewayActorContext(ctx, c)
 }
 
+// profileResponse завершает контекст и отправляет успешный ответ либо ошибку gRPC.
 func profileResponse(c *gin.Context, httpStatus int, err error, response any) {
+
 	if cancelValue, ok := c.Get("profile_cancel"); ok {
+
 		if cancel, ok := cancelValue.(context.CancelFunc); ok {
 			defer cancel()
 		}
+
 	}
+
 	if err != nil {
 		handleGRPCError(c, err)
 		return
 	}
+
 	c.JSON(httpStatus, response)
 }

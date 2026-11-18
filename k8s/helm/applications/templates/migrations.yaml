@@ -30,6 +30,9 @@ spec:
       automountServiceAccountToken: false
       containers:
       - args:
+        {{- if .Values.migrations.allowMissing }}
+        - -allow-missing
+        {{- end }}
         - -dir
         - /migrations
         - up
@@ -86,6 +89,9 @@ spec:
       automountServiceAccountToken: false
       containers:
       - args:
+        {{- if .Values.migrations.allowMissing }}
+        - -allow-missing
+        {{- end }}
         - -dir
         - /migrations
         - up
@@ -142,6 +148,9 @@ spec:
       automountServiceAccountToken: false
       containers:
       - args:
+        {{- if .Values.migrations.allowMissing }}
+        - -allow-missing
+        {{- end }}
         - -dir
         - /migrations
         - up
@@ -198,6 +207,9 @@ spec:
       automountServiceAccountToken: false
       containers:
       - args:
+        {{- if .Values.migrations.allowMissing }}
+        - -allow-missing
+        {{- end }}
         - -dir
         - /migrations
         - up
@@ -254,6 +266,9 @@ spec:
       automountServiceAccountToken: false
       containers:
       - args:
+        {{- if .Values.migrations.allowMissing }}
+        - -allow-missing
+        {{- end }}
         - -dir
         - /migrations
         - up
@@ -310,6 +325,9 @@ spec:
       automountServiceAccountToken: false
       containers:
       - args:
+        {{- if .Values.migrations.allowMissing }}
+        - -allow-missing
+        {{- end }}
         - -dir
         - /migrations
         - up
@@ -366,6 +384,9 @@ spec:
       automountServiceAccountToken: false
       containers:
       - args:
+        {{- if .Values.migrations.allowMissing }}
+        - -allow-missing
+        {{- end }}
         - -dir
         - /migrations
         - up
@@ -422,6 +443,9 @@ spec:
       automountServiceAccountToken: false
       containers:
       - args:
+        {{- if .Values.migrations.allowMissing }}
+        - -allow-missing
+        {{- end }}
         - -dir
         - /migrations
         - up
@@ -478,6 +502,9 @@ spec:
       automountServiceAccountToken: false
       containers:
       - args:
+        {{- if .Values.migrations.allowMissing }}
+        - -allow-missing
+        {{- end }}
         - -dir
         - /migrations
         - up
@@ -534,6 +561,9 @@ spec:
       automountServiceAccountToken: false
       containers:
       - args:
+        {{- if .Values.migrations.allowMissing }}
+        - -allow-missing
+        {{- end }}
         - -dir
         - /migrations
         - up
@@ -590,6 +620,9 @@ spec:
       automountServiceAccountToken: false
       containers:
       - args:
+        {{- if .Values.migrations.allowMissing }}
+        - -allow-missing
+        {{- end }}
         - -dir
         - /migrations
         - up
@@ -646,6 +679,9 @@ spec:
       automountServiceAccountToken: false
       containers:
       - args:
+        {{- if .Values.migrations.allowMissing }}
+        - -allow-missing
+        {{- end }}
         - -dir
         - /migrations
         - up
@@ -702,6 +738,9 @@ spec:
       automountServiceAccountToken: false
       containers:
       - args:
+        {{- if .Values.migrations.allowMissing }}
+        - -allow-missing
+        {{- end }}
         - -dir
         - /migrations
         - up

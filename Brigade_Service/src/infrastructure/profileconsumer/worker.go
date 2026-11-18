@@ -71,15 +71,19 @@ type statusPayload struct {
 
 func New(db *pgxpool.Pool, cfg Config, logger *zap.Logger) (*Worker, error) {
 	cfg.Brokers = cleanBrokers(cfg.Brokers)
+
 	if len(cfg.Brokers) == 0 || strings.TrimSpace(cfg.Topic) == "" || strings.TrimSpace(cfg.GroupID) == "" {
 		return nil, errors.New("profile consumer: brokers, topic and group id are required")
 	}
+
 	if cfg.Workers <= 0 {
 		cfg.Workers = 4
 	}
+
 	if cfg.RetryWorkers <= 0 {
 		cfg.RetryWorkers = 2
 	}
+
 	newReader := func(topic, groupID string) *kafka.Reader {
 		return kafka.NewReader(kafka.ReaderConfig{
 			Brokers: cfg.Brokers, Topic: topic, GroupID: groupID,
@@ -139,10 +143,13 @@ func (w *Worker) Close() error {
 func (w *Worker) consume(ctx context.Context, reader *kafka.Reader) error {
 	for {
 		message, err := reader.FetchMessage(ctx)
+
 		if err != nil {
+
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return nil
 			}
+
 			w.logger.Warn("fetch profile event failed; retrying", zap.Error(err))
 			select {
 			case <-ctx.Done():
@@ -151,6 +158,7 @@ func (w *Worker) consume(ctx context.Context, reader *kafka.Reader) error {
 				continue
 			}
 		}
+
 		if strings.HasSuffix(message.Topic, ".retry") {
 			delay := time.Duration(1<<min(retryCount(message.Headers), maxRetries)) * time.Second
 			timer := time.NewTimer(delay)
@@ -161,54 +169,70 @@ func (w *Worker) consume(ctx context.Context, reader *kafka.Reader) error {
 			case <-timer.C:
 			}
 		}
+
 		if err = telemetry.TraceKafkaConsumer(ctx, message, "", w.apply); err != nil {
 			w.logger.Error("profile event processing failed", zap.Error(err), zap.Int64("offset", message.Offset))
+
 			if retryErr := w.retryOrDLQ(ctx, message, err); retryErr != nil {
 				return errors.Join(err, retryErr)
 			}
+
 		}
+
 		if err = reader.CommitMessages(ctx, message); err != nil {
 			return fmt.Errorf("commit Kafka offset: %w", err)
 		}
+
 	}
 }
 
 func (w *Worker) apply(ctx context.Context, message kafka.Message) error {
 	var event envelope
+
 	if err := json.Unmarshal(message.Value, &event); err != nil {
 		return fmt.Errorf("decode envelope: %w", err)
 	}
+
 	if event.EventID == uuid.Nil || event.EventType == "" {
 		return errors.New("invalid event envelope")
 	}
+
 	if event.OccurredAt.IsZero() {
 		event.OccurredAt = message.Time.UTC()
 	}
 
 	tx, err := w.db.BeginTx(ctx, pgx.TxOptions{})
+
 	if err != nil {
 		return err
 	}
+
 	defer tx.Rollback(ctx)
 
 	var alreadyProcessed bool
 	err = tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM inbox_events WHERE event_id = $1)`, event.EventID).Scan(&alreadyProcessed)
+
 	if err != nil {
 		return err
 	}
+
 	if alreadyProcessed {
 		return tx.Commit(ctx)
 	}
 
 	switch event.EventType {
 	case "WorkProfileSkillGrantChanged", "WorkProfileSkillGranted", "WorkProfileSkillRevoked":
+
 		if err = applySkillGrant(ctx, tx, event); err != nil {
 			return err
 		}
+
 	case "WorkProfileStatusChanged", "WorkProfileDeactivated":
+
 		if err = applyWorkProfileStatus(ctx, tx, event); err != nil {
 			return err
 		}
+
 	}
 
 	_, err = tx.Exec(ctx, `
@@ -219,29 +243,36 @@ func (w *Worker) apply(ctx context.Context, message kafka.Message) error {
 		ON CONFLICT (event_id) DO NOTHING`,
 		event.EventID, message.Topic, message.Partition, message.Offset,
 		event.EventType, max(event.EventVersion, 1), event.OccurredAt, message.Value)
+
 	if err != nil {
 		return err
 	}
+
 	return tx.Commit(ctx)
 }
 
 func applySkillGrant(ctx context.Context, tx pgx.Tx, event envelope) error {
 	var wrapper skillGrantPayload
 	var grant skillGrant
+
 	if err := json.Unmarshal(event.Payload, &wrapper); err != nil {
 		return fmt.Errorf("decode skill grant payload: %w", err)
 	}
+
 	if wrapper.SkillGrant != nil {
 		grant = *wrapper.SkillGrant
 	} else if err := json.Unmarshal(event.Payload, &grant); err != nil {
 		return fmt.Errorf("decode skill grant: %w", err)
 	}
+
 	if grant.ID == uuid.Nil || grant.WorkProfileID == uuid.Nil || grant.SkillID == uuid.Nil {
 		return errors.New("skill grant event misses required ids")
 	}
+
 	if event.EventType == "WorkProfileSkillRevoked" {
 		grant.Active = false
 	}
+
 	_, err := tx.Exec(ctx, `
 		INSERT INTO brigade_member_skills (
 			brigade_id, member_id, work_profile_id, skill_id, source_grant_id,
@@ -265,19 +296,25 @@ func applySkillGrant(ctx context.Context, tx pgx.Tx, event envelope) error {
 
 func applyWorkProfileStatus(ctx context.Context, tx pgx.Tx, event envelope) error {
 	var payload statusPayload
+
 	if err := json.Unmarshal(event.Payload, &payload); err != nil {
 		return err
 	}
+
 	status := payload.ToStatus
+
 	if status == "" {
 		status = payload.Status
 	}
+
 	if payload.WorkProfileID == uuid.Nil {
 		payload.WorkProfileID = event.AggregateID
 	}
+
 	if payload.WorkProfileID == uuid.Nil {
 		return errors.New("status event misses work_profile_id")
 	}
+
 	active := strings.EqualFold(status, "ACTIVE") || strings.EqualFold(status, "ON_SHIFT")
 	_, err := tx.Exec(ctx, `
 		UPDATE brigade_member_skills
@@ -290,9 +327,11 @@ func applyWorkProfileStatus(ctx context.Context, tx pgx.Tx, event envelope) erro
 func (w *Worker) retryOrDLQ(ctx context.Context, message kafka.Message, processErr error) error {
 	attempt := retryCount(message.Headers) + 1
 	target := w.topic + ".retry"
+
 	if attempt > maxRetries {
 		target = w.topic + ".dlq"
 	}
+
 	headers := upsertHeader(message.Headers, retryHeader, strconv.Itoa(attempt))
 	headers = upsertHeader(headers, "x-error", truncate(processErr.Error(), 1000))
 	return telemetry.WriteKafka(ctx, w.writer, kafka.Message{
@@ -302,13 +341,17 @@ func (w *Worker) retryOrDLQ(ctx context.Context, message kafka.Message, processE
 
 func retryCount(headers []kafka.Header) int {
 	for _, header := range headers {
+
 		if strings.EqualFold(header.Key, retryHeader) {
 			value, err := strconv.Atoi(string(header.Value))
+
 			if err != nil || value < 0 {
 				return 0
 			}
+
 			return value
 		}
+
 	}
 	return 0
 }
@@ -316,9 +359,11 @@ func retryCount(headers []kafka.Header) int {
 func cleanBrokers(values []string) []string {
 	result := make([]string, 0, len(values))
 	for _, value := range values {
+
 		if value = strings.TrimSpace(value); value != "" {
 			result = append(result, value)
 		}
+
 	}
 	return result
 }
@@ -326,16 +371,20 @@ func cleanBrokers(values []string) []string {
 func upsertHeader(headers []kafka.Header, key, value string) []kafka.Header {
 	result := make([]kafka.Header, 0, len(headers)+1)
 	for _, header := range headers {
+
 		if !strings.EqualFold(header.Key, key) {
 			result = append(result, header)
 		}
+
 	}
 	return append(result, kafka.Header{Key: key, Value: []byte(value)})
 }
 
 func truncate(value string, limit int) string {
+
 	if len(value) <= limit {
 		return value
 	}
+
 	return value[:limit]
 }

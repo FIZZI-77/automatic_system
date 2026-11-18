@@ -15,9 +15,11 @@ func FuzzCreateUserProfileInputValidate(f *testing.F) {
 	f.Fuzz(func(t *testing.T, userIDRaw string, fullName string, phoneRaw string, methodRaw string, includePhone bool) {
 		userID, _ := uuid.Parse(userIDRaw)
 		var phone *string
+
 		if includePhone {
 			phone = &phoneRaw
 		}
+
 		in := &CreateUserProfileInput{
 			UserID:                 userID,
 			FullName:               fullName,
@@ -39,12 +41,15 @@ func FuzzCheckProfileCanJoinBrigadeInputValidate(f *testing.F) {
 		departmentID, _ := uuid.Parse(departmentIDRaw)
 		var userIDPtr *uuid.UUID
 		var workProfileIDPtr *uuid.UUID
+
 		if includeUser {
 			userIDPtr = &userID
 		}
+
 		if includeWorkProfile {
 			workProfileIDPtr = &workProfileID
 		}
+
 		in := &CheckProfileCanJoinBrigadeInput{
 			UserID:              userIDPtr,
 			WorkProfileID:       workProfileIDPtr,
@@ -65,6 +70,7 @@ func FuzzCreateWorkProfileInputValidate(f *testing.F) {
 		departmentID, _ := uuid.Parse(departmentIDRaw)
 
 		var employeeNumber *string
+
 		if includeEmployeeNumber {
 			employeeNumber = &employeeNumberRaw
 		}
@@ -91,17 +97,20 @@ func FuzzUploadWorkProfileCertificationInputValidate(f *testing.F) {
 		fileID, _ := uuid.Parse(fileIDRaw)
 
 		var fileIDPtr *uuid.UUID
+
 		if includeFile {
 			fileIDPtr = &fileID
 		}
 
 		var issuedAt *time.Time
+
 		if includeIssued {
 			value := now.Add(time.Duration(issuedOffsetHours) * time.Hour)
 			issuedAt = &value
 		}
 
 		var expiresAt *time.Time
+
 		if includeExpires {
 			value := now.Add(time.Duration(expiresOffsetHours) * time.Hour)
 			expiresAt = &value
@@ -131,11 +140,13 @@ func FuzzGrantManualWorkProfileSkillInputValidate(f *testing.F) {
 		skillID, _ := uuid.Parse(skillIDRaw)
 
 		var proficiencyLevel *string
+
 		if includeProficiency {
 			proficiencyLevel = &proficiencyLevelRaw
 		}
 
 		var validUntil *time.Time
+
 		if includeValidUntil {
 			value := now.Add(time.Duration(validUntilOffsetHours) * time.Hour)
 			validUntil = &value
@@ -162,10 +173,12 @@ func FuzzBatchListEffectiveWorkProfileSkillsInputValidate(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, firstRaw string, secondRaw string, includeFirst bool, includeSecond bool) {
 		var ids []uuid.UUID
+
 		if includeFirst {
 			firstID, _ := uuid.Parse(firstRaw)
 			ids = append(ids, firstID)
 		}
+
 		if includeSecond {
 			secondID, _ := uuid.Parse(secondRaw)
 			ids = append(ids, secondID)
@@ -184,10 +197,12 @@ func FuzzCheckWorkProfileHasSkillsInputValidate(f *testing.F) {
 	f.Fuzz(func(t *testing.T, workProfileIDRaw string, firstSkillIDRaw string, secondSkillIDRaw string, includeFirstSkill bool, includeSecondSkill bool) {
 		workProfileID, _ := uuid.Parse(workProfileIDRaw)
 		var skillIDs []uuid.UUID
+
 		if includeFirstSkill {
 			skillID, _ := uuid.Parse(firstSkillIDRaw)
 			skillIDs = append(skillIDs, skillID)
 		}
+
 		if includeSecondSkill {
 			skillID, _ := uuid.Parse(secondSkillIDRaw)
 			skillIDs = append(skillIDs, skillID)

@@ -20,6 +20,7 @@ type contextKey struct{}
 
 func New() string {
 	var bytes [16]byte
+
 	if _, err := rand.Read(bytes[:]); err != nil {
 		return hex.EncodeToString([]byte(time.Now().UTC().Format(time.RFC3339Nano)))
 	}
@@ -29,6 +30,7 @@ func New() string {
 
 func WithContext(ctx context.Context, requestID string) context.Context {
 	requestID = strings.TrimSpace(requestID)
+
 	if requestID == "" {
 		return ctx
 	}
@@ -38,6 +40,7 @@ func WithContext(ctx context.Context, requestID string) context.Context {
 
 func FromContext(ctx context.Context) (string, bool) {
 	requestID, ok := ctx.Value(contextKey{}).(string)
+
 	if !ok || requestID == "" {
 		return "", false
 	}
@@ -54,6 +57,7 @@ func UnaryClientInterceptor(
 	invoker grpc.UnaryInvoker,
 	opts ...grpc.CallOption,
 ) error {
+
 	if requestID, ok := FromContext(ctx); ok {
 		ctx = metadata.AppendToOutgoingContext(ctx, MetadataKey, requestID)
 	}

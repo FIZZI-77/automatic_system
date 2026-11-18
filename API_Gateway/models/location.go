@@ -1,5 +1,6 @@
 package models
 
+// Position описывает географическую позицию объекта в заданный момент.
 type Position struct {
 	ID             string   `json:"id"`
 	EventID        string   `json:"event_id"`
@@ -18,12 +19,14 @@ type Position struct {
 	ReceivedAtUnix int64    `json:"received_at"`
 }
 
+// CurrentLocation описывает последнюю известную позицию объекта.
 type CurrentLocation struct {
 	Position     *Position `json:"position"`
 	SignalStatus string    `json:"signal_status"`
 	StaleAfter   int64     `json:"stale_after"`
 }
 
+// GeoZone описывает географическую зону обслуживания.
 type GeoZone struct {
 	ID            string `json:"id"`
 	DepartmentID  string `json:"department_id"`
@@ -34,12 +37,14 @@ type GeoZone struct {
 	UpdatedAtUnix int64  `json:"updated_at"`
 }
 
+// NearbyBrigade описывает доменную модель.
 type NearbyBrigade struct {
 	BrigadeID      string           `json:"brigade_id"`
 	Location       *CurrentLocation `json:"location"`
 	DistanceMeters float64          `json:"distance_meters"`
 }
 
+// RecordPositionRequest содержит параметры API-запроса.
 type RecordPositionRequest struct {
 	EventID        string   `json:"event_id" binding:"required,uuid"`
 	EventVersion   int32    `json:"event_version" binding:"required,eq=1"`
@@ -57,16 +62,19 @@ type RecordPositionRequest struct {
 	Simulated      bool     `json:"simulated"`
 }
 
+// GetCurrentLocationRequest содержит параметры API-запроса.
 type GetCurrentLocationRequest struct {
 	SubjectType string `json:"subject_type" binding:"required,oneof=brigade vehicle device BRIGADE VEHICLE DEVICE"`
 	SubjectID   string `json:"subject_id" binding:"required"`
 }
 
+// GetCurrentLocationsRequest содержит параметры API-запроса.
 type GetCurrentLocationsRequest struct {
 	BrigadeIDs []string `json:"brigade_ids" binding:"required,min=1,dive,uuid"`
 	AllowStale bool     `json:"allow_stale"`
 }
 
+// ListPositionHistoryRequest содержит параметры API-запроса.
 type ListPositionHistoryRequest struct {
 	BrigadeID string `json:"brigade_id" binding:"required,uuid"`
 	From      string `json:"from" binding:"required"`
@@ -76,6 +84,7 @@ type ListPositionHistoryRequest struct {
 	Order     string `json:"order,omitempty" binding:"omitempty,oneof=asc desc ASC DESC"`
 }
 
+// FindNearbyBrigadesRequest содержит параметры API-запроса.
 type FindNearbyBrigadesRequest struct {
 	Latitude               float64  `json:"latitude" binding:"gte=-90,lte=90"`
 	Longitude              float64  `json:"longitude" binding:"gte=-180,lte=180"`
@@ -86,12 +95,14 @@ type FindNearbyBrigadesRequest struct {
 	Limit                  int32    `json:"limit,omitempty" binding:"omitempty,min=1,max=1000"`
 }
 
+// CreateGeoZoneRequest содержит параметры API-запроса.
 type CreateGeoZoneRequest struct {
 	DepartmentID string `json:"department_id" binding:"required,uuid"`
 	Name         string `json:"name" binding:"required,max=255"`
 	GeoJSON      string `json:"geo_json" binding:"required"`
 }
 
+// UpdateGeoZoneRequest содержит параметры API-запроса.
 type UpdateGeoZoneRequest struct {
 	ID      string  `json:"id" binding:"required,uuid"`
 	Name    *string `json:"name,omitempty" binding:"omitempty,max=255"`
@@ -99,10 +110,12 @@ type UpdateGeoZoneRequest struct {
 	Active  *bool   `json:"active,omitempty"`
 }
 
+// DeleteGeoZoneRequest содержит параметры API-запроса.
 type DeleteGeoZoneRequest struct {
 	ID string `json:"id" binding:"required,uuid"`
 }
 
+// ListGeoZonesRequest содержит параметры API-запроса.
 type ListGeoZonesRequest struct {
 	DepartmentID *string `json:"department_id,omitempty" binding:"omitempty,uuid"`
 	Active       *bool   `json:"active,omitempty"`
@@ -110,6 +123,7 @@ type ListGeoZonesRequest struct {
 	Offset       int32   `json:"offset,omitempty" binding:"omitempty,min=0"`
 }
 
+// CheckPointInZonesRequest содержит параметры API-запроса.
 type CheckPointInZonesRequest struct {
 	Latitude     float64  `json:"latitude" binding:"gte=-90,lte=90"`
 	Longitude    float64  `json:"longitude" binding:"gte=-180,lte=180"`

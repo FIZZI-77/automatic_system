@@ -24,9 +24,11 @@ func New() *Closer {
 }
 
 func (c *Closer) Add(name string, fn func() error) {
+
 	if fn == nil {
 		return
 	}
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.funcs = append(c.funcs, closeFunc{name: name, fn: fn})
@@ -46,9 +48,11 @@ func (c *Closer) closeAll(ctx context.Context) error {
 
 	var result error
 	for i := len(funcs) - 1; i >= 0; i-- {
+
 		if err := closeWithContext(ctx, funcs[i]); err != nil {
 			result = errors.Join(result, err)
 		}
+
 	}
 	return result
 }
@@ -61,9 +65,11 @@ func closeWithContext(ctx context.Context, item closeFunc) error {
 
 	select {
 	case err := <-done:
+
 		if err != nil {
 			return fmt.Errorf("%s: %w", item.name, err)
 		}
+
 		return nil
 	case <-ctx.Done():
 		return fmt.Errorf("%s: %w", item.name, ctx.Err())

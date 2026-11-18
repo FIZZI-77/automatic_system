@@ -69,6 +69,13 @@ spec:
       redirect:
         uri: /observe/kiali/
         scheme: https
+    - name: pgadmin-trailing-slash
+      match:
+        - uri:
+            exact: /observe/pgadmin
+      redirect:
+        uri: /observe/pgadmin/
+        scheme: https
     - name: grafana
       match:
         - uri:
@@ -138,6 +145,22 @@ spec:
             host: kiali.istio-system.svc.cluster.local
             port:
               number: 20001
+    - name: pgadmin
+      match:
+        - uri:
+            prefix: /observe/pgadmin/
+      headers:
+        request:
+          remove:
+            - authorization
+          set:
+            x-script-name: /observe/pgadmin
+            x-scheme: https
+      route:
+        - destination:
+            host: pgadmin-pgadmin4.automatic-system.svc.cluster.local
+            port:
+              number: 80
     - name: unknown-observability-path
       match:
         - uri:

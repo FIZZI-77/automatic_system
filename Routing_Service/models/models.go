@@ -2,6 +2,7 @@ package models
 
 import "time"
 
+// TravelMode задаёт режим выполнения операции.
 type TravelMode string
 
 const (
@@ -11,6 +12,7 @@ const (
 	TravelModePedestrian TravelMode = "pedestrian"
 )
 
+// RouteStatus задаёт допустимое состояние модели.
 type RouteStatus string
 
 const (
@@ -20,11 +22,13 @@ const (
 	RouteStatusCancelled RouteStatus = "CANCELLED"
 )
 
+// Point описывает доменную модель.
 type Point struct {
 	Latitude  float64 `json:"latitude"`
 	Longitude float64 `json:"longitude"`
 }
 
+// VehicleConstraints описывает доменную модель.
 type VehicleConstraints struct {
 	HeightMeters       *float64 `json:"height_meters,omitempty"`
 	WidthMeters        *float64 `json:"width_meters,omitempty"`
@@ -34,6 +38,7 @@ type VehicleConstraints struct {
 	HazardousMaterials bool     `json:"hazardous_materials"`
 }
 
+// RouteOptions описывает доменную модель.
 type RouteOptions struct {
 	TravelMode   TravelMode          `json:"travel_mode"`
 	DepartureAt  *time.Time          `json:"departure_at,omitempty"`
@@ -41,11 +46,13 @@ type RouteOptions struct {
 	Vehicle      *VehicleConstraints `json:"vehicle,omitempty"`
 }
 
+// RouteSummary описывает доменную модель.
 type RouteSummary struct {
 	DistanceMeters  float64 `json:"distance_meters"`
 	DurationSeconds int64   `json:"duration_seconds"`
 }
 
+// RouteLeg описывает доменную модель.
 type RouteLeg struct {
 	From            Point   `json:"from"`
 	To              Point   `json:"to"`
@@ -53,6 +60,7 @@ type RouteLeg struct {
 	DurationSeconds int64   `json:"duration_seconds"`
 }
 
+// CalculatedRoute описывает доменную модель.
 type CalculatedRoute struct {
 	Summary         RouteSummary `json:"summary"`
 	EncodedPolyline string       `json:"encoded_polyline"`
@@ -61,6 +69,7 @@ type CalculatedRoute struct {
 	Engine          string       `json:"engine"`
 }
 
+// Route описывает сохранённый маршрут и состояние его расчёта.
 type Route struct {
 	ID                        string          `json:"id"`
 	TicketID                  string          `json:"ticket_id"`
@@ -80,6 +89,7 @@ type Route struct {
 	CalculationSuccess        *bool           `json:"calculation_success,omitempty"`
 }
 
+// CalculationFailure описывает доменную модель.
 type CalculationFailure struct {
 	AggregateType         string     `json:"aggregate_type"`
 	AggregateID           string     `json:"aggregate_id"`
@@ -95,6 +105,7 @@ type CalculationFailure struct {
 	CalculationDurationMS float64    `json:"calculation_duration_ms"`
 }
 
+// BuildRouteInput задаёт входные данные операции.
 type BuildRouteInput struct {
 	Origin      Point
 	Destination Point
@@ -102,12 +113,14 @@ type BuildRouteInput struct {
 	Options     RouteOptions
 }
 
+// BuildMatrixInput задаёт входные данные операции.
 type BuildMatrixInput struct {
 	Sources []Point
 	Targets []Point
 	Options RouteOptions
 }
 
+// MatrixCell описывает доменную модель.
 type MatrixCell struct {
 	SourceIndex     int32
 	TargetIndex     int32
@@ -116,11 +129,13 @@ type MatrixCell struct {
 	Reachable       bool
 }
 
+// Candidate описывает доменную модель.
 type Candidate struct {
 	BrigadeID string
 	Location  Point
 }
 
+// RankedCandidate описывает доменную модель.
 type RankedCandidate struct {
 	Candidate
 	Rank           int32
@@ -129,6 +144,7 @@ type RankedCandidate struct {
 	Reachable      bool
 }
 
+// RankCandidatesInput задаёт входные данные операции.
 type RankCandidatesInput struct {
 	Destination Point
 	Candidates  []Candidate
@@ -136,6 +152,7 @@ type RankCandidatesInput struct {
 	Limit       int32
 }
 
+// CreateRouteInput задаёт входные данные операции.
 type CreateRouteInput struct {
 	TicketID    string
 	BrigadeID   string
@@ -145,19 +162,23 @@ type CreateRouteInput struct {
 	Options     RouteOptions
 }
 
+// RecalculateRouteInput задаёт входные данные операции.
 type RecalculateRouteInput struct {
 	ID              string
 	CurrentPosition Point
 }
 
+// ListRoutesInput задаёт входные данные операции.
 type ListRoutesInput struct {
-	TicketID  *string
-	BrigadeID *string
-	Status    *RouteStatus
-	Limit     int32
-	Offset    int32
+	AllowedTicketIDs []string
+	TicketID         *string
+	BrigadeID        *string
+	Status           *RouteStatus
+	Limit            int32
+	Offset           int32
 }
 
+// ListRoutesResult содержит результат операции.
 type ListRoutesResult struct {
 	Routes []*Route
 	Total  int64

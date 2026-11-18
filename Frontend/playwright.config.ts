@@ -7,13 +7,16 @@ export default defineConfig({
   timeout: 60_000,
   expect: { timeout: 12_000 },
   retries: process.env.CI ? 2 : 0,
-  reporter: [["list"], ["html", { outputFolder: "playwright-report", open: "never" }]],
+  reporter: [
+    ["list"],
+    ["html", { outputFolder: "playwright-report", open: "never" }],
+  ],
   outputDir: "test-results/e2e-artifacts",
   globalSetup: "./e2e/global-setup.ts",
   globalTeardown: "./e2e/global-teardown.ts",
   use: {
     baseURL: process.env.E2E_BASE_URL || "http://127.0.0.1:3000",
-    extraHTTPHeaders: ngrokHeaders(),
+    extraHTTPHeaders: e2eHeaders(),
     ignoreHTTPSErrors: process.env.E2E_IGNORE_HTTPS_ERRORS === "1",
     actionTimeout: 12_000,
     navigationTimeout: 30_000,
@@ -48,8 +51,16 @@ function hostResolverLaunchOptions() {
   return rules ? { args: [`--host-resolver-rules=${rules}`] } : undefined;
 }
 
-function ngrokHeaders() {
-  if (process.env.E2E_NGROK_SKIP_BROWSER_WARNING !== "1") return undefined;
+function e2eHeaders() {
+  const headers: Record<string, string> = {};
 
-  return { "ngrok-skip-browser-warning": "playwright-e2e" };
+  if (process.env.E2E_NGROK_SKIP_BROWSER_WARNING === "1") {
+    headers["ngrok-skip-browser-warning"] = "playwright-e2e";
+  }
+
+  if (process.env.E2E_LOAD_TEST_RUN_ID) {
+    headers["X-Load-Test-Run-ID"] = process.env.E2E_LOAD_TEST_RUN_ID;
+  }
+
+  return Object.keys(headers).length > 0 ? headers : undefined;
 }

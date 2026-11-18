@@ -2,7 +2,8 @@ param(
     [switch]$SkipSeed,
     [switch]$Headed,
     [switch]$LocalFrontend,
-    [switch]$ExistingFrontend
+    [switch]$ExistingFrontend,
+    [string]$Password = $env:DEMO_PASSWORD
 )
 
 $ErrorActionPreference = "Stop"
@@ -12,6 +13,13 @@ $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $portForwardProcesses = @()
 $frontendProcess = $null
 $ingressProxyProcess = $null
+
+if ([string]::IsNullOrWhiteSpace($Password)) {
+    throw "Demo password is required. Pass -Password or set DEMO_PASSWORD."
+}
+
+$env:DEMO_PASSWORD = $Password
+$env:E2E_DEMO_PASSWORD = $Password
 
 function Start-PortForward {
     param(

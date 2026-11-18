@@ -21,6 +21,9 @@ type outboxEnvelope struct {
 	Payload      any        `json:"payload"`
 }
 
+// insertOutboxEvent сохраняет через q событие PENDING в конверте версии 1,
+// добавляя UUID, текущее UTC-время, request ID и инициатора. UUID строки и конверта
+// совпадают; транзакцией управляет вызывающий код.
 func insertOutboxEvent(
 	ctx context.Context,
 	q Querier,
@@ -34,6 +37,7 @@ func insertOutboxEvent(
 	now := time.Now().UTC()
 
 	var requestID *string
+
 	if value, ok := profilepkg.RequestIDFromContext(ctx); ok {
 		requestID = &value
 	}
@@ -50,6 +54,7 @@ func insertOutboxEvent(
 	}
 
 	payloadBytes, err := json.Marshal(envelope)
+
 	if err != nil {
 		return fmt.Errorf("outbox: marshal payload: %w", err)
 	}

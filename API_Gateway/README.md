@@ -18,6 +18,16 @@
 
 ## Модели
 
+Назначение `/tickets/assign-brigade` выполняется через резервирование и
+подтверждение Dispatch. HTTP-ответ по-прежнему содержит `ticket`, но операция
+теперь требует пригодную бригаду, её координаты и доступный Routing Service.
+Автор определяется из JWT, комментарий ограничен 1000 символами и сохраняется
+для восстановления подтверждения. Прямой gRPC `Ticket.AssignBrigade` в mesh
+для Gateway закрыт; его вызывает Dispatch после проверки резерва.
+Повтор после потерянного ответа возвращает уже назначенную той же бригаде
+заявку или возобновляет собственный совпадающий резерв. Чужой резерв остаётся
+конфликтом.
+
 Модели в каталоге `models` являются внешними HTTP-представлениями. Они не создают отдельную предметную модель и не сохраняются шлюзом. Имена `Request` описывают тело запроса, имена `Response` — JSON-ответ, а сущности без суффикса — представление ответа внутреннего сервиса.
 
 ### Общие правила полей
@@ -51,7 +61,10 @@
 | Модель | Поля и назначение |
 |---|---|
 | `TicketCategory` | идентификатор, код, название, описание, активность и времена. |
-| `Ticket` | заявка, подразделение, категория, автор, бригада, объект, текст, состояние, приоритет, адрес, координаты и времена переходов. |
+| `Ticket` | заявка, подразделение, категория, автор, бригада, объект, текст, состояние, приоритет, адрес, координаты, времена переходов, `ticket_type` и `incident_id`. |
+| `CreateRequestRequest`, `CreateRequestResponse` | создание обычной заявки с автоматическим поиском либо созданием инцидента и признаком найденного дубля. |
+| `AttachRequestRequest`, `DetachRequestRequest` | присоединение части к инциденту и отсоединение с обязательной причиной. |
+| `ListIncidentRequestsRequest`, `ListIncidentRequestsResponse` | состав инцидента, общее и выполненное количество частей, число департаментов, признаки составного и полностью завершенного инцидента. |
 | `TicketStatusHistory` | прежнее/новое состояние, автор, комментарий и время. |
 | `CreateTicketRequest` | подразделение, категория, заголовок, описание, приоритет, адрес, координаты и необязательный `AssetID`. |
 | `GetTicketRequest` | `TicketID`. |
@@ -455,7 +468,7 @@ func isRetryable(err error) bool
 
 ### Обработчики заявок и отчетов
 
-`NewTicketHandler` сохраняет клиентов заявок и бригад. `CreateTicket`, `GetTicket`, `ListTicket`, `UpdateTicket`, `ChangeTicketStatus`, `AssignBrigade`, `CancelTicket`, `CompleteTicket`, `GetTicketStatusHistory` обслуживают жизненный цикл заявки. `CreateWorkReport` и `ListWorkReports` при роли работника сначала определяют его активную бригаду. Методы категорий вызывают одноименные операции Ticket Service. `bindJSON`, `buildListTicketsRequest`, `buildUpdateTicketRequest` и преобразователи формируют строгий запрос.
+`NewTicketHandler` сохраняет клиентов заявок и бригад. `CreateTicket`, `GetTicket`, `ListTicket`, `UpdateTicket`, `ChangeTicketStatus`, `AssignBrigade`, `CancelTicket`, `CompleteTicket`, `GetTicketStatusHistory` обслуживают жизненный цикл заявки. `CreateRequest`, `AttachRequest`, `DetachRequest` и `ListIncidentRequests` находятся в этом же общем handler: последний агрегирует все страницы состава и возвращает диспетчеру прогресс и число участвующих департаментов. `CreateWorkReport` и `ListWorkReports` при роли работника сначала определяют его активную бригаду. Методы категорий вызывают одноименные операции Ticket Service. `bindJSON`, `buildListTicketsRequest`, `buildUpdateTicketRequest` и преобразователи формируют строгий запрос.
 
 ### Обработчики бригад
 
@@ -668,3 +681,28 @@ type TicketHandler struct {
 	brigadeClient brigadev1.BrigadeServiceClient
 }
 ```
+## HTTP API внешних интеграций
+
+Все операции управления требуют JWT; роль `admin` проверяется Ticket Service.
+Методы реализованы в общем `TicketHandler`, `src/core/handlers/ticket.go`.
+
+| POST-маршрут | JSON-вход | Успешный ответ |
+|---|---|---|
+| `/tickets/integrations/register` | `name`, `client_id`, необязательный `allowed_department_id` | 201, `integration`, `secret` |
+| `/tickets/integrations/list` | `limit` (по умолчанию 50, 1–100), `offset` (по умолчанию 0) | 200, `integrations`, `total` |
+| `/tickets/integrations/set-active` | `integration_id`, обязательное `is_active` (также `false`) | 200, `integration` |
+| `/tickets/integrations/rotate-secret` | `integration_id` | 200, `integration`, новый `secret` |
+| `/integrations/tickets/requests` | `client_id`, `secret`, `external_id` и поля обращения | 201, `request`, `incident`, `duplicate_matched` |
+
+Внешний маршрут не требует JWT: Ticket Service проверяет собственные credentials,
+активность интеграции и ограничение департамента. Внутри одного департамента
+повтор пары интеграция/`external_id` возвращает уже созданное обращение.
+Новый секрет показывается только при регистрации или ротации; старый секрет
+после замены хеша не проходит проверку. Ротация не включает отключенную интеграцию.
+
+Оба ingress-манифеста `k8s/mesh/ingress/routes.yaml` и `routes-public.yaml`
+направляют префикс `/integrations` в Gateway. Это необходимо для внешнего API
+через общий вход frontend/Funnel; наличие правила не подтверждает его rollout.
+
+Актуальный OpenAPI и ограничения кластерных проверок описаны в
+[E2E coverage](e2e/COVERAGE.md).

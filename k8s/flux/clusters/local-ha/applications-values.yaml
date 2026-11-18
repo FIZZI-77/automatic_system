@@ -22,6 +22,7 @@ globalImage:
   pullPolicy: Always
 
 migrations:
+  allowMissing: true
   registry: ghcr.io/fizzi-77
   tag: sha-7e50eb65738b
   tags:

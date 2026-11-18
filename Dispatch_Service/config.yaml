@@ -12,3 +12,8 @@ read_database_max_connections: 4
 lock_database_max_connections: 4
 outbox_worker_count: 4
 outbox_batch_size: 50
+
+circuit_breaker_failure_threshold: 5
+circuit_breaker_interval: '30s'
+circuit_breaker_open_timeout: '60s'
+circuit_breaker_call_timeout: '2s'

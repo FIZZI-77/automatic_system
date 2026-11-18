@@ -2,7 +2,7 @@
 
 ## Ответственность
 
-Источник истины по заявке: ticket, category, status history, brigade assignment и work reports.
+Источник истины по обращениям жителей, городским инцидентам, связям обращение–инцидент, категориям, истории статусов, назначениям бригад, отчетам о работах и учетным данным внешних интеграций.
 
 ## Ключевое поведение
 
@@ -11,6 +11,13 @@
 - Access зависит от роли и ownership; worker работает с ticket своей brigade.
 - Write operations поддерживают idempotency.
 - Completion report request сохраняется вместе с outbox event; результат возвращается асинхронно.
+- Запись `tickets` имеет тип `INCIDENT` или `REQUEST`. Обычная заявка на работу остается самостоятельной записью `REQUEST` и хранит связь `incident_id` с объединяющим городским инцидентом.
+- При создании обращения сервис в одной транзакции ищет активный инцидент той же категории и департамента, созданный за последние 24 часа не дальше 100 метров. Выбирается ближайший, затем наиболее новый инцидент; при отсутствии совпадения создается новый.
+- Диспетчер своего департамента или администратор может вручную присоединить обращение к другому инциденту либо отсоединить его. Инцидент и обращение могут относиться к разным департаментам. Причина изменения обязательна и попадает в outbox event.
+- Если с инцидентом связаны заявки нескольких департаментов, диспетчер видит его как составной: API возвращает количество частей, число департаментов, прогресс и признак завершения всех частей. Диспетчер получает состав, если управляет самим инцидентом или хотя бы одной его частью.
+- Части составного инцидента независимо проходят обычный lifecycle, получают свои бригады, историю и отчеты. Инцидент автоматически переходит в `DONE` только после `DONE` всех связанных частей. `CANCELED` не считается выполнением; прямое завершение или отмена инцидента с незавершенными частями отклоняется.
+- Внешние системы регистрируются администратором. Секрет с префиксом `tki_` возвращается только при регистрации, а в БД хранится SHA-256; опционально интеграция ограничивается одним департаментом.
+- Повторный внешний запрос с той же комбинацией `external_system_id`, `external_id` и департамента возвращает ранее созданное обращение и не создает дубль.
 
 ## Зависимости
 
@@ -28,13 +35,15 @@
 
 Полные сигнатуры и структуры параметров приведены в [справочнике функций Ticket Service](https://automaticsystem.youtrack.cloud/articles/ACS-A-34/Kod-i-funkcii-Ticket-Service).
 
+Все gRPC-методы, включая обращения и интеграции, реализованы общим `TicketHandler` в `src/core/handler/handler.go`; отдельный handler для них не создается.
+
 ### `NewService`
 
 ```go
 func NewService(repo *repository.Repository, logger *zap.Logger) *Service
 ```
 
-При отсутствии журнала подставляет `zap.NewNop()`, создает службы заявок и категорий с общим хранилищем и добавляет `ReportService`. Возвращает единый `Service`.
+При отсутствии журнала подставляет `zap.NewNop()`, создает службы заявок, категорий, отчетов и интеграций с общим хранилищем. Возвращает единый `Service`.
 
 ### `NewTicketServiceStruct`, `NewCategoryServiceStruct`, `NewReportService`
 
@@ -127,6 +136,54 @@ func (s *TicketServiceStruct) GetTicketStatusHistory(ctx context.Context, in *mo
 ```
 
 Проверяет заявку и параметры страницы, загружает заявку для проверки доступа, затем возвращает историю в прямом хронологическом порядке и полное количество записей.
+
+### `TicketServiceStruct.CreateRequest`
+
+```go
+func (s *TicketServiceStruct) CreateRequest(ctx context.Context, in *models.CreateRequestInput) (*models.CreateRequestResult, error)
+```
+
+Проверяет данные обращения и передает создание в транзакционное хранилище. Хранилище сериализует поиск дублей advisory lock по департаменту и категории, проверяет активность категории и ищет ближайший активный `INCIDENT` в радиусе 100 метров за последние 24 часа. Если совпадения нет, сначала создает `INCIDENT`; затем всегда создает отдельный `REQUEST`, записывает `incident_id`, историю и outbox events. Ответ содержит `request`, `incident` и признак `duplicate_matched`.
+
+### `TicketServiceStruct.AttachRequest`
+
+```go
+func (s *TicketServiceStruct) AttachRequest(ctx context.Context, in *models.AttachRequestInput) (*models.Ticket, error)
+```
+
+Разрешает администратору либо диспетчеру департамента обращения перенести `REQUEST` в указанный `INCIDENT`, в том числе другого департамента. Для объектов одного департамента дополнительно проверяется право управления инцидентом. Повторное присоединение к тому же инциденту отклоняется. Обязательная причина и исполнитель записываются в событие `ticket.request_attached`.
+
+### `TicketServiceStruct.DetachRequest`
+
+```go
+func (s *TicketServiceStruct) DetachRequest(ctx context.Context, in *models.DetachRequestInput) (*models.Ticket, error)
+```
+
+Разрешает администратору либо диспетчеру соответствующего департамента очистить `incident_id` у `REQUEST`. Обязательная причина и исполнитель записываются в событие `ticket.request_detached`.
+
+### `TicketServiceStruct.ListIncidentRequests`
+
+```go
+func (s *TicketServiceStruct) ListIncidentRequests(ctx context.Context, in *models.ListIncidentRequestsInput) ([]*models.Ticket, int64, error)
+```
+
+Проверяет доступ к инциденту или наличие части департамента исполнителя, нормализует страницу и возвращает связанные обращения и общее количество. Администратор видит любой департамент; диспетчер получает состав инцидента, если управляет самим инцидентом или одной из его частей.
+
+### `IntegrationServiceStruct.RegisterIntegration`
+
+```go
+func (s *IntegrationServiceStruct) RegisterIntegration(ctx context.Context, in *models.RegisterIntegrationInput) (*models.RegisterIntegrationResult, error)
+```
+
+Доступен только роли `admin`. Генерирует криптографически случайный 32-байтовый секрет с префиксом `tki_`, сохраняет только SHA-256 и отображаемый префикс секрета. Полный секрет возвращается один раз. `AllowedDepartmentID` ограничивает интеграцию одним департаментом.
+
+### `IntegrationServiceStruct.CreateExternalRequest`
+
+```go
+func (s *IntegrationServiceStruct) CreateExternalRequest(ctx context.Context, in *models.CreateExternalRequestInput) (*models.CreateRequestResult, error)
+```
+
+Проверяет `client_id` и секрет сравнением хешей в constant time, активность интеграции и разрешенный департамент. Затем добавляет `external_system_id` и `external_id` и вызывает общий путь `CreateRequest`. Внешняя идемпотентность обеспечивается уникальной комбинацией интеграции, внешнего идентификатора и департамента; после успешного вызова обновляется `last_used_at`.
 
 ### `hasRole`, `hasPrivilegedRole`, `canReadTicket`
 
@@ -258,3 +315,22 @@ func idempotencyActor(actor *uuid.UUID, fallback uuid.UUID) string
 - [README сервиса](https://github.com/FIZZI-77/automatic_system/blob/test/Ticket_Service/README.md)
 - [Точка запуска и реализации](https://github.com/FIZZI-77/automatic_system/blob/test/Ticket_Service/src/cmd/server/main.go)
 - [Проверенная карта взаимодействий](https://github.com/FIZZI-77/automatic_system/blob/test/docs/architecture/code-interactions.md)
+
+## Управление внешними интеграциями
+
+`IntegrationServiceStruct` предоставляет только администратору следующие методы:
+
+| Метод | Вход и результат |
+|---|---|
+| `ListIntegrations(ctx, *models.ListIntegrationsInput)` | `Limit` от 1 до 100, `Offset` от 0; возвращает `*models.ListIntegrationsResult` с `Integrations` и `Total`. Сортировка: `created_at DESC, id DESC`. |
+| `SetIntegrationActive(ctx, *models.SetIntegrationActiveInput)` | Ненулевой `IntegrationID` и `IsActive`; возвращает `*models.TicketIntegration`. Отключенная интеграция не может создавать внешние обращения. |
+| `RotateIntegrationSecret(ctx, *models.RotateIntegrationSecretInput)` | Ненулевой `IntegrationID`; возвращает `*models.RegisterIntegrationResult` с новым `Secret` и метаданными. Старый хеш заменяется, состояние активности сохраняется. |
+
+Каждый метод также возвращает `error`. Полный секрет с префиксом `tki_`
+возвращается при регистрации и ротации; список содержит только `secret_prefix`.
+`last_used_at` обновляется после успешного внешнего обращения; ошибка этой
+служебной записи не отменяет создание обращения.
+
+Реализация: `src/core/service/integration_service.go`,
+`src/core/repository/integration_repo.go`, `models/integration.go`.
+Все gRPC-методы находятся в общем `TicketHandler`.

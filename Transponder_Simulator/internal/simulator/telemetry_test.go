@@ -19,18 +19,23 @@ func TestNewEventUsesPointOverrides(t *testing.T) {
 		Point{Latitude: 56, Longitude: 37},
 		42, at,
 	)
+
 	if event.EventID == "" || event.EventType != "VehiclePositionUpdated" || event.EventVersion != 1 {
 		t.Fatalf("invalid envelope: %+v", event)
 	}
+
 	if event.OccurredAt.Location() != time.UTC {
 		t.Fatalf("occurred_at location = %v", event.OccurredAt.Location())
 	}
+
 	if event.Payload.Sequence != 42 || event.Payload.SpeedKMH != speed || event.Payload.AccuracyMeters != accuracy {
 		t.Fatalf("invalid payload: %+v", event.Payload)
 	}
+
 	if event.Payload.Heading != 0 {
 		t.Fatalf("north heading = %f, want 0", event.Payload.Heading)
 	}
+
 }
 
 func TestHeadingCardinalDirectionsAndStationary(t *testing.T) {
@@ -48,9 +53,11 @@ func TestHeadingCardinalDirectionsAndStationary(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+
 			if got := heading(origin, tt.to); math.Abs(got-tt.want) > 0.001 {
 				t.Fatalf("heading = %f, want %f", got, tt.want)
 			}
+
 		})
 	}
 }

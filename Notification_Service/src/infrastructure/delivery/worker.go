@@ -25,31 +25,41 @@ func (w *Worker) Run(ctx context.Context) error {
 	for {
 		for {
 			d, n, e := w.repo.ClaimDelivery(ctx)
+
 			if errors.Is(e, pgx.ErrNoRows) {
 				break
 			}
+
 			if e != nil {
 				return e
 			}
+
 			s := w.senders[d.Channel]
+
 			if s == nil {
 				s = sender.Disabled{Channel: d.Channel}
 			}
+
 			sendCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 			provider, e := s.Send(sendCtx, d, n)
 			cancel()
+
 			if e == nil {
 				e = w.repo.DeliverySent(ctx, d.ID, d.Attempts, provider)
 			} else {
+
 				if errors.Is(e, sender.ErrPermanent) && d.Channel == "PUSH" {
 					_ = w.repo.DeactivateToken(ctx, d.Recipient)
 					d.Attempts = 8
 				}
+
 				e = w.repo.DeliveryFailed(ctx, d, e.Error())
 			}
+
 			if e != nil {
 				w.log.Error("delivery update failed", zap.Error(e))
 			}
+
 		}
 		select {
 		case <-ctx.Done():

@@ -187,10 +187,12 @@ function eventSvg() {
     ["Asset", "assets.events.v1"],
     ["SLA", "sla.events.v1"],
     ["Report", "reports.events.v1"],
+    ["File", "files.events.v1"],
+    ["Notification", "notifications.events.v1"],
   ];
   publishers.forEach(([service, topic], i) => {
-    const y = 260 + i * 52;
-    if (i % 2 === 0) parts.push(rect(64, y, 534, 46, c.row, c.row, 3));
+    const y = 260 + i * 45;
+    if (i % 2 === 0) parts.push(rect(64, y, 534, 40, c.row, c.row, 3));
     parts.push(text(82, y + 30, service, 16, c.ink, 600));
     parts.push(text(286, y + 30, topic, 15, c.teal, 600));
   });
@@ -200,7 +202,7 @@ function eventSvg() {
   parts.push(text(800, 407, "K", 22, c.paper, 700, "middle"));
   parts.push(text(800, 462, "Kafka", 27, c.ink, 700, "middle"));
   parts.push(line(714, 482, 886, 482, "#c5b1e1"));
-  parts.push(text(800, 520, "11 издателей", 18, c.violet, 600, "middle"));
+  parts.push(text(800, 520, "13 издателей", 18, c.violet, 600, "middle"));
   parts.push(text(800, 552, "9 читателей", 18, c.violet, 600, "middle"));
   parts.push(text(800, 604, "темы предметных", 14, c.muted, 400, "middle"));
   parts.push(text(800, 626, "событий", 14, c.muted, 400, "middle"));
@@ -218,8 +220,8 @@ function eventSvg() {
     ["SLA", "tickets"],
     ["Report", "tickets"],
     ["Notification", "9 тем по настройке"],
-    ["Audit", "12 тем по конфигурации"],
-    ["Analytics", "12 тем по конфигурации"],
+    ["Audit", "13 тем по конфигурации"],
+    ["Analytics", "13 тем по конфигурации"],
   ];
   readers.forEach(([service, topics], i) => {
     const y = 265 + i * 65;
@@ -229,9 +231,9 @@ function eventSvg() {
   });
 
   parts.push(rect(40, 892, 1520, 118, c.amberSoft, "#edcf9a"));
-  parts.push(text(64, 927, "ТЕМЫ БЕЗ НАЙДЕННОГО ИЗДАТЕЛЯ", 14, c.amber, 700));
-  parts.push(text(64, 960, "files.events.v1 у Notification  ·  notifications.events.v1 у Audit и Analytics", 19, c.ink, 600));
-  parts.push(text(64, 989, "Это настроенные подписки, а не подтвержденные потоки публикации. Точный состав тем и ссылки на код есть в текстовой карте.", 14, c.muted));
+  parts.push(text(64, 927, "ТРАНЗАКЦИОННЫЕ СОБЫТИЯ FILE И NOTIFICATION", 14, c.amber, 700));
+  parts.push(text(64, 960, "files.events.v1  ·  notifications.events.v1 → Audit и Analytics", 19, c.ink, 600));
+  parts.push(text(64, 989, "Изменение состояния и outbox атомарны. Отправка с повторами и стабильным event_id. Точные контракты есть в текстовой карте.", 14, c.muted));
   parts.push("</svg>");
   return parts.join("\n");
 }

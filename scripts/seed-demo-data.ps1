@@ -1,12 +1,17 @@
 param(
     [string]$BaseUrl = "http://localhost:8081",
-    [string]$Password = "CityDemo123!",
+    [string]$Password = $env:DEMO_PASSWORD,
     [ValidateSet("Compose", "Kubernetes")]
     [string]$Target = "Compose",
-    [string]$Namespace = "automatic-system"
+    [string]$Namespace = "automatic-system",
+    [switch]$SkipRegister
 )
 
 $ErrorActionPreference = "Stop"
+
+if (-not $SkipRegister -and [string]::IsNullOrWhiteSpace($Password)) {
+    throw "Demo password is required. Pass -Password or set DEMO_PASSWORD."
+}
 
 function Get-ReadyPrimaryPod {
     param([string]$Selector)
@@ -59,7 +64,7 @@ function Invoke-SeedSql {
             }
             $pod = Get-ReadyPrimaryPod $podSelector
             $targetDatabase = $databaseMap[$Service]
-            $Sql | kubectl exec -i -n $Namespace $pod -- psql -v ON_ERROR_STOP=1 -U postgres -d $targetDatabase
+            $Sql | kubectl exec -i -n $Namespace $pod -c postgres -- psql -v ON_ERROR_STOP=1 -U postgres -d $targetDatabase
         }
         else {
             $Sql | docker compose exec -T $Service psql -v ON_ERROR_STOP=1 -U $User -d $Database
@@ -97,7 +102,26 @@ function Register-DemoAccount {
         }
         catch {
             $statusCode = if ($_.Exception.Response) { $_.Exception.Response.StatusCode.value__ } else { 0 }
-            if ($statusCode -eq 409) { return }
+            if ($statusCode -eq 409) {
+                try {
+                    Invoke-RestMethod -Uri "$BaseUrl/auth/login" -Method Post -ContentType "application/json" -Body (@{
+                        email = $Account.Email
+                        password = $Password
+                        client_id = "demo-seed"
+                    } | ConvertTo-Json) | Out-Null
+                }
+                catch {
+                    $loginStatusCode = if ($_.Exception.Response) { $_.Exception.Response.StatusCode.value__ } else { 0 }
+
+                    if ($loginStatusCode -eq 401) {
+                        throw "Demo account $($Account.Email) already exists with another password. Use its current password or recreate the demo accounts."
+                    }
+
+                    throw
+                }
+
+                return
+            }
 
             $transient = $statusCode -eq 0 -or $statusCode -in 502, 503, 504
             if (-not $transient -or $attempt -eq 3) { throw }
@@ -106,8 +130,10 @@ function Register-DemoAccount {
     }
 }
 
-foreach ($account in $accounts) {
-    Register-DemoAccount $account
+if (-not $SkipRegister) {
+    foreach ($account in $accounts) {
+        Register-DemoAccount $account
+    }
 }
 
 $roleValues = ($accounts | ForEach-Object { "('$($_.Email)','$($_.Role)')" }) -join ",`n"
@@ -127,7 +153,7 @@ ON CONFLICT (user_id, role_id) DO NOTHING;
 function Get-DemoUserId([string]$Email) {
     if ($Target -eq "Kubernetes") {
         $pod = Get-ReadyPrimaryPod "cluster-name=postgres-platform,role=primary"
-        $value = kubectl exec -n $Namespace $pod -- psql -U postgres -d auth_db -At -c "SELECT id FROM users WHERE email='$Email'"
+        $value = kubectl exec -n $Namespace $pod -c postgres -- psql -U postgres -d auth_db -At -c "SELECT id FROM users WHERE email='$Email'"
     }
     else {
         $value = docker compose exec -T postgres-auth psql -U auth_user -d auth_db -At -c "SELECT id FROM users WHERE email='$Email'"
@@ -321,11 +347,11 @@ INSERT INTO sla_rules(id,name,department_id,category_id,priority,response_second
 ('90000000-0000-4000-8000-000000000002','Дорожные повреждения высокого приоритета','$depRoads','$catRoad','HIGH',1800,14400,80,TRUE),
 ('90000000-0000-4000-8000-000000000003','Освещение высокого приоритета','$depRoads','$catLight','HIGH',1200,10800,75,TRUE)
 ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name,response_seconds=EXCLUDED.response_seconds,resolution_seconds=EXCLUDED.resolution_seconds,warning_percent=EXCLUDED.warning_percent,active=TRUE,updated_at=now();
-INSERT INTO ticket_slas(id,ticket_id,rule_id,department_id,category_id,priority,status,response_deadline,resolution_deadline,responded_at,completed_at,response_breached,resolution_breached,response_warning_sent,resolution_warning_sent,created_at,updated_at) VALUES
-('91000000-0000-4000-8000-000000000001','$ticketProgress','90000000-0000-4000-8000-000000000001','$depUtilities','$catWater','EMERGENCY','ACTIVE',now()-interval '2 hours 50 minutes',now()+interval '4 hours',now()-interval '2 hours 45 minutes',NULL,FALSE,FALSE,TRUE,FALSE,now()-interval '3 hours',now()),
-('91000000-0000-4000-8000-000000000002','$ticketAssigned','90000000-0000-4000-8000-000000000003','$depRoads','$catLight','HIGH','ACTIVE',now()-interval '1 hour 40 minutes',now()+interval '1 hour',now()-interval '25 minutes',NULL,TRUE,FALSE,TRUE,TRUE,now()-interval '2 hours',now()),
-('91000000-0000-4000-8000-000000000003','$ticketDone','90000000-0000-4000-8000-000000000002','$depRoads','$catRoad','HIGH','COMPLETED',now()-interval '3 hours 30 minutes',now(),now()-interval '3 hours 45 minutes',now()-interval '2 hours',FALSE,FALSE,FALSE,FALSE,now()-interval '4 hours',now()-interval '2 hours')
-ON CONFLICT (id) DO UPDATE SET status=EXCLUDED.status,response_deadline=EXCLUDED.response_deadline,resolution_deadline=EXCLUDED.resolution_deadline,responded_at=EXCLUDED.responded_at,completed_at=EXCLUDED.completed_at,response_breached=EXCLUDED.response_breached,resolution_breached=EXCLUDED.resolution_breached,response_warning_sent=EXCLUDED.response_warning_sent,resolution_warning_sent=EXCLUDED.resolution_warning_sent,created_at=EXCLUDED.created_at,updated_at=EXCLUDED.updated_at;
+INSERT INTO ticket_slas(id,ticket_id,rule_id,department_id,category_id,priority,status,ticket_created_at,response_deadline,resolution_deadline,responded_at,completed_at,response_breached,resolution_breached,response_warning_sent,resolution_warning_sent,created_at,updated_at) VALUES
+('91000000-0000-4000-8000-000000000001','$ticketProgress','90000000-0000-4000-8000-000000000001','$depUtilities','$catWater','EMERGENCY','ACTIVE',now()-interval '3 hours',now()-interval '2 hours 50 minutes',now()+interval '4 hours',now()-interval '2 hours 45 minutes',NULL,FALSE,FALSE,TRUE,FALSE,now()-interval '3 hours',now()),
+('91000000-0000-4000-8000-000000000002','$ticketAssigned','90000000-0000-4000-8000-000000000003','$depRoads','$catLight','HIGH','ACTIVE',now()-interval '2 hours',now()-interval '1 hour 40 minutes',now()+interval '1 hour',now()-interval '25 minutes',NULL,TRUE,FALSE,TRUE,TRUE,now()-interval '2 hours',now()),
+('91000000-0000-4000-8000-000000000003','$ticketDone','90000000-0000-4000-8000-000000000002','$depRoads','$catRoad','HIGH','COMPLETED',now()-interval '4 hours',now()-interval '3 hours 30 minutes',now(),now()-interval '3 hours 45 minutes',now()-interval '2 hours',FALSE,FALSE,FALSE,FALSE,now()-interval '4 hours',now()-interval '2 hours')
+ON CONFLICT (id) DO UPDATE SET status=EXCLUDED.status,ticket_created_at=EXCLUDED.ticket_created_at,response_deadline=EXCLUDED.response_deadline,resolution_deadline=EXCLUDED.resolution_deadline,responded_at=EXCLUDED.responded_at,completed_at=EXCLUDED.completed_at,response_breached=EXCLUDED.response_breached,resolution_breached=EXCLUDED.resolution_breached,response_warning_sent=EXCLUDED.response_warning_sent,resolution_warning_sent=EXCLUDED.resolution_warning_sent,created_at=EXCLUDED.created_at,updated_at=EXCLUDED.updated_at;
 INSERT INTO sla_history(id,ticket_sla_id,ticket_id,event_type,details,occurred_at) VALUES
 ('92000000-0000-4000-8000-000000000001','91000000-0000-4000-8000-000000000002','$ticketAssigned','RESPONSE_BREACHED','Бригада назначена позже нормы реакции',now()-interval '25 minutes'),
 ('92000000-0000-4000-8000-000000000002','91000000-0000-4000-8000-000000000003','$ticketDone','COMPLETED','Заявка выполнена в пределах срока решения',now()-interval '2 hours')
@@ -401,12 +427,18 @@ DELETE FROM position_history
 WHERE id IN (
 'e0000000-0000-4000-8000-000000000001',
 'e0000000-0000-4000-8000-000000000002',
-'e0000000-0000-4000-8000-000000000003'
+'e0000000-0000-4000-8000-000000000003',
+'e0000000-0000-4000-8000-000000000004',
+'e0000000-0000-4000-8000-000000000005',
+'e0000000-0000-4000-8000-000000000006'
 );
 INSERT INTO position_history(id,event_id,device_id,vehicle_id,brigade_id,sequence,latitude,longitude,speed_kmh,heading,accuracy_meters,simulated,recorded_at) VALUES
 ('e0000000-0000-4000-8000-000000000001','e1000000-0000-4000-8000-000000000001','demo-road-1','e2000000-0000-4000-8000-000000000001','$brigadeRoad',1,55.7548,37.6045,26,35,4,TRUE,now()-interval '1 minute'),
 ('e0000000-0000-4000-8000-000000000002','e1000000-0000-4000-8000-000000000002','demo-road-2','e2000000-0000-4000-8000-000000000002','$brigadeRoad',1,55.7550,37.6048,25,35,4,TRUE,now()-interval '1 minute'),
-('e0000000-0000-4000-8000-000000000003','e1000000-0000-4000-8000-000000000003','demo-utility-1','e2000000-0000-4000-8000-000000000003','$brigadeUtility',1,55.7587,37.6200,18,290,5,TRUE,now()-interval '30 seconds');
+('e0000000-0000-4000-8000-000000000003','e1000000-0000-4000-8000-000000000003','demo-utility-1','e2000000-0000-4000-8000-000000000003','$brigadeUtility',1,55.7587,37.6200,18,290,5,TRUE,now()-interval '30 seconds'),
+('e0000000-0000-4000-8000-000000000004','e1000000-0000-4000-8000-000000000004','demo-dispatch-1','e2000000-0000-4000-8000-000000000004','$brigadeDispatchPrimary',1,55.7619,37.6102,12,70,5,TRUE,now()-interval '30 seconds'),
+('e0000000-0000-4000-8000-000000000005','e1000000-0000-4000-8000-000000000005','demo-dispatch-2','e2000000-0000-4000-8000-000000000005','$brigadeDispatchSecondary',1,55.7596,37.6150,10,110,6,TRUE,now()-interval '30 seconds'),
+('e0000000-0000-4000-8000-000000000006','e1000000-0000-4000-8000-000000000006','demo-dispatch-3','e2000000-0000-4000-8000-000000000006','$brigadeDispatchCancel',1,55.7658,37.6088,8,250,6,TRUE,now()-interval '30 seconds');
 "@
 
 $clickhouseSql = @"

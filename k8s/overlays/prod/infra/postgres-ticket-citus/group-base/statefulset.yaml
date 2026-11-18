@@ -57,8 +57,8 @@ spec:
               from urllib.parse import urlparse
 
               pod_name = os.environ["POD_NAME"]
-              pod_ip = os.environ["POD_IP"]
               namespace = os.environ["POD_NAMESPACE"]
+              expected_host = f"{pod_name}.postgres-ticket-citus-nodes.{namespace}.svc.cluster.local"
               api = "https://kubernetes.default.svc"
               token_path = "/var/run/secrets/kubernetes.io/serviceaccount/token"
               ca_path = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
@@ -73,23 +73,19 @@ spec:
               raw_status = pod.get("metadata", {}).get("annotations", {}).get("status")
               if raw_status:
                   member = json.loads(raw_status)
-                  recorded_ip = urlparse(member.get("api_url", "")).hostname
-                  if recorded_ip and recorded_ip != pod_ip:
+                  recorded_host = urlparse(member.get("api_url", "")).hostname
+                  if recorded_host and recorded_host != expected_host:
                       patch = json.dumps({"metadata": {"annotations": {"status": None}}}).encode()
                       headers["Content-Type"] = "application/merge-patch+json"
                       request = urllib.request.Request(url, data=patch, headers=headers, method="PATCH")
                       with urllib.request.urlopen(request, context=context, timeout=5):
                           pass
-                      print(f"removed stale Patroni member address {recorded_ip}; current pod IP is {pod_ip}")
+                      print(f"removed stale Patroni member address {recorded_host}; expected {expected_host}")
           env:
             - name: POD_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: POD_IP
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.podIP
             - name: POD_NAMESPACE
               valueFrom:
                 fieldRef:
@@ -167,6 +163,10 @@ spec:
               value: zst
             - name: PGBACKREST_ARCHIVE_ASYNC
               value: "y"
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql/data

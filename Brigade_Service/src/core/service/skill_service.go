@@ -17,6 +17,7 @@ type SkillServiceStruct struct {
 	log  *zap.Logger
 }
 
+// NewSkillServiceStruct создаёт сервис каталога и навыков бригад с обязательным журналом log.
 func NewSkillServiceStruct(repo *repository.Repo, log *zap.Logger) *SkillServiceStruct {
 	return &SkillServiceStruct{
 		repo: repo,
@@ -24,6 +25,8 @@ func NewSkillServiceStruct(repo *repository.Repo, log *zap.Logger) *SkillService
 	}
 }
 
+// CreateSkill проверяет параметры и создаёт навык каталога только для администратора.
+// Ошибки входа оборачивает в ErrValidation, отказ в доступе возвращает как ErrPermissionDenied.
 func (s *SkillServiceStruct) CreateSkill(ctx context.Context, in *models.CreateSkillInput) (*models.CreateSkillResult, error) {
 	log := s.log.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -43,6 +46,7 @@ func (s *SkillServiceStruct) CreateSkill(ctx context.Context, in *models.CreateS
 	}
 
 	result, err := s.repo.CreateSkill(ctx, in)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: CreateSkill: %w", err)
 	}
@@ -55,6 +59,7 @@ func (s *SkillServiceStruct) CreateSkill(ctx context.Context, in *models.CreateS
 	return result, nil
 }
 
+// UpdateSkill проверяет запрос и меняет заданные поля навыка только для администратора.
 func (s *SkillServiceStruct) UpdateSkill(ctx context.Context, in *models.UpdateSkillInput) (*models.UpdateSkillResult, error) {
 	log := s.log.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -74,6 +79,7 @@ func (s *SkillServiceStruct) UpdateSkill(ctx context.Context, in *models.UpdateS
 	}
 
 	result, err := s.repo.UpdateSkill(ctx, in)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: UpdateSkill: %w", err)
 	}
@@ -86,6 +92,7 @@ func (s *SkillServiceStruct) UpdateSkill(ctx context.Context, in *models.UpdateS
 	return result, nil
 }
 
+// DeactivateSkill проверяет ID и выключает навык каталога только для администратора.
 func (s *SkillServiceStruct) DeactivateSkill(ctx context.Context, in *models.DeactivateSkillInput) (*models.DeactivateSkillResult, error) {
 	log := s.log.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -105,6 +112,7 @@ func (s *SkillServiceStruct) DeactivateSkill(ctx context.Context, in *models.Dea
 	}
 
 	result, err := s.repo.DeactivateSkill(ctx, in)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: DeactivateSkill: %w", err)
 	}
@@ -117,6 +125,8 @@ func (s *SkillServiceStruct) DeactivateSkill(ctx context.Context, in *models.Dea
 	return result, nil
 }
 
+// ListSkills проверяет запрос, нормализует пагинацию в in и возвращает страницу
+// каталога администратору или диспетчеру с общим счётчиком.
 func (s *SkillServiceStruct) ListSkills(ctx context.Context, in *models.ListSkillsInput) (*models.ListSkillsResult, error) {
 	log := s.log.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -136,6 +146,7 @@ func (s *SkillServiceStruct) ListSkills(ctx context.Context, in *models.ListSkil
 	}
 
 	result, err := s.repo.ListSkills(ctx, in)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: ListSkills: %w", err)
 	}
@@ -147,6 +158,8 @@ func (s *SkillServiceStruct) ListSkills(ctx context.Context, in *models.ListSkil
 	return result, nil
 }
 
+// AddBrigadeSkill проверяет ID и связывает навык с неархивной бригадой
+// для администратора или диспетчера её ведомства.
 func (s *SkillServiceStruct) AddBrigadeSkill(ctx context.Context, in *models.AddBrigadeSkillInput) (*models.AddBrigadeSkillResult, error) {
 	log := s.log.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -162,6 +175,7 @@ func (s *SkillServiceStruct) AddBrigadeSkill(ctx context.Context, in *models.Add
 	}
 
 	brigade, err := s.getBrigadeForSkillOperation(ctx, log, start, in.BrigadeID, in.ActorUserID, in.ActorDepartmentID, in.ActorRoles, "AddBrigadeSkill")
+
 	if err != nil {
 		return nil, err
 	}
@@ -171,6 +185,7 @@ func (s *SkillServiceStruct) AddBrigadeSkill(ctx context.Context, in *models.Add
 	}
 
 	result, err := s.repo.AddBrigadeSkill(ctx, in)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: AddBrigadeSkill: %w", err)
 	}
@@ -184,6 +199,8 @@ func (s *SkillServiceStruct) AddBrigadeSkill(ctx context.Context, in *models.Add
 	return result, nil
 }
 
+// RemoveBrigadeSkill проверяет ID и выключает связь навыка с неархивной бригадой
+// для администратора или диспетчера её ведомства.
 func (s *SkillServiceStruct) RemoveBrigadeSkill(ctx context.Context, in *models.RemoveBrigadeSkillInput) (*models.RemoveBrigadeSkillResult, error) {
 	log := s.log.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -199,6 +216,7 @@ func (s *SkillServiceStruct) RemoveBrigadeSkill(ctx context.Context, in *models.
 	}
 
 	brigade, err := s.getBrigadeForSkillOperation(ctx, log, start, in.BrigadeID, in.ActorUserID, in.ActorDepartmentID, in.ActorRoles, "RemoveBrigadeSkill")
+
 	if err != nil {
 		return nil, err
 	}
@@ -208,6 +226,7 @@ func (s *SkillServiceStruct) RemoveBrigadeSkill(ctx context.Context, in *models.
 	}
 
 	result, err := s.repo.RemoveBrigadeSkill(ctx, in)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: RemoveBrigadeSkill: %w", err)
 	}
@@ -221,6 +240,8 @@ func (s *SkillServiceStruct) RemoveBrigadeSkill(ctx context.Context, in *models.
 	return result, nil
 }
 
+// ListBrigadeSkills проверяет ID и возвращает навыки неархивной бригады
+// администратору или диспетчеру её ведомства.
 func (s *SkillServiceStruct) ListBrigadeSkills(ctx context.Context, in *models.ListBrigadeSkillsInput) (*models.ListBrigadeSkillsResult, error) {
 	log := s.log.With(pkg.RequestIDField(ctx))
 	start := time.Now()
@@ -236,6 +257,7 @@ func (s *SkillServiceStruct) ListBrigadeSkills(ctx context.Context, in *models.L
 	}
 
 	brigade, err := s.getBrigadeForSkillOperation(ctx, log, start, in.BrigadeID, in.ActorUserID, in.ActorDepartmentID, in.ActorRoles, "ListBrigadeSkills")
+
 	if err != nil {
 		return nil, err
 	}
@@ -245,6 +267,7 @@ func (s *SkillServiceStruct) ListBrigadeSkills(ctx context.Context, in *models.L
 	}
 
 	result, err := s.repo.ListBrigadeSkills(ctx, in)
+
 	if err != nil {
 		return nil, fmt.Errorf("service: ListBrigadeSkills: %w", err)
 	}
@@ -257,6 +280,8 @@ func (s *SkillServiceStruct) ListBrigadeSkills(ctx context.Context, in *models.L
 	return result, nil
 }
 
+// getBrigadeForSkillOperation читает бригаду и отклоняет ARCHIVED с ErrPermissionDenied.
+// Ошибки чтения дополняет именем operation; права конкретного действия проверяются снаружи.
 func (s *SkillServiceStruct) getBrigadeForSkillOperation(
 	ctx context.Context,
 	log *zap.Logger,
@@ -273,6 +298,7 @@ func (s *SkillServiceStruct) getBrigadeForSkillOperation(
 		ActorDepartmentID: actorDepartmentID,
 		ActorRoles:        actorRoles,
 	})
+
 	if err != nil {
 		return nil, fmt.Errorf("service: %s: get brigade: %w", operation, err)
 	}
@@ -290,11 +316,14 @@ func (s *SkillServiceStruct) getBrigadeForSkillOperation(
 	return brigade.Brigade, nil
 }
 
+// checkAdminRole требует точную роль admin, иначе журналирует отказ и возвращает ErrPermissionDenied.
 func checkAdminRole(log *zap.Logger, start time.Time, actorRoles []string) error {
 	for _, role := range actorRoles {
+
 		if role == "admin" {
 			return nil
 		}
+
 	}
 
 	err := models.ErrPermissionDenied
@@ -305,11 +334,15 @@ func checkAdminRole(log *zap.Logger, start time.Time, actorRoles []string) error
 	return err
 }
 
+// checkAdminOrDispatcherRole допускает точные роли admin или dispatcher,
+// иначе журналирует отказ и возвращает ErrPermissionDenied.
 func checkAdminOrDispatcherRole(log *zap.Logger, start time.Time, actorRoles []string) error {
 	for _, role := range actorRoles {
+
 		if role == "admin" || role == "dispatcher" {
 			return nil
 		}
+
 	}
 
 	err := models.ErrPermissionDenied

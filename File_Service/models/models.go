@@ -12,6 +12,7 @@ var (
 	ErrPermissionDenied = errors.New("permission denied")
 )
 
+// Status задаёт допустимое состояние модели.
 type Status string
 
 const (
@@ -22,6 +23,7 @@ const (
 	StatusQuarantined   Status = "QUARANTINED"
 )
 
+// File описывает метаданные хранимого файла.
 type File struct {
 	ID           uuid.UUID  `json:"id"`
 	OwnerUserID  uuid.UUID  `json:"owner_user_id"`
@@ -37,19 +39,23 @@ type File struct {
 	UpdatedAt    time.Time  `json:"updated_at"`
 }
 
+// CreateInput задаёт входные данные операции.
 type CreateInput struct {
-	OwnerUserID uuid.UUID `json:"owner_user_id"`
-	Name        string    `json:"name"`
-	ContentType string    `json:"content_type"`
-	Size        int64     `json:"size"`
-	Checksum    string    `json:"checksum"`
+	OwnerUserID     uuid.UUID `json:"owner_user_id"`
+	Name            string    `json:"name"`
+	ContentType     string    `json:"content_type"`
+	Size            int64     `json:"size"`
+	Checksum        string    `json:"checksum"`
+	UploadExpiresAt time.Time `json:"-"`
 }
 
+// LinkInput задаёт входные данные операции.
 type LinkInput struct {
 	ResourceType string    `json:"resource_type"`
 	ResourceID   uuid.UUID `json:"resource_id"`
 }
 
+// PresignedFile описывает доменную модель.
 type PresignedFile struct {
 	File      *File     `json:"file"`
 	URL       string    `json:"url"`

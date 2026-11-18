@@ -16,11 +16,20 @@ Framework работает с текущим кодом рабочего дер�
 ```powershell
 $env:LOAD_USER_EMAIL='load@example.invalid'
 $env:LOAD_USER_PASSWORD='test-only-password'
+$env:DEMO_PASSWORD = Read-Host 'Demo password'
 $env:ACCESS_TOKEN='...'
 $env:TICKET_ID='00000000-0000-0000-0000-000000000000'
 $env:BRIGADE_ID='00000000-0000-0000-0000-000000000000'
 $env:VEHICLE_ID='00000000-0000-0000-0000-000000000000'
 ./load-tests/scripts/run.ps1 -Scenario gateway -Rates '100,250,500'
+```
+
+Перед запуском `load-tests/k8s/services-parallel-job.yaml` создайте секрет в тестовом namespace:
+
+```powershell
+kubectl -n automatic-system create secret generic demo-credentials `
+  --from-literal=password="$env:DEMO_PASSWORD" `
+  --dry-run=client -o yaml | kubectl apply -f -
 ```
 
 Записывающие сценарии требуют `$env:LOAD_TEST_ALLOW_DESTRUCTIVE='true'`; цель с `prod/production` в имени блокируется. Флаг не даёт права очищать реальные данные. Fixtures создаются детерминированно: `./load-tests/scripts/prepare.ps1 -Seed 77 -Count 100`.

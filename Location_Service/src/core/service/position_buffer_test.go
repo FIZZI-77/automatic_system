@@ -15,9 +15,11 @@ func TestMemoryPositionBufferFIFOAndCapacity(t *testing.T) {
 	if err := buffer.Add(first); err != nil {
 		t.Fatalf("add first: %v", err)
 	}
+
 	if err := buffer.Add(second); err != nil {
 		t.Fatalf("add second: %v", err)
 	}
+
 	if err := buffer.Add(&models.Position{Sequence: 3}); !errors.Is(
 		err,
 		models.ErrPositionBufferFull,
@@ -26,11 +28,15 @@ func TestMemoryPositionBufferFIFOAndCapacity(t *testing.T) {
 	}
 
 	batch := buffer.TakeBatch(1)
+
 	if len(batch) != 1 || batch[0] != first {
 		t.Fatalf("first batch = %#v", batch)
 	}
+
 	batch = buffer.TakeBatch(10)
+
 	if len(batch) != 1 || batch[0] != second || buffer.Len() != 0 {
 		t.Fatalf("second batch = %#v, remaining = %d", batch, buffer.Len())
 	}
+
 }

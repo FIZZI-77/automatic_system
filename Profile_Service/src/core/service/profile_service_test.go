@@ -205,9 +205,11 @@ func testWorkProfileDetails(workProfileID uuid.UUID, userProfileID uuid.UUID, us
 
 func assertProfileErrorIs(t *testing.T, err error, expected error) {
 	t.Helper()
+
 	if !errors.Is(err, expected) {
 		t.Fatalf("expected %v, got %v", expected, err)
 	}
+
 }
 
 func TestUserProfileService_CreateUserProfile_Success(t *testing.T) {
@@ -219,16 +221,20 @@ func TestUserProfileService_CreateUserProfile_Success(t *testing.T) {
 	svc := NewUserProfileServiceStruct(newTestServiceRepo(&mockProfileRepo{
 		createUserProfileFunc: func(ctx context.Context, in *models.CreateUserProfileInput) (*models.CreateUserProfileResult, error) {
 			repoCalled = true
+
 			if in.UserID != userID {
 				t.Fatalf("expected user id %s, got %s", userID, in.UserID)
 			}
+
 			return &models.CreateUserProfileResult{UserProfile: testUserProfile(profileID, userID)}, nil
 		},
 	}), &mockUserChecker{ensureFunc: func(ctx context.Context, id uuid.UUID) error {
 		userChecked = true
+
 		if id != userID {
 			t.Fatalf("expected checked user id %s, got %s", userID, id)
 		}
+
 		return nil
 	}}, zap.NewNop())
 
@@ -241,15 +247,19 @@ func TestUserProfileService_CreateUserProfile_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
+
 	if userChecked {
 		t.Fatal("self profile creation should not call auth user checker")
 	}
+
 	if !repoCalled {
 		t.Fatal("expected profile repository to be called")
 	}
+
 	if result.UserProfile.ID != profileID {
 		t.Fatalf("expected profile id %s, got %s", profileID, result.UserProfile.ID)
 	}
+
 }
 
 func TestUserProfileService_CreateUserProfile_AdminChecksTargetUser(t *testing.T) {
@@ -264,9 +274,11 @@ func TestUserProfileService_CreateUserProfile_AdminChecksTargetUser(t *testing.T
 		},
 	}), &mockUserChecker{ensureFunc: func(_ context.Context, id uuid.UUID) error {
 		userChecked = true
+
 		if id != userID {
 			t.Fatalf("EnsureUserExists(%s) checked user ID = %s, want %s", userID, id, userID)
 		}
+
 		return nil
 	}}, zap.NewNop())
 
@@ -276,15 +288,19 @@ func TestUserProfileService_CreateUserProfile_AdminChecksTargetUser(t *testing.T
 		ActorUserID: &adminID,
 		ActorRoles:  []string{"admin"},
 	})
+
 	if err != nil {
 		t.Fatalf("CreateUserProfile(admin, %s) error = %v, want nil", userID, err)
 	}
+
 	if result == nil || result.UserProfile.ID != profileID {
 		t.Fatalf("CreateUserProfile(admin, %s) result = %#v, want profile %s", userID, result, profileID)
 	}
+
 	if !userChecked {
 		t.Fatal("admin profile creation should check that target auth user exists")
 	}
+
 }
 
 func TestUserProfileService_CreateUserProfile_PermissionDenied(t *testing.T) {
@@ -309,10 +325,13 @@ func TestUserProfileService_CreateUserProfile_PermissionDenied(t *testing.T) {
 	if result != nil {
 		t.Fatal("expected nil result")
 	}
+
 	assertProfileErrorIs(t, err, models.ErrPermissionDenied)
+
 	if repoCalled {
 		t.Fatal("repo should not be called")
 	}
+
 }
 
 func TestUserProfileService_GetUserProfileByID_DeniesOtherUser(t *testing.T) {
@@ -335,6 +354,7 @@ func TestUserProfileService_GetUserProfileByID_DeniesOtherUser(t *testing.T) {
 	if result != nil {
 		t.Fatal("expected nil result")
 	}
+
 	assertProfileErrorIs(t, err, models.ErrPermissionDenied)
 }
 
@@ -347,9 +367,11 @@ func TestWorkProfileService_CreateWorkProfile_Success(t *testing.T) {
 
 	svc := NewWorkProfileServiceStruct(newTestServiceRepo(&mockProfileRepo{
 		getUserProfileByIDFunc: func(ctx context.Context, in *models.GetUserProfileByIDInput) (*models.GetUserProfileByIDResult, error) {
+
 			if in.ID != userProfileID {
 				t.Fatalf("expected user profile id %s, got %s", userProfileID, in.ID)
 			}
+
 			return &models.GetUserProfileByIDResult{UserProfile: testUserProfile(userProfileID, userID)}, nil
 		},
 		createWorkProfileFunc: func(ctx context.Context, in *models.CreateWorkProfileInput) (*models.CreateWorkProfileResult, error) {
@@ -357,9 +379,11 @@ func TestWorkProfileService_CreateWorkProfile_Success(t *testing.T) {
 		},
 	}), &mockDepartmentChecker{ensureFunc: func(ctx context.Context, id uuid.UUID) error {
 		departmentChecked = true
+
 		if id != departmentID {
 			t.Fatalf("expected department id %s, got %s", departmentID, id)
 		}
+
 		return nil
 	}}, zap.NewNop())
 
@@ -373,12 +397,15 @@ func TestWorkProfileService_CreateWorkProfile_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
+
 	if !departmentChecked {
 		t.Fatal("expected department checker to be called")
 	}
+
 	if result.Details.WorkProfile.ID != workProfileID {
 		t.Fatalf("expected work profile id %s, got %s", workProfileID, result.Details.WorkProfile.ID)
 	}
+
 }
 
 func TestWorkProfileService_ListWorkProfiles_DispatcherScopedToOwnDepartment(t *testing.T) {
@@ -387,18 +414,23 @@ func TestWorkProfileService_ListWorkProfiles_DispatcherScopedToOwnDepartment(t *
 
 	svc := NewWorkProfileServiceStruct(newTestServiceRepo(&mockProfileRepo{
 		resolveWorkingDepartmentFunc: func(ctx context.Context, in *models.ResolveWorkingDepartmentInput) (*models.ResolveWorkingDepartmentResult, error) {
+
 			if in.UserID != dispatcherID {
 				t.Fatalf("expected dispatcher id %s, got %s", dispatcherID, in.UserID)
 			}
+
 			return &models.ResolveWorkingDepartmentResult{DepartmentID: departmentID, CanOperate: true}, nil
 		},
 		listWorkProfilesFunc: func(ctx context.Context, in *models.ListWorkProfilesInput) (*models.ListWorkProfilesResult, error) {
+
 			if in.DepartmentID == nil || *in.DepartmentID != departmentID {
 				t.Fatalf("expected department to be scoped to %s, got %v", departmentID, in.DepartmentID)
 			}
+
 			if in.Limit != models.DefaultLimit || in.Offset != 0 {
 				t.Fatalf("expected normalized pagination, got limit=%d offset=%d", in.Limit, in.Offset)
 			}
+
 			return &models.ListWorkProfilesResult{WorkProfiles: []*models.WorkProfileDetails{}, Total: 0}, nil
 		},
 	}), nil, zap.NewNop())
@@ -411,9 +443,11 @@ func TestWorkProfileService_ListWorkProfiles_DispatcherScopedToOwnDepartment(t *
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
+
 	if result.Total != 0 {
 		t.Fatalf("expected total 0, got %d", result.Total)
 	}
+
 }
 
 func TestWorkProfileService_SetWorkProfileStatus_WorkerTransitionRules(t *testing.T) {
@@ -430,13 +464,17 @@ func TestWorkProfileService_SetWorkProfileStatus_WorkerTransitionRules(t *testin
 			}, nil
 		},
 		setWorkProfileStatusFunc: func(ctx context.Context, in *models.SetWorkProfileStatusInput) (*models.SetWorkProfileStatusResult, error) {
+
 			if in.Status == models.WorkProfileStatusSuspended {
 				return nil, models.ErrInvalidStatus
 			}
+
 			setCalled = true
+
 			if in.Status != models.WorkProfileStatusOnShift {
 				t.Fatalf("expected status ON_SHIFT, got %s", in.Status)
 			}
+
 			return &models.SetWorkProfileStatusResult{
 				Details: testWorkProfileDetails(workProfileID, userProfileID, userID, departmentID, models.WorkProfileStatusOnShift),
 			}, nil
@@ -454,9 +492,11 @@ func TestWorkProfileService_SetWorkProfileStatus_WorkerTransitionRules(t *testin
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
+
 	if !setCalled {
 		t.Fatal("expected repo SetWorkProfileStatus to be called")
 	}
+
 	if result.Details.WorkProfile.Status != models.WorkProfileStatusOnShift {
 		t.Fatalf("expected status ON_SHIFT, got %s", result.Details.WorkProfile.Status)
 	}
@@ -482,9 +522,11 @@ func TestCertificationService_UploadWorkProfileCertification_Success(t *testing.
 
 	svc := NewCertificationServiceStruct(newTestServiceRepo(&mockProfileRepo{
 		getCertificationTypeByIDFunc: func(ctx context.Context, id uuid.UUID) (*models.CertificationType, error) {
+
 			if id != certificationTypeID {
 				t.Fatalf("expected certification type id %s, got %s", certificationTypeID, id)
 			}
+
 			return &models.CertificationType{
 				ID:           certificationTypeID,
 				Code:         "ELECTRICIAN",
@@ -501,9 +543,11 @@ func TestCertificationService_UploadWorkProfileCertification_Success(t *testing.
 			}, nil
 		},
 		uploadWorkProfileCertificationFunc: func(ctx context.Context, in *models.UploadWorkProfileCertificationInput) (*models.UploadWorkProfileCertificationResult, error) {
+
 			if in.CertificateFileID == nil || *in.CertificateFileID != fileID {
 				t.Fatalf("expected certificate file id %s, got %v", fileID, in.CertificateFileID)
 			}
+
 			return &models.UploadWorkProfileCertificationResult{
 				Certification: &models.WorkProfileCertification{
 					ID:                  certificationID,
@@ -529,9 +573,11 @@ func TestCertificationService_UploadWorkProfileCertification_Success(t *testing.
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
+
 	if result.Certification.ID != certificationID {
 		t.Fatalf("expected certification id %s, got %s", certificationID, result.Certification.ID)
 	}
+
 }
 
 func TestCertificationService_VerifyWorkProfileCertification_HRAllowed(t *testing.T) {
@@ -541,9 +587,11 @@ func TestCertificationService_VerifyWorkProfileCertification_HRAllowed(t *testin
 
 	svc := NewCertificationServiceStruct(newTestServiceRepo(&mockProfileRepo{
 		verifyWorkProfileCertificationFunc: func(ctx context.Context, in *models.VerifyWorkProfileCertificationInput) (*models.VerifyWorkProfileCertificationResult, error) {
+
 			if in.ID != certificationID {
 				t.Fatalf("expected certification id %s, got %s", certificationID, in.ID)
 			}
+
 			return &models.VerifyWorkProfileCertificationResult{
 				Certification: &models.WorkProfileCertification{ID: certificationID, Status: models.CertificationStatusVerified},
 				SkillGrants: []*models.WorkProfileSkillGrant{
@@ -562,9 +610,11 @@ func TestCertificationService_VerifyWorkProfileCertification_HRAllowed(t *testin
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
+
 	if len(result.SkillGrants) != 1 || result.SkillGrants[0].ID != skillGrantID {
 		t.Fatalf("unexpected skill grants: %+v", result.SkillGrants)
 	}
+
 }
 
 func TestCertificationService_BatchListEffectiveSkills_InternalAllowed(t *testing.T) {
@@ -573,9 +623,11 @@ func TestCertificationService_BatchListEffectiveSkills_InternalAllowed(t *testin
 
 	svc := NewCertificationServiceStruct(newTestServiceRepo(&mockProfileRepo{
 		batchListEffectiveWorkProfileSkillsFunc: func(ctx context.Context, in *models.BatchListEffectiveWorkProfileSkillsInput) (*models.BatchListEffectiveWorkProfileSkillsResult, error) {
+
 			if len(in.WorkProfileIDs) != 1 || in.WorkProfileIDs[0] != workProfileID {
 				t.Fatalf("expected work profile id %s, got %+v", workProfileID, in.WorkProfileIDs)
 			}
+
 			return &models.BatchListEffectiveWorkProfileSkillsResult{
 				SkillGrantsByWorkProfileID: map[uuid.UUID][]*models.WorkProfileSkillGrant{
 					workProfileID: {{SkillID: skillID, Active: true}},
@@ -591,7 +643,9 @@ func TestCertificationService_BatchListEffectiveSkills_InternalAllowed(t *testin
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
+
 	if len(result.SkillGrantsByWorkProfileID[workProfileID]) != 1 {
 		t.Fatalf("expected one skill grant, got %+v", result.SkillGrantsByWorkProfileID)
 	}
+
 }
