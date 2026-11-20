@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Карта системы · Automatic City Services</title>
+  <link rel="stylesheet" href="diagrams.css">
+  <script defer src="connections.js"></script>
+  <script defer src="diagrams.js"></script>
+</head>
+<body>
+  <header class="header">
+    <div class="shell">
+      <a class="project" href="README.md">Automatic City Services</a>
+      <h1>Карта системы</h1>
+      <nav aria-label="Схемы">
+        <a id="architecture-link" href="#architecture">Архитектура</a>
+        <a id="kafka-link" href="#kafka">Kafka</a>
+      </nav>
+    </div>
+  </header>
+  <main class="shell">
+    <noscript>
+      <p>Для выбора связей нужен JavaScript. <a href="code-interactions.md">Открыть таблицы взаимодействий.</a></p>
+    </noscript>
+    <section id="overview" class="overview" aria-labelledby="overview-title" hidden>
+      <header class="overview-heading">
+        <h2 id="overview-title">Общая архитектура</h2>
+        <p>Рамка обозначает прикладной контур. Выберите компонент, чтобы открыть его связи и ссылки на код.</p>
+      </header>
+      <div id="system-map" class="system-map">
+        <div class="contour" aria-hidden="true"></div>
+        <div id="overview-browser" class="overview-entry"></div>
+        <div id="overview-simulator" class="overview-entry"></div>
+        <div id="overview-frontend" class="overview-entry"></div>
+        <div id="overview-gateway" class="overview-entry"></div>
+        <div id="overview-location" class="overview-entry"></div>
+        <section id="overview-services" class="overview-sector">
+          <h3>Go-сервисы</h3>
+          <p>API Gateway вызывает каждый сервис по gRPC.</p>
+          <ul id="service-links" class="component-links"></ul>
+        </section>
+        <section id="overview-storage" class="overview-sector">
+          <h3>Хранилища и маршруты</h3>
+          <p>Сервисы подключаются к своим БД. Шлюз использует Redis для лимитов и уведомлений.</p>
+          <ul id="storage-links" class="component-links"></ul>
+        </section>
+        <a id="overview-kafka" class="overview-sector" href="#kafka">
+          <strong>Kafka</strong>
+          <span id="kafka-publishers"></span>
+          <span id="kafka-readers"></span>
+        </a>
+      </div>
+      <section class="overview-integrations" aria-labelledby="integration-title">
+        <h3 id="integration-title">Внешние интеграции и прямой доступ</h3>
+        <ul id="integration-links"></ul>
+      </section>
+    </section>
+    <section id="view" aria-label="Схема взаимодействий" hidden>
+      <div class="toolbar">
+        <label for="selection">
+          <span id="selection-label"></span>
+          <select id="selection"></select>
+        </label>
+        <p id="view-hint"></p>
+      </div>
+      <figure id="figure">
+        <div id="diagram" class="diagram" aria-label="Направленные связи"></div>
+        <figcaption id="diagram-note"></figcaption>
+      </figure>
+      <details id="evidence">
+        <summary>Связи и ссылки на код</summary>
+        <div id="sources"></div>
+      </details>
+    </section>
+  </main>
+  <footer class="shell">
+    <a href="code-interactions.md">Таблицы взаимодействий</a>
+    <a href="../../k8s/docs/deployment.md">Развёртывание Kubernetes</a>
+  </footer>
+</body>
+</html>

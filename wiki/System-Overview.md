@@ -17,28 +17,8 @@ Automatic City Services автоматизирует обработку горо
 
 ## Логические слои
 
-```mermaid
-flowchart TB
-    UI[React / TypeScript Frontend]
-    GW[Go API Gateway]
-    DOM[Go domain services]
-    EVT[Kafka]
-    DB[(PostgreSQL / PostGIS / Redis / ClickHouse / S3)]
-    EXT[Valhalla / SMTP / FCM / map APIs]
-    OPS[Kubernetes / Istio / Flux / Flagger]
-    OBS[Prometheus / Grafana / OTel / Jaeger / ELK / Kiali]
-
-    UI --> GW
-    GW --> DOM
-    DOM <--> EVT
-    DOM --> DB
-    DOM --> EXT
-    OPS --> UI
-    OPS --> GW
-    OPS --> DOM
-    OBS -. observes .-> OPS
-    OBS -. observes .-> DOM
-```
+Входные точки, вызовы сервисов, хранилища и подписки показаны на
+[интерактивных схемах архитектуры и Kafka](https://github.com/FIZZI-77/automatic_system/blob/test/docs/architecture/README.md).
 
 ## Основной стек
 
