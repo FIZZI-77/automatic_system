@@ -15,6 +15,8 @@
 | Profile | Auth, Department | Проверка account и подразделения. |
 | Brigade | Profile, Department | Проверка профиля/skills и domain constraints. |
 | Dispatch | Ticket, Brigade, Location, Routing | Workflow назначения. |
+| Routing | Ticket, Brigade | Проверки доступа к заявкам и проверка бригады при создании маршрута. |
+| Asset | Ticket | Создание заявки о критическом риске при включенном читателе. |
 | Report | Analytics, File | Данные отчёта и сохранение готового artifact. |
 | Transponder Simulator | Location | HTTP telemetry. |
 
@@ -26,13 +28,8 @@
 
 ## Dispatch как главный synchronous orchestrator
 
-```mermaid
-flowchart LR
-    D[Dispatch] --> T[Ticket]
-    D --> B[Brigade]
-    D --> L[Location]
-    D --> R[Routing]
-```
+На [интерактивной схеме архитектуры](https://github.com/FIZZI-77/automatic_system/blob/test/docs/architecture/README.md)
+выберите Dispatch, чтобы увидеть его исходящие вызовы.
 
 Dispatch не копирует ownership этих данных. Его собственная PostgreSQL-модель — операция назначения и её состояние.
 

@@ -14,7 +14,7 @@
 | Location | `locations.events.v1` | Redis Stream → Kafka |
 | Asset | `assets.events.v1` | Outbox |
 | SLA | `sla.events.v1` | Outbox |
-| Report | `reports.events.v1` | Outbox |
+| Report | `reports.events.v1` | Outbox и прямая отправка результата из completion worker |
 | File | `files.events.v1` | PostgreSQL trigger → outbox → Kafka |
 | Notification | `notifications.events.v1` | PostgreSQL triggers → outbox → Kafka |
 
@@ -28,7 +28,8 @@
 | Routing | `tickets.events.v1` |
 | SLA | `tickets.events.v1` |
 | Report | `tickets.events.v1` |
-| Notification | tickets, sla, dispatch, departments, brigades, locations, routing, files, reports (`*.events.v1`) |
+| Asset | `assets.events.v1` при включённом читателе критического риска |
+| Notification | tickets, sla, dispatch, departments, brigades, locations, routing, files (`*.events.v1`). Helm добавляет reports, Docker Compose добавляет reports и assets. |
 | Audit | auth, tickets, departments, brigades, profiles, locations, routing, dispatch, sla, files, notifications, reports, assets (`*.events.v1`) |
 | Analytics | auth, tickets, departments, brigades, profiles, locations, routing, dispatch, sla, files, notifications, reports, assets (`*.events.v1`) |
 
@@ -64,20 +65,10 @@ Analytics читают оба топика; наличие записи в жу�
 Поля событий, гарантии доставки и команды интеграционных проверок описаны в
 [карте взаимодействий](../docs/architecture/code-interactions.md#темы-kafka).
 
-## Общая модель
+## Интерактивная схема
 
-```mermaid
-flowchart LR
-    S[Domain transaction] --> O[(Outbox)]
-    O --> P[Publisher worker]
-    P --> K[(Kafka)]
-    K --> C1[Notification]
-    K --> C2[Audit]
-    K --> C3[Analytics]
-    K --> C4[Domain consumer]
-```
-
-Location является исключением из стандартной outbox-схемы и использует Redis Stream как источник для передачи coordinate events в Kafka.
+Выберите топик на [карте Kafka](https://github.com/FIZZI-77/automatic_system/blob/test/docs/architecture/README.md),
+чтобы увидеть издателей, читателей, группы и ссылки на исходники.
 
 ### Источники
 [code-interactions.md](https://github.com/FIZZI-77/automatic_system/blob/test/docs/architecture/code-interactions.md)
