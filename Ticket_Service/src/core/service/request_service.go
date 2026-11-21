@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	"ticket/models"
+
+	"github.com/google/uuid"
 )
 
 // CreateRequest проверяет обращение и передаёт его транзакционное создание репозиторию.
@@ -17,13 +19,23 @@ func (s *TicketServiceStruct) CreateRequest(
 		return nil, fmt.Errorf("service: CreateRequest(): %w: %v", models.ErrValidation, err)
 	}
 
-	result, err := s.repo.CreateRequest(ctx, in)
+	result, err := s.withIdempotency(ctx, "CreateRequest", in.UserID.String(), in, func(ctx context.Context) (any, uuid.UUID, error) {
+		created, createErr := s.repo.CreateRequest(ctx, in)
+		if createErr != nil {
+			return nil, uuid.Nil, createErr
+		}
+		return created, created.Request.ID, nil
+	})
 
 	if err != nil {
 		return nil, fmt.Errorf("service: CreateRequest(): %w", err)
 	}
 
-	return result, nil
+	created, err := cachedResult[models.CreateRequestResult](result)
+	if err != nil {
+		return nil, fmt.Errorf("decode created request: %w", err)
+	}
+	return created, nil
 }
 
 // AttachRequest присоединяет обращение к инциденту, в том числе другого департамента.

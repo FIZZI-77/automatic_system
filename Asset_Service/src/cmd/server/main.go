@@ -1,6 +1,17 @@
 package main
 
 import (
+	"context"
+	"errors"
+	"log"
+	"net"
+	"net/http"
+	"os"
+	"os/signal"
+	"strings"
+	"syscall"
+	"time"
+
 	"asset/pkg"
 	appconfig "asset/pkg/config"
 	"asset/pkg/telemetry"
@@ -9,20 +20,16 @@ import (
 	"asset/src/core/service"
 	"asset/src/infrastructure/criticalticket"
 	"asset/src/infrastructure/outboxrelay"
-	"context"
+	"asset/src/infrastructure/tickethistory"
+
 	assetv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/asset/v1"
 	ticketv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/ticket/v1"
+	"github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health"
 	healthv1 "google.golang.org/grpc/health/grpc_health_v1"
-	"log"
-	"net"
-	"os"
-	"os/signal"
-	"strings"
-	"syscall"
 )
 
 func main() {
@@ -52,7 +59,7 @@ func main() {
 		log.Fatal(e)
 	}
 
-	defer l.Sync()
+	defer func() { _ = l.Sync() }() // Best effort flush during shutdown.
 	db, e := telemetry.NewPostgresPool(ctx, must("DATABASE_URL"))
 
 	if e != nil {
@@ -65,15 +72,46 @@ func main() {
 		l.Fatal("database unavailable", zap.Error(e))
 	}
 
-	s := service.NewService(repository.NewRepository(db), l)
+	assetRepo := repository.NewAssetRepoStruct(db)
+	s := service.NewService(&repository.Repository{AssetRepository: assetRepo}, l)
 	brokers := split(env("KAFKA_BROKERS", ""))
 
 	if len(brokers) > 0 {
 		w := outboxrelay.New(db, brokers, env("KAFKA_ASSET_TOPIC", "assets.events.v1"), l)
-		defer w.Close()
-		go w.Run(ctx)
+		defer func() { _ = w.Close() }() // Best effort cleanup after the operation.
+		go func() {
+			if err := w.Run(ctx); err != nil && ctx.Err() == nil {
+				l.Error("asset outbox relay stopped", zap.Error(err))
+			}
+		}()
 		startCriticalTicketWorker(ctx, brokers, l)
+
+		reader := kafka.NewReader(kafka.ReaderConfig{
+			Brokers: brokers, Topic: env("KAFKA_TICKET_TOPIC", "tickets.events.v1"),
+			GroupID: "asset-ticket-history-v1", StartOffset: kafka.FirstOffset,
+		})
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			tickethistory.Run(ctx, reader, assetRepo, l)
+		}()
+		defer func() {
+			stop()
+			_ = reader.Close()
+			<-done
+		}()
 	}
+
+	history := &http.Server{
+		Addr: ":" + env("ASSET_HISTORY_PORT", "8085"), Handler: handler.AssetHistoryRoutes(assetRepo),
+		ReadHeaderTimeout: 3 * time.Second, WriteTimeout: 8 * time.Second,
+	}
+	go func() {
+		if err := history.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			l.Error("asset history server stopped", zap.Error(err))
+			stop()
+		}
+	}()
 
 	lis, e := net.Listen("tcp", ":"+env("GRPC_PORT", "50065"))
 
@@ -96,6 +134,11 @@ func main() {
 
 	}()
 	<-ctx.Done()
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := history.Shutdown(shutdownCtx); err != nil {
+		l.Warn("shutdown asset history server", zap.Error(err))
+	}
 	hs.Shutdown()
 	g.GracefulStop()
 }

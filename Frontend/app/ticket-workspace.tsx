@@ -27,6 +27,7 @@ type WorkReport = {
   author_user_id: string;
   description: string;
   file_ids: string[];
+  completion_status?: string;
   created_at: string | number;
 };
 type StoredFile = {
@@ -73,7 +74,7 @@ export function TicketWorkspace({
   tickets,
   session,
   role,
-  onUpdate,
+  onUpdate: updateDashboard,
   onMap,
   onNotice,
 }: {
@@ -100,6 +101,11 @@ export function TicketWorkspace({
   const [editing, setEditing] = useState(false);
   const [composition, setComposition] = useState<IncidentComposition>();
   const [relationBusy, setRelationBusy] = useState(false);
+  const [registry, setRegistry] = useState<Ticket[]>();
+  const [registryLoading, setRegistryLoading] = useState(false);
+  const [registryIncomplete, setRegistryIncomplete] = useState(false);
+  const [registryRevision, setRegistryRevision] = useState(0);
+  const [departmentNames, setDepartmentNames] = useState<Record<string, string>>({});
   const [filters, setFilters] = useState({
     query: "",
     status: "",
@@ -118,6 +124,65 @@ export function TicketWorkspace({
     selected?.ticket_type === "INCIDENT" ? selected.id : selected?.incident_id;
   const isRequestBackedIncident =
     selected?.ticket_type === "INCIDENT" && Boolean(composition?.total);
+  const departmentID = role === "dispatcher" ? session.user?.department_id : undefined;
+  const sourceTickets = registry ?? tickets;
+
+  useEffect(() => {
+    if (demo || (role === "dispatcher" && !departmentID)) return;
+    const controller = new AbortController();
+    const limit = 100;
+    const loaded = new Map<string, Ticket>();
+    setRegistryLoading(true);
+    setRegistryIncomplete(false);
+    async function load() {
+      try {
+        let offset = 0;
+        let total = 0;
+        do {
+          const page = await api<{ tickets: Ticket[]; total: number }>(
+            config.endpoints.ticketsList,
+            {
+              limit, offset, sort_by: "created_at", sort_order: "desc",
+              ...(departmentID ? { department_id: departmentID } : {}),
+            },
+            "POST",
+            session.accessToken,
+            { signal: controller.signal },
+          );
+          if (controller.signal.aborted) return;
+          for (const ticket of page.tickets) loaded.set(ticket.id, ticket);
+          total = page.total;
+          offset += page.tickets.length;
+          if (!page.tickets.length) break;
+        } while (offset < total);
+        setRegistry(Array.from(loaded.values()));
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        if (loaded.size) setRegistry(Array.from(loaded.values()));
+        setRegistryIncomplete(true);
+        onNotice(error instanceof Error ? error.message : "Не удалось загрузить реестр заявок");
+      } finally {
+        if (!controller.signal.aborted) setRegistryLoading(false);
+      }
+    }
+    void load();
+    return () => controller.abort();
+  }, [demo, departmentID, onNotice, registryRevision, role, session.accessToken]);
+
+  const selectedID = selected?.id;
+  useEffect(() => {
+    if (!selectedID) return;
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setSelected(undefined);
+    }
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [selectedID]);
+
+  function onUpdate(ticket: Ticket) {
+    setRegistry((current) => current?.map((item) => item.id === ticket.id ? ticket : item));
+    updateDashboard(ticket);
+  }
 
   const visibleTickets = useMemo(() => {
     const query = filters.query.trim().toLocaleLowerCase("ru-RU");
@@ -127,7 +192,11 @@ export function TicketWorkspace({
     const to = filters.createdTo
       ? new Date(`${filters.createdTo}T23:59:59`).getTime() / 1000
       : Number.POSITIVE_INFINITY;
-    const result = tickets.filter((ticket) => {
+    const requestParents = role === "user" ? new Set(sourceTickets.flatMap((ticket) =>
+      ticket.ticket_type === "REQUEST" && ticket.incident_id ? [ticket.incident_id] : [],
+    )) : undefined;
+    const result = sourceTickets.filter((ticket) => {
+      if (ticket.ticket_type === "INCIDENT" && requestParents?.has(ticket.id)) return false;
       if (
         query &&
         ![ticket.id, ticket.title, ticket.address, ticket.description].some(
@@ -165,7 +234,7 @@ export function TicketWorkspace({
         );
       return Number(right.created_at) - Number(left.created_at);
     });
-  }, [filters, tickets]);
+  }, [filters, role, sourceTickets]);
   useEffect(() => setVisibleCount(20), [filters]);
 
   async function openTicket(ticket: Ticket) {
@@ -230,6 +299,25 @@ export function TicketWorkspace({
       active = false;
     };
   }, [demo, onNotice, role, selectedIncidentID, session.accessToken]);
+
+  const compositionDepartments = [...new Set(composition?.requests.map((part) => part.department_id))].sort().join(",");
+  useEffect(() => {
+    if (!compositionDepartments) return;
+    const controller = new AbortController();
+    const ids = compositionDepartments.split(",");
+    void Promise.allSettled(ids.map(async (id) => {
+      const { department } = await api<{ department: { name: string } }>(
+        config.endpoints.departmentsGet, { id }, "POST", session.accessToken, { signal: controller.signal },
+      );
+      return [id, department.name] as const;
+    })).then((results) => {
+      if (controller.signal.aborted) return;
+      setDepartmentNames(Object.fromEntries(results.flatMap((result) =>
+        result.status === "fulfilled" ? [result.value] : [],
+      )));
+    });
+    return () => controller.abort();
+  }, [compositionDepartments, session.accessToken]);
 
   async function attachRequest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -296,7 +384,6 @@ export function TicketWorkspace({
     setRelationBusy(true);
 
     try {
-      const incidentID = selected.incident_id;
       const result = await api<{ request: Ticket }>(
         config.endpoints.ticketRequestsDetach,
         { request_id: selected.id, reason },
@@ -306,7 +393,7 @@ export function TicketWorkspace({
 
       setSelected(result.request);
       onUpdate(result.request);
-      await loadComposition(incidentID);
+      setComposition(undefined);
       form.reset();
       onNotice("Заявка исключена из состава инцидента");
     } catch (error) {
@@ -355,6 +442,36 @@ export function TicketWorkspace({
       return;
     }
     let active = true;
+    let reportPoll: ReturnType<typeof setTimeout> | undefined;
+    async function loadReportFiles(items: WorkReport[]) {
+      const entries = await Promise.all(items.map(async (report) => {
+        const response = await api<{ files: StoredFile[] }>(
+          config.endpoints.filesList,
+          { resource_type: "work_report", resource_id: report.id },
+          "POST",
+          session.accessToken,
+        );
+        return [report.id, response.files || []] as const;
+      }));
+      if (active) setReportFiles(Object.fromEntries(entries));
+    }
+    function pollReports(ticketID: string, items: WorkReport[]) {
+      if (!active || !items.some((item) => item.completion_status === "PENDING")) return;
+      reportPoll = setTimeout(async () => {
+        try {
+          const result = await api<{ reports: WorkReport[] }>(
+            config.endpoints.ticketReportsList, { ticket_id: ticketID }, "POST", session.accessToken,
+          );
+          if (!active) return;
+          const updated = result.reports || [];
+          setReports(updated);
+          await loadReportFiles(updated);
+          pollReports(ticketID, updated);
+        } catch {
+          pollReports(ticketID, items);
+        }
+      }, 5000);
+    }
     (async () => {
       try {
         const [result, historyResult] = await Promise.all([
@@ -375,18 +492,8 @@ export function TicketWorkspace({
         const items = result.reports || [];
         setReports(items);
         setHistory(historyResult.history || []);
-        const entries = await Promise.all(
-          items.map(async (report) => {
-            const response = await api<{ files: StoredFile[] }>(
-              config.endpoints.filesList,
-              { resource_type: "work_report", resource_id: report.id },
-              "POST",
-              session.accessToken,
-            );
-            return [report.id, response.files || []] as const;
-          }),
-        );
-        if (active) setReportFiles(Object.fromEntries(entries));
+        pollReports(selected.id, items);
+        await loadReportFiles(items);
       } catch (error) {
         if (active)
           onNotice(
@@ -398,6 +505,7 @@ export function TicketWorkspace({
     })();
     return () => {
       active = false;
+      clearTimeout(reportPoll);
     };
   }, [demo, onNotice, selected, session.accessToken]);
 
@@ -976,6 +1084,12 @@ export function TicketWorkspace({
           Найдено: <b>{visibleTickets.length}</b>
         </span>
       </div>
+      {registryLoading && <p role="status">Загружаем реестр заявок…</p>}
+      {registryIncomplete && (
+        <p role="status">
+          Реестр загружен частично. <button type="button" onClick={() => setRegistryRevision((value) => value + 1)}>Повторить загрузку</button>
+        </p>
+      )}
       <div className="work-ticket-list">
         {visibleTickets.slice(0, visibleCount).map((ticket) => (
           <button
@@ -987,7 +1101,7 @@ export function TicketWorkspace({
             <div>
               <b>{ticket.title}</b>
               <small>
-                {ticket.ticket_type === "REQUEST"
+                {ticket.ticket_type === "REQUEST" && role !== "user"
                   ? "Часть инцидента"
                   : ticket.ticket_type === "INCIDENT"
                     ? "Инцидент"
@@ -1116,7 +1230,9 @@ export function TicketWorkspace({
               <div>
                 <dt>Тип</dt>
                 <dd>
-                  {selected.ticket_type === "REQUEST"
+                  {role === "user"
+                    ? "Заявка"
+                    : selected.ticket_type === "REQUEST"
                     ? "Часть инцидента"
                     : selected.ticket_type === "INCIDENT"
                       ? "Инцидент"
@@ -1126,7 +1242,8 @@ export function TicketWorkspace({
               <div>
                 <dt>Создал</dt>
                 <dd>
-                  {selected.created_by_name || selected.user_id || "Не указан"}
+                  {selected.created_by_name ||
+                    (selected.user_id === session.user?.user_id ? "Вы" : "Заявитель")}
                 </dd>
               </div>
               <div>
@@ -1134,7 +1251,8 @@ export function TicketWorkspace({
                 <dd>
                   {selected.brigade_id
                     ? selected.accepted_by_name ||
-                      `Бригада ${selected.brigade_id}`
+                      brigades.find((brigade) => brigade.id === selected.brigade_id)?.name ||
+                      "Бригада назначена"
                     : "Ожидает назначения"}
                 </dd>
               </div>
@@ -1170,7 +1288,7 @@ export function TicketWorkspace({
                     >
                       <span>
                         <b>{part.title}</b>
-                        <small>Департамент {part.department_id}</small>
+                        <small>{departmentNames[part.department_id] || "Департамент недоступен"}</small>
                       </span>
                       <em className={`status ${part.status.toLowerCase()}`}>
                         {statusNames[part.status] || part.status}
@@ -1225,7 +1343,7 @@ export function TicketWorkspace({
                       placeholder="Почему заявки относятся к одному инциденту"
                     />
                   </label>
-                  <button type="submit" disabled={relationBusy}>
+                  <button className="ghost" type="submit" disabled={relationBusy}>
                     {relationBusy ? "Сохраняем…" : "Добавить в инцидент"}
                   </button>
                 </form>
@@ -1276,7 +1394,11 @@ export function TicketWorkspace({
                             .filter((item): item is NonNullable<typeof item> =>
                               Boolean(item),
                             )
-                        : brigades
+                        : brigades.filter((item) =>
+                            item.id === selected.brigade_id ||
+                            (item.status === "AVAILABLE" &&
+                              item.department_id === selected.department_id),
+                          )
                       ).map((brigade) => (
                         <option key={brigade.id} value={brigade.id}>
                           {brigade.name}
@@ -1420,6 +1542,7 @@ export function TicketWorkspace({
                     <div>
                       <b>{report.description}</b>
                       <small>Автор: {report.author_user_id}</small>
+                      {report.completion_status === "PENDING" && <small>PDF формируется…</small>}
                     </div>
                     <div className="saved-report-files">
                       {(reportFiles[report.id] || []).map((file) => (

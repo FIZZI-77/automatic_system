@@ -1,12 +1,12 @@
 # API Gateway cluster E2E coverage
 
-Актуальный контракт содержит **202 HTTP-операции**: **191 защищённую JWT** и
+Актуальный контракт содержит **203 HTTP-операции**, из них **192 защищены JWT** и
 **11 публичных**. Дополнительно проверяется WebSocket `/notifications/ws`, который
 пока не включён в OpenAPI.
 
 `Frontend/e2e/gateway-coverage.spec.ts` является обязательным gate: каждая
 операция OpenAPI должна присутствовать в позитивном сценарии с указанным классом
-evidence. Inventory проверяет 202 операции, включая `/tickets/integrations/list`,
+evidence. Inventory проверяет 203 операции, включая `/assets/incidents/list`, `/tickets/integrations/list`,
 `/tickets/integrations/set-active`, `/tickets/integrations/rotate-secret`.
 Сценарий `gateway-tickets-stateful.spec.ts` сверяет список и состояние БД,
 запрет управления для обычного пользователя, отключение интеграции, ротацию
@@ -27,7 +27,7 @@ evidence. Inventory проверяет 202 операции, включая `/ti
 | Notifications | 10 + WebSocket | PostgreSQL и Redis Pub/Sub |
 | Audit и Analytics | 18 | PostgreSQL/ClickHouse read surface |
 | Reports | 7 | PostgreSQL, Citus, Analytics, File Service/MinIO |
-| Assets | 14 | PostgreSQL lifecycle |
+| Assets | 15 | PostgreSQL lifecycle и история инцидентов |
 | Health/livez/readyz | 3 | HTTP protocol |
 
 Проверка 27 октября 2026: два статических Playwright-теста inventory прошли,

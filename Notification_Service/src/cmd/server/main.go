@@ -57,8 +57,7 @@ func main() {
 		log.Fatal(e)
 	}
 
-	defer logger.Sync()
-
+	defer func() { _ = logger.Sync() }() // Best effort flush during shutdown.
 	db, e := telemetry.NewPostgresPool(ctx, must("DATABASE_URL"))
 
 	if e != nil {
@@ -80,11 +79,12 @@ func main() {
 		logger.Fatal("redis instrumentation failed", zap.Error(e))
 	}
 
-	defer redisClient.Close()
-
+	defer func() { _ = redisClient.Close() }() // Best effort cleanup after the operation.
 	if e = redisClient.Ping(ctx).Err(); e != nil {
 		logger.Fatal("redis unavailable", zap.Error(e))
 	}
+
+	defer startOutboxRelay(ctx, db, logger)()
 
 	repo := repository.New(db)
 	svc := service.New(repo, live.New(redisClient, env("LIVE_CHANNEL_PREFIX", "notifications:user:")))

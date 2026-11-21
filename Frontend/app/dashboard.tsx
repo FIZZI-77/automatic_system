@@ -38,6 +38,7 @@ import { TicketCards } from "./ticket-cards";
 import { VehicleGroups } from "./vehicle-groups";
 
 import { SectionPage } from "./section-page";
+import { NavigationIcon } from "./navigation-icon";
 
 export function DashboardV2({
   theme,
@@ -463,43 +464,6 @@ export function DashboardV2({
     session.user?.user_id,
   ]);
   useEffect(() => {
-    if (
-      demo ||
-      section !== "tickets" ||
-      (role === "dispatcher" && !dispatcherDepartmentId)
-    )
-      return;
-    let active = true;
-    const departmentFilter =
-      role === "dispatcher" ? { department_id: dispatcherDepartmentId } : {};
-    void api<{ tickets: Ticket[] }>(
-      config.endpoints.ticketsList,
-      {
-        limit: 100,
-        offset: 0,
-        sort_by: "created_at",
-        sort_order: "desc",
-        ...departmentFilter,
-      },
-      "POST",
-      session.accessToken,
-    )
-      .then((result) => {
-        if (active) setTickets(result.tickets || []);
-      })
-      .catch((error) => {
-        if (active)
-          setNotice(
-            error instanceof Error
-              ? error.message
-              : "Не удалось обновить заявки",
-          );
-      });
-    return () => {
-      active = false;
-    };
-  }, [demo, dispatcherDepartmentId, role, section, session.accessToken]);
-  useEffect(() => {
     if (demo) return;
     const separator = config.wsUrl.includes("?") ? "&" : "?";
     const socket = new WebSocket(
@@ -589,23 +553,24 @@ export function DashboardV2({
     <div className={`app-shell theme-${theme}`} data-theme={theme}>
       <aside>
         <a className="brand inverse" href="#">
-          <span>Г</span>
+          <span className="sidebar-logo" role="img" aria-label="Город рядом" />
         </a>
         <nav>
           {navigation.map((item) => (
             <button
               key={item.id}
               className={section === item.id ? "active" : ""}
+              aria-current={section === item.id ? "page" : undefined}
               onClick={() => setSection(item.id)}
             >
-              <i>{item.icon}</i>
+              <i aria-hidden="true"><NavigationIcon name={item.icon} /></i>
               <span>{item.label}</span>
             </button>
           ))}
         </nav>
         <div className="aside-bottom">
           <button onClick={onExit}>
-            <i>↗</i>
+            <i aria-hidden="true"><NavigationIcon name="logout" /></i>
             <span>Выйти</span>
           </button>
         </div>

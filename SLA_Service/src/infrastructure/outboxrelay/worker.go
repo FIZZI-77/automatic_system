@@ -81,12 +81,12 @@ func (w *Worker) batch(ctx context.Context) (err error) {
 		).Scan(&id, &aggregate, &kind, &payload)
 
 		if errors.Is(e, pgx.ErrNoRows) {
-			tx.Rollback(ctx)
+			_ = tx.Rollback(ctx) // Preserve the operation error; rollback is best effort.
 			return nil
 		}
 
 		if e != nil {
-			tx.Rollback(ctx)
+			_ = tx.Rollback(ctx) // Preserve the operation error; rollback is best effort.
 			return e
 		}
 

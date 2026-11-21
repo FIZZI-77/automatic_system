@@ -89,8 +89,7 @@ func (r *AssetRepoStruct) SavePrediction(c context.Context, p models.Prediction)
 		return e
 	}
 
-	defer tx.Rollback(c)
-
+	defer func() { _ = tx.Rollback(c) }() // Best effort: the transaction may already be committed.
 	payload, e := r.criticalRiskPayload(c, tx, p)
 
 	if e != nil {

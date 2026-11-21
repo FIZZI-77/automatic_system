@@ -74,6 +74,9 @@ func operationEventPayload(ctx context.Context, eventID uuid.UUID, eventType str
 		"occurred_at":    operation.UpdatedAt,
 		"trace_id":       traceID(ctx),
 	}
+	if operation.Mode == models.ModeAutomatic && operation.RouteID == nil && (operation.Status == models.StatusConfirming || operation.Status == models.StatusAssigned) {
+		payload["routing_degraded"] = true
+	}
 	switch eventType {
 	case "dispatch.reserved":
 		payload["reserved_at"] = operation.UpdatedAt

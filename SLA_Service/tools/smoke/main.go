@@ -17,7 +17,7 @@ func main() {
 	defer cancel()
 	conn, err := grpc.NewClient(address(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	check(err)
-	defer conn.Close()
+	defer func() { _ = conn.Close() }() // Best effort cleanup after the operation.
 	client := slav1.NewSLAServiceClient(conn)
 	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("x-actor-roles", "admin"))
 	created, err := client.CreateRule(ctx, &slav1.CreateRuleRequest{

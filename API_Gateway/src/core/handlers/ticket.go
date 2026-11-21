@@ -163,7 +163,7 @@ func (th *TicketHandler) CreateTicket(c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 12*time.Second)
 	defer cancel()
 	ctx = ticketActorContext(ctx, c)
 
@@ -215,9 +215,33 @@ func (th *TicketHandler) GetTicket(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, &models.GetTicketResponse{
-		Ticket: FromProtoTicket(res.GetTicket()),
-	})
+	ticket := FromProtoTicket(res.GetTicket())
+	th.enrichTicketNames(c, ticket)
+	c.JSON(http.StatusOK, &models.GetTicketResponse{Ticket: ticket})
+}
+
+// enrichTicketNames дополняет карточку доступными названиями профиля и бригады.
+// Ошибка справочника не мешает открыть заявку.
+func (th *TicketHandler) enrichTicketNames(c *gin.Context, ticket *models.Ticket) {
+	if ticket == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 900*time.Millisecond)
+	defer cancel()
+	ctx = gatewayActorContext(ctx, c)
+
+	if th.brigadeClient != nil && ticket.BrigadeID != "" {
+		brigade, err := th.brigadeClient.GetBrigadeByID(ctx, &brigadev1.GetBrigadeByIDRequest{Id: ticket.BrigadeID})
+		if err == nil {
+			ticket.AcceptedByName = brigade.GetBrigade().GetName()
+		}
+	}
+	if th.profileClient != nil && (ticket.UserID == c.GetString("user_id") || actorHasRole(c, "admin")) {
+		profile, err := th.profileClient.GetUserProfileByUserID(ctx, &profilev1.GetUserProfileByUserIDRequest{UserId: ticket.UserID})
+		if err == nil {
+			ticket.CreatedByName = profile.GetUserProfile().GetFullName()
+		}
+	}
 }
 
 // ListTicket возвращает список билетов с фильтрами.
@@ -654,7 +678,7 @@ func (th *TicketHandler) CreateRequest(c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 12*time.Second)
 	defer cancel()
 
 	ctx = ticketActorContext(ctx, c)

@@ -85,3 +85,22 @@ test-results*.xml
 /keys/private.pem
 
 repomix-output-FIZZI-77-automatic_system.git.md
+/.artifacts/
+
+# Local thesis materials, reference documents and document templates
+/docs/vkr/
+/docs/thesis/
+/docs/diploma/
+*.doc
+*.docx
+*.dot
+*.dotx
+*.dotm
+*.docm
+*.odt
+*.ott
+*.rtf
+*.pdf
+~$*
+*.swp
+*.swo

@@ -8,33 +8,8 @@
 
 Automatic City Services ведёт заявку от сообщения жителя до назначения бригады, выполнения работ, контроля SLA, уведомлений, аудита и аналитики. Система разделена на предметные сервисы; синхронные операции выполняются через gRPC, независимая последующая обработка — через Kafka.
 
-```mermaid
-flowchart LR
-    U[Пользователь] --> F[Frontend]
-    F --> G[API Gateway]
-    G --> A[Auth / Profile]
-    G --> T[Ticket]
-    G --> D[Dispatch]
-    G --> B[Brigade]
-    G --> L[Location]
-    G --> R[Routing]
-    G --> X[Asset / File / SLA / Notification / Audit / Analytics / Report]
-
-    D --> T
-    D --> B
-    D --> L
-    D --> R
-
-    T -. Kafka .-> S[SLA]
-    T -. Kafka .-> N[Notification]
-    T -. Kafka .-> AU[Audit]
-    T -. Kafka .-> AN[Analytics]
-
-    L --> REDIS[(Redis)]
-    L --> PGIS[(PostGIS)]
-    AN --> CH[(ClickHouse)]
-    X --> PG[(PostgreSQL)]
-```
+[Интерактивные схемы архитектуры и Kafka](https://github.com/FIZZI-77/automatic_system/blob/test/docs/architecture/README.md)
+показывают связи выбранного сервиса или топика со ссылками на код.
 
 ## С чего начать
 

@@ -82,7 +82,7 @@ const sources = suites.map((suite) => ({
 }));
 
 test("каждая OpenAPI операция имеет позитивный сценарий, негатив и storage evidence", () => {
-  expect(operations).toHaveLength(202);
+  expect(operations).toHaveLength(203);
   const missingPositive: string[] = [];
   const missingEvidence: string[] = [];
   for (const operation of operations) {
@@ -105,6 +105,6 @@ test("каждая OpenAPI операция имеет позитивный сц
     missingEvidence,
     `Нет storage evidence: ${missingEvidence.join(", ")}`,
   ).toEqual([]);
-  expect(operations.filter((operation) => operation.secured)).toHaveLength(191);
+  expect(operations.filter((operation) => operation.secured)).toHaveLength(192);
   expect(operations.filter((operation) => !operation.secured)).toHaveLength(11);
 });

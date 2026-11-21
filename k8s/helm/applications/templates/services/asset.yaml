@@ -5,6 +5,7 @@ data:
   CRITICAL_RISK_TICKET_GROUP_ID: {{ (index .Values.applications "asset").criticalRiskTicket.groupId | quote }}
   CRITICAL_RISK_TICKET_REQUESTER_ID: {{ ternary (index .Values.applications "asset").criticalRiskTicket.requesterId "" (index .Values.applications "asset").criticalRiskTicket.enabled | quote }}
   KAFKA_ASSET_TOPIC: "assets.events.v1"
+  KAFKA_TICKET_TOPIC: "tickets.events.v1"
   KAFKA_BROKERS: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
   TICKET_SERVICE_ADDR: "ticket-service:50052"
 kind: ConfigMap
@@ -32,6 +33,19 @@ spec:
   - name: grpc
     port: 50065
     targetPort: 50065
+  selector:
+    app: {{ ternary "asset-service-primary" "asset-service" .Values.canary.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: asset-history-internal
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - name: http-history
+    port: 8085
+    targetPort: 8085
   selector:
     app: {{ ternary "asset-service-primary" "asset-service" .Values.canary.enabled }}
 ---
@@ -100,6 +114,8 @@ spec:
         ports:
         - containerPort: 50065
           name: grpc
+        - containerPort: 8085
+          name: http-history
         - containerPort: 9464
           name: metrics
           protocol: TCP

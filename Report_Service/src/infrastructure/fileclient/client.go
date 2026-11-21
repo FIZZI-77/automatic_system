@@ -85,8 +85,7 @@ func (c *Client) UploadForResource(ctx context.Context, resourceType string, res
 		return uuid.Nil, e
 	}
 
-	defer resp.Body.Close()
-
+	defer func() { _ = resp.Body.Close() }() // Best effort cleanup after the operation.
 	if resp.StatusCode/100 != 2 {
 		return uuid.Nil, fmt.Errorf("file upload returned %s", resp.Status)
 	}
@@ -184,10 +183,13 @@ func (c *Client) DownloadImages(ctx context.Context, ids []uuid.UUID, actor uuid
 		}
 
 		data, readErr := io.ReadAll(io.LimitReader(response.Body, 20<<20))
-		response.Body.Close()
+		closeErr := response.Body.Close()
 
 		if readErr != nil {
 			return nil, readErr
+		}
+		if closeErr != nil {
+			return nil, closeErr
 		}
 
 		if response.StatusCode/100 != 2 {

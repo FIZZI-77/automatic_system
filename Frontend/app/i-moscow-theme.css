@@ -758,7 +758,7 @@ textarea:focus-visible {
   background: rgb(8 9 8 / 70%);
   backdrop-filter: blur(6px);
 }
-.management-modal > div,
+.management-modal > form,
 .ops-modal-card,
 .ticket-modal,
 .password-modal,
@@ -1294,7 +1294,7 @@ body {
 .password-modal,
 .header-search-dialog,
 .ticket-modal,
-.management-modal > div,
+.management-modal > form,
 .ops-modal-card {
   border-color: #44454a;
   background: #18181b;
@@ -1954,7 +1954,7 @@ body {
   color: var(--workspace-text);
 }
 .app-shell .audit-row:hover {
-  background: #1c2925;
+  background: var(--workspace-surface-3);
 }
 .app-shell .audit-table :where(time, span, em, small) {
   color: var(--workspace-muted);
@@ -1980,7 +1980,7 @@ body {
 }
 .app-shell
   :where(
-    .management-modal > div,
+    .management-modal > form,
     .ops-modal-card,
     .ticket-modal,
     .password-modal
@@ -2471,10 +2471,10 @@ body {
 }
 .app-shell .manage-card-grid button,
 .app-shell .brigade-control select {
-  border: 1px solid #505158;
-  background: #28282d;
+  border: 1px solid var(--workspace-border);
+  background: var(--workspace-surface);
   color: var(--workspace-text);
-  color-scheme: dark;
+  color-scheme: inherit;
 }
 .app-shell .brigade-vehicles > button {
   border-color: var(--workspace-border) !important;
@@ -2563,7 +2563,7 @@ body {
   color: var(--workspace-text) !important;
 }
 .app-shell .notification-list > button.unread b {
-  color: #f7f7f7 !important;
+  color: var(--workspace-text) !important;
 }
 .app-toast {
   border-color: #2b9f76;
@@ -3060,7 +3060,7 @@ body {
 }
 .app-shell.theme-light
   :where(
-    .management-modal > div,
+    .management-modal > form,
     .ops-modal-card,
     .ticket-modal,
     .password-modal

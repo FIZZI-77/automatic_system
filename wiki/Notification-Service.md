@@ -11,6 +11,7 @@ Durable user notifications и channel deliveries.
 - Preferences управляют InApp/Push/Email/SMS delivery independently.
 - FCM настраивается только при наличии соответствующего service account/key.
 - `Consume` фильтрует события и создаёт уведомления только для разрешённого набора user-facing event types.
+- Собственные события создания, прочтения и результата доставки записываются через PostgreSQL-триггеры в transactional outbox и публикуются в Kafka.
 
 ## Зависимости
 
@@ -18,11 +19,15 @@ Durable user notifications и channel deliveries.
 |---|---|
 | Хранилища / внешние системы | PostgreSQL + Redis + SMTP + optional FCM. |
 | Синхронные взаимодействия | External providers; Gateway/Frontend читают notification API/live flow. |
-| Kafka | Consumer многих `*.events.v1`; собственного Kafka publisher в текущем startup нет. |
+| Kafka | Consumer настроенных `*.events.v1`; издатель `notifications.events.v1` через outbox. Его события читают Audit и Analytics. |
 
 ## Эксплуатационная интерпретация
 
-Страница описывает реализованные границы сервиса в текущей ветке `test`. Конфигурационная переменная или подписка потребителя сама по себе не доказывает работоспособность полного сквозного сценария.
+Перед запуском требуется миграция `20261116000100_create_event_outbox.sql` и
+`KAFKA_BROKERS`. Kafka-передатчик работает отдельно от Redis/live `Publisher`:
+события публикуются из зафиксированного outbox с повторами и стабильным `event_id`.
+Тексты сообщений, адреса получателей, токены устройств и ответы провайдеров в
+события не включаются. Контракт описан в [README сервиса](../Notification_Service/README.md#события-kafka).
 
 ## Функции
 

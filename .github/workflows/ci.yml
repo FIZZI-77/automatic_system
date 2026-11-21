@@ -221,8 +221,64 @@ jobs:
       - name: Run go vet
         run: go vet ./...
 
+      - name: Run golangci-lint
+        if: contains(fromJSON('["report", "notification", "sla", "asset"]'), matrix.name)
+        shell: bash
+        run: |
+          version="$(cat "$GITHUB_WORKSPACE/.golangci-version")"
+          go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@"$version" run \
+            --config "$GITHUB_WORKSPACE/.golangci.yml" ./...
+
       - name: Run tests with race detector
-        run: go test -race -count=1 ./...
+        run: go test -race -count=1 -covermode=atomic -coverprofile=coverage.out ./...
+
+      - name: Enforce peripheral coverage gates
+        if: contains(fromJSON('["report", "notification", "sla", "asset"]'), matrix.name)
+        working-directory: .
+        run: go run ./tools/coveragecheck -module '${{ matrix.path }}' -profile '${{ matrix.path }}/coverage.out'
+
+      - name: Upload Go coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.name }}
+          path: ${{ matrix.path }}/coverage.out
+          retention-days: 7
+
+  peripheral-integration:
+    name: Peripheral PostgreSQL / ${{ matrix.path }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        path: [Report_Service, Notification_Service, SLA_Service, Asset_Service]
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_PASSWORD: peripheral-ci-only
+          POSTGRES_DB: peripheral_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d peripheral_test"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      GOWORK: "off"
+      PERIPHERAL_TEST_DATABASE_URL: postgres://postgres:peripheral-ci-only@127.0.0.1:5432/peripheral_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: ${{ matrix.path }}/go.sum
+      - name: Install shared database extensions
+        env:
+          PGPASSWORD: peripheral-ci-only
+        run: psql -h 127.0.0.1 -U postgres -d peripheral_test -c 'CREATE EXTENSION IF NOT EXISTS pgcrypto; CREATE EXTENSION IF NOT EXISTS postgis;'
+      - name: Test repositories with real migrations
+        working-directory: ${{ matrix.path }}
+        run: go test -race -count=1 -timeout=5m -tags=integration ./src/core/repository
 
   # ===========================================================================
   # ANALYTICS CLICKHOUSE INTEGRATION
@@ -343,6 +399,38 @@ jobs:
           cache-dependency-path: ${{ matrix.path }}/go.sum
       - name: Test compensation and storage recovery against PostgreSQL
         run: go test -race -count=1 -timeout=5m -v ./src/core/service
+
+  event-outbox-integration:
+    name: Event outbox / ${{ matrix.path }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        path: [File_Service, Notification_Service]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: outbox-ci-only
+          POSTGRES_DB: outbox_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d outbox_test"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    defaults:
+      run:
+        working-directory: ${{ matrix.path }}
+    env:
+      GOWORK: "off"
+      OUTBOX_TEST_DATABASE_URL: postgres://postgres:outbox-ci-only@127.0.0.1:5432/outbox_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: ${{ matrix.path }}/go.sum
+      - name: Test event transitions, rollback and publisher recovery
+        run: go test -race -count=1 -timeout=5m -tags=integration -v ./src/infrastructure/outboxrelay
 
   data-recovery-drill:
     name: PostgreSQL / isolated backup and PITR drill
@@ -631,6 +719,7 @@ jobs:
     needs:
       - changes
       - go-quality
+      - peripheral-integration
       - analytics-integration
       - location-integration
       - workflow-recovery-integration
@@ -701,6 +790,7 @@ jobs:
     needs:
       - changes
       - go-quality
+      - peripheral-integration
       - analytics-integration
       - location-integration
       - workflow-recovery-integration
@@ -773,6 +863,7 @@ jobs:
     needs:
       - changes
       - go-quality
+      - peripheral-integration
       - go-workspace-validation
       - kubernetes-validation
 
@@ -890,11 +981,10 @@ jobs:
   # LOCAL FLUX + FLAGGER DEPLOY
   # ===========================================================================
 
-  deploy-local:
-    name: Deploy test/feature through Flux and Flagger
+  check-local-server:
+    name: Check development server availability
 
     needs:
-      - changes
       - application-images
       - frontend-image
       - migrator-images
@@ -902,6 +992,71 @@ jobs:
 
     if: >
       always() &&
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/test' ||
+       github.ref == 'refs/heads/feature' ||
+       startsWith(github.ref, 'refs/heads/feature/')) &&
+      needs.application-images.result == 'success' &&
+      needs.migrator-images.result == 'success' &&
+      (needs.frontend-image.result == 'success' || needs.frontend-image.result == 'skipped') &&
+      (needs.clickhouse-init-image.result == 'success' || needs.clickhouse-init-image.result == 'skipped')
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    permissions: {}
+
+    outputs:
+      available: ${{ steps.server.outputs.available }}
+
+    steps:
+      - name: Check public server liveness
+        id: server
+        shell: bash
+        env:
+          HEALTH_URL: ${{ vars.LOCAL_DEPLOY_HEALTH_URL || 'https://fizzi.tail2c9430.ts.net/livez' }}
+        run: |
+          set -euo pipefail
+          echo "available=false" >> "$GITHUB_OUTPUT"
+
+          # ARC scales runners down to zero while idle. Probe the server instead
+          # of looking for an online runner before assigning a deployment job.
+          for attempt in 1 2; do
+            if STATUS="$(curl --silent --show-error \
+                --proto '=https' \
+                --connect-timeout 5 \
+                --max-time 10 \
+                --output /dev/null \
+                --write-out '%{http_code}' \
+                "$HEALTH_URL")" && [ "$STATUS" = "200" ]; then
+              echo "available=true" >> "$GITHUB_OUTPUT"
+              echo "Development server is available."
+              echo "Development server is available; deployment can start." >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+
+            if [ "$attempt" -lt 2 ]; then
+              sleep 5
+            fi
+          done
+
+          echo "::notice::Development server is offline or its liveness endpoint is unavailable. Deployment will be skipped."
+          echo "Development deployment skipped: server liveness endpoint is unavailable. CI and image builds are unaffected." >> "$GITHUB_STEP_SUMMARY"
+
+  deploy-local:
+    name: Deploy test/feature through Flux and Flagger
+
+    needs:
+      - changes
+      - check-local-server
+      - application-images
+      - frontend-image
+      - migrator-images
+      - clickhouse-init-image
+
+    if: >
+      always() &&
+      needs.check-local-server.outputs.available == 'true' &&
        github.event_name == 'push' &&
        (github.ref == 'refs/heads/test' ||
         github.ref == 'refs/heads/feature' ||

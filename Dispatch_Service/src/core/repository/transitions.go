@@ -15,6 +15,13 @@ func (r *Repository) BeginConfirm(ctx context.Context, id, routeID uuid.UUID, ex
 	return r.transition(ctx, id, expected, "status='RESERVED'", `route_id=$3,status='CONFIRMING',version=version+1,updated_at=now()`, "dispatch.route_built", nil, routeID)
 }
 
+// BeginConfirmWithoutRoute сохраняет автоматическое назначение без маршрута перед
+// обращением к Ticket. Статус CONFIRMING с route_id=NULL и событие outbox
+// позволяют продолжить подтверждение после перезапуска.
+func (r *Repository) BeginConfirmWithoutRoute(ctx context.Context, id uuid.UUID, expected int32) (*models.Operation, error) {
+	return r.transition(ctx, id, expected, "status='RESERVED' AND mode='AUTOMATIC'", `route_id=NULL,status='CONFIRMING',version=version+1,updated_at=now()`, "dispatch.routing_degraded", map[string]any{"routing_degraded": true})
+}
+
 // FinishConfirm переводит CONFIRMING в ASSIGNED с событием outbox и увеличением версии.
 // Отсутствие записи, неверная версия expected или статус дают ErrConflict.
 func (r *Repository) FinishConfirm(ctx context.Context, id uuid.UUID, expected int32) (*models.Operation, error) {

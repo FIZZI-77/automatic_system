@@ -61,7 +61,7 @@ func main() {
 		log.Fatal(e)
 	}
 
-	defer logger.Sync()
+	defer func() { _ = logger.Sync() }() // Best effort flush during shutdown.
 	db, e := telemetry.NewPostgresPool(ctx, must("DATABASE_URL"))
 
 	if e != nil {
@@ -75,9 +75,9 @@ func main() {
 	}
 
 	analyticsConn := dial(must("ANALYTICS_SERVICE_ADDR"), logger)
-	defer analyticsConn.Close()
+	defer func() { _ = analyticsConn.Close() }() // Best effort cleanup after the operation.
 	fileConn := dial(must("FILE_SERVICE_ADDR"), logger)
-	defer fileConn.Close()
+	defer func() { _ = fileConn.Close() }() // Best effort cleanup after the operation.
 	repo := repository.NewRepository(db)
 	files := fileclient.New(filev1.NewFileServiceClient(fileConn), env("FILE_UPLOAD_INTERNAL_ENDPOINT", "http://minio:9000"), must("REPORT_INTERNAL_TOKEN"))
 	reportGenerator := generator.New()
@@ -88,7 +88,7 @@ func main() {
 
 	if len(brokers) > 0 {
 		relay := outboxrelay.New(db, brokers, env("KAFKA_REPORT_TOPIC", "reports.events.v1"), logger)
-		defer relay.Close()
+		defer func() { _ = relay.Close() }() // Best effort cleanup after the operation.
 		go run(ctx, "outbox relay", relay.Run, logger)
 	}
 
@@ -128,7 +128,7 @@ func main() {
 			logger.Fatal("completion consumer initialization failed", zap.Error(consumerErr))
 		}
 
-		defer consumer.Close()
+		defer func() { _ = consumer.Close() }() // Best effort cleanup after the operation.
 		go run(ctx, "completion consumer", consumer.Run, logger)
 	}
 

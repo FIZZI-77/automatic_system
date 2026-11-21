@@ -71,3 +71,31 @@ func TestRiskFutureInstallationYearCannotLowerScore(t *testing.T) {
 	}
 
 }
+
+func TestRiskLevelBoundaries(t *testing.T) {
+	t.Parallel()
+	condition := 0.0
+	for _, tt := range []struct {
+		name  string
+		facts repository.RiskFacts
+		score float64
+		level models.RiskLevel
+	}{
+		{name: "low", score: 0, level: models.RiskLow},
+		{name: "medium threshold", facts: repository.RiskFacts{Criticality: 1, LastCondition: &condition}, score: 35, level: models.RiskMedium},
+		{name: "high threshold", facts: repository.RiskFacts{Criticality: 1, LastCondition: &condition, Incidents90: 4}, score: 60, level: models.RiskHigh},
+		{name: "critical threshold", facts: repository.RiskFacts{Criticality: 1, LastCondition: &condition, Incidents90: 4, DaysInspectionOverdue: 150}, score: 75, level: models.RiskCritical},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			r := &riskRepo{facts: tt.facts}
+			s := &AssetServiceStruct{repo: r}
+			id := uuid.New()
+			now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+			p, err := s.calculate(context.Background(), id, now)
+			if err != nil || p.Score != tt.score || p.Level != tt.level || p.AssetID != id || !p.CalculatedAt.Equal(now) || r.saved.Score != tt.score || p.Probability < 0 || p.Probability > 100 || p.Action == "" {
+				t.Fatalf("calculate(%+v) = %+v, %v; want score=%v level=%v and persisted timestamp", tt.facts, p, err, tt.score, tt.level)
+			}
+		})
+	}
+}

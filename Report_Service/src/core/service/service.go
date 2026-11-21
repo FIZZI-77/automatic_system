@@ -2,12 +2,13 @@ package service
 
 import (
 	"context"
-	"report/models"
-	"report/src/core/repository"
 	"time"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+
+	"report/models"
+	"report/src/core/repository"
 )
 
 type AnalyticsSource interface {

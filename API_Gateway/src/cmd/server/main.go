@@ -365,7 +365,7 @@ func main() {
 	auditHandler := handlers.NewAuditHandler(auditClient)
 	analyticsHandler := handlers.NewAnalyticsHandler(analyticsClient)
 	reportHandler := handlers.NewReportHandler(reportClient, ticketClient, brigadeClient, profileClient, getEnv("REPORT_INTERNAL_URL", "http://report-service:8084"), getEnv("REPORT_INTERNAL_TOKEN", ""))
-	assetHandler := handlers.NewAssetHandler(assetClient)
+	assetHandler := handlers.NewAssetHandler(assetClient, ticketClient, getEnv("ASSET_HISTORY_URL", "http://127.0.0.1:8085"))
 	handler := handlers.NewHandler(
 		authHandler,
 		ticketHandler,

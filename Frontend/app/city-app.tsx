@@ -136,5 +136,3 @@ export function CityApp({
     />
   );
 }
-
-export { LegacyDashboard } from "./legacy-dashboard";

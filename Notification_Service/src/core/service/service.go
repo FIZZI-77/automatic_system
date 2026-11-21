@@ -3,11 +3,13 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
 	"notification/models"
 	"notification/src/core/repository"
-	"strings"
 )
 
 var ErrNotFound = errors.New("not found")
@@ -16,13 +18,42 @@ type Publisher interface {
 	// Publish передаёт уведомление в канал оперативной доставки пользователю.
 	Publish(context.Context, *models.Notification) error
 }
+type notificationStore interface {
+	ResolveRecipients(context.Context, models.Event) ([]uuid.UUID, error)
+	Dispatch(context.Context, models.Event, []uuid.UUID) ([]*models.Notification, error)
+	List(context.Context, uuid.UUID, *bool, int32, int32) ([]*models.Notification, int64, int64, error)
+	MarkRead(context.Context, uuid.UUID, uuid.UUID) (*models.Notification, error)
+	MarkAllRead(context.Context, uuid.UUID) (int64, error)
+}
+
+type preferenceStore interface {
+	GetPreferences(context.Context, uuid.UUID) (*models.Preferences, error)
+	SavePreferences(context.Context, *models.Preferences) (*models.Preferences, error)
+	RegisterDevice(context.Context, *models.Device) (*models.Device, error)
+	DeleteDevice(context.Context, uuid.UUID, uuid.UUID) (*models.Device, error)
+}
+
+type templateStore interface {
+	UpsertTemplate(context.Context, *models.Template) (*models.Template, error)
+	ListTemplates(context.Context, *string, *string, int32, int32) ([]*models.Template, int64, error)
+	ListDeliveries(context.Context, *string, *string, int32, int32) ([]*models.Delivery, int64, error)
+}
+
+type store interface {
+	notificationStore
+	preferenceStore
+	templateStore
+}
+
+var _ store = (*repository.Repository)(nil)
+
 type Service struct {
-	repo *repository.Repository
+	repo store
 	live Publisher
 }
 
 // New создаёт сервис уведомлений; nil p отключает публикацию в оперативный канал.
-func New(r *repository.Repository, p Publisher) *Service { return &Service{repo: r, live: p} }
+func New(r store, p Publisher) *Service { return &Service{repo: r, live: p} }
 
 // Consume обрабатывает пользовательские события заявок: определяет получателей,
 // сохраняет уведомления и задания доставки, затем публикует новые IN_APP-уведомления.

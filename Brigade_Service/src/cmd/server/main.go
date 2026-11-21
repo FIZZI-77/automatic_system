@@ -1,6 +1,7 @@
 package main
 
 import (
+	"brigade/pkg/grpcbreaker"
 	"brigade/pkg/telemetry"
 	"bufio"
 	"context"
@@ -103,11 +104,16 @@ func main() {
 	startRoutingConsumer(writeDB, dependencies, logger)
 	startTicketConsumer(writeDB, dependencies, logger)
 
+	breakerConfig, err := grpcbreaker.FromEnv()
+	if err != nil {
+		log.Fatalf("circuit breaker configuration: %v", err)
+	}
 	departmentConn, err := newGRPCClient(
 		envOrDefault("DEPARTMENT_GRPC_ADDR", "localhost:50053"),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithChainUnaryInterceptor(
 			pkg.RequestIDUnaryClientInterceptor,
+			grpcbreaker.UnaryClient("Department", breakerConfig, logger),
 		),
 	)
 
@@ -120,7 +126,7 @@ func main() {
 	profileConn, err := newGRPCClient(
 		envOrDefault("PROFILE_GRPC_ADDR", "localhost:50055"),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithChainUnaryInterceptor(pkg.RequestIDUnaryClientInterceptor),
+		grpc.WithChainUnaryInterceptor(pkg.RequestIDUnaryClientInterceptor, grpcbreaker.UnaryClient("Profile", breakerConfig, logger)),
 	)
 
 	if err != nil {

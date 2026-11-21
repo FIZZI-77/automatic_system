@@ -561,6 +561,42 @@
         }
       }
     },
+    "/assets/incidents/list": {
+      "post": {
+        "tags": [
+          "assets"
+        ],
+        "summary": "ListIncidents",
+        "operationId": "privateAssets.ListIncidents",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListAssetIncidentsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListAssetIncidentsResponse"
+                }
+              }
+            },
+            "description": "Успешный ответ"
+          }
+        }
+      }
+    },
     "/assets/inspections": {
       "post": {
         "tags": [
@@ -6560,6 +6596,36 @@
         ],
         "type": "object"
       },
+      "AssetIncidentEntry": {
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "failure_type": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "priority": {
+            "type": "string"
+          },
+          "repeated": {
+            "type": "boolean"
+          },
+          "source": {
+            "type": "string"
+          },
+          "ticket_id": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "AssetIncidentRequest": {
         "properties": {
           "asset_id": {
@@ -6583,6 +6649,7 @@
             "type": "string"
           },
           "ticket_id": {
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -9328,6 +9395,41 @@
         ],
         "type": "object"
       },
+      "ListAssetIncidentsRequest": {
+        "properties": {
+          "asset_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "limit": {
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "asset_id"
+        ],
+        "type": "object"
+      },
+      "ListAssetIncidentsResponse": {
+        "properties": {
+          "incidents": {
+            "items": {
+              "$ref": "#/components/schemas/AssetIncidentEntry"
+            },
+            "type": "array"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
       "ListAssetsRequest": {
         "properties": {
           "department_id": {
@@ -11474,7 +11576,13 @@
       },
       "Ticket": {
         "properties": {
+          "accepted_by_name": {
+            "type": "string"
+          },
           "address": {
+            "type": "string"
+          },
+          "asset_id": {
             "type": "string"
           },
           "assigned_at": {
@@ -11494,6 +11602,9 @@
           },
           "created_at": {
             "type": "integer"
+          },
+          "created_by_name": {
+            "type": "string"
           },
           "department_id": {
             "type": "string"

@@ -44,7 +44,7 @@ func (r *ReportRepoStruct) Create(c context.Context, v models.CreateInput) (*mod
 		return nil, e
 	}
 
-	defer tx.Rollback(c)
+	defer func() { _ = tx.Rollback(c) }() // Best effort: the transaction may already be committed.
 	item, e := scan(tx.QueryRow(c, `INSERT INTO reports(requested_by,name,type,format,filter,actor_roles) VALUES($1,$2,$3,$4,$5,$6) RETURNING `+columns, v.RequestedBy, v.Name, v.Type, v.Format, raw, v.ActorRoles))
 
 	if e != nil {
@@ -131,7 +131,7 @@ func (r *ReportRepoStruct) transition(c context.Context, id uuid.UUID, condition
 		return nil, e
 	}
 
-	defer tx.Rollback(c)
+	defer func() { _ = tx.Rollback(c) }() // Best effort: the transaction may already be committed.
 	x, e := scan(tx.QueryRow(c, `UPDATE reports SET status=$2,error=NULL,updated_at=now() WHERE id=$1 AND `+condition+` RETURNING `+columns, id, status))
 
 	if e != nil {
@@ -155,7 +155,7 @@ func (r *ReportRepoStruct) Claim(c context.Context) (*models.Report, error) {
 		return nil, e
 	}
 
-	defer tx.Rollback(c)
+	defer func() { _ = tx.Rollback(c) }() // Best effort: the transaction may already be committed.
 	x, e := scan(tx.QueryRow(c, `WITH next AS (SELECT id FROM reports WHERE status='PENDING' OR status='PROCESSING' AND updated_at < now()-interval '5 minutes' ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1) UPDATE reports SET status='PROCESSING',attempts=reports.attempts+1,updated_at=now() FROM next WHERE reports.id=next.id RETURNING `+qualifiedColumns))
 
 	if e == nil {
@@ -175,7 +175,7 @@ func (r *ReportRepoStruct) Complete(c context.Context, id, file uuid.UUID, attem
 		return e
 	}
 
-	defer tx.Rollback(c)
+	defer func() { _ = tx.Rollback(c) }() // Best effort: the transaction may already be committed.
 	x, e := scan(tx.QueryRow(c, `UPDATE reports SET status='COMPLETED',file_id=$2,error=NULL,completed_at=now(),updated_at=now() WHERE id=$1 AND status='PROCESSING' AND attempts=$3 RETURNING `+columns, id, file, attempt))
 
 	if e == nil {
@@ -198,7 +198,7 @@ func (r *ReportRepoStruct) Fail(c context.Context, id uuid.UUID, attempt int32, 
 		return e
 	}
 
-	defer tx.Rollback(c)
+	defer func() { _ = tx.Rollback(c) }() // Best effort: the transaction may already be committed.
 	x, e := scan(tx.QueryRow(c, `UPDATE reports SET status='FAILED',error=$3,updated_at=now() WHERE id=$1 AND status='PROCESSING' AND attempts=$2 RETURNING `+columns, id, attempt, msg))
 
 	if e == nil {

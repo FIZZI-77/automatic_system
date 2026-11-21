@@ -64,7 +64,9 @@ func flat(p string, m map[string]any) error {
 		default:
 			raw = fmt.Sprint(x)
 		}
-		os.Setenv(key, raw)
+		if err := os.Setenv(key, raw); err != nil {
+			return fmt.Errorf("set configuration %s: %w", key, err)
+		}
 	}
 	return nil
 }

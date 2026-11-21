@@ -136,6 +136,16 @@ test.describe("Assets API: полная stateful-цепочка", () => {
       ),
     ).toBe("e2e_failure");
 
+    const history = await post(request, admin, "/assets/incidents/list", {
+      asset_id: assetID,
+      limit: 1,
+    });
+    expect(history.status(), await history.text()).toBe(200);
+    expect(await history.json()).toMatchObject({
+      total: 1,
+      incidents: [{ id: incidentID, failure_type: "e2e_failure", repeated: false }],
+    });
+
     const repair = await post(request, admin, "/assets/repairs", {
       asset_id: assetID,
       incident_id: incidentID,

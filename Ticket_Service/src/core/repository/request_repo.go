@@ -52,7 +52,7 @@ func (t *TicketRepoStruct) CreateRequest(
 		return nil, fmt.Errorf("repository: CreateRequest(): begin tx: %w", err)
 	}
 
-	defer rollbackTxOnCancel(ctx, tx)()
+	defer rollbackTx(ctx, tx)
 
 	if err = t.lockDuplicateScope(ctx, tx, in.DepartmentID, in.CategoryID); err != nil {
 		return nil, fmt.Errorf("repository: CreateRequest(): lock duplicate scope: %w", err)
@@ -574,6 +574,11 @@ func (t *TicketRepoStruct) changeRequestIncident(
 	payload := map[string]any{
 		"ticket_id":   updated.ID,
 		"incident_id": updated.IncidentID,
+		"asset_id":    updated.AssetID,
+		"category_id": updated.CategoryID,
+		"title":       updated.Title,
+		"priority":    updated.Priority,
+		"updated_at":  updated.UpdatedAt,
 		"changed_by":  changedBy,
 		"reason":      reason,
 	}

@@ -474,7 +474,7 @@ button {
   grid-template-columns: 92px 1fr;
   min-height: 100vh;
 }
-aside {
+.app-shell > aside {
   position: sticky;
   top: 0;
   height: 100vh;
@@ -496,14 +496,14 @@ aside {
   background: #f1f6f2;
   color: var(--deep);
 }
-aside nav {
+.app-shell > aside nav {
   display: flex;
   flex-direction: column;
   gap: 7px;
   margin-top: 42px;
   width: 100%;
 }
-aside button {
+.app-shell > aside button {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -516,12 +516,12 @@ aside button {
   font-size: 9px;
   width: 100%;
 }
-aside button i {
+.app-shell > aside button i {
   font-style: normal;
   font-size: 19px;
 }
-aside button:hover,
-aside button.active {
+.app-shell > aside button:hover,
+.app-shell > aside button.active {
   background: rgba(255, 255, 255, 0.11);
   color: white;
 }
@@ -1056,7 +1056,7 @@ aside button.active {
     grid-template-columns: 1fr;
     padding-bottom: 82px;
   }
-  aside {
+  .app-shell > aside {
     position: fixed;
     z-index: 1100;
     top: auto;
@@ -1067,11 +1067,11 @@ aside button.active {
     padding: 6px 8px;
     overflow: hidden;
   }
-  aside > .brand,
+  .app-shell > aside > .brand,
   .aside-bottom {
     display: none;
   }
-  aside nav {
+  .app-shell > aside nav {
     width: 100%;
     margin: 0;
     flex-direction: row;
@@ -1079,13 +1079,13 @@ aside button.active {
     overflow-y: hidden;
     scrollbar-width: thin;
   }
-  aside nav button {
+  .app-shell > aside nav button {
     flex: 0 0 74px;
     width: 74px;
     min-width: 74px;
     padding: 8px 4px;
   }
-  aside button i {
+  .app-shell > aside button i {
     font-size: 16px;
   }
   .workspace {
@@ -1213,7 +1213,7 @@ aside button.active {
   outline: 6px solid rgba(84, 123, 104, 0.2);
 }
 .leaflet-control-zoom a {
-  color: var(--deep) !important;
+  color: var(--workspace-text, var(--deep));
 }
 .leaflet-control-attribution {
   font-size: 8px !important;
@@ -1443,20 +1443,20 @@ aside button.active {
     grid-template-columns: 112px 1fr;
     font-size: 16px;
   }
-  aside {
+  .app-shell > aside {
     padding: 24px 13px;
   }
-  aside nav {
+  .app-shell > aside nav {
     gap: 9px;
     margin-top: 36px;
   }
-  aside button {
+  .app-shell > aside button {
     gap: 8px;
     padding: 14px 6px;
     font-size: 13px;
     line-height: 1.3;
   }
-  aside button i {
+  .app-shell > aside button i {
     font-size: 23px;
   }
   .workspace {
@@ -1517,24 +1517,24 @@ aside button.active {
   .app-shell {
     grid-template-columns: 108px 1fr;
   }
-  aside {
+  .app-shell > aside {
     padding: 24px 13px;
     overflow-x: hidden;
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
   }
-  aside nav {
+  .app-shell > aside nav {
     gap: 9px;
     margin-top: 44px;
   }
-  aside button {
+  .app-shell > aside button {
     gap: 7px;
     padding: 13px 6px;
     font-size: 11px;
     line-height: 1.25;
   }
-  aside button i {
+  .app-shell > aside button i {
     font-size: 21px;
   }
   .workspace {
@@ -1798,16 +1798,16 @@ aside button.active {
     grid-template-columns: 112px 1fr;
     font-size: 16px;
   }
-  aside nav {
+  .app-shell > aside nav {
     gap: 9px;
     margin-top: 36px;
   }
-  aside button {
+  .app-shell > aside button {
     padding: 14px 6px;
     font-size: 13px;
     line-height: 1.3;
   }
-  aside button i {
+  .app-shell > aside button i {
     font-size: 23px;
   }
   .workspace {
@@ -2023,7 +2023,7 @@ aside button.active {
   border-top: 3px solid #547b68;
 }
 @media (min-width: 761px) {
-  aside nav {
+  .app-shell > aside nav {
     min-height: 0;
     overflow-x: hidden;
     overflow-y: auto;

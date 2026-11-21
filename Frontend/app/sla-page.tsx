@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { api, config, type Role, type Session, type Ticket } from "./api";
 
 import { ReadableDetails } from "./readable-details";
+import { statusNames } from "./city-shared";
 
 import { type Notice } from "./service-shared";
 
@@ -70,8 +71,8 @@ function slaPriorityLabel(value: unknown) {
 }
 
 function slaStatusLabel(value: unknown) {
-  const key = String(value).toUpperCase().replace("SLA_STATUS_", "");
-  return slaStatuses[key] || String(value ?? "—");
+  const key = String(value).toUpperCase().replace(/^(SLA_STATUS_|TICKET_STATUS_)/, "");
+  return slaStatuses[key] || statusNames[key] || String(value ?? "—");
 }
 
 function humanizeSLARecord(value: Record<string, unknown>) {

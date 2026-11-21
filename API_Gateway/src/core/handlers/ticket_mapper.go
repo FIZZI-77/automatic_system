@@ -106,6 +106,7 @@ func FromProtoTicket(t *ticketv1.Ticket) *models.Ticket {
 		CategoryID:       t.GetCategoryId(),
 		UserID:           t.GetUserId(),
 		BrigadeID:        t.GetBrigadeId(),
+		AssetID:          t.GetAssetId(),
 		Title:            t.GetTitle(),
 		Description:      t.GetDescription(),
 		Status:           FromProtoStatus(t.GetStatus()),
