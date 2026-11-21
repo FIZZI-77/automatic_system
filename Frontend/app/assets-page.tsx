@@ -150,6 +150,27 @@ const assetStatuses = [
   "REPLACED",
   "DECOMMISSIONED",
 ];
+const assetStatusNames: Record<string, string> = {
+  UNKNOWN: "Не указано",
+  PLANNED: "Запланирован",
+  INSTALLED: "Установлен",
+  ACTIVE: "Активен",
+  DAMAGED: "Повреждён",
+  UNDER_REPAIR: "На ремонте",
+  NEEDS_REPLACEMENT: "Требует замены",
+  REPLACED: "Заменён",
+  DECOMMISSIONED: "Выведен",
+};
+
+type AssetIncident = {
+  id: string;
+  ticket_id?: string;
+  failure_type: string;
+  description: string;
+  source: string;
+  repeated: boolean;
+  occurred_at: string;
+};
 
 const riskLevels = ["UNKNOWN", "LOW", "MEDIUM", "HIGH", "CRITICAL"];
 
@@ -176,6 +197,11 @@ export function AssetsPage({
   const demo = session.accessToken === "demo";
   const [assets, setAssets] = useState<Asset[]>([]);
   const [selected, setSelected] = useState<Asset>();
+  const [incidentHistory, setIncidentHistory] = useState<{ incidents: AssetIncident[]; total: number }>();
+  const [historyOffset, setHistoryOffset] = useState(0);
+  const [historyRevision, setHistoryRevision] = useState(0);
+  const [historyError, setHistoryError] = useState(false);
+  const [operationBusy, setOperationBusy] = useState(false);
   const [modal, setModal] = useState<string>();
   const [details, setDetails] = useState<Dict>();
   const [detailsKind, setDetailsKind] = useState<"prediction" | "other">(
@@ -189,6 +215,25 @@ export function AssetsPage({
     status: "",
     risk_level: "",
   });
+  const assetID = selected?.id;
+  useEffect(() => {
+    setIncidentHistory(undefined);
+    setHistoryError(false);
+    if (!assetID || demo) return;
+    const controller = new AbortController();
+    void api<{ incidents: AssetIncident[]; total: number }>(
+      config.endpoints.assetsIncidentsList,
+      { asset_id: assetID, limit: 20, offset: historyOffset },
+      "POST",
+      session.accessToken,
+      { signal: controller.signal },
+    ).then((history) => {
+      if (!controller.signal.aborted) setIncidentHistory(history);
+    }).catch(() => {
+      if (!controller.signal.aborted) setHistoryError(true);
+    });
+    return () => controller.abort();
+  }, [assetID, demo, historyOffset, historyRevision, session.accessToken]);
   const load = useCallback(async () => {
     if (demo) {
       setAssets([
@@ -345,8 +390,10 @@ export function AssetsPage({
       payload: Dict = { asset_id: selected.id };
     if (modal === "incident") {
       endpoint = config.endpoints.assetsIncident;
+      const ticketID = String(d.get("ticket_id") || "").trim();
       payload = {
         ...payload,
+        ...(ticketID ? { ticket_id: ticketID } : {}),
         failure_type: String(d.get("kind")),
         description: String(d.get("description")),
         source: "WEB",
@@ -382,13 +429,29 @@ export function AssetsPage({
         next_due_at: new Date(String(d.get("date"))).toISOString(),
       };
     }
-    setDetailsKind("other");
-    if (!demo)
-      setDetails(
-        await api<Dict>(endpoint, payload, "POST", session.accessToken),
-      );
-    setModal(undefined);
-    onNotice("Операция по объекту зарегистрирована");
+    setOperationBusy(true);
+    try {
+      if (!demo) {
+        const result = await api<Dict>(endpoint, payload, "POST", session.accessToken);
+        setDetailsKind("other");
+        setDetails(result);
+      }
+      const status = modal === "incident" ? "DAMAGED" : modal === "repair" ? "ACTIVE" : undefined;
+      if (status) {
+        setAssets((items) => items.map((item) => item.id === selected.id ? { ...item, status } : item));
+        setSelected((item) => item?.id === selected.id ? { ...item, status } : item);
+      }
+      if (modal === "incident") {
+        setHistoryOffset(0);
+        setHistoryRevision((value) => value + 1);
+      }
+      setModal(undefined);
+      onNotice("Операция по объекту зарегистрирована");
+    } catch (error) {
+      onNotice(error instanceof Error ? error.message : "Не удалось сохранить операцию");
+    } finally {
+      setOperationBusy(false);
+    }
   }
   async function predict() {
     if (!selected) return;
@@ -594,6 +657,7 @@ export function AssetsPage({
               key={item.id}
               className={selected?.id === item.id ? "selected" : ""}
               onClick={() => {
+                setHistoryOffset(0);
                 setSelected(item);
                 setDetails(undefined);
               }}
@@ -601,7 +665,7 @@ export function AssetsPage({
               <span
                 className={`ops-state ${(item.status || "unknown").toLowerCase()}`}
               >
-                ● {item.status || "UNKNOWN"}
+                ● {assetStatusNames[item.status || "UNKNOWN"] || item.status}
               </span>
               <h3>{item.name}</h3>
               <p>
@@ -654,14 +718,14 @@ export function AssetsPage({
             <label>
               Состояние
               <select
-                value={selected.status || "ACTIVE"}
+                value={assetStatuses.includes(selected.status || "") ? selected.status : "UNKNOWN"}
                 onChange={(e) => void changeStatus(e.target.value)}
               >
-                <option value="ACTIVE">Активен</option>
-                <option value="DEGRADED">Ухудшено</option>
-                <option value="FAILED">Неисправен</option>
-                <option value="UNDER_REPAIR">На ремонте</option>
-                <option value="DECOMMISSIONED">Выведен</option>
+                {assetStatuses.map((status) => (
+                  <option key={status} value={status} disabled={status === "UNKNOWN"}>
+                    {assetStatusNames[status]}
+                  </option>
+                ))}
               </select>
             </label>
             <div className="ops-actions">
@@ -678,6 +742,39 @@ export function AssetsPage({
               ) : (
                 <ReadableDetails data={details} />
               ))}
+            {!demo && (
+              <section className="saved-reports" aria-label="История инцидентов">
+                <h3>История инцидентов</h3>
+                {historyError ? (
+                  <p>История недоступна. <button type="button" onClick={() => setHistoryRevision((value) => value + 1)}>Повторить</button></p>
+                ) : !incidentHistory ? (
+                  <p role="status">Загружаем историю…</p>
+                ) : incidentHistory.incidents.length === 0 ? (
+                  <p>Инцидентов пока нет.</p>
+                ) : (
+                  <>
+                    {incidentHistory.incidents.map((incident) => (
+                      <article key={incident.id}>
+                        <div>
+                          <b>{incident.description || incident.failure_type}</b>
+                          <small>
+                            {new Date(incident.occurred_at).toLocaleString("ru-RU")}
+                            {incident.repeated ? " · Повторный дефект" : ""}
+                          </small>
+                          {incident.ticket_id && <small>Заявка {incident.ticket_id}</small>}
+                        </div>
+                      </article>
+                    ))}
+                    {incidentHistory.total > 20 && (
+                      <div className="ops-actions">
+                        <button type="button" disabled={historyOffset === 0} onClick={() => setHistoryOffset((value) => value - 20)}>Назад</button>
+                        <button type="button" disabled={historyOffset + 20 >= incidentHistory.total} onClick={() => setHistoryOffset((value) => value + 20)}>Дальше</button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </section>
+            )}
           </aside>
         )}
       </div>
@@ -813,14 +910,20 @@ export function AssetsPage({
               </label>
             )}
             {modal === "incident" && (
-              <label>
-                Приоритет
-                <select name="priority">
-                  <option>MEDIUM</option>
-                  <option>HIGH</option>
-                  <option>EMERGENCY</option>
-                </select>
-              </label>
+              <>
+                <label>
+                  ID связанной заявки (необязательно)
+                  <input name="ticket_id" pattern="[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}" />
+                </label>
+                <label>
+                  Приоритет
+                  <select name="priority">
+                    <option value="MEDIUM">Средний</option>
+                    <option value="HIGH">Высокий</option>
+                    <option value="EMERGENCY">Экстренный</option>
+                  </select>
+                </label>
+              </>
             )}
             {modal === "inspection" && (
               <>
@@ -868,7 +971,7 @@ export function AssetsPage({
                 </label>
               </>
             )}
-            <button className="primary">Сохранить</button>
+            <button className="primary" disabled={operationBusy}>Сохранить</button>
           </form>
         </Modal>
       )}

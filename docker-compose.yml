@@ -110,6 +110,7 @@ services:
       REPORT_INTERNAL_URL: http://report-service:8084
       REPORT_INTERNAL_TOKEN: ${REPORT_INTERNAL_TOKEN:?set REPORT_INTERNAL_TOKEN}
       ASSET_SERVICE_ADDR: asset-service:50065
+      ASSET_HISTORY_URL: http://asset-service:8085
       NOTIFICATION_LIVE_PREFIX: "notifications:user:"
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
     ports:

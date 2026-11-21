@@ -2,9 +2,9 @@
 
 /* eslint-disable react-hooks/set-state-in-effect */
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
-import { api, config, type Session, type Ticket } from "./api";
+import { ApiError, api, config, type Session, type Ticket } from "./api";
 
 import {
   TicketLocationPicker,
@@ -28,6 +28,7 @@ export function CreateTicketPage({
     [busy, setBusy] = useState(false),
     [catalogsLoading, setCatalogsLoading] = useState(!demo),
     [location, setLocation] = useState<TicketLocation>();
+  const submission = useRef<{ signature: string; key: string }>(undefined);
   const selectLocation = useCallback(
     (next: TicketLocation) => setLocation(next),
     [],
@@ -43,13 +44,13 @@ export function CreateTicketPage({
     Promise.all([
       api<{ categories: Category[] }>(
         config.endpoints.ticketCategoriesList,
-        { limit: 100, offset: 0 },
+        { limit: 100, offset: 0, only_active: true },
         "POST",
         session.accessToken,
       ),
       api<{ departments: Department[] }>(
         config.endpoints.departmentsList,
-        { limit: 100, offset: 0 },
+        { limit: 100, offset: 0, status: "active" },
         "POST",
         session.accessToken,
       ),
@@ -77,38 +78,52 @@ export function CreateTicketPage({
       form = new FormData(formElement);
     setBusy(true);
     try {
-      const draft = {
-        id: `draft-${Date.now()}`,
+      const payload = {
         department_id: String(form.get("department_id")),
         category_id: String(form.get("category_id")),
-        user_id: session.user?.user_id || "",
         title: String(form.get("title")),
         description: String(form.get("description")),
-        status: "NEW",
         priority: String(form.get("priority")),
         address: location.address,
         latitude: location.latitude,
         longitude: location.longitude,
+      };
+      let ticket: Ticket = {
+        ...payload,
+        id: `draft-${Date.now()}`,
+        user_id: session.user?.user_id || "",
+        status: "NEW",
         created_at: Date.now() / 1000,
         updated_at: Date.now() / 1000,
       };
-      let ticket = draft as Ticket;
+      let duplicate = false;
       if (!demo) {
-        const result = await api<{ ticket: Ticket }>(
-          config.endpoints.ticketsCreate,
-          draft,
+        const signature = JSON.stringify(payload);
+        if (submission.current?.signature !== signature) {
+          submission.current = { signature, key: crypto.randomUUID() };
+        }
+        const result = await api<{ request: Ticket; duplicate_matched: boolean }>(
+          config.endpoints.ticketRequestsCreate,
+          payload,
           "POST",
           session.accessToken,
+          { idempotencyKey: submission.current.key },
         );
-        ticket = result.ticket;
+        ticket = result.request;
+        duplicate = result.duplicate_matched;
       }
+      submission.current = undefined;
       onCreated(ticket);
       formElement.reset();
       setLocation(undefined);
-      onNotice(`Заявка «${ticket.title}» создана`);
+      onNotice(duplicate
+        ? `Заявка «${ticket.title}» добавлена к существующему инциденту`
+        : `Заявка «${ticket.title}» создана`);
     } catch (error) {
       onNotice(
-        error instanceof Error ? error.message : "Не удалось создать заявку",
+        error instanceof ApiError && error.status === 504
+          ? "Сохранение заявки ещё не подтверждено. Повторите отправку с теми же данными."
+          : error instanceof Error ? error.message : "Не удалось создать заявку",
       );
     } finally {
       setBusy(false);

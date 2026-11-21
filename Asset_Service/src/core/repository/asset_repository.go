@@ -202,35 +202,84 @@ func (r *AssetRepoStruct) Nearby(c context.Context, lat, lon, radius float64, t 
 }
 
 // RecordIncident транзакционно сохраняет инцидент, переводит объект в DAMAGED
-// и записывает outbox. Repeated определяет по наличию такого же типа отказа
-// у объекта после OccurredAt−90 дней; возвращает копию v с ID и признаком повтора.
+// и записывает outbox. Повторяемость считается по хронологии события.
 func (r *AssetRepoStruct) RecordIncident(c context.Context, v models.Incident) (*models.Incident, error) {
-	tx, e := r.db.Begin(c)
+	return r.recordIncident(c, v, false)
+}
 
-	if e != nil {
-		return nil, e
+// RecordTicketIncident добавляет связь с инцидентом один раз, сохраняя состояние
+// объекта при обработке повторных или исторических событий.
+func (r *AssetRepoStruct) RecordTicketIncident(ctx context.Context, incident models.Incident) error {
+	_, err := r.recordIncident(ctx, incident, true)
+	return err
+}
+
+func (r *AssetRepoStruct) recordIncident(ctx context.Context, incident models.Incident, projected bool) (*models.Incident, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return nil, err
 	}
 
-	defer func() { _ = tx.Rollback(c) }() // Best effort: the transaction may already be committed.
-	e = tx.QueryRow(c, "SELECT EXISTS(SELECT 1 FROM asset_incidents WHERE asset_id=$1 AND failure_type=$2 AND occurred_at>$3)", v.AssetID, v.FailureType, v.OccurredAt.AddDate(0, 0, -90)).Scan(&v.Repeated)
+	defer func() {
+		rollbackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
+		defer cancel()
+		_ = tx.Rollback(rollbackCtx)
+	}()
 
-	if e == nil {
-		e = tx.QueryRow(c, `INSERT INTO asset_incidents(asset_id,ticket_id,failure_type,description,source,priority,repeated,occurred_at)VALUES($1,$2,$3,$4,$5,$6,$7,$8)RETURNING id`, v.AssetID, v.TicketID, v.FailureType, v.Description, v.Source, v.Priority, v.Repeated, v.OccurredAt).Scan(&v.ID)
+	// Сериализуем ручные записи и повторную доставку событий для объекта.
+	var lockedID uuid.UUID
+	if err = tx.QueryRow(ctx, "SELECT id FROM assets WHERE id=$1 FOR UPDATE", incident.AssetID).Scan(&lockedID); err != nil {
+		return nil, fmt.Errorf("lock asset: %w", err)
 	}
 
-	if e == nil {
-		_, e = tx.Exec(c, "UPDATE assets SET status='DAMAGED',updated_at=now()WHERE id=$1", v.AssetID)
+	if projected {
+		var exists bool
+		err = tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM asset_incidents WHERE asset_id=$1 AND ticket_id=$2)`,
+			incident.AssetID, incident.TicketID).Scan(&exists)
+		if err != nil || exists {
+			return nil, err
+		}
 	}
 
-	if e == nil {
-		e = emit(c, tx, v.AssetID, "asset.INCIDENT_RECORDED", v)
+	at := incident.OccurredAt.UTC()
+	err = tx.QueryRow(ctx, `SELECT EXISTS (
+		SELECT 1 FROM asset_incidents WHERE asset_id=$1 AND failure_type=$2
+		AND occurred_at>$3 AND occurred_at<=$4)`,
+		incident.AssetID, incident.FailureType, at.AddDate(0, 0, -90), at).Scan(&incident.Repeated)
+	if err != nil {
+		return nil, fmt.Errorf("check repeated incident: %w", err)
 	}
 
-	if e == nil {
-		e = tx.Commit(c)
+	err = tx.QueryRow(ctx, `INSERT INTO asset_incidents
+		(asset_id,ticket_id,failure_type,description,source,priority,repeated,occurred_at)
+		VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+		incident.AssetID, incident.TicketID, incident.FailureType, incident.Description,
+		incident.Source, incident.Priority, incident.Repeated, at).Scan(&incident.ID)
+	if err != nil {
+		return nil, fmt.Errorf("insert asset incident: %w", err)
 	}
 
-	return &v, e
+	// Задним числом событие меняет признак повторности более поздних дефектов.
+	_, err = tx.Exec(ctx, `UPDATE asset_incidents SET repeated=true
+		WHERE asset_id=$1 AND failure_type=$2 AND NOT repeated
+		AND occurred_at>$3 AND occurred_at<$4`,
+		incident.AssetID, incident.FailureType, at, at.AddDate(0, 0, 90))
+	if err != nil {
+		return nil, fmt.Errorf("update repeated incidents: %w", err)
+	}
+
+	if !projected {
+		if _, err = tx.Exec(ctx, "UPDATE assets SET status='DAMAGED',updated_at=now() WHERE id=$1", incident.AssetID); err != nil {
+			return nil, fmt.Errorf("set asset damaged: %w", err)
+		}
+	}
+	if err = emit(ctx, tx, incident.AssetID, "asset.INCIDENT_RECORDED", incident); err != nil {
+		return nil, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit asset incident: %w", err)
+	}
+	return &incident, nil
 }
 
 // CompleteRepair транзакционно сохраняет ремонт, переводит объект в ACTIVE,

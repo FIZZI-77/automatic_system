@@ -244,7 +244,7 @@ test.describe("Заявки и пользовательские функции",
     await page.getByLabel("Приоритет").selectOption("HIGH");
     const createResponse = page.waitForResponse(
       (response) =>
-        response.url().endsWith("/tickets/create") &&
+        response.url().endsWith("/tickets/requests/create") &&
         response.request().method() === "POST",
     );
     await page.getByRole("button", { name: "Создать заявку" }).click();
@@ -262,7 +262,7 @@ test.describe("Заявки и пользовательские функции",
   test("форма сохраняет данные и показывает понятную ошибку при недоступном Ticket Service", async ({
     page,
   }) => {
-    await page.route("**/tickets/create", async (route) => {
+    await page.route("**/tickets/requests/create", async (route) => {
       await route.fulfill({
         status: 503,
         contentType: "application/json",
@@ -296,6 +296,38 @@ test.describe("Заявки и пользовательские функции",
     ).toBeEnabled();
   });
 
+  test("повтор после тайм-аута сохраняет ключ отправки и открывает одну заявку", async ({ page }) => {
+    const keys: (string | undefined)[] = [];
+    await page.route("**/tickets/requests/create", async (route) => {
+      keys.push(route.request().headers()["x-idempotency-key"]);
+      if (keys.length > 1) {
+        await route.continue();
+        return;
+      }
+      await route.fulfill({
+        status: 504,
+        json: { code: "UPSTREAM_TIMEOUT" },
+      });
+    });
+    await loginThroughUi(page, "user");
+    await page.locator("aside nav").getByText("Сообщить", { exact: true }).click();
+    const title = `E2E повтор заявки ${Date.now()}`;
+    await page.getByLabel("Заголовок").fill(title);
+    await page.getByLabel("Описание").fill("Проверяем повтор сохранения после тайм-аута.");
+    await selectTestAddress(page);
+    const submit = page.getByRole("button", { name: "Создать заявку" });
+    await submit.click();
+    await expect(page.getByRole("status")).toContainText("Сохранение заявки ещё не подтверждено");
+    await expect(page.getByLabel("Заголовок")).toHaveValue(title);
+    await submit.click();
+    await expect(page.getByRole("status")).toContainText(title);
+    expect(keys[0]).toBeTruthy();
+    expect(keys).toEqual([keys[0], keys[0]]);
+    await page.locator("aside nav").getByText("Мои заявки", { exact: true }).click();
+    await page.getByRole("searchbox", { name: "Поиск" }).fill(title);
+    await expect(page.getByText(title, { exact: true })).toHaveCount(1);
+  });
+
   test("фильтры заявок и карточка работают в демо", async ({ page }) => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
@@ -317,6 +349,7 @@ test.describe("Заявки и пользовательские функции",
     await expect(dialog.getByText(/Заявка inc-1031/i)).toBeVisible();
     await expect(dialog.getByText("Ожидает назначения")).toBeVisible();
     await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
   });
 
   test("выбор объекта бригадой находится внутри карточки заявки", async ({

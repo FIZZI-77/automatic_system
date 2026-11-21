@@ -464,43 +464,6 @@ export function DashboardV2({
     session.user?.user_id,
   ]);
   useEffect(() => {
-    if (
-      demo ||
-      section !== "tickets" ||
-      (role === "dispatcher" && !dispatcherDepartmentId)
-    )
-      return;
-    let active = true;
-    const departmentFilter =
-      role === "dispatcher" ? { department_id: dispatcherDepartmentId } : {};
-    void api<{ tickets: Ticket[] }>(
-      config.endpoints.ticketsList,
-      {
-        limit: 100,
-        offset: 0,
-        sort_by: "created_at",
-        sort_order: "desc",
-        ...departmentFilter,
-      },
-      "POST",
-      session.accessToken,
-    )
-      .then((result) => {
-        if (active) setTickets(result.tickets || []);
-      })
-      .catch((error) => {
-        if (active)
-          setNotice(
-            error instanceof Error
-              ? error.message
-              : "Не удалось обновить заявки",
-          );
-      });
-    return () => {
-      active = false;
-    };
-  }, [demo, dispatcherDepartmentId, role, section, session.accessToken]);
-  useEffect(() => {
     if (demo) return;
     const separator = config.wsUrl.includes("?") ? "&" : "?";
     const socket = new WebSocket(

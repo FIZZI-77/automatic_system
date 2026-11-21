@@ -81,7 +81,7 @@ func (r *Repository) RunIdempotentTx(ctx context.Context, actorKey, operation, k
 		return nil, nil, false, fmt.Errorf("repository: RunIdempotentTx(): begin: %w", err)
 	}
 
-	defer rollbackTxOnCancel(ctx, tx)()
+	defer rollbackTx(ctx, tx)
 	record, acquired, err := beginIdempotency(ctx, tx, actorKey, operation, key, requestHash, ttl)
 
 	if err != nil || !acquired {

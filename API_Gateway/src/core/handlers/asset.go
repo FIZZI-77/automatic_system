@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"time"
@@ -8,17 +9,24 @@ import (
 	"gateway/models"
 
 	assetv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/asset/v1"
+	ticketv1 "github.com/FIZZI-77/automatic-system-contracts/gen/go/ticket/v1"
 	"github.com/gin-gonic/gin"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type AssetHandler struct {
-	c assetv1.AssetServiceClient
+	c           assetv1.AssetServiceClient
+	tickets     ticketv1.TicketServiceClient
+	historyURL  string
+	historyHTTP *http.Client
 }
 
-// NewAssetHandler создаёт HTTP-обработчик объектов с переданным gRPC-клиентом.
-func NewAssetHandler(c assetv1.AssetServiceClient) *AssetHandler {
-	return &AssetHandler{c: c}
+// NewAssetHandler создаёт HTTP-обработчик объектов и их истории.
+func NewAssetHandler(c assetv1.AssetServiceClient, tickets ticketv1.TicketServiceClient, historyURL string) *AssetHandler {
+	return &AssetHandler{
+		c: c, tickets: tickets, historyURL: strings.TrimRight(historyURL, "/"),
+		historyHTTP: &http.Client{Timeout: 6 * time.Second},
+	}
 }
 
 // Create преобразует JSON характеристик объекта и добавляет пользователя и роли
@@ -221,6 +229,27 @@ func (h *AssetHandler) Incident(c *gin.Context) {
 
 	if !bindJSON(c, &v) {
 		return
+	}
+	if v.TicketID != nil {
+		if !actorHasRole(c, "admin") && !actorHasRole(c, "dispatcher") {
+			writeAPIError(c, http.StatusForbidden, "PERMISSION_DENIED", "Недостаточно прав для записи инцидента")
+			return
+		}
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+		defer cancel()
+		result, err := h.tickets.GetTicket(ticketActorContext(ctx, c), &ticketv1.GetTicketRequest{TicketId: *v.TicketID})
+		if err != nil {
+			handleGRPCError(c, err)
+			return
+		}
+		ticket := result.GetTicket()
+		if assetID := ticket.GetAssetId(); assetID != "" && !strings.EqualFold(assetID, v.AssetID) {
+			writeAPIError(c, http.StatusConflict, "ASSET_MISMATCH", "Заявка связана с другим объектом")
+			return
+		}
+		if incidentID := ticket.GetIncidentId(); incidentID != "" {
+			v.TicketID = &incidentID
+		}
 	}
 
 	u, r := principal(c)

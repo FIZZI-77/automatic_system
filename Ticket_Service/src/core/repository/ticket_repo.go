@@ -42,6 +42,7 @@ type ticketCreatedEventPayload struct {
 	TicketID     string    `json:"ticket_id"`
 	DepartmentID string    `json:"department_id"`
 	CategoryID   string    `json:"category_id"`
+	Title        string    `json:"title"`
 	UserID       string    `json:"user_id"`
 	Priority     string    `json:"priority"`
 	Status       string    `json:"status"`
@@ -63,7 +64,7 @@ func (t *TicketRepoStruct) CreateTicket(ctx context.Context, in *models.CreateTi
 		return nil, fmt.Errorf("repository: CreateTicket(): begin tx: %w", err)
 	}
 
-	defer rollbackTxOnCancel(ctx, tx)()
+	defer rollbackTx(ctx, tx)
 
 	ticket, err := t.createTicket(ctx, tx, in)
 
@@ -224,9 +225,9 @@ func (t *TicketRepoStruct) ListTickets(ctx context.Context, in *models.ListTicke
 		SELECT `+ticketWithRelationColumns+`
 		FROM tickets
 		%s
-		ORDER BY %s %s
+		ORDER BY %s %s, id %s, department_id %s
 		LIMIT $%d OFFSET $%d
-	`, whereSQL, sortBy, sortOrder, limitArg, offsetArg)
+	`, whereSQL, sortBy, sortOrder, sortOrder, sortOrder, limitArg, offsetArg)
 
 	rows, err := conn.Query(ctx, listQuery, args...)
 
@@ -1013,6 +1014,7 @@ func (t *TicketRepoStruct) insertTicketCreatedOutboxEvent(ctx context.Context, e
 		TicketID:     ticket.ID.String(),
 		DepartmentID: ticket.DepartmentID.String(),
 		CategoryID:   ticket.CategoryID.String(),
+		Title:        ticket.Title,
 		UserID:       ticket.UserID.String(),
 		Priority:     string(ticket.Priority),
 		Status:       string(ticket.Status),

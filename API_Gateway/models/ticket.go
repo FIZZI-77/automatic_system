@@ -111,6 +111,9 @@ type Ticket struct {
 	CategoryID       string  `json:"category_id"`
 	UserID           string  `json:"user_id"`
 	BrigadeID        string  `json:"brigade_id,omitempty"`
+	AssetID          string  `json:"asset_id,omitempty"`
+	CreatedByName    string  `json:"created_by_name,omitempty"`
+	AcceptedByName   string  `json:"accepted_by_name,omitempty"`
 	Title            string  `json:"title"`
 	Description      string  `json:"description"`
 	Status           string  `json:"status"`

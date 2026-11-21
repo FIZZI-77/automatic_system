@@ -75,12 +75,37 @@ type NearbyAssetsRequest struct {
 // AssetIncidentRequest содержит параметры API-запроса.
 type AssetIncidentRequest struct {
 	AssetID     string     `json:"asset_id" binding:"required,uuid"`
-	TicketID    *string    `json:"ticket_id,omitempty"`
+	TicketID    *string    `json:"ticket_id,omitempty" binding:"omitempty,uuid"`
 	FailureType string     `json:"failure_type,omitempty"`
 	Description string     `json:"description,omitempty"`
 	Source      string     `json:"source,omitempty"`
 	Priority    string     `json:"priority,omitempty"`
 	OccurredAt  *time.Time `json:"occurred_at,omitempty"`
+}
+
+// ListAssetIncidentsRequest задаёт объект и страницу его истории.
+type ListAssetIncidentsRequest struct {
+	AssetID string `json:"asset_id" binding:"required,uuid"`
+	Limit   *int   `json:"limit,omitempty" binding:"omitempty,min=1,max=100"`
+	Offset  int    `json:"offset,omitempty" binding:"min=0"`
+}
+
+// AssetIncidentEntry представляет одну запись в истории объекта.
+type AssetIncidentEntry struct {
+	ID          string    `json:"id"`
+	TicketID    string    `json:"ticket_id,omitempty"`
+	FailureType string    `json:"failure_type"`
+	Description string    `json:"description"`
+	Source      string    `json:"source"`
+	Priority    string    `json:"priority"`
+	Repeated    bool      `json:"repeated"`
+	OccurredAt  time.Time `json:"occurred_at"`
+}
+
+// ListAssetIncidentsResponse содержит страницу истории и общее число записей.
+type ListAssetIncidentsResponse struct {
+	Incidents []AssetIncidentEntry `json:"incidents"`
+	Total     int                  `json:"total"`
 }
 
 // AssetRepairRequest содержит параметры API-запроса.

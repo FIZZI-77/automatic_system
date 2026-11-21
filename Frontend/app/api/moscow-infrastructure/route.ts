@@ -24,11 +24,12 @@ type InfrastructureFeature = {
   ref?: string;
 };
 
-let cache: { expires: number; features: unknown[] } | null = null;
+let cache: { expires: number; features: InfrastructureFeature[] } | null = null;
 
 async function fetchOverpass(query: string) {
   const response = await fetch(overpassUrl, {
     method: "POST",
+    signal: AbortSignal.timeout(30_000),
     headers: {
       "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
       "User-Agent": "AutomaticCityServices/1.0",
@@ -159,6 +160,12 @@ export async function GET() {
       { headers: { "Cache-Control": "public, max-age=900" } },
     );
   } catch {
+    if (cache) {
+      return Response.json(
+        { features: cache.features, source: "OpenStreetMap", stale: true },
+        { headers: { "Cache-Control": "public, max-age=60" } },
+      );
+    }
     return Response.json(
       {
         error: "Открытые данные инфраструктуры временно недоступны",

@@ -7,7 +7,7 @@ import {
   deleteEphemeralAccount,
   type EphemeralAccount,
 } from "./support/ephemeral-auth";
-import { queryPlatformPostgres } from "./support/cluster-storage";
+import { queryPlatformPostgres, queryTicketPostgres } from "./support/cluster-storage";
 
 test.describe("Locations + Routing API", () => {
   test.skip(
@@ -17,8 +17,8 @@ test.describe("Locations + Routing API", () => {
   let admin: EphemeralAccount;
   const brigadeID = randomUUID(),
     vehicleID = randomUUID(),
-    eventID = randomUUID(),
-    ticketID = randomUUID();
+    eventID = randomUUID();
+  let ticketID = "";
   let routeID = "";
   test.beforeAll(async ({ request }) => {
     admin = await createEphemeralAccount(request, "admin");
@@ -32,6 +32,10 @@ test.describe("Locations + Routing API", () => {
       queryPlatformPostgres(
         "routing",
         `DELETE FROM outbox_events WHERE aggregate_id='${routeID}'; DELETE FROM routes WHERE id='${routeID}'`,
+      );
+    if (ticketID)
+      queryTicketPostgres(
+        `DELETE FROM ticket_status_history WHERE ticket_id='${ticketID}'; DELETE FROM outbox_events WHERE aggregate_id='${ticketID}'; DELETE FROM tickets WHERE id='${ticketID}'`,
       );
     if (admin) deleteEphemeralAccount(admin);
   });
@@ -165,6 +169,17 @@ test.describe("Locations + Routing API", () => {
         `${path}: ${JSON.stringify(response.body)}`,
       ).toBe(200);
     }
+    const ticket = await post("/tickets/create", {
+      department_id: "10000000-0000-4000-8000-000000000001",
+      category_id: "20000000-0000-4000-8000-000000000001",
+      title: `QA routing ${eventID}`,
+      description: "Routing fixture",
+      priority: "MEDIUM",
+      address: "Москва",
+      ...destination,
+    });
+    expect(ticket.response.status(), JSON.stringify(ticket.body)).toBe(201);
+    ticketID = ticket.body.ticket.id;
     const created = await post("/routing/create", {
       ticket_id: ticketID,
       brigade_id: brigadeID,

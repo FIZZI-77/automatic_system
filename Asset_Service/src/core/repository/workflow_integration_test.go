@@ -52,3 +52,45 @@ func TestAssetIncidentRepairAndPredictionOutbox(t *testing.T) {
 		t.Fatalf("asset outbox = %d, %v; want at least 5 events", count, err)
 	}
 }
+
+func TestAssetIncidentHistoryChronologyAndReplay(t *testing.T) {
+	repo := NewAssetRepoStruct(peripheralPool(t))
+	ctx := t.Context()
+	asset, err := repo.Create(ctx, models.CreateInput{Asset: models.Asset{
+		DepartmentID: uuid.New(), Name: "lamp", Type: "LIGHT",
+		Geometry: `{"type":"Point","coordinates":[37,55]}`, Criticality: .5, InspectionIntervalDays: 30,
+	}, ActorID: uuid.New()})
+	if err != nil {
+		t.Fatalf("Create = %v", err)
+	}
+
+	now := time.Date(2026, 11, 21, 10, 0, 0, 0, time.UTC)
+	ticketID := uuid.New()
+	projected := models.Incident{
+		AssetID: asset.ID, TicketID: &ticketID, FailureType: "leak",
+		OccurredAt: now, Source: "TICKET", Priority: "HIGH",
+	}
+	for range 2 {
+		if err := repo.RecordTicketIncident(ctx, projected); err != nil {
+			t.Fatalf("RecordTicketIncident = %v", err)
+		}
+	}
+	firstPage, total, err := repo.ListIncidents(ctx, asset.ID, 1, 0)
+	if err != nil || total != 1 || len(firstPage) != 1 {
+		t.Fatalf("ListIncidents(after replay) = %+v, %d, %v; want one record", firstPage, total, err)
+	}
+	if firstPage[0].Repeated || firstPage[0].TicketID == nil || *firstPage[0].TicketID != ticketID {
+		t.Fatalf("projected incident = %+v; want first incident for ticket %s", firstPage[0], ticketID)
+	}
+
+	older, err := repo.RecordIncident(ctx, models.Incident{
+		AssetID: asset.ID, FailureType: "leak", OccurredAt: now.AddDate(0, 0, -1), Source: "WEB", Priority: "HIGH",
+	})
+	if err != nil || older.Repeated {
+		t.Fatalf("RecordIncident(older) = %+v, %v; want no prior occurrence", older, err)
+	}
+	all, total, err := repo.ListIncidents(ctx, asset.ID, 20, 0)
+	if err != nil || total != 2 || len(all) != 2 || !all[0].Repeated || all[1].Repeated || all[1].ID != older.ID {
+		t.Fatalf("ListIncidents(backdated) = %+v, %d, %v; want the later incident marked repeated", all, total, err)
+	}
+}

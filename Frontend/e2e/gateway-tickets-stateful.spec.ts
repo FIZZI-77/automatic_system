@@ -368,6 +368,54 @@ test.describe("Tickets API: жизненный цикл и фактически�
     ).toBe("");
   });
 
+  test("обращения двух жителей образуют один инцидент, повтор ключа возвращает то же обращение", async ({ request }) => {
+    const firstUser = await createEphemeralAccount(request, "user");
+    let secondUser: EphemeralAccount | undefined;
+    try {
+      secondUser = await createEphemeralAccount(request, "user");
+      const key = randomUUID();
+      const payload = {
+        department_id: departmentID,
+        category_id: categoryID,
+        title: `E2E common defect ${key}`,
+        description: "Two residents reported a common incident",
+        address: "E2E isolated location",
+        latitude: -65.4321,
+        longitude: 5 + Number.parseInt(key.slice(0, 8), 16) / 100_000_000,
+        priority: "HIGH",
+      };
+      async function submit(account: EphemeralAccount, title: string) {
+        const response = await request.post(`${gatewayUrl}/tickets/requests/create`, {
+          headers: { ...bearer(account.token), "X-Idempotency-Key": key },
+          data: { ...payload, title },
+        });
+        expect(response.status(), await response.text()).toBe(201);
+        return response.json() as Promise<{
+          request: { id: string; user_id: string };
+          incident: { id: string };
+          duplicate_matched: boolean;
+        }>;
+      }
+      const first = await submit(firstUser, payload.title);
+      ticketIDs.push(first.incident.id, first.request.id);
+      const again = await submit(firstUser, payload.title);
+      expect(again).toEqual(first);
+      const second = await submit(secondUser, `${payload.title} (another resident)`);
+      ticketIDs.push(second.request.id);
+      if (second.incident.id !== first.incident.id) ticketIDs.push(second.incident.id);
+      expect(second.duplicate_matched).toBe(true);
+      expect(second.incident.id).toBe(first.incident.id);
+      expect(second.request.id).not.toBe(first.request.id);
+      expect([first.request.user_id, second.request.user_id]).toEqual([firstUser.userID, secondUser.userID]);
+    } finally {
+      try {
+        if (secondUser) deleteEphemeralAccount(secondUser);
+      } finally {
+        deleteEphemeralAccount(firstUser);
+      }
+    }
+  });
+
   test("duplicate requests завершают общий incident только после выполнения всех частей", async ({
     request,
   }) => {

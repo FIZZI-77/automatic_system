@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 
+	"ticket/pkg"
 	"ticket/src/core/handler"
 )
 
@@ -33,7 +34,7 @@ func newGRPCTestApp(t *testing.T) *grpcTestApp {
 	app := newTestApp(t)
 
 	listener := bufconn.Listen(bufSize)
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(pkg.IdempotencyKeyUnaryServerInterceptor))
 	ticketHandler := handler.NewTicketHandler(app.service, zap.NewNop())
 
 	ticketv1.RegisterTicketServiceServer(grpcServer, ticketHandler)
@@ -296,6 +297,51 @@ func TestTicketGRPCIntegration_UpdateCategoryExplicitFalse(t *testing.T) {
 			t.Fatal("expected inactive category to be absent when only_active is true")
 		}
 
+	}
+}
+
+func TestTicketGRPCIntegration_CreateRequestReplayAndDuplicate(t *testing.T) {
+	app := newGRPCTestApp(t)
+	defer app.cleanup()
+	adminCtx := actorContext(uuid.New(), "admin")
+	category, err := app.client.CreateCategory(adminCtx, &ticketv1.CreateCategoryRequest{
+		Code: uniqueCode("grpc-request"), Name: "Resident reports",
+	})
+	if err != nil {
+		t.Fatalf("create category: %v", err)
+	}
+	firstUser, secondUser := uuid.New(), uuid.New()
+	key := uuid.NewString()
+	firstCtx := metadata.AppendToOutgoingContext(actorContext(firstUser, "user"), "x-idempotency-key", key)
+	secondCtx := metadata.AppendToOutgoingContext(actorContext(secondUser, "user"), "x-idempotency-key", key)
+	request := &ticketv1.CreateRequestRequest{
+		DepartmentId: uuid.NewString(),
+		CategoryId:   category.GetCategory().GetId(),
+		UserId:       firstUser.String(),
+		Title:        "First report",
+		Description:  "Damaged pavement",
+		Priority:     ticketv1.TicketPriority_TICKET_PRIORITY_HIGH,
+		Address:      "Moscow, First street 1",
+		Latitude:     55.751244,
+		Longitude:    37.618423,
+	}
+	first, err := app.client.CreateRequest(firstCtx, request)
+	if err != nil || first.GetRequest().GetId() == "" || first.GetIncident().GetId() == "" || first.GetDuplicateMatched() {
+		t.Fatalf("create first report: %v, %v", first, err)
+	}
+	replay, err := app.client.CreateRequest(firstCtx, request)
+	if err != nil || replay.GetRequest().GetId() != first.GetRequest().GetId() || replay.GetIncident().GetId() != first.GetIncident().GetId() || replay.GetDuplicateMatched() {
+		t.Fatalf("replay first report: %v, %v", replay, err)
+	}
+	request.Title = "Different body with the same key"
+	if _, err = app.client.CreateRequest(firstCtx, request); status.Code(err) != codes.AlreadyExists {
+		t.Fatalf("expected conflict for mismatched payload, got %v", err)
+	}
+	request.UserId = secondUser.String()
+	second, err := app.client.CreateRequest(secondCtx, request)
+	if err != nil || !second.GetDuplicateMatched() || second.GetIncident().GetId() != first.GetIncident().GetId() ||
+		second.GetRequest().GetId() == first.GetRequest().GetId() || second.GetRequest().GetUserId() != secondUser.String() {
+		t.Fatalf("create second report on same incident: %v, %v", second, err)
 	}
 }
 

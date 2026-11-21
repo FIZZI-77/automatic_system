@@ -139,6 +139,9 @@ export const config = {
       process.env.NEXT_PUBLIC_API_TICKETS_HISTORY || "/tickets/status-history",
     ticketsCreate:
       process.env.NEXT_PUBLIC_API_TICKETS_CREATE || "/tickets/create",
+    ticketRequestsCreate:
+      process.env.NEXT_PUBLIC_API_TICKET_REQUESTS_CREATE ||
+      "/tickets/requests/create",
     ticketsStatus:
       process.env.NEXT_PUBLIC_API_TICKETS_STATUS || "/tickets/change-status",
     ticketsAssign:
@@ -451,6 +454,8 @@ export const config = {
     assetsNearby: process.env.NEXT_PUBLIC_API_ASSETS_NEARBY || "/assets/nearby",
     assetsIncident:
       process.env.NEXT_PUBLIC_API_ASSETS_INCIDENT || "/assets/incidents",
+    assetsIncidentsList:
+      process.env.NEXT_PUBLIC_API_ASSETS_INCIDENTS_LIST || "/assets/incidents/list",
     assetsRepair:
       process.env.NEXT_PUBLIC_API_ASSETS_REPAIR || "/assets/repairs",
     assetsInspection:
@@ -577,6 +582,7 @@ export class ApiError extends Error {
 }
 
 const errorMessagesByCode: Record<string, string> = {
+  ASSET_MISMATCH: "Заявка связана с другим объектом",
   INVALID_ARGUMENT: "Проверьте введённые данные",
   UNAUTHENTICATED: "Необходимо войти в систему заново",
   PERMISSION_DENIED: "Недостаточно прав для выполнения действия",
@@ -620,20 +626,26 @@ export async function api<T>(
   body?: unknown,
   method = "POST",
   token?: string,
+  options?: { signal?: AbortSignal; idempotencyKey?: string },
 ): Promise<T> {
   const stored = loadSession();
   let effectiveToken =
     token && stored?.accessToken && token !== "demo"
       ? stored.accessToken
       : token;
-  let response = await fetch(`${config.apiBase}${path}`, {
+  const send = () => fetch(`${config.apiBase}${path}`, {
     method,
+    signal: options?.signal,
     headers: {
       "Content-Type": "application/json",
       ...(effectiveToken ? { Authorization: `Bearer ${effectiveToken}` } : {}),
+      ...(options?.idempotencyKey
+        ? { "X-Idempotency-Key": options.idempotencyKey }
+        : {}),
     },
     body: method === "GET" ? undefined : JSON.stringify(body ?? {}),
   });
+  let response = await send();
   if (
     response.status === 401 &&
     stored?.refreshToken &&
@@ -663,14 +675,7 @@ export async function api<T>(
         expiresAt: next.access_expires_at_unix,
       });
       effectiveToken = next.access_token;
-      response = await fetch(`${config.apiBase}${path}`, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${effectiveToken}`,
-        },
-        body: method === "GET" ? undefined : JSON.stringify(body ?? {}),
-      });
+      response = await send();
     }
   }
   const payload = (await response.json().catch(() => ({}))) as ApiErrorPayload;

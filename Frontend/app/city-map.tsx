@@ -214,6 +214,8 @@ export function CityMap({
     [loadedDepartments, session],
   );
   const [infrastructure, setInfrastructure] = useState<InfraFeature[]>([]);
+  const [infrastructureNotice, setInfrastructureNotice] = useState("");
+  const [infrastructureRevision, setInfrastructureRevision] = useState(0);
   const [base, setBase] = useState<BaseId>("standard");
   const [layers, setLayers] = useState<LayerId[]>(["districts", "roads"]);
   const [panelOpen, setPanelOpen] = useState(false);
@@ -472,11 +474,21 @@ export function CityMap({
   useEffect(() => {
     const controller = new AbortController();
     fetch("/api/moscow-infrastructure", { signal: controller.signal })
-      .then((response) => response.json())
-      .then((payload) => setInfrastructure(payload.features || []))
-      .catch(() => undefined);
+      .then((response) => {
+        if (!response.ok) throw new Error(`Infrastructure HTTP ${response.status}`);
+        return response.json() as Promise<{ features: InfraFeature[]; stale?: boolean }>;
+      })
+      .then((payload) => {
+        if (controller.signal.aborted) return;
+        setInfrastructure(payload.features);
+        setInfrastructureNotice(payload.stale ? "Показаны последние доступные данные инфраструктуры" : "");
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        setInfrastructureNotice("Слои инфраструктуры временно недоступны");
+      });
     return () => controller.abort();
-  }, []);
+  }, [infrastructureRevision]);
 
   useEffect(() => {
     let active = true;
@@ -951,6 +963,17 @@ export function CityMap({
               </fieldset>
               <fieldset>
                 <legend>Инфраструктура</legend>
+                {infrastructureNotice && (
+                  <div role="status">
+                    <small>{infrastructureNotice}</small>
+                    <button type="button" onClick={() => {
+                      setInfrastructureNotice("");
+                      setInfrastructureRevision((revision) => revision + 1);
+                    }}>
+                      Обновить слои
+                    </button>
+                  </div>
+                )}
                 {(Object.keys(layerMeta) as LayerId[]).map((item) => (
                   <label key={item}>
                     <input

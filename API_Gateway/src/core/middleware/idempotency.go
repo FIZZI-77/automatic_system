@@ -11,6 +11,9 @@ import (
 func IdempotencyKey() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		key := strings.TrimSpace(c.GetHeader(idempotency.Header))
+		if key == "" {
+			key = strings.TrimSpace(c.GetHeader("Idempotency-Key"))
+		}
 
 		if key != "" {
 			ctx := idempotency.WithContext(c.Request.Context(), key)

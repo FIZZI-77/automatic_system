@@ -350,12 +350,13 @@ func (c *CategoryRepoStruct) deleteCategory(ctx context.Context, q Querier, in *
 // scanCategory считывает категорию из строки SQL и преобразует pgx.ErrNoRows в ErrNotFound.
 func scanCategory(s scanner) (*models.TicketCategory, error) {
 	var category models.TicketCategory
+	var description *string
 
 	err := s.Scan(
 		&category.ID,
 		&category.Code,
 		&category.Name,
-		&category.Description,
+		&description,
 		&category.IsActive,
 		&category.CreatedAt,
 		&category.UpdatedAt,
@@ -370,6 +371,9 @@ func scanCategory(s scanner) (*models.TicketCategory, error) {
 		return nil, err
 	}
 
+	if description != nil {
+		category.Description = *description
+	}
 	return &category, nil
 }
 

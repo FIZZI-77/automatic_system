@@ -2,6 +2,7 @@ apiVersion: v1
 data:
   ANALYTICS_SERVICE_ADDR: "analytics-service:50063"
   ASSET_SERVICE_ADDR: "asset-service:50065"
+  ASSET_HISTORY_URL: "http://asset-history-internal:8085"
   AUDIT_SERVICE_ADDR: "audit-service:50062"
   AUTH_SERVICE_ADDR: "auth-service:50051"
   BRIGADE_SERVICE_ADDR: "brigade-service:50054"

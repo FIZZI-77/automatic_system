@@ -80,6 +80,7 @@ func isIdempotentMutation(method string) bool {
 		"RequestPasswordReset",
 		"ResetPassword",
 		"CreateTicket",
+		"CreateRequest",
 		"UpdateTicket",
 		"ChangeTicketStatus",
 		"AssignBrigade",
