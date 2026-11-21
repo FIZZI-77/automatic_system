@@ -50,13 +50,19 @@ function ticket(index: number) {
 
 test("поиск находит заявку со второй страницы, карточка скрывает занятые бригады и закрывается по Escape", async ({ page }) => {
   const rows = Array.from({ length: 101 }, (_, index) => ticket(index + 1));
+  const brigades = [
+    { id: "30000000-0000-4000-8000-000000000001", department_id: departmentID, name: "Свободная бригада", status: "AVAILABLE" },
+    { id: "30000000-0000-4000-8000-000000000002", department_id: departmentID, name: "Занятая бригада", status: "BUSY" },
+  ];
   await fixtureSession(page, "admin");
-  await page.addInitScript(({ departmentID }) => {
-    sessionStorage.setItem("city-services-brigades", JSON.stringify([
-      { id: "available", department_id: departmentID, name: "Свободная бригада", status: "AVAILABLE" },
-      { id: "busy", department_id: departmentID, name: "Занятая бригада", status: "BUSY" },
-    ]));
-  }, { departmentID });
+  await page.route("**/brigades/list", (route) => respond(route, { brigades, total: brigades.length }));
+  await page.route("**/locations/current-batch", (route) => respond(route, { locations: {} }));
+  await page.route("**/locations/history", (route) => respond(route, { positions: [] }));
+  await page.route("**/brigade-zones/list", (route) => respond(route, { zones: [] }));
+  await page.route("**/analytics/tickets/overview", (route) => respond(route, { avg_response_seconds: 0 }));
+  await page.route("**/analytics/sla/summary", (route) =>
+    respond(route, { breach_rate: 0, response_warnings: 0, resolution_warnings: 0 }),
+  );
   await page.route("**/dispatch/preview", (route) => respond(route, { candidates: [] }));
   await page.route("**/tickets/list", (route) => {
     const offset = route.request().method() === "POST" ? route.request().postDataJSON().offset : 0;
