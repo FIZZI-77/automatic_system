@@ -13,14 +13,25 @@
 - При переходе риска в `CRITICAL` публикуется событие
   `asset.RISK_BECAME_CRITICAL`. Опциональный Kafka worker создаёт связанную
   заявку в Ticket Service, если настроены категория и системный заявитель.
+- Вкладка истории объекта объединяет записи, добавленные через Asset API, и
+  записи из связанных событий Ticket. Для события с `asset_id` обработчик
+  использует `incident_id`, когда он задан, иначе идентификатор заявки.
+- Администратор и диспетчер могут вызвать `POST /assets/incidents/list`.
+  Ответ содержит `incidents` от новых к старым и `total`. Лимит по
+  умолчанию 20, допустимый диапазон 1–100.
 
 ## Зависимости
 
 | Категория | Текущая реализация |
 |---|---|
 | Хранилища / внешние системы | PostgreSQL/PostGIS. |
-| Синхронные взаимодействия | Опциональный gRPC-клиент Ticket Service для создания заявки по критическому риску. |
-| Kafka | Publisher и внутренний consumer: `assets.events.v1`. |
+| Синхронные взаимодействия | Gateway читает историю через внутренний HTTP-обработчик Asset. Опциональный gRPC-клиент Ticket создаёт заявку по критическому риску. |
+| Kafka | Публикует `assets.events.v1`. Читает `tickets.events.v1` для истории объекта и, при включённом обработчике критического риска, `assets.events.v1`. |
+
+Для истории новый выпуск применяет миграцию
+`20261121000100_index_asset_incident_history.sql`. Она создаёт индексы
+истории и пересчитывает признак повторяемости по окну 90 дней для существующих
+записей. [Миграция](https://github.com/FIZZI-77/automatic_system/blob/test/Asset_Service/scheme/20261121000100_index_asset_incident_history.sql) · [Потребитель Ticket](https://github.com/FIZZI-77/automatic_system/blob/test/Asset_Service/src/infrastructure/tickethistory/worker.go)
 
 ## Эксплуатационная интерпретация
 

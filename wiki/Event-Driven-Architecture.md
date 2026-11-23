@@ -28,7 +28,7 @@
 | Routing | `tickets.events.v1` |
 | SLA | `tickets.events.v1` |
 | Report | `tickets.events.v1` |
-| Asset | `assets.events.v1` при включённом читателе критического риска |
+| Asset | `tickets.events.v1` для истории объектов. Также читает `assets.events.v1` при включённом обработчике критического риска. |
 | Notification | tickets, sla, dispatch, departments, brigades, locations, routing, files (`*.events.v1`). Helm добавляет reports, Docker Compose добавляет reports и assets. |
 | Audit | auth, tickets, departments, brigades, profiles, locations, routing, dispatch, sla, files, notifications, reports, assets (`*.events.v1`) |
 | Analytics | auth, tickets, departments, brigades, profiles, locations, routing, dispatch, sla, files, notifications, reports, assets (`*.events.v1`) |
@@ -63,7 +63,18 @@ Analytics читают оба топика; наличие записи в жу�
 наличия отдельного показателя или проекции для каждого вида события.
 
 Поля событий, гарантии доставки и команды интеграционных проверок описаны в
-[карте взаимодействий](../docs/architecture/code-interactions.md#темы-kafka).
+[карте взаимодействий](https://github.com/FIZZI-77/automatic_system/blob/test/docs/architecture/code-interactions.md#темы-kafka).
+
+### События назначения и истории объектов
+
+- Dispatch обрабатывает `ticket.created` с приоритетом `EMERGENCY`.
+  При автоматическом назначении без маршрута публикует
+  `dispatch.routing_degraded`. В последующем `dispatch.assigned` результат
+  помечен полем `routing_degraded`. [Потребитель Dispatch](https://github.com/FIZZI-77/automatic_system/blob/test/Dispatch_Service/src/infrastructure/ticketconsumer/worker.go) · [Переход операции](https://github.com/FIZZI-77/automatic_system/blob/test/Dispatch_Service/src/core/repository/transitions.go)
+- Asset учитывает `ticket.created`, `ticket.updated`, `ticket.completed` и
+  `ticket.request_attached` при наличии `asset_id`. Событие пропускается,
+  если по тому же объекту и тому же инциденту или заявке уже есть запись
+  истории. [Разбор события](https://github.com/FIZZI-77/automatic_system/blob/test/Asset_Service/src/infrastructure/tickethistory/worker.go) · [Запись истории](https://github.com/FIZZI-77/automatic_system/blob/test/Asset_Service/src/core/repository/asset_repository.go)
 
 ## Интерактивная схема
 

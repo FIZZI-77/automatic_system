@@ -33,6 +33,9 @@ Gateway не становится доменным владельцем. Он в
 
 См. [Service Communication](Service-Communication) и [Event-Driven Architecture](Event-Driven-Architecture).
 
+Схемы описывают связи, подтверждённые точками запуска и обработчиками кода.
+Работу настроенных связей в кластере проверяют сквозные сценарии.
+
 ### Источники
 - [code-interactions.md](https://github.com/FIZZI-77/automatic_system/blob/test/docs/architecture/code-interactions.md)
 - [README.md](https://github.com/FIZZI-77/automatic_system/blob/test/README.md)

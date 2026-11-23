@@ -26,7 +26,7 @@
 `KAFKA_BROKERS`. Событие сохраняется атомарно с метаданными; отправка в Kafka
 повторяется при сбоях. Доставка — at-least-once со стабильным `event_id`.
 Имена файлов, ключи объектов, контрольные суммы и подписанные URL в события не
-включаются. Контракт и проверка описаны в [README сервиса](../File_Service/README.md#события-kafka).
+включаются. Контракт и проверка описаны в [README сервиса](https://github.com/FIZZI-77/automatic_system/blob/test/File_Service/README.md#события-kafka).
 
 ## Функции
 

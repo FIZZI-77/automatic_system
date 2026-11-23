@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>Automatic City Services · Архитектура local-ha</title>
+  <link rel="stylesheet" href="local-ha.css">
+  <script defer src="local-ha-topology.js"></script>
+  <script defer src="local-ha.js"></script>
+</head>
+<body>
+  <header class="toolbar">
+    <div class="heading">
+      <p>Automatic City Services</p>
+      <h1>Архитектура <span>local-ha</span></h1>
+    </div>
+    <div class="navigation" aria-label="Управление масштабом">
+      <button id="zoom-out" type="button" aria-label="Уменьшить" title="Уменьшить (−)">−</button>
+      <output id="zoom-level" aria-label="Масштаб"></output>
+      <button id="zoom-in" type="button" aria-label="Увеличить" title="Увеличить (+)">+</button>
+      <button id="actual-size" type="button" title="Фактический размер (1)">1:1</button>
+      <button id="fit" type="button" title="Вся схема (0)">Вся схема</button>
+    </div>
+  </header>
+  <div class="legend" aria-label="Условные обозначения">
+    <span><i class="key request"></i> HTTP и gRPC</span>
+    <span><i class="key sql"></i> Хранилища и репликация</span>
+    <span><i class="key kafka"></i> Kafka</span>
+    <span><i class="key ops"></i> Телеметрия и управление</span>
+    <span><i class="key optional"></i> Дополнительное развёртывание</span>
+    <a href="README.md#топология-local-ha">Источники</a>
+  </div>
+  <main id="viewport" tabindex="0" aria-label="Схема Kubernetes local-ha"
+        aria-describedby="navigation-hint">
+    <svg id="diagram" role="img" aria-labelledby="diagram-title diagram-description">
+      <title id="diagram-title">Топология Automatic City Services в local-ha</title>
+      <desc id="diagram-description">Экземпляры приложений, хранилищ, наблюдаемости и доставки. Стрелки показывают обращения к сетевым точкам, репликацию и передачу событий.</desc>
+    </svg>
+    <noscript>Для открытия схемы включите JavaScript.</noscript>
+  </main>
+  <footer>
+    <span id="navigation-hint">Колесо или щипок — масштаб · перетаскивание или стрелки — перемещение</span>
+    <span>Желаемое состояние по манифестам · <code>a74467c</code></span>
+  </footer>
+</body>
+</html>

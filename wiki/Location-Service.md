@@ -106,9 +106,10 @@ func (s *PositionServiceStruct) GetCurrentLocations(
 ) (*models.GetCurrentLocationsResult, error)
 ```
 
-Первый метод проверяет вид и идентификатор одной сущности. Второй требует
-непустой список ненулевых UUID бригад и учитывает `AllowStale`. Оба передают
-запрос репозиторию и добавляют имя операции к ошибке.
+Первый метод проверяет вид и идентификатор одной сущности и возвращает
+последнюю сохранённую позицию со статусом сигнала. Второй принимает список
+бригад и при `AllowStale: false` относит позиции со статусом, отличным от
+`ONLINE`, к отсутствующим. [Репозиторий текущих позиций](https://github.com/FIZZI-77/automatic_system/blob/test/Location_Service/src/core/repository/current_location_repo.go)
 
 ### `ListPositionHistory`
 

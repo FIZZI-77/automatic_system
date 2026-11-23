@@ -7,9 +7,10 @@ Workflow-координатор ручного и автоматического
 ## Ключевое поведение
 
 - Не владеет ticket/brigade/location/route aggregates; хранит собственную operation.
-- Автоматический процесс: доступные бригады → свежие позиции → ранжирование маршрутов → резервирование кандидата → создание маршрута → назначение заявки.
-- Использует version field для optimistic transitions.
-- При частичной ошибке выполняет compensation: освобождение brigade и/или отмена route.
+- Автоматический процесс подбирает бригады со свежей позицией, ранжирует их по дорожному ETA и пробует резервировать кандидатов. При недоступности Routing может ранжировать по расстоянию по прямой. В таком результате `ETASeconds = -1` означает неизвестное время прибытия.
+- Автоматическое подтверждение при ошибке доступности Routing может назначить бригаду без маршрута. Тогда `route_id` пуст, а Dispatch публикует `dispatch.routing_degraded`. Ручное подтверждение требует маршрута.
+- Версия операции защищает переходы. Блокировка операции согласует резервирование, подтверждение, отмену и фоновое освобождение.
+- При частичной ошибке сервис пытается отменить созданный маршрут и сохраняет `release_pending` для незавершённого освобождения резерва. `Cleanup` повторяет освобождение, в том числе после перезапуска.
 
 ## Зависимости
 
@@ -17,7 +18,7 @@ Workflow-координатор ручного и автоматического
 |---|---|
 | Хранилища / внешние системы | PostgreSQL. |
 | Синхронные взаимодействия | Ticket, Brigade, Location, Routing. |
-| Kafka | Publisher: `dispatch.events.v1`; consumer: `tickets.events.v1`. |
+| Kafka | Публикует в `dispatch.events.v1`. В `tickets.events.v1` запускает автоназначение для `ticket.created` с приоритетом `EMERGENCY`, если настроен потребитель. |
 
 ## Эксплуатационная интерпретация
 
@@ -43,9 +44,10 @@ func New(repo *repository.Repository, deps Dependencies, ttl time.Duration, logg
 func (s *Service) Cleanup(ctx context.Context) error
 ```
 
-Пакетами по 100 переводит просроченные операции через `repo.Expire`. Для
-каждой операции с бригадой пытается вернуть ей `AVAILABLE`. Продолжает, пока
-репозиторий возвращает полный пакет; ошибка чтения останавливает цикл.
+Обрабатывает просроченные операции и сохранённые записи с `release_pending`.
+Для каждой операции берёт блокировку, затем пытается завершить переход или
+освобождение резерва. Ошибка одной операции позволяет продолжить обработку
+остальных. Резерв считается освобождённым после подтверждения в базе Dispatch.
 
 ### `Preview`
 
@@ -60,8 +62,8 @@ func (s *Service) Preview(ctx context.Context, in *models.RecommendInput) ([]mod
 4. Получает только свежие текущие позиции и пропускает записи без координат.
 5. Передает кандидатов и координаты заявки в `Routing.RankCandidates` для
    автомобильного режима.
-6. Пропускает результат с неверным UUID или без позиции и возвращает
-   нормализованный список.
+6. При ошибке доступности Routing и действующем контексте использует расстояние
+   по прямой. Для ответа Routing исключает записи с неверным UUID или без позиции.
 
 ### `Reserve`
 
@@ -71,7 +73,8 @@ func (s *Service) Reserve(ctx context.Context, in *models.ReserveInput) (*models
 
 Проверяет заявку, бригаду и автора. Срок по умолчанию берет из сервиса и требует
 диапазон от 15 секунд до 15 минут. Загружает новую заявку, строит снимок
-операции в ручном режиме, сохраняет ее и вызывает `reserveExisting`.
+операции в ручном режиме и сохраняет комментарий назначения, если он передан.
+После сохранения берёт блокировку операции и вызывает `reserveExisting`.
 
 ### `AutoDispatch`
 
@@ -101,8 +104,9 @@ func (s *Service) resumeAutomaticLocked(ctx context.Context, op *models.Operatio
 func (s *Service) resumeAutomatic(ctx context.Context, op *models.Operation, in *models.AutoInput) (*models.Operation, error)
 ```
 
-Терминальное состояние возвращает без действий. `RESERVED` продолжает через
-`Confirm`, `CONFIRMING` — через `finishConfirm`, `PENDING` запускает
+Терминальное состояние возвращает без действий. `RESERVED` продолжает
+подтверждение под уже взятой блокировкой, `CONFIRMING` — через
+`finishConfirm`, `PENDING` запускает
 поиск. Метод записывает количество всех и достижимых кандидатов. Ошибки
 ранжирования и записи события переводят операцию в `FAILED`. Пустой список
 дает `NO_REACHABLE_BRIGADE`. Достижимые кандидаты перебираются по порядку:
@@ -114,11 +118,12 @@ func (s *Service) resumeAutomatic(ctx context.Context, op *models.Operation, in 
 func (s *Service) Confirm(ctx context.Context, in *models.ConfirmInput) (*models.Operation, error)
 ```
 
-Требует идентификаторы и положительную ожидаемую версию, затем проверяет
-`RESERVED`, совпадение версии и наличие бригады. Читает заявку и позицию
-бригады, строит автомобильный маршрут, проверяет UUID маршрута, переводит
-операцию в `CONFIRMING` и вызывает `finishConfirm`. При сбое отменяет уже
-созданный маршрут и/или освобождает бригаду через `failAndRelease`.
+Проверяет доступ, блокирует операцию, сверяет `RESERVED`, версию и бригаду.
+Читает заявку и последнюю позицию бригады. При успешном расчёте сохраняет
+маршрут в переходе к `CONFIRMING` и вызывает `finishConfirm`. При ошибке
+доступности Routing и действующем контексте режим `AUTOMATIC` допускает
+`CONFIRMING` с пустым `route_id`. В ручном режиме такая ошибка запускает
+компенсацию.
 
 ### `finishConfirm`
 
@@ -126,7 +131,7 @@ func (s *Service) Confirm(ctx context.Context, in *models.ConfirmInput) (*models
 func (s *Service) finishConfirm(ctx context.Context, op *models.Operation, actor uuid.UUID) (*models.Operation, error)
 ```
 
-Требует бригаду и маршрут. Вызывает `Ticket.AssignBrigade`. Если вызов
+Требует бригаду. Для ручного режима также требуется маршрут. Вызывает `Ticket.AssignBrigade`. Если вызов
 завершился ошибкой, повторно читает заявку: совпадающая уже назначенная бригада
 считается успешным ранее выполненным действием. Иначе маршрут отменяется,
 бригада освобождается, операция становится `FAILED`. В конце
@@ -142,9 +147,10 @@ func (s *Service) Get(ctx context.Context, id uuid.UUID) (*models.Operation, err
 func (s *Service) List(ctx context.Context, in *models.ListInput) ([]*models.Operation, int64, error)
 ```
 
-`Get` читает операцию по UUID. `List` допускает пустой вход, задает предел
-50, отклоняет предел больше 200 и отрицательное смещение, затем возвращает
-страницу и общий счетчик.
+`Get` читает операцию по UUID и проверяет доступ. Для диспетчера `List`
+ограничивает результаты его департаментом, а администратор может читать
+операции всех департаментов. Размер страницы по умолчанию 50, максимум 200.
+Отрицательное смещение отклоняется.
 
 ### `Cancel`
 
@@ -154,8 +160,9 @@ func (s *Service) Cancel(ctx context.Context, in *models.CancelInput) (*models.O
 
 Проверяет автора, версию и UUID. Отмена разрешена только для `PENDING` и
 `RESERVED` при совпавшей версии. Пустая причина заменяется на
-`cancelled by dispatcher`. После перехода в `CANCELLED` зарезервированная
-бригада освобождается.
+`cancelled by dispatcher`. Для зарезервированной бригады переход в
+`CANCELLED` сохраняет `release_pending`, после чего сервис пытается
+освободить резерв. Неуспешную компенсацию повторяет `Cleanup`.
 
 ### `reserveExisting`
 
@@ -165,9 +172,9 @@ func (s *Service) reserveExisting(ctx context.Context, op *models.Operation, bri
 
 Повторно убеждается, что заявка еще `NEW`, затем просит Brigade Service
 проверить подразделение, координаты и навыки. Недопустимая бригада дает
-`ErrConflict` с причинами. Допустимая переводится в `BUSY`, после чего
-репозиторий фиксирует `RESERVED`. Если запись операции не удалась, статус
-бригады компенсируется обратно в `AVAILABLE`.
+`ErrConflict` с причинами. Для подходящей бригады репозиторий сначала фиксирует
+`RESERVED`, затем Dispatch запрашивает у Brigade переход в `BUSY`. Ошибка
+вызова переводит операцию в `FAILED` и запускает освобождение резерва.
 
 ### `getNewTicket`
 
@@ -182,12 +189,13 @@ func (s *Service) getNewTicket(ctx context.Context, id uuid.UUID) (*ticketv1.Tic
 ### `failAndRelease`
 
 ```go
-func (s *Service) failAndRelease(ctx context.Context, op *models.Operation, actor uuid.UUID, cause error) (*models.Operation, error)
+func (s *Service) failAndRelease(ctx context.Context, op *models.Operation, cause error) (*models.Operation, error)
 ```
 
 Определяет этап и код ошибки, переводит операцию в `FAILED`. Если переход тоже
 не удался, объединяет исходную и новую ошибки. После успешного перехода
-освобождает бригаду и возвращает исходную причину.
+пытается освободить бригаду и возвращает исходную причину, объединяя её с
+ошибкой освобождения при необходимости.
 
 ### `dispatchFailureCode` и `dispatchFailureStage`
 
@@ -224,9 +232,10 @@ func (s *Service) release(ctx context.Context, id, actor uuid.UUID) error
 func (s *Service) cancelRoute(ctx context.Context, id string)
 ```
 
-Первая функция возвращает бригаде `AVAILABLE`, вторая переводит маршрут в
-`CANCELLED`. Они предназначены для компенсации и только журналируют ошибку,
-не возвращая ее вызывающему коду.
+`release` запрашивает для бригады `AVAILABLE` и возвращает ошибку вызывающему
+коду. `releaseOperation` подтверждает освобождение в PostgreSQL или сохраняет
+следующую попытку. `cancelRoute` запрашивает для маршрута `CANCELLED` и
+журналирует ошибку.
 
 ### `forwardMetadata`
 

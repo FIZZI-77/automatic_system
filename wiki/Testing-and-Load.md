@@ -6,11 +6,12 @@ CI выполняет `go test -race -count=1 ./...` для каждого Go mo
 
 ## Интеграционные тесты
 
-Подтверждённые отдельные CI integration paths:
-
-- Analytics и ClickHouse;
-- интеграционный набор Location;
-- Frontend build и Playwright contract inventory.
+Отдельные задачи CI охватывают репозитории периферийных сервисов, Analytics
+с ClickHouse, Location с PostgreSQL и Redis, восстановление Dispatch и File,
+исходящие события File и Notification, а также лабораторное восстановление
+PostgreSQL до заданной точки. Сборка Frontend, браузерный smoke и Playwright
+inventory выполняются в отдельной задаче.
+[Конфигурация CI](https://github.com/FIZZI-77/automatic_system/blob/test/.github/workflows/ci.yml)
 
 ## Клиентское приложение E2E
 
@@ -84,16 +85,17 @@ Artifacts падений: trace, screenshot, video.
 сервисов, PostgreSQL/Citus, Redis, ClickHouse, реальные объекты MinIO и WebSocket
 уведомлений. Проверка наличия маршрута отдельно не доказывает его бизнес-поведение.
 
-По коду на 27 октября 2026 OpenAPI содержит **202 операции: 191 с JWT и 11
-публичных**. `gateway-coverage.spec.ts` проверяет этот состав; для операций
+OpenAPI в ветке `test` на коммите `a74467c` содержит **203 HTTP-операции,
+из них 192 с JWT и 11 публичных**. WebSocket `/notifications/ws` проверяется
+отдельно. `gateway-coverage.spec.ts` сверяет инвентарь, включая
+`/assets/incidents/list`. Для операций
 `list`, `set-active`, `rotate-secret` добавлен сценарий с проверкой списка,
 состояния БД, прав обычного пользователя, отключения интеграции, ротации без
 включения, отказа старому секрету и идемпотентного повтора с новым секретом.
 JWT-sweep строится динамически по OpenAPI.
 
-Два статических теста inventory, ESLint измененных spec-файлов и TypeScript
-прошли 27 октября 2026. Новый сценарий обнаруживается runner, но кластерный
-прогон не выполнен: Kubernetes API текущего контекста на `127.0.0.1:54025`
-недоступен. Статическая проверка inventory не подтверждает сквозной результат.
+23 ноября 2026 года прошли два статических теста inventory и локальные тесты
+обработчиков Gateway. Сквозной прогон с хранилищами и реальным Gateway требует
+доступного Kubernetes-контекста и в этой проверке не выполнялся.
 
 Состав и команды: [API Gateway E2E coverage](https://github.com/FIZZI-77/automatic_system/blob/test/API_Gateway/e2e/COVERAGE.md).

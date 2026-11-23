@@ -10,6 +10,7 @@
 | Frontend server routes | Nominatim, Overpass API, Valhalla | Геокодирование, инфраструктурные объекты, маршрут. |
 | Browser | S3-compatible storage | Upload/download по presigned URL. |
 | API Gateway | Auth, Profile, Department, Brigade, Ticket, Dispatch, Location, Routing, Asset, File, SLA, Notification, Audit, Analytics, Report | 15 gRPC clients. |
+| API Gateway | Asset | Внутренний HTTP для `POST /assets/incidents/list` через `GET /internal/assets/{id}/incidents`. |
 | API Gateway | Ticket, Brigade, Profile | Подготовка снимка completion report. |
 | Auth | Profile | Создание/связь профиля после auth flow. |
 | Profile | Auth, Department | Проверка account и подразделения. |

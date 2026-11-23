@@ -35,6 +35,8 @@ Kafka. Данные разделены по предметным областя�
 [Общий контур системы](docs/architecture/diagrams.html#architecture) и
 [взаимодействия Kafka](docs/architecture/diagrams.html#kafka) доступны на
 интерактивной карте. Откройте файл в браузере из локальной копии репозитория.
+Для просмотра реплик и сетевых точек развёртывания откройте
+[схему контура local-ha](docs/architecture/local-ha.html).
 На GitHub доступны [таблицы взаимодействий со ссылками на код](docs/architecture/code-interactions.md).
 
 1. [Веб-интерфейс](Frontend/README.md) отправляет предметные запросы в

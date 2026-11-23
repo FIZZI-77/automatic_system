@@ -7,11 +7,15 @@
 ## Ключевое поведение
 
 - Middleware chain включает Request ID, idempotency metadata, Redis-backed rate limiting, structured request logging и JWT verification.
-- Создаёт gRPC clients ко всем 15 backend domain services.
+- Создаёт gRPC-клиенты для 15 предметных сервисов. Для истории инцидентов
+  объекта использует отдельный внутренний HTTP-вызов в Asset Service.
 - Global limit: 300 requests/minute + burst 100; auth flows имеют отдельные более строгие limits.
 - HTTP DTO живут в `models`, но не образуют самостоятельный persisted domain.
 - Шлюз предоставляет отдельные HTTP-пути для обращений жителей и управления их связью с городскими инцидентами, сохраняя существующие ticket endpoints для рабочего lifecycle инцидентов.
 - Публичная интеграционная ручка аутентифицируется `client_id` и секретом Ticket Service, а регистрация интеграции остается защищенной JWT и ролью администратора.
+- `POST /assets/incidents/list` доступен администратору и диспетчеру. Запрос
+  принимает `asset_id`, `limit` и `offset`, ответ содержит `incidents`
+  и `total`. [Контракт OpenAPI](https://github.com/FIZZI-77/automatic_system/blob/test/API_Gateway/src/core/handlers/openapi.json) · [Обработчик истории](https://github.com/FIZZI-77/automatic_system/blob/test/API_Gateway/src/core/handlers/asset_history.go)
 
 ## Зависимости
 

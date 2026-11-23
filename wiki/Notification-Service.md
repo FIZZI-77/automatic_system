@@ -27,7 +27,7 @@ Durable user notifications и channel deliveries.
 `KAFKA_BROKERS`. Kafka-передатчик работает отдельно от Redis/live `Publisher`:
 события публикуются из зафиксированного outbox с повторами и стабильным `event_id`.
 Тексты сообщений, адреса получателей, токены устройств и ответы провайдеров в
-события не включаются. Контракт описан в [README сервиса](../Notification_Service/README.md#события-kafka).
+события не включаются. Контракт описан в [README сервиса](https://github.com/FIZZI-77/automatic_system/blob/test/Notification_Service/README.md#события-kafka).
 
 ## Функции
 

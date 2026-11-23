@@ -10,13 +10,16 @@ Route calculation, distance/time matrix, brigade ranking и persisted route life
 - Повторный create для той же ticket+brigade может вернуть существующий open route; другая brigade для уже открытого route даёт conflict.
 - Route states: `PLANNED`, `ACTIVE`, `COMPLETED`, `CANCELLED`.
 - Изменения маршрута фиксируются вместе с outbox events.
+- При ошибке дорожного расчёта дальнейший исход назначения определяет
+  [Dispatch](Dispatch-Service). Автоназначение при недоступности Routing
+  может завершиться с пустым `route_id`.
 
 ## Зависимости
 
 | Категория | Текущая реализация |
 |---|---|
 | Хранилища / внешние системы | PostgreSQL + Valhalla. |
-| Синхронные взаимодействия | Valhalla external routing engine. |
+| Синхронные взаимодействия | Valhalla для дорожного расчёта, Ticket для проверки доступа и Brigade для проверки бригады при создании маршрута. |
 | Kafka | Publisher: `routing.events.v1`; consumer: `tickets.events.v1`. |
 
 ## Эксплуатационная интерпретация
